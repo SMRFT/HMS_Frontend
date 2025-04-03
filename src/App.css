@@ -1,0 +1,29 @@
+/* Add or modify this in your App.css file */
+
+.App {
+  display: flex;
+}
+
+.sidebar {
+  width: 250px;
+  position: fixed;
+  height: 100vh;
+  left: 0;
+  top: 0;
+  /* Add your sidebar styling here */
+}
+
+.content {
+  /* margin-left: 280px;  */
+  margin-top: 50px;
+  width: calc(100% - 260px); /* This ensures content takes remaining width */
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* For login and QR scan pages that don't have the sidebar */
+.login-page .content,
+.qr-scan-page .content {
+  margin-left: 0;
+  width: 100%;
+}
