@@ -1,0 +1,164 @@
+/* Container */
+.print-container {
+  width: 70%;
+  margin: 20px auto;
+  padding: 20px;
+  border: 2px solid #000;
+  font-family: "Arial", sans-serif;
+  background-color: #fff;
+}
+
+/* Header Section */
+.header {
+  text-align: left; /* Ensure it's aligned to the left */
+}
+
+.header h1 {
+  font-size: 22px;
+  text-transform: uppercase;
+  margin: 5px 0;
+}
+
+.header p {
+  margin: 2px 0;
+  font-size: 14px;
+}
+
+.header hr {
+  margin: 10px 0;
+  border: 1px solid #000;
+}
+
+.title {
+  text-align: center;
+  font-size: 30px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin-bottom: 10px;
+}
+/* Main Content */
+.main-content1 {
+  width: 100%;
+  text-align: left;
+}
+
+.main-content1 .section {
+  margin-bottom: 20px;
+}
+
+.main-content1 .section h3 {
+  font-size: 18px;
+  font-weight: bold;
+  text-decoration: underline;
+  margin-bottom: 10px;
+}
+
+.main-content1 .section p {
+  font-size: 14px;
+  margin: 5px 0;
+}
+
+/* Flex container for patient info */
+.patient-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+/* Aligning the left and right sections */
+.left-side,
+.right-side {
+  width: 48%;
+  padding: 5px 0;
+}
+
+/* Labels for the fields */
+.left-side p,
+.right-side p {
+  margin: 0;
+}
+
+.left-side strong,
+.right-side strong {
+  font-weight: bold;
+  text-decoration: underline;
+  margin-right: 10px;
+}
+
+/* Footer */
+.footer {
+  margin-top: 40px;
+  text-align: center;
+  margin-bottom: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ccc;
+}
+
+.footer hr {
+  margin: 10px 0;
+  border: 1px solid #000;
+}
+
+.footer p {
+  font-size: 14px;
+}
+
+/* Print Button (Outside the Border) */
+.print-button-container {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.print-button {
+  padding: 10px 20px;
+  font-size: 14px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.print-button:hover {
+  background-color: #0056b3;
+}
+
+/* Print Styles */
+@media print {
+  /* Hide print button */
+  .print-button-container {
+    display: none;
+  }
+
+  /* Remove container borders for print */
+  .print-container {
+    border: none;
+  }
+
+  /* Ensure sections are aligned correctly */
+  .header,
+  .footer {
+    text-align: left; /* Align content to the left */
+  }
+
+  /* Make sure the content fills the page appropriately */
+  .main-content1,
+  .patient-info {
+    width: 100%;
+  }
+
+  /* Adjust the flex layout for better printing */
+  .patient-info {
+    display: block;
+  }
+
+  .left-side,
+  .right-side {
+    width: 100%; /* Stack left and right sides for print */
+    padding: 0;
+  }
+
+  .footer {
+    font-size: 12px;
+  }
+}
