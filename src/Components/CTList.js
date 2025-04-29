@@ -89,7 +89,7 @@ const CTList = ({ patientId }) => {
   const handleDelete = async (report) => {
     try {
       const encodedPatientId = encodeURIComponent(report.patientId);
-      const investigation = report.investigation; // Make sure 'investigation' is available
+      const investigation = report.investigation;
 
       if (!investigation) {
         alert("Investigation type is required for deletion");
@@ -97,39 +97,42 @@ const CTList = ({ patientId }) => {
       }
 
       const response = await fetch(
-        `http://localhost:8000/ct-reports/${encodedPatientId}/delete/`, // URL for deleting
+        `http://localhost:8000/ct-reports/${encodedPatientId}/delete/`,
         {
-          method: "DELETE", // DELETE request
+          method: "DELETE",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            investigation: investigation, // Send the investigation type for specificity
+            investigation: investigation,
           }),
         }
       );
 
-      if (response.ok) {
-        // Successfully deleted, update the UI
-        const deletedReport = await response.json();
-        alert(
-          `Report for patient ID ${report.patientId} deleted successfully!`
-        );
-
-        // Remove the deleted report from the list in the frontend
-        setCtReports((prevReports) =>
-          prevReports.filter(
-            (r) =>
-              r.patientId !== report.patientId ||
-              r.investigation !== report.investigation
-          )
-        );
-      } else {
-        throw new Error("Failed to delete the report.");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete the report");
       }
+
+      const deletedReport = await response.json();
+      alert(`Report for patient ID ${report.patientId} deleted successfully!`);
+
+      // Update the UI by removing the deleted report
+      setCtReports((prevReports) =>
+        prevReports.filter(
+          (r) =>
+            r.patientId !== report.patientId ||
+            r.investigation !== report.investigation
+        )
+      );
     } catch (error) {
       console.error("Error deleting the report:", error);
-      alert("An error occurred while deleting the report. Please try again.");
+      alert(
+        `Error: ${
+          error.message ||
+          "An error occurred while deleting the report. Please try again."
+        }`
+      );
     }
   };
 
@@ -239,7 +242,11 @@ const CTList = ({ patientId }) => {
                   >
                     Approve
                   </button>
-                  <button onClick={() => handleDelete(report)} className="me-2">
+                  <button
+                    onClick={() => handleDelete(report)}
+                    className="me-2"
+                    disabled={report.approve}
+                  >
                     Delete
                   </button>
                 </td>

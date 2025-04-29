@@ -1,72 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Box, Typography, Grid, TextField, Button, MenuItem } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import {
+  Container,
+  Box,
+  Typography,
+  Grid,
+  TextField,
+  Button,
+  MenuItem,
+} from "@mui/material";
+import { useParams, useLocation } from "react-router-dom";
 
 const MRIReportForm = () => {
-  const { uhid, subUhid } = useParams();  // Capture both UHID and subUhid from URL
+  const { uhid, subUhid } = useParams(); // Capture both UHID and subUhid from URL
   const [patientData, setPatientData] = useState(null);
-  const [date, setDate] = useState('');
-  const [patientName, setPatientName] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
-  const [investigation, setInvestigation] = useState('');
-  const [impression, setImpression] = useState('');
+  const [date, setDate] = useState("");
+  const [patientName, setPatientName] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
+  const [investigation, setInvestigation] = useState("");
+  const [impression, setImpression] = useState("");
+  const location = useLocation();
+  const { itemName } = location.state || {};
 
-  // Fetch patient report data based on UHID and subUhid
   useEffect(() => {
-    fetch(`http://localhost:8000/investigations/${uhid}/${subUhid}/`)  // Send both UHID and subUhid to the backend
+    if (!location.state) return; // Just a safety check
+
+    const { uhid, subUhid } = location.state; // You need to also pass uhid and subUhid in navigate state
+
+    fetch(`http://localhost:8000/mri_investigations/${uhid}/${subUhid}/`)
       .then((response) => response.json())
       .then((data) => {
         setPatientData(data);
-        // Pre-fill form fields with fetched data
-        setDate(data.date.split('T')[0]);  // Extract the date part only
-        setPatientName(data["Patient name"]);
-        setAge(data["Age"]);
-        setGender(data["gender"]);
-        setInvestigation(data["Investigation"]);
+
+        // Set the date
+        setDate(data.investBillDate);
+
+        // Set the patient name
+        const fullName =
+          `${data.salutation} ${data.firstName} ${data.middleName} ${data.lastName}`
+            .replace(/\s+/g, " ")
+            .trim();
+        setPatientName(fullName);
+
+        // Set the age and gender
+        setAge(data.age);
+        setGender(data.gender);
+
+        // Instead of all items, set only the selected itemName
+        setInvestigation(itemName);
       })
-      .catch((error) => console.error('Error fetching patient data:', error));
-  }, [uhid, subUhid]);
+      .catch((error) => console.error("Error fetching patient data:", error));
+  }, [location.state, itemName]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
-  
+
     // Concatenate uhid and subUhid to form patient_id
     const patientId = `${uhid}/${subUhid}`;
-  
+
     const reportData = {
       date,
-      patientId,  // Send the concatenated patient_id
+      patientId, // Send the concatenated patient_id
       patientName,
       age,
       gender,
       investigation,
       impression,
-      approve: false,  // Set approve as false
-      approve_time: null,  // Set approve_time as null
+      approve: false, // Set approve as false
+      approve_time: null, // Set approve_time as null
     };
-  
-    fetch('http://localhost:8000/mri-reports/', {
-      method: 'POST',
+
+    fetch("http://localhost:8000/mri-reports/", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(reportData),
     })
       .then((response) => response.json())
       .then((data) => {
-        alert('MRI report submitted successfully');
+        alert("MRI report submitted successfully");
         // Clear form after submission
-        setDate('');
-        setPatientName('');
-        setAge('');
-        setGender('');
-        setInvestigation('');
-        setImpression('');
+        setDate("");
+        setPatientName("");
+        setAge("");
+        setGender("");
+        setInvestigation("");
+        setImpression("");
       })
       .catch((error) => {
-        alert('Error submitting MRI report');
-        console.error('Error:', error);
+        alert("Error submitting MRI report");
+        console.error("Error:", error);
       });
   };
 
@@ -83,7 +107,7 @@ const MRIReportForm = () => {
           sx={{
             mt: 3,
             p: 3,
-            bgcolor: 'white',
+            bgcolor: "white",
             borderRadius: 2,
             boxShadow: 3,
           }}
@@ -105,7 +129,7 @@ const MRIReportForm = () => {
               <TextField
                 fullWidth
                 label="UHID"
-                value={`${uhid}/${subUhid}`}  // Concatenate UHID and subUhid with a slash in between
+                value={`${uhid}/${subUhid}`} // Concatenate UHID and subUhid with a slash in between
                 variant="outlined"
                 required
                 disabled
