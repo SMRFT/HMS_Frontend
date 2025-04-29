@@ -1,16 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './CTList.css';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./CTList.css";
 
 const Modal = ({ report, onClose }) => {
   return (
     <div className="modal-overlay">
       <div className="modal-content">
         <h4>CT Report for {report.patientName}</h4>
-        <p><strong>Patient ID:</strong> {report.patientId}</p>
-        <p><strong>Investigation:</strong> {report.investigation}</p>
-        <p><strong>Impression:</strong> {report.impression}</p>    
-        <button className="close-btn" onClick={onClose}>Close</button>
+        <p>
+          <strong>Patient ID:</strong> {report.patientId}
+        </p>
+        <p>
+          <strong>Investigation:</strong> {report.investigation}
+        </p>
+        <p>
+          <strong>Impression:</strong> {report.impression}
+        </p>
+        <button className="close-btn" onClick={onClose}>
+          Close
+        </button>
       </div>
     </div>
   );
@@ -25,10 +33,10 @@ const CTList = ({ patientId }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('http://localhost:8000/investigations/')
+    fetch("http://localhost:8000/investigations/")
       .then((response) => response.json())
       .then((data) => setInvestigations(data))
-      .catch((error) => console.error('Error fetching investigations:', error));
+      .catch((error) => console.error("Error fetching investigations:", error));
   }, []);
 
   useEffect(() => {
@@ -36,29 +44,36 @@ const CTList = ({ patientId }) => {
       try {
         const url = patientId
           ? `http://localhost:8000/ct_reports/${patientId}/`
-          : 'http://localhost:8000/ct_reports/';
+          : "http://localhost:8000/ct_reports/";
 
         const response = await fetch(url);
 
         if (!response.ok) {
-          throw new Error('Error fetching CT reports');
+          throw new Error("Error fetching CT reports");
         }
 
         const data = await response.json();
         setCtReports(data);
       } catch (error) {
         setError(error.message);
-        console.error('Error fetching CT reports:', error);
+        console.error("Error fetching CT reports:", error);
       }
     };
 
     fetchCTReports();
   }, [patientId]);
 
-  const handleGoToReport = (uhid) => {
-    const parts = uhid.split('/');
+  const handleGoToReport = (uhid, itemName) => {
+    const parts = uhid.split("/");
     const subUhid = parts[1];
-    navigate(`/CTList/${parts[0]}/${subUhid}`);
+
+    navigate(`/CTList/${parts[0]}/${subUhid}`, {
+      state: {
+        uhid: parts[0],
+        subUhid: subUhid,
+        itemName: itemName,
+      },
+    });
   };
 
   const handlePreview = (report) => {
@@ -70,32 +85,81 @@ const CTList = ({ patientId }) => {
     setIsModalOpen(false);
   };
 
-  const handleEdit = (report) => {
-    navigate(`/edit-ct-report/${report.patientId}`);
+  const handleEdit = (report) => {};
+  const handleDelete = async (report) => {
+    try {
+      const encodedPatientId = encodeURIComponent(report.patientId);
+      const investigation = report.investigation; // Make sure 'investigation' is available
+
+      if (!investigation) {
+        alert("Investigation type is required for deletion");
+        return;
+      }
+
+      const response = await fetch(
+        `http://localhost:8000/ct-reports/${encodedPatientId}/delete/`, // URL for deleting
+        {
+          method: "DELETE", // DELETE request
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            investigation: investigation, // Send the investigation type for specificity
+          }),
+        }
+      );
+
+      if (response.ok) {
+        // Successfully deleted, update the UI
+        const deletedReport = await response.json();
+        alert(
+          `Report for patient ID ${report.patientId} deleted successfully!`
+        );
+
+        // Remove the deleted report from the list in the frontend
+        setCtReports((prevReports) =>
+          prevReports.filter(
+            (r) =>
+              r.patientId !== report.patientId ||
+              r.investigation !== report.investigation
+          )
+        );
+      } else {
+        throw new Error("Failed to delete the report.");
+      }
+    } catch (error) {
+      console.error("Error deleting the report:", error);
+      alert("An error occurred while deleting the report. Please try again.");
+    }
   };
 
   const handleApprove = async (report) => {
     try {
       const encodedPatientId = encodeURIComponent(report.patientId);
-      const response = await fetch(`http://localhost:8000/ct-reports/${encodedPatientId}/approve/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `http://localhost:8000/ct-reports/${encodedPatientId}/approve/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (response.ok) {
         const updatedReport = await response.json();
         alert(`Report for ${updatedReport.patientName} approved successfully!`);
         setCtReports((prevReports) =>
-          prevReports.map((r) => (r.patientId === updatedReport.patientId ? updatedReport : r))
+          prevReports.map((r) =>
+            r.patientId === updatedReport.patientId ? updatedReport : r
+          )
         );
       } else {
-        throw new Error('Failed to approve the report.');
+        throw new Error("Failed to approve the report.");
       }
     } catch (error) {
-      console.error('Error approving the report:', error);
-      alert('An error occurred while approving the report. Please try again.');
+      console.error("Error approving the report:", error);
+      alert("An error occurred while approving the report. Please try again.");
     }
   };
 
@@ -112,23 +176,33 @@ const CTList = ({ patientId }) => {
           </tr>
         </thead>
         <tbody>
-          {investigations
-            .filter((investigation) => investigation['Type of Investigation'] === 'CT')
-            .map((investigation) => (
-              <tr key={investigation.UHID}>
-                <td>{investigation.UHID}</td>
-                <td>{`${investigation.salutation} ${investigation['Patient name']}`}</td>
-                <td>{investigation.Investigation}</td>
-                <td>
-                  <button
-                    className="report-btn"
-                    onClick={() => handleGoToReport(investigation.UHID)}
-                  >
-                    Go to Report
-                  </button>
-                </td>
-              </tr>
-            ))}
+          {investigations.map((investigation) => (
+            <tr key={investigation.uhid}>
+              <td>{investigation.uhid}</td>
+              <td>{`${investigation.salutation} ${investigation.firstName} ${
+                investigation.middleName ? investigation.middleName + " " : ""
+              }${investigation.lastName}`}</td>
+              <td>
+                {JSON.parse(investigation.item).map((item, index) => (
+                  <div key={index}>{item.itemName}</div>
+                ))}
+              </td>
+              <td>
+                {JSON.parse(investigation.item).map((item, index) => (
+                  <div key={index}>
+                    <button
+                      className="report-btn"
+                      onClick={() =>
+                        handleGoToReport(investigation.uhid, item.itemName)
+                      }
+                    >
+                      Go to Report
+                    </button>
+                  </div>
+                ))}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
@@ -150,15 +224,23 @@ const CTList = ({ patientId }) => {
                 <td>{report.patientId}</td>
                 <td>{report.patientName}</td>
                 <td>{report.investigation}</td>
-                <td>{report.approve ? 'Approved' : 'Pending'}</td>
+                <td>{report.approve ? "Approved" : "Pending"}</td>
                 <td>
-                  <button onClick={() => handlePreview(report)}className="me-2">Preview</button>
-                  <button onClick={() => handleEdit(report)}className="me-2">Edit</button>
-                  <button className="me-2"
+                  <button
+                    onClick={() => handlePreview(report)}
+                    className="me-2"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    className="me-2"
                     onClick={() => handleApprove(report)}
                     disabled={report.approve}
                   >
                     Approve
+                  </button>
+                  <button onClick={() => handleDelete(report)} className="me-2">
+                    Delete
                   </button>
                 </td>
               </tr>

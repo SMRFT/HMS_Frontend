@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Table, Button, Form, Row, Col } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; // Import navigation hook
+import { FaPrint, FaEdit, FaTrash } from "react-icons/fa";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 
-const EstimateBillsReport = () => {
+const BillsReport = () => {
   const [estimateBills, setEstimateBills] = useState([]);
   const [filteredBills, setFilteredBills] = useState([]);
   const [filters, setFilters] = useState({
@@ -17,8 +18,7 @@ const EstimateBillsReport = () => {
   const [doctors, setDoctors] = useState([]);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const navigate = useNavigate();
-
+  const navigate = useNavigate(); // Initialize navigation
   useEffect(() => {
     // Set today's date initially
     const today = dayjs().format("YYYY-MM-DD");
@@ -33,22 +33,16 @@ const EstimateBillsReport = () => {
         // Convert filters to query string
         const queryParams = new URLSearchParams();
         Object.entries(filters).forEach(([key, value]) => {
-          if (value && value !== "ALL") queryParams.append(key, value);
+          if (value) queryParams.append(key, value);
         });
 
-        // Add date filters
-        if (fromDate) queryParams.append("fromDate", fromDate);
-        if (toDate) queryParams.append("toDate", toDate);
-
         const response = await fetch(
-          `http://127.0.0.1:8000/get-estimate-billings/?${queryParams.toString()}`
+          `http://127.0.0.1:8000/investBillingGet/?${queryParams.toString()}`
         );
 
         if (response.ok) {
           const data = await response.json();
           setEstimateBills(data);
-          // Initially set filtered bills to all bills
-          setFilteredBills(data);
         } else {
           console.error("Failed to fetch estimate bills");
         }
@@ -58,7 +52,7 @@ const EstimateBillsReport = () => {
     };
 
     fetchEstimateBills();
-  }, [filters, fromDate, toDate]); // Add date dependencies
+  }, [filters]);
 
   // Fetch bill types and doctors on component mount
   useEffect(() => {
@@ -94,7 +88,7 @@ const EstimateBillsReport = () => {
     const filtered = estimateBills.filter((bill) => {
       // Filter by date if needed (in case API doesn't handle date filtering)
       if (fromDate && toDate) {
-        const billDate = new Date(bill.EstBillDate);
+        const billDate = new Date(bill.investBillDate);
         const startDate = new Date(fromDate);
         const endDate = new Date(toDate);
         // Set hours to 0 for proper date comparison
@@ -168,16 +162,6 @@ const EstimateBillsReport = () => {
         .toString()
         .padStart(2, "0")}/${date.getFullYear()}`;
       return timeStr ? `${formattedDate} ${timeStr}` : formattedDate;
-    };
-
-    // Get total price of items
-    const getTotalPrice = (items) => {
-      if (!Array.isArray(items)) return 0;
-      return items.reduce(
-        (total, item) =>
-          total + parseFloat(item.price) * parseInt(item.quantity),
-        0
-      );
     };
 
     // Format patient name
@@ -301,7 +285,7 @@ const EstimateBillsReport = () => {
           <div class="bill-details-left">
             <div class="bill-row">
               <div class="bill-label">Bill Number</div>
-              <div class="bill-value">: ${bill.EstBillNo || ""}</div>
+              <div class="bill-value">: ${bill.investBillNo || ""}</div>
             </div>
             <div class="bill-row">
               <div class="bill-label">OP Number</div>
@@ -310,7 +294,7 @@ const EstimateBillsReport = () => {
             <div class="bill-row">
               <div class="bill-label">Bill Date</div>
               <div class="bill-value">: ${formatDateTime(
-                bill.EstBillDate,
+                bill.investBillDate,
                 bill.time
               )}</div>
             </div>
@@ -366,20 +350,17 @@ const EstimateBillsReport = () => {
         <div class="total-section">
           <div class="total-row">
             <div class="total-label">Total</div>
-            <div class="total-value">${getTotalPrice(bill.item).toFixed(
-              2
-            )}</div>
+            <div class="total-value">${parseFloat(bill.total || 0).toFixed(2)}
+</div>
           </div>
           <div class="total-row">
             <div class="total-label">Discount</div>
-            <div class="total-value">${getTotalPrice(bill.item).toFixed(
-              2
-            )}</div>
+            <div class="total-value">${bill.discount || ""}</div>
           </div>
           
           <div class="total-row net-amount">
             <div class="total-label">Net Amount</div>
-            <div class="total-value">0.00</div>
+            <div class="total-value">${bill.finalPrice || ""}</div>
           </div>
         </div>
         
@@ -406,20 +387,52 @@ const EstimateBillsReport = () => {
   };
 
   // Handle convert
-  const handleConvert = (bill) => {
+  const handleEdit = (bill) => {
     navigate("/InvestigationBilling", { state: { patientData: bill } });
+  };
+  const handleDelete = async (bill) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete bill: ${bill.investBillNo}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/delete-bill/", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          billId: bill._id,
+          billType: bill.billType,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Bill deleted and moved to Recycle Bin.");
+        // Optionally refresh the UI here
+      } else {
+        console.error(result);
+        alert(`Error: ${result.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while deleting the bill.");
+    }
   };
 
   // Function to format patient name
   const formatPatientName = (salutation, firstName, middleName, lastName) => {
-    return `${salutation || ""} ${firstName || ""} ${
+    return `${salutation} ${firstName} ${
       middleName ? middleName + " " : ""
-    }${lastName || ""}`.trim();
+    }${lastName}`;
   };
 
   return (
     <div className="container-fluid p-3">
-      <h2 className="mb-4">Estimate Bills</h2>
+      <h2 className="mb-4">Bills</h2>
 
       {/* Filters */}
       <Form className="mb-4">
@@ -539,37 +552,38 @@ const EstimateBillsReport = () => {
         </Row>
       </Form>
 
-      {/* Estimate Bills Table */}
-      {filteredBills.length > 0 ? (
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>Sl.No</th>
-              <th>Estimate Date</th>
-              <th>Time</th>
-              <th>Estimate No</th>
-              <th>UHID No</th>
-              <th>IP No</th>
-              <th>Patient Name</th>
-              <th>Age</th>
-              <th>Room No</th>
-              <th>Bill Type</th>
-              <th>Items</th>
-              <th>Estimate Amount</th>
-              <th>Doctor</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBills.map((bill, index) => (
+      {/* Bills Table */}
+      <Table striped bordered hover responsive>
+        <thead>
+          <tr>
+            <th>Sl.No</th>
+            <th>Bill Date</th>
+            <th>Time</th>
+            <th>Bill No</th>
+            <th>UHID No</th>
+            <th>IP No</th>
+            <th>Patient Name</th>
+            <th>Age</th>
+            <th>Room No</th>
+            <th>Bill Type</th>
+            <th>Items</th>
+            <th>Bill Amount</th>
+            <th>Payment Method</th>
+            <th>Doctor</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredBills.length > 0 ? (
+            filteredBills.map((bill, index) => (
               <tr key={index}>
                 <td>{index + 1}</td>
-                <td>{bill.EstBillDate}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{bill.investBillDate}</td>
                 <td>{bill.time}</td>
-                <td>{bill.EstBillNo}</td>
+                <td>{bill.investBillNo}</td>
                 <td>{bill.uhid}</td>
                 <td>{bill.ipNumber}</td>
-                <td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {formatPatientName(
                     bill.salutation,
                     bill.firstName,
@@ -580,7 +594,7 @@ const EstimateBillsReport = () => {
                 <td>{bill.age}</td>
                 <td>{bill.roomNo}</td>
                 <td>{bill.billType}</td>
-                <td>
+                <td style={{ whiteSpace: "nowrap" }}>
                   {Array.isArray(bill.item)
                     ? bill.item.map((item, index) => (
                         <div key={index}>
@@ -589,34 +603,48 @@ const EstimateBillsReport = () => {
                       ))
                     : "No Items"}
                 </td>
-                <td>₹ {bill.finalPrice}</td>
-                <td>{bill.doctor}</td>
-                <td>
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    className="me-2"
+
+                <td style={{ whiteSpace: "nowrap" }}>₹ {bill.finalPrice}</td>
+                <td>{bill.paymentMethod}</td>
+                <td style={{ whiteSpace: "nowrap" }}>{bill.doctor}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <FaPrint
+                    title="Print"
+                    style={{
+                      cursor: "pointer",
+                      marginRight: "10px",
+                      color: "#0d6efd",
+                    }}
                     onClick={() => handlePrint(bill)}
-                  >
-                    Print
-                  </Button>
-                  <Button
-                    variant="outline-secondary"
-                    size="sm"
-                    onClick={() => handleConvert(bill)}
-                  >
-                    Convert
-                  </Button>
+                  />
+                  <FaEdit
+                    title="Edit"
+                    style={{
+                      cursor: "pointer",
+                      marginRight: "10px",
+                      color: "#6c757d",
+                    }}
+                    onClick={() => handleEdit(bill)}
+                  />
+                  <FaTrash
+                    title="Delete"
+                    style={{ cursor: "pointer", color: "#dc3545" }}
+                    onClick={() => handleDelete(bill)}
+                  />
                 </td>
               </tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : (
-        <p className="text-center py-4">No matching records found</p>
-      )}
+            ))
+          ) : (
+            <tr>
+              <td colSpan="12" className="text-center py-4">
+                No matching records found
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </Table>
     </div>
   );
 };
 
-export default EstimateBillsReport;
+export default BillsReport;
