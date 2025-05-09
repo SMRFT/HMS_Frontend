@@ -19,6 +19,8 @@ import SummaryPrint from "./Components/SummaryPrint";
 import InvestigationBilling from "./Components/InvestigationBilling";
 import ViewEstimate from "./Components/ViewEstimate";
 import ViewBills from "./Components/ViewBills";
+import USGList from "./Components/USGList";
+import USGReportForm from "./Components/USGReportForm";
 
 function App() {
   // Initialize sidebar state from localStorage (if available)
@@ -60,6 +62,9 @@ function App() {
             />
             <Route path="/ViewEstimate" element={<ViewEstimate />} />
             <Route path="/ViewBills" element={<ViewBills />} />
+
+            <Route path="/USGList" element={<USGList />} />
+            <Route path="/USGList/:uhid/:subUhid" element={<USGReportForm />} />
           </Routes>
         </div>
       </div>

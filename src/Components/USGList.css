@@ -1,0 +1,143 @@
+/* USG List Container */
+.usg-list-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
+}
+
+.usg-list-container h1 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.investigation-table,
+.usg-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.investigation-table th,
+.usg-report-table th,
+.investigation-table td,
+.usg-report-table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.investigation-table th,
+.usg-report-table th {
+  background-color: #007bff;
+  color: white;
+}
+
+.investigation-table tr:nth-child(even),
+.usg-report-table tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+
+.investigation-table tr:hover,
+.usg-report-table tr:hover {
+  background-color: #e9e9e9;
+}
+
+.report-btn,
+.usg-report-table button {
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 14px;
+}
+
+.report-btn:hover,
+.usg-report-table button:hover {
+  background-color: #218838;
+}
+
+.usg-report-table button[disabled] {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* USG Modal Styles */
+.usg-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.usg-modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 90%;
+  max-height: 80%;
+  overflow-y: auto;
+}
+
+.usg-modal-content h4 {
+  margin-top: 0;
+  font-size: 1.5rem;
+}
+
+.close-btn {
+  padding: 10px 20px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.close-btn:hover {
+  background-color: #c82333;
+}
+
+/* Mobile responsiveness for USG */
+@media (max-width: 768px) {
+  .usg-list-container {
+    padding: 10px;
+  }
+
+  .usg-list-container h1 {
+    font-size: 1.5rem;
+  }
+
+  .investigation-table,
+  .usg-report-table {
+    font-size: 12px;
+  }
+
+  .report-btn,
+  .usg-report-table button {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .usg-modal-content {
+    padding: 15px;
+  }
+
+  .usg-modal-overlay {
+    padding: 10px;
+  }
+}

@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { NavLink } from 'react-router-dom';
-import { FaBars, FaTimes, FaUserPlus } from 'react-icons/fa';
-import { FaFileAlt } from 'react-icons/fa';  // Import the report icon
-
+import React, { useState, useEffect } from "react";
+import styled, { keyframes } from "styled-components";
+import { NavLink } from "react-router-dom";
+import { FaBars, FaTimes, FaUserPlus } from "react-icons/fa";
+import { FaFileAlt } from "react-icons/fa"; // Import the report icon
 
 // Keyframes for background animation
 const gradientAnimation = keyframes`
@@ -14,7 +13,7 @@ const gradientAnimation = keyframes`
 
 // Sidebar Container
 const SidebarContainer = styled.div`
-  background: linear-gradient(135deg, #A9D1EA, #E68FAE, #7D2378);
+  background: linear-gradient(135deg, #a9d1ea, #e68fae, #7d2378);
   background-size: 200% 200%;
   animation: ${gradientAnimation} 10s ease infinite;
   color: white;
@@ -25,12 +24,13 @@ const SidebarContainer = styled.div`
   left: 0;
   overflow-y: auto;
   z-index: 1000;
-  transform: ${({ isOpen }) => (isOpen ? 'translateX(0)' : 'translateX(-100%)')};
+  transform: ${({ isOpen }) =>
+    isOpen ? "translateX(0)" : "translateX(-100%)"};
   transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
   box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
   border-right: 1px solid rgba(255, 255, 255, 0.2);
   @media (min-width: 769px) {
-    transform: translateX(0);  // Keep the sidebar open on larger screens
+    transform: translateX(0); // Keep the sidebar open on larger screens
   }
 `;
 
@@ -86,7 +86,7 @@ const IconWrapper = styled.span`
 const Sidebar = () => {
   // Initialize state with the value from localStorage (default is false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(
-    JSON.parse(localStorage.getItem('sidebarOpen')) || false
+    JSON.parse(localStorage.getItem("sidebarOpen")) || false
   );
   const [isDoctorDetailsOpen, setIsDoctorDetailsOpen] = useState(true);
 
@@ -96,7 +96,7 @@ const Sidebar = () => {
 
   // UseEffect to update localStorage when the sidebar state changes
   useEffect(() => {
-    localStorage.setItem('sidebarOpen', JSON.stringify(isSidebarOpen));
+    localStorage.setItem("sidebarOpen", JSON.stringify(isSidebarOpen));
   }, [isSidebarOpen]);
 
   const toggleSidebar = () => {
@@ -110,37 +110,55 @@ const Sidebar = () => {
       </SidebarToggle>
       <SidebarContainer isOpen={isSidebarOpen}>
         <SidebarContent>
-        <SidebarNavLink to="/Enquiry">
-            <IconWrapper><FaUserPlus /></IconWrapper>Enquiry
+          <SidebarNavLink to="/Enquiry">
+            <IconWrapper>
+              <FaUserPlus />
+            </IconWrapper>
+            Enquiry
           </SidebarNavLink>
           <SidebarNavLink to="/Registration">
-            <IconWrapper><FaUserPlus /></IconWrapper>Registration
+            <IconWrapper>
+              <FaUserPlus />
+            </IconWrapper>
+            Registration
           </SidebarNavLink>
           <SidebarNavLink to="/Admission">
-            <IconWrapper><FaUserPlus /></IconWrapper>Admission
-          </SidebarNavLink>          
+            <IconWrapper>
+              <FaUserPlus />
+            </IconWrapper>
+            Admission
+          </SidebarNavLink>
           <div>
             {/* Doctor Details Group */}
             <SidebarNavLink
               to="/DepartmentBilling"
               onClick={toggleDoctorDetails}
-              style={{ fontWeight: 'bold', padding: '10px 0' }}
+              style={{ fontWeight: "bold", padding: "10px 0" }}
             >
               Department Billing
             </SidebarNavLink>
 
             {/* Collapsible Links */}
             {isDoctorDetailsOpen && (
-              <div style={{ paddingLeft: '20px' }}>
+              <div style={{ paddingLeft: "20px" }}>
                 <SidebarNavLink to="/InvestigationBilling">
-                  <IconWrapper><FaUserPlus /></IconWrapper>Billing
+                  <IconWrapper>
+                    <FaUserPlus />
+                  </IconWrapper>
+                  Billing
                 </SidebarNavLink>
                 <SidebarNavLink to="/PatientDebit">
-                  <IconWrapper><FaFileAlt /></IconWrapper>Patient Debit
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  Patient Debit
                 </SidebarNavLink>
                 <SidebarNavLink to="/BillType">
-                  <IconWrapper><FaFileAlt /></IconWrapper>Bill Type
-                </SidebarNavLink>                
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  Bill Type
+                </SidebarNavLink>
               </div>
             )}
           </div>
@@ -150,55 +168,76 @@ const Sidebar = () => {
             <SidebarNavLink
               to="/DoctorDetails"
               onClick={toggleDoctorDetails}
-              style={{ fontWeight: 'bold', padding: '10px 0' }}
+              style={{ fontWeight: "bold", padding: "10px 0" }}
             >
               Doctor Details
             </SidebarNavLink>
 
             {/* Collapsible Links */}
             {isDoctorDetailsOpen && (
-              <div style={{ paddingLeft: '20px' }}>
+              <div style={{ paddingLeft: "20px" }}>
                 <SidebarNavLink to="/Doctor">
-                  <IconWrapper><FaUserPlus /></IconWrapper>Doctor
+                  <IconWrapper>
+                    <FaUserPlus />
+                  </IconWrapper>
+                  Doctor
                 </SidebarNavLink>
                 <SidebarNavLink to="/DoctorList">
-                  <IconWrapper><FaFileAlt /></IconWrapper>Doctor List
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  Doctor List
                 </SidebarNavLink>
               </div>
             )}
           </div>
-       
+
           <div>
             {/* Doctor Details Group */}
             <SidebarNavLink
               to="/FileUploading"
               onClick={toggleDoctorDetails}
-              style={{ fontWeight: 'bold', padding: '10px 0' }}
+              style={{ fontWeight: "bold", padding: "10px 0" }}
             >
               MR/File Uploading
             </SidebarNavLink>
 
             {/* Collapsible Links */}
             {isDoctorDetailsOpen && (
-              <div style={{ paddingLeft: '20px' }}>
+              <div style={{ paddingLeft: "20px" }}>
                 <SidebarNavLink to="/CTList">
-                  <IconWrapper><FaFileAlt /></IconWrapper>CT
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  CT
                 </SidebarNavLink>
                 <SidebarNavLink to="/MRIList">
-                  <IconWrapper><FaFileAlt /></IconWrapper>MRI
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  MRI
                 </SidebarNavLink>
-                <SidebarNavLink to="/USG">
-                  <IconWrapper><FaFileAlt /></IconWrapper>USG
+                <SidebarNavLink to="/USGList">
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  USG
                 </SidebarNavLink>
                 <SidebarNavLink to="/Xray">
-                  <IconWrapper><FaFileAlt /></IconWrapper>Xray
+                  <IconWrapper>
+                    <FaFileAlt />
+                  </IconWrapper>
+                  Xray
                 </SidebarNavLink>
               </div>
             )}
 
-      <SidebarNavLink to="/Summary">
-            <IconWrapper><FaUserPlus /></IconWrapper>Summary
-          </SidebarNavLink>
+            <SidebarNavLink to="/Summary">
+              <IconWrapper>
+                <FaUserPlus />
+              </IconWrapper>
+              Summary
+            </SidebarNavLink>
           </div>
         </SidebarContent>
       </SidebarContainer>
