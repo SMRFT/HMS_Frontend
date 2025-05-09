@@ -223,11 +223,11 @@ const Sidebar = () => {
                   </IconWrapper>
                   USG
                 </SidebarNavLink>
-                <SidebarNavLink to="/Xray">
+                <SidebarNavLink to="/XRayList">
                   <IconWrapper>
                     <FaFileAlt />
                   </IconWrapper>
-                  Xray
+                  X-Ray
                 </SidebarNavLink>
               </div>
             )}

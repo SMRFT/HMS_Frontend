@@ -21,6 +21,8 @@ import ViewEstimate from "./Components/ViewEstimate";
 import ViewBills from "./Components/ViewBills";
 import USGList from "./Components/USGList";
 import USGReportForm from "./Components/USGReportForm";
+import XRayList from "./Components/XRayList";
+import XRayReportForm from "./Components/XRayRportForm";
 
 function App() {
   // Initialize sidebar state from localStorage (if available)
@@ -65,6 +67,12 @@ function App() {
 
             <Route path="/USGList" element={<USGList />} />
             <Route path="/USGList/:uhid/:subUhid" element={<USGReportForm />} />
+
+            <Route path="/XRayList" element={<XRayList />} />
+            <Route
+              path="/XRayList/:uhid/:subUhid"
+              element={<XRayReportForm />}
+            />
           </Routes>
         </div>
       </div>
