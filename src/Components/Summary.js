@@ -168,6 +168,7 @@ const Summary = () => {
   };
 
   // Add selected investigations to notes
+  // Add selected investigations to notes
   const addInvestigationsToNotes = () => {
     if (selectedInvestigations.length === 0) {
       alert("Please select at least one investigation to add");
@@ -204,19 +205,31 @@ Status: ${
 
       setFormData({ ...formData, notes: updatedNotes });
     } else {
-      // If not on investigations field, save current notes and switch to investigations
-      setFormData((prev) => ({
-        ...prev,
-        fieldsData: {
+      // Save current field's data
+      setFormData((prev) => {
+        // First, save the current field's notes to fieldsData
+        const updatedFieldsData = {
           ...prev.fieldsData,
           [prev.currentField]: prev.notes,
-        },
-        currentField: "INVESTIGATIONS",
-        notes:
-          prev.fieldsData["INVESTIGATIONS"] || ""
-            ? prev.fieldsData["INVESTIGATIONS"] + "\n\n" + investigationsText
-            : investigationsText,
-      }));
+        };
+
+        // Then add investigations to the INVESTIGATIONS field in fieldsData
+        // If INVESTIGATIONS already exists in fieldsData, append to it
+        const existingInvestigations =
+          updatedFieldsData["INVESTIGATIONS"] || "";
+        updatedFieldsData["INVESTIGATIONS"] = existingInvestigations
+          ? `${existingInvestigations}\n\n${investigationsText}`
+          : investigationsText;
+
+        // Update form with new data and switch to INVESTIGATIONS field
+        return {
+          ...prev,
+          fieldsData: updatedFieldsData,
+          currentField: "INVESTIGATIONS",
+          notes: updatedFieldsData["INVESTIGATIONS"],
+        };
+      });
+
       setSelectedField("INVESTIGATIONS");
     }
 

@@ -146,15 +146,25 @@ const MRIList = ({ patientId }) => {
           headers: {
             "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            investigation: report.investigation,
+            date: report.date,
+          }),
         }
       );
 
       if (response.ok) {
         const updatedReport = await response.json();
         alert(`Report for ${updatedReport.patientName} approved successfully!`);
+
+        // Update just the specific report in the state
         setMriReports((prevReports) =>
           prevReports.map((r) =>
-            r.patientId === updatedReport.patientId ? updatedReport : r
+            r.patientId === updatedReport.patientId &&
+            r.investigation === updatedReport.investigation &&
+            r.date === updatedReport.date
+              ? updatedReport
+              : r
           )
         );
       } else {
