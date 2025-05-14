@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import axios from "axios";
 import styled from "styled-components";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Styled Components
 const StyledFormContainer = styled.div`
@@ -9,35 +11,40 @@ const StyledFormContainer = styled.div`
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(to right, #4facfe, #00f2fe);
 `;
 
 const StyledForm = styled.div`
   background: white;
+  color: black;
   padding: 2rem;
   border-radius: 10px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  max-width: 600px;
   width: 100%;
+  max-width: 600px;
 `;
 
 const StyledButton = styled.button`
-  background-color: #007bff;
-  border: none;
+  width: fit-content;
+  padding: 10px 20px;
+  background-color: #ff9900;
   color: white;
-  padding: 0.5rem 1rem;
-  width: 100%;
-  border-radius: 5px;
-  font-size: 1rem;
-  margin-top: 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
 
   &:hover {
-    background-color: #0056b3;
+    background-color: #e68a00;
   }
+`;
 
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(38, 143, 255, 0.5);
+const FlexRow = styled.div`
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  & > div {
+    flex: 1;
   }
 `;
 
@@ -47,15 +54,12 @@ const Register = () => {
     name: "",
     role: "Admin",
     department: "IT",
-    designation: "",
     password: "",
     confirmPassword: "",
   });
 
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
     setFormData({
@@ -64,50 +68,49 @@ const Register = () => {
     });
   };
 
+  const validatePassword = (password) => {
+    const passwordRegex =
+      /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{7,}$/;
+    return passwordRegex.test(password);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage("Passwords do not match!");
-      setSuccessMessage("");
+
+    if (!validatePassword(formData.password)) {
+      toast.error(
+        "Password must be at least 7 characters long, include one uppercase letter, one number, and one special character."
+      );
       return;
     }
-  
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error("Passwords do not match!");
+      return;
+    }
+
     try {
       const response = await axios.post(
         "http://127.0.0.1:8000/register/",
         formData
       );
-      setSuccessMessage("Registration successful!");
-      setErrorMessage("");
+      toast.success("Registration successful!");
       console.log(response.data);
     } catch (error) {
       console.error("Error registering user:", error);
-      setErrorMessage("Registration failed. Please try again.");
-      setSuccessMessage("");
+      toast.error("Registration failed. Please try again.");
     }
   };
-  
 
   return (
     <StyledFormContainer>
+      <ToastContainer />
       <StyledForm>
         <h2 className="text-center mb-4">Register</h2>
-         {/* Show success or error message */}
-         {errorMessage && (
-          <div className="alert alert-danger" role="alert">
-            {errorMessage}
-          </div>
-        )}
-        {successMessage && (
-          <div className="alert alert-success" role="alert">
-            {successMessage}
-          </div>
-        )}
         <form onSubmit={handleSubmit} autoComplete="off">
-          {/* Row 1 */}
-          <div className="row mb-3">
-            <div className="col-md-4">
+          {/* ID and Name Row */}
+          <FlexRow>
+            <div>
               <label htmlFor="id" className="form-label">
                 ID
               </label>
@@ -123,7 +126,7 @@ const Register = () => {
                 autoComplete="off"
               />
             </div>
-            <div className="col-md-4">
+            <div>
               <label htmlFor="name" className="form-label">
                 Name
               </label>
@@ -139,7 +142,11 @@ const Register = () => {
                 autoComplete="off"
               />
             </div>
-            <div className="col-md-4">
+          </FlexRow>
+
+          {/* Role and Department Row */}
+          <FlexRow>
+            <div>
               <label htmlFor="role" className="form-label">
                 Role
               </label>
@@ -156,11 +163,7 @@ const Register = () => {
                 <option value="Employee">Employee</option>
               </select>
             </div>
-          </div>
-
-          {/* Row 2 */}
-          <div className="row mb-3">
-            <div className="col-md-4">
+            <div>
               <label htmlFor="department" className="form-label">
                 Department
               </label>
@@ -175,39 +178,13 @@ const Register = () => {
               >
                 <option value="IT">IT</option>
                 <option value="DOCTOR">DOCTOR</option>
-                <option value="NURSE">NURSE</option>
-                <option value="HR">HR</option>
-                <option value="LAB">LAB</option>
-                <option value="RT TECH">RT TECH</option>
-                <option value="PHARMACY">PHARMACY</option>
-                <option value="TELECALLER">TELECALLER</option>
-                <option value="FRONT OFFICE">FRONT OFFICE</option>
-                <option value="SECURITY">SECURITY</option>
-                <option value="ELECTRICIAN">ELECTRICIAN</option>
-                <option value="ACCOUNTS">ACCOUNTS</option>
-                <option value="NURSING">NURSING</option>
-                <option value="HOUSE KEEPING">HOUSE KEEPING</option>
-                <option value="DENTIST CONSULTANT">DENTIST CONSULTANT</option>
-                <option value="COOK">COOK</option>
               </select>
             </div>
-            <div className="col-md-4">
-              <label htmlFor="designation" className="form-label">
-                Designation
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                id="designation"
-                name="designation"
-                value={formData.designation}
-                onChange={handleChange}
-                placeholder="Enter your designation"
-                required
-                autoComplete="off"
-              />
-            </div>
-            <div className="col-md-4">
+          </FlexRow>
+
+          {/* Password and Confirm Password Row */}
+          <FlexRow>
+            <div>
               <label htmlFor="password" className="form-label">
                 Password
               </label>
@@ -228,15 +205,11 @@ const Register = () => {
                   className="btn btn-outline-secondary"
                   onClick={() => setPasswordVisible(!passwordVisible)}
                 >
-                    {passwordVisible ? <FaEyeSlash /> : <FaEye />}
+                  {passwordVisible ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Row 3 */}
-          <div className="row mb-3">
-            <div className="col-md-4">
+            <div>
               <label htmlFor="confirmPassword" className="form-label">
                 Confirm Password
               </label>
@@ -259,11 +232,11 @@ const Register = () => {
                     setConfirmPasswordVisible(!confirmPasswordVisible)
                   }
                 >
-                   {confirmPasswordVisible ? <FaEyeSlash /> : <FaEye />}
+                  {confirmPasswordVisible ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
             </div>
-          </div>
+          </FlexRow>
 
           {/* Submit Button */}
           <StyledButton type="submit">Register</StyledButton>
