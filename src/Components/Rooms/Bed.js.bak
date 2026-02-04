@@ -1,0 +1,301 @@
+import React, { useState, useEffect } from "react";
+import styled from "styled-components";
+import { toast } from "react-toastify";
+import apiRequest from "../../Auth/apiRequest";
+import {
+  Container,
+  PageWrapper,
+  FormContent,
+  FormRow,
+  InputWrapper,
+  Label,
+  Input,
+  Select,
+  Button,
+  ButtonContainer,
+  TableWrapper,
+  Table,
+  Th,
+  Td,
+  Tr,
+  SectionHeader,
+} from "../GlobalStyles";
+
+const Bed = () => {
+  const [beds, setBeds] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [formData, setFormData] = useState({
+    bed_number: "",
+    room: "",
+    bed_type: "",
+    status: "Available",
+    daily_charge: ""
+  });
+  const [editingId, setEditingId] = useState(null);
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  useEffect(() => {
+    fetchBeds();
+    fetchRooms();
+  }, []);
+
+  const fetchBeds = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}bed/`, "GET");
+      if (response && !response.error) {
+        setBeds(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setBeds([]);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch beds");
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}room/`, "GET");
+      if (response && !response.error) {
+        setRooms(Array.isArray(response) ? response : []);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch rooms");
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleEdit = (bed) => {
+    setEditingId(bed.id);
+    setFormData({
+      bed_number: bed.bed_number,
+      room: bed.room,
+      bed_type: bed.bed_type || "",
+      status: bed.status,
+      daily_charge: bed.daily_charge || ""
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this bed?")) {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}bed/${id}/`, "DELETE");
+        if (response) {
+          toast.success("Bed deleted successfully");
+          fetchBeds();
+        }
+      } catch (error) {
+        toast.error("Failed to delete bed");
+      }
+    }
+  };
+
+  const handleReset = () => {
+    setEditingId(null);
+    setFormData({
+      bed_number: "",
+      room: "",
+      bed_type: "",
+      status: "Available",
+      daily_charge: ""
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Basic Validation
+      if (!formData.room || !formData.bed_number) {
+        toast.warning("Please fill required fields");
+        return;
+      }
+
+      if (editingId) {
+        const response = await apiRequest(
+          `${HmsBaseUrl}bed/${editingId}/`,
+          "PUT",
+          formData
+        );
+        if (response && !response.error) {
+          toast.success("Bed updated successfully");
+          handleReset();
+          fetchBeds();
+        } else {
+          toast.error(response.error || "Update failed");
+        }
+      } else {
+        const response = await apiRequest(
+          `${HmsBaseUrl}bed/`,
+          "POST",
+          formData
+        );
+        if (response && !response.error) {
+          toast.success("Bed added successfully");
+          handleReset();
+          fetchBeds();
+        } else {
+          toast.error(response.error || "Create failed");
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to save bed");
+    }
+  };
+
+  // Helper to find room name
+  const getRoomName = (roomId) => {
+    const r = rooms.find(room => room.id === roomId);
+    return r ? r.room_number : roomId;
+  };
+
+  return (
+    <PageWrapper>
+      <Container>
+        <SectionHeader>
+          <h3>Bed Management</h3>
+        </SectionHeader>
+
+        <FormContent>
+          <form onSubmit={handleSubmit}>
+            <FormRow>
+              <InputWrapper>
+                <Label required>Room</Label>
+                <Select
+                  name="room"
+                  value={formData.room}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Room</option>
+                  {rooms.map(room => (
+                    <option key={room.id} value={room.id}>{room.room_number}</option>
+                  ))}
+                </Select>
+              </InputWrapper>
+              <InputWrapper>
+                <Label required>Bed Number</Label>
+                <Input
+                  type="text"
+                  name="bed_number"
+                  value={formData.bed_number}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g. 101-A"
+                />
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Bed Type</Label>
+                <Input
+                  type="text"
+                  name="bed_type"
+                  value={formData.bed_type}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Electric"
+                />
+              </InputWrapper>
+            </FormRow>
+            <FormRow>
+              <InputWrapper>
+                <Label>Status</Label>
+                <Select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                >
+                  <option value="Available">Available</option>
+                  <option value="Occupied">Occupied</option>
+                  <option value="Maintenance">Maintenance</option>
+                </Select>
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Daily Charge</Label>
+                <Input
+                  type="number"
+                  name="daily_charge"
+                  value={formData.daily_charge}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                />
+              </InputWrapper>
+            </FormRow>
+
+            <ButtonContainer>
+              <Button secondary type="button" onClick={handleReset}>
+                Reset
+              </Button>
+              <Button type="submit">
+                {editingId ? "Update Bed" : "Add Bed"}
+              </Button>
+            </ButtonContainer>
+          </form>
+        </FormContent>
+
+        <div style={{ padding: "0 24px 24px" }}>
+          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Bed List</h4>
+          <TableWrapper>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Room</Th>
+                  <Th>Bed Number</Th>
+                  <Th>Type</Th>
+                  <Th>Status</Th>
+                  <Th>Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {beds.length === 0 ? (
+                  <Tr>
+                    <Td colSpan="5" style={{ textAlign: "center" }}>
+                      No beds found
+                    </Td>
+                  </Tr>
+                ) : (
+                  beds.map((bed) => (
+                    <Tr key={bed.id}>
+                      <Td>{getRoomName(bed.room)}</Td>
+                      <Td>{bed.bed_number}</Td>
+                      <Td>{bed.bed_type}</Td>
+                      <Td>
+                        <span style={{
+                          color: bed.status === 'Available' ? 'green'
+                            : bed.status === 'Occupied' ? 'red' : 'orange',
+                          fontWeight: 'bold'
+                        }}>
+                          {bed.status}
+                        </span>
+                      </Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <Button
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleEdit(bed)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            danger
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleDelete(bed.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableWrapper>
+        </div>
+      </Container>
+    </PageWrapper>
+  );
+};
+
+export default Bed;

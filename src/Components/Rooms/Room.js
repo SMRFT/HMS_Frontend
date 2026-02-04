@@ -1,0 +1,425 @@
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import apiRequest from "../../Auth/apiRequest";
+import {
+  Container,
+  PageWrapper,
+  FormContent,
+  FormRow,
+  InputWrapper,
+  Label,
+  Input,
+  Select,
+  Button,
+  ButtonContainer,
+  TableWrapper,
+  Table,
+  Th,
+  Td,
+  Tr,
+  SectionHeader,
+} from "../GlobalStyles";
+
+const Room = () => {
+  const [rooms, setRooms] = useState([]);
+  const [blocks, setBlocks] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [formData, setFormData] = useState({
+    room_number: "",
+    description: "",
+    room_category: "",
+    block: "",
+    floor: "",
+    phone_extension: "",
+    nursing_station: "",
+    capacity: "",
+    admission_fee: "",
+    room_advance: "",
+    room_type: "WARD"
+  });
+  const [editingId, setEditingId] = useState(null);
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  useEffect(() => {
+    fetchRooms();
+    fetchBlocks();
+    fetchCategories();
+  }, []);
+
+  const fetchRooms = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}room/`, "GET");
+      if (response && response.success) {
+        setRooms(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setRooms([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch rooms:", error);
+      setRooms([]);
+    }
+  };
+
+  const fetchBlocks = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}block/`, "GET");
+      if (response && response.success) {
+        setBlocks(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setBlocks([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch blocks");
+      setBlocks([]);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}room-category/`, "GET");
+      if (response && response.success) {
+        setCategories(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories");
+      setCategories([]);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleEdit = (room) => {
+    setEditingId(room.id);
+    setFormData({
+      room_number: room.room_number,
+      description: room.description || "",
+      room_category: room.room_category,
+      block: room.block,
+      floor: room.floor,
+      phone_extension: room.phone_extension || "",
+      nursing_station: room.nursing_station || "",
+      capacity: room.capacity || "",
+      admission_fee: room.admission_fee || "",
+      room_advance: room.room_advance || "",
+      room_type: room.room_type || "WARD"
+    });
+    window.scrollTo(0, 0);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this room?")) {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}room/${id}/`, "DELETE");
+        if (response) {
+          toast.success("Room deleted successfully");
+          fetchRooms();
+        }
+      } catch (error) {
+        toast.error("Failed to delete room");
+      }
+    }
+  };
+
+  const handleReset = () => {
+    setEditingId(null);
+    setFormData({
+      room_number: "",
+      description: "",
+      room_category: "",
+      block: "",
+      floor: "",
+      phone_extension: "",
+      nursing_station: "",
+      capacity: "",
+      admission_fee: "",
+      room_advance: "",
+      room_type: "WARD"
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Basic Validation
+      if (!formData.room_number || !formData.block || !formData.room_category) {
+        toast.warning("Please fill required fields (Room No, Block, Category)");
+        return;
+      }
+
+      if (editingId) {
+        const response = await apiRequest(
+          `${HmsBaseUrl}room/${editingId}/`,
+          "PUT",
+          formData
+        );
+        if (response && response.success) {
+          toast.success("Room updated successfully");
+          handleReset();
+          fetchRooms();
+        } else {
+          toast.error(response.error || "Update failed");
+        }
+      } else {
+        const response = await apiRequest(
+          `${HmsBaseUrl}room/`,
+          "POST",
+          formData
+        );
+        if (response && response.success) {
+          toast.success("Room added successfully");
+          handleReset();
+          fetchRooms();
+        } else {
+          toast.error(response.error || "Create failed");
+        }
+      }
+    } catch (error) {
+      toast.error("Failed to save room");
+    }
+  };
+
+  // Helper for display names
+  const getBlockName = (id) => {
+    const b = blocks.find(x => x.id === id || x.block_name === id); // Handle ID or Name storage
+    return b ? b.block_name : id;
+  };
+  const getCategoryName = (id) => {
+    const c = categories.find(x => x.id === id || x.ward_name === id);
+    return c ? c.ward_name : id;
+  };
+
+
+  return (
+    <PageWrapper>
+      <Container>
+        <SectionHeader>
+          <h3>Room Management</h3>
+        </SectionHeader>
+
+        <FormContent>
+          <form onSubmit={handleSubmit}>
+            <FormRow>
+              <InputWrapper>
+                <Label required>Room Number</Label>
+                <Input
+                  type="text"
+                  name="room_number"
+                  value={formData.room_number}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g. 101"
+                />
+              </InputWrapper>
+              <InputWrapper>
+                <Label required>Block</Label>
+                <Select
+                  name="block"
+                  value={formData.block}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Block</option>
+                  {blocks.map(block => (
+                    <option key={block.id} value={block.block_name}>{block.block_name}</option>
+                  ))}
+                </Select>
+              </InputWrapper>
+              <InputWrapper>
+                <Label required>Category</Label>
+                <Select
+                  name="room_category"
+                  value={formData.room_category}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.ward_name}>{cat.ward_name}</option>
+                  ))}
+                </Select>
+              </InputWrapper>
+            </FormRow>
+
+            <FormRow>
+              <InputWrapper>
+                <Label required>Room Type</Label>
+                <Select
+                  name="room_type"
+                  value={formData.room_type}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Type</option>
+                  <option value="ICU">ICU</option>
+                  <option value="CCU">CCU</option>
+                  <option value="ICCU">ICCU</option>
+                  <option value="NICU">NICU</option>
+                  <option value="CASUALITY">CASUALITY</option>
+                  <option value="WARD">WARD</option>
+                  <option value="OTHERS">OTHERS</option>
+                </Select>
+              </InputWrapper>
+              <InputWrapper>
+                <Label required>Floor</Label>
+                <Input
+                  type="number"
+                  name="floor"
+                  value={formData.floor}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="e.g. 1"
+                  min="0"
+                />
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Capacity</Label>
+                <Input
+                  type="number"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleInputChange}
+                  placeholder="Total Beds"
+                  min="1"
+                />
+              </InputWrapper>
+            </FormRow>
+
+            <FormRow>
+              <InputWrapper>
+                <Label>Nursing Station</Label>
+                <Select
+                  name="nursing_station"
+                  value={formData.nursing_station}
+                  onChange={handleInputChange}
+                >
+                  <option value="">Select Nursing Station</option>
+                  <option value="MICU">MICU</option>
+                  <option value="SICU">SICU</option>
+                  <option value="General">General</option>
+                </Select>
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Phone Extension</Label>
+                <Input
+                  type="text"
+                  name="phone_extension"
+                  value={formData.phone_extension}
+                  onChange={handleInputChange}
+                  placeholder="e.g. 2045"
+                />
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Description</Label>
+                <Input
+                  type="text"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Room description"
+                />
+              </InputWrapper>
+            </FormRow>
+
+            <FormRow>
+              <InputWrapper>
+                <Label>Admission Fee</Label>
+                <Input
+                  type="number"
+                  name="admission_fee"
+                  value={formData.admission_fee}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </InputWrapper>
+              <InputWrapper>
+                <Label>Room Advance</Label>
+                <Input
+                  type="number"
+                  name="room_advance"
+                  value={formData.room_advance}
+                  onChange={handleInputChange}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </InputWrapper>
+            </FormRow>
+
+
+            <ButtonContainer>
+              <Button secondary type="button" onClick={handleReset}>
+                Reset
+              </Button>
+              <Button type="submit">
+                {editingId ? "Update Room" : "Add Room"}
+              </Button>
+            </ButtonContainer>
+          </form>
+        </FormContent>
+
+        <div style={{ padding: "0 24px 24px" }}>
+          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Room List</h4>
+          <TableWrapper>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Room No</Th>
+                  <Th>Block</Th>
+                  <Th>Category</Th>
+                  <Th>Type</Th>
+                  <Th>Floor</Th>
+                  <Th>Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rooms.length === 0 ? (
+                  <Tr>
+                    <Td colSpan="6" style={{ textAlign: "center" }}>
+                      No rooms found
+                    </Td>
+                  </Tr>
+                ) : (
+                  rooms.map((room) => (
+                    <Tr key={room.id}>
+                      <Td>{room.room_number}</Td>
+                      <Td>{getBlockName(room.block)}</Td>
+                      <Td>{getCategoryName(room.room_category)}</Td>
+                      <Td>{room.room_type}</Td>
+                      <Td>{room.floor}</Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <Button
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleEdit(room)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            danger
+                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                            onClick={() => handleDelete(room.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableWrapper>
+        </div>
+      </Container>
+    </PageWrapper>
+  );
+};
+
+export default Room;
