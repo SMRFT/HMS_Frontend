@@ -28,7 +28,33 @@ import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 import IPGRNGeneration from "./Components/InventoryMaster/IPGRNGeneration";
 import OPGRNGeneration from "./Components/InventoryMaster/OPGRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
+import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
+import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
+import Summary from "./Components/Summary/Summary";
+import EditSummary from "./Components/Summary/EditSummary";
+import SummaryPrint from "./Components/Summary/SummaryPrint";
+// Doctor Master
+import DoctorList from "./Components/DoctorMaster/DoctorList";
+import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
 
+// Investigation Billing
+import InvestigationBilling from "./Components/InvestigationBilling/InvestigationBilling";
+import ViewBills from "./Components/InvestigationBilling/ViewBills";
+import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
+
+// Investigation Reports
+import CTList from "./Components/InvestigationReports/CTList";
+import CTReportForm from "./Components/InvestigationReports/CTReportForm";
+import MRIList from "./Components/InvestigationReports/MRIList";
+import MRIReportForm from "./Components/InvestigationReports/MRIReportForm";
+import USGList from "./Components/InvestigationReports/USGList";
+import USGReportForm from "./Components/InvestigationReports/USGReportForm";
+import XRayList from "./Components/InvestigationReports/XRayList";
+import XRayReportForm from "./Components/InvestigationReports/XRayRportForm";
+import Enquiry from "./Components/Register/Enquiry";
+
+// Discharge
+import DischargeReport from "./Components/Discharge/DischargeReport";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -74,6 +100,62 @@ function App() {
     setIsLoading(false);
   }, [location.pathname, navigate]);
 
+  // Update page title based on route
+  useEffect(() => {
+    const routeTitles = {
+      "/": "Login",
+      "/Dashboard": "Dashboard",
+      "/PatientRegistrationForm": "Patient Registration",
+      "/Admission": "Admission",
+      "/RoomShifting": "Room Shifting",
+      "/RoomEnquiry": "Room Enquiry",
+      "/RoomCategory": "Room Category",
+      "/Room": "Room Master",
+      "/Bed": "Bed Master",
+      "/Service": "Service Master",
+      "/Block": "Block Master",
+      "/IPPharmacyStock": "IP Pharmacy Stock",
+      "/OPPharmacyStock": "OP Pharmacy Stock",
+      "/VendorManagement": "Vendor Management",
+      "/IPGRNGeneration": "IP GRN Generation",
+      "/OPGRNGeneration": "OP GRN Generation",
+      "/IPPharmacy": "IP Pharmacy",
+      "/OPPharmacy": "OP Pharmacy",
+      "/DischargeForm": "Discharge Form",
+      "/Summary": "Discharge Summary",
+      "/DoctorList": "Doctor List",
+      "/DoctorSchedule": "Doctor Schedule",
+      "/InvestigationBilling": "Investigation Billing",
+      "/ViewBills": "View Bills",
+      "/ViewEstimate": "View Estimates",
+      "/CTList": "CT Reports",
+      "/MRIList": "MRI Reports",
+      "/USGList": "USG Reports",
+      "/XRayList": "X-Ray Reports",
+      "/DischargeReport": "Discharge Report",
+      "/Enquiry": "Enquiry",
+    };
+
+    const path = location.pathname;
+    // Handle dynamic routes (e.g., /EditSummary/123)
+    if (path.startsWith("/EditSummary/")) {
+      document.title = "Edit Summary - Shanmuga Hospital";
+    } else if (path.startsWith("/SummaryPrint/")) {
+      document.title = "Print Summary - Shanmuga Hospital";
+    } else if (path.startsWith("/CTReportForm/")) {
+      document.title = "CT Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/MRIReportForm/")) {
+      document.title = "MRI Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/USGReportForm/")) {
+      document.title = "USG Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/XRayReportForm/")) {
+      document.title = "X-Ray Report Form - Shanmuga Hospital";
+    } else {
+      const title = routeTitles[path] || "Shanmuga Hospital Management System";
+      document.title = `${title} - Shanmuga Hospital`;
+    }
+  }, [location.pathname]);
+
   // Routes where sidebar is hidden (login page)
   const hideSidebarRoutes = ["/"];
 
@@ -109,7 +191,35 @@ function App() {
                 <Route path="/VendorManagement" element={<VendorManagement />} />
                 <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
                 <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
+                <Route path="/IPPharmacy" element={<IPPharmacy />} />
+                <Route path="/OPPharmacy" element={<OPPharmacy />} />
                 <Route path="/DischargeForm" element={<DischargeForm />} />
+                <Route path="/Summary" element={<Summary />} />
+                <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
+                <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
+                <Route path="/Enquiry" element={<Enquiry />} />
+
+                {/* Doctor Master */}
+                <Route path="/DoctorList" element={<DoctorList />} />
+                <Route path="/DoctorSchedule/:employee_id" element={<DoctorSchedule />} />
+
+                {/* Investigation Billing */}
+                <Route path="/InvestigationBilling" element={<InvestigationBilling />} />
+                <Route path="/ViewBills" element={<ViewBills />} />
+                <Route path="/ViewEstimate" element={<ViewEstimate />} />
+
+                {/* Investigation Reports */}
+                <Route path="/CTList" element={<CTList />} />
+                <Route path="/CTReportForm/:uhid/:subUhid" element={<CTReportForm />} />
+                <Route path="/MRIList" element={<MRIList />} />
+                <Route path="/MRIReportForm/:uhid/:subUhid" element={<MRIReportForm />} />
+                <Route path="/USGList" element={<USGList />} />
+                <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
+                <Route path="/XRayList" element={<XRayList />} />
+                <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
+
+                {/* Discharge */}
+                <Route path="/DischargeReport" element={<DischargeReport />} />
               </>
             )}
           </Routes>

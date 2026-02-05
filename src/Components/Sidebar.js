@@ -10,7 +10,12 @@ import {
   FiActivity,
   FiPackage,
   FiShoppingBag,
-  FiTruck
+
+  FiTruck,
+  FiFileText,
+  FiUsers,
+  FiClipboard,
+  FiLayers
 } from "react-icons/fi";
 
 // Use the same theme colors for consistency
@@ -217,11 +222,47 @@ const Sidebar = ({ role }) => {
             </StyledNavLink>
 
             <NavGroupLabel>Pharmacy</NavGroupLabel>
+            <StyledNavLink to="/IPPharmacy">
+              <FiPackage /> <span>IP Pharmacy</span>
+            </StyledNavLink>
+            <StyledNavLink to="/OPPharmacy">
+              <FiShoppingBag /> <span>OP Pharmacy</span>
+            </StyledNavLink>
             <StyledNavLink to="/IPGRNGeneration">
               <FiActivity /> <span>IP GRN Generation</span>
             </StyledNavLink>
             <StyledNavLink to="/OPGRNGeneration">
               <FiActivity /> <span>OP GRN Generation</span>
+            </StyledNavLink>
+
+            <NavGroupLabel>Doctor Management</NavGroupLabel>
+            <StyledNavLink to="/DoctorList">
+              <FiUsers /> <span>Doctors</span>
+            </StyledNavLink>
+
+            <NavGroupLabel>Investigation Billing</NavGroupLabel>
+            <StyledNavLink to="/InvestigationBilling">
+              <FiFileText /> <span>Billing Entry</span>
+            </StyledNavLink>
+            <StyledNavLink to="/ViewBills">
+              <FiFileText /> <span>View Bills</span>
+            </StyledNavLink>
+            <StyledNavLink to="/ViewEstimate">
+              <FiFileText /> <span>View Estimates</span>
+            </StyledNavLink>
+
+            <NavGroupLabel>Investigation Reports</NavGroupLabel>
+            <StyledNavLink to="/CTList">
+              <FiActivity /> <span>CT Reports</span>
+            </StyledNavLink>
+            <StyledNavLink to="/MRIList">
+              <FiActivity /> <span>MRI Reports</span>
+            </StyledNavLink>
+            <StyledNavLink to="/USGList">
+              <FiActivity /> <span>USG Reports</span>
+            </StyledNavLink>
+            <StyledNavLink to="/XRayList">
+              <FiActivity /> <span>X-Ray Reports</span>
             </StyledNavLink>
 
             <NavGroupLabel>Rooms</NavGroupLabel>
@@ -248,11 +289,17 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/Admission">
               <FiUserPlus /> <span>Admission</span>
             </StyledNavLink>
-            <StyledNavLink to="/RoomEnquiry">
-              <FiActivity /> <span>Enquiry Room</span>
+            <StyledNavLink to="/Enquiry">
+              <FiFileText /> <span>Enquiry</span>
             </StyledNavLink>
             <StyledNavLink to="/DischargeForm">
               <FiLogOut /> <span>Discharge Form</span>
+            </StyledNavLink>
+            <StyledNavLink to="/Summary">
+              <FiActivity /> <span>Discharge Summary</span>
+            </StyledNavLink>
+            <StyledNavLink to="/DischargeReport">
+              <FiFileText /> <span>Discharge Reports</span>
             </StyledNavLink>
 
             <NavGroupLabel>Nursing Station</NavGroupLabel>

@@ -5,6 +5,7 @@ import styled from "styled-components"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
 import { Search, Plus, ChevronDown, ChevronUp, Info } from "lucide-react"
+import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 // Modal component for search results
 const Modal = ({ show, onClose, title, children, footer }) => {
@@ -26,77 +27,7 @@ const Modal = ({ show, onClose, title, children, footer }) => {
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-// Reference Doctor Form Component
-const ReferenceDoctorForm = ({ closeModal }) => {
-    const [doctor, setDoctor] = useState({
-        name: "",
-        qualification: "",
-        area: "",
-        mobile: "",
-    })
 
-    const handleChange = (e) => {
-        const { name, value } = e.target
-        setDoctor({ ...doctor, [name]: value })
-    }
-
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        axios
-            .post(`${Hmsbaseurl}add-reference-doctor/`, doctor)
-            .then((response) => {
-                console.log("Doctor added:", response.data)
-                closeModal()
-            })
-            .catch((error) => {
-                console.error("Error adding doctor:", error)
-            })
-    }
-
-    return (
-        <Modal
-            show={true}
-            onClose={closeModal}
-            title="Add Reference Doctor"
-            footer={
-                <ButtonGroup>
-                    <Button type="button" onClick={closeModal}>
-                        Cancel
-                    </Button>
-                    <Button type="button" onClick={handleSubmit} primary>
-                        Save
-                    </Button>
-                </ButtonGroup>
-            }
-        >
-            <FormGrid columns={1}>
-                <InputWrapper>
-                    <Label htmlFor="name">Doctor Name</Label>
-                    <Input type="text" id="name" name="name" value={doctor.name} onChange={handleChange} required />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label htmlFor="qualification">Qualification</Label>
-                    <Input
-                        type="text"
-                        id="qualification"
-                        name="qualification"
-                        value={doctor.qualification}
-                        onChange={handleChange}
-                        required
-                    />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label htmlFor="area">Area</Label>
-                    <Input type="text" id="area" name="area" value={doctor.area} onChange={handleChange} />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label htmlFor="mobile">Mobile</Label>
-                    <Input type="text" id="mobile" name="mobile" value={doctor.mobile} onChange={handleChange} />
-                </InputWrapper>
-            </FormGrid>
-        </Modal>
-    )
-}
 
 // Collapsible Section Component
 const CollapsibleSection = ({ title, children, defaultOpen = true, icon }) => {
@@ -114,6 +45,36 @@ const CollapsibleSection = ({ title, children, defaultOpen = true, icon }) => {
     )
 }
 
+const LastUhidBadge = styled.div`
+  margin-left: auto;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #15616d;
+  background: rgba(21, 97, 109, 0.1);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(21, 97, 109, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(21, 97, 109, 0.05);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(21, 97, 109, 0.15);
+    background: rgba(21, 97, 109, 0.15);
+  }
+
+  &::before {
+    content: "•";
+    color: #38b2ac;
+    font-size: 1.5rem;
+    line-height: 0;
+  }
+`;
+
 const PatientRegistrationForm = () => {
     const navigate = useNavigate()
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -125,6 +86,7 @@ const PatientRegistrationForm = () => {
         citizenIdType: "",
         citizenIdNo: "",
         customerType: "",
+        salutation: "",
         firstName: "",
         lastName: "",
         name: "", // Keep for backward compatibility
@@ -175,6 +137,23 @@ const PatientRegistrationForm = () => {
     const [ipNumber, setIpNumber] = useState("")
     const [mobile, setMobile] = useState("")
     const [patients, setPatients] = useState([])
+    const [searchDoctorTerm, setSearchDoctorTerm] = useState("") // New state for searching referredBy
+    const [lastUhid, setLastUhid] = useState("") // State for last UHID
+
+    // Fetch Last UHID on mount
+    useEffect(() => {
+        const fetchLastUhid = async () => {
+            try {
+                const response = await axios.get(`${Hmsbaseurl}get-last-uhid/`);
+                if (response.data && response.data.uhid) {
+                    setLastUhid(response.data.uhid);
+                }
+            } catch (error) {
+                console.error("Error fetching last UHID:", error);
+            }
+        };
+        fetchLastUhid();
+    }, []);
 
     // Doctor and fee states
     const [doctors, setDoctors] = useState([])
@@ -243,6 +222,7 @@ const PatientRegistrationForm = () => {
                 citizenIdType: "citizen_id_type",
                 citizenIdNo: "citizen_id_no",
                 customerType: "customer_type",
+                salutation: "salutation",
                 permanentAddress: "permanent_address",
                 homePhone: "home_phone",
                 bloodGroup: "blood_group",
@@ -295,6 +275,7 @@ const PatientRegistrationForm = () => {
                     citizenIdType: "",
                     citizenIdNo: "",
                     customerType: "",
+                    salutation: "",
                     firstName: "",
                     lastName: "",
                     name: "",
@@ -380,12 +361,13 @@ const PatientRegistrationForm = () => {
 
     // Select patient from search results
     const handleSelectPatient = (selectedPatient) => {
-        setPatient({ ...selectedPatient })
+        const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
+        setPatient({ ...selectedPatient, name: fullName })
         setShowSearchModal(false)
     }
 
-    // Fetch doctors on component mount
-    useEffect(() => {
+    // Load doctors and reference doctors
+    const loadDoctors = () => {
         axios
             .get(`${Hmsbaseurl}doctor_schedule/`)
             .then((response) => {
@@ -394,19 +376,44 @@ const PatientRegistrationForm = () => {
                     registrationFee: Number.parseFloat(doctor.registration_fee),
                     consultingFee: Number.parseFloat(doctor.consulting_fee),
                     specialty: doctor.specialty,
+                    type: "Internal"
                 }))
                 setDoctors(doctorsData)
             })
             .catch((error) => console.error("Error fetching doctors:", error))
+    };
 
+    const loadReferenceDoctors = () => {
         axios.get(`${Hmsbaseurl}get-reference-doctors/`)
             .then((response) => {
-                setReferenceDoctors(response.data)
+                // Ensure shape matches expectation
+                const formattedRefs = response.data.map(d => ({
+                    ...d,
+                    name: d.doctor, // Map 'doctor' field to 'name' for consistent usage
+                    type: "Reference"
+                }));
+                setReferenceDoctors(formattedRefs)
             })
             .catch((error) => {
-                console.error("Error fetching doctors:", error)
+                console.error("Error fetching reference doctors:", error)
             })
+    };
+
+    // Fetch doctors on component mount
+    useEffect(() => {
+        loadDoctors();
+        loadReferenceDoctors();
     }, [])
+
+    // Combine lists for Referred By search
+    const allDoctors = [
+        ...doctors.map(d => ({ ...d, label: `${d.name} (Internal)` })),
+        ...referenceDoctors.map(d => ({ ...d, label: `${d.name} (${d.qualification || 'Ext'}) - ${d.area || ''}` }))
+    ];
+
+    const filteredDoctors = allDoctors.filter(doc =>
+        doc.name.toLowerCase().includes(searchDoctorTerm.toLowerCase())
+    );
 
     // Handle doctor selection for fee calculation
     const handleDoctorChange = (event) => {
@@ -504,6 +511,7 @@ const PatientRegistrationForm = () => {
         <PageContainer>
             <PageHeader>
                 <PageTitle>Patient Registration System</PageTitle>
+                {lastUhid && <LastUhidBadge>Last Created UHID: {lastUhid}</LastUhidBadge>}
             </PageHeader>
 
             {/* Search Container */}
@@ -621,6 +629,24 @@ const PatientRegistrationForm = () => {
                         {/* Personal Information Section - UPDATED WITH FIRST AND LAST NAME */}
                         <CollapsibleSection title="Personal Information">
                             <FormGrid columns={3}>
+                                <InputWrapper>
+                                    <Label htmlFor="salutation">Salutation<RequiredAsterisk>*</RequiredAsterisk></Label>
+                                    <Select
+                                        id="salutation"
+                                        name="salutation"
+                                        value={patient.salutation}
+                                        required
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Select</option>
+                                        <option value="Mr.">Mr.</option>
+                                        <option value="Mrs.">Mrs.</option>
+                                        <option value="Ms.">Ms.</option>
+                                        <option value="Dr.">Dr.</option>
+                                        <option value="Master">Master</option>
+                                        <option value="Baby">Baby</option>
+                                    </Select>
+                                </InputWrapper>
                                 <InputWrapper>
                                     <Label htmlFor="firstName">
                                         First Name <RequiredAsterisk>*</RequiredAsterisk>
@@ -769,15 +795,26 @@ const PatientRegistrationForm = () => {
                                 <InputWrapper>
                                     <Label htmlFor="referredBy">Referred By</Label>
                                     <InputGroup>
-                                        <Select id="referredBy" name="referredBy" value={patient.referredBy} onChange={handleChange}>
-                                            <option value="">Select Doctor</option>
-                                            {referenceDoctors.map((doc, index) => (
-                                                <option key={index} value={doc.doctor}>
-                                                    {doc.doctor} ({doc.qualification}) - {doc.area}
+                                        <Input
+                                            list="doctor-options"
+                                            id="referredBy"
+                                            name="referredBy"
+                                            value={patient.referredBy}
+                                            onChange={(e) => {
+                                                handleChange(e);
+                                                setSearchDoctorTerm(e.target.value);
+                                            }}
+                                            placeholder="Search or Select Doctor"
+                                            onClick={() => setSearchDoctorTerm("")} // Clear search to see all options on click if desired
+                                        />
+                                        <datalist id="doctor-options">
+                                            {allDoctors.map((doc, index) => (
+                                                <option key={index} value={doc.name}>
+                                                    {doc.label}
                                                 </option>
                                             ))}
-                                        </Select>
-                                        <InputAddon onClick={() => setIsModalOpen(true)}>
+                                        </datalist>
+                                        <InputAddon onClick={() => setIsModalOpen(true)} title="Add New Doctor">
                                             <Plus size={16} />
                                         </InputAddon>
                                     </InputGroup>
@@ -814,9 +851,16 @@ const PatientRegistrationForm = () => {
                                     <Label htmlFor="mlcType">MLC Type</Label>
                                     <Select id="mlcType" name="mlcType" value={patient.mlcType} onChange={handleChange}>
                                         <option value="">Select MLC Type</option>
-                                        <option value="Type1">Type 1</option>
-                                        <option value="Type2">Type 2</option>
-                                        <option value="Type3">Type 3</option>
+                                        <option value="RTA">RTA (Road Traffic Accident)</option>
+                                        <option value="Assault">Assault</option>
+                                        <option value="Poisoning">Poisoning</option>
+                                        <option value="Burns">Burns</option>
+                                        <option value="Fall">Fall</option>
+                                        <option value="Electric Shock">Electric Shock</option>
+                                        <option value="Drowning">Drowning</option>
+                                        <option value="Suicide">Suicide Attempt</option>
+                                        <option value="Workplace Injury">Workplace Injury</option>
+                                        <option value="Other">Other</option>
                                     </Select>
                                 </InputWrapper>
                                 <InputWrapper>
@@ -1166,7 +1210,7 @@ const PatientRegistrationForm = () => {
                             patients.map((p, index) => (
                                 <TableRow key={index}>
                                     <TableCell>{p.uhid}</TableCell>
-                                    <TableCell>{p.name}</TableCell>
+                                    <TableCell>{`${p.salutation || ""} ${p.firstName} ${p.lastName}`}</TableCell>
                                     <TableCell>{p.gender}</TableCell>
                                     <TableCell>{p.mobilePhone}</TableCell>
                                     <TableCell>
@@ -1188,7 +1232,16 @@ const PatientRegistrationForm = () => {
             </Modal>
 
             {/* Reference Doctor Form Modal */}
-            {isModalOpen && <ReferenceDoctorForm closeModal={() => setIsModalOpen(false)} />}
+            {isModalOpen && (
+                <ReferenceDoctorForm
+                    closeModal={() => setIsModalOpen(false)}
+                    setReferredBy={(name) => {
+                        setPatient(prev => ({ ...prev, referredBy: name }));
+                        setSearchDoctorTerm(name);
+                    }}
+                    fetchReferenceDoctors={loadReferenceDoctors}
+                />
+            )}
         </PageContainer>
     )
 }
