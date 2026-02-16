@@ -72,13 +72,6 @@ const ContentWrapper = styled.div`
   }
 `;
 
-// Determine user role based on allowed actions
-function getUserRole(allowedActions) {
-  if (!allowedActions || !Array.isArray(allowedActions)) return "Pharmacist";
-  if (allowedActions.includes("HMS-R-PH")) return "Pharmacist";
-  return "Receptionist";
-}
-
 // Main App
 function App() {
   const location = useLocation();
@@ -88,13 +81,13 @@ function App() {
 
   // On mount: get role from localStorage or API
   useEffect(() => {
-    const allowedActions = JSON.parse(localStorage.getItem("allowedActions")); // Example
-    const userRole = getUserRole(allowedActions);
+    const userRole = localStorage.getItem('role')
     setRole(userRole);
 
     // Auto-navigate to default route
     if (location.pathname === "/") {
       if (userRole === "Pharmacist") navigate("/OPPharmacy");
+      if (userRole === "Super Admin") navigate("/PatientRegistrationForm");
       else navigate("/PatientRegistrationForm");
     }
     setIsLoading(false);
@@ -158,10 +151,6 @@ function App() {
 
   // Routes where sidebar is hidden (login page)
   const hideSidebarRoutes = ["/"];
-
-  if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>Loading...</div>;
-  if (!role) return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
-
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
@@ -174,8 +163,6 @@ function App() {
       ) : (
         <ContentWrapper>
           <Routes>
-            {/* Pharmacist sees all */}
-            {role === "Pharmacist" && (
               <>
                 <Route path="/Admission" element={<Admission />} />
                 <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
@@ -221,7 +208,6 @@ function App() {
                 {/* Discharge */}
                 <Route path="/DischargeReport" element={<DischargeReport />} />
               </>
-            )}
           </Routes>
         </ContentWrapper>
       )}

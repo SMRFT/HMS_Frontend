@@ -1,45 +1,26 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  Container,
-  PageWrapper,
-  FormContent,
-  FormRow,
-  InputWrapper,
-  Label,
-  Input,
-  Button,
-  ButtonContainer,
-  TableWrapper,
-  Table,
-  Th,
-  Td,
-  Tr,
-  SectionHeader,
-  TextArea,
+  Container, PageWrapper, FormContent, FormRow,
+  InputWrapper, Label, Input, Button, ButtonContainer,
+  TableWrapper, Table, Th, Td, Tr, SectionHeader,
 } from "../GlobalStyles";
 
 const RoomCategory = () => {
   const [categories, setCategories] = useState([]);
-  const [formData, setFormData] = useState({ ward_name: "", description: "" });
-  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData]     = useState({ name: "" });
+  const [editingId, setEditingId]   = useState(null);   // holds room_category_id (integer)
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useEffect(() => { fetchCategories(); }, []);
 
   const fetchCategories = async () => {
     try {
       const response = await apiRequest(`${HmsBaseUrl}room-category/`, "GET");
-      if (response && !response.error) {
-        setCategories(Array.isArray(response.data) ? response.data : []);
-      } else {
-        setCategories([]);
-      }
-    } catch (error) {
+      setCategories(response && !response.error && Array.isArray(response.data)
+        ? response.data : []);
+    } catch {
       toast.error("Failed to fetch room categories");
     }
   };
@@ -50,31 +31,32 @@ const RoomCategory = () => {
   };
 
   const handleEdit = (category) => {
-    setEditingId(category.id);
-    setFormData({
-      ward_name: category.ward_name,
-      description: category.description || ""
-    });
+    // room_category_id is the PK (integer: 1, 2, 3 …)
+    setEditingId(category.room_category_id);
+    setFormData({ name: category.name });
     window.scrollTo(0, 0);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}room-category/${id}/`, "DELETE");
-        if (response) {
-          toast.success("Category deleted successfully");
-          fetchCategories();
-        }
-      } catch (error) {
-        toast.error("Failed to delete category");
+  const handleDelete = async (category) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}room-category/${category.room_category_id}/`, "DELETE"
+      );
+      if (response && !response.error) {
+        toast.success("Category deleted successfully");
+        fetchCategories();
+      } else {
+        toast.error(response?.error || "Failed to delete category");
       }
+    } catch {
+      toast.error("Failed to delete category");
     }
   };
 
   const handleReset = () => {
     setEditingId(null);
-    setFormData({ ward_name: "", description: "" });
+    setFormData({ name: "" });
   };
 
   const handleSubmit = async (e) => {
@@ -82,32 +64,28 @@ const RoomCategory = () => {
     try {
       if (editingId) {
         const response = await apiRequest(
-          `${HmsBaseUrl}room-category/${editingId}/`,
-          "PUT",
-          formData
+          `${HmsBaseUrl}room-category/${editingId}/`, "PUT", formData
         );
         if (response && !response.error) {
           toast.success("Category updated successfully");
           handleReset();
           fetchCategories();
         } else {
-          toast.error(response.error || "Update failed");
+          toast.error(response?.error || "Update failed");
         }
       } else {
         const response = await apiRequest(
-          `${HmsBaseUrl}room-category/`,
-          "POST",
-          formData
+          `${HmsBaseUrl}room-category/`, "POST", formData
         );
         if (response && !response.error) {
           toast.success("Category added successfully");
           handleReset();
           fetchCategories();
         } else {
-          toast.error(response.error || "Create failed");
+          toast.error(response?.error || "Create failed");
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save category");
     }
   };
@@ -115,39 +93,26 @@ const RoomCategory = () => {
   return (
     <PageWrapper>
       <Container>
-        <SectionHeader>
-          <h3>Room Category Management</h3>
-        </SectionHeader>
+        <SectionHeader><h3>Room Category Management</h3></SectionHeader>
 
         <FormContent>
           <form onSubmit={handleSubmit}>
-            <FormRow>
+            <FormRow columns="1fr">
               <InputWrapper>
-                <Label required>Ward Name</Label>
+                <Label required>Room Category Name</Label>
                 <Input
                   type="text"
-                  name="ward_name"
-                  value={formData.ward_name}
+                  name="name"
+                  value={formData.name}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter Ward Name"
-                />
-              </InputWrapper>
-              <InputWrapper>
-                <Label>Description</Label>
-                <TextArea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter Description"
+                  placeholder="Enter Room Category Name"
                 />
               </InputWrapper>
             </FormRow>
 
             <ButtonContainer>
-              <Button secondary type="button" onClick={handleReset}>
-                Reset
-              </Button>
+              <Button secondary type="button" onClick={handleReset}>Reset</Button>
               <Button type="submit">
                 {editingId ? "Update Category" : "Add Category"}
               </Button>
@@ -161,8 +126,8 @@ const RoomCategory = () => {
             <Table>
               <thead>
                 <tr>
-                  <Th>Ward Name</Th>
-                  <Th>Description</Th>
+                  <Th>Category ID</Th>
+                  <Th>Room Category Name</Th>
                   <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
@@ -176,12 +141,12 @@ const RoomCategory = () => {
                   </Tr>
                 ) : (
                   categories.map((cat) => (
-                    <Tr key={cat.id}>
-                      <Td>{cat.ward_name}</Td>
-                      <Td>{cat.description}</Td>
+                    <Tr key={cat.room_category_id}>
+                      <Td>{cat.room_category_id}</Td>
+                      <Td>{cat.name}</Td>
                       <Td>
-                        <span style={{ color: cat.is_active ? 'green' : 'red' }}>
-                          {cat.is_active ? 'Active' : 'Inactive'}
+                        <span style={{ color: cat.is_active ? "green" : "red" }}>
+                          {cat.is_active ? "Active" : "Inactive"}
                         </span>
                       </Td>
                       <Td>
@@ -189,16 +154,12 @@ const RoomCategory = () => {
                           <Button
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                             onClick={() => handleEdit(cat)}
-                          >
-                            Edit
-                          </Button>
+                          >Edit</Button>
                           <Button
                             danger
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(cat.id)}
-                          >
-                            Delete
-                          </Button>
+                            onClick={() => handleDelete(cat)}
+                          >Delete</Button>
                         </div>
                       </Td>
                     </Tr>

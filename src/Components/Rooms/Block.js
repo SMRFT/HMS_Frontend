@@ -1,44 +1,26 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  Container,
-  PageWrapper,
-  FormContent,
-  FormRow,
-  InputWrapper,
-  Label,
-  Input,
-  Button,
-  ButtonContainer,
-  TableWrapper,
-  Table,
-  Th,
-  Td,
-  Tr,
-  SectionHeader,
+  Container, PageWrapper, FormContent, FormRow,
+  InputWrapper, Label, Input, Button, ButtonContainer,
+  TableWrapper, Table, Th, Td, Tr, SectionHeader,
 } from "../GlobalStyles";
 
 const Block = () => {
-  const [blocks, setBlocks] = useState([]);
+  const [blocks, setBlocks]     = useState([]);
   const [formData, setFormData] = useState({ block_name: "" });
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);   // holds block_id (integer)
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => {
-    fetchBlocks();
-  }, []);
+  useEffect(() => { fetchBlocks(); }, []);
 
   const fetchBlocks = async () => {
     try {
       const response = await apiRequest(`${HmsBaseUrl}block/`, "GET");
-      if (response && !response.error) {
-        setBlocks(Array.isArray(response.data) ? response.data : []);
-      } else {
-        setBlocks([]);
-      }
-    } catch (error) {
+      setBlocks(response && !response.error && Array.isArray(response.data)
+        ? response.data : []);
+    } catch {
       toast.error("Failed to fetch blocks");
     }
   };
@@ -49,22 +31,26 @@ const Block = () => {
   };
 
   const handleEdit = (block) => {
-    setEditingId(block.id);
+    // block_id is now the PK (integer: 1, 2, 3 …)
+    setEditingId(block.block_id);
     setFormData({ block_name: block.block_name });
     window.scrollTo(0, 0);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this block?")) {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}block/${id}/`, "DELETE");
-        if (response) {
-          toast.success("Block deleted successfully");
-          fetchBlocks();
-        }
-      } catch (error) {
-        toast.error("Failed to delete block");
+  const handleDelete = async (block) => {
+    if (!window.confirm("Are you sure you want to delete this block?")) return;
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}block/${block.block_id}/`, "DELETE"
+      );
+      if (response && !response.error) {
+        toast.success("Block deleted successfully");
+        fetchBlocks();
+      } else {
+        toast.error(response?.error || "Failed to delete block");
       }
+    } catch {
+      toast.error("Failed to delete block");
     }
   };
 
@@ -77,35 +63,29 @@ const Block = () => {
     e.preventDefault();
     try {
       if (editingId) {
-        // Update
         const response = await apiRequest(
-          `${HmsBaseUrl}block/${editingId}/`,
-          "PUT",
-          formData
+          `${HmsBaseUrl}block/${editingId}/`, "PUT", formData
         );
         if (response && !response.error) {
           toast.success("Block updated successfully");
           handleReset();
           fetchBlocks();
         } else {
-          toast.error(response.error || "Update failed");
+          toast.error(response?.error || "Update failed");
         }
       } else {
-        // Create
         const response = await apiRequest(
-          `${HmsBaseUrl}block/`,
-          "POST",
-          formData
+          `${HmsBaseUrl}block/`, "POST", formData
         );
         if (response && !response.error) {
           toast.success("Block added successfully");
           handleReset();
           fetchBlocks();
         } else {
-          toast.error(response.error || "Create failed");
+          toast.error(response?.error || "Create failed");
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save block");
     }
   };
@@ -113,9 +93,7 @@ const Block = () => {
   return (
     <PageWrapper>
       <Container>
-        <SectionHeader>
-          <h3>Block Management</h3>
-        </SectionHeader>
+        <SectionHeader><h3>Block Management</h3></SectionHeader>
 
         <FormContent>
           <form onSubmit={handleSubmit}>
@@ -134,9 +112,7 @@ const Block = () => {
             </FormRow>
 
             <ButtonContainer>
-              <Button secondary type="button" onClick={handleReset}>
-                Reset
-              </Button>
+              <Button secondary type="button" onClick={handleReset}>Reset</Button>
               <Button type="submit">
                 {editingId ? "Update Block" : "Add Block"}
               </Button>
@@ -152,7 +128,6 @@ const Block = () => {
                 <tr>
                   <Th>Block ID</Th>
                   <Th>Block Name</Th>
-                  <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
@@ -165,29 +140,20 @@ const Block = () => {
                   </Tr>
                 ) : (
                   blocks.map((block) => (
-                    <Tr key={block.id || block.block_id}>
+                    <Tr key={block.block_id}>
                       <Td>{block.block_id}</Td>
                       <Td>{block.block_name}</Td>
-                      <Td>
-                        <span style={{ color: block.is_active ? 'green' : 'red' }}>
-                          {block.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
                           <Button
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
                             onClick={() => handleEdit(block)}
-                          >
-                            Edit
-                          </Button>
+                          >Edit</Button>
                           <Button
                             danger
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(block.id)}
-                          >
-                            Delete
-                          </Button>
+                            onClick={() => handleDelete(block)}
+                          >Delete</Button>
                         </div>
                       </Td>
                     </Tr>

@@ -234,6 +234,35 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/OPGRNGeneration">
               <FiActivity /> <span>OP GRN Generation</span>
             </StyledNavLink>
+          </>
+          )}
+
+        {role === "Super Admin" && (
+          <>
+            <NavGroupLabel>Inventory</NavGroupLabel>
+            <StyledNavLink to="/IPPharmacyStock">
+              <FiPackage /> <span>IP Pharmacy Stock</span>
+            </StyledNavLink>
+            <StyledNavLink to="/OPPharmacyStock">
+              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
+            </StyledNavLink>
+            <StyledNavLink to="/VendorManagement">
+              <FiTruck /> <span>Vendor Management</span>
+            </StyledNavLink>
+
+            <NavGroupLabel>Pharmacy</NavGroupLabel>
+            <StyledNavLink to="/IPPharmacy">
+              <FiPackage /> <span>IP Pharmacy</span>
+            </StyledNavLink>
+            <StyledNavLink to="/OPPharmacy">
+              <FiShoppingBag /> <span>OP Pharmacy</span>
+            </StyledNavLink>
+            <StyledNavLink to="/IPGRNGeneration">
+              <FiActivity /> <span>IP GRN Generation</span>
+            </StyledNavLink>
+            <StyledNavLink to="/OPGRNGeneration">
+              <FiActivity /> <span>OP GRN Generation</span>
+            </StyledNavLink>
 
             <NavGroupLabel>Doctor Management</NavGroupLabel>
             <StyledNavLink to="/DoctorList">
@@ -274,12 +303,6 @@ const Sidebar = ({ role }) => {
             </StyledNavLink>
             <StyledNavLink to="/Room">
               <FiHome /> <span>Room</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Bed">
-              <FiActivity /> <span>Bed</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Service">
-              <FiActivity /> <span>Service</span>
             </StyledNavLink>
             <StyledNavLink to="/RoomEnquiry">
               <FiActivity /> <span>Room Enquiry</span>

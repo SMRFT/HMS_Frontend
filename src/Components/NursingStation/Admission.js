@@ -122,6 +122,13 @@ const Admission = () => {
     }
 
     try {
+      // Check if already admitted locally first
+      const alreadyAdmitted = admissions.find(adm => adm.uhid === formData.uhid && adm.is_active !== false);
+      if (alreadyAdmitted) {
+        toast.error(`Patient ${alreadyAdmitted.firstName} is ALREADY ADMITTED (IP: ${alreadyAdmitted.ipNumber})`);
+        // Optional: Display in modal if needed, but Toast is clear.
+      }
+
       const response = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(formData.uhid)}/`, "GET");
       if (response.success) {
         const data = response.data;
