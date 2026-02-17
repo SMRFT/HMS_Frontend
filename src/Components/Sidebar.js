@@ -17,6 +17,7 @@ import {
   FiClipboard,
   FiLayers
 } from "react-icons/fi";
+import { hasPagePermission } from "../Auth/FrontendPageMapping";
 
 // Use the same theme colors for consistency
 const colors = {
@@ -188,7 +189,10 @@ const LogoutButton = styled.button`
   }
 `;
 
-const Sidebar = ({ role }) => {
+const Sidebar = ({ role, allowedActions }) => {
+  // Helper to check if any route in a group is allowed
+  const showGroup = (routes) => routes.some(route => hasPagePermission(route, allowedActions));
+
   return (
     <SidebarContainer>
       <BrandSection>
@@ -197,116 +201,184 @@ const Sidebar = ({ role }) => {
       </BrandSection>
 
       <NavMenu>
-        <NavGroupLabel>Main Menu</NavGroupLabel>
+        <NavGroupLabel>Admin Controls</NavGroupLabel>
 
-        <StyledNavLink to="/Dashboard">
-          <FiHome /> <span>Dashboard</span>
-        </StyledNavLink>
-        <StyledNavLink to="/PatientRegistrationForm">
-          <FiUserPlus /> <span>Patient Registration</span>
-        </StyledNavLink>
+        {/* Dummy Link for Testing */}
 
+
+
+        {hasPagePermission("/UserPermissions", allowedActions) && (
+          <StyledNavLink to="/UserPermissions">
+            <FiUsers /> <span>Permission Manager</span>
+          </StyledNavLink>
+        )}
         <NavGroupLabel>Patient Management</NavGroupLabel>
+        {hasPagePermission("/Dashboard", allowedActions) && (
+          <StyledNavLink to="/Dashboard">
+            <FiHome /> <span>Dashboard</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/PatientRegistrationForm", allowedActions) && (
+          <StyledNavLink to="/PatientRegistrationForm">
+            <FiUserPlus /> <span>Patient Registration</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/RegistrationBills", allowedActions) && (
+          <StyledNavLink to="/RegistrationBills">
+            <FiFileText /> <span>Registration Bills</span>
+          </StyledNavLink>
+        )}
+        {showGroup(["/IPPharmacyStock", "/OPPharmacyStock", "/VendorManagement"]) && (
+          <NavGroupLabel>Inventory</NavGroupLabel>
+        )}
+        {hasPagePermission("/IPPharmacyStock", allowedActions) && (
+          <StyledNavLink to="/IPPharmacyStock">
+            <FiPackage /> <span>IP Pharmacy Stock</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/OPPharmacyStock", allowedActions) && (
+          <StyledNavLink to="/OPPharmacyStock">
+            <FiShoppingBag /> <span>OP Pharmacy Stock</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/VendorManagement", allowedActions) && (
+          <StyledNavLink to="/VendorManagement">
+            <FiTruck /> <span>Vendor Management</span>
+          </StyledNavLink>
+        )}
 
-        {role === "Pharmacist" && (
-          <>
-            <NavGroupLabel>Inventory</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacyStock">
-              <FiPackage /> <span>IP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacyStock">
-              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/VendorManagement">
-              <FiTruck /> <span>Vendor Management</span>
-            </StyledNavLink>
+        {showGroup(["/IPPharmacy", "/OPPharmacy", "/IPGRNGeneration", "/OPGRNGeneration"]) && (
+          <NavGroupLabel>Pharmacy</NavGroupLabel>
+        )}
+        {hasPagePermission("/IPPharmacy", allowedActions) && (
+          <StyledNavLink to="/IPPharmacy">
+            <FiPackage /> <span>IP Pharmacy</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/OPPharmacy", allowedActions) && (
+          <StyledNavLink to="/OPPharmacy">
+            <FiShoppingBag /> <span>OP Pharmacy</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/IPGRNGeneration", allowedActions) && (
+          <StyledNavLink to="/IPGRNGeneration">
+            <FiActivity /> <span>IP GRN Generation</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/OPGRNGeneration", allowedActions) && (
+          <StyledNavLink to="/OPGRNGeneration">
+            <FiActivity /> <span>OP GRN Generation</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Pharmacy</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacy">
-              <FiPackage /> <span>IP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacy">
-              <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/IPGRNGeneration">
-              <FiActivity /> <span>IP GRN Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPGRNGeneration">
-              <FiActivity /> <span>OP GRN Generation</span>
-            </StyledNavLink>
+        {showGroup(["/DoctorList"]) && (
+          <NavGroupLabel>Doctor Management</NavGroupLabel>
+        )}
+        {hasPagePermission("/DoctorList", allowedActions) && (
+          <StyledNavLink to="/DoctorList">
+            <FiUsers /> <span>Doctors</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Doctor Management</NavGroupLabel>
-            <StyledNavLink to="/DoctorList">
-              <FiUsers /> <span>Doctors</span>
-            </StyledNavLink>
+        {showGroup(["/InvestigationBilling", "/ViewBills", "/ViewEstimate"]) && (
+          <NavGroupLabel>Investigation Billing</NavGroupLabel>
+        )}
+        {hasPagePermission("/InvestigationBilling", allowedActions) && (
+          <StyledNavLink to="/InvestigationBilling">
+            <FiFileText /> <span>Billing Entry</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Investigation Billing</NavGroupLabel>
-            <StyledNavLink to="/InvestigationBilling">
-              <FiFileText /> <span>Billing Entry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/ViewBills">
-              <FiFileText /> <span>View Bills</span>
-            </StyledNavLink>
-            <StyledNavLink to="/ViewEstimate">
-              <FiFileText /> <span>View Estimates</span>
-            </StyledNavLink>
+        {showGroup(["/CTList", "/MRIList", "/USGList", "/XRayList"]) && (
+          <NavGroupLabel>Investigation Reports</NavGroupLabel>
+        )}
+        {hasPagePermission("/CTList", allowedActions) && (
+          <StyledNavLink to="/CTList">
+            <FiActivity /> <span>CT Reports</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/MRIList", allowedActions) && (
+          <StyledNavLink to="/MRIList">
+            <FiActivity /> <span>MRI Reports</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/USGList", allowedActions) && (
+          <StyledNavLink to="/USGList">
+            <FiActivity /> <span>USG Reports</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/XRayList", allowedActions) && (
+          <StyledNavLink to="/XRayList">
+            <FiActivity /> <span>X-Ray Reports</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Investigation Reports</NavGroupLabel>
-            <StyledNavLink to="/CTList">
-              <FiActivity /> <span>CT Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/MRIList">
-              <FiActivity /> <span>MRI Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/USGList">
-              <FiActivity /> <span>USG Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/XRayList">
-              <FiActivity /> <span>X-Ray Reports</span>
-            </StyledNavLink>
+        {showGroup(["/Block", "/RoomCategory", "/Room", "/Bed", "/Service", "/RoomEnquiry"]) && (
+          <NavGroupLabel>Rooms</NavGroupLabel>
+        )}
+        {hasPagePermission("/Block", allowedActions) && (
+          <StyledNavLink to="/Block">
+            <FiHome /> <span>Block</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/RoomCategory", allowedActions) && (
+          <StyledNavLink to="/RoomCategory">
+            <FiActivity /> <span>Room Category</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/Room", allowedActions) && (
+          <StyledNavLink to="/Room">
+            <FiHome /> <span>Room</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/Bed", allowedActions) && (
+          <StyledNavLink to="/Bed">
+            <FiActivity /> <span>Bed</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/Service", allowedActions) && (
+          <StyledNavLink to="/Service">
+            <FiActivity /> <span>Service</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/RoomEnquiry", allowedActions) && (
+          <StyledNavLink to="/RoomEnquiry">
+            <FiActivity /> <span>Room Enquiry</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Rooms</NavGroupLabel>
-            <StyledNavLink to="/Block">
-              <FiHome /> <span>Block</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomCategory">
-              <FiActivity /> <span>Room Category</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Room">
-              <FiHome /> <span>Room</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Bed">
-              <FiActivity /> <span>Bed</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Service">
-              <FiActivity /> <span>Service</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomEnquiry">
-              <FiActivity /> <span>Room Enquiry</span>
-            </StyledNavLink>
+        {showGroup(["/Admission", "/Enquiry", "/DischargeForm", "/Summary"]) && (
+          <NavGroupLabel>Front Office</NavGroupLabel>
+        )}
+        {hasPagePermission("/Admission", allowedActions) && (
+          <StyledNavLink to="/Admission">
+            <FiUserPlus /> <span>Admission</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/Enquiry", allowedActions) && (
+          <StyledNavLink to="/Enquiry">
+            <FiFileText /> <span>Enquiry</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/DischargeForm", allowedActions) && (
+          <StyledNavLink to="/DischargeForm">
+            <FiLogOut /> <span>Discharge Form</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/Summary", allowedActions) && (
+          <StyledNavLink to="/Summary">
+            <FiActivity /> <span>Discharge Summary</span>
+          </StyledNavLink>
+        )}
 
-            <NavGroupLabel>Front Office</NavGroupLabel>
-            <StyledNavLink to="/Admission">
-              <FiUserPlus /> <span>Admission</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Enquiry">
-              <FiFileText /> <span>Enquiry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeForm">
-              <FiLogOut /> <span>Discharge Form</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Summary">
-              <FiActivity /> <span>Discharge Summary</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeReport">
-              <FiFileText /> <span>Discharge Reports</span>
-            </StyledNavLink>
 
-            <NavGroupLabel>Nursing Station</NavGroupLabel>
-            <StyledNavLink to="/RoomShifting">
-              <FiRepeat /> <span>Room Shifting</span>
-            </StyledNavLink>
-          </>
+        {showGroup(["/RoomShifting"]) && (
+          <NavGroupLabel>Nursing Station</NavGroupLabel>
+        )}
+        {hasPagePermission("/RoomShifting", allowedActions) && (
+          <StyledNavLink to="/RoomShifting">
+            <FiRepeat /> <span>Room Shifting</span>
+          </StyledNavLink>
         )}
       </NavMenu>
 

@@ -4,8 +4,11 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, ChevronDown, ChevronUp, Info } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
+
+import QRRegistrationModal from "./QRRegistrationModal"; // Keeping for backward compatibility or removal
+
 
 // Modal component for search results
 const Modal = ({ show, onClose, title, children, footer }) => {
@@ -47,33 +50,184 @@ const CollapsibleSection = ({ title, children, defaultOpen = true, icon }) => {
 
 const LastUhidBadge = styled.div`
   margin-left: auto;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #15616d;
-  background: rgba(21, 97, 109, 0.1);
+  font-size: 14px;
+  font-weight: 600;
+  color: #0d9488;
+  background: #f0fdfa;
   padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(21, 97, 109, 0.2);
+  border-radius: 9999px;
+  border: 1px solid #ccfbf1;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 2px 8px rgba(21, 97, 109, 0.05);
-  transition: all 0.3s ease;
-  backdrop-filter: blur(4px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(21, 97, 109, 0.15);
-    background: rgba(21, 97, 109, 0.15);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border-color: #99f6e4;
   }
 
   &::before {
-    content: "•";
-    color: #38b2ac;
-    font-size: 1.5rem;
-    line-height: 0;
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #0d9488;
+    display: block;
   }
 `;
+
+const SmallStatBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: ${props => props.color};
+  border: 1px solid ${props => props.borderColor};
+  color: ${props => props.textColor};
+  font-size: 13px;
+  font-weight: 600;
+  height: 40px;
+  white-space: nowrap;
+`;
+
+const StatsButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: white;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    color: #0d9488;
+    border-color: #ccfbf1;
+  }
+`;
+
+const StatsSection = styled.div`
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+`;
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+`;
+
+const StatCard = styled.div`
+  background: ${props => props.bgColor || '#f8fafc'};
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid ${props => props.borderColor || '#cbd5e1'};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  
+  &:hover {
+    transform: translateY(-2px);
+  }
+`;
+
+const StatValue = styled.h3`
+  font-size: 28px;
+  font-weight: 700;
+  color: ${props => props.color || '#1e293b'};
+  margin: 0;
+`;
+
+const StatLabel = styled.p`
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 8px 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const FiltersContainer = styled.div`
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const FilterGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+`;
+
+// const StatsButton = styled.button`
+//   background: #0d9488;
+//   color: white;
+//   border: none;
+//   border-radius: 8px;
+//   padding: 10px 16px;
+//   font-weight: 600;
+//   cursor: pointer;
+//   transition: all 0.2s;
+//   display: flex;
+//   align-items: center;
+//   gap: 8px;
+
+//   &:hover {
+//     background: #0f766e;
+//     transform: translateY(-1px);
+//   }
+// `;
+
+const DetailRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+const DetailLabel = styled.span`
+  font-weight: 500;
+  color: #64748b;
+`;
+
+const DetailValue = styled.span`
+  color: #1e293b;
+  font-weight: 600;
+`;
+
+
 
 const PatientRegistrationForm = () => {
     const navigate = useNavigate()
@@ -83,9 +237,6 @@ const PatientRegistrationForm = () => {
     // Patient state - UPDATED with firstName and lastName
     const [patient, setPatient] = useState({
         regDate: "",
-        citizenIdType: "",
-        citizenIdNo: "",
-        customerType: "",
         salutation: "",
         firstName: "",
         lastName: "",
@@ -105,32 +256,25 @@ const PatientRegistrationForm = () => {
         spouseName: "",
         referredBy: "",
         doctorName: "",
+        doctorId: "",
         registrationFee: 0,
         consultingFee: 0,
         totalFees: 0,
-        insuranceCompany: "",
         mlcType: "",
         mlcDoc: null,
         mlcRemarks: "",
         passAlertToAuthority: false,
-        nextOfKin: "",
-        relation: "",
-        kinAddress: "",
-        kinMobile: "",
-        kinAge: "",
-        kinAgeUnit: "Years",
-        kinOccupation: "",
-        memberNumber: "",
-        suffixNumber: "",
-        approvedAmount: "",
-        referredDrMobile: "",
-        referredDrRemarks: "",
         birthTime: "",
         birthTimeAmPm: "AM",
         weight: "",
         mothersUhidNo: "",
         pediatricianResponsible: "",
+        emergencyContact: "",
+        referredDoctorPhone: "",
+        customerType: "New", // Default to "New"
     })
+
+    const [isMlc, setIsMlc] = useState(false)
 
     // Search states
     const [uhid, setUhid] = useState("")
@@ -139,6 +283,77 @@ const PatientRegistrationForm = () => {
     const [patients, setPatients] = useState([])
     const [searchDoctorTerm, setSearchDoctorTerm] = useState("") // New state for searching referredBy
     const [lastUhid, setLastUhid] = useState("") // State for last UHID
+
+    // Stats State
+    const [stats, setStats] = useState({ new_visit: 0, existing_visit: 0, total_visit: 0 });
+    const [filterDate, setFilterDate] = useState({
+        from: new Date().toISOString().split('T')[0],
+        to: new Date().toISOString().split('T')[0]
+    });
+    const [filterDoctor, setFilterDoctor] = useState("");
+    const [showVisitList, setShowVisitList] = useState(false);
+    const [visitList, setVisitList] = useState([]);
+    const [selectedVisit, setSelectedVisit] = useState(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
+
+    // Handle data from QR scan
+    const handleQRDataReceived = (data) => {
+        setPatient(prev => {
+            let updated = { ...prev, ...data };
+
+            // Recalculate name
+            if (data.firstName || data.lastName) {
+                const f = data.firstName !== undefined ? data.firstName : prev.firstName;
+                const l = data.lastName !== undefined ? data.lastName : prev.lastName;
+                updated.firstName = f;
+                updated.lastName = l;
+                updated.name = `${f} ${l}`.trim();
+            }
+
+            // Calculate Age if DOB is present
+            if (data.dob) {
+                updated.age = calculateAgeFromDOB(data.dob);
+            }
+
+            return updated;
+        });
+    };
+
+
+    // Fetch stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
+                const response = await axios.get(`${Hmsbaseurl}patient-registration-stats/?${query}`);
+                setStats(response.data);
+            } catch (error) {
+                console.error("Error fetching stats:", error);
+            }
+        };
+        fetchStats();
+    }, [filterDate, filterDoctor]);
+
+    // Fetch list
+    const handleViewList = async () => {
+        try {
+            const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
+            const response = await axios.get(`${Hmsbaseurl}patient-visit-list/?${query}`);
+            setVisitList(response.data);
+            setShowVisitList(true);
+        } catch (error) {
+            console.error("Error fetching visit list:", error);
+        }
+    };
+
+    const handlePatientClick = (visit) => {
+        setSelectedVisit(visit);
+        setShowDetailModal(true);
+    };
+
+
+    const [isDoctorDropdownOpen, setIsDoctorDropdownOpen] = useState(false); // State for custom dropdown visibility
 
     // Fetch Last UHID on mount
     useEffect(() => {
@@ -219,39 +434,34 @@ const PatientRegistrationForm = () => {
 
             const backendKeys = {
                 regDate: "registration_date",
-                citizenIdType: "citizen_id_type",
-                citizenIdNo: "citizen_id_no",
-                customerType: "customer_type",
                 salutation: "salutation",
                 permanentAddress: "permanent_address",
                 homePhone: "home_phone",
                 bloodGroup: "blood_group",
                 spouseName: "spouse_name",
-                insuranceCompany: "insurance_company",
                 mlcType: "mlc_type",
                 mlcDoc: "mlc_doc",
                 mlcRemarks: "mlc_remarks",
                 passAlertToAuthority: "pass_alert_to_authority",
-                nextOfKin: "next_of_kin",
-                kinAddress: "kin_address",
-                kinMobile: "kin_mobile",
-                kinAge: "kin_age",
-                kinAgeUnit: "kin_age_unit",
-                kinOccupation: "kin_occupation",
-                memberNumber: "member_number",
-                suffixNumber: "suffix_number",
-                approvedAmount: "approved_amount",
-                referredDrMobile: "referred_dr_mobile",
-                referredDrRemarks: "referred_dr_remarks",
                 birthTime: "birth_time",
                 birthTimeAmPm: "birth_time_am_pm",
                 mothersUhidNo: "mothers_uhid_no",
                 pediatricianResponsible: "pediatrician_responsible",
+                doctorId: "employeeId", // Map to backend field
+                emergencyContact: "emergency_contact",
+                referredDoctorPhone: "referred_doctor_phone",
+                customerType: "customer_type",
             }
 
             // Append all patient data to formData
             Object.keys(patient).forEach((key) => {
                 const backendKey = backendKeys[key] || key
+
+                // Skip MLC fields if isMlc is false
+                if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
+                    return;
+                }
+
                 if (key === "mlcDoc" && patient[key]) {
                     formData.append(backendKey, patient[key])
                 } else if (patient[key] !== null && patient[key] !== undefined) {
@@ -272,9 +482,6 @@ const PatientRegistrationForm = () => {
                 // Reset form
                 setPatient({
                     regDate: "",
-                    citizenIdType: "",
-                    citizenIdNo: "",
-                    customerType: "",
                     salutation: "",
                     firstName: "",
                     lastName: "",
@@ -294,32 +501,21 @@ const PatientRegistrationForm = () => {
                     spouseName: "",
                     referredBy: "",
                     doctorName: "",
+                    doctorId: "",
                     registrationFee: 0,
                     consultingFee: 0,
                     totalFees: 0,
-                    insuranceCompany: "",
                     mlcType: "",
                     mlcDoc: null,
                     mlcRemarks: "",
                     passAlertToAuthority: false,
-                    nextOfKin: "",
-                    relation: "",
-                    kinAddress: "",
-                    kinMobile: "",
-                    kinAge: "",
-                    kinAgeUnit: "Years",
-                    kinOccupation: "",
-                    memberNumber: "",
-                    suffixNumber: "",
-                    approvedAmount: "",
-                    referredDrMobile: "",
-                    referredDrRemarks: "",
                     birthTime: "",
                     birthTimeAmPm: "AM",
                     weight: "",
                     mothersUhidNo: "",
                     pediatricianResponsible: "",
                 })
+                setIsMlc(false)
 
                 // Reset fee calculator
                 setSelectedDoctor({})
@@ -372,6 +568,7 @@ const PatientRegistrationForm = () => {
             .get(`${Hmsbaseurl}doctor_schedule/`)
             .then((response) => {
                 const doctorsData = response.data.map((doctor) => ({
+                    id: doctor.employeeId, // Capture employeeId
                     name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
                     registrationFee: Number.parseFloat(doctor.registration_fee),
                     consultingFee: Number.parseFloat(doctor.consulting_fee),
@@ -389,6 +586,7 @@ const PatientRegistrationForm = () => {
                 // Ensure shape matches expectation
                 const formattedRefs = response.data.map(d => ({
                     ...d,
+                    id: d.id, // Ensure ID is captured for reference doctors too if needed
                     name: d.doctor, // Map 'doctor' field to 'name' for consistent usage
                     type: "Reference"
                 }));
@@ -418,32 +616,42 @@ const PatientRegistrationForm = () => {
     // Handle doctor selection for fee calculation
     const handleDoctorChange = (event) => {
         const doctorName = event.target.value
+        setPatient({ ...patient, doctorName }) // Update text immediately for search
+        setIsDoctorDropdownOpen(true) // Open dropdown when typing
+
+        // Check if typed name matches exactly (optional, but good for quick type-match)
         const selected = doctors.find((doctor) => doctor.name === doctorName)
-
         if (selected) {
-            const regFee = selected.registrationFee || 0
-            const consFee = selected.consultingFee || 0
-            const hospFee = 0
-            const bookFee = 0
-            const total = regFee + consFee + hospFee + bookFee
-
-            setSelectedDoctor(selected)
-            setRegistrationFee(regFee)
-            setConsultingFee(consFee)
-            setHospitalFee(hospFee)
-            setBookingFee(bookFee)
-            setTotalFees(total)
-
-            setPatient({
-                ...patient,
-                doctorName: selected.name,
-                registrationFee: regFee,
-                consultingFee: consFee,
-                totalFees: total,
-            })
+            handleDoctorSelect(selected)
         } else {
-            resetFeeCalculator()
+            // If not found, reset fees but keep the name typed
+            resetFeeCalculator(false) // Pass false to NOT clear the name
         }
+    }
+
+    const handleDoctorSelect = (selected) => {
+        const regFee = selected.registrationFee || 0
+        const consFee = selected.consultingFee || 0
+        const hospFee = 0
+        const bookFee = 0
+        const total = regFee + consFee + hospFee + bookFee
+
+        setSelectedDoctor(selected)
+        setRegistrationFee(regFee)
+        setConsultingFee(consFee)
+        setHospitalFee(hospFee)
+        setBookingFee(bookFee)
+        setTotalFees(total)
+
+        setPatient(prev => ({
+            ...prev,
+            doctorName: selected.name,
+            doctorId: selected.id,
+            registrationFee: regFee,
+            consultingFee: consFee,
+            totalFees: total,
+        }))
+        setIsDoctorDropdownOpen(false) // Close dropdown
     }
 
     // Handle fee changes
@@ -476,7 +684,7 @@ const PatientRegistrationForm = () => {
     }
 
     // Reset fee calculator
-    const resetFeeCalculator = () => {
+    const resetFeeCalculator = (clearName = true) => {
         setSelectedDoctor({})
         setRegistrationFee(0)
         setConsultingFee(0)
@@ -484,13 +692,14 @@ const PatientRegistrationForm = () => {
         setBookingFee(0)
         setTotalFees(0)
 
-        setPatient({
-            ...patient,
-            doctorName: "",
+        setPatient(prev => ({
+            ...prev,
+            doctorName: clearName ? "" : prev.doctorName,
+            doctorId: "",
             registrationFee: 0,
             consultingFee: 0,
             totalFees: 0,
-        })
+        }))
     }
 
     const searchMotherUhid = () => {
@@ -510,689 +719,777 @@ const PatientRegistrationForm = () => {
     return (
         <PageContainer>
             <PageHeader>
-                <PageTitle>Patient Registration System</PageTitle>
-                {lastUhid && <LastUhidBadge>Last Created UHID: {lastUhid}</LastUhidBadge>}
+                <PageTitle>Patient <span>Registration</span></PageTitle>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginRight: '8px', flexWrap: 'wrap' }}>
+                        <SmallStatBadge color="#eff6ff" borderColor="#bfdbfe" textColor="#1e40af">
+                            <span style={{ fontWeight: 400, color: '#64748b' }}>New:</span>
+                            <span>{stats.new_visit}</span>
+                        </SmallStatBadge>
+                        <SmallStatBadge color="#f0fdf4" borderColor="#bbf7d0" textColor="#166534">
+                            <span style={{ fontWeight: 400, color: '#64748b' }}>Revisit:</span>
+                            <span>{stats.existing_visit}</span>
+                        </SmallStatBadge>
+                        <SmallStatBadge color="#fdf2f8" borderColor="#fbcfe8" textColor="#9d174d">
+                            <span style={{ fontWeight: 400, color: '#64748b' }}>Total:</span>
+                            <span>{stats.total_visit}</span>
+                        </SmallStatBadge>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <StatsButton onClick={handleViewList} style={{ background: 'white', color: '#6366f1', border: '1px solid #e0e7ff', height: '40px' }}>
+                            <List size={20} />
+                            <span>Visited List</span>
+                        </StatsButton>
+                        <StatsButton onClick={() => setShowQRModal(true)} style={{ background: 'white', color: '#0d9488', border: '1px solid #ccfbf1', height: '40px' }}>
+                            <QrCode size={20} />
+                            <span>QR Scan</span>
+                        </StatsButton>
+                    </div>
+                    {lastUhid && <LastUhidBadge>Last Created UHID: {lastUhid}</LastUhidBadge>}
+                </div>
             </PageHeader>
 
-            {/* Search Container */}
-            <SearchContainer>
-                <SectionTitle>Patient Search</SectionTitle>
-                <SearchRow>
-                    <InputWrapper>
-                        <Label htmlFor="uhid">UHID No</Label>
-                        <InputGroup>
-                            <Input
-                                type="text"
-                                id="uhid"
-                                placeholder="Enter UHID No"
-                                value={uhid}
-                                onChange={(e) => setUhid(e.target.value)}
-                            />
-                            <InputAddon onClick={fetchPatients}>
-                                <Search size={16} />
-                            </InputAddon>
-                        </InputGroup>
-                    </InputWrapper>
 
-                    <InputWrapper>
-                        <Label htmlFor="ipNumber">IP Number</Label>
-                        <InputGroup>
-                            <Input
-                                type="text"
-                                id="ipNumber"
-                                placeholder="Enter IP Number"
-                                value={ipNumber}
-                                onChange={(e) => setIpNumber(e.target.value)}
-                            />
-                            <InputAddon onClick={fetchPatients}>
-                                <Search size={16} />
-                            </InputAddon>
-                        </InputGroup>
-                    </InputWrapper>
 
-                    <InputWrapper>
-                        <Label htmlFor="mobile">Mobile</Label>
-                        <InputGroup>
-                            <Input
-                                type="text"
-                                id="mobile"
-                                placeholder="Enter Mobile"
-                                value={mobile}
-                                onChange={(e) => setMobile(e.target.value)}
-                            />
-                            <InputAddon onClick={fetchPatients}>
-                                <Search size={16} />
-                            </InputAddon>
-                        </InputGroup>
-                    </InputWrapper>
-                </SearchRow>
-            </SearchContainer>
-
-            {/* Main Content Container */}
             <MainContentWrapper>
-                {/* Patient Registration Form */}
-                <FormContainer>
-                    <ContainerTitle>Patient Registration</ContainerTitle>
-                    <form onSubmit={handleSubmit}>
-                        {/* Basic Information Section */}
-                        <CollapsibleSection title="Basic Information">
-                            <FormGrid>
-                                <InputWrapper>
-                                    <Label htmlFor="citizenIdType">Citizen ID Type</Label>
-                                    <Select id="citizenIdType" name="citizenIdType" value={patient.citizenIdType} onChange={handleChange}>
-                                        <option value="">Select ID Type</option>
-                                        <option value="Aadhar">Aadhar</option>
-                                        <option value="PAN">PAN</option>
-                                        <option value="Passport">Passport</option>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                    {/* Visit List Modal */}
+                    <Modal
+                        show={showVisitList}
+                        onClose={() => setShowVisitList(false)}
+                        title="Visited Patients List"
+                    >
+                        <div style={{ padding: '0 0 16px 0' }}>
+                            <FiltersContainer style={{ borderBottom: 'none', paddingBottom: '16px' }}>
+                                <FilterGroup>
+                                    <Label>From Date</Label>
+                                    <Input
+                                        type="date"
+                                        value={filterDate.from}
+                                        onChange={(e) => setFilterDate({ ...filterDate, from: e.target.value })}
+                                    />
+                                </FilterGroup>
+                                <FilterGroup>
+                                    <Label>To Date</Label>
+                                    <Input
+                                        type="date"
+                                        value={filterDate.to}
+                                        onChange={(e) => setFilterDate({ ...filterDate, to: e.target.value })}
+                                    />
+                                </FilterGroup>
+                                <FilterGroup>
+                                    <Label>Doctor</Label>
+                                    <Select
+                                        value={filterDoctor}
+                                        onChange={(e) => setFilterDoctor(e.target.value)}
+                                    >
+                                        <option value="">All Doctors</option>
+                                        {doctors.map(doc => (
+                                            <option key={doc.id} value={doc.id}>{doc.name}</option>
+                                        ))}
                                     </Select>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="citizenIdNo">Citizen ID Number</Label>
+                                </FilterGroup>
+                                <StatsButton
+                                    onClick={handleViewList}
+                                    style={{ marginTop: 'auto', height: '42px' }}
+                                >
+                                    <Search size={16} /> Filter
+                                </StatsButton>
+                            </FiltersContainer>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                                <thead>
+                                    <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Date</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>UHID</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Name</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Doctor</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Type</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Amount</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visitList.length > 0 ? (
+                                        visitList.map((visit, idx) => (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <td style={{ padding: '12px' }}>{visit.date}</td>
+                                                <td style={{ padding: '12px', fontWeight: '500' }}>{visit.uhid}</td>
+                                                <td
+                                                    style={{ padding: '12px', color: '#0d9488', cursor: 'pointer', fontWeight: '600' }}
+                                                    onClick={() => handlePatientClick(visit)}
+                                                >
+                                                    {visit.patientName} ({visit.age}/{visit.gender})
+                                                </td>
+                                                <td style={{ padding: '12px' }}>{visit.doctor}</td>
+                                                <td style={{ padding: '12px' }}>
+                                                    <span style={{
+                                                        padding: '4px 8px',
+                                                        borderRadius: '99px',
+                                                        fontSize: '12px',
+                                                        background: visit.visitType === 'New' ? '#dbeafe' : '#f1f5f9',
+                                                        color: visit.visitType === 'New' ? '#1e40af' : '#475569'
+                                                    }}>
+                                                        {visit.visitType}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '12px' }}>₹{visit.billAmount}</td>
+                                                <td style={{ padding: '12px' }}>
+                                                    <span style={{
+                                                        color: visit.paymentStatus === 'Paid' ? '#16a34a' : '#ca8a04',
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        {visit.paymentStatus}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="7" style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
+                                                No visits found for the selected criteria.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Modal>
+
+                    {/* Visit Detail Modal */}
+                    <Modal
+                        show={showDetailModal}
+                        onClose={() => setShowDetailModal(false)}
+                        title="Patient Visit Details"
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px' }}>
+                                <DetailRow>
+                                    <DetailLabel>UHID</DetailLabel>
+                                    <DetailValue>{selectedVisit.uhid}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Patient Name</DetailLabel>
+                                    <DetailValue>{selectedVisit.patientName}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Age / Gender</DetailLabel>
+                                    <DetailValue>{selectedVisit.age} / {selectedVisit.gender}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Mobile</DetailLabel>
+                                    <DetailValue>{selectedVisit.mobile}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Visited Date</DetailLabel>
+                                    <DetailValue>{selectedVisit.date}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Doctor</DetailLabel>
+                                    <DetailValue>{selectedVisit.doctor}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Visit Type</DetailLabel>
+                                    <DetailValue>{selectedVisit.visitType}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Bill Amount</DetailLabel>
+                                    <DetailValue>₹{selectedVisit.billAmount}</DetailValue>
+                                </DetailRow>
+                                <DetailRow>
+                                    <DetailLabel>Payment Status</DetailLabel>
+                                    <DetailValue style={{
+                                        color: selectedVisit.paymentStatus === 'Paid' ? '#16a34a' : '#ca8a04'
+                                    }}>
+                                        {selectedVisit.paymentStatus}
+                                    </DetailValue>
+                                </DetailRow>
+                            </div>
+                        )}
+                    </Modal>
+
+
+
+                    {/* Search Container */}
+                    <SearchContainer>
+                        <ContainerTitle>Patient Search</ContainerTitle>
+                        <SearchRow>
+                            <InputWrapper>
+                                <Label htmlFor="uhid">UHID No</Label>
+                                <InputGroup>
                                     <Input
                                         type="text"
-                                        id="citizenIdNo"
-                                        name="citizenIdNo"
-                                        value={patient.citizenIdNo}
-                                        onChange={handleChange}
+                                        id="uhid"
+                                        placeholder="Enter UHID No"
+                                        value={uhid}
+                                        onChange={(e) => setUhid(e.target.value)}
                                     />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="customerType">Customer Type</Label>
-                                    <Select id="customerType" name="customerType" value={patient.customerType} onChange={handleChange}>
-                                        <option value="">Select Customer Type</option>
-                                        <option value="General">General</option>
-                                        <option value="Corporate">Corporate</option>
-                                        <option value="Insurance">Insurance</option>
-                                        <option value="Employee">Employee</option>
-                                    </Select>
-                                </InputWrapper>
+                                    <InputAddon onClick={fetchPatients}>
+                                        <Search size={16} />
+                                    </InputAddon>
+                                </InputGroup>
+                            </InputWrapper>
 
-                                {patient.customerType === "Insurance" && (
+                            <InputWrapper>
+                                <Label htmlFor="ipNumber">IP Number</Label>
+                                <InputGroup>
+                                    <Input
+                                        type="text"
+                                        id="ipNumber"
+                                        placeholder="Enter IP Number"
+                                        value={ipNumber}
+                                        onChange={(e) => setIpNumber(e.target.value)}
+                                    />
+                                    <InputAddon onClick={fetchPatients}>
+                                        <Search size={16} />
+                                    </InputAddon>
+                                </InputGroup>
+                            </InputWrapper>
+
+                            <InputWrapper>
+                                <Label htmlFor="mobile">Mobile</Label>
+                                <InputGroup>
+                                    <Input
+                                        type="text"
+                                        id="mobile"
+                                        placeholder="Enter Mobile"
+                                        value={mobile}
+                                        onChange={(e) => setMobile(e.target.value)}
+                                    />
+                                    <InputAddon onClick={fetchPatients}>
+                                        <Search size={16} />
+                                    </InputAddon>
+                                </InputGroup>
+                            </InputWrapper>
+                        </SearchRow>
+                    </SearchContainer >
+
+
+                    {/* Patient Registration Form */}
+                    < FormContainer >
+                        {/* <ContainerTitle>Patient Registration</ContainerTitle> */}
+                        <form onSubmit={handleSubmit}>
+                            {/* Basic Information Section Removed */}
+
+                            {/* Personal Information Section - UPDATED WITH FIRST AND LAST NAME */}
+                            <CollapsibleSection title="Personal Information" icon={<User size={20} />}>
+                                <FormGrid columns={3}>
                                     <InputWrapper>
-                                        <Label htmlFor="insuranceCompany">Insurance Company</Label>
+                                        <Label htmlFor="customerType">Customer Type<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Select
-                                            id="insuranceCompany"
-                                            name="insuranceCompany"
-                                            value={patient.insuranceCompany}
+                                            id="customerType"
+                                            name="customerType"
+                                            value={patient.customerType}
                                             onChange={handleChange}
+                                            required
                                         >
-                                            <option value="">Select Insurance Company</option>
-                                            <option value="CompanyA">Company A</option>
-                                            <option value="CompanyB">Company B</option>
-                                            <option value="CompanyC">Company C</option>
+                                            <option value="General">General</option>
+                                            <option value="Insurance">Insurance</option>
+                                            <option value="Corporate">Corporate</option>
+                                            <option value="Employee">Employee</option>
                                         </Select>
                                     </InputWrapper>
-                                )}
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* Personal Information Section - UPDATED WITH FIRST AND LAST NAME */}
-                        <CollapsibleSection title="Personal Information">
-                            <FormGrid columns={3}>
-                                <InputWrapper>
-                                    <Label htmlFor="salutation">Salutation<RequiredAsterisk>*</RequiredAsterisk></Label>
-                                    <Select
-                                        id="salutation"
-                                        name="salutation"
-                                        value={patient.salutation}
-                                        required
-                                        onChange={handleChange}
-                                    >
-                                        <option value="">Select</option>
-                                        <option value="Mr.">Mr.</option>
-                                        <option value="Mrs.">Mrs.</option>
-                                        <option value="Ms.">Ms.</option>
-                                        <option value="Dr.">Dr.</option>
-                                        <option value="Master">Master</option>
-                                        <option value="Baby">Baby</option>
-                                    </Select>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="firstName">
-                                        First Name <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Input
-                                        type="text"
-                                        id="firstName"
-                                        name="firstName"
-                                        value={patient.firstName}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="Enter first name"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="lastName">
-                                        Last Name <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Input
-                                        type="text"
-                                        id="lastName"
-                                        name="lastName"
-                                        value={patient.lastName}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="Enter last name"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="dob">
-                                        Date of Birth <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Input type="date" id="dob" name="dob" value={patient.dob} onChange={handleChange} required />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="age">
-                                        Age <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Input type="number" id="age" name="age" value={patient.age} onChange={handleChange} required placeholder="Auto-calculated" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="gender">
-                                        Gender <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Select id="gender" name="gender" value={patient.gender} onChange={handleChange} required>
-                                        <option value="">Select Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </Select>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="bloodGroup">Blood Group</Label>
-                                    <Select id="bloodGroup" name="bloodGroup" value={patient.bloodGroup} onChange={handleChange}>
-                                        <option value="">Select Blood Group</option>
-                                        <option value="A+">A+</option>
-                                        <option value="A-">A-</option>
-                                        <option value="B+">B+</option>
-                                        <option value="B-">B-</option>
-                                        <option value="AB+">AB+</option>
-                                        <option value="AB-">AB-</option>
-                                        <option value="O+">O+</option>
-                                        <option value="O-">O-</option>
-                                    </Select>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="spouseName">Spouse Name</Label>
-                                    <Input
-                                        type="text"
-                                        id="spouseName"
-                                        name="spouseName"
-                                        value={patient.spouseName}
-                                        onChange={handleChange}
-                                        placeholder="Enter spouse name"
-                                    />
-                                </InputWrapper>
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* Address & Contact Information */}
-                        <CollapsibleSection title="Address & Contact Information">
-                            <FormGrid columns={3}>
-                                <InputWrapper className="span-full">
-                                    <Label htmlFor="permanentAddress">Permanent Address</Label>
-                                    <Input
-                                        type="text"
-                                        id="permanentAddress"
-                                        name="permanentAddress"
-                                        value={patient.permanentAddress}
-                                        onChange={handleChange}
-                                        placeholder="Enter full address"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="area">Area</Label>
-                                    <Input type="text" id="area" name="area" value={patient.area} onChange={handleChange} placeholder="Enter area" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="zipcode">Zipcode</Label>
-                                    <Input type="text" id="zipcode" name="zipcode" value={patient.zipcode} onChange={handleChange} placeholder="Enter zipcode" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="city">City</Label>
-                                    <Input type="text" id="city" name="city" value={patient.city} onChange={handleChange} placeholder="Enter city" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="state">State</Label>
-                                    <Input type="text" id="state" name="state" value={patient.state} onChange={handleChange} placeholder="Enter state" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input type="email" id="email" name="email" value={patient.email} onChange={handleChange} placeholder="example@email.com" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="mobilePhone">
-                                        Mobile Phone <RequiredAsterisk>*</RequiredAsterisk>
-                                    </Label>
-                                    <Input
-                                        type="text"
-                                        id="mobilePhone"
-                                        name="mobilePhone"
-                                        value={patient.mobilePhone}
-                                        onChange={handleChange}
-                                        required
-                                        placeholder="10-digit mobile number"
-                                        maxLength={10}
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="homePhone">Home Phone</Label>
-                                    <Input
-                                        type="text"
-                                        id="homePhone"
-                                        name="homePhone"
-                                        value={patient.homePhone}
-                                        onChange={handleChange}
-                                        placeholder="Enter home phone"
-                                    />
-                                </InputWrapper>
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* Referred Section */}
-                        <CollapsibleSection title="Referred Information">
-                            <FormGrid>
-                                <InputWrapper>
-                                    <Label htmlFor="referredBy">Referred By</Label>
-                                    <InputGroup>
-                                        <Input
-                                            list="doctor-options"
-                                            id="referredBy"
-                                            name="referredBy"
-                                            value={patient.referredBy}
-                                            onChange={(e) => {
-                                                handleChange(e);
-                                                setSearchDoctorTerm(e.target.value);
-                                            }}
-                                            placeholder="Search or Select Doctor"
-                                            onClick={() => setSearchDoctorTerm("")} // Clear search to see all options on click if desired
-                                        />
-                                        <datalist id="doctor-options">
-                                            {allDoctors.map((doc, index) => (
-                                                <option key={index} value={doc.name}>
-                                                    {doc.label}
-                                                </option>
-                                            ))}
-                                        </datalist>
-                                        <InputAddon onClick={() => setIsModalOpen(true)} title="Add New Doctor">
-                                            <Plus size={16} />
-                                        </InputAddon>
-                                    </InputGroup>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="referredDrMobile">Referred Dr Mobile</Label>
-                                    <Input
-                                        type="text"
-                                        id="referredDrMobile"
-                                        name="referredDrMobile"
-                                        value={patient.referredDrMobile}
-                                        onChange={handleChange}
-                                        placeholder="Enter mobile number"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper className="span-full">
-                                    <Label htmlFor="referredDrRemarks">Referred Dr Remarks</Label>
-                                    <Textarea
-                                        id="referredDrRemarks"
-                                        name="referredDrRemarks"
-                                        value={patient.referredDrRemarks}
-                                        onChange={handleChange}
-                                        rows={3}
-                                        placeholder="Enter any remarks..."
-                                    />
-                                </InputWrapper>
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* MLC Section */}
-                        <CollapsibleSection title="MLC Information" defaultOpen={false}>
-                            <FormGrid>
-                                <InputWrapper>
-                                    <Label htmlFor="mlcType">MLC Type</Label>
-                                    <Select id="mlcType" name="mlcType" value={patient.mlcType} onChange={handleChange}>
-                                        <option value="">Select MLC Type</option>
-                                        <option value="RTA">RTA (Road Traffic Accident)</option>
-                                        <option value="Assault">Assault</option>
-                                        <option value="Poisoning">Poisoning</option>
-                                        <option value="Burns">Burns</option>
-                                        <option value="Fall">Fall</option>
-                                        <option value="Electric Shock">Electric Shock</option>
-                                        <option value="Drowning">Drowning</option>
-                                        <option value="Suicide">Suicide Attempt</option>
-                                        <option value="Workplace Injury">Workplace Injury</option>
-                                        <option value="Other">Other</option>
-                                    </Select>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="mlcDoc">Upload MLC Doc</Label>
-                                    <FileInput type="file" id="mlcDoc" name="mlcDoc" onChange={handleFileChange} />
-                                </InputWrapper>
-                                <InputWrapper className="span-full">
-                                    <CheckboxWrapper>
-                                        <Checkbox
-                                            type="checkbox"
-                                            id="passAlertToAuthority"
-                                            name="passAlertToAuthority"
-                                            checked={patient.passAlertToAuthority}
-                                            onChange={handleChange}
-                                        />
-                                        <CheckboxLabel htmlFor="passAlertToAuthority">Pass alert to authority</CheckboxLabel>
-                                    </CheckboxWrapper>
-                                </InputWrapper>
-                                <InputWrapper className="span-full">
-                                    <Label htmlFor="mlcRemarks">MLC Remarks</Label>
-                                    <Textarea
-                                        id="mlcRemarks"
-                                        name="mlcRemarks"
-                                        value={patient.mlcRemarks}
-                                        onChange={handleChange}
-                                        rows={3}
-                                        placeholder="Enter MLC remarks..."
-                                    />
-                                </InputWrapper>
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* Next of Kin Section */}
-                        <CollapsibleSection title="Next of Kin" defaultOpen={false}>
-                            <FormGrid columns={3}>
-                                <InputWrapper>
-                                    <Label htmlFor="nextOfKin">Next of Kin</Label>
-                                    <Input
-                                        type="text"
-                                        id="nextOfKin"
-                                        name="nextOfKin"
-                                        value={patient.nextOfKin}
-                                        onChange={handleChange}
-                                        placeholder="Enter name"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="relation">Relation</Label>
-                                    <Input type="text" id="relation" name="relation" value={patient.relation} onChange={handleChange} placeholder="e.g., Father, Mother" />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="kinAddress">Address</Label>
-                                    <Input
-                                        type="text"
-                                        id="kinAddress"
-                                        name="kinAddress"
-                                        value={patient.kinAddress}
-                                        onChange={handleChange}
-                                        placeholder="Enter address"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="kinMobile">Mobile</Label>
-                                    <Input
-                                        type="text"
-                                        id="kinMobile"
-                                        name="kinMobile"
-                                        value={patient.kinMobile}
-                                        onChange={handleChange}
-                                        placeholder="10-digit mobile"
-                                        maxLength={10}
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="kinAge">Age</Label>
-                                    <InputGroup>
-                                        <Input type="text" id="kinAge" name="kinAge" value={patient.kinAge} onChange={handleChange} placeholder="Enter age" />
+                                    <InputWrapper>
+                                        <Label htmlFor="salutation">Salutation<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Select
-                                            id="kinAgeUnit"
-                                            name="kinAgeUnit"
-                                            value={patient.kinAgeUnit}
-                                            onChange={handleChange}
-                                            className="age-unit"
-                                        >
-                                            <option value="Years">Years</option>
-                                            <option value="Months">Months</option>
-                                            <option value="Days">Days</option>
-                                        </Select>
-                                    </InputGroup>
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="kinOccupation">Occupation</Label>
-                                    <Input
-                                        type="text"
-                                        id="kinOccupation"
-                                        name="kinOccupation"
-                                        value={patient.kinOccupation}
-                                        onChange={handleChange}
-                                        placeholder="Enter occupation"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="memberNumber">Member Number</Label>
-                                    <Input
-                                        type="text"
-                                        id="memberNumber"
-                                        name="memberNumber"
-                                        value={patient.memberNumber}
-                                        onChange={handleChange}
-                                        placeholder="Enter member number"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="suffixNumber">Suffix Number</Label>
-                                    <Input
-                                        type="text"
-                                        id="suffixNumber"
-                                        name="suffixNumber"
-                                        value={patient.suffixNumber}
-                                        onChange={handleChange}
-                                        placeholder="Enter suffix"
-                                    />
-                                </InputWrapper>
-                                <InputWrapper>
-                                    <Label htmlFor="approvedAmount">Approved Amount</Label>
-                                    <Input
-                                        type="text"
-                                        id="approvedAmount"
-                                        name="approvedAmount"
-                                        value={patient.approvedAmount}
-                                        onChange={handleChange}
-                                        placeholder="₹ 0.00"
-                                    />
-                                </InputWrapper>
-                            </FormGrid>
-                        </CollapsibleSection>
-
-                        {/* New Born Section */}
-                        <CollapsibleSection
-                            title={
-                                <div style={{ display: "flex", alignItems: "center" }}>
-                                    New Born
-                                    <Tooltip style={{ marginLeft: "8px" }}>
-                                        <Info size={16} className="tooltip-icon" />
-                                        <span className="tooltip-text">
-                                            Register a newborn baby with mother's information. The mother must be registered in the system
-                                            with a valid UHID.
-                                        </span>
-                                    </Tooltip>
-                                </div>
-                            }
-                            defaultOpen={false}
-                        >
-                            <FormGrid>
-                                <InputWrapper>
-                                    <Label htmlFor="birthTime">Birth Time</Label>
-                                    <InputGroup>
-                                        <Input
-                                            type="time"
-                                            id="birthTime"
-                                            name="birthTime"
-                                            value={patient.birthTime || ""}
-                                            onChange={handleChange}
-                                        />
-                                        <Select
-                                            id="birthTimeAmPm"
-                                            name="birthTimeAmPm"
-                                            value={patient.birthTimeAmPm || "AM"}
+                                            id="salutation"
+                                            name="salutation"
+                                            value={patient.salutation}
+                                            required
                                             onChange={handleChange}
                                         >
-                                            <option value="AM">AM</option>
-                                            <option value="PM">PM</option>
+                                            <option value="">Select</option>
+                                            <option value="Mr.">Mr.</option>
+                                            <option value="Mrs.">Mrs.</option>
+                                            <option value="Ms.">Ms.</option>
+                                            <option value="Dr.">Dr.</option>
+                                            <option value="Master">Master</option>
+                                            <option value="Baby">Baby</option>
                                         </Select>
-                                    </InputGroup>
-                                </InputWrapper>
-
-                                <InputWrapper>
-                                    <Label htmlFor="weight">Weight</Label>
-                                    <Select id="weight" name="weight" value={patient.weight || ""} onChange={handleChange}>
-                                        <option value="">Select Weight</option>
-                                        <option value="1">1 kg</option>
-                                        <option value="1.5">1.5 kg</option>
-                                        <option value="2">2 kg</option>
-                                        <option value="2.5">2.5 kg</option>
-                                        <option value="3">3 kg</option>
-                                        <option value="3.5">3.5 kg</option>
-                                        <option value="4">4 kg</option>
-                                        <option value="4.5">4.5 kg</option>
-                                    </Select>
-                                </InputWrapper>
-
-                                <InputWrapper>
-                                    <Label htmlFor="mothersUhidNo">Mother's UHID No</Label>
-                                    <InputGroup>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="firstName">
+                                            First Name <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
                                         <Input
                                             type="text"
-                                            id="mothersUhidNo"
-                                            name="mothersUhidNo"
-                                            value={patient.mothersUhidNo || ""}
+                                            id="firstName"
+                                            name="firstName"
+                                            value={patient.firstName}
                                             onChange={handleChange}
-                                            placeholder="Enter Mother's UHID"
+                                            required
+                                            placeholder="Enter first name"
                                         />
-                                        <InputAddon onClick={searchMotherUhid}>
-                                            <Search size={16} />
-                                        </InputAddon>
-                                    </InputGroup>
-                                </InputWrapper>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="lastName">
+                                            Last Name <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            id="lastName"
+                                            name="lastName"
+                                            value={patient.lastName}
+                                            onChange={handleChange}
+                                            required
+                                            placeholder="Enter last name"
+                                        />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="dob">
+                                            Date of Birth <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
+                                        <Input type="date" id="dob" name="dob" value={patient.dob} onChange={handleChange} required />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="age">
+                                            Age <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
+                                        <Input type="number" id="age" name="age" value={patient.age} onChange={handleChange} required placeholder="Auto-calculated" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="gender">
+                                            Gender <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
+                                        <Select id="gender" name="gender" value={patient.gender} onChange={handleChange} required>
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </Select>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="bloodGroup">Blood Group</Label>
+                                        <Select id="bloodGroup" name="bloodGroup" value={patient.bloodGroup} onChange={handleChange}>
+                                            <option value="">Select Blood Group</option>
+                                            <option value="A+">A+</option>
+                                            <option value="A-">A-</option>
+                                            <option value="B+">B+</option>
+                                            <option value="B-">B-</option>
+                                            <option value="AB+">AB+</option>
+                                            <option value="AB-">AB-</option>
+                                            <option value="O+">O+</option>
+                                            <option value="O-">O-</option>
+                                        </Select>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="spouseName">Spouse Name</Label>
+                                        <Input
+                                            type="text"
+                                            id="spouseName"
+                                            name="spouseName"
+                                            value={patient.spouseName}
+                                            onChange={handleChange}
+                                            placeholder="Enter spouse name"
+                                        />
+                                    </InputWrapper>
+                                </FormGrid>
+                            </CollapsibleSection>
 
-                                <InputWrapper>
-                                    <Label htmlFor="pediatricianResponsible">Pediatrician Responsible</Label>
-                                    <Select
-                                        id="pediatricianResponsible"
-                                        name="pediatricianResponsible"
-                                        value={patient.pediatricianResponsible || ""}
-                                        onChange={handleChange}
-                                    >
-                                        <option value="">Select Pediatrician</option>
-                                        {doctors
-                                            .filter((doctor) => doctor.specialty === "Pediatrician")
-                                            .map((doctor, index) => (
-                                                <option key={`ped-${index}`} value={doctor.name}>
-                                                    {doctor.name}
-                                                </option>
-                                            ))}
-                                        {doctors.filter((doctor) => doctor.specialty === "Pediatrician").length === 0 &&
-                                            doctors.map((doctor, index) => (
-                                                <option key={index} value={doctor.name}>
-                                                    {doctor.name}
-                                                </option>
-                                            ))}
-                                    </Select>
-                                </InputWrapper>
-                            </FormGrid>
+                            {/* Address & Contact Information */}
+                            <CollapsibleSection title="Address & Contact Information" icon={<MapPin size={20} />}>
+                                <FormGrid columns={3}>
+                                    <InputWrapper className="span-full">
+                                        <Label htmlFor="permanentAddress">Permanent Address</Label>
+                                        <Input
+                                            type="text"
+                                            id="permanentAddress"
+                                            name="permanentAddress"
+                                            value={patient.permanentAddress}
+                                            onChange={handleChange}
+                                            placeholder="Enter full address"
+                                        />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="area">Area</Label>
+                                        <Input type="text" id="area" name="area" value={patient.area} onChange={handleChange} placeholder="Enter area" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="zipcode">Zipcode<RequiredAsterisk>*</RequiredAsterisk></Label>
+                                        <Input type="text" id="zipcode" name="zipcode" value={patient.zipcode} onChange={handleChange} required placeholder="Enter zipcode" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="city">City</Label>
+                                        <Input type="text" id="city" name="city" value={patient.city} onChange={handleChange} placeholder="Enter city" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="state">State</Label>
+                                        <Input type="text" id="state" name="state" value={patient.state} onChange={handleChange} placeholder="Enter state" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="email">Email</Label>
+                                        <Input type="email" id="email" name="email" value={patient.email} onChange={handleChange} placeholder="example@email.com" />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="mobilePhone">
+                                            Mobile Phone <RequiredAsterisk>*</RequiredAsterisk>
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            id="mobilePhone"
+                                            name="mobilePhone"
+                                            value={patient.mobilePhone}
+                                            onChange={handleChange}
+                                            required
+                                            placeholder="10-digit mobile number"
+                                            maxLength={10}
+                                        />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="homePhone">Home Phone</Label>
+                                        <Input
+                                            type="text"
+                                            id="homePhone"
+                                            name="homePhone"
+                                            value={patient.homePhone}
+                                            onChange={handleChange}
+                                            placeholder="Enter home phone"
+                                        />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                                        <Input
+                                            type="text"
+                                            id="emergencyContact"
+                                            name="emergencyContact"
+                                            value={patient.emergencyContact}
+                                            onChange={handleChange}
+                                            placeholder="Enter emergency contact"
+                                            maxLength={10}
+                                        />
+                                    </InputWrapper>
+                                </FormGrid>
+                            </CollapsibleSection>
+
+                            {/* Referred Section */}
+                            {/* Referred Section */}
+                            <CollapsibleSection title="Referred Information" icon={<UserPlus size={20} />}>
+                                <FormGrid>
+                                    <InputWrapper className="span-full">
+                                        <Label htmlFor="referredBy">Referred By</Label>
+                                        <InputGroup>
+                                            <Input
+                                                list="doctor-options"
+                                                id="referredBy"
+                                                name="referredBy"
+                                                value={patient.referredBy}
+                                                onChange={(e) => {
+                                                    handleChange(e);
+                                                    setSearchDoctorTerm(e.target.value);
+                                                }}
+                                                placeholder="Search or Select Doctor"
+                                                onClick={() => setSearchDoctorTerm("")}
+                                            />
+                                            <datalist id="doctor-options">
+                                                {allDoctors.map((doc, index) => (
+                                                    <option key={index} value={doc.name}>
+                                                        {doc.label}
+                                                    </option>
+                                                ))}
+                                            </datalist>
+                                            <InputAddon onClick={() => setIsModalOpen(true)} title="Add New Doctor">
+                                                <Plus size={16} />
+                                            </InputAddon>
+                                        </InputGroup>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="referredDoctorPhone">Referred Doctor Phone</Label>
+                                        <Input
+                                            type="text"
+                                            id="referredDoctorPhone"
+                                            name="referredDoctorPhone"
+                                            value={patient.referredDoctorPhone}
+                                            onChange={handleChange}
+                                            placeholder="Enter doctor's phone"
+                                            maxLength={10}
+                                        />
+                                    </InputWrapper>
+                                </FormGrid>
+                            </CollapsibleSection>
+
+                            {/* MLC Section */}
+                            {/* MLC Section */}
+                            <div style={{ marginBottom: "24px" }}>
+                                <CheckboxWrapper>
+                                    <Checkbox
+                                        type="checkbox"
+                                        id="isMlc"
+                                        checked={isMlc}
+                                        onChange={(e) => setIsMlc(e.target.checked)}
+                                    />
+                                    <CheckboxLabel htmlFor="isMlc">Is Medico-Legal Case (MLC)?</CheckboxLabel>
+                                </CheckboxWrapper>
+
+                                {isMlc && (
+                                    <CollapsibleSection title="MLC Information" defaultOpen={true} icon={<AlertTriangle size={20} />}>
+                                        <FormGrid>
+                                            <InputWrapper>
+                                                <Label htmlFor="mlcType">MLC Type</Label>
+                                                <Select id="mlcType" name="mlcType" value={patient.mlcType} onChange={handleChange}>
+                                                    <option value="">Select MLC Type</option>
+                                                    <option value="RTA">RTA (Road Traffic Accident)</option>
+                                                    <option value="Assault">Assault</option>
+                                                    <option value="Poisoning">Poisoning</option>
+                                                    <option value="Burns">Burns</option>
+                                                    <option value="Fall">Fall</option>
+                                                    <option value="Electric Shock">Electric Shock</option>
+                                                    <option value="Drowning">Drowning</option>
+                                                    <option value="Suicide">Suicide Attempt</option>
+                                                    <option value="Workplace Injury">Workplace Injury</option>
+                                                    <option value="Other">Other</option>
+                                                </Select>
+                                            </InputWrapper>
+                                            <InputWrapper>
+                                                <Label htmlFor="mlcDoc">Upload MLC Doc</Label>
+                                                <FileInput type="file" id="mlcDoc" name="mlcDoc" onChange={handleFileChange} />
+                                            </InputWrapper>
+                                            <InputWrapper className="span-full">
+                                                <CheckboxWrapper>
+                                                    <Checkbox
+                                                        type="checkbox"
+                                                        id="passAlertToAuthority"
+                                                        name="passAlertToAuthority"
+                                                        checked={patient.passAlertToAuthority}
+                                                        onChange={handleChange}
+                                                    />
+                                                    <CheckboxLabel htmlFor="passAlertToAuthority">Pass alert to authority</CheckboxLabel>
+                                                </CheckboxWrapper>
+                                            </InputWrapper>
+                                            <InputWrapper className="span-full">
+                                                <Label htmlFor="mlcRemarks">MLC Remarks</Label>
+                                                <Textarea
+                                                    id="mlcRemarks"
+                                                    name="mlcRemarks"
+                                                    value={patient.mlcRemarks}
+                                                    onChange={handleChange}
+                                                    rows={3}
+                                                    placeholder="Enter MLC remarks..."
+                                                />
+                                            </InputWrapper>
+                                        </FormGrid>
+                                    </CollapsibleSection>
+                                )}
+                            </div>
+
+                            {/* Next of Kin Section Removed */}
+
+                            {/* New Born Section */}
+                            <CollapsibleSection
+                                title={
+                                    <div style={{ display: "flex", alignItems: "center" }}>
+                                        New Born
+                                        <Tooltip style={{ marginLeft: "8px" }}>
+                                            <Info size={16} className="tooltip-icon" />
+                                            <span className="tooltip-text">
+                                                Register a newborn baby with mother's information. The mother must be registered in the system
+                                                with a valid UHID.
+                                            </span>
+                                        </Tooltip>
+                                    </div>
+                                }
+                                defaultOpen={false}
+                                icon={<Baby size={20} />}
+                            >
+                                <FormGrid>
+                                    <InputWrapper>
+                                        <Label htmlFor="birthTime">Birth Time</Label>
+                                        <InputGroup>
+                                            <Input
+                                                type="time"
+                                                id="birthTime"
+                                                name="birthTime"
+                                                value={patient.birthTime || ""}
+                                                onChange={handleChange}
+                                            />
+                                            <Select
+                                                id="birthTimeAmPm"
+                                                name="birthTimeAmPm"
+                                                value={patient.birthTimeAmPm || "AM"}
+                                                onChange={handleChange}
+                                            >
+                                                <option value="AM">AM</option>
+                                                <option value="PM">PM</option>
+                                            </Select>
+                                        </InputGroup>
+                                    </InputWrapper>
+
+                                    <InputWrapper>
+                                        <Label htmlFor="weight">Weight</Label>
+                                        <Select id="weight" name="weight" value={patient.weight || ""} onChange={handleChange}>
+                                            <option value="">Select Weight</option>
+                                            <option value="1">1 kg</option>
+                                            <option value="1.5">1.5 kg</option>
+                                            <option value="2">2 kg</option>
+                                            <option value="2.5">2.5 kg</option>
+                                            <option value="3">3 kg</option>
+                                            <option value="3.5">3.5 kg</option>
+                                            <option value="4">4 kg</option>
+                                            <option value="4.5">4.5 kg</option>
+                                        </Select>
+                                    </InputWrapper>
+
+                                    <InputWrapper>
+                                        <Label htmlFor="mothersUhidNo">Mother's UHID No</Label>
+                                        <InputGroup>
+                                            <Input
+                                                type="text"
+                                                id="mothersUhidNo"
+                                                name="mothersUhidNo"
+                                                value={patient.mothersUhidNo || ""}
+                                                onChange={handleChange}
+                                                placeholder="Enter Mother's UHID"
+                                            />
+                                            <InputAddon onClick={searchMotherUhid}>
+                                                <Search size={16} />
+                                            </InputAddon>
+                                        </InputGroup>
+                                    </InputWrapper>
+
+                                    <InputWrapper>
+                                        <Label htmlFor="pediatricianResponsible">Pediatrician Responsible</Label>
+                                        <Select
+                                            id="pediatricianResponsible"
+                                            name="pediatricianResponsible"
+                                            value={patient.pediatricianResponsible || ""}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">Select Pediatrician</option>
+                                            {doctors
+                                                .filter((doctor) => doctor.specialty === "Pediatrician")
+                                                .map((doctor, index) => (
+                                                    <option key={`ped-${index}`} value={doctor.name}>
+                                                        {doctor.name}
+                                                    </option>
+                                                ))}
+                                            {doctors.filter((doctor) => doctor.specialty === "Pediatrician").length === 0 &&
+                                                doctors.map((doctor, index) => (
+                                                    <option key={index} value={doctor.name}>
+                                                        {doctor.name}
+                                                    </option>
+                                                ))}
+                                        </Select>
+                                    </InputWrapper>
+                                </FormGrid>
+
+                                <ButtonContainer>
+                                    <Button type="button" onClick={handleNewBornRegistration} style={{ backgroundColor: '#be185d', color: 'white' }}>
+                                        Confirm New Born Details
+                                    </Button>
+                                </ButtonContainer>
+                            </CollapsibleSection>
 
                             <ButtonContainer>
-                                <Button type="button" onClick={handleNewBornRegistration} primary>
-                                    Register New Born
+                                <Button type="submit" primary>
+                                    {patient.mothersUhidNo ? "Save New Born & Patient" : "Save Patient"}
+                                </Button>
+                                <Button type="button" onClick={() => navigate(-1)}>
+                                    Cancel
                                 </Button>
                             </ButtonContainer>
-                        </CollapsibleSection>
+                        </form>
+                    </FormContainer >
 
-                        <ButtonContainer>
-                            <Button type="submit" primary>
-                                Save Patient
-                            </Button>
-                            <Button type="button" onClick={() => navigate(-1)}>
-                                Cancel
-                            </Button>
-                        </ButtonContainer>
-                    </form>
-                </FormContainer>
 
-                {/* Doctor Fee Calculator */}
-                <DoctorContainer>
-                    <ContainerTitle>Doctor Fee Calculator</ContainerTitle>
-                    <FormGrid columns={1}>
-                        <InputWrapper>
-                            <Label htmlFor="doctorSelect">Doctor</Label>
-                            <Select id="doctorSelect" onChange={handleDoctorChange} value={patient.doctorName || ""}>
-                                <option value="">-- Select a Doctor --</option>
-                                {doctors.map((doctor, index) => (
-                                    <option key={index} value={doctor.name}>
-                                        {doctor.name}
-                                    </option>
-                                ))}
-                            </Select>
-                        </InputWrapper>
 
-                        <FeeContainer>
-                            <FeeItem>
-                                <Label htmlFor="registrationFee">Registration Fee (₹)</Label>
-                                <Input
-                                    id="registrationFee"
-                                    type="number"
-                                    value={registrationFee.toFixed(2)}
-                                    onChange={(e) => handleFeeChange("registration", e.target.value)}
-                                />
-                            </FeeItem>
-                            <FeeItem>
-                                <Label htmlFor="consultingFee">Consulting Fee (₹)</Label>
-                                <Input
-                                    id="consultingFee"
-                                    type="number"
-                                    value={consultingFee.toFixed(2)}
-                                    onChange={(e) => handleFeeChange("consulting", e.target.value)}
-                                />
-                            </FeeItem>
-                            <FeeItem>
-                                <Label htmlFor="hospitalFee">Hospital Fee (₹)</Label>
-                                <Input
-                                    id="hospitalFee"
-                                    type="number"
-                                    value={hospitalFee.toFixed(2)}
-                                    onChange={(e) => handleFeeChange("hospital", e.target.value)}
-                                />
-                            </FeeItem>
-                            <FeeItem>
-                                <Label htmlFor="bookingFee">Booking Fee (₹)</Label>
-                                <Input
-                                    id="bookingFee"
-                                    type="number"
-                                    value={bookingFee.toFixed(2)}
-                                    onChange={(e) => handleFeeChange("booking", e.target.value)}
-                                />
-                            </FeeItem>
-                            <TotalFeeItem>
-                                <Label htmlFor="totalFee">Total Fees (₹)</Label>
-                                <Input id="totalFee" type="number" value={totalFees.toFixed(2)} readOnly />
-                            </TotalFeeItem>
-                        </FeeContainer>
+                </div>
 
-                        <ButtonContainer>
-                            <Button type="button" onClick={resetFeeCalculator}>
-                                Reset
-                            </Button>
-                            <Button type="button" primary onClick={handleSubmit}>
-                                Save
-                            </Button>
-                        </ButtonContainer>
-                    </FormGrid>
-                </DoctorContainer>
-            </MainContentWrapper>
+                <SidebarWrapper>
+                    {/* Doctor Fee Calculator */}
+                    < DoctorContainer >
+                        <ContainerTitle>Doctor Fee Calculator</ContainerTitle>
+                        <FormGrid columns={1}>
+                            <InputWrapper>
+                                <Label htmlFor="doctorSelect">Doctor</Label>
+                                <SearchableSelectWrapper>
+                                    <Input
+                                        type="text"
+                                        id="doctorSelect"
+                                        onChange={handleDoctorChange}
+                                        value={patient.doctorName || ""}
+                                        placeholder="Type to search doctor..."
+                                        autoComplete="off"
+                                        onFocus={() => setIsDoctorDropdownOpen(true)}
+                                        onBlur={() => setTimeout(() => setIsDoctorDropdownOpen(false), 200)} // Delay to allow click
+                                    />
+                                    {isDoctorDropdownOpen && (
+                                        <DropdownList>
+                                            {doctors
+                                                .filter(doc => doc.name.toLowerCase().includes((patient.doctorName || "").toLowerCase()))
+                                                .map((doctor, index) => (
+                                                    <DropdownItem key={index} onClick={() => handleDoctorSelect(doctor)}>
+                                                        {doctor.name}
+                                                    </DropdownItem>
+                                                ))}
+                                            {doctors.length > 0 && doctors.filter(doc => doc.name.toLowerCase().includes((patient.doctorName || "").toLowerCase())).length === 0 && (
+                                                <div style={{ padding: "10px 16px", color: "#64748b", fontSize: "14px" }}>No doctors found</div>
+                                            )}
+                                        </DropdownList>
+                                    )}
+                                </SearchableSelectWrapper>
+                            </InputWrapper>
+
+                            <FeeContainer>
+                                <FeeItem>
+                                    <Label htmlFor="registrationFee">Registration Fee (₹)</Label>
+                                    <Input
+                                        id="registrationFee"
+                                        type="number"
+                                        value={registrationFee.toFixed(2)}
+                                        onChange={(e) => handleFeeChange("registration", e.target.value)}
+                                    />
+                                </FeeItem>
+                                <FeeItem>
+                                    <Label htmlFor="consultingFee">Consulting Fee (₹)</Label>
+                                    <Input
+                                        id="consultingFee"
+                                        type="number"
+                                        value={consultingFee.toFixed(2)}
+                                        onChange={(e) => handleFeeChange("consulting", e.target.value)}
+                                    />
+                                </FeeItem>
+                                <FeeItem>
+                                    <Label htmlFor="hospitalFee">Hospital Fee (₹)</Label>
+                                    <Input
+                                        id="hospitalFee"
+                                        type="number"
+                                        value={hospitalFee.toFixed(2)}
+                                        onChange={(e) => handleFeeChange("hospital", e.target.value)}
+                                    />
+                                </FeeItem>
+                                <FeeItem>
+                                    <Label htmlFor="bookingFee">Booking Fee (₹)</Label>
+                                    <Input
+                                        id="bookingFee"
+                                        type="number"
+                                        value={bookingFee.toFixed(2)}
+                                        onChange={(e) => handleFeeChange("booking", e.target.value)}
+                                    />
+                                </FeeItem>
+                                <TotalFeeItem>
+                                    <Label htmlFor="totalFee">Total Fees (₹)</Label>
+                                    <Input id="totalFee" type="number" value={totalFees.toFixed(2)} readOnly />
+                                </TotalFeeItem>
+                            </FeeContainer>
+
+
+                        </FormGrid>
+                    </DoctorContainer >
+                </SidebarWrapper>
+
+            </MainContentWrapper >
 
             {/* Search Results Modal */}
-            <Modal
+            < Modal
                 show={showSearchModal}
                 onClose={() => setShowSearchModal(false)}
                 title="Search Results"
                 footer={
-                    <Button type="button" onClick={() => setShowSearchModal(false)}>
+                    < Button type="button" onClick={() => setShowSearchModal(false)}>
                         Close
-                    </Button>
+                    </Button >
                 }
             >
                 <Table>
@@ -1229,84 +1526,97 @@ const PatientRegistrationForm = () => {
                         )}
                     </TableBody>
                 </Table>
-            </Modal>
+            </Modal >
+
+            <QRRegistrationModal
+                isOpen={showQRModal}
+                onClose={() => setShowQRModal(false)}
+                onDataReceived={handleQRDataReceived}
+            />
 
             {/* Reference Doctor Form Modal */}
-            {isModalOpen && (
-                <ReferenceDoctorForm
-                    closeModal={() => setIsModalOpen(false)}
-                    setReferredBy={(name) => {
-                        setPatient(prev => ({ ...prev, referredBy: name }));
-                        setSearchDoctorTerm(name);
-                    }}
-                    fetchReferenceDoctors={loadReferenceDoctors}
-                />
-            )}
-        </PageContainer>
+            {
+                isModalOpen && (
+                    <ReferenceDoctorForm
+                        closeModal={() => setIsModalOpen(false)}
+                        setReferredBy={(name) => {
+                            setPatient(prev => ({ ...prev, referredBy: name }));
+                            setSearchDoctorTerm(name);
+                        }}
+                        fetchReferenceDoctors={loadReferenceDoctors}
+                    />
+                )
+            }
+        </PageContainer >
     )
 }
 
 // Styled Components
 const PageContainer = styled.div`
-  max-width: 1600px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 20px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
+  background-color: #f8fafc;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  padding: 24px;
+  
+  @media (min-width: 1400px) {
+    padding: 40px 80px;
+  }
 `
 
 const PageHeader = styled.header`
-  margin-bottom: 30px;
-  padding: 20px 0;
-  border-bottom: 3px solid #15616d;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `
 
 const PageTitle = styled.h1`
-  color: #15616d;
+  color: #0f172a;
   font-size: 32px;
-  font-weight: 700;
-  text-align: center;
+  font-weight: 800;
+  letter-spacing: -0.8px;
   margin: 0;
-  letter-spacing: -0.5px;
+  
+  span {
+    color: #0d9488;
+  }
 `
 
 const MainContentWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 24px;
+  gap: 32px;
+  align-items: start;
   
-  @media (min-width: 1024px) {
-    grid-template-columns: 3fr 1fr;
+  @media (min-width: 1280px) {
+    grid-template-columns: 1fr 360px;
   }
 `
 
 const FormContainer = styled.div`
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  padding: 32px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 `
 
 const DoctorContainer = styled.div`
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  padding: 32px;
-  height: fit-content;
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
   position: sticky;
-  top: 20px;
+  top: 24px;
 `
 
 const SearchContainer = styled.div`
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  padding: 32px;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f1f5f9;
   margin-bottom: 24px;
 `
 
@@ -1314,7 +1624,7 @@ const SearchRow = styled.div`
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
-  align-items: flex-end;
+  align-items: end;
   
   @media (min-width: 768px) {
     grid-template-columns: repeat(3, 1fr);
@@ -1322,65 +1632,75 @@ const SearchRow = styled.div`
 `
 
 const ContainerTitle = styled.h2`
-  text-align: center;
-  margin-bottom: 24px;
-  color: #15616d;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  padding-bottom: 16px;
-  border-bottom: 2px solid rgba(21, 97, 109, 0.2);
+  color: #334155;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
+  letter-spacing: -0.5px;
 `
 
 const SectionWrapper = styled.div`
-  margin-bottom: 24px;
-  border: 2px solid rgba(21, 97, 109, 0.1);
-  border-radius: 12px;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid #e2e8f0;
   overflow: hidden;
-  transition: all 0.3s ease;
-  
+  margin-bottom: 24px;
+  transition: transform 0.2s, box-shadow 0.2s;
+
   &:hover {
-    border-color: rgba(21, 97, 109, 0.3);
-    box-shadow: 0 4px 12px rgba(21, 97, 109, 0.1);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
   }
 `
 
 const SectionHeader = styled.div`
+  padding: 20px 24px;
+  background: #fff;
   display: flex;
   align-items: center;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(21, 97, 109, 0.08) 0%, rgba(21, 97, 109, 0.04) 100%);
   cursor: pointer;
-  transition: all 0.2s;
+  border-bottom: 1px solid #f1f5f9;
   
   &:hover {
-    background: linear-gradient(135deg, rgba(21, 97, 109, 0.12) 0%, rgba(21, 97, 109, 0.08) 100%);
+    background-color: #f8fafc;
   }
 `
 
-const SectionIcon = styled.span`
-  margin-right: 12px;
+const SectionIcon = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #f0fdfa;
+  color: #0d9488;
   display: flex;
   align-items: center;
-  color: #15616d;
+  justify-content: center;
+  margin-right: 16px;
+  
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 `
 
 const SectionTitle = styled.h3`
   margin: 0;
-  flex: 1;
-  color: #15616d;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
+  color: #0f172a;
+  flex: 1;
 `
 
 const SectionContent = styled.div`
-  padding: 24px;
-  background-color: white;
+  padding: 28px;
 `
 
 const FormGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(${props => props.columns || 2}, 1fr);
-  gap: 20px;
+  gap: 24px;
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
@@ -1402,104 +1722,109 @@ const InputWrapper = styled.div`
 `
 
 const Label = styled.label`
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #2d3748;
+  color: #64748b;
+  margin-left: 2px;
   display: flex;
   align-items: center;
   gap: 4px;
 `
 
 const RequiredAsterisk = styled.span`
-  color: #e53e3e;
-  font-weight: bold;
+  color: #fb7185;
 `
 
 const Input = styled.input`
-  padding: 12px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #334155;
+  background: #fff;
+  transition: all 0.2s ease-in-out;
   width: 100%;
-  font-family: inherit;
   
   &:focus {
-    border-color: #15616d;
-    box-shadow: 0 0 0 3px rgba(21, 97, 109, 0.1);
     outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
   
-  &:disabled, &[readonly] {
-    background-color: #f7fafc;
+  &:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
     cursor: not-allowed;
-    color: #718096;
   }
   
   &::placeholder {
-    color: #a0aec0;
+    color: #cbd5e1;
   }
 `
 
 const Select = styled.select`
-  padding: 12px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  background-color: white;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #334155;
+  background-color: #fff;
   width: 100%;
-  font-family: inherit;
   cursor: pointer;
+  transition: all 0.2s;
   
   &:focus {
-    border-color: #15616d;
-    box-shadow: 0 0 0 3px rgba(21, 97, 109, 0.1);
     outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
-  
+
   &.age-unit {
-    width: auto;
-    min-width: 100px;
+    width: 90px;
+    flex-shrink: 0;
   }
 `
 
 const Textarea = styled.textarea`
-  padding: 12px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #334155;
+  min-height: 120px;
   resize: vertical;
-  min-height: 100px;
   width: 100%;
+  transition: all 0.2s;
   font-family: inherit;
   
   &:focus {
-    border-color: #15616d;
-    box-shadow: 0 0 0 3px rgba(21, 97, 109, 0.1);
     outline: none;
-  }
-  
-  &::placeholder {
-    color: #a0aec0;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
 `
 
 const InputGroup = styled.div`
   display: flex;
-  align-items: stretch;
-  width: 100%;
+  gap: 0;
   
   ${Input}, ${Select} {
-    border-radius: 8px 0 0 8px;
+    border-radius: 12px 0 0 12px;
     border-right: none;
   }
   
   ${Select}.age-unit {
-    border-radius: 0 8px 8px 0;
-    border-right: 2px solid #e2e8f0;
+    border-radius: 0 12px 12px 0;
+    border: 1px solid #cbd5e1;
     border-left: none;
+  }
+
+  &:focus-within {
+     ${Input}, ${Select} {
+        border-color: #0d9488;
+     }
   }
 `
 
@@ -1507,53 +1832,41 @@ const InputAddon = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #15616d 0%, #1d7686 100%);
+  background: #0f172a;
   color: white;
   border: none;
-  border-radius: 0 8px 8px 0;
-  padding: 12px 16px;
+  border-radius: 0 12px 12px 0;
+  padding: 0 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s;
   
   &:hover {
-    background: linear-gradient(135deg, #1d7686 0%, #15616d 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(21, 97, 109, 0.3);
+    background: #1e293b;
   }
   
-  &:active {
-    transform: translateY(0);
+  svg {
+    width: 20px;
   }
 `
 
 const FileInput = styled.input`
-  padding: 10px 14px;
-  border: 2px dashed #e2e8f0;
-  border-radius: 8px;
   font-size: 14px;
   width: 100%;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    border-color: #15616d;
-    background-color: rgba(21, 97, 109, 0.02);
-  }
+  color: #64748b;
   
   &::file-selector-button {
-    padding: 10px 16px;
-    background: linear-gradient(135deg, #15616d 0%, #1d7686 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
     margin-right: 16px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #475569;
+    border: none;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.3s ease;
+    transition: background 0.2s;
     
     &:hover {
-      background: linear-gradient(135deg, #1d7686 0%, #15616d 100%);
-      transform: translateY(-1px);
+      background: #e2e8f0;
     }
   }
 `
@@ -1561,280 +1874,321 @@ const FileInput = styled.input`
 const CheckboxWrapper = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 12px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-top: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: #cbd5e1;
+    background: #f1f5f9;
+  }
 `
 
 const Checkbox = styled.input`
   width: 20px;
   height: 20px;
-  cursor: pointer;
-  accent-color: #15616d;
-  border-radius: 4px;
+  margin-right: 12px;
+  accent-color: #0d9488;
 `
 
 const CheckboxLabel = styled.label`
-  font-size: 14px;
-  cursor: pointer;
-  color: #2d3748;
+  font-size: 15px;
   font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
 `
 
 const ButtonContainer = styled.div`
   display: flex;
-  justify-content: center;
+  align-items: center;
   gap: 16px;
   margin-top: 32px;
-  flex-wrap: wrap;
 `
 
 const Button = styled.button`
-  padding: ${props => (props.small ? "8px 16px" : "14px 28px")};
-  background: ${props => (props.primary
-        ? "linear-gradient(135deg, #15616d 0%, #1d7686 100%)"
-        : "white")};
-  color: ${props => (props.primary ? "white" : "#15616d")};
-  border: ${props => (props.primary ? "none" : "2px solid #15616d")};
-  border-radius: 10px;
-  font-size: ${props => (props.small ? "13px" : "15px")};
+  height: 48px;
+  padding: 0 32px;
+  border-radius: 12px;
   font-weight: 600;
+  font-size: 15px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: ${props => (props.primary
-        ? "0 4px 12px rgba(21, 97, 109, 0.3)"
-        : "none")};
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   
-  &:hover {
-    background: ${props => (props.primary
-        ? "linear-gradient(135deg, #1d7686 0%, #15616d 100%)"
-        : "rgba(21, 97, 109, 0.08)")};
-    transform: translateY(-2px);
-    box-shadow: ${props => (props.primary
-        ? "0 6px 16px rgba(21, 97, 109, 0.4)"
-        : "0 4px 12px rgba(21, 97, 109, 0.2)")};
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
+  ${props => props.primary ? `
+    background: #0d9488;
+    color: white;
+    border: none;
+    box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.2);
+    
+    &:hover {
+      background: #0f766e;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 8px -1px rgba(13, 148, 136, 0.3);
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+  ` : props.small ? `
+    height: 36px;
+    padding: 0 16px;
+    font-size: 13px;
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    
+    &:hover {
+      border-color: #94a3b8;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+  ` : `
+    background: white;
+    border: 2px solid #e2e8f0;
+    color: #64748b;
+    
+    &:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+  `}
   
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
     transform: none;
   }
 `
 
 const FeeContainer = styled.div`
-  margin-top: 20px;
-  padding: 20px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
 `
 
 const FeeItem = styled.div`
-  margin-bottom: 16px;
-  
-  &:last-of-type {
-    margin-bottom: 0;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 `
 
 const TotalFeeItem = styled.div`
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 2px solid #15616d;
-  font-weight: bold;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 2px dashed #cbd5e1;
   
   ${Label} {
-    color: #15616d;
     font-size: 16px;
+    color: #0f172a;
+    margin-bottom: 8px;
   }
   
   ${Input} {
+    font-size: 24px;
     font-weight: 700;
-    color: #15616d;
-    background: rgba(21, 97, 109, 0.08);
-    font-size: 18px;
-    border-color: #15616d;
+    color: #0d9488;
+    border: 2px solid #0d9488;
+    background: #f0fdfa;
+    height: 64px;
+    text-align: right;
   }
 `
 
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
+  z-index: 50;
+  padding: 20px;
 `
 
 const ModalContainer = styled.div`
-  background-color: white;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: white;
+  border-radius: 24px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: slideUp 0.3s ease-out;
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 `
 
 const ModalHeader = styled.div`
+  padding: 24px;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 2px solid #e2e8f0;
-  background: linear-gradient(135deg, rgba(21, 97, 109, 0.08) 0%, rgba(21, 97, 109, 0.04) 100%);
 `
 
 const ModalTitle = styled.h3`
-  margin: 0;
-  color: #15616d;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
+  color: #0f172a;
+  margin: 0;
 `
 
 const CloseButton = styled.button`
-  background: none;
+  background: #f1f5f9;
   border: none;
-  font-size: 32px;
-  cursor: pointer;
-  color: #718096;
-  line-height: 1;
-  padding: 0;
   width: 32px;
   height: 32px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  cursor: pointer;
+  color: #64748b;
   transition: all 0.2s;
   
   &:hover {
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #e53e3e;
+    background: #e2e8f0;
+    color: #0f172a;
   }
 `
 
 const ModalBody = styled.div`
   padding: 24px;
-  max-height: 60vh;
   overflow-y: auto;
+  flex: 1;
 `
 
 const ModalFooter = styled.div`
   padding: 20px 24px;
-  border-top: 2px solid #e2e8f0;
+  border-top: 1px solid #e2e8f0;
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: linear-gradient(135deg, rgba(21, 97, 109, 0.02) 0%, rgba(21, 97, 109, 0.04) 100%);
 `
 
 const Table = styled.table`
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+`
+
+const SearchableSelectWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`
+
+const DropdownList = styled.ul`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+`
+
+const DropdownItem = styled.li`
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1e293b;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f8fafc;
+    color: #0d9488;
+  }
 `
 
 const TableHeader = styled.thead`
-  background: linear-gradient(135deg, rgba(21, 97, 109, 0.12) 0%, rgba(21, 97, 109, 0.08) 100%);
+  background: #f8fafc;
+`
+
+const TableHeaderCell = styled.th`
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
 `
 
 const TableBody = styled.tbody``
 
 const TableRow = styled.tr`
-  &:nth-child(even) {
-    background-color: #f7fafc;
-  }
-  
   &:hover {
-    background-color: rgba(21, 97, 109, 0.05);
+    background: #f8fafc;
   }
-`
-
-const TableHeaderCell = styled.th`
-  padding: 14px 16px;
-  text-align: left;
-  font-weight: 700;
-  color: #15616d;
-  border-bottom: 2px solid rgba(21, 97, 109, 0.3);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 `
 
 const TableCell = styled.td`
-  padding: 14px 16px;
+  padding: 16px;
+  font-size: 14px;
+  color: #334155;
   border-bottom: 1px solid #e2e8f0;
-  color: #2d3748;
+  
+  ${TableRow}:last-child & {
+    border-bottom: none;
+  }
   
   &.text-center {
     text-align: center;
   }
 `
 
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 12px;
-`
-
 const Tooltip = styled.div`
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  margin-left: 8px;
   
   .tooltip-icon {
-    color: #15616d;
-    cursor: pointer;
-    transition: all 0.2s;
+    color: #94a3b8;
+    cursor: help;
+    transition: color 0.2s;
     
     &:hover {
-      color: #1d7686;
-      transform: scale(1.1);
+      color: #0d9488;
     }
   }
-  
-  .tooltip-text {
-    visibility: hidden;
-    width: 280px;
-    background-color: #2d3748;
-    color: #fff;
-    text-align: center;
-    border-radius: 8px;
-    padding: 12px;
-    position: absolute;
-    z-index: 1;
-    bottom: 150%;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0;
-    transition: opacity 0.3s;
-    font-size: 13px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    line-height: 1.5;
-  }
-  
-  .tooltip-text::after {
-    content: "";
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    margin-left: -6px;
-    border-width: 6px;
-    border-style: solid;
-    border-color: #2d3748 transparent transparent transparent;
-  }
-  
-  &:hover .tooltip-text {
-    visibility: visible;
-    opacity: 1;
-  }
 `
+
+const SidebarWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`;
 
 export default PatientRegistrationForm
