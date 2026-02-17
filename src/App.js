@@ -18,8 +18,6 @@ import RoomShifting from "./Components/NursingStation/RoomShifting";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
-import Bed from "./Components/Rooms/Bed";
-import Service from "./Components/Rooms/Service";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
 import IPPharmacyStock from "./Components/InventoryMaster/IPPharmacyStock";
@@ -104,8 +102,6 @@ function App() {
       "/RoomEnquiry": "Room Enquiry",
       "/RoomCategory": "Room Category",
       "/Room": "Room Master",
-      "/Bed": "Bed Master",
-      "/Service": "Service Master",
       "/Block": "Block Master",
       "/IPPharmacyStock": "IP Pharmacy Stock",
       "/OPPharmacyStock": "OP Pharmacy Stock",
@@ -170,8 +166,6 @@ function App() {
                 <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
                 <Route path="/RoomCategory" element={<RoomCategory />} />
                 <Route path="/Room" element={<Room />} />
-                <Route path="/Bed" element={<Bed />} />
-                <Route path="/Service" element={<Service />} />
                 <Route path="/Block" element={<Block />} />
                 <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
                 <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
