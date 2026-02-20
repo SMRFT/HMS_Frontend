@@ -20,11 +20,9 @@ import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
-import IPPharmacyStock from "./Components/InventoryMaster/IPPharmacyStock";
-import OPPharmacyStock from "./Components/InventoryMaster/OPPharmacyStock";
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
-import IPGRNGeneration from "./Components/InventoryMaster/IPGRNGeneration";
-import OPGRNGeneration from "./Components/InventoryMaster/OPGRNGeneration";
+import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyStock";
+import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
@@ -103,11 +101,9 @@ function App() {
       "/RoomCategory": "Room Category",
       "/Room": "Room Master",
       "/Block": "Block Master",
-      "/IPPharmacyStock": "IP Pharmacy Stock",
-      "/OPPharmacyStock": "OP Pharmacy Stock",
+      "/PharmacyItemMaster": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
-      "/IPGRNGeneration": "IP GRN Generation",
-      "/OPGRNGeneration": "OP GRN Generation",
+      "/GRNGeneration": "GRN Generation",
       "/IPPharmacy": "IP Pharmacy",
       "/OPPharmacy": "OP Pharmacy",
       "/DischargeForm": "Discharge Form",
@@ -160,21 +156,25 @@ function App() {
         <ContentWrapper>
           <Routes>
               <>
-                <Route path="/Admission" element={<Admission />} />
                 <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
-                <Route path="/RoomShifting" element={<RoomShifting />} />
-                <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
+
+                <Route path="/Block" element={<Block />} />
                 <Route path="/RoomCategory" element={<RoomCategory />} />
                 <Route path="/Room" element={<Room />} />
-                <Route path="/Block" element={<Block />} />
-                <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
-                <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
+                <Route path="/RoomShifting" element={<RoomShifting />} />
+                <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
+
+                <Route path="/PharmacyItemMaster" element={<PharmacyItemMaster />} />
                 <Route path="/VendorManagement" element={<VendorManagement />} />
-                <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
-                <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
+                <Route path="/GRNGeneration" element={<GRNGeneration />} />
+
+                <Route path="/Admission" element={<Admission />} />
+
+                <Route path="/DischargeForm" element={<DischargeForm />} />
+                <Route path="/DischargeReport" element={<DischargeReport />} />
+
                 <Route path="/IPPharmacy" element={<IPPharmacy />} />
                 <Route path="/OPPharmacy" element={<OPPharmacy />} />
-                <Route path="/DischargeForm" element={<DischargeForm />} />
                 <Route path="/Summary" element={<Summary />} />
                 <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
                 <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
@@ -199,8 +199,6 @@ function App() {
                 <Route path="/XRayList" element={<XRayList />} />
                 <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
 
-                {/* Discharge */}
-                <Route path="/DischargeReport" element={<DischargeReport />} />
               </>
           </Routes>
         </ContentWrapper>

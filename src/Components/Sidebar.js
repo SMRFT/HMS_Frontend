@@ -211,14 +211,17 @@ const Sidebar = ({ role }) => {
         {role === "Pharmacist" && (
           <>
             <NavGroupLabel>Inventory</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacyStock">
-              <FiPackage /> <span>IP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacyStock">
-              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
-            </StyledNavLink>
+
             <StyledNavLink to="/VendorManagement">
               <FiTruck /> <span>Vendor Management</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/PharmacyItemMaster">
+              <FiPackage /> <span>Pharmacy Stock</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/GRNGeneration">
+              <FiActivity /> <span>GRN Generation</span>
             </StyledNavLink>
 
             <NavGroupLabel>Pharmacy</NavGroupLabel>
@@ -227,12 +230,6 @@ const Sidebar = ({ role }) => {
             </StyledNavLink>
             <StyledNavLink to="/OPPharmacy">
               <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/IPGRNGeneration">
-              <FiActivity /> <span>IP GRN Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPGRNGeneration">
-              <FiActivity /> <span>OP GRN Generation</span>
             </StyledNavLink>
           </>
           )}
@@ -240,14 +237,17 @@ const Sidebar = ({ role }) => {
         {role === "Super Admin" && (
           <>
             <NavGroupLabel>Inventory</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacyStock">
-              <FiPackage /> <span>IP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacyStock">
-              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
-            </StyledNavLink>
+
             <StyledNavLink to="/VendorManagement">
               <FiTruck /> <span>Vendor Management</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/PharmacyItemMaster">
+              <FiPackage /> <span>Pharmacy Stock</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/GRNGeneration">
+              <FiActivity /> <span>GRN Generation</span>
             </StyledNavLink>
 
             <NavGroupLabel>Pharmacy</NavGroupLabel>
@@ -256,12 +256,6 @@ const Sidebar = ({ role }) => {
             </StyledNavLink>
             <StyledNavLink to="/OPPharmacy">
               <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/IPGRNGeneration">
-              <FiActivity /> <span>IP GRN Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPGRNGeneration">
-              <FiActivity /> <span>OP GRN Generation</span>
             </StyledNavLink>
 
             <NavGroupLabel>Doctor Management</NavGroupLabel>
