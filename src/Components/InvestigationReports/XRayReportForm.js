@@ -310,7 +310,7 @@ const formatDisplayTime = (date) =>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const USGReportForm = () => {
+const XRayReportForm = () => {
   const { uhid, subUhid } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -385,10 +385,10 @@ const USGReportForm = () => {
     );
 
     if (result.success) {
-      toast.success("USG report submitted successfully! ✓");
+      toast.success("X-Ray report submitted successfully! ✓");
       navigate(-1);
     } else {
-      toast.error(result.error || "Error submitting USG report");
+      toast.error(result.error || "Error submitting X-Ray report");
       console.error("Error:", result.error);
     }
   };
@@ -400,7 +400,7 @@ const USGReportForm = () => {
       <PageWrapper>
         <Container>
           <FormCard>
-            <PageTitle>USG Report Form</PageTitle>
+            <PageTitle>X-Ray Report Form</PageTitle>
             <ErrorMessage>
               <ErrorTitle>Error Loading Data</ErrorTitle>
               <ErrorText>
@@ -423,9 +423,9 @@ const USGReportForm = () => {
     <PageWrapper>
       <Container>
         <FormCard>
-          <PageTitle>USG Report Form</PageTitle>
+          <PageTitle>X-Ray Report Form</PageTitle>
           <Subtitle>
-            Complete the form below to submit a USG investigation report
+            Complete the form below to submit an X-Ray investigation report
           </Subtitle>
 
           <DateTimeBanner>
@@ -522,4 +522,4 @@ const USGReportForm = () => {
   );
 };
 
-export default USGReportForm;
+export default XRayReportForm;

@@ -50,7 +50,7 @@ import MRIReportForm from "./Components/InvestigationReports/MRIReportForm";
 import USGList from "./Components/InvestigationReports/USGList";
 import USGReportForm from "./Components/InvestigationReports/USGReportForm";
 import XRayList from "./Components/InvestigationReports/XRayList";
-import XRayReportForm from "./Components/InvestigationReports/XRayRportForm";
+import XRayReportForm from "./Components/InvestigationReports/XRayReportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
 // Discharge
@@ -74,9 +74,9 @@ const ContentWrapper = styled.div`
 
 // Determine user role based on allowed actions
 function getUserRole(allowedActions) {
-  if (!allowedActions || !Array.isArray(allowedActions)) return "Pharmacist";
-  if (allowedActions.includes("HMS-R-PH")) return "Pharmacist";
-  return "Receptionist";
+  if (!allowedActions || !Array.isArray(allowedActions)) return "Super Admin";
+  if (allowedActions.includes("HMS-R-SA")) return "Super Admin";
+  return "Employee";
 }
 
 // Main App
@@ -94,7 +94,7 @@ function App() {
 
     // Auto-navigate to default route
     if (location.pathname === "/") {
-      if (userRole === "Pharmacist") navigate("/OPPharmacy");
+      if (userRole === "Super Admin") navigate("/OPPharmacy");
       else navigate("/PatientRegistrationForm");
     }
     setIsLoading(false);
@@ -159,69 +159,113 @@ function App() {
   // Routes where sidebar is hidden (login page)
   const hideSidebarRoutes = ["/"];
 
-  if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>Loading...</div>;
-  if (!role) return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
+  if (isLoading)
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        Loading...
+      </div>
+    );
+  if (!role)
+    return (
+      <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
+        Authentication error. Refresh the page.
+      </div>
+    );
 
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
-      {!hideSidebarRoutes.includes(location.pathname) && <Sidebar role={role} />}
+      {!hideSidebarRoutes.includes(location.pathname) && (
+        <Sidebar role={role} />
+      )}
 
       {hideSidebarRoutes.includes(location.pathname) ? (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "100vh",
+          }}
+        >
           Redirecting based on your role...
         </div>
       ) : (
         <ContentWrapper>
           <Routes>
-            {/* Pharmacist sees all */}
-            {role === "Pharmacist" && (
-              <>
-                <Route path="/Admission" element={<Admission />} />
-                <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
-                <Route path="/RoomShifting" element={<RoomShifting />} />
-                <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
-                <Route path="/RoomCategory" element={<RoomCategory />} />
-                <Route path="/Room" element={<Room />} />
-                <Route path="/Bed" element={<Bed />} />
-                <Route path="/Service" element={<Service />} />
-                <Route path="/Block" element={<Block />} />
-                <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
-                <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
-                <Route path="/VendorManagement" element={<VendorManagement />} />
-                <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
-                <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
-                <Route path="/IPPharmacy" element={<IPPharmacy />} />
-                <Route path="/OPPharmacy" element={<OPPharmacy />} />
-                <Route path="/DischargeForm" element={<DischargeForm />} />
-                <Route path="/Summary" element={<Summary />} />
-                <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
-                <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
-                <Route path="/Enquiry" element={<Enquiry />} />
+            <>
+              <Route path="/Admission" element={<Admission />} />
+              <Route
+                path="/PatientRegistrationForm"
+                element={<PatientRegistrationForm />}
+              />
+              <Route path="/RoomShifting" element={<RoomShifting />} />
+              <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
+              <Route path="/RoomCategory" element={<RoomCategory />} />
+              <Route path="/Room" element={<Room />} />
+              <Route path="/Bed" element={<Bed />} />
+              <Route path="/Service" element={<Service />} />
+              <Route path="/Block" element={<Block />} />
+              <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
+              <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
+              <Route path="/VendorManagement" element={<VendorManagement />} />
+              <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
+              <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
+              <Route path="/IPPharmacy" element={<IPPharmacy />} />
+              <Route path="/OPPharmacy" element={<OPPharmacy />} />
+              <Route path="/DischargeForm" element={<DischargeForm />} />
+              <Route path="/Summary" element={<Summary />} />
+              <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
+              <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
+              <Route path="/Enquiry" element={<Enquiry />} />
 
-                {/* Doctor Master */}
-                <Route path="/DoctorList" element={<DoctorList />} />
-                <Route path="/DoctorSchedule/:employee_id" element={<DoctorSchedule />} />
+              {/* Doctor Master */}
+              <Route path="/DoctorList" element={<DoctorList />} />
+              <Route
+                path="/DoctorSchedule/:employee_id"
+                element={<DoctorSchedule />}
+              />
 
-                {/* Investigation Billing */}
-                <Route path="/InvestigationBilling" element={<InvestigationBilling />} />
-                <Route path="/ViewBills" element={<ViewBills />} />
-                <Route path="/ViewEstimate" element={<ViewEstimate />} />
+              {/* Investigation Billing */}
+              <Route
+                path="/InvestigationBilling"
+                element={<InvestigationBilling />}
+              />
+              <Route path="/ViewBills" element={<ViewBills />} />
+              <Route path="/ViewEstimate" element={<ViewEstimate />} />
 
-                {/* Investigation Reports */}
-                <Route path="/CTList" element={<CTList />} />
-                <Route path="/CTReportForm/:uhid/:subUhid" element={<CTReportForm />} />
-                <Route path="/MRIList" element={<MRIList />} />
-                <Route path="/MRIReportForm/:uhid/:subUhid" element={<MRIReportForm />} />
-                <Route path="/USGList" element={<USGList />} />
-                <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
-                <Route path="/XRayList" element={<XRayList />} />
-                <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
+              {/* Investigation Reports */}
+              <Route path="/CTList" element={<CTList />} />
+              <Route
+                path="/CTReportForm/:uhid/:subUhid"
+                element={<CTReportForm />}
+              />
+              <Route path="/MRIList" element={<MRIList />} />
+              <Route
+                path="/MRIReportForm/:uhid/:subUhid"
+                element={<MRIReportForm />}
+              />
+              <Route path="/USGList" element={<USGList />} />
+              <Route
+                path="/USGReportForm/:uhid/:subUhid"
+                element={<USGReportForm />}
+              />
+              <Route path="/XRayList" element={<XRayList />} />
+              <Route
+                path="/XRayReportForm/:uhid/:subUhid"
+                element={<XRayReportForm />}
+              />
 
-                {/* Discharge */}
-                <Route path="/DischargeReport" element={<DischargeReport />} />
-              </>
-            )}
+              {/* Discharge */}
+              <Route path="/DischargeReport" element={<DischargeReport />} />
+            </>
           </Routes>
         </ContentWrapper>
       )}

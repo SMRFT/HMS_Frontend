@@ -11,7 +11,7 @@ import {
   Td,
   Tr,
   TableWrapper as GlobalTableWrapper,
-} from "../GlobalStyledComponents";
+} from "../GlobalStyles";
 
 // Modern styled components matching CTList design
 const PageContainer = styled.div`
@@ -46,9 +46,9 @@ const PageTitle = styled.h1`
   display: flex;
   align-items: center;
   gap: 1rem;
-  
+
   &::before {
-    content: '📊';
+    content: "📊";
     font-size: 2.5rem;
   }
 `;
@@ -67,19 +67,19 @@ const BackButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  
+
   &:hover {
     background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
   }
-  
+
   &:active {
     transform: translateY(0);
   }
-  
+
   &::before {
-    content: '←';
+    content: "←";
     font-size: 1.25rem;
   }
 `;
@@ -112,7 +112,7 @@ const Select = styled.select`
   font-size: 0.938rem;
   transition: all 0.3s ease;
   background: white;
-  
+
   &:focus {
     outline: none;
     border-color: #00897b;
@@ -126,7 +126,7 @@ const Input = styled.input`
   border-radius: 10px;
   font-size: 0.938rem;
   transition: all 0.3s ease;
-  
+
   &:focus {
     outline: none;
     border-color: #00897b;
@@ -148,7 +148,7 @@ const RadioLabel = styled.label`
   cursor: pointer;
   font-size: 0.938rem;
   color: #555;
-  
+
   input {
     cursor: pointer;
     width: 18px;
@@ -162,22 +162,22 @@ const TableWrapper = styled.div`
   margin-top: 1.5rem;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  
+
   /* Custom scrollbar styling */
   &::-webkit-scrollbar {
     height: 8px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 10px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: #00897b;
     border-radius: 10px;
   }
-  
+
   &::-webkit-scrollbar-thumb:hover {
     background: #00695c;
   }
@@ -194,7 +194,7 @@ const ModernTable = styled.table`
 
 const TableHead = styled.thead`
   background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  
+
   th {
     color: white;
     font-weight: 600;
@@ -211,13 +211,13 @@ const TableRow = styled.tr`
   background: white;
   transition: all 0.3s ease;
   border-bottom: 1px solid #f0f0f0;
-  
+
   &:hover {
     background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
     transform: scale(1.01);
     box-shadow: 0 4px 12px rgba(0, 137, 123, 0.1);
   }
-  
+
   &:last-child {
     border-bottom: none;
   }
@@ -241,12 +241,12 @@ const ActionButton = styled.button`
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  
+
   &:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
   }
-  
+
   &:active {
     transform: translateY(-1px);
   }
@@ -255,26 +255,26 @@ const ActionButton = styled.button`
 const PrintButton = styled(ActionButton)`
   background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
   color: white;
-  
+
   &:hover {
     background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
   }
-  
+
   &::before {
-    content: '🖨 ';
+    content: "🖨 ";
   }
 `;
 
 const ConvertButton = styled(ActionButton)`
   background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
   color: white;
-  
+
   &:hover {
     background: linear-gradient(135deg, #fb8c00 0%, #ef6c00 100%);
   }
-  
+
   &::before {
-    content: '🔄 ';
+    content: "🔄 ";
   }
 `;
 
@@ -282,14 +282,14 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: #999;
-  
+
   &::before {
-    content: '📭';
+    content: "📭";
     font-size: 4rem;
     display: block;
     margin-bottom: 1rem;
   }
-  
+
   p {
     font-size: 1.125rem;
     font-weight: 500;
@@ -304,7 +304,7 @@ const ItemsList = styled.div`
 const ItemRow = styled.div`
   padding: 0.25rem 0;
   border-bottom: 1px solid #f0f0f0;
-  
+
   &:last-child {
     border-bottom: none;
   }
@@ -312,18 +312,19 @@ const ItemRow = styled.div`
 
 const StyledDatePicker = styled(DatePicker)`
   width: 100%;
-  
+
   .ant-picker-input input {
     padding: 0.75rem 1rem;
     font-size: 0.938rem;
   }
-  
+
   &.ant-picker {
     border: 2px solid #e0e0e0;
     border-radius: 10px;
     padding: 0;
-    
-    &:hover, &.ant-picker-focused {
+
+    &:hover,
+    &.ant-picker-focused {
       border-color: #00897b;
       box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
     }
@@ -346,6 +347,22 @@ const EstimateBillsReport = () => {
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  const formatEstimateDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date
+      .toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
+  };
+
   useEffect(() => {
     const today = dayjs().format("YYYY-MM-DD");
     setFromDate(today);
@@ -365,7 +382,7 @@ const EstimateBillsReport = () => {
 
         const result = await apiRequest(
           `${HMSURL}get-estimate-billings/?${queryParams.toString()}`,
-          "GET"
+          "GET",
         );
 
         if (result.success) {
@@ -389,10 +406,13 @@ const EstimateBillsReport = () => {
       try {
         const billTypesResult = await apiRequest(`${HMSURL}bill-types/`, "GET");
         if (billTypesResult.success) {
-          setBillTypes(billTypesResult.data.items || []);
+          setBillTypes(billTypesResult.data.billTypes || []); // ✅ use billTypes key
         }
 
-        const doctorsResult = await apiRequest(`${HMSURL}doctor_list/`, "GET");
+        const doctorsResult = await apiRequest(
+          `${HMSURL}doctor_list_diagnostics/`,
+          "GET",
+        );
         if (doctorsResult.success) {
           setDoctors(doctorsResult.data);
         }
@@ -426,7 +446,10 @@ const EstimateBillsReport = () => {
         return false;
       }
 
-      if (filters.billType && bill.billType !== filters.billType) {
+      if (
+        filters.billType &&
+        String(bill.bill_type) !== String(filters.billType)
+      ) {
         return false;
       }
 
@@ -463,15 +486,20 @@ const EstimateBillsReport = () => {
   const handlePrint = (bill) => {
     const printWindow = window.open("", "_blank", "height=600,width=800");
 
-    const formatDateTime = (dateStr, timeStr) => {
+    const formatDateTime = (dateStr) => {
       if (!dateStr) return "";
       const date = new Date(dateStr);
-      const formattedDate = `${date.getDate().toString().padStart(2, "0")}/${(
-        date.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}/${date.getFullYear()}`;
-      return timeStr ? `${formattedDate} ${timeStr}` : formattedDate;
+      return date
+        .toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+        .toUpperCase();
     };
 
     const getTotalPrice = (items) => {
@@ -479,13 +507,14 @@ const EstimateBillsReport = () => {
       return items.reduce(
         (total, item) =>
           total + parseFloat(item.price) * parseInt(item.quantity),
-        0
+        0,
       );
     };
 
     const formatPatientName = (salutation, firstName, middleName, lastName) => {
-      return `${salutation || ""} ${firstName || ""} ${middleName ? middleName + " " : ""
-        }${lastName || ""}`.trim();
+      return `${salutation || ""} ${firstName || ""} ${
+        middleName ? middleName + " " : ""
+      }${lastName || ""}`.trim();
     };
 
     const html = `
@@ -542,7 +571,7 @@ const EstimateBillsReport = () => {
       
       <div>
         <span class="bill-title">"${bill.paymentMethod || "NIL"}"</span>
-        <span class="bill-subtitle">${bill.billType || "NIL"}</span>
+        <span class="bill-subtitle">${bill.bill_name || "NIL"}</span>
       </div>
       
       <div class="bill-details">
@@ -557,16 +586,16 @@ const EstimateBillsReport = () => {
           </div>
           <div class="bill-row">
             <div class="bill-label">Estimate Date</div>
-            <div class="bill-value">: ${formatDateTime(bill.EstBillDate, bill.time)}</div>
+            <div class="bill-value">: ${formatDateTime(bill.EstBillDate)}</div>
           </div>
           <div class="bill-row">
             <div class="bill-label">Name</div>
             <div class="bill-value">: ${formatPatientName(
-      bill.salutation,
-      bill.firstName,
-      bill.middleName,
-      bill.lastName
-    )}</div>
+              bill.salutation,
+              bill.firstName,
+              bill.middleName,
+              bill.lastName,
+            )}</div>
           </div>
           <div class="bill-row">
             <div class="bill-label">Doctor</div>
@@ -586,10 +615,11 @@ const EstimateBillsReport = () => {
           </tr>
         </thead>
         <tbody>
-          ${Array.isArray(bill.item)
-        ? bill.item
-          .map(
-            (item, index) => `
+          ${
+            Array.isArray(bill.item)
+              ? bill.item
+                  .map(
+                    (item, index) => `
               <tr>
                 <td>${index + 1}</td>
                 <td>${item.itemName || ""}</td>
@@ -597,11 +627,11 @@ const EstimateBillsReport = () => {
                 <td>${parseFloat(item.price).toFixed(2)}</td>
                 <td>${(parseFloat(item.price) * parseInt(item.quantity || 1)).toFixed(2)}</td>
               </tr>
-            `
-          )
-          .join("")
-        : '<tr><td colspan="5">No Items</td></tr>'
-      }
+            `,
+                  )
+                  .join("")
+              : '<tr><td colspan="5">No Items</td></tr>'
+          }
         </tbody>
       </table>
       
@@ -645,8 +675,9 @@ const EstimateBillsReport = () => {
   };
 
   const formatPatientName = (salutation, firstName, middleName, lastName) => {
-    return `${salutation || ""} ${firstName || ""} ${middleName ? middleName + " " : ""
-      }${lastName || ""}`.trim();
+    return `${salutation || ""} ${firstName || ""} ${
+      middleName ? middleName + " " : ""
+    }${lastName || ""}`.trim();
   };
 
   return (
@@ -686,13 +717,11 @@ const EstimateBillsReport = () => {
               onChange={handleFilterChange}
             >
               <option value="">Select Bill Type</option>
-              {[...new Set(billTypes.map((bill) => bill.billType))].map(
-                (billType, index) => (
-                  <option key={index} value={billType}>
-                    {billType}
-                  </option>
-                )
-              )}
+              {billTypes.map((bill) => (
+                <option key={bill.bill_type} value={bill.bill_type}>
+                  {bill.bill_name}
+                </option>
+              ))}
             </Select>
           </FilterGroup>
 
@@ -705,13 +734,8 @@ const EstimateBillsReport = () => {
             >
               <option value="">Select Doctor</option>
               {doctors.map((doctor) => (
-                <option
-                  key={doctor.id}
-                  value={`${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name
-                    }`.trim()}
-                >
-                  {`${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name
-                    }`.trim()}
+                <option key={doctor.employeeId} value={doctor.employeeName}>
+                  {doctor.employeeName}
                 </option>
               ))}
             </Select>
@@ -770,14 +794,12 @@ const EstimateBillsReport = () => {
               <TableHead>
                 <tr>
                   <th>Sl.No</th>
-                  <th>Estimate Date</th>
-                  <th>Time</th>
-                  <th>Estimate No</th>
-                  <th>UHID No</th>
+                  <th>Date / Time</th>
+                  <th>Est.Bill No</th>
+                  <th>UHID</th>
                   <th>IP No</th>
                   <th>Patient Name</th>
                   <th>Age</th>
-                  <th>Room No</th>
                   <th>Bill Type</th>
                   <th>Items</th>
                   <th>Estimate Amount</th>
@@ -789,8 +811,9 @@ const EstimateBillsReport = () => {
                 {filteredBills.map((bill, index) => (
                   <TableRow key={index}>
                     <TableCell>{index + 1}</TableCell>
-                    <TableCell>{bill.EstBillDate}</TableCell>
-                    <TableCell>{bill.time}</TableCell>
+                    <TableCell>
+                      {formatEstimateDate(bill.EstBillDate)}
+                    </TableCell>
                     <TableCell>{bill.EstBillNo}</TableCell>
                     <TableCell>{bill.uhid}</TableCell>
                     <TableCell>{bill.ipNumber}</TableCell>
@@ -799,20 +822,20 @@ const EstimateBillsReport = () => {
                         bill.salutation,
                         bill.firstName,
                         bill.middleName,
-                        bill.lastName
+                        bill.lastName,
                       )}
                     </TableCell>
                     <TableCell>{bill.age}</TableCell>
-                    <TableCell>{bill.roomNo}</TableCell>
-                    <TableCell>{bill.billType}</TableCell>
+                    <TableCell>{bill.bill_name}</TableCell>
                     <TableCell>
                       <ItemsList>
                         {Array.isArray(bill.item)
                           ? bill.item.map((item, idx) => (
-                            <ItemRow key={idx}>
-                              {item.itemName} - ₹{item.price} (Qty: {item.quantity})
-                            </ItemRow>
-                          ))
+                              <ItemRow key={idx}>
+                                {item.itemName} - ₹{item.price} (Qty:{" "}
+                                {item.quantity})
+                              </ItemRow>
+                            ))
                           : "No Items"}
                       </ItemsList>
                     </TableCell>
