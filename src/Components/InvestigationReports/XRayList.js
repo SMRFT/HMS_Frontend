@@ -566,12 +566,14 @@ const XRayList = ({
         return;
       }
 
+      // In fetchData, replace the merged map:
       const merged = (result.data || []).map((row) => ({
         investBillNo: row.investBillNo,
         uhid: row.uhid,
         ipNumber: row.ipNumber,
         investBillDate: row.investBillDate,
         item: row.item,
+        itemName: row.itemName || "", // ← comes directly from backend now
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.lastName || ""}`.trim(),
         age: row.age,
@@ -579,7 +581,6 @@ const XRayList = ({
         report: row.report || null,
         hasReport: !!row.hasReport,
       }));
-
       setRows(merged);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -601,19 +602,11 @@ const XRayList = ({
     const uhidBase = parts[0] || "";
     const subUhid = parts[1] || "";
 
-    let itemName = "";
-    try {
-      const items = JSON.parse(row.item || "[]");
-      itemName = items[0]?.itemName || "";
-    } catch {
-      itemName = "";
-    }
-
     navigate(`/XRayReportForm/${uhidBase}/${subUhid}`, {
       state: {
         uhid: uhidBase,
         subUhid,
-        itemName,
+        itemName: row.itemName,
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
         salutation: "",
@@ -623,6 +616,7 @@ const XRayList = ({
         age: row.age,
         gender: row.gender,
         investBillDate: row.investBillDate,
+        billTypeNo,
       },
     });
   };
@@ -632,11 +626,17 @@ const XRayList = ({
     setIsModalOpen(true);
   };
 
+  const handleEdit = (row) => {
+    setEditingRow(row);
+    setIsEditModalOpen(true);
+  };
+
   const handleApprove = async (row) => {
     try {
-      const encoded = encodeURIComponent(row.investBillNo);
+      const encodedBill = encodeURIComponent(row.investBillNo);
+      const encodedItem = encodeURIComponent(row.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/approve/${encoded}/`,
+        `${HMSURL}scan-reports/approve/${encodedBill}/${encodedItem}/`,
         "PATCH",
         {},
       );
@@ -645,7 +645,7 @@ const XRayList = ({
       toast.success("Report approved successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
             ? { ...r, report: { ...r.report, is_approved: true } }
             : r,
         ),
@@ -655,16 +655,12 @@ const XRayList = ({
     }
   };
 
-  const handleEdit = (row) => {
-    setEditingRow(row);
-    setIsEditModalOpen(true);
-  };
-
   const handleSaveEdit = async (newImpression) => {
     try {
-      const encoded = encodeURIComponent(editingRow.investBillNo);
+      const encodedBill = encodeURIComponent(editingRow.investBillNo);
+      const encodedItem = encodeURIComponent(editingRow.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/edit/${encoded}/`,
+        `${HMSURL}scan-reports/edit/${encodedBill}/${encodedItem}/`,
         "PATCH",
         { impression: newImpression },
       );
@@ -673,7 +669,8 @@ const XRayList = ({
       toast.success("Report updated successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === editingRow.investBillNo
+          r.investBillNo === editingRow.investBillNo &&
+          r.itemName === editingRow.itemName
             ? { ...r, report: { ...r.report, impression: newImpression } }
             : r,
         ),
@@ -687,9 +684,10 @@ const XRayList = ({
 
   const handleDelete = async (row) => {
     try {
-      const encoded = encodeURIComponent(row.investBillNo);
+      const encodedBill = encodeURIComponent(row.investBillNo);
+      const encodedItem = encodeURIComponent(row.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/delete/${encoded}/`,
+        `${HMSURL}scan-reports/delete/${encodedBill}/${encodedItem}/`,
         "PATCH",
         {},
       );
@@ -698,7 +696,7 @@ const XRayList = ({
       toast.success("Report deleted successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
             ? { ...r, report: null, hasReport: false }
             : r,
         ),
@@ -762,7 +760,7 @@ const XRayList = ({
                 {rows.length > 0 ? (
                   rows.map((row, index) => (
                     <Tr
-                      key={`${row.investBillNo}-${index}`}
+                      key={`${row.investBillNo}-${row.itemName}-${index}`}
                       style={{
                         background: row.hasReport
                           ? "linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%)"
@@ -775,17 +773,7 @@ const XRayList = ({
                       <Td>{row.patientName}</Td>
                       <Td>{row.age || "N/A"}</Td>
                       <Td>{row.gender || "N/A"}</Td>
-                      <Td>
-                        {(() => {
-                          try {
-                            return JSON.parse(row.item || "[]")
-                              .map((it) => it.itemName)
-                              .join(", ");
-                          } catch {
-                            return "—";
-                          }
-                        })()}
-                      </Td>
+                      <Td>{row.itemName || "—"}</Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
                         {!row.hasReport ? (

@@ -322,7 +322,7 @@ const MRIReportForm = () => {
   const [investBillNo, setInvestBillNo] = useState("");
   const [investBillDate, setInvestBillDate] = useState("");
   const [impression, setImpression] = useState("");
-
+  const [billTypeNo, setBillTypeNo] = useState("");
   const [patientName, setPatientName] = useState("");
   const [ipNumber, setIpNumber] = useState("");
   const [itemName, setItemName] = useState("");
@@ -349,6 +349,7 @@ const MRIReportForm = () => {
       itemName: stateItemName,
       ipNumber: stateIpNumber,
       investBillNo: stateInvestBillNo,
+      billTypeNo: stateBillTypeNo,
       salutation,
       firstName,
       middleName,
@@ -366,6 +367,7 @@ const MRIReportForm = () => {
     setPatientName(fullName);
     setIpNumber(stateIpNumber || "");
     setInvestBillNo(stateInvestBillNo || "");
+    setBillTypeNo(stateBillTypeNo || "");
     setInvestBillDate(stateInvestBillDate || "");
     setAge(stateAge || "");
     setGender(stateGender || "");
@@ -376,7 +378,13 @@ const MRIReportForm = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const reportData = { investBillDate, investBillNo, impression };
+    const reportData = {
+      investBillDate,
+      investBillNo,
+      impression,
+      billTypeNo,
+      itemName,
+    };
 
     const result = await apiRequest(
       `${HMSURL}scan-reports/`,

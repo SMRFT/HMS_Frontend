@@ -563,12 +563,14 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
         return;
       }
 
+      // In fetchData, replace the merged map:
       const merged = (result.data || []).map((row) => ({
         investBillNo: row.investBillNo,
         uhid: row.uhid,
         ipNumber: row.ipNumber,
         investBillDate: row.investBillDate,
         item: row.item,
+        itemName: row.itemName || "", // ← comes directly from backend now
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.lastName || ""}`.trim(),
         age: row.age,
@@ -576,7 +578,6 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
         report: row.report || null,
         hasReport: !!row.hasReport,
       }));
-
       setRows(merged);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -598,19 +599,11 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
     const uhidBase = parts[0] || "";
     const subUhid = parts[1] || "";
 
-    let itemName = "";
-    try {
-      const items = JSON.parse(row.item || "[]");
-      itemName = items[0]?.itemName || "";
-    } catch {
-      itemName = "";
-    }
-
     navigate(`/CTReportForm/${uhidBase}/${subUhid}`, {
       state: {
         uhid: uhidBase,
         subUhid,
-        itemName,
+        itemName: row.itemName,
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
         salutation: "",
@@ -620,6 +613,7 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
         age: row.age,
         gender: row.gender,
         investBillDate: row.investBillDate,
+        billTypeNo,
       },
     });
   };
@@ -629,11 +623,17 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
     setIsModalOpen(true);
   };
 
+  const handleEdit = (row) => {
+    setEditingRow(row);
+    setIsEditModalOpen(true);
+  };
+
   const handleApprove = async (row) => {
     try {
-      const encoded = encodeURIComponent(row.investBillNo);
+      const encodedBill = encodeURIComponent(row.investBillNo);
+      const encodedItem = encodeURIComponent(row.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/approve/${encoded}/`,
+        `${HMSURL}scan-reports/approve/${encodedBill}/${encodedItem}/`,
         "PATCH",
         {},
       );
@@ -642,7 +642,7 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
       toast.success("Report approved successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
             ? { ...r, report: { ...r.report, is_approved: true } }
             : r,
         ),
@@ -652,16 +652,12 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
     }
   };
 
-  const handleEdit = (row) => {
-    setEditingRow(row);
-    setIsEditModalOpen(true);
-  };
-
   const handleSaveEdit = async (newImpression) => {
     try {
-      const encoded = encodeURIComponent(editingRow.investBillNo);
+      const encodedBill = encodeURIComponent(editingRow.investBillNo);
+      const encodedItem = encodeURIComponent(editingRow.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/edit/${encoded}/`,
+        `${HMSURL}scan-reports/edit/${encodedBill}/${encodedItem}/`,
         "PATCH",
         { impression: newImpression },
       );
@@ -670,7 +666,8 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
       toast.success("Report updated successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === editingRow.investBillNo
+          r.investBillNo === editingRow.investBillNo &&
+          r.itemName === editingRow.itemName
             ? { ...r, report: { ...r.report, impression: newImpression } }
             : r,
         ),
@@ -684,9 +681,10 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
 
   const handleDelete = async (row) => {
     try {
-      const encoded = encodeURIComponent(row.investBillNo);
+      const encodedBill = encodeURIComponent(row.investBillNo);
+      const encodedItem = encodeURIComponent(row.itemName);
       const result = await apiRequest(
-        `${HMSURL}scan-reports/delete/${encoded}/`,
+        `${HMSURL}scan-reports/delete/${encodedBill}/${encodedItem}/`,
         "PATCH",
         {},
       );
@@ -695,7 +693,7 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
       toast.success("Report deleted successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
             ? { ...r, report: null, hasReport: false }
             : r,
         ),
@@ -759,7 +757,7 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
                 {rows.length > 0 ? (
                   rows.map((row, index) => (
                     <Tr
-                      key={`${row.investBillNo}-${index}`}
+                      key={`${row.investBillNo}-${row.itemName}-${index}`}
                       style={{
                         background: row.hasReport
                           ? "linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%)"
@@ -772,17 +770,7 @@ const CTList = ({ billTypeNo = "CT01", investBillNo: investBillNoFilter }) => {
                       <Td>{row.patientName}</Td>
                       <Td>{row.age || "N/A"}</Td>
                       <Td>{row.gender || "N/A"}</Td>
-                      <Td>
-                        {(() => {
-                          try {
-                            return JSON.parse(row.item || "[]")
-                              .map((it) => it.itemName)
-                              .join(", ");
-                          } catch {
-                            return "—";
-                          }
-                        })()}
-                      </Td>
+                      <Td>{row.itemName || "—"}</Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
                         {!row.hasReport ? (
