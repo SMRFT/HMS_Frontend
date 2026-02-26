@@ -13,6 +13,9 @@ import Sidebar from "./Components/Sidebar";
 import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { hasPagePermission } from "./Auth/FrontendPageMapping";
+import { fetchUserPermissions } from "./Auth/apiRequest";
+import UserPermissionManager from "./Auth/UserPermissionManager";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
@@ -53,8 +56,14 @@ import XRayList from "./Components/InvestigationReports/XRayList";
 import XRayReportForm from "./Components/InvestigationReports/XRayRportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
+// Insurance
+import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
+
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import Dashboard from "./Components/Dashboard/Dashboard";
+import RegistrationBills from "./Components/Register/RegistrationBills";
+import MobileRegistration from "./Components/Register/MobileRegistration";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -84,20 +93,45 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const [role, setRole] = useState(null);
+  const [allowedActions, setAllowedActions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // On mount: get role from localStorage or API
   useEffect(() => {
-    const allowedActions = JSON.parse(localStorage.getItem("allowedActions")); // Example
-    const userRole = getUserRole(allowedActions);
-    setRole(userRole);
+    const initPermissions = async () => {
+      let actions = JSON.parse(localStorage.getItem("allowedActions")) || [];
+      const employeeId = localStorage.getItem("employeeId");
 
-    // Auto-navigate to default route
-    if (location.pathname === "/") {
-      if (userRole === "Pharmacist") navigate("/OPPharmacy");
-      else navigate("/PatientRegistrationForm");
-    }
-    setIsLoading(false);
+      if (employeeId) {
+        try {
+          // Fetch dynamic permissions from the new API table
+          const permissionData = await fetchUserPermissions(employeeId);
+          // New API returns object { allowed_pages: [], roles: [] }
+          const extraPermissions = permissionData?.allowed_pages || [];
+
+          if (Array.isArray(extraPermissions) && extraPermissions.length > 0) {
+            // Merge unique permissions
+            actions = [...new Set([...actions, ...extraPermissions])];
+            localStorage.setItem("allowedActions", JSON.stringify(actions));
+          }
+        } catch (error) {
+          console.error("Failed to load dynamic permissions", error);
+        }
+      }
+
+      setAllowedActions(actions);
+      const userRole = getUserRole(actions);
+      setRole(userRole);
+
+      // Auto-navigate to default route
+      if (location.pathname === "/") {
+        if (userRole === "Pharmacist") navigate("/OPPharmacy");
+        else navigate("/PatientRegistrationForm");
+      }
+      setIsLoading(false);
+    };
+
+    initPermissions();
   }, [location.pathname, navigate]);
 
   // Update page title based on route
@@ -156,72 +190,173 @@ function App() {
     }
   }, [location.pathname]);
 
-  // Routes where sidebar is hidden (login page)
-  const hideSidebarRoutes = ["/"];
+  // Routes where sidebar is hidden (login page and mobile reg)
+  const hideSidebarRoutes = ["/", "/MobileRegistration"];
 
   if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>Loading...</div>;
-  if (!role) return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
+
+  // Allow public access to MobileRegistration
+  if (!role && location.pathname !== "/MobileRegistration") {
+    return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
+  }
 
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
-      {!hideSidebarRoutes.includes(location.pathname) && <Sidebar role={role} />}
+      {!hideSidebarRoutes.includes(location.pathname) && <Sidebar role={role} allowedActions={allowedActions} />}
 
       {hideSidebarRoutes.includes(location.pathname) ? (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-          Redirecting based on your role...
-        </div>
+        location.pathname === "/MobileRegistration" ? (
+          <Routes>
+            <Route path="/MobileRegistration" element={<MobileRegistration />} />
+          </Routes>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+            Redirecting based on your role...
+          </div>
+        )
       ) : (
         <ContentWrapper>
           <Routes>
-            {/* Pharmacist sees all */}
-            {role === "Pharmacist" && (
-              <>
-                <Route path="/Admission" element={<Admission />} />
-                <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
-                <Route path="/RoomShifting" element={<RoomShifting />} />
-                <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
-                <Route path="/RoomCategory" element={<RoomCategory />} />
-                <Route path="/Room" element={<Room />} />
-                <Route path="/Bed" element={<Bed />} />
-                <Route path="/Service" element={<Service />} />
-                <Route path="/Block" element={<Block />} />
-                <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
-                <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
-                <Route path="/VendorManagement" element={<VendorManagement />} />
-                <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
-                <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
-                <Route path="/IPPharmacy" element={<IPPharmacy />} />
-                <Route path="/OPPharmacy" element={<OPPharmacy />} />
-                <Route path="/DischargeForm" element={<DischargeForm />} />
-                <Route path="/Summary" element={<Summary />} />
-                <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
-                <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
-                <Route path="/Enquiry" element={<Enquiry />} />
-
-                {/* Doctor Master */}
-                <Route path="/DoctorList" element={<DoctorList />} />
-                <Route path="/DoctorSchedule/:employee_id" element={<DoctorSchedule />} />
-
-                {/* Investigation Billing */}
-                <Route path="/InvestigationBilling" element={<InvestigationBilling />} />
-                <Route path="/ViewBills" element={<ViewBills />} />
-                <Route path="/ViewEstimate" element={<ViewEstimate />} />
-
-                {/* Investigation Reports */}
-                <Route path="/CTList" element={<CTList />} />
-                <Route path="/CTReportForm/:uhid/:subUhid" element={<CTReportForm />} />
-                <Route path="/MRIList" element={<MRIList />} />
-                <Route path="/MRIReportForm/:uhid/:subUhid" element={<MRIReportForm />} />
-                <Route path="/USGList" element={<USGList />} />
-                <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
-                <Route path="/XRayList" element={<XRayList />} />
-                <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
-
-                {/* Discharge */}
-                <Route path="/DischargeReport" element={<DischargeReport />} />
-              </>
+            {/* Dashboard */}
+            {hasPagePermission("/Dashboard", allowedActions) && (
+              <Route path="/Dashboard" element={<Dashboard />} />
             )}
+
+            {/* User Permission Manager */}
+            {hasPagePermission("/UserPermissions", allowedActions) && (
+              <Route path="/UserPermissions" element={<UserPermissionManager />} />
+            )}
+
+            {/* Front Office */}
+            {hasPagePermission("/Admission", allowedActions) && (
+              <Route path="/Admission" element={<Admission />} />
+            )}
+            {hasPagePermission("/PatientRegistrationForm", allowedActions) && (
+              <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
+            )}
+            {hasPagePermission("/Enquiry", allowedActions) && (
+              <Route path="/Enquiry" element={<Enquiry />} />
+            )}
+            {hasPagePermission("/RegistrationBills", allowedActions) && (
+              <Route path="/RegistrationBills" element={<RegistrationBills />} />
+            )}
+            {hasPagePermission("/DischargeForm", allowedActions) && (
+              <Route path="/DischargeForm" element={<DischargeForm />} />
+            )}
+            {hasPagePermission("/Summary", allowedActions) && (
+              <Route path="/Summary" element={<Summary />} />
+            )}
+            {hasPagePermission("/Summary", allowedActions) && ( // Edit uses Summary permission
+              <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
+            )}
+            {hasPagePermission("/Summary", allowedActions) && ( // Print uses Summary permission
+              <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
+            )}
+            {hasPagePermission("/DischargeReport", allowedActions) && (
+              <Route path="/DischargeReport" element={<DischargeReport />} />
+            )}
+
+            {/* Insurance */}
+            {hasPagePermission("/InsuranceProvider", allowedActions) && (
+              <Route path="/InsuranceProvider" element={<InsuranceProvider />} />
+            )}
+
+            {/* Nursing Station */}
+            {hasPagePermission("/RoomShifting", allowedActions) && (
+              <Route path="/RoomShifting" element={<RoomShifting />} />
+            )}
+
+            {/* Rooms */}
+            {hasPagePermission("/RoomEnquiry", allowedActions) && (
+              <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
+            )}
+            {hasPagePermission("/RoomCategory", allowedActions) && (
+              <Route path="/RoomCategory" element={<RoomCategory />} />
+            )}
+            {hasPagePermission("/Room", allowedActions) && (
+              <Route path="/Room" element={<Room />} />
+            )}
+            {hasPagePermission("/Bed", allowedActions) && (
+              <Route path="/Bed" element={<Bed />} />
+            )}
+            {hasPagePermission("/Service", allowedActions) && (
+              <Route path="/Service" element={<Service />} />
+            )}
+            {hasPagePermission("/Block", allowedActions) && (
+              <Route path="/Block" element={<Block />} />
+            )}
+
+            {/* Inventory */}
+            {hasPagePermission("/IPPharmacyStock", allowedActions) && (
+              <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
+            )}
+            {hasPagePermission("/OPPharmacyStock", allowedActions) && (
+              <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
+            )}
+            {hasPagePermission("/VendorManagement", allowedActions) && (
+              <Route path="/VendorManagement" element={<VendorManagement />} />
+            )}
+            {hasPagePermission("/IPGRNGeneration", allowedActions) && (
+              <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
+            )}
+            {hasPagePermission("/OPGRNGeneration", allowedActions) && (
+              <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
+            )}
+
+            {/* Pharmacy */}
+            {hasPagePermission("/IPPharmacy", allowedActions) && (
+              <Route path="/IPPharmacy" element={<IPPharmacy />} />
+            )}
+            {hasPagePermission("/OPPharmacy", allowedActions) && (
+              <Route path="/OPPharmacy" element={<OPPharmacy />} />
+            )}
+
+            {/* Doctor Master */}
+            {hasPagePermission("/DoctorList", allowedActions) && (
+              <Route path="/DoctorList" element={<DoctorList />} />
+            )}
+            {hasPagePermission("/DoctorList", allowedActions) && ( // Schedule linked to Doctor List
+              <Route path="/DoctorSchedule/:employee_id" element={<DoctorSchedule />} />
+            )}
+
+            {/* Investigation Billing */}
+            {hasPagePermission("/InvestigationBilling", allowedActions) && (
+              <Route path="/InvestigationBilling" element={<InvestigationBilling />} />
+            )}
+            {hasPagePermission("/ViewBills", allowedActions) && (
+              <Route path="/ViewBills" element={<ViewBills />} />
+            )}
+            {hasPagePermission("/ViewEstimate", allowedActions) && (
+              <Route path="/ViewEstimate" element={<ViewEstimate />} />
+            )}
+
+            {/* Investigation Reports */}
+            {hasPagePermission("/CTList", allowedActions) && (
+              <Route path="/CTList" element={<CTList />} />
+            )}
+            {hasPagePermission("/CTList", allowedActions) && (
+              <Route path="/CTReportForm/:uhid/:subUhid" element={<CTReportForm />} />
+            )}
+            {hasPagePermission("/MRIList", allowedActions) && (
+              <Route path="/MRIList" element={<MRIList />} />
+            )}
+            {hasPagePermission("/MRIList", allowedActions) && (
+              <Route path="/MRIReportForm/:uhid/:subUhid" element={<MRIReportForm />} />
+            )}
+            {hasPagePermission("/USGList", allowedActions) && (
+              <Route path="/USGList" element={<USGList />} />
+            )}
+            {hasPagePermission("/USGList", allowedActions) && (
+              <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
+            )}
+            {hasPagePermission("/XRayList", allowedActions) && (
+              <Route path="/XRayList" element={<XRayList />} />
+            )}
+            {hasPagePermission("/XRayList", allowedActions) && (
+              <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
+            )}
+
           </Routes>
         </ContentWrapper>
       )}
