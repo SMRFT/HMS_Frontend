@@ -347,12 +347,17 @@ const Sidebar = ({ role, allowedActions }) => {
           </StyledNavLink>
         )}
 
-        {showGroup(["/Admission", "/Enquiry", "/DischargeForm", "/Summary"]) && (
+        {showGroup(["/Admission", "/InsuranceProvider", "/Enquiry", "/DischargeForm", "/Summary"]) && (
           <NavGroupLabel>Front Office</NavGroupLabel>
         )}
         {hasPagePermission("/Admission", allowedActions) && (
           <StyledNavLink to="/Admission">
             <FiUserPlus /> <span>Admission</span>
+          </StyledNavLink>
+        )}
+        {hasPagePermission("/InsuranceProvider", allowedActions) && (
+          <StyledNavLink to="/InsuranceProvider">
+            <FiFileText /> <span>Insurance Provider</span>
           </StyledNavLink>
         )}
         {hasPagePermission("/Enquiry", allowedActions) && (

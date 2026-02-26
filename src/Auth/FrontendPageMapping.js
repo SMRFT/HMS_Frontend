@@ -62,6 +62,8 @@ export const PAGE_PERMISSIONS = {
 
     // Dummy Test Page
     "/HMSUsers": "HMS-P-HMS",
+
+    "/InsuranceProvider": "HMS-P-HMSINS",
 };
 
 /**

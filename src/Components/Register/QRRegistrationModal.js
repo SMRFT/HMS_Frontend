@@ -335,257 +335,257 @@ const HistoryToggle = styled.div`
 `;
 
 const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
-    const [sessionId, setSessionId] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [pendingList, setPendingList] = useState([]);
-    const [showAll, setShowAll] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
-    const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const [sessionId, setSessionId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [pendingList, setPendingList] = useState([]);
+  const [showAll, setShowAll] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    // Generate session on open
-    React.useEffect(() => {
-        if (isOpen) {
-            generateSession();
-        }
-        return () => {
-            setSessionId(null);
-            setPendingList([]);
-            setSearchTerm("");
-            setCurrentPage(1);
-        };
-    }, [isOpen]);
-
-    // Poll for pending registrations
-    React.useEffect(() => {
-        let interval;
-        if (isOpen) {
-            fetchPendingList(); // Initial fetch
-            interval = setInterval(fetchPendingList, 3000); // Poll every 3 seconds
-        }
-        return () => clearInterval(interval);
-    }, [isOpen, showAll]);
-
-    const fetchPendingList = async () => {
-        try {
-            const status = showAll ? 'all' : 'pending';
-            const response = await axios.get(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`);
-            setPendingList(response.data);
-        } catch (error) {
-            console.error("Error fetching pending list", error);
-        }
+  // Generate session on open
+  React.useEffect(() => {
+    if (isOpen) {
+      generateSession();
+    }
+    return () => {
+      setSessionId(null);
+      setPendingList([]);
+      setSearchTerm("");
+      setCurrentPage(1);
     };
+  }, [isOpen]);
 
-    const generateSession = async () => {
-        setLoading(true);
-        try {
-            const response = await axios.get(`${Hmsbaseurl}generate-qr-session/`);
-            setSessionId(response.data.session_id);
-        } catch (error) {
-            console.error("Error generating QR session", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  // Poll for pending registrations
+  React.useEffect(() => {
+    let interval;
+    if (isOpen) {
+      fetchPendingList(); // Initial fetch
+      interval = setInterval(fetchPendingList, 3000); // Poll every 3 seconds
+    }
+    return () => clearInterval(interval);
+  }, [isOpen, showAll]);
 
-    const handleConvert = async (patient) => {
-        try {
-            // Mark as consumed
-            await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
-                session_id: patient.session_id
-            });
+  const fetchPendingList = async () => {
+    try {
+      const status = showAll ? 'all' : 'pending';
+      const response = await axios.get(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`);
+      setPendingList(response.data);
+    } catch (error) {
+      console.error("Error fetching pending list", error);
+    }
+  };
 
-            // Fill form
-            onDataReceived(patient.full_data);
-            onClose();
-        } catch (error) {
-            console.error("Error consuming registration", error);
-            alert("Failed to process registration.");
-            fetchPendingList();
-        }
-    };
+  const generateSession = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${Hmsbaseurl}generate-qr-session/`);
+      setSessionId(response.data.session_id);
+    } catch (error) {
+      console.error("Error generating QR session", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleDelete = async (patient) => {
-        if (!window.confirm("Are you sure you want to remove this registration from the queue?")) return;
+  const handleConvert = async (patient) => {
+    try {
+      // Mark as consumed
+      await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
+        session_id: patient.session_id
+      });
 
-        try {
-            // We use the same 'consume' endpoint to mark it as processed/removed from pending view
-            // But we DO NOT call onDataReceived
-            await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
-                session_id: patient.session_id
-            });
-            fetchPendingList(); // Refresh list immediately
-        } catch (error) {
-            console.error("Error deleting registration", error);
-            alert("Failed to delete registration.");
-        }
-    };
+      // Fill form
+      onDataReceived(patient.full_data);
+      onClose();
+    } catch (error) {
+      console.error("Error consuming registration", error);
+      alert("Failed to process registration.");
+      fetchPendingList();
+    }
+  };
 
-    // Use current pendingList for operations
-    // Logic: Filter -> Sort (Newest First) -> Paginate
-    const filteredList = pendingList
-        .filter(p =>
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.mobile && p.mobile.includes(searchTerm))
-        )
-        // Assuming the ID or order implies recency. If we want "Recently Added" (Newest First), 
-        // and if API returns Oldest First (standard list), we reverse.
-        // If API returns Newest First, we don't need reverse. 
-        // For now, let's reverse it to show newest at top as default typically desired.
-        .reverse();
+  const handleDelete = async (patient) => {
+    if (!window.confirm("Are you sure you want to remove this registration from the queue?")) return;
 
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = filteredList.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+    try {
+      // We use the same 'consume' endpoint to mark it as processed/removed from pending view
+      // But we DO NOT call onDataReceived
+      await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
+        session_id: patient.session_id
+      });
+      fetchPendingList(); // Refresh list immediately
+    } catch (error) {
+      console.error("Error deleting registration", error);
+      alert("Failed to delete registration.");
+    }
+  };
 
-    const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+  // Use current pendingList for operations
+  // Logic: Filter -> Sort (Newest First) -> Paginate
+  const filteredList = pendingList
+    .filter(p =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.mobile && p.mobile.includes(searchTerm))
+    )
+    // Assuming the ID or order implies recency. If we want "Recently Added" (Newest First), 
+    // and if API returns Oldest First (standard list), we reverse.
+    // If API returns Newest First, we don't need reverse. 
+    // For now, let's reverse it to show newest at top as default typically desired.
+    .reverse();
 
-    if (!isOpen) return null;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredList.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredList.length / itemsPerPage);
 
-    const registrationUrl = sessionId ? `${window.location.origin}HMS/MobileRegistration?session_id=${sessionId}` : "";
+  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
 
-    return (
-        <Overlay>
-            <Content>
-                <CloseButton onClick={onClose}><X size={20} /></CloseButton>
+  if (!isOpen) return null;
 
-                {/* Left Panel: QR Code and Instructions */}
-                <LeftPanel>
-                    <div style={{ textAlign: 'center' }}>
-                        <Title>Scan to Register</Title>
-                        <Subtitle>Step 1: Ask patient to scan this QR code</Subtitle>
-                    </div>
+  const registrationUrl = sessionId ? `${window.location.origin}/HMS/MobileRegistration?session_id=${sessionId}` : "";
 
-                    {loading ? (
-                        <div>Loading QR...</div>
-                    ) : sessionId ? (
-                        <QRCard>
-                            <QRCodeCanvas value={registrationUrl} size={180} />
-                            <QRLabel>Scan with Phone Camera</QRLabel>
-                        </QRCard>
-                    ) : (
-                        <div style={{ color: '#ef4444' }}>Error loading session</div>
-                    )}
+  return (
+    <Overlay>
+      <Content>
+        <CloseButton onClick={onClose}><X size={20} /></CloseButton>
 
-                    <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
-                        <p>Detailed form will open on their phone.</p>
-                        <p>Once submitted, they will appear in the list.</p>
-                    </div>
-                </LeftPanel>
+        {/* Left Panel: QR Code and Instructions */}
+        <LeftPanel>
+          <div style={{ textAlign: 'center' }}>
+            <Title>Scan to Register</Title>
+            <Subtitle>Step 1: Ask patient to scan this QR code</Subtitle>
+          </div>
 
-                {/* Right Panel: Patient List */}
-                <RightPanel>
-                    <ListHeader>
-                        <ListTitle>
-                            Incoming Registrations
-                            <CountBadge>{pendingList.filter(p => !p.is_consumed).length}</CountBadge>
-                        </ListTitle>
+          {loading ? (
+            <div>Loading QR...</div>
+          ) : sessionId ? (
+            <QRCard>
+              <QRCodeCanvas value={registrationUrl} size={180} />
+              <QRLabel>Scan with Phone Camera</QRLabel>
+            </QRCard>
+          ) : (
+            <div style={{ color: '#ef4444' }}>Error loading session</div>
+          )}
 
-                        {/* History Toggle */}
-                        <HistoryToggle>
-                            <input
-                                type="checkbox"
-                                id="showAll"
-                                checked={showAll}
-                                onChange={(e) => setShowAll(e.target.checked)}
-                            />
-                            <label htmlFor="showAll" style={{ cursor: 'pointer' }}>Show History</label>
-                        </HistoryToggle>
-                    </ListHeader>
+          <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+            <p>Detailed form will open on their phone.</p>
+            <p>Once submitted, they will appear in the list.</p>
+          </div>
+        </LeftPanel>
 
-                    {/* Search Bar */}
-                    <SearchContainer>
-                        <SearchIconWrapper>
-                            <Search size={16} />
-                        </SearchIconWrapper>
-                        <SearchInput
-                            placeholder="Search by name or mobile..."
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1); // Reset to first page
-                            }}
-                        />
-                    </SearchContainer>
+        {/* Right Panel: Patient List */}
+        <RightPanel>
+          <ListHeader>
+            <ListTitle>
+              Incoming Registrations
+              <CountBadge>{pendingList.filter(p => !p.is_consumed).length}</CountBadge>
+            </ListTitle>
 
-                    {currentItems.length > 0 ? (
+            {/* History Toggle */}
+            <HistoryToggle>
+              <input
+                type="checkbox"
+                id="showAll"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+              <label htmlFor="showAll" style={{ cursor: 'pointer' }}>Show History</label>
+            </HistoryToggle>
+          </ListHeader>
+
+          {/* Search Bar */}
+          <SearchContainer>
+            <SearchIconWrapper>
+              <Search size={16} />
+            </SearchIconWrapper>
+            <SearchInput
+              placeholder="Search by name or mobile..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page
+              }}
+            />
+          </SearchContainer>
+
+          {currentItems.length > 0 ? (
+            <>
+              <PatientList>
+                {currentItems.map((p) => (
+                  <PatientItem key={p.session_id} consumed={p.is_consumed}>
+                    <PatientInfo>
+                      <PatientName>{p.name}</PatientName>
+                      <PatientMeta>
+                        <span>{p.mobile}</span>
+                        <span>•</span>
+                        <span>{p.age_gender}</span>
+                        {p.is_consumed && <span style={{ color: '#22c55e', fontWeight: 600 }}>(Processed)</span>}
+                      </PatientMeta>
+                    </PatientInfo>
+
+                    <Actions>
+                      {!p.is_consumed && (
                         <>
-                            <PatientList>
-                                {currentItems.map((p) => (
-                                    <PatientItem key={p.session_id} consumed={p.is_consumed}>
-                                        <PatientInfo>
-                                            <PatientName>{p.name}</PatientName>
-                                            <PatientMeta>
-                                                <span>{p.mobile}</span>
-                                                <span>•</span>
-                                                <span>{p.age_gender}</span>
-                                                {p.is_consumed && <span style={{ color: '#22c55e', fontWeight: 600 }}>(Processed)</span>}
-                                            </PatientMeta>
-                                        </PatientInfo>
-
-                                        <Actions>
-                                            {!p.is_consumed && (
-                                                <>
-                                                    <ActionButton variant="danger" onClick={() => handleDelete(p)} title="Delete from Queue">
-                                                        <Trash2 size={16} />
-                                                    </ActionButton>
-                                                    <ActionButton variant="primary" onClick={() => handleConvert(p)}>
-                                                        Convert <ArrowRight size={16} />
-                                                    </ActionButton>
-                                                </>
-                                            )}
-                                            {p.is_consumed && (
-                                                <ActionButton variant="secondary" onClick={() => handleConvert(p)}>
-                                                    Re-use
-                                                </ActionButton>
-                                            )}
-                                        </Actions>
-                                    </PatientItem>
-                                ))}
-                            </PatientList>
-
-                            {/* Pagination Controls */}
-                            {totalPages > 1 && (
-                                <PaginationContainer>
-                                    <PageButton
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                    >
-                                        <ChevronLeft size={16} />
-                                    </PageButton>
-
-                                    {/* Simple pagination: show all page numbers or limit if too many */}
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
-                                        <PageButton
-                                            key={number}
-                                            active={number === currentPage}
-                                            onClick={() => handlePageChange(number)}
-                                        >
-                                            {number}
-                                        </PageButton>
-                                    ))}
-
-                                    <PageButton
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                    >
-                                        <ChevronRight size={16} />
-                                    </PageButton>
-                                </PaginationContainer>
-                            )}
+                          <ActionButton variant="danger" onClick={() => handleDelete(p)} title="Delete from Queue">
+                            <Trash2 size={16} />
+                          </ActionButton>
+                          <ActionButton variant="primary" onClick={() => handleConvert(p)}>
+                            Convert <ArrowRight size={16} />
+                          </ActionButton>
                         </>
-                    ) : (
-                        <EmptyState>
-                            <RefreshCw size={48} className="animate-spin" style={{ opacity: 0.2 }} />
-                            <p>{searchTerm ? "No results found" : "Waiting for new submissions..."}</p>
-                        </EmptyState>
-                    )}
-                </RightPanel>
-            </Content>
-        </Overlay>
-    );
+                      )}
+                      {p.is_consumed && (
+                        <ActionButton variant="secondary" onClick={() => handleConvert(p)}>
+                          Re-use
+                        </ActionButton>
+                      )}
+                    </Actions>
+                  </PatientItem>
+                ))}
+              </PatientList>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <PaginationContainer>
+                  <PageButton
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft size={16} />
+                  </PageButton>
+
+                  {/* Simple pagination: show all page numbers or limit if too many */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
+                    <PageButton
+                      key={number}
+                      active={number === currentPage}
+                      onClick={() => handlePageChange(number)}
+                    >
+                      {number}
+                    </PageButton>
+                  ))}
+
+                  <PageButton
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight size={16} />
+                  </PageButton>
+                </PaginationContainer>
+              )}
+            </>
+          ) : (
+            <EmptyState>
+              <RefreshCw size={48} className="animate-spin" style={{ opacity: 0.2 }} />
+              <p>{searchTerm ? "No results found" : "Waiting for new submissions..."}</p>
+            </EmptyState>
+          )}
+        </RightPanel>
+      </Content>
+    </Overlay>
+  );
 };
 
 export default QRRegistrationModal;

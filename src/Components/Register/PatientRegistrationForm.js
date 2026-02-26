@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 import QRRegistrationModal from "./QRRegistrationModal"; // Keeping for backward compatibility or removal
@@ -272,6 +272,7 @@ const PatientRegistrationForm = () => {
         emergencyContact: "",
         referredDoctorPhone: "",
         customerType: "New", // Default to "New"
+        insuranceProviderCode: "",
     })
 
     const [isMlc, setIsMlc] = useState(false)
@@ -283,6 +284,7 @@ const PatientRegistrationForm = () => {
     const [patients, setPatients] = useState([])
     const [searchDoctorTerm, setSearchDoctorTerm] = useState("") // New state for searching referredBy
     const [lastUhid, setLastUhid] = useState("") // State for last UHID
+    const [insuranceProviders, setInsuranceProviders] = useState([]) // New state for insurance
 
     // Stats State
     const [stats, setStats] = useState({ new_visit: 0, existing_visit: 0, total_visit: 0 });
@@ -350,6 +352,336 @@ const PatientRegistrationForm = () => {
     const handlePatientClick = (visit) => {
         setSelectedVisit(visit);
         setShowDetailModal(true);
+    };
+
+    const handlePrintSticker = (visit) => {
+        // Create an invisible iframe
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const printDocument = iframe.contentWindow.document;
+        printDocument.open();
+        printDocument.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Print Sticker</title>
+                    <style>
+                        @page {
+                            size: auto;
+                            margin: 0mm;
+                        }
+                        body {
+                            font-family: 'Arial', sans-serif;
+                            margin: 0;
+                            padding: 10px;
+                            background-color: white;
+                        }
+                        .sticker-content {
+                            max-width: 380px;
+                        }
+                        .header-row {
+                            display: flex;
+                            align-items: center; /* Center horizontally/vertically */
+                            margin-bottom: 15px;
+                        }
+                        .uhid-text {
+                            font-size: 18px;
+                            font-weight: 500;
+                            margin-left: 15px;
+                            font-family: monospace;
+                        }
+                        .patient-name-row {
+                            font-size: 15px;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                            margin-bottom: 5px;
+                            letter-spacing: 0.5px;
+                        }
+                        .spouse-row {
+                            font-size: 14px;
+                            text-transform: uppercase;
+                            margin-bottom: 5px;
+                        }
+                        .address-row {
+                            font-size: 14px;
+                            text-transform: uppercase;
+                            margin-bottom: 5px;
+                            line-height: 1.4;
+                        }
+                        .phone-row {
+                            font-size: 14px;
+                            margin-bottom: 5px;
+                        }
+                        .doctor-row {
+                            font-size: 15px;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                        }
+                        /* Reset svg constraints to allow crisp barcode */
+                        svg {
+                            display: block;
+                        }
+                    </style>
+                    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+                </head>
+                <body>
+                    <div class="sticker-content">
+                        <div class="header-row">
+                            <svg id="barcode"></svg>
+                            <span class="uhid-text">UHID : ${visit.uhid}</span>
+                        </div>
+                        <div class="patient-name-row">
+                            ${visit.patientName} &nbsp;&nbsp;/ ${visit.age} ${visit.age <= 1 ? "YEAR" : "YEARS"}/${visit.gender}
+                        </div>
+                        ${visit.spouseName ? '<div class="spouse-row">W/o ' + visit.spouseName + '</div>' : ''}
+                        <div class="address-row">
+                            ${visit.address || ''}
+                        </div>
+                        <div class="phone-row">
+                            Ph.+91${visit.mobile}
+                        </div>
+                        <div class="doctor-row">
+                            DR ${visit.doctorName || visit.doctor}
+                        </div>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            // Generate barcode. 
+                            // Important: Do NOT constrain width via CSS so the bars render crisply!
+                            JsBarcode("#barcode", "${visit.uhid}", {
+                                format: "CODE128",
+                                displayValue: false,
+                                height: 50,
+                                width: 2,      // Standard bar width
+                                margin: 0
+                            });
+                            
+                            // Trigger print
+                            setTimeout(function() {
+                                window.focus();
+                                window.print();
+                                
+                                // Auto-remove iframe
+                                setTimeout(function() {
+                                    if(window.frameElement) {
+                                        window.frameElement.remove();
+                                    }
+                                }, 1000);
+                            }, 500);
+                        }
+                    </script>
+                </body>
+            </html>
+        `);
+        printDocument.close();
+    };
+
+    const handlePrintBill = (visit) => {
+        // Create an invisible iframe
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const printDocument = iframe.contentWindow.document;
+        printDocument.open();
+
+        const consFee = parseFloat(visit.consultingFee) || 0;
+        const regFee = parseFloat(visit.registrationFee) || 0;
+        let sNo = 1;
+
+        printDocument.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Print Bill</title>
+                    <style>
+                        @page {
+                            size: auto;
+                            margin: 5mm;
+                        }
+                        body {
+                            font-family: 'Arial', sans-serif;
+                            margin: 0;
+                            padding: 10px;
+                            background-color: white;
+                            width: 320px; /* thermal printer width approximate */
+                        }
+                        .center {
+                            text-align: center;
+                        }
+                        .header {
+                            font-size: 14px;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            margin-bottom: 2px;
+                        }
+                        .sub-header {
+                            font-size: 12px;
+                            margin-bottom: 2px;
+                        }
+                        .bill-type {
+                            margin: 8px 0;
+                            font-weight: bold;
+                            font-size: 14px;
+                        }
+                        .info-table {
+                            width: 100%;
+                            font-size: 13px;
+                            margin-bottom: 10px;
+                        }
+                        .info-table td {
+                            padding: 2px 0;
+                            vertical-align: top;
+                        }
+                        .info-table td:first-child {
+                            width: 90px;
+                        }
+                        .items-table {
+                            width: 100%;
+                            font-size: 13px;
+                            border-collapse: collapse;
+                            margin-bottom: 10px;
+                            border-top: 1px solid black;
+                            border-bottom: 1px solid black;
+                        }
+                        .items-table th, .items-table td {
+                            padding: 5px;
+                            text-align: left;
+                        }
+                        .items-table th {
+                            border-bottom: 1px solid black;
+                        }
+                        .text-right {
+                            text-align: right !important;
+                        }
+                        .totals-table {
+                            width: 100%;
+                            font-size: 14px;
+                            border-collapse: collapse;
+                            margin-bottom: 5px;
+                        }
+                        .totals-table td {
+                            padding: 5px;
+                        }
+                        .footer {
+                            margin-top: 15px;
+                            font-size: 11px;
+                            font-style: italic;
+                            line-height: 1.3;
+                        }
+                        .signature {
+                            margin-top: 20px;
+                            display: flex;
+                            justify-content: space-between;
+                            font-size: 13px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="center">
+                        <div class="header">SHANMUGA HOSPITAL LIMITED</div>
+                        <div class="sub-header">51/24. Saradha College Road, Salem - 636007</div>
+                        <div class="sub-header"><u>CIN: L85110TZ2020PLC033974</u></div>
+                        <div class="sub-header"><u>GST No : 33ABDCS8326A1ZP</u></div>
+                        <div class="bill-type">*${visit.paymentMethod} Bill*</div>
+                    </div>
+
+                    <table class="info-table">
+                        <tr>
+                            <td>Bill Number</td>
+                            <td>: ${visit.billNumber || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <td>Op Number</td>
+                            <td>: ${visit.uhid}</td>
+                        </tr>
+                        <tr>
+                            <td>Bill Date</td>
+                            <td>: ${visit.date}</td>
+                        </tr>
+                        <tr>
+                            <td>Name</td>
+                            <td>: ${visit.patientName}</td>
+                        </tr>
+                        <tr>
+                            <td>Doctor</td>
+                            <td>: DR ${visit.doctorName || visit.doctor}</td>
+                        </tr>
+                    </table>
+
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>SlNo</th>
+                                <th>Description</th>
+                                <th class="text-right">Qty</th>
+                                <th class="text-right">Cost</th>
+                                <th class="text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${consFee > 0 ? "<tr><td>" + (sNo++) + "</td><td>CONSULTATION FEE</td><td class='text-right'>1</td><td class='text-right'>" + consFee.toFixed(2) + "</td><td class='text-right'>" + consFee.toFixed(2) + "</td></tr>" : ""}
+                            ${regFee > 0 ? "<tr><td>" + (sNo++) + "</td><td>REGISTRATION FEE</td><td class='text-right'>1</td><td class='text-right'>" + regFee.toFixed(2) + "</td><td class='text-right'>" + regFee.toFixed(2) + "</td></tr>" : ""}
+                            ${(consFee === 0 && regFee === 0 && parseFloat(visit.billAmount) > 0) ? "<tr><td>" + (sNo++) + "</td><td>OTHER FEES</td><td class='text-right'>1</td><td class='text-right'>" + parseFloat(visit.billAmount).toFixed(2) + "</td><td class='text-right'>" + parseFloat(visit.billAmount).toFixed(2) + "</td></tr>" : ""}
+                        </tbody>
+                    </table>
+
+                    <table class="totals-table">
+                        <tr>
+                            <td class="text-right" style="width: 70%; font-weight: bold; padding-right: 15px;">Total</td>
+                            <td class="text-right" style="width: 10px;">:</td>
+                            <td class="text-right" style="font-weight: bold;">${parseFloat(visit.billAmount || 0).toFixed(2)}</td>
+                        </tr>
+                    </table>
+                    <div style="border-bottom: 1px solid black; margin: 5px 0;"></div>
+                    <table class="totals-table">
+                        <tr>
+                            <td class="text-right" style="width: 70%; font-weight: bold; padding-right: 15px;">Net Amount</td>
+                            <td class="text-right" style="width: 10px;">:</td>
+                            <td class="text-right" style="font-weight: bold;">${parseFloat(visit.billAmount || 0).toFixed(2)}</td>
+                        </tr>
+                    </table>
+                    <div style="border-bottom: 1px solid black; margin: 5px 0;"></div>
+
+                    <div class="signature">
+                        <div>60222</div>
+                        <div>(Signature)</div>
+                    </div>
+
+                    <div class="footer">
+                        Health care services provided by a clinical establishment are exempt under Notification No. 12/2017-Central Tax (Rate). This is a GST-Exempt Invoice
+                    </div>
+
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.focus();
+                                window.print();
+                                
+                                setTimeout(function() {
+                                    if(window.frameElement) {
+                                        window.frameElement.remove();
+                                    }
+                                }, 1000);
+                            }, 500);
+                        }
+                    </script>
+                </body>
+            </html>
+        `);
+        printDocument.close();
     };
 
 
@@ -451,6 +783,7 @@ const PatientRegistrationForm = () => {
                 emergencyContact: "emergency_contact",
                 referredDoctorPhone: "referred_doctor_phone",
                 customerType: "customer_type",
+                insuranceProviderCode: "company_code",
             }
 
             // Append all patient data to formData
@@ -564,17 +897,20 @@ const PatientRegistrationForm = () => {
 
     // Load doctors and reference doctors
     const loadDoctors = () => {
+        const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
         axios
             .get(`${Hmsbaseurl}doctor_schedule/`)
             .then((response) => {
-                const doctorsData = response.data.map((doctor) => ({
-                    id: doctor.employeeId, // Capture employeeId
-                    name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
-                    registrationFee: Number.parseFloat(doctor.registration_fee),
-                    consultingFee: Number.parseFloat(doctor.consulting_fee),
-                    specialty: doctor.specialty,
-                    type: "Internal"
-                }))
+                const doctorsData = response.data
+                    .filter((doctor) => doctor.day_schedule && doctor.day_schedule.includes(todayDay))
+                    .map((doctor) => ({
+                        id: doctor.employeeId, // Capture employeeId
+                        name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
+                        registrationFee: Number.parseFloat(doctor.registration_fee),
+                        consultingFee: Number.parseFloat(doctor.consulting_fee),
+                        specialty: doctor.specialty,
+                        type: "Internal"
+                    }))
                 setDoctors(doctorsData)
             })
             .catch((error) => console.error("Error fetching doctors:", error))
@@ -595,12 +931,23 @@ const PatientRegistrationForm = () => {
             .catch((error) => {
                 console.error("Error fetching reference doctors:", error)
             })
-    };
+    }
+
+    const loadInsuranceProviders = () => {
+        axios.get(`${Hmsbaseurl}insurance-providers/`)
+            .then((response) => {
+                const fetchedData = response.data.data || response.data;
+                const activeProviders = Array.isArray(fetchedData) ? fetchedData.filter(p => !p.blocked) : [];
+                setInsuranceProviders(activeProviders);
+            })
+            .catch((error) => console.error("Error fetching insurance:", error));
+    };;
 
     // Fetch doctors on component mount
     useEffect(() => {
         loadDoctors();
         loadReferenceDoctors();
+        loadInsuranceProviders();
     }, [])
 
     // Combine lists for Referred By search
@@ -810,6 +1157,7 @@ const PatientRegistrationForm = () => {
                                         <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Type</th>
                                         <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Amount</th>
                                         <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                                        <th style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -844,6 +1192,44 @@ const PatientRegistrationForm = () => {
                                                     }}>
                                                         {visit.paymentStatus}
                                                     </span>
+                                                </td>
+                                                <td style={{ padding: '12px' }}>
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                        <button
+                                                            onClick={() => handlePrintSticker(visit)}
+                                                            style={{
+                                                                background: '#f0fdf4',
+                                                                border: '1px solid #bbf7d0',
+                                                                cursor: 'pointer',
+                                                                color: '#16a34a',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '6px',
+                                                                borderRadius: '6px'
+                                                            }}
+                                                            title="Print Sticker"
+                                                        >
+                                                            <Printer size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handlePrintBill(visit)}
+                                                            style={{
+                                                                background: '#eff6ff',
+                                                                border: '1px solid #bfdbfe',
+                                                                cursor: 'pointer',
+                                                                color: '#2563eb',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '6px',
+                                                                borderRadius: '6px'
+                                                            }}
+                                                            title="Print Bill"
+                                                        >
+                                                            <FileText size={16} />
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -992,6 +1378,28 @@ const PatientRegistrationForm = () => {
                                             <option value="Employee">Employee</option>
                                         </Select>
                                     </InputWrapper>
+                                    {patient.customerType === "Insurance" && (
+                                        <InputWrapper>
+                                            <Label htmlFor="insuranceProviderCode">Select Insurance Provider</Label>
+                                            <Input
+                                                id="insuranceProviderCode"
+                                                name="insuranceProviderCode"
+                                                list="insurance-providers-list"
+                                                value={patient.insuranceProviderCode}
+                                                onChange={handleChange}
+                                                placeholder="Search and select..."
+                                                autoComplete="off"
+                                                required
+                                            />
+                                            <datalist id="insurance-providers-list">
+                                                {insuranceProviders.map((prov) => (
+                                                    <option key={prov.company_code} value={prov.company_code}>
+                                                        {prov.company_name}
+                                                    </option>
+                                                ))}
+                                            </datalist>
+                                        </InputWrapper>
+                                    )}
                                     <InputWrapper>
                                         <Label htmlFor="salutation">Salutation<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Select

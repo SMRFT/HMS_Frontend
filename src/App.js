@@ -56,6 +56,9 @@ import XRayList from "./Components/InvestigationReports/XRayList";
 import XRayReportForm from "./Components/InvestigationReports/XRayRportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
+// Insurance
+import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
+
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import Dashboard from "./Components/Dashboard/Dashboard";
@@ -252,6 +255,11 @@ function App() {
             )}
             {hasPagePermission("/DischargeReport", allowedActions) && (
               <Route path="/DischargeReport" element={<DischargeReport />} />
+            )}
+
+            {/* Insurance */}
+            {hasPagePermission("/InsuranceProvider", allowedActions) && (
+              <Route path="/InsuranceProvider" element={<InsuranceProvider />} />
             )}
 
             {/* Nursing Station */}
