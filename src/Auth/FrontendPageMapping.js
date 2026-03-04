@@ -64,6 +64,9 @@ export const PAGE_PERMISSIONS = {
     "/HMSUsers": "HMS-P-HMS",
 
     "/InsuranceProvider": "HMS-P-HMSINS",
+
+    // Sidebar Editor
+    "/SidebarConfiguration": "HMS-P-HMS", // Reusing test permission or standard admin
 };
 
 /**
