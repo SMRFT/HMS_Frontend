@@ -64,6 +64,7 @@ import DischargeReport from "./Components/Discharge/DischargeReport";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
+import SidebarEditor from "./Components/Admin/SidebarEditor";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -168,6 +169,7 @@ function App() {
       "/XRayList": "X-Ray Reports",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
+      "/SidebarConfiguration": "Sidebar Editor",
     };
 
     const path = location.pathname;
@@ -226,6 +228,11 @@ function App() {
             {/* User Permission Manager */}
             {hasPagePermission("/UserPermissions", allowedActions) && (
               <Route path="/UserPermissions" element={<UserPermissionManager />} />
+            )}
+
+            {/* Sidebar Configuration Editor */}
+            {hasPagePermission("/SidebarConfiguration", allowedActions) && (
+              <Route path="/SidebarConfiguration" element={<SidebarEditor />} />
             )}
 
             {/* Front Office */}

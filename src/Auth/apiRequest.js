@@ -140,4 +140,36 @@ export const fetchAllEmployees = async () => {
     }
 }
 
+/**
+ * Fetches the dynamic sidebar mapping from the backend.
+ * @returns {Promise<Array>} List of sidebar groups and pages
+ */
+export const fetchSidebarMapping = async () => {
+    try {
+        const response = await axios.get(`${Hmsbaseurl}get-sidebar-mapping/`);
+        if (response.data && Array.isArray(response.data)) {
+            return response.data;
+        }
+        return [];
+    } catch (error) {
+        console.error("Error fetching sidebar mapping:", error);
+        return [];
+    }
+}
+
+/**
+ * Updates the dynamic sidebar mapping in the backend.
+ * @param {Array} mapping List of sidebar groups and pages
+ * @returns {Promise<Object>} Response object indicating success or failure
+ */
+export const updateSidebarMapping = async (mapping) => {
+    try {
+        const response = await axios.post(`${Hmsbaseurl}update-sidebar-mapping/`, { mapping });
+        return response.data;
+    } catch (error) {
+        console.error("Error updating sidebar mapping:", error);
+        throw error;
+    }
+}
+
 export default apiRequest;
