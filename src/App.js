@@ -55,6 +55,12 @@ import Enquiry from "./Components/Register/Enquiry";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+
+// Billing Master
+import Package from "./Components/BillingMaster/Package";
+import Investigationprice from "./Components/BillingMaster/Investigationprice";
+import BillType from "./Components/BillingMaster/BillType";
+
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -134,6 +140,8 @@ function App() {
       "/XRayList": "X-Ray Reports",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
+      "/Package": "Package",
+      "/Investigationprice": "Investigation Price",
     };
 
     const path = location.pathname;
@@ -265,6 +273,14 @@ function App() {
 
               {/* Discharge */}
               <Route path="/DischargeReport" element={<DischargeReport />} />
+
+              {/* Billing Master */}
+              <Route path="/Package" element={<Package />} />
+              <Route
+                path="/Investigationprice"
+                element={<Investigationprice />}
+              />
+              <Route path="/BillType" element={<BillType />} />
             </>
           </Routes>
         </ContentWrapper>

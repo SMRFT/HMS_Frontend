@@ -255,6 +255,17 @@ const Sidebar = ({ role }) => {
               <FiActivity /> <span>OP GRN Generation</span>
             </StyledNavLink>
 
+            <NavGroupLabel>Billing Master</NavGroupLabel>
+            <StyledNavLink to="/Package">
+              <FiFileText /> <span>Package</span>
+            </StyledNavLink>
+            <StyledNavLink to="/Investigationprice">
+              <FiFileText /> <span>Investigation Price</span>
+            </StyledNavLink>
+            <StyledNavLink to="/BillType">
+              <FiFileText /> <span>Bill Type</span>
+            </StyledNavLink>
+
             <NavGroupLabel>Doctor Management</NavGroupLabel>
             <StyledNavLink to="/DoctorList">
               <FiUsers /> <span>Doctors</span>
