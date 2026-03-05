@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 // Assuming these icons or similar are available, otherwise use text
@@ -16,6 +16,23 @@ import {
   FiClipboard,
   FiLayers,
 } from "react-icons/fi";
+import { hasPagePermission } from "../Auth/FrontendPageMapping";
+import { fetchSidebarMapping } from "../Auth/apiRequest";
+
+const iconMap = {
+  FiHome,
+  FiUserPlus,
+  FiRepeat,
+  FiLogOut,
+  FiActivity,
+  FiPackage,
+  FiShoppingBag,
+  FiTruck,
+  FiFileText,
+  FiUsers,
+  FiClipboard,
+  FiLayers
+};
 
 // Use the same theme colors for consistency
 const colors = {
@@ -208,7 +225,17 @@ const LogoutButton = styled.button`
   }
 `;
 
-const Sidebar = ({ role }) => {
+const Sidebar = ({ role, allowedActions }) => {
+  const [sidebarData, setSidebarData] = useState([]);
+
+  useEffect(() => {
+    const loadSidebarData = async () => {
+      const data = await fetchSidebarMapping();
+      setSidebarData(data);
+    };
+    loadSidebarData();
+  }, []);
+
   return (
     <SidebarContainer>
       <BrandSection>
@@ -217,122 +244,29 @@ const Sidebar = ({ role }) => {
       </BrandSection>
 
       <NavMenu>
-        <NavGroupLabel>Main Menu</NavGroupLabel>
+        {sidebarData.map((group, groupIndex) => {
+          // Check if at least one page in this group is allowed
+          const hasAllowedPage = group.pages.some(page => hasPagePermission(page.route, allowedActions));
 
-        <StyledNavLink to="/Dashboard">
-          <FiHome /> <span>Dashboard</span>
-        </StyledNavLink>
-        <StyledNavLink to="/PatientRegistrationForm">
-          <FiUserPlus /> <span>Patient Registration</span>
-        </StyledNavLink>
+          if (!hasAllowedPage) return null;
 
-        <NavGroupLabel>Patient Management</NavGroupLabel>
+          return (
+            <React.Fragment key={groupIndex}>
+              {group.group && <NavGroupLabel>{group.group}</NavGroupLabel>}
+              {group.pages.map((page, pageIndex) => {
+                if (!hasPagePermission(page.route, allowedActions)) return null;
 
-        {role === "Super Admin" && (
-          <>
-            <NavGroupLabel>Inventory</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacyStock">
-              <FiPackage /> <span>IP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacyStock">
-              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/VendorManagement">
-              <FiTruck /> <span>Vendor Management</span>
-            </StyledNavLink>
+                const IconComponent = iconMap[page.icon] || FiActivity;
 
-            <NavGroupLabel>Pharmacy</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacy">
-              <FiPackage /> <span>IP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacy">
-              <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/IPGRNGeneration">
-              <FiActivity /> <span>IP GRN Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPGRNGeneration">
-              <FiActivity /> <span>OP GRN Generation</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Billing Master</NavGroupLabel>
-            <StyledNavLink to="/Package">
-              <FiFileText /> <span>Package</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Investigationprice">
-              <FiFileText /> <span>Investigation Price</span>
-            </StyledNavLink>
-            <StyledNavLink to="/BillType">
-              <FiFileText /> <span>Bill Type</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Doctor Management</NavGroupLabel>
-            <StyledNavLink to="/DoctorList">
-              <FiUsers /> <span>Doctors</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Billing</NavGroupLabel>
-            <StyledNavLink to="/InvestigationBilling">
-              <FiFileText /> <span>Department Billing</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Reports</NavGroupLabel>
-            <StyledNavLink to="/CTList">
-              <FiActivity /> <span>CT Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/MRIList">
-              <FiActivity /> <span>MRI Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/USGList">
-              <FiActivity /> <span>USG Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/XRayList">
-              <FiActivity /> <span>X-Ray Reports</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Rooms</NavGroupLabel>
-            <StyledNavLink to="/Block">
-              <FiHome /> <span>Block</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomCategory">
-              <FiActivity /> <span>Room Category</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Room">
-              <FiHome /> <span>Room</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Bed">
-              <FiActivity /> <span>Bed</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Service">
-              <FiActivity /> <span>Service</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomEnquiry">
-              <FiActivity /> <span>Room Enquiry</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Front Office</NavGroupLabel>
-            <StyledNavLink to="/Admission">
-              <FiUserPlus /> <span>Admission</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Enquiry">
-              <FiFileText /> <span>Enquiry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeForm">
-              <FiLogOut /> <span>Discharge Form</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Summary">
-              <FiActivity /> <span>Discharge Summary</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeReport">
-              <FiFileText /> <span>Discharge Reports</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Nursing Station</NavGroupLabel>
-            <StyledNavLink to="/RoomShifting">
-              <FiRepeat /> <span>Room Shifting</span>
-            </StyledNavLink>
-          </>
-        )}
+                return (
+                  <StyledNavLink to={page.route} key={pageIndex}>
+                    <IconComponent /> <span>{page.name}</span>
+                  </StyledNavLink>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
       </NavMenu>
 
       <UserSection>
