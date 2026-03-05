@@ -21,15 +21,11 @@ import RoomShifting from "./Components/NursingStation/RoomShifting";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
-import Bed from "./Components/Rooms/Bed";
-import Service from "./Components/Rooms/Service";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
-import IPPharmacyStock from "./Components/InventoryMaster/IPPharmacyStock";
-import OPPharmacyStock from "./Components/InventoryMaster/OPPharmacyStock";
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
-import IPGRNGeneration from "./Components/InventoryMaster/IPGRNGeneration";
-import OPGRNGeneration from "./Components/InventoryMaster/OPGRNGeneration";
+import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyStock";
+import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
@@ -152,14 +148,10 @@ function App() {
       "/RoomEnquiry": "Room Enquiry",
       "/RoomCategory": "Room Category",
       "/Room": "Room Master",
-      "/Bed": "Bed Master",
-      "/Service": "Service Master",
       "/Block": "Block Master",
-      "/IPPharmacyStock": "IP Pharmacy Stock",
-      "/OPPharmacyStock": "OP Pharmacy Stock",
+      "/PharmacyItemMaster": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
-      "/IPGRNGeneration": "IP GRN Generation",
-      "/OPGRNGeneration": "OP GRN Generation",
+      "/GRNGeneration": "GRN Generation",
       "/IPPharmacy": "IP Pharmacy",
       "/OPPharmacy": "OP Pharmacy",
       "/DischargeForm": "Discharge Form",

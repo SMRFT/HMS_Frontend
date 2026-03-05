@@ -126,16 +126,25 @@ const EnquiryRoom = () => {
     fetchEnquiryData();
   }, []);
 
-  const fetchEnquiryData = async () => {
-    try {
-      const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
-      if (response && !response.error) {
-        setData(Array.isArray(response) ? response : []);
-      }
-    } catch (error) {
-      toast.error("Failed to fetch room enquiry data");
+const fetchEnquiryData = async () => {
+  try {
+    const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
+
+    console.log("API Response:", response); // 👈 add this
+
+    if (response && response.data && Array.isArray(response.data)) {
+      setData(response.data);
+    } else if (Array.isArray(response)) {
+      setData(response);
+    } else {
+      setData([]);
     }
-  };
+
+  } catch (error) {
+    toast.error("Failed to fetch room enquiry data");
+  }
+};
+
 
   return (
     <PageWrapper>
