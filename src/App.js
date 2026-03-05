@@ -53,7 +53,7 @@ import MRIReportForm from "./Components/InvestigationReports/MRIReportForm";
 import USGList from "./Components/InvestigationReports/USGList";
 import USGReportForm from "./Components/InvestigationReports/USGReportForm";
 import XRayList from "./Components/InvestigationReports/XRayList";
-import XRayReportForm from "./Components/InvestigationReports/XRayRportForm";
+import XRayReportForm from "./Components/InvestigationReports/XRayReportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
 // Insurance
@@ -61,6 +61,12 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+
+// Billing Master
+import Package from "./Components/BillingMaster/Package";
+import Investigationprice from "./Components/BillingMaster/Investigationprice";
+import BillType from "./Components/BillingMaster/BillType";
+
 import Dashboard from "./Components/Dashboard/Dashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
@@ -84,9 +90,9 @@ const ContentWrapper = styled.div`
 
 // Determine user role based on allowed actions
 function getUserRole(allowedActions) {
-  if (!allowedActions || !Array.isArray(allowedActions)) return "Pharmacist";
-  if (allowedActions.includes("HMS-R-PH")) return "Pharmacist";
-  return "Receptionist";
+  if (!allowedActions || !Array.isArray(allowedActions)) return "Super Admin";
+  if (allowedActions.includes("HMS-R-SA")) return "Super Admin";
+  return "Employee";
 }
 
 // Main App
@@ -169,6 +175,8 @@ function App() {
       "/XRayList": "X-Ray Reports",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
+      "/Package": "Package",
+      "/Investigationprice": "Investigation Price",
       "/SidebarConfiguration": "Sidebar Editor",
     };
 

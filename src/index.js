@@ -55,13 +55,13 @@ function validate(token) {
 // --- Function to determine user role based on allowed-actions ---
 function getUserRole(allowedActions) {
   if (!allowedActions || !Array.isArray(allowedActions)) {
-    return "Pharmacist"; // Default role
+    return "Employee"; // Default role
   }
   console.log("Allowed actions:", allowedActions);
-  if (allowedActions.includes("HMS-R-PH")) {
-    return "Pharmacist";
+  if (allowedActions.includes("HMS-R-SA")) {
+    return "Super Admin";
   } else {
-    return "Receptionist"; // Default role if none of the specific roles are found
+    return "Employee"; // Default role if none of the specific roles are found
   }
 }
 
@@ -77,7 +77,7 @@ function getUserRole(allowedActions) {
     // If no token found, try development token
     if (!accessToken) {
       console.log(
-        "❌ No token found in localStorage, trying development token"
+        "❌ No token found in localStorage, trying development token",
       );
       accessToken = setforlocaldev();
     }
@@ -115,7 +115,7 @@ function getUserRole(allowedActions) {
 
     if (!isLoggedIn) {
       throw new Error(
-        "Missing required user data (employeeId or employeeName)"
+        "Missing required user data (employeeId or employeeName)",
       );
     }
 
@@ -140,7 +140,7 @@ function getUserRole(allowedActions) {
     root.render(
       <React.StrictMode>
         <App />
-      </React.StrictMode>
+      </React.StrictMode>,
     );
 
     reportWebVitals();

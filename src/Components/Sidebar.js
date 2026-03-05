@@ -10,12 +10,11 @@ import {
   FiActivity,
   FiPackage,
   FiShoppingBag,
-
   FiTruck,
   FiFileText,
   FiUsers,
   FiClipboard,
-  FiLayers
+  FiLayers,
 } from "react-icons/fi";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
@@ -42,7 +41,7 @@ const colors = {
   textMain: "#1e293b",
   textMuted: "#64748b",
   border: "#e2e8f0",
-  surface: "#ffffff"
+  surface: "#ffffff",
 };
 
 const SidebarContainer = styled.div`
@@ -58,8 +57,12 @@ const SidebarContainer = styled.div`
   z-index: 1000;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
 
-  @media (max-width: 1024px) { width: 200px; }
-  @media (max-width: 768px) { width: 80px; } // Collapsed for tablet
+  @media (max-width: 1024px) {
+    width: 200px;
+  }
+  @media (max-width: 768px) {
+    width: 80px;
+  } // Collapsed for tablet
 `;
 
 const BrandSection = styled.div`
@@ -88,7 +91,9 @@ const BrandName = styled.span`
   font-size: 1.1rem;
   color: ${colors.textMain};
   letter-spacing: -0.5px;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const NavMenu = styled.nav`
@@ -107,7 +112,9 @@ const NavGroupLabel = styled.div`
   color: ${colors.textMuted};
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const StyledNavLink = styled(NavLink)`
@@ -140,7 +147,9 @@ const StyledNavLink = styled(NavLink)`
 
   @media (max-width: 768px) {
     justify-content: center;
-    span { display: none; }
+    span {
+      display: none;
+    }
   }
 `;
 
@@ -155,7 +164,9 @@ const UserProfile = styled.div`
   align-items: center;
   gap: 12px;
   margin-bottom: 15px;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const Avatar = styled.div`
@@ -174,8 +185,15 @@ const Avatar = styled.div`
 const UserInfo = styled.div`
   display: flex;
   flex-direction: column;
-  span:first-child { font-size: 0.85rem; font-weight: 600; color: ${colors.textMain}; }
-  span:last-child { font-size: 0.75rem; color: ${colors.textMuted}; }
+  span:first-child {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: ${colors.textMain};
+  }
+  span:last-child {
+    font-size: 0.75rem;
+    color: ${colors.textMuted};
+  }
 `;
 
 const LogoutButton = styled.button`
@@ -201,7 +219,9 @@ const LogoutButton = styled.button`
 
   @media (max-width: 768px) {
     border: none;
-    span { display: none; }
+    span {
+      display: none;
+    }
   }
 `;
 
@@ -257,7 +277,12 @@ const Sidebar = ({ role, allowedActions }) => {
             <span>{role}</span>
           </UserInfo>
         </UserProfile>
-        <LogoutButton onClick={() => { localStorage.clear(); window.location.reload(); }}>
+        <LogoutButton
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+        >
           <FiLogOut /> <span>Logout</span>
         </LogoutButton>
       </UserSection>

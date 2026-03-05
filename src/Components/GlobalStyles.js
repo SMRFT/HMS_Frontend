@@ -8,17 +8,17 @@ export const fadeIn = keyframes`
 
 // Theme Colors
 export const colors = {
-    primary: "#0d9488",
-    primaryDark: "#0f766e",
-    secondary: "#f59e0b",
-    background: "#f8fafc",
-    surface: "#ffffff",
-    textMain: "#1e293b",
-    textMuted: "#64748b",
-    border: "#e2e8f0",
-    danger: "#ef4444",
-    success: "#22c55e",
-    tabBg: "#e0f2f1"
+  primary: "#0d9488",
+  primaryDark: "#0f766e",
+  secondary: "#f59e0b",
+  background: "#f8fafc",
+  surface: "#ffffff",
+  textMain: "#1e293b",
+  textMuted: "#64748b",
+  border: "#e2e8f0",
+  danger: "#ef4444",
+  success: "#22c55e",
+  tabBg: "#e0f2f1",
 };
 
 // Layout Components
@@ -26,7 +26,13 @@ export const PageWrapper = styled.div`
   min-height: 100vh;
   background-color: ${colors.background};
   padding: 20px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
 `;
 
 export const Container = styled.div`
@@ -50,7 +56,8 @@ export const Tab = styled.div`
   font-weight: ${(props) => (props.active ? "600" : "500")};
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
   background: ${(props) => (props.active ? colors.tabBg : "transparent")};
-  border-bottom: 3px solid ${(props) => (props.active ? colors.primary : "transparent")};
+  border-bottom: 3px solid
+    ${(props) => (props.active ? colors.primary : "transparent")};
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
@@ -88,7 +95,9 @@ export const Label = styled.label`
   display: flex;
   align-items: center;
 
-  ${props => props.required && `
+  ${(props) =>
+    props.required &&
+    `
     &::after {
       content: "*";
       color: ${colors.danger};
@@ -168,16 +177,23 @@ export const Button = styled.button`
   border: none;
   color: white;
 
-  ${props => props.secondary ? `
+  ${(props) =>
+    props.secondary
+      ? `
     background: ${colors.textMuted};
     &:hover { background: #475569; }
-  ` : props.danger ? `
+  `
+      : props.danger
+        ? `
     background: ${colors.danger};
     &:hover { background: #dc2626; }
-  ` : props.success ? `
+  `
+        : props.success
+          ? `
     background: ${colors.success};
     &:hover { background: #16a34a; }
-  ` : `
+  `
+          : `
     background: ${colors.primary};
     &:hover { background: ${colors.primaryDark}; }
   `}
@@ -278,7 +294,7 @@ export const Td = styled.td`
 
 export const Tr = styled.tr`
   transition: background-color 0.2s;
-  
+
   &:hover {
     background-color: #f1f5f9;
   }
@@ -300,7 +316,7 @@ export const SearchButton = styled.button`
   cursor: pointer;
   margin-left: 8px; /* Add spacing from input */
   transition: all 0.2s;
-  
+
   /* Flexbox centering for strict alignment */
   display: flex;
   align-items: center;
@@ -309,10 +325,10 @@ export const SearchButton = styled.button`
   /* Absolute positioning within InputWrapper */
   position: absolute;
   right: 12px; /* Position inside the right edge of input */
-  top: 50%; 
+  top: 50%;
   transform: translateY(20%); /* Center vertically */
   z-index: 2; /* Ensure it stays above input */
-  
+
   &:hover {
     background: ${colors.primaryDark};
     transform: translateY(20%) scale(1.1); /* Keep vertical centering on hover */
@@ -428,7 +444,7 @@ export const CollapsibleSection = styled.div`
 export const SectionContent = styled.div`
   padding: 16px;
   background: white;
-  display: ${props => props.visible ? 'block' : 'none'};
+  display: ${(props) => (props.visible ? "block" : "none")};
 `;
 
 export const CheckboxWrapper = styled.div`
