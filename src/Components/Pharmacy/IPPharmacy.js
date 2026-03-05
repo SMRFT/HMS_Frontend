@@ -30,7 +30,7 @@ const ButtonRow = styled.div`
 
 const IPPharmacy = () => {
 
-  const HMSURL = process.env.REACT_APP_BACKEND_ER_BASE_URL;
+  const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const [medicines, setMedicines] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
