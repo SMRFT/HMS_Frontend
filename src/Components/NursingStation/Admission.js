@@ -9,7 +9,7 @@ import {
   CloseButton, ModalBody, SearchRow, SearchInput, NoResults,
 } from "../GlobalStyles";
 
-// ─── Compact local styles ────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const FormGrid = styled.div`
   display: grid;
@@ -125,8 +125,21 @@ const SmBtn = styled.button`
   border-radius: 4px;
   border: none;
   cursor: pointer;
-  background: ${({ secondary }) => (secondary ? "#e5e7eb" : "#0d9488")};
+  background: ${({ secondary }) => (secondary ? "#e5e7eb" : ({ print }) => print ? "#7c3aed" : "#0d9488")};
   color: ${({ secondary }) => (secondary ? "#374151" : "#fff")};
+  &:hover { opacity: 0.88; }
+`;
+
+const PrintBtn = styled.button`
+  height: 30px;
+  padding: 0 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  background: #7c3aed;
+  color: #fff;
   &:hover { opacity: 0.88; }
 `;
 
@@ -161,10 +174,23 @@ const MiniBtn = styled.button`
   border-radius: 3px;
   border: none;
   cursor: pointer;
-  background: ${({ danger }) => (danger ? "#ef4444" : "#0d9488")};
+  background: ${({ danger }) => (danger ? "#ef4444" : ({ print }) => print ? "#7c3aed" : "#0d9488")};
   color: #fff;
   &:disabled { opacity: 0.4; cursor: default; }
   &:hover:not(:disabled) { opacity: 0.85; }
+`;
+
+const MiniBtnPrint = styled.button`
+  height: 24px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  background: #7c3aed;
+  color: #fff;
+  &:hover { opacity: 0.85; }
 `;
 
 const PageHeader = styled.div`
@@ -184,20 +210,34 @@ const PageTitle = styled.h2`
   letter-spacing: 0.04em;
 `;
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const ClockDisplay = styled.div`
+  font-size: 0.75rem;
+  color: #ccfbf1;
+  font-weight: 600;
+  font-family: monospace;
+`;
+
+// ─── Print Styles (injected into <head>) ──────────────────────────────────────
+
+const PRINT_STYLE = `
+  @media print {
+    body * { visibility: hidden !important; }
+    #admission-print-slip, #admission-print-slip * { visibility: visible !important; }
+    #admission-print-slip {
+      position: fixed !important;
+      left: 0; top: 0;
+      width: 100vw;
+      padding: 0;
+      margin: 0;
+    }
+  }
+`;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
   uhid: "",
   ipNumber: "",
-  salutation: "",
-  firstName: "",
-  middleName: "",
-  lastName: "",
-  customerType: "",
-  insuranceCompany: "",
-  privilegedCustomerId: "",
-  admissionDate: new Date().toISOString().split("T")[0],
-  time: new Date().toTimeString().slice(0, 5),
   admittingDoctor: "",
   consultingDoctor: "",
   roomNo: "",
@@ -208,6 +248,10 @@ const EMPTY_FORM = {
   mlc_doc: null,
   mlc_remarks: "",
   // read-only from patient
+  salutation: "",
+  firstName: "",
+  middleName: "",
+  lastName: "",
   age: "",
   gender: "",
   phone: "",
@@ -216,13 +260,20 @@ const EMPTY_FORM = {
   zipcode: "",
   city: "",
   state: "",
+  customerType: "",
+  insuranceCompany: "",
+  privilegedCustomerId: "",
 };
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 const Admission = () => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [doctors, setDoctors] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [lastSaved, setLastSaved] = useState(null); // admission data after save for print
+  const [now, setNow] = useState(new Date());
 
   // Room modal
   const [showRoomModal, setShowRoomModal] = useState(false);
@@ -230,12 +281,42 @@ const Admission = () => {
   const [roomResults, setRoomResults] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // Bed modal
+  const [showBedModal, setShowBedModal] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+
+  const printRef = useRef(null);
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  // ── Running clock ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     fetchDoctors();
     fetchAdmissions();
+
+    // Inject print style
+    const style = document.createElement("style");
+    style.innerHTML = PRINT_STYLE;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
   }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  const formatClock = (d) =>
+    d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  const formatDate = (d) =>
+    d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  const getDoctorName = (employeeId) => {
+    const doc = doctors.find((d) => String(d.employeeId) === String(employeeId));
+    return doc ? doc.employeeName : employeeId;
+  };
 
   // ── Fetches ────────────────────────────────────────────────────────────────
 
@@ -258,13 +339,12 @@ const Admission = () => {
   const fetchPatientByUHID = async () => {
     if (!formData.uhid) return toast.warning("Enter UHID");
     try {
-      // Check already admitted
       const already = admissions.find(
         (a) => a.uhid === formData.uhid && a.is_active !== false
       );
       if (already)
         toast.error(
-          `Patient ${already.firstName} is ALREADY ADMITTED (IP: ${already.ipNumber})`
+          `Patient is ALREADY ADMITTED (IP: ${already.ipNumber})`
         );
 
       const res = await apiRequest(
@@ -282,8 +362,6 @@ const Admission = () => {
         customerType: d.customerType || "",
         insuranceCompany: d.insuranceCompany || "",
         privilegedCustomerId: d.privilegedCustomerId || "",
-        admittingDoctor: d.admittingDoctor || prev.admittingDoctor,
-        consultingDoctor: d.consultingDoctor || prev.consultingDoctor,
         age: d.age || "",
         gender: d.gender || "",
         phone: d.phone || "",
@@ -294,12 +372,12 @@ const Admission = () => {
         state: d.state || "",
       }));
       toast.success("Patient details loaded");
-    } catch (e) {
+    } catch {
       toast.error("Patient not found");
     }
   };
 
-  // ── Admission lookup by IP Number ────────────────────────────────────────
+  // ── Admission lookup by IP Number ─────────────────────────────────────────
 
   const fetchAdmissionByIP = async () => {
     if (!formData.ipNumber) return toast.warning("Enter IP Number");
@@ -316,7 +394,19 @@ const Admission = () => {
       setFormData({
         ...EMPTY_FORM,
         ...adm,
-        admissionDate: adm.admissionDate ? adm.admissionDate.split("T")[0] : "",
+        // patient fields come enriched from backend GET
+        salutation: adm.salutation || "",
+        firstName: adm.firstName || "",
+        middleName: adm.middleName || "",
+        lastName: adm.lastName || "",
+        age: adm.age || "",
+        gender: adm.gender || "",
+        phone: adm.phone || "",
+        permanent_address: adm.permanent_address || "",
+        area: adm.area || "",
+        city: adm.city || "",
+        state: adm.state || "",
+        zipcode: adm.zipcode || "",
       });
       toast.success(`Admission loaded: ${adm.ipNumber}`);
     } catch {
@@ -341,15 +431,16 @@ const Admission = () => {
   };
 
   const handleRoomSelect = (room) => {
-    setFormData((prev) => ({
-      ...prev,
-      roomNo: room.room_number,
-      bedNo: "",          // user must select bed explicitly
-    }));
+    setSelectedRoom(room);
+    setFormData((prev) => ({ ...prev, roomNo: room.room_number, bedNo: "" }));
     setShowRoomModal(false);
-    setRoomQuery("");
-    setRoomResults([]);
-    toast.success(`Room ${room.room_number} selected — please choose a bed`);
+    setShowBedModal(true);
+  };
+
+  const handleBedSelect = (bed) => {
+    setFormData((prev) => ({ ...prev, bedNo: bed }));
+    setShowBedModal(false);
+    toast.success(`Room ${formData.roomNo} / Bed ${bed} selected`);
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -365,17 +456,12 @@ const Admission = () => {
   const handleReset = () => {
     setFormData(EMPTY_FORM);
     setEditingId(null);
+    setLastSaved(null);
   };
 
   const handleEdit = (adm) => {
     setEditingId(adm._id || adm.id);
-    setFormData({
-      ...EMPTY_FORM,
-      ...adm,
-      admissionDate: adm.admissionDate
-        ? adm.admissionDate.split("T")[0]
-        : EMPTY_FORM.admissionDate,
-    });
+    setFormData({ ...EMPTY_FORM, ...adm });
     window.scrollTo(0, 0);
     toast.info("Editing admission");
   };
@@ -399,12 +485,14 @@ const Admission = () => {
     if (!formData.roomNo) return toast.warning("Room is required");
     if (!formData.bedNo) return toast.warning("Bed is required");
 
+    // Build admissionDateTime from current time
+    const admissionDateTime = now.toISOString();
+
     const payload = new FormData();
     const fieldsToSend = [
-      "uhid", "admissionDate", "time",
-      "salutation", "firstName", "middleName", "lastName",
-      "customerType", "insuranceCompany", "privilegedCustomerId",
-      "admittingDoctor", "consultingDoctor",
+      "uhid",
+      "admittingDoctor",   // employeeId
+      "consultingDoctor",  // employeeId
       "roomNo", "bedNo",
       "reasonForAdmission", "packageName",
       "mlc_type", "mlc_remarks",
@@ -414,6 +502,8 @@ const Admission = () => {
         payload.append(k, formData[k]);
       }
     });
+    payload.append("admissionDateTime", admissionDateTime);
+
     if (formData.mlc_doc instanceof File) {
       payload.append("mlc_doc", formData.mlc_doc);
     }
@@ -427,14 +517,136 @@ const Admission = () => {
       }
       if (res.success) {
         toast.success(editingId ? "Admission updated!" : "Admission saved!");
-        handleReset();
+        const savedData = res.data || {};
+        // Enrich with patient + doctor info for print
+        setLastSaved({
+          ...savedData,
+          salutation: formData.salutation,
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          age: formData.age,
+          gender: formData.gender,
+          phone: formData.phone,
+          permanent_address: formData.permanent_address,
+          area: formData.area,
+          city: formData.city,
+          state: formData.state,
+          zipcode: formData.zipcode,
+          customerType: formData.customerType,
+          admittingDoctorName: getDoctorName(formData.admittingDoctor),
+          roomNo: formData.roomNo,
+          bedNo: formData.bedNo,
+          admissionDateTime,
+          uhid: formData.uhid,
+        });
         fetchAdmissions();
       } else {
         throw new Error(res.error);
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to save admission");
     }
+  };
+
+  // ── Print ─────────────────────────────────────────────────────────────────
+
+  const handlePrint = (admData) => {
+    // Build barcode SVG inline using simple line pattern (Code128-like visual)
+    const printData = admData || lastSaved;
+    if (!printData) return;
+
+    const ipNum = printData.ipNumber || "";
+    const patientName = [printData.salutation, printData.firstName, printData.middleName, printData.lastName]
+      .filter(Boolean).join(" ");
+    const admDT = printData.admissionDateTime ? new Date(printData.admissionDateTime) : new Date();
+    const admDateStr = admDT.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const admTimeStr = admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    const admittedBy = printData.admittingDoctorName || getDoctorName(printData.admittingDoctor) || "";
+
+    // Generate simple barcode-like pattern from IP number string
+    const barcodeLines = generateBarcodeSVG(ipNum);
+
+    const printWindow = window.open("", "_blank", "width=600,height=400");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>IP Admission Slip</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; font-size: 13px; padding: 20px; }
+          .slip { width: 540px; margin: 0 auto; border: 1px solid #000; padding: 16px; }
+          .row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+          .left { flex: 1; }
+          .right { flex: 1; text-align: right; }
+          .bold { font-weight: bold; }
+          .big { font-size: 18px; font-weight: bold; }
+          .line { margin-bottom: 5px; }
+          .barcode-wrap { margin-bottom: 8px; }
+          svg { display: block; }
+          hr { border: none; border-top: 1px solid #000; margin: 8px 0; }
+          @media print {
+            body { padding: 0; }
+            .slip { border: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="slip">
+          <div class="row">
+            <div class="left">
+              <div class="barcode-wrap">${barcodeLines}</div>
+              <div class="bold">${patientName}</div>
+              ${printData.age || printData.gender ? `<div>${printData.age ? printData.age + " " : ""}${printData.gender || ""}</div>` : ""}
+              ${printData.permanent_address ? `<div>${printData.permanent_address}</div>` : ""}
+              ${printData.area || printData.city ? `<div>${[printData.area, printData.city, printData.state].filter(Boolean).join(", ")}</div>` : ""}
+              ${printData.phone ? `<div>${printData.phone}</div>` : ""}
+              ${admittedBy ? `<div class="line">Admitted : ${admittedBy}</div>` : ""}
+              <div>Adhar Number :</div>
+            </div>
+            <div class="right">
+              <div class="big">IP NO: ${ipNum}</div>
+              ${printData.customerType ? `<div class="bold">${printData.customerType}</div>` : ""}
+              <br/>
+              <div>UHID : ${printData.uhid || ""}</div>
+              <div>DOA : ${admDateStr}</div>
+              <div>AD.TIME: ${admTimeStr}</div>
+              <div>Room: ${printData.roomNo || ""}</div>
+            </div>
+          </div>
+        </div>
+        <script>
+          window.onload = function() { window.print(); window.close(); };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Simple barcode SVG generator (Code-like visual bars from string)
+  const generateBarcodeSVG = (text) => {
+    if (!text) return "";
+    const width = 220;
+    const height = 50;
+    // Generate bar pattern from char codes
+    let bars = "";
+    let x = 0;
+    const chars = text.split("");
+    chars.forEach((ch, i) => {
+      const code = ch.charCodeAt(0);
+      // Alternating narrow/wide bars based on char code bits
+      for (let b = 0; b < 4; b++) {
+        const barW = ((code >> b) & 1) ? 3 : 1.5;
+        if (i % 2 === 0) {
+          bars += `<rect x="${x.toFixed(1)}" y="0" width="${barW}" height="${height}" fill="black"/>`;
+        }
+        x += barW + 1;
+        if (x > width - 10) break;
+      }
+    });
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${bars}</svg>`;
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -446,16 +658,14 @@ const Admission = () => {
           <PageTitle>
             {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
           </PageTitle>
-          {editingId && (
-            <span style={{ fontSize: "0.7rem", color: "#ccfbf1" }}>
-              Editing: {formData.ipNumber}
-            </span>
-          )}
+          <ClockDisplay>
+            {formatDate(now)} &nbsp; {formatClock(now)}
+          </ClockDisplay>
         </PageHeader>
 
         <FormGrid>
 
-          {/* ── Patient Search ─────────────────────────────────────────── */}
+          {/* ── Patient Search ─────────────────────────────────────── */}
           <Field span={2}>
             <Lbl required>UHID</Lbl>
             <InputRow>
@@ -478,65 +688,32 @@ const Admission = () => {
                 value={formData.ipNumber}
                 onChange={handleChange}
                 placeholder="Search by IP Number"
+                readOnly={!editingId}
               />
               <IconBtn type="button" onClick={fetchAdmissionByIP}>🔍</IconBtn>
             </InputRow>
           </Field>
 
-          <Field>
-            <Lbl>Admission Date</Lbl>
-            <Inp type="date" name="admissionDate" value={formData.admissionDate} onChange={handleChange} />
-          </Field>
-
-          <Field>
-            <Lbl>Time</Lbl>
-            <Inp type="time" name="time" value={formData.time} onChange={handleChange} />
-          </Field>
-
-          {/* ── Patient Info ───────────────────────────────────────────── */}
-          <SectionDivider>Patient Details</SectionDivider>
-
-          <Field>
-            <Lbl>Salutation</Lbl>
-            <Sel name="salutation" value={formData.salutation} onChange={handleChange}>
-              <option value=""></option>
-              {["Mr.", "Mrs.", "Ms.", "Dr.", "Prof."].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </Sel>
-          </Field>
-
           <Field span={2}>
-            <Lbl>First Name</Lbl>
-            <Inp name="firstName" value={formData.firstName} onChange={handleChange} />
+            <Lbl>Date &amp; Time</Lbl>
+            <Inp
+              value={`${formatDate(now)}  ${formatClock(now)}`}
+              readOnly
+              style={{ fontFamily: "monospace", background: "#f3f4f6" }}
+            />
           </Field>
 
-          <Field>
-            <Lbl>Middle Name</Lbl>
-            <Inp name="middleName" value={formData.middleName} onChange={handleChange} />
+          {/* ── Patient Info (read-only from lookup) ───────────────── */}
+          <SectionDivider>Patient Details (auto-filled from UHID)</SectionDivider>
+
+          <Field span={3}>
+            <Lbl>Patient Name</Lbl>
+            <Inp
+              value={[formData.salutation, formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" ")}
+              readOnly
+            />
           </Field>
 
-          <Field span={2}>
-            <Lbl>Last Name</Lbl>
-            <Inp name="lastName" value={formData.lastName} onChange={handleChange} />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Customer Type</Lbl>
-            <Inp value={formData.customerType} readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Insurance Company</Lbl>
-            <Inp name="insuranceCompany" readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Privileged Customer ID</Lbl>
-            <Inp name="privilegedCustomerId" readOnly />
-          </Field>
-
-          {/* Read-only patient data */}
           <Field>
             <Lbl>Age</Lbl>
             <Inp value={formData.age} readOnly />
@@ -547,19 +724,34 @@ const Admission = () => {
             <Inp value={formData.gender} readOnly />
           </Field>
 
+          <Field>
+            <Lbl>Customer Type</Lbl>
+            <Inp value={formData.customerType} readOnly />
+          </Field>
+
+          <Field span={2}>
+            <Lbl>Insurance Company</Lbl>
+            <Inp value={formData.insuranceCompany} readOnly />
+          </Field>
+
+          <Field span={2}>
+            <Lbl>Privileged Customer ID</Lbl>
+            <Inp value={formData.privilegedCustomerId} readOnly />
+          </Field>
+
           <Field span={2}>
             <Lbl>Phone</Lbl>
             <Inp value={formData.phone} readOnly />
           </Field>
 
-          <Field span={2}>
-            <Lbl>Area</Lbl>
-            <Inp value={formData.area} readOnly />
-          </Field>
-
           <Field span={3}>
             <Lbl>Permanent Address</Lbl>
             <Inp value={formData.permanent_address} readOnly />
+          </Field>
+
+          <Field span={2}>
+            <Lbl>Area</Lbl>
+            <Inp value={formData.area} readOnly />
           </Field>
 
           <Field>
@@ -577,15 +769,15 @@ const Admission = () => {
             <Inp value={formData.zipcode} readOnly />
           </Field>
 
-          {/* ── Doctors ────────────────────────────────────────────────── */}
+          {/* ── Doctors ───────────────────────────────────────────── */}
           <SectionDivider>Clinical</SectionDivider>
 
-          <Field span={3} required>
+          <Field span={3}>
             <Lbl required>Admitting Doctor</Lbl>
             <Sel name="admittingDoctor" value={formData.admittingDoctor} onChange={handleChange}>
               <option value="">Select Doctor</option>
               {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeName}>
+                <option key={d.employeeId} value={d.employeeId}>
                   {d.employeeName}
                 </option>
               ))}
@@ -597,14 +789,14 @@ const Admission = () => {
             <Sel name="consultingDoctor" value={formData.consultingDoctor} onChange={handleChange}>
               <option value="">Select Doctor</option>
               {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeName}>
+                <option key={d.employeeId} value={d.employeeId}>
                   {d.employeeName}
                 </option>
               ))}
             </Sel>
           </Field>
 
-          {/* ── Room / Bed ─────────────────────────────────────────────── */}
+          {/* ── Room / Bed ──────────────────────────────────────── */}
           <SectionDivider>Room &amp; Bed</SectionDivider>
 
           <Field span={2}>
@@ -635,7 +827,7 @@ const Admission = () => {
             />
           </Field>
 
-          {/* ── Reason & Package ───────────────────────────────────────── */}
+          {/* ── Reason & Package ───────────────────────────────── */}
           <Field span={3}>
             <Lbl>Reason for Admission</Lbl>
             <Txta name="reasonForAdmission" value={formData.reasonForAdmission} onChange={handleChange} rows={2} />
@@ -651,7 +843,7 @@ const Admission = () => {
             </Sel>
           </Field>
 
-          {/* ── MLC ────────────────────────────────────────────────────── */}
+          {/* ── MLC ──────────────────────────────────────────── */}
           <SectionDivider>MLC (if applicable)</SectionDivider>
 
           <Field span={2}>
@@ -682,13 +874,18 @@ const Admission = () => {
         </FormGrid>
 
         <ActionBar>
+          {lastSaved && (
+            <PrintBtn onClick={() => handlePrint(lastSaved)}>
+              🖨️ Print Slip
+            </PrintBtn>
+          )}
           <SmBtn secondary onClick={handleReset}>↺ Reset</SmBtn>
           <SmBtn onClick={handleSubmit}>
             {editingId ? "💾 Update" : "💾 Save Admission"}
           </SmBtn>
         </ActionBar>
 
-        {/* ── Admitted Patients Table ──────────────────────────────────── */}
+        {/* ── Admitted Patients Table ─────────────────────────────── */}
         <TableSection>
           <TableTitle>Admitted Patients</TableTitle>
           <TableWrapper>
@@ -698,7 +895,7 @@ const Admission = () => {
                   <Th>UHID</Th>
                   <Th>IP Number</Th>
                   <Th>Patient Name</Th>
-                  <Th>Adm. Date</Th>
+                  <Th>Adm. Date &amp; Time</Th>
                   <Th>Room / Bed</Th>
                   <Th>Doctor</Th>
                   <Th>Status</Th>
@@ -718,15 +915,15 @@ const Admission = () => {
                       <Td>{adm.uhid}</Td>
                       <Td>{adm.ipNumber}</Td>
                       <Td>
-                        {`${adm.salutation || ""} ${adm.firstName || ""} ${adm.middleName || ""} ${adm.lastName || ""}`.trim()}
+                        {[adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ") || "-"}
                       </Td>
                       <Td>
-                        {adm.admissionDate
-                          ? new Date(adm.admissionDate).toLocaleDateString("en-IN")
+                        {adm.admissionDateTime
+                          ? new Date(adm.admissionDateTime).toLocaleString("en-IN")
                           : "-"}
                       </Td>
                       <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
-                      <Td>{adm.admittingDoctor || "-"}</Td>
+                      <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "-"}</Td>
                       <Td>
                         <StatusBadge active={adm.is_active !== false}>
                           {adm.is_active !== false ? "Active" : "Cancelled"}
@@ -734,17 +931,13 @@ const Admission = () => {
                       </Td>
                       <Td>
                         <div style={{ display: "flex", gap: 5 }}>
-                          <MiniBtn
-                            onClick={() => handleEdit(adm)}
-                            disabled={adm.is_active === false}
-                          >
+                          <MiniBtn onClick={() => handleEdit(adm)} disabled={adm.is_active === false}>
                             ✏️ Edit
                           </MiniBtn>
-                          <MiniBtn
-                            danger
-                            onClick={() => handleCancel(adm._id || adm.id)}
-                            disabled={adm.is_active === false}
-                          >
+                          <MiniBtnPrint onClick={() => handlePrint(adm)}>
+                            🖨️
+                          </MiniBtnPrint>
+                          <MiniBtn danger onClick={() => handleCancel(adm._id || adm.id)} disabled={adm.is_active === false}>
                             🗑️ Cancel
                           </MiniBtn>
                         </div>
@@ -758,7 +951,7 @@ const Admission = () => {
         </TableSection>
       </Container>
 
-      {/* ── Room Search Modal ──────────────────────────────────────────── */}
+      {/* ── Room Search Modal ──────────────────────────────────────── */}
       {showRoomModal && (
         <ModalOverlay onClick={() => setShowRoomModal(false)}>
           <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
@@ -779,7 +972,6 @@ const Admission = () => {
                   {loadingRooms ? "…" : "Search"}
                 </Button>
               </SearchRow>
-
               {loadingRooms ? (
                 <NoResults>Loading…</NoResults>
               ) : roomResults.length > 0 ? (
@@ -807,9 +999,7 @@ const Admission = () => {
                         <Td>{room.nursing_station}</Td>
                         <Td>₹{room.admission_fee}</Td>
                         <Td>
-                          <MiniBtn onClick={() => handleRoomSelect(room)}>
-                            Select
-                          </MiniBtn>
+                          <MiniBtn onClick={() => handleRoomSelect(room)}>Select</MiniBtn>
                         </Td>
                       </tr>
                     ))}
@@ -818,6 +1008,36 @@ const Admission = () => {
               ) : (
                 <NoResults>No active rooms found.</NoResults>
               )}
+            </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ── Bed Select Modal ───────────────────────────────────────── */}
+      {showBedModal && selectedRoom && (
+        <ModalOverlay onClick={() => setShowBedModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <ModalHeader>
+              <ModalTitle>Select Bed — Room {selectedRoom.room_number}</ModalTitle>
+              <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12 }}>
+                {(selectedRoom.beds || []).map((bed, i) => (
+                  <MiniBtn
+                    key={i}
+                    onClick={() => handleBedSelect(bed.bed_number || bed)}
+                    disabled={bed.is_occupied}
+                    style={{ height: 36, padding: "0 14px", fontSize: "0.8rem" }}
+                  >
+                    {bed.bed_number || bed}
+                    {bed.is_occupied ? " (Occ.)" : ""}
+                  </MiniBtn>
+                ))}
+                {(!selectedRoom.beds || selectedRoom.beds.length === 0) && (
+                  <NoResults>No beds configured for this room.</NoResults>
+                )}
+              </div>
             </ModalBody>
           </ModalContainer>
         </ModalOverlay>
