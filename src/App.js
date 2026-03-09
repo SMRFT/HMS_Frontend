@@ -21,7 +21,7 @@ import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
-import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyStock";
+import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
@@ -51,6 +51,7 @@ import Enquiry from "./Components/Register/Enquiry";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import IPAdvance from "./Components/NursingStation/IPAdvance";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -96,6 +97,7 @@ function App() {
       "/Dashboard": "Dashboard",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
+      "/IPAdvance": "IPAdvance",
       "/RoomShifting": "Room Shifting",
       "/RoomEnquiry": "Room Enquiry",
       "/RoomCategory": "Room Category",
@@ -169,6 +171,7 @@ function App() {
                 <Route path="/GRNGeneration" element={<GRNGeneration />} />
 
                 <Route path="/Admission" element={<Admission />} />
+                <Route path="/IPAdvance" element={<IPAdvance />} />
 
                 <Route path="/DischargeForm" element={<DischargeForm />} />
                 <Route path="/DischargeReport" element={<DischargeReport />} />
