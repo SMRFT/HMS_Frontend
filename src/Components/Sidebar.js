@@ -216,6 +216,10 @@ const Sidebar = ({ role }) => {
               <FiTruck /> <span>Vendor Management</span>
             </StyledNavLink>
 
+            <StyledNavLink to="/PharmacyCategory">
+              <FiPackage /> <span>Pharmacy Category</span>
+            </StyledNavLink>
+
             <StyledNavLink to="/PharmacyItemMaster">
               <FiPackage /> <span>Pharmacy Stock</span>
             </StyledNavLink>
@@ -240,6 +244,10 @@ const Sidebar = ({ role }) => {
 
             <StyledNavLink to="/VendorManagement">
               <FiTruck /> <span>Vendor Management</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/PharmacyCategory">
+              <FiPackage /> <span>Pharmacy Category</span>
             </StyledNavLink>
 
             <StyledNavLink to="/PharmacyItemMaster">

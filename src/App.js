@@ -52,6 +52,7 @@ import Enquiry from "./Components/Register/Enquiry";
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
+import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -167,6 +168,7 @@ function App() {
                 <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
 
                 <Route path="/PharmacyItemMaster" element={<PharmacyItemMaster />} />
+                <Route path="/PharmacyCategory" element={<PharmacyCategory />} />
                 <Route path="/VendorManagement" element={<VendorManagement />} />
                 <Route path="/GRNGeneration" element={<GRNGeneration />} />
 
