@@ -53,6 +53,7 @@ import Enquiry from "./Components/Register/Enquiry";
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
+import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -171,6 +172,7 @@ function App() {
                 <Route path="/PharmacyCategory" element={<PharmacyCategory />} />
                 <Route path="/VendorManagement" element={<VendorManagement />} />
                 <Route path="/GRNGeneration" element={<GRNGeneration />} />
+                <Route path="/GRNAnalysis" element={<GRNAnalysis />} />
 
                 <Route path="/Admission" element={<Admission />} />
                 <Route path="/IPAdvance" element={<IPAdvance />} />
