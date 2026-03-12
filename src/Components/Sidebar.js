@@ -228,6 +228,10 @@ const Sidebar = ({ role }) => {
               <FiActivity /> <span>GRN Generation</span>
             </StyledNavLink>
 
+            <StyledNavLink to="/GRNAnalysis">
+              <FiActivity /> <span>GRN Analysis</span>
+            </StyledNavLink>
+
             <NavGroupLabel>Pharmacy</NavGroupLabel>
             <StyledNavLink to="/IPPharmacy">
               <FiPackage /> <span>IP Pharmacy</span>
@@ -256,6 +260,10 @@ const Sidebar = ({ role }) => {
 
             <StyledNavLink to="/GRNGeneration">
               <FiActivity /> <span>GRN Generation</span>
+            </StyledNavLink>
+
+            <StyledNavLink to="/GRNAnalysis">
+              <FiActivity /> <span>GRN Analysis</span>
             </StyledNavLink>
 
             <NavGroupLabel>Pharmacy</NavGroupLabel>
