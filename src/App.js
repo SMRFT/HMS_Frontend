@@ -58,7 +58,7 @@ import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 const ContentWrapper = styled.div`
   margin-top: 15px;
   padding: 20px;
-  margin-left: 260px;
+  margin-left: 210px;
 
   @media (max-width: 1024px) {
     margin-left: 200px;

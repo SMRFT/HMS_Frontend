@@ -19,21 +19,33 @@ const PageHeader = styled.div`
 const PageTitle    = styled.h1`margin: 0; font-size: 1.1rem; font-weight: 700;`
 const PageSubtitle = styled.p`margin: 2px 0 0; font-size: 0.75rem; opacity: 0.8;`
 const Card = styled.div`
-  background: white; border: 1px solid ${colors.border};
-  border-radius: 8px; margin-bottom: 12px; overflow: visible;
+  background: white;
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
 `
 const CardHeader = styled.div`
   background: ${colors.tabBg}; padding: 8px 14px; border-bottom: 1px solid ${colors.border};
   font-weight: 600; font-size: 0.8rem; color: ${colors.primary};
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 `
-const CardBody = styled.div`padding: 12px 14px;`
+const CardBody = styled.div`
+  padding: 12px 14px;
+  box-sizing: border-box;
+  width: 100%;
+`
 const GridRow = styled.div`
   display: grid;
   grid-template-columns: ${p => p.cols || "repeat(3,1fr)"};
-  gap: 8px; align-items: flex-end; margin-bottom: 8px;
-  
-  /* Responsive breakpoints based on col count */
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+
   @media(max-width: 900px){
     grid-template-columns: repeat(2, 1fr) !important;
   }
@@ -54,11 +66,15 @@ const ItemPanel = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   @media(max-width: 960px){ grid-template-columns: 1fr; }
 `
 const Panel = styled.div`
   border: 1px solid ${colors.border}; border-radius: 6px;
   padding: 10px; background: #fafafa;
+  box-sizing: border-box;
+  min-width: 0;
 `
 const PanelTitle = styled.div`
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
@@ -80,6 +96,7 @@ const SummaryStrip = styled.div`
   border: 1px solid ${colors.border};
   border-radius: 6px;
   padding: 12px;
+  box-sizing: border-box;
   @media(max-width: 900px){ grid-template-columns: repeat(3, 1fr); }
   @media(max-width: 600px){ grid-template-columns: repeat(2, 1fr); }
 `
@@ -121,17 +138,34 @@ const DropItem = styled.li`
   &:hover { background: #f0fdf4; color: ${colors.primary}; }
   &:last-child { border-bottom: none; }
 `
-// Replace ScrollTable
 const ScrollTable = styled.div`
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  
-  /* Prevent table from blowing out parent */
+  box-sizing: border-box;
+
   & table {
-    table-layout: fixed;
+    table-layout: auto;
     min-width: 900px;
+    width: 100%;
   }
+`
+const DisabledOverlay = styled.div`
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+`
+const DisabledNotice = styled.div`
+  background: #fef9c3;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: #92400e;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 `
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
@@ -150,7 +184,20 @@ const TAX_RATES = [
   { label: "RATE OF 18%",  rate: 18 },
   { label: "RATE OF 28%",  rate: 28 },
 ]
-const MONTHS   = ["01","02","03","04","05","06","07","08","09","10","11","12"]
+const MONTHS = [
+  { value: "01", label: "01 - Jan" },
+  { value: "02", label: "02 - Feb" },
+  { value: "03", label: "03 - Mar" },
+  { value: "04", label: "04 - Apr" },
+  { value: "05", label: "05 - May" },
+  { value: "06", label: "06 - Jun" },
+  { value: "07", label: "07 - Jul" },
+  { value: "08", label: "08 - Aug" },
+  { value: "09", label: "09 - Sep" },
+  { value: "10", label: "10 - Oct" },
+  { value: "11", label: "11 - Nov" },
+  { value: "12", label: "12 - Dec" },
+]
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
 
@@ -166,7 +213,7 @@ const EMPTY_GRN = {
 
 const EMPTY_ITEM = {
   name:"",item_id:"",hsn:"",batch:"",
-  expiry_month:"",expiry_year:"",
+  expiry_month:"",expiry_year:"",expiry:"",
   packing:"",unit:"",quantity:"0",free:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
@@ -223,7 +270,7 @@ const GRNGeneration = () => {
   const [medSearch,   setMedSearch]   = useState("")
   const [showDrop,    setShowDrop]    = useState(false)
   const [activeTab,   setActiveTab]   = useState("create")
-  const [editDraftNo, setEditDraftNo] = useState("")   // PRIMARY edit key
+  const [editDraftNo, setEditDraftNo] = useState("")
   const [editStatus,  setEditStatus]  = useState("")
   const [search,      setSearch]      = useState("")
   const [loading,     setLoading]     = useState(false)
@@ -241,8 +288,12 @@ const GRNGeneration = () => {
   useEffect(()=>{ fetchVendors(); fetchMedicines(); fetchGRNList() },[fetchVendors,fetchMedicines,fetchGRNList])
 
   /* ── Derived ── */
-  const isEdit     = !!editDraftNo
-  const isVerified = editStatus === "Verified"
+  const isEdit           = !!editDraftNo
+  const isVerified       = editStatus === "Verified"
+  const isItemEntryEnabled =
+    !!grnData.invoice_no?.trim() &&
+    !!grnData.purchase_category?.trim() &&
+    !!grnData.vendor_id;
 
   /* ── GRN totals recalc ── */
   useEffect(()=>{
@@ -284,10 +335,11 @@ const GRNGeneration = () => {
   /* ── Handlers ── */
   const handleVendorChange = (e) => {
     if(isVerified) return
-    const raw = e.target.value  // always a string from select
-    const v   = vendors.find(x => String(x.vendor_id) === String(raw)) || null
+    const raw = e.target.value
+    // Find vendor by vendor_id (string comparison)
+    const v = vendors.find(x => String(x.vendor_id) === String(raw)) || null
     setVendorInfo(v)
-    setGrnData(p => ({ ...p, vendor_id: raw }))  // keep as string, don't parseInt
+    setGrnData(p => ({ ...p, vendor_id: raw }))
   }
 
   const handleGrnChange = (e) => {
@@ -311,6 +363,11 @@ const GRNGeneration = () => {
     const {name,value} = e.target
     let u = {...curItem,[name]:value}
     if(name==="purchase_tax_label"){ const f=TAX_RATES.find(t=>t.label===value); u.purchase_tax_rate=f?String(f.rate):"0" }
+
+    // Auto-update combined expiry string when month or year changes
+    if(name==="expiry_month"){ u.expiry = value && u.expiry_year ? `${value}/${u.expiry_year}` : "" }
+    if(name==="expiry_year"){ u.expiry = u.expiry_month && value ? `${u.expiry_month}/${value}` : "" }
+
     setCurItem(recalcItem(u))
   }
 
@@ -318,8 +375,8 @@ const GRNGeneration = () => {
     if(isVerified) return
     if(!curItem.name){ toast.error("Select a medicine"); return }
     if(!curItem.packing_price||parseFloat(curItem.packing_price)<=0){ toast.error("Enter packing price"); return }
-    const expiry = curItem.expiry_month&&curItem.expiry_year ? `${curItem.expiry_month}/${curItem.expiry_year}` : ""
-    setItems(p=>[...p,{...curItem,expiry,id:Date.now()}])
+    // expiry is already stored as "MM/YYYY" in curItem.expiry
+    setItems(p=>[...p,{...curItem,id:Date.now()}])
     setCurItem(EMPTY_ITEM); setMedSearch("")
   }
   const removeItem = (id) => { if(isVerified) return; setItems(p=>p.filter(i=>i.id!==id)) }
@@ -341,7 +398,6 @@ const GRNGeneration = () => {
       date:         toDateTime(grnData.date),
       invoice_date: toDateTime(grnData.invoice_date),
       grn_number:   "",
-      // Always send draft_number in body when editing — backend uses this as primary lookup key
       draft_number: isEdit ? editDraftNo : undefined,
       items:        JSON.stringify(items),
       payment_status: JSON.stringify([{
@@ -351,7 +407,6 @@ const GRNGeneration = () => {
       }]),
     }
 
-    // Use draft_number in URL for PUT — avoids ObjectId routing issues entirely
     const url    = isEdit ? `${baseUrl}grn/${editDraftNo}/` : `${baseUrl}grn/`
     const method = isEdit ? "PUT" : "POST"
 
@@ -363,10 +418,8 @@ const GRNGeneration = () => {
         toast.success(isEdit ? `GRN updated (${draftNo})` : `Draft saved: ${draftNo}`)
 
         if(!isEdit){
-          // ✅ First-time save: lock into edit mode so next save uses PUT, not POST
           setEditDraftNo(r.data?.draft_number || "")
           setEditStatus(r.data?.status || "Draft")
-          // Also update grn_number in form state if returned
           if(r.data?.grn_number !== undefined){
             setGrnData(p=>({...p, grn_number: r.data.grn_number}))
           }
@@ -404,7 +457,7 @@ const GRNGeneration = () => {
     })
     setVendorInfo(vendors.find(x => String(x.vendor_id) === String(grn.vendor_id)) || null)
     try{ setItems(JSON.parse(grn.items||"[]")) } catch { setItems([]) }
-    setEditDraftNo(grn.draft_number||"")   // ← PRIMARY key for all subsequent PUTs
+    setEditDraftNo(grn.draft_number||"")
     setEditStatus(grn.status||"Draft")
     setActiveTab("create")
     window.scrollTo({top:0,behavior:"smooth"})
@@ -428,10 +481,18 @@ const GRNGeneration = () => {
            g.invoice_no?.toLowerCase().includes(q)
   })
 
+  // Build vendor address string from individual fields
+  const getVendorAddress = (v) => {
+    if (!v) return ""
+    return [v.address_line1, v.address_line2, v.city, v.state, v.pincode]
+      .filter(Boolean)
+      .join(", ")
+  }
+
   /* ─────────────────────────────────────────────────────── RENDER ── */
   return (
     <PageWrapper>
-      <Container style={{maxWidth:"100%", padding:"0 8px", overflowX:"hidden", boxSizing:"border-box"}}>
+      <Container style={{maxWidth:"100%", padding:"0 8px", overflowX:"hidden", boxSizing:"border-box", width:"100%"}}>
         <PageHeader>
           <div>
             <PageTitle>🧾 GRN Generation</PageTitle>
@@ -449,7 +510,7 @@ const GRNGeneration = () => {
           </div>
         </PageHeader>
 
-        <FormContent style={{padding:"10px 0"}}>
+        <FormContent style={{padding:"10px 0", width:"100%", boxSizing:"border-box"}}>
           {activeTab==="create" && (
             <>
               {/* ── Verified lock banner ── */}
@@ -482,15 +543,23 @@ const GRNGeneration = () => {
                         {PURCHASE_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
                       </Select>
                     </InputWrapper>
+                    {/* Date: current date, disabled */}
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Date</Lbl>
-                      <Input type="date" name="date" value={grnData.date} onChange={handleGrnChange} disabled={isVerified} style={{fontSize:"0.8rem"}} />
+                      <ReadOnlyInput
+                        type="date"
+                        name="date"
+                        value={grnData.date}
+                        readOnly
+                        disabled
+                        style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Vendor *</Lbl>
                       <Select name="vendor_id" value={grnData.vendor_id} onChange={handleVendorChange} disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         <option value="">-- Select Vendor --</option>
-                        {vendors.map(v=><option key={v.vendor_id} value={v.vendor_id}>{v.name}</option>)}
+                        {vendors.map(v=><option key={v.vendor_id} value={String(v.vendor_id)}>{v.name}</option>)}
                       </Select>
                     </InputWrapper>
                   </GridRow>
@@ -499,19 +568,29 @@ const GRNGeneration = () => {
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Supplier Address</Lbl>
                       <ReadOnlyInput
-                        value={vendorInfo
-                          ? [vendorInfo.address_line1,vendorInfo.address_line2,vendorInfo.city,vendorInfo.state].filter(Boolean).join(", ")
-                          : ""}
-                        readOnly placeholder="Auto-filled from vendor" style={{fontSize:"0.8rem"}}
+                        value={getVendorAddress(vendorInfo)}
+                        readOnly
+                        placeholder="Auto-filled from vendor"
+                        style={{fontSize:"0.8rem"}}
                       />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Contact Person</Lbl>
-                      <ReadOnlyInput value={vendorInfo?.contact_person||""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
+                      <ReadOnlyInput
+                        value={vendorInfo?.contact_person || ""}
+                        readOnly
+                        placeholder="Auto-filled"
+                        style={{fontSize:"0.8rem"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Phone</Lbl>
-                      <ReadOnlyInput value={vendorInfo?.phone||""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
+                      <ReadOnlyInput
+                        value={vendorInfo?.phone || ""}
+                        readOnly
+                        placeholder="Auto-filled"
+                        style={{fontSize:"0.8rem"}}
+                      />
                     </InputWrapper>
                   </GridRow>
 
@@ -522,11 +601,27 @@ const GRNGeneration = () => {
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Invoice No *</Lbl>
-                      <Input name="invoice_no" value={grnData.invoice_no} onChange={handleGrnChange} disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
+                      <Input
+                        name="invoice_no"
+                        value={grnData.invoice_no}
+                        onChange={handleGrnChange}
+                        disabled={isVerified}
+                        placeholder="e.g. INV-52412"
+                        style={{fontSize:"0.8rem"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Invoice Date</Lbl>
-                      <Input type="date" name="invoice_date" value={grnData.invoice_date} onChange={handleGrnChange} disabled={isVerified} style={{fontSize:"0.8rem"}} />
+                      {/* max=today prevents selection of future dates */}
+                      <Input
+                        type="date"
+                        name="invoice_date"
+                        value={grnData.invoice_date}
+                        onChange={handleGrnChange}
+                        disabled={isVerified}
+                        max={todayStr()}
+                        style={{fontSize:"0.8rem"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Payment Mode</Lbl>
@@ -543,161 +638,200 @@ const GRNGeneration = () => {
                 <Card>
                   <CardHeader>💊 Item Entry</CardHeader>
                   <CardBody>
-                    <ItemPanel>
-                      <Panel>
-                        <PanelTitle>Item &amp; Cost Details</PanelTitle>
-                        <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Medicine Name *</Lbl>
-                            <AutoWrap>
-                              <Input
-                                value={medSearch}
-                                onChange={e=>{setMedSearch(e.target.value);setShowDrop(true)}}
-                                onFocus={()=>setShowDrop(true)}
-                                onBlur={()=>setTimeout(()=>setShowDrop(false),180)}
-                                placeholder="Search medicine…" style={{fontSize:"0.8rem"}}
-                              />
-                              {showDrop&&medSearch&&filteredMeds.length>0&&(
-                                <DropList>
-                                  {filteredMeds.map(m=>(
-                                    <DropItem key={m.item_id} onMouseDown={()=>selectMedicine(m)}>
-                                      {m.item_name} {m.item_last_name||""}
-                                      <span style={{fontSize:"0.7rem",color:colors.textMuted,marginLeft:5}}>HSN:{m.hsn||"—"}</span>
-                                    </DropItem>
-                                  ))}
-                                </DropList>
-                              )}
-                            </AutoWrap>
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>HSN Code</Lbl>
-                            <CalcInput value={curItem.hsn} readOnly placeholder="Auto-filled" />
-                          </InputWrapper>
-                        </GridRow>
-
-                        <GridRow cols="1fr 1fr 1fr" style={{marginBottom:7}}>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Batch No.</Lbl>
-                            <Input name="batch" value={curItem.batch} onChange={handleItemChange} placeholder="Batch" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Exp Month</Lbl>
-                            <Select name="expiry_month" value={curItem.expiry_month} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
-                              <option value="">MM</option>
-                              {MONTHS.map(m=><option key={m} value={m}>{m}</option>)}
-                            </Select>
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Exp Year</Lbl>
-                            <Select name="expiry_year" value={curItem.expiry_year} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
-                              <option value="">YYYY</option>
-                              {getYears().map(y=><option key={y} value={y}>{y}</option>)}
-                            </Select>
-                          </InputWrapper>
-                        </GridRow>
-
-                        <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Packing</Lbl>
-                            <Input type="number" name="packing" value={curItem.packing} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>No. of Units</Lbl>
-                            <Input type="number" name="unit" value={curItem.unit} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Qty (auto)</Lbl>
-                            <CalcInput value={curItem.quantity} readOnly />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Free</Lbl>
-                            <Input type="number" name="free" value={curItem.free} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                        </GridRow>
-
-                        <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Packing Price ₹</Lbl>
-                            <Input type="number" name="packing_price" value={curItem.packing_price} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Item Value (auto)</Lbl>
-                            <CalcInput value={`₹ ${curItem.item_value}`} readOnly />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>Unit Price (auto)</Lbl>
-                            <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(2)}`} readOnly />
-                          </InputWrapper>
-                          <InputWrapper style={{margin:0}}>
-                            <Lbl>MRP ₹</Lbl>
-                            <Input type="number" name="mrp" value={curItem.mrp} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
-                          </InputWrapper>
-                        </GridRow>
-                      </Panel>
-
-                      <Panel>
-                        <PanelTitle>Tax Details</PanelTitle>
-                        <TaxBox>
-                          <div style={{fontSize:"0.68rem",fontWeight:700,color:"#0369a1",marginBottom:7}}>PURCHASE TAX</div>
-                          <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:7}}>
+                    {isItemEntryEnabled ? (
+                      <ItemPanel>
+                        <Panel>
+                          <PanelTitle>Item &amp; Cost Details</PanelTitle>
+                          <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Tax Rate</Lbl>
-                              <Select name="purchase_tax_label" value={curItem.purchase_tax_label} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
-                                {TAX_RATES.map(t=><option key={t.label} value={t.label}>{t.label}</option>)}
+                              <Lbl>Medicine Name *</Lbl>
+                              <AutoWrap>
+                                <Input
+                                  value={medSearch}
+                                  onChange={e=>{setMedSearch(e.target.value);setShowDrop(true)}}
+                                  onFocus={()=>setShowDrop(true)}
+                                  onBlur={()=>setTimeout(()=>setShowDrop(false),180)}
+                                  placeholder="Search medicine…" style={{fontSize:"0.8rem"}}
+                                />
+                                {showDrop&&medSearch&&filteredMeds.length>0&&(
+                                  <DropList>
+                                    {filteredMeds.map(m=>(
+                                      <DropItem key={m.item_id} onMouseDown={()=>selectMedicine(m)}>
+                                        {m.item_name} {m.item_last_name||""}
+                                        <span style={{fontSize:"0.7rem",color:colors.textMuted,marginLeft:5}}>HSN:{m.hsn||"—"}</span>
+                                      </DropItem>
+                                    ))}
+                                  </DropList>
+                                )}
+                              </AutoWrap>
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>HSN Code</Lbl>
+                              <CalcInput value={curItem.hsn} readOnly placeholder="Auto-filled" />
+                            </InputWrapper>
+                          </GridRow>
+
+                          <GridRow cols="1fr 1fr 1fr" style={{marginBottom:7}}>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Batch No.</Lbl>
+                              <Input name="batch" value={curItem.batch} onChange={handleItemChange} placeholder="Batch" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            {/* Combined Expiry: Month + Year in one row, stored as MM/YYYY */}
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Exp Month</Lbl>
+                              <Select name="expiry_month" value={curItem.expiry_month} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                                <option value="">MM</option>
+                                {MONTHS.map(m=><option key={m.value} value={m.value}>{m.label}</option>)}
                               </Select>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>CGST ({curItem.cgst_percent}%)</Lbl>
-                              <CalcInput value={`₹ ${curItem.cgst_amt}`} readOnly />
-                            </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>SGST ({curItem.sgst_percent}%)</Lbl>
-                              <CalcInput value={`₹ ${curItem.sgst_amt}`} readOnly />
-                            </InputWrapper>
-                          </GridRow>
-                          <GridRow cols="1fr 1fr" style={{marginBottom:0}}>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>Purchase Discount (%)</Lbl>
-                              <Input type="number" name="purchase_discount" value={curItem.purchase_discount} onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
-                            </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>Discount Amt (auto)</Lbl>
-                              <CalcInput value={`₹ ${curItem.purchase_discount_amt}`} readOnly />
+                              <Lbl>Exp Year</Lbl>
+                              <Select name="expiry_year" value={curItem.expiry_year} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                                <option value="">YYYY</option>
+                                {getYears().map(y=><option key={y} value={y}>{y}</option>)}
+                              </Select>
                             </InputWrapper>
                           </GridRow>
-                          <CostBar>
-                            <span>Purchase Cost</span>
-                            <strong style={{fontSize:"0.9rem"}}>₹ {curItem.purchase_cost}</strong>
-                          </CostBar>
-                        </TaxBox>
 
-                        <GreenBox>
-                          <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
-                            SELLING TAX <span style={{fontWeight:400}}>(auto from purchase)</span>
+                          {/* Show combined expiry preview */}
+                          {(curItem.expiry_month || curItem.expiry_year) && (
+                            <div style={{fontSize:"0.72rem",color:colors.primary,marginBottom:6,marginTop:-4}}>
+                              Expiry stored as: <strong>{curItem.expiry_month||"MM"}/{curItem.expiry_year||"YYYY"}</strong>
+                            </div>
+                          )}
+
+                          <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Packing</Lbl>
+                              <Input type="number" name="packing" value={curItem.packing} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>No. of Units</Lbl>
+                              <Input type="number" name="unit" value={curItem.unit} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Qty (auto)</Lbl>
+                              <CalcInput value={curItem.quantity} readOnly />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Free</Lbl>
+                              <Input type="number" name="free" value={curItem.free} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                          </GridRow>
+
+                          <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Packing Price ₹</Lbl>
+                              <Input type="number" name="packing_price" value={curItem.packing_price} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Item Value (auto)</Lbl>
+                              <CalcInput value={`₹ ${curItem.item_value}`} readOnly />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>Unit Price (auto)</Lbl>
+                              <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(2)}`} readOnly />
+                            </InputWrapper>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>MRP ₹</Lbl>
+                              <Input type="number" name="mrp" value={curItem.mrp} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                            </InputWrapper>
+                          </GridRow>
+                        </Panel>
+
+                        <Panel>
+                          <PanelTitle>Tax Details</PanelTitle>
+                          <TaxBox>
+                            <div style={{fontSize:"0.68rem",fontWeight:700,color:"#0369a1",marginBottom:7}}>PURCHASE TAX</div>
+                            <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:7}}>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Tax Rate</Lbl>
+                                <Select name="purchase_tax_label" value={curItem.purchase_tax_label} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                                  {TAX_RATES.map(t=><option key={t.label} value={t.label}>{t.label}</option>)}
+                                </Select>
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>CGST ({curItem.cgst_percent}%)</Lbl>
+                                <CalcInput value={`₹ ${curItem.cgst_amt}`} readOnly />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>SGST ({curItem.sgst_percent}%)</Lbl>
+                                <CalcInput value={`₹ ${curItem.sgst_amt}`} readOnly />
+                              </InputWrapper>
+                            </GridRow>
+                            <GridRow cols="1fr 1fr" style={{marginBottom:0}}>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Purchase Discount (%)</Lbl>
+                                <Input type="number" name="purchase_discount" value={curItem.purchase_discount} onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Discount Amt (auto)</Lbl>
+                                <CalcInput value={`₹ ${curItem.purchase_discount_amt}`} readOnly />
+                              </InputWrapper>
+                            </GridRow>
+                            <CostBar>
+                              <span>Purchase Cost</span>
+                              <strong style={{fontSize:"0.9rem"}}>₹ {curItem.purchase_cost}</strong>
+                            </CostBar>
+                          </TaxBox>
+
+                          <GreenBox>
+                            <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
+                              SELLING TAX <span style={{fontWeight:400}}>(auto from purchase)</span>
+                            </div>
+                            <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:0}}>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Tax Rate</Lbl>
+                                <ReadOnlyInput value={curItem.selling_tax_label} readOnly />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>CGST</Lbl>
+                                <CalcInput value={`₹ ${curItem.selling_cgst}`} readOnly />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>SGST</Lbl>
+                                <CalcInput value={`₹ ${curItem.selling_sgst}`} readOnly />
+                              </InputWrapper>
+                            </GridRow>
+                          </GreenBox>
+
+                          <div style={{marginTop:12}}>
+                            <Button onClick={addItem} style={{width:"100%",fontSize:"0.82rem",padding:"8px"}}>
+                              <Plus size={13}/> &nbsp; Add Item to GRN
+                            </Button>
                           </div>
-                          <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:0}}>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>Tax Rate</Lbl>
-                              <ReadOnlyInput value={curItem.selling_tax_label} readOnly />
-                            </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>CGST</Lbl>
-                              <CalcInput value={`₹ ${curItem.selling_cgst}`} readOnly />
-                            </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>SGST</Lbl>
-                              <CalcInput value={`₹ ${curItem.selling_sgst}`} readOnly />
-                            </InputWrapper>
-                          </GridRow>
-                        </GreenBox>
-
-                        <div style={{marginTop:12}}>
-                          <Button onClick={addItem} style={{width:"100%",fontSize:"0.82rem",padding:"8px"}}>
-                            <Plus size={13}/> &nbsp; Add Item to GRN
-                          </Button>
-                        </div>
-                      </Panel>
-                    </ItemPanel>
+                        </Panel>
+                      </ItemPanel>
+                    ) : (
+                      <DisabledOverlay>
+                        <ItemPanel>
+                          <Panel>
+                            <PanelTitle>Item &amp; Cost Details</PanelTitle>
+                            <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Medicine Name *</Lbl>
+                                <Input disabled placeholder="Search medicine…" style={{fontSize:"0.8rem"}} />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>HSN Code</Lbl>
+                                <CalcInput disabled placeholder="Auto-filled" />
+                              </InputWrapper>
+                            </GridRow>
+                            <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
+                              {["Batch No.","Exp Month","Exp Year","Free"].map(l=>(
+                                <InputWrapper key={l} style={{margin:0}}><Lbl>{l}</Lbl><Input disabled placeholder="—" style={{fontSize:"0.8rem"}} /></InputWrapper>
+                              ))}
+                            </GridRow>
+                          </Panel>
+                          <Panel>
+                            <PanelTitle>Tax Details</PanelTitle>
+                            <div style={{height:60,display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8",fontSize:"0.8rem"}}>
+                              Tax details will appear here
+                            </div>
+                          </Panel>
+                        </ItemPanel>
+                      </DisabledOverlay>
+                    )}
                   </CardBody>
                 </Card>
               )}
@@ -708,7 +842,7 @@ const GRNGeneration = () => {
                   <CardHeader>📦 Items Added ({items.length})</CardHeader>
                   <CardBody style={{padding:"8px 6px"}}>
                     <ScrollTable>
-                      <Table style={{minWidth:900}}>
+                      <Table>
                         <thead><tr>
                           <Th style={{fontSize:"0.72rem"}}>#</Th>
                           <Th style={{fontSize:"0.72rem"}}>Medicine</Th>
@@ -736,6 +870,7 @@ const GRNGeneration = () => {
                               <Td style={{fontWeight:600,minWidth:100,fontSize:"0.75rem"}}>{it.name}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.hsn||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.batch||"—"}</Td>
+                              {/* Display combined expiry MM/YYYY */}
                               <Td style={{fontSize:"0.75rem"}}>{it.expiry||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.packing||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.unit||"—"}</Td>
@@ -841,7 +976,7 @@ const GRNGeneration = () => {
                 </div>
               </ControlsContainer>
               <ScrollTable>
-                <Table style={{minWidth:900}}>
+                <Table>
                   <thead><tr>
                     <Th style={{fontSize:"0.72rem"}}>#</Th>
                     <Th style={{fontSize:"0.72rem"}}>Draft No</Th>
