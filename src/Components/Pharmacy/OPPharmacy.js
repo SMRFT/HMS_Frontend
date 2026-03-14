@@ -30,7 +30,7 @@ const ButtonRow = styled.div`
 
 const OPPharmacy = () => {
 
-  const HMSURL = process.env.REACT_APP_BACKEND_ER_BASE_URL;
+  const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const [medicines, setMedicines] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,7 +58,7 @@ const OPPharmacy = () => {
   useEffect(() => {
     const fetchMedicines = async () => {
       try {
-        const response = await apiRequest(`${HMSURL}get_pharmacy_stock/`, "GET");
+        const response = await apiRequest(`${HMSURL}get_oppharmacy_stock/`, "GET");
         console.log("Response from backend:", response.data); // ✅ For debugging
 
         if (!response.success) {
@@ -67,15 +67,16 @@ const OPPharmacy = () => {
         }
 
         const fetchedData = response.data; // ✅ It's now a list
-        const formattedMedicines = fetchedData.map((item) => ({
-          name: item.ITEMNAME,
-          batch_number: item.PURCHASEBATCH,
-          mrp: parseFloat(item.ITEMMRP || 0),
-          cgst_rate: 0,
-          cgst_amount: 0,
-          sgst_rate: 0,
-          sgst_amount: 0,
+        const formattedMedicines = (Array.isArray(fetchedData) ? fetchedData : []).map((item) => ({
+          name: item.medicine_name || item.ITEMNAME || "",
+          batch_number: item.batch_number || item.PURCHASEBATCH || "",
+          mrp: parseFloat(item.mrp || item.ITEMMRP || 0),
+          cgst_rate: parseFloat(item.cgst_rate || 0),
+          cgst_amount: parseFloat(item.cgst_amount || 0),
+          sgst_rate: parseFloat(item.sgst_rate || 0),
+          sgst_amount: parseFloat(item.sgst_amount || 0),
           quantity: 1,
+          available_stock: item.available_stock || 0
         }));
 
         setMedicines(formattedMedicines);
@@ -85,11 +86,11 @@ const OPPharmacy = () => {
     };
 
     fetchMedicines();
-  }, []);
+  }, [HMSURL]);
 
 
   const filteredMedicines = medicines.filter((medicine) =>
-    medicine.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (medicine.name || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleMedicineInput = (e) => {
@@ -98,7 +99,7 @@ const OPPharmacy = () => {
 
     const matchedMedicine = medicines.find(
       (medicine) =>
-        medicine.name.toLowerCase() === typedMedicineName.toLowerCase()
+        (medicine.name || "").toLowerCase() === typedMedicineName.toLowerCase()
     );
 
     if (

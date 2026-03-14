@@ -24,6 +24,7 @@ export const colors = {
 // Layout Components
 export const PageWrapper = styled.div`
   min-height: 100vh;
+  width: 100%;
   background-color: ${colors.background};
   padding: 12px;
   font-family:
@@ -33,21 +34,38 @@ export const PageWrapper = styled.div`
     "Segoe UI",
     Roboto,
     sans-serif;
+  box-sizing: border-box;
+  overflow-x: hidden;
+
+  /* Remove padding on very small screens */
+  @media (max-width: 480px) {
+    padding: 4px;
+  }
 `;
 
 export const Container = styled.div`
   width: 100%;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   animation: ${fadeIn} 0.4s ease-out;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  /* On larger screens allow up to 1400px */
+  @media (min-width: 1400px) {
+    max-width: 1400px;
+  }
 `;
 
 export const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 2px solid ${colors.border};
   background: ${colors.background};
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const Tab = styled.div`
@@ -62,10 +80,16 @@ export const Tab = styled.div`
   transition: all 0.2s;
   position: relative;
   top: 2px;
+  white-space: nowrap;
 
   &:hover {
     color: ${colors.primary};
     background: ${colors.tabBg};
+  }
+
+  @media (max-width: 480px) {
+    padding: 6px 10px;
+    font-size: 0.78rem;
   }
 `;
 
@@ -85,6 +109,9 @@ export const InputWrapper = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0; /* prevents overflow in grid/flex children */
 `;
 
 export const Label = styled.label`
@@ -113,6 +140,9 @@ export const Input = styled.input`
   font-size: 0.82rem;
   transition: all 0.2s;
   background: ${colors.surface};
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 
   &:focus {
     outline: none;
@@ -123,6 +153,12 @@ export const Input = styled.input`
   &:disabled {
     background: #f1f5f9;
     cursor: not-allowed;
+  }
+
+  /* Prevent date inputs from overflowing */
+  &[type="date"] {
+    min-width: 0;
+    width: 100%;
   }
 `;
 
@@ -144,6 +180,11 @@ export const Select = styled.select`
     outline: none;
     border-color: ${colors.primary};
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  }
+
+  &:disabled {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
   }
 `;
 

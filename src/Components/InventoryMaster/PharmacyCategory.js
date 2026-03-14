@@ -1,48 +1,37 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  Container,
-  PageWrapper,
-  FormContent,
-  FormRow,
-  InputWrapper,
-  Label,
-  Input,
-  Button,
-  ButtonContainer,
-  TableWrapper,
-  Table,
-  Th,
-  Td,
-  Tr,
-  SectionHeader,
-  TextArea,
+  Container, PageWrapper, FormContent, FormRow,
+  InputWrapper, Label, Input, Button, ButtonContainer,
+  TableWrapper, Table, Th, Td, Tr, SectionHeader,
 } from "../GlobalStyles";
 
-const RoomCategory = () => {
+const PharmacyCategory = () => {
   const [categories, setCategories] = useState([]);
-  const [formData, setFormData] = useState({ ward_name: "", description: "" });
-  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData]     = useState({ category_name: "" });
+  const [editingId, setEditingId]   = useState(null); // holds category_id (integer)
+
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  useEffect(() => { fetchCategories(); }, []);
+
+  // ── API ────────────────────────────────────────────────────────────────────
 
   const fetchCategories = async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}room-category/`, "GET");
-      if (response && !response.error) {
-        setCategories(Array.isArray(response) ? response : []);
-      } else {
-        setCategories([]);
-      }
-    } catch (error) {
-      toast.error("Failed to fetch room categories");
+      const response = await apiRequest(`${HmsBaseUrl}pharmacy-category/`, "GET");
+      setCategories(
+        response && !response.error && Array.isArray(response.data)
+          ? response.data
+          : []
+      );
+    } catch {
+      toast.error("Failed to fetch categories");
     }
   };
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -50,31 +39,32 @@ const RoomCategory = () => {
   };
 
   const handleEdit = (category) => {
-    setEditingId(category.id);
-    setFormData({
-      ward_name: category.ward_name,
-      description: category.description || ""
-    });
+    setEditingId(category.category_id);
+    setFormData({ category_name: category.category_name });
     window.scrollTo(0, 0);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this category?")) {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}room-category/${id}/`, "DELETE");
-        if (response) {
-          toast.success("Category deleted successfully");
-          fetchCategories();
-        }
-      } catch (error) {
-        toast.error("Failed to delete category");
+  const handleDelete = async (category) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) return;
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}pharmacy-category/${category.category_id}/`,
+        "DELETE"
+      );
+      if (response && !response.error) {
+        toast.success("Category deleted successfully");
+        fetchCategories();
+      } else {
+        toast.error(response?.error || "Failed to delete category");
       }
+    } catch {
+      toast.error("Failed to delete category");
     }
   };
 
   const handleReset = () => {
     setEditingId(null);
-    setFormData({ ward_name: "", description: "" });
+    setFormData({ category_name: "" });
   };
 
   const handleSubmit = async (e) => {
@@ -82,7 +72,7 @@ const RoomCategory = () => {
     try {
       if (editingId) {
         const response = await apiRequest(
-          `${HmsBaseUrl}room-category/${editingId}/`,
+          `${HmsBaseUrl}pharmacy-category/${editingId}/`,
           "PUT",
           formData
         );
@@ -91,11 +81,11 @@ const RoomCategory = () => {
           handleReset();
           fetchCategories();
         } else {
-          toast.error(response.error || "Update failed");
+          toast.error(response?.error || "Update failed");
         }
       } else {
         const response = await apiRequest(
-          `${HmsBaseUrl}room-category/`,
+          `${HmsBaseUrl}pharmacy-category/`,
           "POST",
           formData
         );
@@ -104,42 +94,35 @@ const RoomCategory = () => {
           handleReset();
           fetchCategories();
         } else {
-          toast.error(response.error || "Create failed");
+          toast.error(response?.error || "Create failed");
         }
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to save category");
     }
   };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <PageWrapper>
       <Container>
         <SectionHeader>
-          <h3>Room Category Management</h3>
+          <h3>Pharmacy Category Management</h3>
         </SectionHeader>
 
         <FormContent>
           <form onSubmit={handleSubmit}>
-            <FormRow>
+            <FormRow columns="1fr">
               <InputWrapper>
-                <Label required>Ward Name</Label>
+                <Label required>Category Name</Label>
                 <Input
                   type="text"
-                  name="ward_name"
-                  value={formData.ward_name}
+                  name="category_name"
+                  value={formData.category_name}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter Ward Name"
-                />
-              </InputWrapper>
-              <InputWrapper>
-                <Label>Description</Label>
-                <TextArea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter Description"
+                  placeholder="Enter Category Name"
                 />
               </InputWrapper>
             </FormRow>
@@ -156,46 +139,42 @@ const RoomCategory = () => {
         </FormContent>
 
         <div style={{ padding: "0 24px 24px" }}>
-          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Category List</h4>
+          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>
+            Category List
+          </h4>
           <TableWrapper>
             <Table>
               <thead>
                 <tr>
-                  <Th>Ward Name</Th>
-                  <Th>Description</Th>
-                  <Th>Status</Th>
+                  <Th>Category ID</Th>
+                  <Th>Category Name</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
                 {categories.length === 0 ? (
                   <Tr>
-                    <Td colSpan="4" style={{ textAlign: "center" }}>
+                    <Td colSpan="3" style={{ textAlign: "center" }}>
                       No categories found
                     </Td>
                   </Tr>
                 ) : (
-                  categories.map((cat) => (
-                    <Tr key={cat.id}>
-                      <Td>{cat.ward_name}</Td>
-                      <Td>{cat.description}</Td>
-                      <Td>
-                        <span style={{ color: cat.is_active ? 'green' : 'red' }}>
-                          {cat.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </Td>
+                  categories.map((category) => (
+                    <Tr key={category.category_id}>
+                      <Td>{category.category_id}</Td>
+                      <Td>{category.category_name}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
                           <Button
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleEdit(cat)}
+                            onClick={() => handleEdit(category)}
                           >
                             Edit
                           </Button>
                           <Button
                             danger
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(cat.id)}
+                            onClick={() => handleDelete(category)}
                           >
                             Delete
                           </Button>
@@ -213,4 +192,4 @@ const RoomCategory = () => {
   );
 };
 
-export default RoomCategory;
+export default PharmacyCategory;

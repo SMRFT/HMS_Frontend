@@ -126,16 +126,25 @@ const EnquiryRoom = () => {
     fetchEnquiryData();
   }, []);
 
-  const fetchEnquiryData = async () => {
-    try {
-      const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
-      if (response && !response.error) {
-        setData(Array.isArray(response) ? response : []);
-      }
-    } catch (error) {
-      toast.error("Failed to fetch room enquiry data");
+const fetchEnquiryData = async () => {
+  try {
+    const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
+
+    console.log("API Response:", response); // 👈 add this
+
+    if (response && response.data && Array.isArray(response.data)) {
+      setData(response.data);
+    } else if (Array.isArray(response)) {
+      setData(response);
+    } else {
+      setData([]);
     }
-  };
+
+  } catch (error) {
+    toast.error("Failed to fetch room enquiry data");
+  }
+};
+
 
   return (
     <PageWrapper>
@@ -157,22 +166,22 @@ const EnquiryRoom = () => {
         ) : (
           data.map((blockData, index) => (
             <BlockSection key={index}>
-              <BlockTitle>Block: {blockData.block.block_name}</BlockTitle>
-              {Object.keys(blockData.floors).length === 0 ? (
+              <BlockTitle>Block: {blockData.block_name || blockData.block?.block_name || "Unknown Block"}</BlockTitle>
+              {Object.keys(blockData.floors || {}).length === 0 ? (
                 <div style={{ padding: "10px", color: "#9ca3af" }}>No rooms in this block</div>
               ) : (
-                Object.entries(blockData.floors).map(([floor, rooms]) => (
+                Object.entries(blockData.floors || {}).map(([floor, rooms]) => (
                   <FloorSection key={floor}>
                     <FloorTitle>Floor: {floor}</FloorTitle>
                     <RoomGrid>
-                      {rooms.map(room => (
+                      {Array.isArray(rooms) && rooms.map(room => (
                         <RoomCard key={room.id}>
                           <RoomHeader>
                             <RoomNumber>{room.room_number}</RoomNumber>
                             <RoomType>{room.room_type}</RoomType>
                           </RoomHeader>
                           <BedList>
-                            {room.beds.length === 0 ? (
+                            {(!room.beds || room.beds.length === 0) ? (
                               <span style={{ fontSize: "0.8rem", color: "#9ca3af" }}>No Beds</span>
                             ) : (
                               room.beds.map(bed => (
