@@ -55,7 +55,7 @@ import Enquiry from "./Components/Register/Enquiry";
 
 import GRNGenerator from "./Components/InventoryMaster/GRNGeneration";
 import Pharmacystock from "./Components/InventoryMaster/PharmacyStock";
-import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
@@ -379,12 +379,15 @@ function App() {
               <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
             )}
             {hasPagePermission("/XRayList", allowedActions) && (
-              <Route path="/XRayList" element={<XRayList />} />
-              <Route
-                path="/XRayReportForm/:uhid/:subUhid"
-                element={<XRayReportForm />}
-              />
-              <Route path="/RadiologySlot" element={<RadiologySlot />} />
+              <>
+                <Route path="/XRayList" element={<XRayList />} />
+                <Route
+                  path="/XRayReportForm/:uhid/:subUhid"
+                  element={<XRayReportForm />}
+                />
+                <Route path="/RadiologySlot" element={<RadiologySlot />} />
+              </>
+            )}
 
             {/* Packages */}
             {hasPagePermission("/Package", allowedActions) && (
@@ -396,27 +399,29 @@ function App() {
             )}
             {/* BillType */}
             {hasPagePermission("/BillType", allowedActions) && (
-              <Route path="/BillType" element={<BillType />} />
-              {/* Reports */}
-              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+              <>
+                <Route path="/BillType" element={<BillType />} />
+                {/* Reports */}
+                <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
 
-              {/* Velavan */}
-              <Route
-                path="/InvoiceGeneration"
-                element={<InvoiceGeneration />}
-              />
-              <Route path="/InvoiceReport" element={<InvoiceReport />} />
-              <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
-              <Route path="/VelavanItemList" element={<VelavanItemList />} />
-              <Route
-                path="/AddVelavanVendors"
-                element={<AddVelavanVendors />}
-              />
-              <Route
-                path="/VelavanVendorList"
-                element={<VelavanVendorList />}
-              />
-            </>
+                {/* Velavan */}
+                <Route
+                  path="/InvoiceGeneration"
+                  element={<InvoiceGeneration />}
+                />
+                <Route path="/InvoiceReport" element={<InvoiceReport />} />
+                <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
+                <Route path="/VelavanItemList" element={<VelavanItemList />} />
+                <Route
+                  path="/AddVelavanVendors"
+                  element={<AddVelavanVendors />}
+                />
+                <Route
+                  path="/VelavanVendorList"
+                  element={<VelavanVendorList />}
+                />
+              </>
+            )}
           </Routes>
         </ContentWrapper>
       )}
@@ -432,3 +437,4 @@ export default function AppWrapper() {
     </Router>
   );
 }
+
