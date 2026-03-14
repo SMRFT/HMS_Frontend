@@ -15,6 +15,8 @@ import {
   FiUsers,
   FiClipboard,
   FiLayers,
+  FiTag,
+  FiCode,
 } from "react-icons/fi";
 
 // Use the same theme colors for consistency
@@ -289,7 +291,9 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/XRayList">
               <FiActivity /> <span>X-Ray Reports</span>
             </StyledNavLink>
-
+            <StyledNavLink to="/RadiologySlot">
+              <FiActivity /> <span>Radiology Slot</span>
+            </StyledNavLink>
             <NavGroupLabel>Rooms</NavGroupLabel>
             <StyledNavLink to="/Block">
               <FiHome /> <span>Block</span>
@@ -330,6 +334,23 @@ const Sidebar = ({ role }) => {
             <NavGroupLabel>Nursing Station</NavGroupLabel>
             <StyledNavLink to="/RoomShifting">
               <FiRepeat /> <span>Room Shifting</span>
+            </StyledNavLink>
+            <NavGroupLabel>Reports</NavGroupLabel>
+            <StyledNavLink to="/DeptBUDReport">
+              <FiFileText /> <span>Department Bill Report (Edit & Delete)</span>
+            </StyledNavLink>
+            <StyledNavLink to="/InvoiceReport">
+              <FiFileText /> <span>Velavan Invoice List</span>
+            </StyledNavLink>
+            <NavGroupLabel>Velavan</NavGroupLabel>
+            <StyledNavLink to="/InvoiceGeneration">
+              <FiTag /> <span>Invoice Generation</span>
+            </StyledNavLink>
+            <StyledNavLink to="/VelavanItemList">
+              <FiFileText /> <span>Velavan Item List</span>
+            </StyledNavLink>
+            <StyledNavLink to="/VelavanVendorList">
+              <FiFileText /> <span>Velavan Vendor List</span>
             </StyledNavLink>
           </>
         )}

@@ -60,6 +60,14 @@ import DischargeReport from "./Components/Discharge/DischargeReport";
 import Package from "./Components/BillingMaster/Package";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
+import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
+import DeptBUDReport from "./Components/InvestigationBilling/DeptBUDReport";
+import InvoiceGeneration from "./Components/Velavan/InvoiceGeneration";
+import InvoiceReport from "./Components/Velavan/InvoiceReport";
+import AddVelavanItems from "./Components/Velavan/AddVelavanItems";
+import AddVelavanVendors from "./Components/Velavan/AddVelavanVendors";
+import VelavanItemList from "./Components/Velavan/VelavanItemList";
+import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -270,6 +278,7 @@ function App() {
                 path="/XRayReportForm/:uhid/:subUhid"
                 element={<XRayReportForm />}
               />
+              <Route path="/RadiologySlot" element={<RadiologySlot />} />
 
               {/* Discharge */}
               <Route path="/DischargeReport" element={<DischargeReport />} />
@@ -281,6 +290,25 @@ function App() {
                 element={<Investigationprice />}
               />
               <Route path="/BillType" element={<BillType />} />
+              {/* Reports */}
+              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+
+              {/* Velavan */}
+              <Route
+                path="/InvoiceGeneration"
+                element={<InvoiceGeneration />}
+              />
+              <Route path="/InvoiceReport" element={<InvoiceReport />} />
+              <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
+              <Route path="/VelavanItemList" element={<VelavanItemList />} />
+              <Route
+                path="/AddVelavanVendors"
+                element={<AddVelavanVendors />}
+              />
+              <Route
+                path="/VelavanVendorList"
+                element={<VelavanVendorList />}
+              />
             </>
           </Routes>
         </ContentWrapper>

@@ -18,111 +18,89 @@ import {
   TableWrapper,
   ButtonContainer,
   colors,
-} from "../GlobalStyles"; // ← adjust path to match your project structure
+} from "../GlobalStyles";
 
-// ─── Local overrides / components not in GlobalStyles ────────────────────────
+// ─── Page Layout ──────────────────────────────────────────────────────────────
 
 const PageContainer = styled(PageWrapper)`
-  background: linear-gradient(135deg, #e8f5e9 0%, #b2dfdb 100%);
-  padding: 2rem;
-  position: relative;
+  background: #f0f2f5;
+  padding: 12px;
 `;
 
 const ContentCard = styled.div`
   background: white;
-  border-radius: 20px;
-  padding: 2.5rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 8px;
 `;
 
 const PageTitle = styled.h1`
-  font-size: 2.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  margin: 0 0 8px 0;
   display: flex;
   align-items: center;
-  gap: 1rem;
-
-  &::before {
-    content: "💉";
-    font-size: 2.5rem;
-  }
+  gap: 6px;
+  border-bottom: 2px solid ${colors.primary};
+  padding-bottom: 6px;
 `;
 
 const NavigationLinks = styled.div`
   display: flex;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 6px;
+  margin-bottom: 8px;
 `;
 
 const NavLink = styled.span`
-  color: #00897b;
+  color: ${colors.primary};
   font-weight: 600;
   cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
+  font-size: 0.78rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid ${colors.primary};
+  transition: all 0.2s;
 
   &:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #b2dfdb 100%);
-    transform: translateY(-2px);
+    background: ${colors.primary};
+    color: white;
   }
 `;
 
-const SectionIcon = styled.span`
-  font-size: 1.5rem;
+// ─── Edit Remarks Banner ──────────────────────────────────────────────────────
+
+const EditRemarksBanner = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: #92400e;
+
+  strong {
+    white-space: nowrap;
+  }
 `;
 
-const SectionTitle = styled.h2`
-  color: #2c3e50;
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
+// ─── Section header text wrapper ─────────────────────────────────────────────
+
+const SectionLabel = styled.span`
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: ${colors.primary};
+`;
+
+// ─── Searchable Dropdown ──────────────────────────────────────────────────────
+
+const DropdownWrapper = styled.div`
   position: relative;
-
-  &::before {
-    content: "";
-    position: absolute;
-    left: -1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 5px;
-    height: 100%;
-    background: linear-gradient(180deg, #00897b 0%, #00695c 100%);
-    border-radius: 3px;
-  }
-`;
-
-// FormGrid uses GlobalStyles' FormRow as base
-const FormGrid = styled(FormRow)`
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin-bottom: 2rem;
-`;
-
-// InputGroup maps to GlobalStyles' InputWrapper
-const InputGroup = styled(InputWrapper)`
-  gap: 0.5rem;
-`;
-
-// SelectWrapper / SelectInput for searchable dropdown
-const SelectWrapper = styled.div`
-  position: relative;
-`;
-
-const SelectInput = styled(Input)`
-  width: 100%;
-  cursor: pointer;
-
-  &:disabled {
-    background-color: #f5f5f5;
-    cursor: not-allowed;
-  }
 `;
 
 const DropdownList = styled.div`
@@ -130,205 +108,168 @@ const DropdownList = styled.div`
   top: 100%;
   left: 0;
   right: 0;
-  max-height: 250px;
+  max-height: 200px;
   overflow-y: auto;
   background: white;
-  border: 2px solid #00897b;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 137, 123, 0.2);
+  border: 1px solid ${colors.primary};
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   z-index: 1000;
-  margin-top: 0.25rem;
+  margin-top: 2px;
 `;
 
 const DropdownItem = styled.div`
-  padding: 0.75rem 1rem;
+  padding: 5px 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.82rem;
+  color: ${colors.textMain};
 
   &:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+    background: ${colors.tabBg};
   }
 
   &:not(:last-child) {
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid ${colors.border};
   }
 `;
 
-const SearchButton = styled(Button)`
-  margin-top: 0.5rem;
-  padding: 0.6rem 1.25rem;
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  font-size: 0.875rem;
-  box-shadow: 0 4px 12px rgba(0, 137, 123, 0.3);
-
-  &:hover {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
-  }
-`;
+// ─── Items section card ───────────────────────────────────────────────────────
 
 const ProductSection = styled(ContentCard)`
-  background: #f9f9f9;
-  padding: 2rem;
+  background: #fafbfc;
+  padding: 8px 12px;
 `;
 
-const AddButton = styled(Button)`
-  background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
-  padding: 0.75rem 1.5rem;
-  font-size: 0.875rem;
-  box-shadow: 0 4px 12px rgba(102, 187, 106, 0.3);
-  margin-top: 1.7rem;
+// ─── Inline search button below field ────────────────────────────────────────
+
+const InlineSearchBtn = styled(Button)`
+  margin-top: 3px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  height: auto;
+`;
+
+// ─── Add item button ──────────────────────────────────────────────────────────
+
+const AddBtn = styled(Button)`
+  background: ${colors.success};
+  margin-top: 18px;
 
   &:hover {
-    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(102, 187, 106, 0.4);
-  }
-
-  &::before {
-    content: "+ ";
-    font-weight: bold;
+    background: #16a34a;
   }
 `;
+
+// ─── Delete button ────────────────────────────────────────────────────────────
+
+const DelBtn = styled(Button)`
+  background: ${colors.danger};
+  padding: 3px 8px;
+  font-size: 0.72rem;
+
+  &:hover {
+    background: #dc2626;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+// ─── Quantity input ───────────────────────────────────────────────────────────
 
 const QuantityControl = styled.div`
   display: flex;
   align-items: center;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
   overflow: hidden;
 
   input {
     border: none;
     text-align: center;
-    width: 80px;
-    padding: 0.75rem 0.5rem;
+    width: 60px;
+    font-size: 0.82rem;
+    padding: 5px 0;
+    color: ${colors.textMain};
 
     &:focus {
       outline: none;
-      box-shadow: none;
     }
   }
 `;
 
-// ModernTable uses GlobalStyles' Table/Th/Td/Tr as base
-const ModernTable = styled(Table)`
-  border-spacing: 0;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  margin-top: 1.5rem;
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 20px;
+  color: ${colors.textMuted};
+  font-size: 0.82rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  margin-top: 8px;
 `;
 
-const TableHead = styled.thead`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
+// ─── Summary grid ─────────────────────────────────────────────────────────────
 
-  th {
-    color: white;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 1rem;
-    font-size: 0.875rem;
-    text-align: left;
+const SummaryGrid = styled(FormRow)`
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f7f9fc;
+  border-radius: 6px;
+  border: 1px solid ${colors.border};
+`;
+
+// ─── Company info text (blue, no input) ──────────────────────────────────────
+
+const CompanyInfoText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 0;
+
+  span {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #1565c0;
+  }
+
+  small {
+    font-size: 0.75rem;
+    color: #1976d2;
+    font-weight: 500;
   }
 `;
 
-const TableRow = styled(Tr)`
-  background: white;
+// ─── Action row ───────────────────────────────────────────────────────────────
 
-  &:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
-    transform: scale(1.01);
-    box-shadow: 0 4px 12px rgba(0, 137, 123, 0.1);
-  }
-`;
-
-const TableCell = styled(Td)`
-  color: #555;
-`;
-
-const DeleteButton = styled(Button)`
-  background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-
-  &:hover {
-    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-    transform: translateY(-2px);
-  }
-`;
-
-// ActionButtonGroup uses GlobalStyles' ButtonContainer as base
-const ActionButtonGroup = styled(ButtonContainer)`
+const ActionRow = styled(ButtonContainer)`
   justify-content: flex-end;
-  margin-top: 2rem;
+  margin-top: 8px;
+  padding-top: 8px;
 `;
 
 const ResetBtn = styled(Button)`
-  background: linear-gradient(135deg, #757575 0%, #616161 100%);
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(117, 117, 117, 0.3);
-
+  background: ${colors.textMuted};
   &:hover {
-    background: linear-gradient(135deg, #616161 0%, #424242 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(117, 117, 117, 0.4);
+    background: #475569;
   }
 `;
 
 const EstimateBtn = styled(Button)`
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
-
+  background: ${colors.secondary};
   &:hover {
-    background: linear-gradient(135deg, #fb8c00 0%, #ef6c00 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(255, 152, 0, 0.4);
+    background: #d97706;
   }
 `;
 
 const SubmitBtn = styled(Button)`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 137, 123, 0.3);
-
+  background: ${colors.primary};
   &:hover {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
-  }
-`;
-
-const SummaryGrid = styled(FormRow)`
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 3rem 2rem;
-  color: #999;
-
-  &::before {
-    content: "📋";
-    font-size: 3rem;
-    display: block;
-    margin-bottom: 1rem;
-  }
-
-  p {
-    font-size: 1rem;
-    font-weight: 500;
-    color: #666;
+    background: ${colors.primaryDark};
   }
 `;
 
@@ -349,8 +290,8 @@ const SearchableDropdown = ({
   const wrapperRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setIsOpen(false);
         isFocused.current = false;
       }
@@ -359,11 +300,8 @@ const SearchableDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Sync display text whenever value OR options change (e.g. prefill after async fetch),
-  // but never override what the user is actively typing.
   useEffect(() => {
     if (isFocused.current) return;
-
     if (value) {
       const selected = options.find((opt) =>
         typeof opt === "string" ? opt === value : opt[valueKey] === value,
@@ -374,33 +312,29 @@ const SearchableDropdown = ({
         );
         return;
       }
-      // Options not loaded yet — show the raw value so the field is not blank
       setSearchTerm(value);
     } else {
       setSearchTerm("");
     }
   }, [value, options, displayKey, valueKey]);
 
-  const filteredOptions = options.filter((option) => {
-    const displayValue =
-      typeof option === "string" ? option : option[displayKey];
-    return displayValue.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredOptions = options.filter((opt) => {
+    const dv = typeof opt === "string" ? opt : opt[displayKey];
+    return dv.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const handleSelect = (option) => {
-    const selectedValue =
-      typeof option === "string" ? option : option[valueKey];
-    const displayValue =
-      typeof option === "string" ? option : option[displayKey];
-    onChange(selectedValue);
-    setSearchTerm(displayValue);
+    const sv = typeof option === "string" ? option : option[valueKey];
+    const dv = typeof option === "string" ? option : option[displayKey];
+    onChange(sv);
+    setSearchTerm(dv);
     setIsOpen(false);
     isFocused.current = false;
   };
 
   return (
-    <SelectWrapper ref={wrapperRef}>
-      <SelectInput
+    <DropdownWrapper ref={wrapperRef}>
+      <Input
         type="text"
         value={searchTerm}
         onChange={(e) => {
@@ -413,10 +347,7 @@ const SearchableDropdown = ({
         }}
         onBlur={() => {
           isFocused.current = false;
-          // If user cleared the box completely, reset the value
-          if (!searchTerm.trim()) {
-            onChange("");
-          }
+          if (!searchTerm.trim()) onChange("");
         }}
         placeholder={placeholder}
         disabled={disabled}
@@ -434,7 +365,7 @@ const SearchableDropdown = ({
           ))}
         </DropdownList>
       )}
-    </SelectWrapper>
+    </DropdownWrapper>
   );
 };
 
@@ -465,16 +396,18 @@ const InvestigationBilling = () => {
     discountRemarks: "",
     total: 0,
     finalPrice: 0,
-    paymentMethod: "cash",
-    paymentStatus: "pending",
-    EstBillNo: "",
+    paymentMethod: "Cash",
+    paymentStatus: "Pending",
+    customer_type: "",
+    company_name: "",
+    company_code: "",
+    editRemarks: "", // ← new field
   });
 
   const [doctors, setDoctors] = useState([]);
   const [billTypes, setBillTypes] = useState([]);
   const [packages, setPackages] = useState([]);
   const [items, setItems] = useState([]);
-
   const [isDiscountAllowed, setIsDiscountAllowed] = useState(true);
   const [selectedBillTypeNo, setSelectedBillTypeNo] = useState("");
   const [selectedPackageNo, setSelectedPackageNo] = useState("");
@@ -482,6 +415,9 @@ const InvestigationBilling = () => {
   const [selectedPrice, setSelectedPrice] = useState("");
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
+
+  // Whether this session is an edit (has existing investBillNo + editRemarks)
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -492,32 +428,29 @@ const InvestigationBilling = () => {
     const today = new Date().toISOString().split("T")[0];
     const updateTime = () => {
       const now = new Date();
-      const hours = now.getHours().toString().padStart(2, "0");
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      const seconds = now.getSeconds().toString().padStart(2, "0");
+      const h = now.getHours().toString().padStart(2, "0");
+      const m = now.getMinutes().toString().padStart(2, "0");
+      const s = now.getSeconds().toString().padStart(2, "0");
       setFormData((prev) => ({
         ...prev,
         investBillDate: today,
-        time: `${hours}:${minutes}:${seconds}`,
+        time: `${h}:${m}:${s}`,
       }));
     };
     updateTime();
-    const intervalId = setInterval(updateTime, 1000);
-    return () => clearInterval(intervalId);
+    const id = setInterval(updateTime, 1000);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
     const fetchBillTypes = async () => {
       const result = await apiRequest(`${HMSURL}bill-types/`, "GET");
       if (result.success) {
-        const billTypesData = result.data.billTypes || [];
-        const normalizedBillTypes = billTypesData.map((bt) => ({
+        const normalized = (result.data.billTypes || []).map((bt) => ({
           ...bt,
           billTypeNo: bt.billTypeNo ?? bt.BillTypeNo ?? 0,
         }));
-        setBillTypes(normalizedBillTypes);
-      } else {
-        console.error("Error fetching bill types:", result.error);
+        setBillTypes(normalized);
       }
     };
     fetchBillTypes();
@@ -529,77 +462,106 @@ const InvestigationBilling = () => {
         `${HMSURL}doctor_list_diagnostics/`,
         "GET",
       );
-      if (result.success) {
-        setDoctors(result.data);
-      } else {
-        console.error("Failed to fetch doctors:", result.error);
-      }
+      if (result.success) setDoctors(result.data);
     };
     fetchDoctors();
   }, [HMSURL]);
 
   // ── Handle incoming navigation data ────────────────────────────────────────
+  // Split into two effects:
+  //   1) Load form fields as soon as navigation state arrives
+  //   2) Trigger handleBillTypeChange only after billTypes are fetched
+  //      (fixes the race where billTypes = [] on first render)
 
   useEffect(() => {
-    if (location.state?.patientData) {
-      const data = location.state.patientData;
-      const isEstimate = data.EstBillNo !== undefined;
+    if (!location.state?.patientData) return;
+    const data = location.state.patientData;
+    const isEstimate = data.EstBillNo !== undefined;
 
-      let itemsArray = [];
-      if (typeof data.item === "string") {
-        try {
-          let parsed = JSON.parse(data.item);
-          // Handle double-encoded string
-          if (typeof parsed === "string") {
-            parsed = JSON.parse(parsed);
-          }
-          itemsArray = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-          itemsArray = [];
-        }
-      } else if (Array.isArray(data.item)) {
-        itemsArray = data.item;
+    setIsEditMode(Boolean(data.investBillNo) && Boolean(data.editRemarks));
+
+    let itemsArray = [];
+    if (typeof data.item === "string") {
+      try {
+        let parsed = JSON.parse(data.item);
+        if (typeof parsed === "string") parsed = JSON.parse(parsed);
+        itemsArray = Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        itemsArray = [];
       }
-
-      setFormData({
-        investBillNo: isEstimate ? "" : data.investBillNo || "",
-        investBillDate: data.EstBillDate || data.investBillDate || "",
-        time: data.time || "",
-        uhid: data.uhid || "",
-        ipNumber: data.ipNumber || "",
-        doctor: data.doctor || "",
-        bill_type: data.bill_type || "",
-        billTypeNo: data.billTypeNo || "",
-        billType: data.billType || "",
-        salutation: data.salutation || "",
-        firstName: data.firstName || "",
-        lastName: data.lastName || "",
-        age: data.age || "",
-        gender: data.gender || "",
-        referredBy: data.referredBy || "",
-        discountPercent: data.discountPercent || "",
-        discount: data.discount || "",
-        discountRemarks: data.discountRemarks || "",
-        total: data.total || 0,
-        finalPrice: data.finalPrice || 0,
-        paymentMethod: data.paymentMethod || "cash",
-        paymentStatus:
-          data.paymentStatus ||
-          (data.paymentMethod === "cash" || !data.paymentMethod
-            ? "pending"
-            : ""),
-        item: JSON.stringify(itemsArray),
-        EstBillNo: data.EstBillNo || "",
-      });
-
-      setProductList(itemsArray);
-
-      if (data.billTypeNo) {
-        setSelectedBillTypeNo(data.billTypeNo);
-        handleBillTypeChange(data.billType, data.bill_type, data.billTypeNo);
-      }
+    } else if (Array.isArray(data.item)) {
+      itemsArray = data.item;
     }
-  }, [location.state]);
+
+    // bill_name is set by BillsReport (resolved from DB).
+    // billType is what was stored on the investbilling doc directly.
+    // Use whichever is available so the dropdown can display correctly.
+    const resolvedBillName = data.billType || data.bill_name || "";
+
+    setFormData({
+      investBillNo: isEstimate ? "" : data.investBillNo || "",
+      investBillDate: data.EstBillDate || data.investBillDate || "",
+      time: data.time || "",
+      uhid: data.uhid || "",
+      ipNumber: data.ipNumber || "",
+      doctor: data.doctor || "",
+      bill_type: data.bill_type || "",
+      billTypeNo: data.billTypeNo || "",
+      billType: resolvedBillName,
+      salutation: data.salutation || "",
+      firstName: data.firstName || "",
+      lastName: data.lastName || "",
+      age: data.age || "",
+      gender: data.gender || "",
+      referredBy: data.referredBy || "",
+      discountPercent: data.discountPercent || "",
+      discount: data.discount || "",
+      discountRemarks: data.discountRemarks || "",
+      total: data.total || 0,
+      finalPrice: data.finalPrice || 0,
+      paymentMethod: data.paymentMethod || "Cash",
+      paymentStatus: "Pending",
+      item: JSON.stringify(itemsArray),
+      EstBillNo: data.EstBillNo || "",
+      customer_type: data.customer_type || "",
+      company_name: data.company_name || "",
+      company_code: data.company_code || "",
+      editRemarks: data.editRemarks || "",
+    });
+
+    setProductList(itemsArray);
+  }, [location.state]); // eslint-disable-line
+
+  // ── Trigger bill type fetch once billTypes list has loaded ─────────────────
+  // This solves the race condition: location.state fires before the
+  // bill-types API response arrives, so billTypes is [] at that point.
+  // By watching [billTypes, location.state] we retry as soon as both exist.
+
+  useEffect(() => {
+    if (!location.state?.patientData) return;
+    if (!billTypes.length) return;
+
+    const data = location.state.patientData;
+
+    // Match by bill_type (numeric id), billTypeNo, or bill name
+    const bt = billTypes.find(
+      (b) =>
+        (data.bill_type && String(b.bill_type) === String(data.bill_type)) ||
+        (data.billTypeNo && b.billTypeNo === data.billTypeNo) ||
+        (data.billType && b.bill_name === data.billType) ||
+        (data.bill_name && b.bill_name === data.bill_name),
+    );
+
+    if (bt) {
+      const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
+      handleBillTypeChange(
+        bt.bill_name,
+        bt.bill_type,
+        billTypeNo,
+        bt.is_allowDiscount ?? true,
+      );
+    }
+  }, [billTypes, location.state]); // eslint-disable-line
 
   // ── Bill type & item handlers ───────────────────────────────────────────────
 
@@ -615,7 +577,6 @@ const InvestigationBilling = () => {
       billType: billName,
       bill_type: billType,
       billTypeNo: billTypeNo,
-      // Clear discount fields when discount is not allowed
       ...(!allowDiscount && {
         discountPercent: "",
         discount: "",
@@ -627,12 +588,8 @@ const InvestigationBilling = () => {
 
     if (billTypeNo === "PACK") {
       const result = await apiRequest(`${HMSURL}packages/`, "GET");
-      if (result.success) {
-        setPackages(result.data.packages || []);
-      } else {
-        console.error("Error fetching packages:", result.error);
-        setPackages([]);
-      }
+      if (result.success) setPackages(result.data.packages || []);
+      else setPackages([]);
       setItems([]);
       setSelectedItem("");
       setSelectedPrice("");
@@ -640,18 +597,12 @@ const InvestigationBilling = () => {
     }
 
     setPackages([]);
-
     const result = await apiRequest(
       `${HMSURL}investigation-items/?billTypeNo=${billTypeNo}&billType=${billType}`,
       "GET",
     );
-    if (result.success) {
-      setItems(result.data.items || []);
-    } else {
-      console.error("Error fetching items:", result.error);
-      setItems([]);
-    }
-
+    if (result.success) setItems(result.data.items || []);
+    else setItems([]);
     setSelectedItem("");
     setSelectedPrice("");
   };
@@ -682,33 +633,26 @@ const InvestigationBilling = () => {
           total: parseFloat(packageTotalPrice),
         }));
       }
-    } else {
-      console.error("Error fetching package items:", result.error);
     }
   };
 
   const handleItemChange = (selectedItemName) => {
-    setFormData((prev) => ({ ...prev, item: selectedItemName }));
     setSelectedItem(selectedItemName);
-    const selectedItemObj = items.find(
-      (item) => item.itemName === selectedItemName,
-    );
-    setSelectedPrice(selectedItemObj ? selectedItemObj.price : "");
+    const obj = items.find((item) => item.itemName === selectedItemName);
+    setSelectedPrice(obj ? obj.price : "");
   };
 
   // ── Product list management ─────────────────────────────────────────────────
 
   const addProduct = () => {
     if (selectedItem && selectedPrice) {
-      const selectedItemObj = items.find(
-        (item) => item.itemName === selectedItem,
-      );
+      const obj = items.find((item) => item.itemName === selectedItem);
       const newProduct = {
         itemName: selectedItem,
         price: selectedPrice,
         quantity: quantity,
         billTypeNo: formData.billTypeNo,
-        ...(selectedItemObj?.test_id && { test_id: selectedItemObj.test_id }),
+        ...(obj?.test_id && { test_id: obj.test_id }),
       };
       const updatedList = [...productList, newProduct];
       setProductList(updatedList);
@@ -732,9 +676,8 @@ const InvestigationBilling = () => {
       alert("Please enter UHID");
       return;
     }
-    const encodedUhid = encodeURIComponent(formData.uhid);
     const result = await apiRequest(
-      `${HMSURL}op-patient/${encodedUhid}/`,
+      `${HMSURL}op-patient/${encodeURIComponent(formData.uhid)}/`,
       "GET",
     );
     if (result.success) {
@@ -746,6 +689,9 @@ const InvestigationBilling = () => {
         lastName: data.lastName || "",
         age: data.age || "",
         gender: data.gender || "",
+        customer_type: data.customer_type || "",
+        company_name: data.company_name || "",
+        company_code: data.company_code || "",
       }));
     } else {
       alert(result.error || "Patient not found");
@@ -757,9 +703,8 @@ const InvestigationBilling = () => {
       alert("Please enter IP Number");
       return;
     }
-    const encodedIpNumber = encodeURIComponent(formData.ipNumber);
     const result = await apiRequest(
-      `${HMSURL}ip-patient/${encodedIpNumber}/`,
+      `${HMSURL}ip-patient/${encodeURIComponent(formData.ipNumber)}/`,
       "GET",
     );
     if (result.success) {
@@ -772,6 +717,9 @@ const InvestigationBilling = () => {
         lastName: data.lastName || "",
         age: data.age || "",
         gender: data.gender || "",
+        customer_type: data.customer_type || "",
+        company_name: data.company_name || "",
+        company_code: data.company_code || "",
       }));
     } else {
       alert(result.error || "Patient not found");
@@ -814,6 +762,12 @@ const InvestigationBilling = () => {
       alert("Please add at least one item!");
       return false;
     }
+    // In edit mode, remarks must be present (already enforced by BillsReport modal,
+    // but guard here too for safety)
+    if (isEditMode && !formData.editRemarks?.trim()) {
+      alert("Edit Remarks is required!");
+      return false;
+    }
     return true;
   };
 
@@ -845,30 +799,13 @@ const InvestigationBilling = () => {
       "POST",
       formPayload,
     );
-
     if (result.success) {
       const estBillNo = result.data?.EstBillNo;
       if (estBillNo) {
         handleEstimatePrint({
+          ...formData,
           EstBillNo: estBillNo,
           EstBillDate: formData.investBillDate,
-          time: formData.time,
-          uhid: formData.uhid,
-          ipNumber: formData.ipNumber,
-          doctor: formData.doctor,
-          billType: formData.billType,
-          salutation: formData.salutation,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          age: formData.age,
-          gender: formData.gender,
-          referredBy: formData.referredBy,
-          discountPercent: formData.discountPercent,
-          discount: formData.discount,
-          discountRemarks: formData.discountRemarks,
-          total: formData.total,
-          finalPrice: formData.finalPrice,
-          paymentMethod: formData.paymentMethod,
           item: productList,
         });
         setTimeout(() => alert("Estimate generated successfully!"), 100);
@@ -906,6 +843,10 @@ const InvestigationBilling = () => {
       paymentStatus: formData.paymentStatus,
       item: productList,
       EstBillNo: formData.EstBillNo,
+      // ── Include editRemarks only when editing ──
+      ...(isEditMode && formData.editRemarks
+        ? { editRemarks: formData.editRemarks }
+        : {}),
     };
 
     const result = await apiRequest(
@@ -913,30 +854,13 @@ const InvestigationBilling = () => {
       "POST",
       formPayload,
     );
-
     if (result.success) {
       const billNo = result.data?.investBillNo;
       if (billNo) {
         handlePrint({
+          ...formData,
           investBillNo: billNo,
           investBillDate: formData.investBillDate,
-          time: formData.time,
-          uhid: formData.uhid,
-          ipNumber: formData.ipNumber,
-          doctor: formData.doctor,
-          billType: formData.billType,
-          salutation: formData.salutation,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          age: formData.age,
-          gender: formData.gender,
-          referredBy: formData.referredBy,
-          discountPercent: formData.discountPercent,
-          discount: formData.discount,
-          discountRemarks: formData.discountRemarks,
-          total: formData.total,
-          finalPrice: formData.finalPrice,
-          paymentMethod: formData.paymentMethod,
           item: productList,
         });
         setTimeout(() => alert("Bill generated successfully!"), 100);
@@ -980,9 +904,7 @@ const InvestigationBilling = () => {
         [name]:
           type === "file" ? files[0] : type === "checkbox" ? checked : value,
       };
-      if (name === "paymentMethod") {
-        updated.paymentStatus = value === "cash" ? "pending" : "";
-      }
+      if (name === "paymentMethod") updated.paymentStatus = "Pending";
       return updated;
     });
   };
@@ -992,10 +914,7 @@ const InvestigationBilling = () => {
   const formatDateTime = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
   };
 
   const formatTimeTo12Hr = (timeStr) => {
@@ -1043,14 +962,12 @@ const InvestigationBilling = () => {
     body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 10px; }
     .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
     .hospital-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-    .address { margin-bottom: 3px; }
     .bill-title { font-weight: bold; display: inline-block; margin-right: 10px; }
     .bill-subtitle { font-weight: bold; display: inline-block; margin-left: 10px; }
     .bill-details { display: flex; justify-content: space-between; margin-bottom: 15px; }
     .bill-details-left { width: 48%; }
     .bill-row { display: flex; margin-bottom: 5px; }
     .bill-label { font-weight: bold; width: 120px; }
-    .bill-value { flex-grow: 1; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
     th, td { border: 1px solid #000; padding: 5px; text-align: left; }
     th { background-color: #f2f2f2; }
@@ -1064,31 +981,25 @@ const InvestigationBilling = () => {
   const handlePrint = (bill) => {
     const printWindow = window.open("", "_blank", "height=600,width=800");
     const itemsArray = resolveItems(bill.item);
-    const html = `
-      <!DOCTYPE html><html><head><title>Bill Print</title><style>${printStyles}</style></head>
+    const html = `<!DOCTYPE html><html><head><title>Bill Print</title><style>${printStyles}</style></head>
       <body>
         <div class="header">
           <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-          <div class="address">51/24.Saradha College Road, Salem - 636007</div>
-          <div class="registration">CIN: U85110TZ20PLC033974</div>
+          <div>51/24.Saradha College Road, Salem - 636007</div>
+          <div>CIN: U85110TZ20PLC033974</div>
         </div>
-        <div>
-          <span class="bill-title">"${bill.paymentMethod || "NIL"}"</span>
-          <span class="bill-subtitle">${bill.billType || "NIL"}</span>
-        </div>
+        <div><span class="bill-title">"${bill.paymentMethod || "NIL"}"</span><span class="bill-subtitle">${bill.billType || "NIL"}</span></div>
         <div class="bill-details">
           <div class="bill-details-left">
-            <div class="bill-row"><div class="bill-label">Bill Number</div><div class="bill-value">: ${bill.investBillNo || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">Bill Date</div><div class="bill-value">: ${formatDateTime(bill.investBillDate)}, ${formatTimeTo12Hr(bill.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name</div><div class="bill-value">: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Bill Number</div><div>: ${bill.investBillNo || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${bill.uhid || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Bill Date</div><div>: ${formatDateTime(bill.investBillDate)}, ${formatTimeTo12Hr(bill.time)}</div></div>
+            <div class="bill-row"><div class="bill-label">Name</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
+            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${bill.doctor || ""}</div></div>
           </div>
         </div>
-        <table>
-          <thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-          <tbody>${buildItemRows(itemsArray)}</tbody>
-        </table>
+        <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
+        <tbody>${buildItemRows(itemsArray)}</tbody></table>
         <div class="total-section">
           <div class="total-row"><div class="total-label">Total</div><div>${parseFloat(bill.total || 0).toFixed(2)}</div></div>
           <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
@@ -1104,44 +1015,32 @@ const InvestigationBilling = () => {
   const handleEstimatePrint = (estimate) => {
     const printWindow = window.open("", "_blank", "height=600,width=800");
     const itemsArray = resolveItems(estimate.item);
-    const estimateStyles = `
-      ${printStyles}
-      .estimate-label { font-weight: bold; font-size: 16px; color: #ff9800; text-align: center; margin: 10px 0; text-decoration: underline; }
-      th { background-color: #fff3e0; }
-      .note { margin-top: 20px; padding: 10px; background-color: #fff3e0; border-left: 4px solid #ff9800; font-style: italic; }
-    `;
-    const html = `
-      <!DOCTYPE html><html><head><title>Estimate Print</title><style>${estimateStyles}</style></head>
+    const html = `<!DOCTYPE html><html><head><title>Estimate Print</title><style>${printStyles}</style></head>
       <body>
         <div class="header">
           <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-          <div class="address">51/24.Saradha College Road, Salem - 636007</div>
-          <div class="registration">CIN: U85110TZ20PLC033974</div>
+          <div>51/24.Saradha College Road, Salem - 636007</div>
         </div>
-        <div class="estimate-label">*** ESTIMATE BILL ***</div>
-        <div>
-          <span class="bill-title">"${estimate.paymentMethod || "NIL"}"</span>
-          <span class="bill-subtitle">${estimate.billType || "NIL"}</span>
-        </div>
+        <div style="text-align:center;font-weight:bold;color:#d97706;margin:8px 0;">*** ESTIMATE BILL ***</div>
         <div class="bill-details">
           <div class="bill-details-left">
-            <div class="bill-row"><div class="bill-label">Estimate Number</div><div class="bill-value">: ${estimate.EstBillNo || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${estimate.uhid || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">Estimate Date</div><div class="bill-value">: ${formatDateTime(estimate.EstBillDate)}, ${formatTimeTo12Hr(estimate.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name</div><div class="bill-value">: ${formatPatientName(estimate.salutation, estimate.firstName, estimate.middleName, estimate.lastName)}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${estimate.doctor || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Estimate No</div><div>: ${estimate.EstBillNo || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${estimate.uhid || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Date</div><div>: ${formatDateTime(estimate.EstBillDate)}, ${formatTimeTo12Hr(estimate.time)}</div></div>
+            <div class="bill-row"><div class="bill-label">Name</div><div>: ${formatPatientName(estimate.salutation, estimate.firstName, estimate.middleName, estimate.lastName)}</div></div>
+            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${estimate.doctor || ""}</div></div>
           </div>
         </div>
-        <table>
-          <thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-          <tbody>${buildItemRows(itemsArray)}</tbody>
-        </table>
+        <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
+        <tbody>${buildItemRows(itemsArray)}</tbody></table>
         <div class="total-section">
           <div class="total-row"><div class="total-label">Total</div><div>${parseFloat(estimate.total || 0).toFixed(2)}</div></div>
           <div class="total-row"><div class="total-label">Discount</div><div>${estimate.discount || "0.00"}</div></div>
           <div class="total-row net-amount"><div class="total-label">Estimated Net Amount</div><div>${estimate.finalPrice || "0.00"}</div></div>
         </div>
-        <div class="note"><strong>Note:</strong> This is an estimate bill. Final charges may vary based on actual services provided. Please convert this to a final bill at the time of payment.</div>
+        <div style="margin-top:12px;padding:8px;background:#fffbeb;border-left:3px solid #d97706;font-style:italic;font-size:11px;">
+          <strong>Note:</strong> This is an estimate. Final charges may vary.
+        </div>
         <div class="signature"><div>${estimate.uhid || ""}</div><div>(Authorized Signature)</div></div>
       </body></html>`;
     printWindow.document.write(html);
@@ -1153,7 +1052,7 @@ const InvestigationBilling = () => {
 
   return (
     <PageContainer>
-      <PageTitle>Investigation Billing</PageTitle>
+      <PageTitle>💉 Investigation Billing</PageTitle>
 
       <NavigationLinks>
         <NavLink onClick={() => navigate("/ViewEstimate")}>
@@ -1162,16 +1061,25 @@ const InvestigationBilling = () => {
         <NavLink onClick={() => navigate("/ViewBills")}>📄 View Bills</NavLink>
       </NavigationLinks>
 
+      {/* ── Edit mode banner showing the remarks ── */}
+      {isEditMode && formData.editRemarks && (
+        <EditRemarksBanner>
+          <span>✏️</span>
+          <div>
+            <strong>Edit Mode — Remarks:</strong> {formData.editRemarks}
+          </div>
+        </EditRemarksBanner>
+      )}
+
       <ContentCard>
         <form onSubmit={handleSubmit}>
-          {/* Patient Information */}
+          {/* ── Patient Information ── */}
           <SectionHeader>
-            <SectionIcon>👤</SectionIcon>
-            <SectionTitle>Patient Information</SectionTitle>
+            <SectionLabel>👤 Patient Information</SectionLabel>
           </SectionHeader>
 
-          <FormGrid>
-            <InputGroup>
+          <FormRow>
+            <InputWrapper>
               <Label required>UHID</Label>
               <Input
                 type="text"
@@ -1179,12 +1087,12 @@ const InvestigationBilling = () => {
                 value={formData.uhid}
                 onChange={handleInputChange}
               />
-              <SearchButton type="button" onClick={fetchPatientDetails}>
+              <InlineSearchBtn type="button" onClick={fetchPatientDetails}>
                 🔍 Search
-              </SearchButton>
-            </InputGroup>
+              </InlineSearchBtn>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>IP Number</Label>
               <Input
                 type="text"
@@ -1192,75 +1100,64 @@ const InvestigationBilling = () => {
                 value={formData.ipNumber}
                 onChange={handleInputChange}
               />
-              <SearchButton type="button" onClick={fetchIpPatient}>
+              <InlineSearchBtn type="button" onClick={fetchIpPatient}>
                 🔍 Search
-              </SearchButton>
-            </InputGroup>
+              </InlineSearchBtn>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>Salutation</Label>
               <Input
                 type="text"
                 name="salutation"
-                value={formData.salutation || ""}
-                onChange={handleInputChange}
+                value={formData.salutation}
                 readOnly
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>First Name</Label>
               <Input
                 type="text"
                 name="firstName"
-                value={formData.firstName || ""}
-                onChange={handleInputChange}
+                value={formData.firstName}
                 readOnly
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>Last Name</Label>
               <Input
                 type="text"
                 name="lastName"
-                value={formData.lastName || ""}
-                onChange={handleInputChange}
+                value={formData.lastName}
                 readOnly
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>Age</Label>
-              <Input
-                type="number"
-                name="age"
-                value={formData.age || ""}
-                onChange={handleInputChange}
-                readOnly
-              />
-            </InputGroup>
+              <Input type="number" name="age" value={formData.age} readOnly />
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>Gender</Label>
               <Input
                 type="text"
                 name="gender"
-                value={formData.gender || ""}
-                onChange={handleInputChange}
+                value={formData.gender}
                 readOnly
               />
-            </InputGroup>
-          </FormGrid>
+            </InputWrapper>
+          </FormRow>
 
-          {/* Billing Details */}
+          {/* ── Billing Details ── */}
           <SectionHeader>
-            <SectionIcon>📋</SectionIcon>
-            <SectionTitle>Billing Details</SectionTitle>
+            <SectionLabel>📋 Billing Details</SectionLabel>
           </SectionHeader>
 
-          <FormGrid>
-            <InputGroup>
+          <FormRow>
+            <InputWrapper>
               <Label>Bill Date</Label>
               <Input
                 type="date"
@@ -1268,9 +1165,9 @@ const InvestigationBilling = () => {
                 value={formData.investBillDate}
                 onChange={handleInputChange}
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label>Bill Time</Label>
               <Input
                 type="time"
@@ -1278,36 +1175,31 @@ const InvestigationBilling = () => {
                 value={formData.time}
                 onChange={handleInputChange}
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label required>Bill Type</Label>
               <SearchableDropdown
                 value={formData.billType}
                 onChange={(billName) => {
-                  const selectedBillType = billTypes.find(
-                    (bt) => bt.bill_name === billName,
-                  );
-                  if (selectedBillType) {
-                    const billTypeNo =
-                      selectedBillType.billTypeNo ??
-                      selectedBillType.BillTypeNo ??
-                      0;
+                  const bt = billTypes.find((b) => b.bill_name === billName);
+                  if (bt) {
+                    const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
                     handleBillTypeChange(
-                      selectedBillType.bill_name,
-                      selectedBillType.bill_type,
+                      bt.bill_name,
+                      bt.bill_type,
                       billTypeNo,
-                      selectedBillType.is_allowDiscount ?? true,
+                      bt.is_allowDiscount ?? true,
                     );
                   }
                 }}
                 options={billTypes.map((bt) => bt.bill_name)}
-                placeholder="Select or search bill type..."
+                placeholder="Select bill type..."
               />
-            </InputGroup>
+            </InputWrapper>
 
             {selectedBillTypeNo === "PACK" && (
-              <InputGroup>
+              <InputWrapper>
                 <Label required>Package</Label>
                 <SearchableDropdown
                   value={
@@ -1316,12 +1208,12 @@ const InvestigationBilling = () => {
                   }
                   onChange={handlePackageChange}
                   options={packages.map((pkg) => pkg.packageName)}
-                  placeholder="Select or search package..."
+                  placeholder="Select package..."
                 />
-              </InputGroup>
+              </InputWrapper>
             )}
 
-            <InputGroup>
+            <InputWrapper>
               <Label required>Doctor</Label>
               <SearchableDropdown
                 value={formData.doctor}
@@ -1334,11 +1226,11 @@ const InvestigationBilling = () => {
                 }))}
                 displayKey="name"
                 valueKey="id"
-                placeholder="Select or search doctor..."
+                placeholder="Select doctor..."
               />
-            </InputGroup>
+            </InputWrapper>
 
-            <InputGroup>
+            <InputWrapper>
               <Label required>Referred By</Label>
               <SearchableDropdown
                 value={formData.referredBy}
@@ -1351,40 +1243,40 @@ const InvestigationBilling = () => {
                 }))}
                 displayKey="name"
                 valueKey="id"
-                placeholder="Select or search doctor..."
+                placeholder="Select doctor..."
               />
-            </InputGroup>
-          </FormGrid>
+            </InputWrapper>
+          </FormRow>
 
-          {/* Investigation Items */}
+          {/* ── Investigation Items ── */}
           <ProductSection>
             <SectionHeader>
-              <SectionIcon>🔬</SectionIcon>
-              <SectionTitle>
+              <SectionLabel>
+                🔬{" "}
                 {selectedBillTypeNo === "PACK"
                   ? "Package Items"
                   : "Investigation Items"}
-              </SectionTitle>
+              </SectionLabel>
             </SectionHeader>
 
             {selectedBillTypeNo !== "PACK" && (
-              <FormGrid
+              <FormRow
                 style={{
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
                 }}
               >
-                <InputGroup>
+                <InputWrapper>
                   <Label required>Item</Label>
                   <SearchableDropdown
                     value={selectedItem}
                     onChange={handleItemChange}
                     options={items.map((item) => item.itemName)}
-                    placeholder="Select or search item..."
+                    placeholder="Select item..."
                     disabled={!selectedBillTypeNo}
                   />
-                </InputGroup>
+                </InputWrapper>
 
-                <InputGroup>
+                <InputWrapper>
                   <Label required>Quantity</Label>
                   <QuantityControl>
                     <input
@@ -1402,65 +1294,59 @@ const InvestigationBilling = () => {
                       }}
                     />
                   </QuantityControl>
-                </InputGroup>
+                </InputWrapper>
 
-                <InputGroup>
+                <InputWrapper>
                   <Label required>Price</Label>
                   <Input type="text" value={selectedPrice} readOnly />
-                </InputGroup>
+                </InputWrapper>
 
-                <AddButton type="button" onClick={addProduct}>
-                  Add Item
-                </AddButton>
-              </FormGrid>
+                <AddBtn type="button" onClick={addProduct}>
+                  + Add Item
+                </AddBtn>
+              </FormRow>
             )}
 
             {productList.length > 0 ? (
-              <ModernTable>
-                <TableHead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Quantity</th>
-                    <th>Price</th>
-                    <th>Action</th> {/* ✅ always visible, even for PACK */}
-                  </tr>
-                </TableHead>
-                <tbody>
-                  {productList.map((product, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{product.itemName}</TableCell>
-                      <TableCell>{product.quantity}</TableCell>
-                      <TableCell>
-                        ₹ {(product.price * product.quantity).toFixed(2)}
-                      </TableCell>
-                      <TableCell>
-                        <DeleteButton
-                          type="button"
-                          onClick={() => deleteProduct(index)}
-                          disabled={selectedBillTypeNo === "PACK"}
-                          style={{
-                            opacity: selectedBillTypeNo === "PACK" ? 0.4 : 1,
-                            cursor:
-                              selectedBillTypeNo === "PACK"
-                                ? "not-allowed"
-                                : "pointer",
-                          }}
-                        >
-                          🗑 Delete
-                        </DeleteButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </tbody>
-              </ModernTable>
+              <TableWrapper>
+                <Table>
+                  <thead>
+                    <tr>
+                      <Th>Product</Th>
+                      <Th>Quantity</Th>
+                      <Th>Price</Th>
+                      <Th>Action</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productList.map((product, index) => (
+                      <Tr key={index}>
+                        <Td>{product.itemName}</Td>
+                        <Td>{product.quantity}</Td>
+                        <Td>
+                          ₹ {(product.price * product.quantity).toFixed(2)}
+                        </Td>
+                        <Td>
+                          <DelBtn
+                            type="button"
+                            onClick={() => deleteProduct(index)}
+                            disabled={selectedBillTypeNo === "PACK"}
+                          >
+                            🗑 Delete
+                          </DelBtn>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
             ) : (
-              <EmptyState>
-                <p>No items added yet</p>
-              </EmptyState>
+              <EmptyState>📋 No items added yet</EmptyState>
             )}
 
+            {/* ── Summary & Payment ── */}
             <SummaryGrid>
-              <InputGroup>
+              <InputWrapper>
                 <Label>Total</Label>
                 <Input
                   type="text"
@@ -1468,9 +1354,9 @@ const InvestigationBilling = () => {
                   value={formData.total}
                   readOnly
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              <InputWrapper>
                 <Label>Discount (%)</Label>
                 <Input
                   type="text"
@@ -1478,11 +1364,11 @@ const InvestigationBilling = () => {
                   value={formData.discountPercent}
                   onChange={handleInputChange}
                   disabled={!isDiscountAllowed}
-                  placeholder={!isDiscountAllowed ? "Discount not allowed" : ""}
+                  placeholder={!isDiscountAllowed ? "Not allowed" : ""}
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              <InputWrapper>
                 <Label>Discount Amount</Label>
                 <Input
                   type="text"
@@ -1491,9 +1377,9 @@ const InvestigationBilling = () => {
                   readOnly
                   disabled={!isDiscountAllowed}
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              <InputWrapper>
                 <Label>Discount Remarks</Label>
                 <Input
                   type="text"
@@ -1501,11 +1387,11 @@ const InvestigationBilling = () => {
                   value={formData.discountRemarks}
                   onChange={handleInputChange}
                   disabled={!isDiscountAllowed}
-                  placeholder={!isDiscountAllowed ? "Discount not allowed" : ""}
+                  placeholder={!isDiscountAllowed ? "Not allowed" : ""}
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              <InputWrapper>
                 <Label>Final Price</Label>
                 <Input
                   type="text"
@@ -1513,9 +1399,24 @@ const InvestigationBilling = () => {
                   value={formData.finalPrice}
                   readOnly
                 />
-              </InputGroup>
+              </InputWrapper>
 
-              <InputGroup>
+              {/* Company info — blue text only, no input box */}
+              {(formData.customer_type || formData.company_name) && (
+                <InputWrapper>
+                  <Label>Patient Type</Label>
+                  <CompanyInfoText>
+                    {formData.customer_type && (
+                      <span>🏷 {formData.customer_type}</span>
+                    )}
+                    {formData.company_name && (
+                      <small>🏢 {formData.company_name}</small>
+                    )}
+                  </CompanyInfoText>
+                </InputWrapper>
+              )}
+
+              <InputWrapper>
                 <Label required>Payment Method</Label>
                 <Select
                   name="paymentMethod"
@@ -1523,21 +1424,23 @@ const InvestigationBilling = () => {
                   onChange={handleInputChange}
                 >
                   <option value="">Select Payment Method</option>
-                  <option value="cash">Cash</option>
-                  <option value="credit">Credit</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Credit">Credit</option>
                 </Select>
-              </InputGroup>
+              </InputWrapper>
             </SummaryGrid>
 
-            <ActionButtonGroup>
+            <ActionRow>
               <ResetBtn type="button" onClick={handleReset}>
                 🔄 Reset
               </ResetBtn>
               <EstimateBtn type="button" onClick={handleEstimate}>
                 📊 Make Estimate
               </EstimateBtn>
-              <SubmitBtn type="submit">💾 Save Bill</SubmitBtn>
-            </ActionButtonGroup>
+              <SubmitBtn type="submit">
+                {isEditMode ? "💾 Update Bill" : "💾 Save Bill"}
+              </SubmitBtn>
+            </ActionRow>
           </ProductSection>
         </form>
       </ContentCard>

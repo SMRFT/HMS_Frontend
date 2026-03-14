@@ -542,7 +542,7 @@ const InvestigationPrice = () => {
       return;
     }
     const result = await apiRequest(
-      `${HMSURL}investigation-prices/${editingId}/update/`,
+      `${HMSURL}investigation-prices/update/${editingId}/`,
       "PATCH",
       formData,
     );
@@ -557,7 +557,7 @@ const InvestigationPrice = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this record?")) return;
     const result = await apiRequest(
-      `${HMSURL}investigation-prices/${id}/delete/`,
+      `${HMSURL}investigation-prices/delete/${id}/`,
       "PATCH",
     );
     if (result.success) {

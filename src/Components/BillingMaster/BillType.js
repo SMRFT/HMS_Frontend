@@ -200,7 +200,7 @@ const Field = ({ label, children }) => (
 
 const EMPTY_FORM = {
   bill_name: "",
-  billing_outlet: "",
+
   payment_mode: "both",
   centralCash: false,
   is_allowAdvance: false,
@@ -214,7 +214,6 @@ const EMPTY_FORM = {
   med_dispatch: false,
   department_code: "",
   billTypeNo: "",
-  accounts_head: "",
 };
 
 const BillType = () => {
@@ -239,6 +238,7 @@ const BillType = () => {
 
   // Track original category when editing, so backend can remove old prices if category changed
   const [originalInvCat, setOriginalInvCat] = useState("");
+  const [viewRec, setViewRec] = useState(null);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -256,9 +256,17 @@ const BillType = () => {
     if (result.success) setInvCategories(result.data?.records || []);
   };
 
+  const [departments, setDepartments] = useState([]);
+
+  const fetchDepartments = async () => {
+    const result = await apiRequest(`${HMSURL}departments/`, "GET");
+    if (result.success) setDepartments(result.data?.departments || []);
+  };
+
   useEffect(() => {
     fetchRecords();
     fetchInvCategories();
+    fetchDepartments();
   }, []);
 
   const handleInputChange = (e) => {
@@ -317,7 +325,7 @@ const BillType = () => {
     const method = isEditMode ? "PATCH" : "POST";
     // Use bill_type integer as the unique URL param on edit — billTypeNo can repeat
     const url = isEditMode
-      ? `${HMSURL}bill-types/${formData.bill_type}/update/`
+      ? `${HMSURL}bill-types/update/${formData.bill_type}/`
       : `${HMSURL}bill-types/create/`;
 
     const payload = { ...formData };
@@ -333,7 +341,7 @@ const BillType = () => {
 
     if (billTypeInt) {
       await apiRequest(
-        `${HMSURL}investigation-prices_get/patch-bill-type/`,
+        `${HMSURL}investigation-price/patch-bill-type/`,
         "PATCH",
         {
           bill_type: billTypeInt,
@@ -355,7 +363,7 @@ const BillType = () => {
   const handleDelete = async (billTypeInt) => {
     if (!window.confirm("Delete record?")) return;
     const result = await apiRequest(
-      `${HMSURL}bill-types/${billTypeInt}/delete/`,
+      `${HMSURL}bill-types/delete/${billTypeInt}/`,
       "PATCH",
     );
     if (result.success) fetchRecords();
@@ -400,8 +408,7 @@ const BillType = () => {
                 <Th>Code</Th>
                 <Th>Bill Name</Th>
                 <Th>Bill Type ID</Th>
-                <Th>Outlet</Th>
-                <Th>Account Head</Th>
+                <Th>Department</Th>
                 <Th>Status</Th>
                 <Th>Actions</Th>
               </Tr>
@@ -447,14 +454,29 @@ const BillType = () => {
                         {rec.bill_type}
                       </span>
                     </Td>
-                    <Td>{rec.billing_outlet}</Td>
-                    <Td>{rec.accounts_head}</Td>
+                    <Td>
+                      {departments.find(
+                        (d) => d.department_code === rec.department_code,
+                      )?.department_name ||
+                        rec.department_code ||
+                        "—"}
+                    </Td>
                     <Td>
                       <span style={css.statusBadge(rec.is_active)}>
                         {rec.is_active ? "Active" : "Inactive"}
                       </span>
                     </Td>
                     <Td>
+                      <button
+                        style={{
+                          ...css.btn("primary"),
+                          padding: "4px 8px",
+                          marginRight: 5,
+                        }}
+                        onClick={() => setViewRec(rec)}
+                      >
+                        View
+                      </button>
                       <button
                         style={{
                           ...css.btn("ghost"),
@@ -527,22 +549,7 @@ const BillType = () => {
                       disabled
                     />
                   </Field>
-                  <Field label="Billing Outlet">
-                    <input
-                      style={css.input}
-                      name="billing_outlet"
-                      value={formData.billing_outlet}
-                      onChange={handleInputChange}
-                    />
-                  </Field>
-                  <Field label="Accounts Head">
-                    <input
-                      style={css.input}
-                      name="accounts_head"
-                      value={formData.accounts_head}
-                      onChange={handleInputChange}
-                    />
-                  </Field>
+
                   <Field label="Payment Mode">
                     <select
                       style={css.select}
@@ -553,6 +560,31 @@ const BillType = () => {
                       <option value="both">Both</option>
                       <option value="cash">Cash</option>
                       <option value="credit">Credit</option>
+                    </select>
+                  </Field>
+                  <Field label="Department">
+                    <select
+                      style={css.select}
+                      value={formData.department_code}
+                      onChange={(e) => {
+                        const selected = departments.find(
+                          (d) => d.department_code === e.target.value,
+                        );
+                        setFormData((prev) => ({
+                          ...prev,
+                          department_code: selected?.department_code || "",
+                        }));
+                      }}
+                    >
+                      <option value="">-- Select Department --</option>
+                      {departments.map((dept) => (
+                        <option
+                          key={dept.department_code}
+                          value={dept.department_code}
+                        >
+                          {dept.department_name}
+                        </option>
+                      ))}
                     </select>
                   </Field>
                 </div>
@@ -577,6 +609,8 @@ const BillType = () => {
                     { id: "is_allowDiscount", label: "Allow Discount" },
                     { id: "sales_return", label: "Sales Return" },
                     { id: "IP_billType", label: "IP Bill" },
+                    { id: "GST_export", label: "GST Export" },
+                    { id: "ward_request", label: "Ward Request" },
                     { id: "med_dispatch", label: "Med Dispatch" },
                     { id: "med_wise_discount", label: "Med-wise Disc" },
                   ].map((check) => (
@@ -762,6 +796,260 @@ const BillType = () => {
               </button>
               <button style={css.btn("primary")} onClick={handleSubmit}>
                 {isEditMode ? "Update Changes" : "Save Bill Type"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── View Modal ─────────────────────────────────────────────── */}
+      {viewRec && (
+        <div style={css.modalOverlay}>
+          <div style={{ ...css.modalBox, width: "min(620px, 96vw)" }}>
+            <div style={css.modalHead}>
+              <span style={{ color: "#fff", fontWeight: 700 }}>
+                Bill Type Details
+              </span>
+              <button
+                onClick={() => setViewRec(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 18,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={css.modalBody}>
+              {/* Identity */}
+              <div style={css.card}>
+                <div style={css.cardTitle}>
+                  <div style={css.sectionLine} /> Identity
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: "12px 18px",
+                  }}
+                >
+                  {[
+                    { label: "Bill Name", value: viewRec.bill_name },
+                    { label: "Bill Type ID", value: viewRec.bill_type },
+                    { label: "Bill Type No", value: viewRec.billTypeNo },
+                    { label: "Payment Mode", value: viewRec.payment_mode },
+                    {
+                      label: "Department",
+                      value: (() => {
+                        const d = departments.find(
+                          (x) => x.department_code === viewRec.department_code,
+                        );
+                        return d
+                          ? `${d.department_name} (${d.department_code})`
+                          : viewRec.department_code || "—";
+                      })(),
+                    },
+                    {
+                      label: "Status",
+                      value: viewRec.is_active ? "Active" : "Inactive",
+                      color: viewRec.is_active ? tokens.green : tokens.red,
+                    },
+                  ].map(({ label, value, color }) => (
+                    <div
+                      key={label}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          color: tokens.muted,
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 14,
+                          fontWeight: 600,
+                          color: color || tokens.text,
+                        }}
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Permissions */}
+              <div style={css.card}>
+                <div style={css.cardTitle}>
+                  <div style={css.sectionLine} /> Permissions & Rules
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                    gap: 10,
+                  }}
+                >
+                  {[
+                    { id: "centralCash", label: "Central Cash" },
+                    { id: "is_allowAdvance", label: "Allow Advance" },
+                    { id: "is_allowDiscount", label: "Allow Discount" },
+                    { id: "sales_return", label: "Sales Return" },
+                    { id: "IP_billType", label: "IP Bill" },
+                    { id: "GST_export", label: "GST Export" },
+                    { id: "ward_request", label: "Ward Request" },
+                    { id: "med_dispatch", label: "Med Dispatch" },
+                    { id: "med_wise_discount", label: "Med-wise Disc" },
+                  ].map(({ id, label }) => (
+                    <div
+                      key={id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: viewRec[id]
+                          ? `${tokens.green}12`
+                          : tokens.bg,
+                        border: `1px solid ${viewRec[id] ? tokens.green + "40" : tokens.border}`,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          background: viewRec[id] ? tokens.green : tokens.muted,
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: viewRec[id] ? tokens.green : tokens.muted,
+                        }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Investigation prices for this bill_type */}
+              {(() => {
+                const billTypeKey = String(viewRec.bill_type);
+                const cat = invCategories.find((c) =>
+                  (c.Items || []).some(
+                    (item) => item[billTypeKey] !== undefined,
+                  ),
+                );
+                if (!cat) return null;
+                const itemsWithPrice = (cat.Items || []).filter(
+                  (item) => item[billTypeKey] !== undefined,
+                );
+                return (
+                  <div style={css.card}>
+                    <div style={css.cardTitle}>
+                      <div style={css.sectionLine} /> Investigation Prices —{" "}
+                      {cat.BillType}
+                    </div>
+                    <table
+                      style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        fontSize: 13,
+                      }}
+                    >
+                      <thead>
+                        <tr style={{ background: tokens.bg }}>
+                          <th
+                            style={{
+                              padding: "8px 12px",
+                              textAlign: "left",
+                              fontWeight: 600,
+                              color: tokens.muted,
+                              borderBottom: `2px solid ${tokens.border}`,
+                            }}
+                          >
+                            Item Name
+                          </th>
+                          <th
+                            style={{
+                              padding: "8px 12px",
+                              textAlign: "right",
+                              fontWeight: 600,
+                              color: tokens.muted,
+                              borderBottom: `2px solid ${tokens.border}`,
+                              width: 120,
+                            }}
+                          >
+                            Price (₹)
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {itemsWithPrice.map((item, idx) => (
+                          <tr
+                            key={item.itemName}
+                            style={{
+                              background:
+                                idx % 2 === 0 ? tokens.white : tokens.bg,
+                            }}
+                          >
+                            <td
+                              style={{
+                                padding: "8px 12px",
+                                color: tokens.text,
+                                borderBottom: `1px solid ${tokens.border}`,
+                              }}
+                            >
+                              {item.itemName}
+                            </td>
+                            <td
+                              style={{
+                                padding: "8px 12px",
+                                textAlign: "right",
+                                fontWeight: 600,
+                                color: tokens.sky,
+                                borderBottom: `1px solid ${tokens.border}`,
+                              }}
+                            >
+                              ₹{item[billTypeKey]}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div
+              style={{
+                padding: 16,
+                textAlign: "right",
+                borderTop: `1px solid ${tokens.border}`,
+              }}
+            >
+              <button style={css.btn("ghost")} onClick={() => setViewRec(null)}>
+                Close
               </button>
             </div>
           </div>

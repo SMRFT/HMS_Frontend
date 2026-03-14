@@ -790,7 +790,7 @@ const Package = () => {
       return;
     }
     const result = await apiRequest(
-      `${HMSURL}packages/${editingNo}/update/`,
+      `${HMSURL}packages/update/${editingNo}/`,
       "PATCH",
       { ...formData, items: filledItems },
     );
@@ -805,7 +805,7 @@ const Package = () => {
     if (!window.confirm("Are you sure you want to delete this package?"))
       return;
     const result = await apiRequest(
-      `${HMSURL}packages/${packageNo}/delete/`,
+      `${HMSURL}packages/delete/${packageNo}/`,
       "PATCH",
     );
     if (result.success) {
