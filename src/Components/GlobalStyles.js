@@ -26,7 +26,7 @@ export const PageWrapper = styled.div`
   min-height: 100vh;
   width: 100%;
   background-color: ${colors.background};
-  padding: 8px;
+  padding: 12px;
   font-family:
     "Inter",
     -apple-system,
@@ -69,7 +69,7 @@ export const TabContainer = styled.div`
 `;
 
 export const Tab = styled.div`
-  padding: 8px 14px;
+  padding: 8px 16px;
   font-size: 0.82rem;
   font-weight: ${(props) => (props.active ? "600" : "500")};
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
@@ -94,30 +94,14 @@ export const Tab = styled.div`
 `;
 
 export const FormContent = styled.div`
-  padding: 12px;
-  width: 100%;
-  box-sizing: border-box;
-
-  @media (max-width: 480px) {
-    padding: 8px;
-  }
+  padding: 16px;
 `;
 
 export const FormRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px 10px;
   margin-bottom: 8px;
-  width: 100%;
-  box-sizing: border-box;
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  @media (max-width: 360px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 // Form Elements
@@ -191,9 +175,6 @@ export const Select = styled.select`
   background-position: right 0.4rem center;
   background-repeat: no-repeat;
   background-size: 1.2em 1.2em;
-  width: 100%;
-  box-sizing: border-box;
-  min-width: 0;
 
   &:focus {
     outline: none;
@@ -214,9 +195,6 @@ export const TextArea = styled.textarea`
   font-size: 0.82rem;
   transition: all 0.2s;
   min-height: 60px;
-  width: 100%;
-  box-sizing: border-box;
-  resize: vertical;
 
   &:focus {
     outline: none;

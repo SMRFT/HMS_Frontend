@@ -15,6 +15,8 @@ import {
   FiUsers,
   FiClipboard,
   FiLayers,
+  FiTag,
+  FiCode,
 } from "react-icons/fi";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";

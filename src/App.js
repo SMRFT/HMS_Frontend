@@ -70,6 +70,14 @@ import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 import Package from "./Components/BillingMaster/Package";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
+import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
+import DeptBUDReport from "./Components/InvestigationBilling/DeptBUDReport";
+import InvoiceGeneration from "./Components/Velavan/InvoiceGeneration";
+import InvoiceReport from "./Components/Velavan/InvoiceReport";
+import AddVelavanItems from "./Components/Velavan/AddVelavanItems";
+import AddVelavanVendors from "./Components/Velavan/AddVelavanVendors";
+import VelavanItemList from "./Components/Velavan/VelavanItemList";
+import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
@@ -372,10 +380,11 @@ function App() {
             )}
             {hasPagePermission("/XRayList", allowedActions) && (
               <Route path="/XRayList" element={<XRayList />} />
-            )}
-            {hasPagePermission("/XRayList", allowedActions) && (
-              <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
-            )}
+              <Route
+                path="/XRayReportForm/:uhid/:subUhid"
+                element={<XRayReportForm />}
+              />
+              <Route path="/RadiologySlot" element={<RadiologySlot />} />
 
             {/* Packages */}
             {hasPagePermission("/Package", allowedActions) && (
@@ -388,19 +397,26 @@ function App() {
             {/* BillType */}
             {hasPagePermission("/BillType", allowedActions) && (
               <Route path="/BillType" element={<BillType />} />
-            )}
-            {/* GRNGenerator */}
-            {hasPagePermission("/GRNGenerator", allowedActions) && (
-              <Route path="/GRNGenerator" element={<GRNGenerator />} />
-            )}
-            {/* Pharmacystock */}
-            {hasPagePermission("/Pharmacystock", allowedActions) && (
-              <Route path="/Pharmacystock" element={<Pharmacystock />} />
-            )}
-            {/* VendorManagement */}
-            {hasPagePermission("/VendorManagement", allowedActions) && (
-              <Route path="/VendorManagement" element={<VendorManagement />} />
-            )}
+              {/* Reports */}
+              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+
+              {/* Velavan */}
+              <Route
+                path="/InvoiceGeneration"
+                element={<InvoiceGeneration />}
+              />
+              <Route path="/InvoiceReport" element={<InvoiceReport />} />
+              <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
+              <Route path="/VelavanItemList" element={<VelavanItemList />} />
+              <Route
+                path="/AddVelavanVendors"
+                element={<AddVelavanVendors />}
+              />
+              <Route
+                path="/VelavanVendorList"
+                element={<VelavanVendorList />}
+              />
+            </>
           </Routes>
         </ContentWrapper>
       )}
