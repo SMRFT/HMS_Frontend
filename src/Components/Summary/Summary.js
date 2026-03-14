@@ -2,10 +2,443 @@ import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
-import ICD11SearchComponent from './ICD11SearchComponent';
+import ICD11SearchComponent from "./ICD11SearchComponent";
+import {
+  PageWrapper,
+  Container,
+  TableWrapper,
+  Table,
+  Th,
+  Td,
+  Tr,
+} from "../GlobalStyles";
 
+/* ─── Design tokens ─────────────────────────────────────────────────────── */
+const tokens = {
+  navy: "#0d9488",
+  slate: "#1E2D45",
+  sky: "#2563EB",
+  skyL: "#3B82F6",
+  teal: "#0EA5E9",
+  green: "#10B981",
+  amber: "#F59E0B",
+  red: "#EF4444",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  bg: "#F0F4F8",
+  white: "#FFFFFF",
+  card: "#FFFFFF",
+  text: "#0F172A",
+  textSm: "#475569",
+};
+
+/* ─── Inline styles ──────────────────────────────────────────────────────── */
+const css = {
+  page: {
+    minHeight: "100vh",
+    background: `linear-gradient(135deg, ${tokens.bg} 0%, #E8EFF8 100%)`,
+    fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
+    padding: "32px 24px",
+  },
+  inner: { maxWidth: 1400, margin: "0 auto" },
+
+  /* Page header */
+  pageHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 28,
+  },
+  pageTitle: {
+    fontSize: 26,
+    fontWeight: 700,
+    color: tokens.navy,
+    letterSpacing: "-0.5px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  titleDot: {
+    width: 10,
+    height: 10,
+    borderRadius: "50%",
+    background: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
+    display: "inline-block",
+  },
+  dateBadge: {
+    background: tokens.slate,
+    color: tokens.white,
+    borderRadius: 8,
+    padding: "6px 14px",
+    fontSize: 13,
+    fontWeight: 500,
+  },
+
+  /* Edit banner */
+  editBanner: {
+    background: `linear-gradient(90deg, ${tokens.sky}18, ${tokens.teal}18)`,
+    border: `1px solid ${tokens.sky}40`,
+    borderRadius: 10,
+    padding: "10px 18px",
+    marginBottom: 20,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 14,
+    color: tokens.slate,
+    fontWeight: 500,
+  },
+  editBannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    background: tokens.sky,
+    flexShrink: 0,
+  },
+
+  /* Card */
+  card: {
+    background: tokens.card,
+    borderRadius: 16,
+    border: `1px solid ${tokens.border}`,
+    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    marginBottom: 24,
+    padding: "24px 28px",
+  },
+  cardTitle: {
+    fontSize: 13,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    color: tokens.sky,
+    marginBottom: 18,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionLine: {
+    width: 24,
+    height: 3,
+    borderRadius: 2,
+    background: `linear-gradient(90deg, ${tokens.sky}, ${tokens.teal})`,
+  },
+
+  /* Grid */
+  grid: (cols) => ({
+    display: "grid",
+    gridTemplateColumns: `repeat(${cols}, 1fr)`,
+    gap: "14px 18px",
+  }),
+
+  /* Field */
+  fieldWrap: { display: "flex", flexDirection: "column", gap: 5 },
+  label: {
+    fontSize: 11,
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.7px",
+    color: tokens.muted,
+  },
+  input: {
+    height: 38,
+    padding: "0 12px",
+    fontSize: 14,
+    color: tokens.text,
+    background: tokens.white,
+    border: `1.5px solid ${tokens.border}`,
+    borderRadius: 8,
+    outline: "none",
+    transition: "border-color .2s",
+    width: "100%",
+    fontFamily: "inherit",
+  },
+  inputFocus: { borderColor: tokens.sky },
+  select: {
+    height: 38,
+    padding: "0 12px",
+    fontSize: 14,
+    color: tokens.text,
+    background: tokens.white,
+    border: `1.5px solid ${tokens.border}`,
+    borderRadius: 8,
+    outline: "none",
+    width: "100%",
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
+
+  /* Search button */
+  searchBtn: {
+    marginTop: 6,
+    height: 32,
+    padding: "0 14px",
+    fontSize: 12,
+    fontWeight: 600,
+    background: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
+    color: tokens.white,
+    border: "none",
+    borderRadius: 7,
+    cursor: "pointer",
+    letterSpacing: "0.3px",
+  },
+
+  /* Notes layout */
+  notesLayout: { display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 },
+
+  /* Sidebar */
+  sidebar: {
+    background: tokens.card,
+    borderRadius: 16,
+    border: `1px solid ${tokens.border}`,
+    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    overflow: "hidden",
+  },
+  sidebarHeader: {
+    padding: "14px 16px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "1px",
+    color: tokens.white,
+    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
+  },
+  sidebarItem: (active) => ({
+    padding: "9px 14px",
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: active ? 700 : 500,
+    color: active ? tokens.white : tokens.textSm,
+    background: active
+      ? `linear-gradient(90deg, ${tokens.sky}, ${tokens.teal})`
+      : "transparent",
+    borderLeft: active ? `3px solid ${tokens.teal}` : "3px solid transparent",
+    transition: "all .15s",
+    borderBottom: `1px solid ${tokens.border}`,
+  }),
+
+  /* Notes area */
+  notesCard: {
+    background: tokens.card,
+    borderRadius: 16,
+    border: `1px solid ${tokens.border}`,
+    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    padding: 24,
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  },
+  notesTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    color: tokens.navy,
+    letterSpacing: "-0.2px",
+  },
+  textarea: {
+    minHeight: 620,
+    resize: "vertical",
+    padding: 14,
+    fontSize: 13.5,
+    color: tokens.text,
+    background: tokens.bg,
+    border: `1.5px solid ${tokens.border}`,
+    borderRadius: 10,
+    outline: "none",
+    fontFamily: "inherit",
+    lineHeight: 1.6,
+  },
+
+  /* Action row */
+  actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
+  outlineBtn: (color = tokens.sky) => ({
+    padding: "7px 14px",
+    fontSize: 12,
+    fontWeight: 600,
+    border: `1.5px solid ${color}`,
+    color: color,
+    background: "transparent",
+    borderRadius: 8,
+    cursor: "pointer",
+    transition: "all .15s",
+  }),
+
+  /* Primary/danger buttons */
+  btn: (variant = "primary") => {
+    const map = {
+      primary: {
+        bg: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
+        color: tokens.white,
+      },
+      danger: {
+        bg: `linear-gradient(135deg, ${tokens.red}, #F87171)`,
+        color: tokens.white,
+      },
+      success: {
+        bg: `linear-gradient(135deg, ${tokens.green}, #34D399)`,
+        color: tokens.white,
+      },
+      ghost: { bg: tokens.slate, color: tokens.white },
+    };
+    const v = map[variant] || map.primary;
+    return {
+      padding: "8px 18px",
+      fontSize: 13,
+      fontWeight: 600,
+      background: v.bg,
+      color: v.color,
+      border: "none",
+      borderRadius: 9,
+      cursor: "pointer",
+      boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+      transition: "opacity .15s",
+      letterSpacing: "0.2px",
+    };
+  },
+
+  /* Table */
+  tableWrap: {
+    background: tokens.card,
+    borderRadius: 16,
+    border: `1px solid ${tokens.border}`,
+    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    overflow: "hidden",
+  },
+  tableHeader: {
+    padding: "16px 24px",
+    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
+    fontSize: 15,
+    fontWeight: 700,
+    color: tokens.white,
+    letterSpacing: "-0.2px",
+  },
+  th: {
+    padding: "11px 16px",
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    color: tokens.muted,
+    background: tokens.bg,
+    borderBottom: `2px solid ${tokens.border}`,
+  },
+  td: {
+    padding: "11px 16px",
+    fontSize: 13,
+    color: tokens.text,
+    borderBottom: `1px solid ${tokens.border}`,
+    verticalAlign: "middle",
+  },
+  statusBadge: (approved) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontSize: 11,
+    fontWeight: 700,
+    background: approved ? `${tokens.green}18` : `${tokens.amber}18`,
+    color: approved ? tokens.green : tokens.amber,
+    border: `1px solid ${approved ? tokens.green : tokens.amber}40`,
+  }),
+  statusDot: (approved) => ({
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    background: approved ? tokens.green : tokens.amber,
+  }),
+
+  /* Modal */
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(10,22,40,.6)",
+    backdropFilter: "blur(4px)",
+    zIndex: 1050,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBox: {
+    background: tokens.white,
+    borderRadius: 16,
+    width: "min(700px, 94vw)",
+    maxHeight: "85vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 24px 80px rgba(10,22,40,.25)",
+    overflow: "hidden",
+  },
+  modalHead: {
+    padding: "18px 24px",
+    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexShrink: 0,
+  },
+  modalTitle: { fontSize: 16, fontWeight: 700, color: tokens.white },
+  modalClose: {
+    width: 28,
+    height: 28,
+    borderRadius: "50%",
+    background: "rgba(255,255,255,.15)",
+    border: "none",
+    color: tokens.white,
+    cursor: "pointer",
+    fontSize: 16,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalBody: { padding: 20, overflowY: "auto", flexGrow: 1 },
+  modalFoot: {
+    padding: "14px 20px",
+    borderTop: `1px solid ${tokens.border}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+    flexShrink: 0,
+  },
+  invCard: (selected, warned) => ({
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 10,
+    cursor: "pointer",
+    transition: "all .15s",
+    border: selected
+      ? `2px solid ${tokens.sky}`
+      : warned
+        ? `2px solid ${tokens.amber}`
+        : `1.5px solid ${tokens.border}`,
+    background: selected
+      ? `${tokens.sky}10`
+      : warned
+        ? `${tokens.amber}08`
+        : tokens.white,
+    boxShadow: selected ? `0 2px 12px ${tokens.sky}30` : "none",
+  }),
+};
+
+/* ─── Tiny helpers ───────────────────────────────────────────────────────── */
+const Field = ({ label, children }) => (
+  <div style={css.fieldWrap}>
+    <span style={css.label}>{label}</span>
+    {children}
+  </div>
+);
+
+const Inp = ({ style, ...props }) => (
+  <input
+    style={{ ...css.input, ...style }}
+    onFocus={(e) => (e.target.style.borderColor = tokens.sky)}
+    onBlur={(e) => (e.target.style.borderColor = tokens.border)}
+    {...props}
+  />
+);
+
+/* ─── Component ──────────────────────────────────────────────────────────── */
 const Summary = () => {
-  const currentDate = new Date().toLocaleDateString();
+  const currentDate = new Date().toLocaleDateString("en-GB");
   const [selectedField, setSelectedField] = useState("");
   const [summaries, setSummaries] = useState([]);
   const navigate = useNavigate();
@@ -16,19 +449,29 @@ const Summary = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingIpNo, setEditingIpNo] = useState(null);
   const [selectedDiseases, setSelectedDiseases] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Summary type options
-  const summaryTypeOptions = [
-    "DISCHARGE SUMMARY",
-    "DISCHARGE SUMMARY (BABY)",
-    "DISCHARGE SUMMARY (INSURANCE)",
-    "OPERATION NOTES",
-    "MASTER HEALTH CHECK UP",
-    "DISCHARGE SUMMARY (TKT)",
-    "DEATH SUMMARY",
-    "DISCHARGE SUMMARY AGAINST MEDICAL ADVICE",
-    "DISCHARGE SUMMARY - BABY"
+  const noteFields = [
+    "ONCOLOGY NOTES",
+    "SPECIAL NEEDS AFTER DISCHARGE",
+    "VACCINATION HISTORY",
+    "DISCHARGE TYPE",
+    "ADMISSION DIAGNOSIS",
+    "DISCHARGE DIAGNOSIS",
+    "CONSULTANT",
+    "BRIEF HISTORY",
+    "SIGNIFICANT PAST MEDICAL AND SURGICAL HISTORY",
+    "GENERAL EXAMINATION",
+    "VITALS",
+    "COURSE IN THE HOSPITAL",
+    "INVESTIGATIONS",
+    "SURGERIES / PROCEDURES PERFORMED",
+    "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
+    "CONDITION ON DISCHARGE",
+    "ADVICE ON DISCHARGE",
+    "DOA AND DOD",
   ];
 
   const [formData, setFormData] = useState({
@@ -39,7 +482,7 @@ const Summary = () => {
     doa: "",
     doaTime: "",
     dod: "",
-    dodTime: "",
+    dodTime: "17:00",
     roomNo: "",
     age: "",
     surgeryDate: "",
@@ -76,337 +519,268 @@ const Summary = () => {
 
   const notesRef = useRef(null);
 
-  // Fetch patient data by IP number
+  /* ── Fetch doctors ── */
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      const result = await apiRequest(
+        `${HMSURL}doctor_list_diagnostics/`,
+        "GET",
+      );
+      if (result.success) setDoctors(result.data);
+      else console.error("Failed to fetch doctors:", result.error);
+    };
+    fetchDoctors();
+  }, [HMSURL]);
+
+  /* ── Fetch summary types ── */
+  useEffect(() => {
+    const fetchSummaryTypes = async () => {
+      const result = await apiRequest(`${HMSURL}summary-type/`, "GET");
+      if (result.success) {
+        setSummaryTypeOptions(result.data);
+      } else {
+        console.error("Failed to fetch summary types:", result.error);
+      }
+    };
+    fetchSummaryTypes();
+  }, [HMSURL]);
+
+  /* ── Fetch summaries ── */
+  const fetchSummaries = async (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.fromDate) query.append("fromDate", params.fromDate);
+    if (params.toDate) query.append("toDate", params.toDate);
+    if (params.summaryType) query.append("summaryType", params.summaryType);
+    const url = `${HMSURL}summaries/${query.toString() ? "?" + query.toString() : ""}`;
+    const result = await apiRequest(url, "GET");
+    if (result.success) setSummaries(result.data);
+    else console.error("Error fetching summaries:", result.error);
+  };
+
+  useEffect(() => {
+    fetchSummaries({
+      fromDate: new Date().toISOString().split("T")[0],
+      toDate: new Date().toISOString().split("T")[0],
+    });
+  }, []);
+
+  /* ── Fetch IP patient ── */
   const fetchIpPatient = async () => {
     if (!formData.ipNo) {
       alert("Please enter IP Number");
       return;
     }
-
-    const encodedipNo = encodeURIComponent(formData.ipNo);
-
     const result = await apiRequest(
-      `${HMSURL}ip-patient/${encodedipNo}/`,
-      "GET"
+      `${HMSURL}ip-patient/${encodeURIComponent(formData.ipNo)}/`,
+      "GET",
     );
-
     if (result.success) {
-      const data = result.data;
-      const salutation = data.salutation || "";
-      const firstName = data.firstName || "";
-      const lastName = data.lastName || "";
-      const fullName = `${salutation} ${firstName} ${lastName}`
-        .trim()
-        .replace(/\s+/g, " ");
-
-      // Construct full address from area, city, state
-      const addressParts = [
-        data.area,
-        data.city,
-        data.state
-      ].filter(part => part && part.trim() !== "");
-      const fullAddress = addressParts.join(", ");
-
-      setFormData({
-        ...formData,
-        uhid: data.uhid || "",
-        salutation,
-        firstName,
-        lastName,
+      const d = result.data;
+      const fullName =
+        `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`
+          .trim()
+          .replace(/\s+/g, " ");
+      const fullAddress = [d.area, d.city, d.state].filter(Boolean).join(", ");
+      setFormData((prev) => ({
+        ...prev,
+        uhid: d.uhid || "",
         patient: fullName,
-        age: data.age || "",
-        gender: data.gender || "",
-        roomNo: data.roomNo || "",
-        doa: data.admissionDate || "",
-        doaTime: data.admissionTime || "",
-        doctor: data.admittingDoctor || "",
+        age: d.age || "",
+        gender: d.gender || "",
+        roomNo: d.roomNo || "",
+        doa: d.admissionDate || "",
+        doaTime: d.admissionTime || "",
+        doctor: d.admittingDoctor || "",
         address: fullAddress,
-      });
+      }));
     } else {
       alert("Patient not found");
-      console.error("Error fetching patient data:", result.error);
     }
   };
 
-  // Fetch all investigations for a patient
+  /* ── Investigations ── */
   const fetchInvestigations = async () => {
-    if (!formData.ipNo || formData.ipNo.trim() === "") {
+    if (!formData.ipNo?.trim()) {
       alert("Please enter a valid IP Number first");
       return;
     }
-
     setLoading(true);
     setInvestigations([]);
     setSelectedInvestigations([]);
-
     const result = await apiRequest(
       `${HMSURL}patient-investigations/${encodeURIComponent(formData.ipNo)}/`,
-      "GET"
+      "GET",
     );
-
     setLoading(false);
-
-    if (result.success) {
-      const data = result.data;
-      if (Array.isArray(data) && data.length > 0) {
-        setInvestigations(data);
-        setShowInvestigations(true);
-      } else {
-        alert("No investigations found for this patient");
-        setShowInvestigations(false);
-        setInvestigations([]);
-      }
+    if (
+      result.success &&
+      Array.isArray(result.data) &&
+      result.data.length > 0
+    ) {
+      setInvestigations(result.data);
+      setShowInvestigations(true);
     } else {
-      const errorMessage =
-        result.error || "Error fetching investigation details";
-      alert(errorMessage);
-      console.error("API error:", result.error);
+      alert("No investigations found for this patient");
     }
   };
 
-  // Toggle selection of an investigation
-  const toggleInvestigationSelection = (investigation) => {
+  const toggleInvestigationSelection = (inv) => {
     setSelectedInvestigations((prev) => {
       const exists = prev.some(
         (i) =>
-          i.reportType === investigation.reportType &&
-          i.investigation === investigation.investigation
+          i.reportType === inv.reportType &&
+          i.investigation === inv.investigation,
       );
-
-      if (exists) {
-        return prev.filter(
-          (i) =>
-            !(
-              i.reportType === investigation.reportType &&
-              i.investigation === investigation.investigation
-            )
-        );
-      } else {
-        return [...prev, investigation];
-      }
+      return exists
+        ? prev.filter(
+            (i) =>
+              !(
+                i.reportType === inv.reportType &&
+                i.investigation === inv.investigation
+              ),
+          )
+        : [...prev, inv];
     });
   };
 
-  // Add selected investigations to notes
   const addInvestigationsToNotes = () => {
-    if (selectedInvestigations.length === 0) {
-      alert("Please select at least one investigation to add");
+    if (!selectedInvestigations.length) {
+      alert("Please select at least one investigation");
       return;
     }
-
-    let investigationsText = "INVESTIGATIONS:\n";
-    selectedInvestigations.forEach((investigation, index) => {
-      if (index > 0) {
-        investigationsText += "\n---------------------\n";
-      }
-
-      investigationsText += `${investigation.reportType}: 
-${investigation.investigation || "No details available"}
-
-Impression: 
-${investigation.impression || "No impression available"}
-
-Status: ${investigation.is_approved
-          ? "Approved"
-          : "PENDING APPROVAL - Results not finalized"
-        }
-`;
+    let text = "INVESTIGATIONS:\n";
+    selectedInvestigations.forEach((inv, idx) => {
+      if (idx > 0) text += "\n---------------------\n";
+      text += `${inv.reportType}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n\nStatus: ${inv.is_approved ? "Approved" : "PENDING APPROVAL - Results not finalized"}\n`;
     });
-
     if (formData.currentField === "INVESTIGATIONS") {
-      const updatedNotes = formData.notes
-        ? `${formData.notes}\n\n${investigationsText}`
-        : investigationsText;
-
-      setFormData({ ...formData, notes: updatedNotes });
+      setFormData((prev) => ({
+        ...prev,
+        notes: prev.notes ? `${prev.notes}\n\n${text}` : text,
+      }));
     } else {
       setFormData((prev) => {
-        const updatedFieldsData = {
-          ...prev.fieldsData,
-          [prev.currentField]: prev.notes,
-        };
-
-        const existingInvestigations =
-          updatedFieldsData["INVESTIGATIONS"] || "";
-        updatedFieldsData["INVESTIGATIONS"] = existingInvestigations
-          ? `${existingInvestigations}\n\n${investigationsText}`
-          : investigationsText;
-
+        const fd = { ...prev.fieldsData, [prev.currentField]: prev.notes };
+        fd["INVESTIGATIONS"] = fd["INVESTIGATIONS"]
+          ? `${fd["INVESTIGATIONS"]}\n\n${text}`
+          : text;
         return {
           ...prev,
-          fieldsData: updatedFieldsData,
+          fieldsData: fd,
           currentField: "INVESTIGATIONS",
-          notes: updatedFieldsData["INVESTIGATIONS"],
+          notes: fd["INVESTIGATIONS"],
         };
       });
-
       setSelectedField("INVESTIGATIONS");
     }
-
     setShowInvestigations(false);
     setSelectedInvestigations([]);
   };
 
+  /* ── Form changes ── */
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    const { name, value, type, checked, files } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        type === "file" ? files[0] : type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleButtonClick = (fieldName) => {
     setSelectedField(fieldName);
     setFormData((prev) => ({
       ...prev,
-      fieldsData: {
-        ...prev.fieldsData,
-        [prev.currentField]: prev.notes,
-      },
+      fieldsData: { ...prev.fieldsData, [prev.currentField]: prev.notes },
       currentField: fieldName,
       notes: prev.fieldsData[fieldName] || "",
     }));
-
-    notesRef.current.focus();
+    notesRef.current?.focus();
   };
 
-  const fetchSummaries = async () => {
-    const result = await apiRequest(`${HMSURL}summaries/`, "GET");
-
-    if (result.success) {
-      setSummaries(result.data);
-    } else {
-      console.error("Error fetching summaries:", result.error);
-    }
-  };
-
-  useEffect(() => {
-    fetchSummaries();
-  }, []);
-
+  /* ── Disease helpers ── */
   const prepareDiseasesPayload = () => {
-    if (selectedDiseases.length === 0) {
-      return { diseaseCode: "", disease: "" };
-    }
-
-    const codes = selectedDiseases.map(d => d.code).join(", ");
-    const names = selectedDiseases.map(d => d.name).join("; ");
-
+    if (!selectedDiseases.length) return { diseaseCode: "", disease: "" };
     return {
-      diseaseCode: codes,
-      disease: names
+      diseaseCode: selectedDiseases.map((d) => d.code).join(", "),
+      disease: selectedDiseases.map((d) => d.name).join("; "),
     };
   };
 
-  // Update handleSubmit function
+  /* ── Submit / Update ── */
   const handleSubmit = async () => {
-    if (formData.currentField && formData.notes) {
+    if (formData.currentField && formData.notes)
       setFormData((prev) => ({
         ...prev,
-        fieldsData: {
-          ...prev.fieldsData,
-          [prev.currentField]: prev.notes,
-        },
+        fieldsData: { ...prev.fieldsData, [prev.currentField]: prev.notes },
       }));
-    }
-
-    const currentDateTime = new Date().toISOString();
-    const diseasesPayload = prepareDiseasesPayload();
-
-    const summaryData = {
+    const dp = prepareDiseasesPayload();
+    const payload = {
       ...formData,
-      date: currentDateTime,
-      diseaseCode: diseasesPayload.diseaseCode,
-      disease: diseasesPayload.disease,
-      selectedDiseases: selectedDiseases, // Optional: if you want to store the full array
+      date: new Date().toISOString(),
+      diseaseCode: dp.diseaseCode,
+      disease: dp.disease,
+      selectedDiseases,
+      fieldsData: Object.fromEntries(
+        Object.entries(formData.fieldsData).filter(
+          ([k, v]) => k !== "undefined" && v !== "",
+        ),
+      ),
     };
-
-    summaryData.fieldsData = Object.fromEntries(
-      Object.entries(summaryData.fieldsData).filter(
-        ([key, value]) => key !== "undefined" && value !== ""
-      )
-    );
-
     const result = await apiRequest(
       `${HMSURL}summaries/create/`,
       "POST",
-      summaryData
+      payload,
     );
-
     if (result.success) {
-      console.log("Submitted Data:", result.data);
       alert("Summary successfully created!");
       resetForm();
-      setSelectedDiseases([]); // Reset selected diseases
-      fetchSummaries();
-    } else {
-      console.error("Error:", result.error);
-      alert(result.error || "Failed to submit summary.");
-    }
+      fetchSummaries({
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        summaryType: filters.summaryType,
+      });
+    } else alert(result.error || "Failed to submit summary.");
   };
 
-  // Update handleUpdate function
   const handleUpdate = async () => {
-    // First, save current field's notes to fieldsData before submitting
-    const updatedFieldsData = {
+    const fd = {
       ...formData.fieldsData,
       [formData.currentField]: formData.notes,
     };
-
-    // Filter out empty fields
-    const filteredFieldsData = Object.fromEntries(
-      Object.entries(updatedFieldsData).filter(
-        ([key, value]) => value !== undefined && value !== "" && key !== "undefined"
-      )
+    const filtered = Object.fromEntries(
+      Object.entries(fd).filter(
+        ([k, v]) => v !== undefined && v !== "" && k !== "undefined",
+      ),
     );
-
-    if (Object.keys(filteredFieldsData).length === 0) {
+    if (!Object.keys(filtered).length) {
       alert("Please fill in the required fields.");
       return;
     }
-
-    const diseasesPayload = prepareDiseasesPayload();
-
-    // Prepare the complete payload with all form data
-    const updatePayload = {
-      ipNo: formData.ipNo,
-      uhid: formData.uhid,
-      patient: formData.patient,
-      doa: formData.doa,
-      doaTime: formData.doaTime,
-      dod: formData.dod,
-      dodTime: formData.dodTime,
-      roomNo: formData.roomNo,
-      age: formData.age,
-      surgeryDate: formData.surgeryDate,
-      nextReviewDate: formData.nextReviewDate,
-      doctor: formData.doctor,
-      gender: formData.gender,
-      summaryType: formData.summaryType,
-      heading: formData.heading,
-      address: formData.address,
-      diseaseCode: diseasesPayload.diseaseCode,
-      disease: diseasesPayload.disease,
-      selectedDiseases: selectedDiseases, // Optional: if you want to store the full array
-      fieldsData: filteredFieldsData
-    };
-
+    const dp = prepareDiseasesPayload();
     const result = await apiRequest(
       `${HMSURL}update-summary/${editingIpNo}/`,
       "PATCH",
-      updatePayload
+      {
+        ...formData,
+        diseaseCode: dp.diseaseCode,
+        disease: dp.disease,
+        selectedDiseases,
+        fieldsData: filtered,
+      },
     );
-
     if (result.success) {
       alert("Summary updated successfully!");
-      setIsEditMode(false);
-      setEditingIpNo(null);
       resetForm();
-      setSelectedDiseases([]); // Reset selected diseases
-      fetchSummaries();
-    } else {
+      fetchSummaries({
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        summaryType: filters.summaryType,
+      });
+    } else
       alert(`Failed to update summary: ${result.error || "Unknown error"}`);
-    }
   };
 
-  // Update resetForm function to also reset selectedDiseases
   const resetForm = () => {
     setFormData({
       date: "",
@@ -416,7 +790,7 @@ Status: ${investigation.is_approved
       doa: "",
       doaTime: "",
       dod: "",
-      dodTime: "",
+      dodTime: "17:00",
       roomNo: "",
       age: "",
       surgeryDate: "",
@@ -453,744 +827,947 @@ Status: ${investigation.is_approved
     setSelectedField("");
     setIsEditMode(false);
     setEditingIpNo(null);
-    setSelectedDiseases([]); // Add this line
+    setSelectedDiseases([]);
   };
 
-  // Update handleEdit function to restore selectedDiseases when editing
   const handleEdit = async (ipNo) => {
-    const encodedIpNo = encodeURIComponent(ipNo);
-
     const result = await apiRequest(
-      `${HMSURL}get-editsummary/${encodedIpNo}/`,
-      "GET"
+      `${HMSURL}get-editsummary/${encodeURIComponent(ipNo)}/`,
+      "GET",
     );
-
     if (result.success) {
-      const data = result.data;
-
-      // Parse fieldsData if it's a string
-      let parsedFieldsData = {};
-      if (data.fieldsData) {
-        try {
-          parsedFieldsData = typeof data.fieldsData === 'string'
-            ? JSON.parse(data.fieldsData)
-            : data.fieldsData;
-        } catch (error) {
-          console.error("Error parsing fieldsData:", error);
-          parsedFieldsData = {};
-        }
-      }
-
-      // Parse selectedDiseases if it exists
+      const d = result.data;
+      let parsedFD = {};
+      try {
+        parsedFD =
+          typeof d.fieldsData === "string"
+            ? JSON.parse(d.fieldsData)
+            : d.fieldsData || {};
+      } catch {}
       let parsedDiseases = [];
-      if (data.selectedDiseases) {
-        try {
-          parsedDiseases = typeof data.selectedDiseases === 'string'
-            ? JSON.parse(data.selectedDiseases)
-            : data.selectedDiseases;
-        } catch (error) {
-          console.error("Error parsing selectedDiseases:", error);
-          // If parsing fails, try to reconstruct from diseaseCode and disease
-          if (data.diseaseCode && data.disease) {
-            const codes = data.diseaseCode.split(", ");
-            const names = data.disease.split("; ");
-            parsedDiseases = codes.map((code, idx) => ({
-              id: `${code}-${Date.now()}-${idx}`,
-              code: code,
-              name: names[idx] || ""
-            }));
-          }
+      // First try selectedDiseases array if it exists
+      try {
+        const raw =
+          typeof d.selectedDiseases === "string"
+            ? JSON.parse(d.selectedDiseases)
+            : d.selectedDiseases;
+        if (Array.isArray(raw) && raw.length > 0) {
+          parsedDiseases = raw;
         }
-      } else if (data.diseaseCode && data.disease) {
-        // Reconstruct from diseaseCode and disease if selectedDiseases doesn't exist
-        const codes = data.diseaseCode.split(", ");
-        const names = data.disease.split("; ");
-        parsedDiseases = codes.map((code, idx) => ({
-          id: `${code}-${Date.now()}-${idx}`,
-          code: code,
-          name: names[idx] || ""
+      } catch {}
+      // Always fall back to diseaseCode/disease strings if parsedDiseases is still empty
+      if (parsedDiseases.length === 0 && d.diseaseCode && d.disease) {
+        const codes = d.diseaseCode.split(", ");
+        const names = d.disease.split("; ");
+        parsedDiseases = codes.map((code, i) => ({
+          id: `${code}-${Date.now()}-${i}`,
+          code: code.trim(),
+          name: (names[i] || "").trim(),
         }));
       }
-
       setFormData({
-        date: data.date || "",
-        ipNo: data.ipNo || "",
-        uhid: data.uhid || "",
-        patient: data.patient || "",
-        doa: data.doa || "",
-        doaTime: data.doaTime || "",
-        dod: data.dod || "",
-        dodTime: data.dodTime || "",
-        roomNo: data.roomNo || "",
-        age: data.age || "",
-        surgeryDate: data.surgeryDate || "",
-        nextReviewDate: data.nextReviewDate || "",
-        doctor: data.doctor || "",
-        gender: data.gender || "",
-        summaryType: data.summaryType || "",
-        heading: data.heading || "",
-        address: data.address || "",
-        diseaseCode: data.diseaseCode || "",
-        disease: data.disease || "",
-        specialNeeds: data.specialNeeds || "",
-        vaccinationHistory: data.vaccinationHistory || "",
-        dischargeType: data.dischargeType || "",
-        admissionDiagnosis: data.admissionDiagnosis || "",
-        dischargeDiagnosis: data.dischargeDiagnosis || "",
-        consultant: data.consultant || "",
-        briefHistory: data.briefHistory || "",
-        pastMedicalHistory: data.pastMedicalHistory || "",
-        generalExamination: data.generalExamination || "",
-        vitals: data.vitals || "",
-        hospitalCourse: data.hospitalCourse || "",
-        investigations: data.investigations || "",
-        proceduresPerformed: data.proceduresPerformed || "",
-        specificMedications: data.specificMedications || "",
-        conditionOnDischarge: data.conditionOnDischarge || "",
-        adviceOnDischarge: data.adviceOnDischarge || "",
+        ...d,
+        dodTime: d.dodTime || "17:00",
         notes: "",
-        fieldsData: parsedFieldsData,
+        fieldsData: parsedFD,
         currentField: "",
-        approve: data.approve || false,
-        approve_time: data.approve_time || null,
       });
-
-      setSelectedDiseases(parsedDiseases); // Set the parsed diseases
+      setSelectedDiseases(parsedDiseases);
       setIsEditMode(true);
       setEditingIpNo(ipNo);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      alert("Summary not found");
-      console.error("Error fetching summary:", result.error);
-    }
+    } else alert("Summary not found");
   };
 
-  const handlePrint = (ipNo) => {
-    const encodedIpNo = encodeURIComponent(ipNo);
-    navigate(`/SummaryPrint/${encodedIpNo}`);
-  };
-
+  const handlePrint = (ipNo) =>
+    navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`);
   const handleDelete = async (ipNo) => {
     if (window.confirm("Are you sure you want to delete this summary?")) {
       const result = await apiRequest(
         `${HMSURL}delete-summary/${ipNo}/`,
-        "PATCH"
+        "PATCH",
       );
-
       if (result.success) {
         alert("Summary deleted successfully");
-        setSummaries((prevSummaries) =>
-          prevSummaries.filter((summary) => summary.ipNo !== ipNo)
-        );
-      } else {
-        alert("Error deleting summary: " + result.error);
-        console.error("Error deleting summary:", result.error);
-      }
+        setSummaries((prev) => prev.filter((s) => s.ipNo !== ipNo));
+      } else alert("Error deleting summary: " + result.error);
     }
   };
-
   const handleApprove = async (ipNo) => {
     const result = await apiRequest(
       `${HMSURL}approve-summary/${ipNo}/`,
       "PATCH",
-      {
-        approve: true,
-        approve_time: new Date().toISOString(),
-      }
+      { approve: true, approve_time: new Date().toISOString() },
     );
-
     if (result.success) {
-      console.log("Summary approved:", result.data);
-      setSummaries((prevSummaries) =>
-        prevSummaries.map((summary) =>
-          summary.ipNo === ipNo ? { ...summary, approve: true } : summary
-        )
+      setSummaries((prev) =>
+        prev.map((s) => (s.ipNo === ipNo ? { ...s, approve: true } : s)),
       );
-      alert("Summary approved successfully!");
-    } else {
-      console.error("Error approving summary:", result.error);
-      alert("Error approving summary: " + result.error);
-    }
+      alert("Summary approved!");
+    } else alert("Error approving summary: " + result.error);
   };
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked, files } = e.target;
-
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]:
-        type === "file" ? files[0] : type === "checkbox" ? checked : value,
-    }));
-  };
-
   const handleCancelEdit = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to cancel editing? All unsaved changes will be lost."
-      )
-    ) {
+    if (window.confirm("Cancel editing? Unsaved changes will be lost."))
       resetForm();
-    }
   };
 
+  const fmtDate = (d) =>
+    d
+      ? new Date(d).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      : "—";
+  const fmtDateTime = (d) =>
+    d
+      ? new Date(d).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "—";
+
+  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const [filters, setFilters] = useState({
+    fromDate: todayStr,
+    toDate: todayStr,
+    patient: "",
+    status: "",
+    summaryType: "",
+    uhid: "",
+    ipNo: "",
+  });
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+  };
+  const handleSummaryTypeFilterChange = (e) => {
+    const value = e.target.value;
+    setFilters((prev) => ({ ...prev, summaryType: value }));
+    fetchSummaries({
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      summaryType: value,
+    });
+  };
+  const clearFilters = () => {
+    const empty = {
+      fromDate: todayStr,
+      toDate: todayStr,
+      patient: "",
+      status: "",
+      summaryType: "",
+      uhid: "",
+      ipNo: "",
+    };
+    setFilters(empty);
+    fetchSummaries({ fromDate: empty.fromDate, toDate: empty.toDate });
+  };
+  const applyServerFilters = () =>
+    fetchSummaries({
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      summaryType: filters.summaryType,
+    });
+  const filteredSummaries = summaries.filter((s) => {
+    return (
+      (!filters.patient ||
+        (s.patient || "")
+          .toLowerCase()
+          .includes(filters.patient.toLowerCase())) &&
+      (!filters.status ||
+        (filters.status === "approved" ? s.approve : !s.approve)) &&
+      (!filters.uhid ||
+        (s.uhid || "").toLowerCase().includes(filters.uhid.toLowerCase())) &&
+      (!filters.ipNo ||
+        (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase())) &&
+      (!filters.summaryType ||
+        (s.summaryType || "").toLowerCase() ===
+          filters.summaryType.toLowerCase())
+    );
+  });
+
+  /* ─── Render ─────────────────────────────────────────────────────────── */
   return (
-    <div className="container mt-4">
-      <h2 className="text-center mb-4">
-        {isEditMode ? "Edit Summary" : "Summary"}
-      </h2>
-
-      {isEditMode && (
-        <div className="alert alert-info" role="alert">
-          You are currently editing the summary for IP No: <strong>{editingIpNo}</strong>
-        </div>
-      )}
-
-      <div className="card p-4 shadow-sm">
-        <div className="row mb-3">
-          <div className="col-md-2">
-            <label className="form-label">Summary Date</label>
-            <input
-              type="text"
-              className="form-control"
-              value={isEditMode ? formData.date : currentDate}
-              readOnly
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">IP Number:</label>
-            <input
-              type="text"
-              name="ipNo"
-              value={formData.ipNo}
-              onChange={handleInputChange}
-              className="form-control"
-              readOnly={isEditMode}
-            />
-            {!isEditMode && (
-              <button
-                type="button"
-                onClick={fetchIpPatient}
-                className="btn btn-primary mt-2"
-              >
-                Search
-              </button>
-            )}
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">UHID</label>
-            <input
-              type="text"
-              className="form-control"
-              name="uhid"
-              value={formData.uhid}
-              onChange={handleChange}
-              placeholder="Search UHID"
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Patient</label>
-            <input
-              type="text"
-              className="form-control"
-              name="patient"
-              value={formData.patient}
-              onChange={handleChange}
-              placeholder="Enter Patient"
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Age</label>
-            <input
-              type="text"
-              className="form-control"
-              name="age"
-              value={formData.age}
-              onChange={handleChange}
-              placeholder="Enter Age"
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Room No</label>
-            <input
-              type="text"
-              className="form-control"
-              name="roomNo"
-              value={formData.roomNo}
-              onChange={handleChange}
-              placeholder="Enter Room No"
-            />
-          </div>
+    <div style={css.page}>
+      <div style={css.inner}>
+        {/* ── Page header ── */}
+        <div style={css.pageHeader}>
+          <h1 style={css.pageTitle}>
+            <span style={css.titleDot} />
+            {isEditMode ? "Edit Summary" : "Discharge Summary"}
+          </h1>
+          <div style={css.dateBadge}>📅 {currentDate}</div>
         </div>
 
-        <div className="row mb-3">
-          <div className="col-md-2">
-            <label className="form-label">D.O.A </label>
-            <input
-              type="text"
-              className="form-control"
-              name="doa"
-              value={formData.doa}
-              onChange={handleChange}
-              placeholder="Enter D.O.A"
-            />
+        {/* ── Edit banner ── */}
+        {isEditMode && (
+          <div style={css.editBanner}>
+            <div style={css.editBannerDot} />
+            Editing summary for IP No:{" "}
+            <strong style={{ color: tokens.sky }}>{editingIpNo}</strong>
+          </div>
+        )}
+
+        {/* ══════════════════ PATIENT INFO CARD ══════════════════ */}
+        <div style={css.card}>
+          <div style={css.cardTitle}>
+            <div style={css.sectionLine} /> Patient Information
           </div>
 
-          <div className="col-md-1">
-            <label className="form-label">Time</label>
-            <input
-              type="text"
-              className="form-control"
-              name="doaTime"
-              value={formData.doaTime}
-              onChange={handleChange}
-              placeholder="Time"
-            />
-          </div>
+          {/* Row 1 */}
+          <div style={{ ...css.grid(6), marginBottom: 16 }}>
+            <Field label="Summary Date">
+              <Inp
+                type="text"
+                value={isEditMode ? fmtDate(formData.date) : currentDate}
+                readOnly
+              />
+            </Field>
 
-          <div className="col-md-2">
-            <label className="form-label">D.O.D </label>
-            <input
-              type="date"
-              className="form-control"
-              name="dod"
-              value={formData.dod}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="col-md-1">
-            <label className="form-label">Time</label>
-            <input
-              type="time"
-              className="form-control"
-              name="dodTime"
-              value={formData.dodTime}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Surgery Date</label>
-            <input
-              type="text"
-              className="form-control"
-              name="surgeryDate"
-              value={formData.surgeryDate}
-              onChange={handleChange}
-              placeholder="Enter Surgery Date"
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Next Review Date</label>
-            <input
-              type="text"
-              className="form-control"
-              name="nextReviewDate"
-              value={formData.nextReviewDate}
-              onChange={handleChange}
-              placeholder="Enter Next Review Date"
-            />
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Doctor</label>
-            <input
-              type="text"
-              className="form-control"
-              name="doctor"
-              value={formData.doctor}
-              onChange={handleChange}
-              placeholder="Enter Doctor"
-            />
-          </div>
-        </div>
-
-        <div className="row mb-3">
-          <div className="col-md-2">
-            <label className="form-label">Gender</label>
-            <input
-              type="text"
-              className="form-control"
-              name="gender"
-              value={formData.gender}
-              onChange={handleChange}
-              placeholder="Enter Gender"
-            />
-          </div>
-
-          <div className="col-md-3">
-            <label className="form-label">Summary Type *</label>
-            <select
-              className="form-select"
-              name="summaryType"
-              value={formData.summaryType}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select Summary Type</option>
-              {summaryTypeOptions.map((type, index) => (
-                <option key={index} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="col-md-2">
-            <label className="form-label">Heading</label>
-            <input
-              type="text"
-              className="form-control"
-              name="heading"
-              value={formData.heading}
-              onChange={handleChange}
-              placeholder="Enter Heading"
-            />
-          </div>
-
-          <div className="col-md-3">
-            <label className="form-label">Address</label>
-            <input
-              type="text"
-              className="form-control"
-              name="address"
-              value={formData.address}
-              onChange={handleChange}
-              placeholder="Address"
-            />
-          </div>
-
-        </div>
-
-        <div className="row mb-3">
-
-          {/* Add after the Disease input field */}
-          <div className="col-md-12 mt-3">
-            <ICD11SearchComponent
-              onDiseasesChange={(diseases) => setSelectedDiseases(diseases)}
-              initialDiseases={selectedDiseases}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="container mt-4">
-        <div className="row">
-          <div className="col-md-3">
-            <ul className="list-group">
-              {[
-                "ONCOLOGY NOTES",
-                "SPECIAL NEEDS AFTER DISCHARGE",
-                "VACCINATION HISTORY",
-                "DISCHARGE TYPE",
-                "ADMISSION DIAGNOSIS",
-                "DISCHARGE DIAGNOSIS",
-                "CONSULTANT",
-                "BRIEF HISTORY",
-                "SIGNIFICANT PAST MEDICAL AND SURGICAL HISTORY",
-                "GENERAL EXAMINATION",
-                "VITALS",
-                "COURSE IN THE HOSPITAL",
-                "INVESTIGATIONS",
-                "SURGERIES / PROCEDURES PERFORMED",
-                "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
-                "CONDITION ON DISCHARGE",
-                "ADVICE ON DISCHARGE",
-                "DOA AND DOD",
-              ].map((field) => (
-                <li
-                  key={field}
-                  className={`list-group-item ${selectedField === field ? "active" : ""
-                    }`}
-                  onClick={() => handleButtonClick(field)}
-                  style={{
-                    cursor: "pointer",
-                    fontSize: "0.85rem",
-                    padding: "0.4rem 0.5rem",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {field}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="col-md-9 d-flex flex-column" style={{ flexGrow: 1 }}>
-            <div className="card p-4 shadow-sm" style={{ flexGrow: 1 }}>
-              <h5 className="mb-3">{selectedField || "Summary Notes"}</h5>
-              <textarea
-                ref={notesRef}
-                className="form-control mb-3"
-                style={{ flexGrow: 1, resize: "none", minHeight: "200px" }}
-                name="notes"
-                placeholder="Add notes here"
-                value={formData.notes}
-                onChange={handleChange}
-              ></textarea>
-              <div className="d-flex gap-2 mb-3">
-                <button
-                  className="btn btn-outline-secondary"
-                  onClick={fetchInvestigations}
-                >
-                  Add Investigations
-                </button>
-                <button className="btn btn-outline-secondary">
-                  Add Medicines
-                </button>
-                <button className="btn btn-outline-secondary">
-                  Discharge Medicines
-                </button>
-              </div>
-              <div className="d-flex justify-content-end gap-2">
-                {isEditMode && (
-                  <button
-                    className="btn btn-danger"
-                    onClick={handleCancelEdit}
-                  >
-                    Cancel Edit
+            <Field label="IP Number">
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Inp
+                  type="text"
+                  name="ipNo"
+                  value={formData.ipNo}
+                  onChange={handleChange}
+                  readOnly={isEditMode}
+                  placeholder="Enter IP No"
+                />
+                {!isEditMode && (
+                  <button style={css.searchBtn} onClick={fetchIpPatient}>
+                    🔍 Search
                   </button>
                 )}
-                <button
-                  className="btn btn-primary"
-                  onClick={isEditMode ? handleUpdate : handleSubmit}
-                >
-                  {isEditMode ? "Update Summary" : "Upload Summary"}
-                </button>
               </div>
+            </Field>
+
+            <Field label="UHID">
+              <Inp
+                name="uhid"
+                value={formData.uhid}
+                onChange={handleChange}
+                placeholder="UHID"
+              />
+            </Field>
+
+            <Field label="Patient Name">
+              <Inp
+                name="patient"
+                value={formData.patient}
+                onChange={handleChange}
+                placeholder="Full Name"
+              />
+            </Field>
+
+            <Field label="Age">
+              <Inp
+                name="age"
+                value={formData.age}
+                onChange={handleChange}
+                placeholder="Age"
+              />
+            </Field>
+
+            <Field label="Room No">
+              <Inp
+                name="roomNo"
+                value={formData.roomNo}
+                onChange={handleChange}
+                placeholder="Room No"
+              />
+            </Field>
+          </div>
+
+          {/* Row 2 */}
+          <div style={{ ...css.grid(7), marginBottom: 16 }}>
+            <Field label="D.O.A">
+              <Inp
+                name="doa"
+                value={formData.doa}
+                onChange={handleChange}
+                placeholder="DD/MM/YYYY"
+              />
+            </Field>
+            <Field label="DOA Time">
+              <Inp
+                name="doaTime"
+                value={formData.doaTime}
+                onChange={handleChange}
+                placeholder="HH:MM"
+              />
+            </Field>
+            <Field label="D.O.D">
+              <Inp
+                type="date"
+                name="dod"
+                value={formData.dod}
+                onChange={handleChange}
+              />
+            </Field>
+            <Field label="DOD Time">
+              <Inp
+                type="time"
+                name="dodTime"
+                value={formData.dodTime}
+                onChange={handleChange}
+              />
+            </Field>
+            <Field label="Surgery Date">
+              <Inp
+                type="date"
+                name="surgeryDate"
+                value={formData.surgeryDate}
+                onChange={handleChange}
+              />
+            </Field>
+            <Field label="Next Review Date">
+              <Inp
+                type="date"
+                name="nextReviewDate"
+                value={formData.nextReviewDate}
+                onChange={handleChange}
+              />
+            </Field>
+            <Field label="Gender">
+              <Inp
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                placeholder="Gender"
+              />
+            </Field>
+          </div>
+
+          {/* Row 3 */}
+          <div style={css.grid(4)}>
+            {/* ── Doctor Dropdown ── */}
+            <Field label="Doctor">
+              <select
+                name="doctor"
+                value={formData.doctor}
+                onChange={handleChange}
+                style={css.select}
+              >
+                <option value="">— Select Doctor —</option>
+                {doctors.map((doc, i) => (
+                  <option key={doc.employeeId || i} value={doc.employeeName}>
+                    {doc.employeeName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Summary Type">
+              <select
+                name="summaryType"
+                value={formData.summaryType}
+                onChange={handleChange}
+                style={css.select}
+              >
+                <option value="">— Select Type —</option>
+                {summaryTypeOptions.map((t, i) => (
+                  <option key={t.summaryNo || i} value={t.summaryType}>
+                    {t.summaryType}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Heading">
+              <Inp
+                name="heading"
+                value={formData.heading}
+                onChange={handleChange}
+                placeholder="Heading"
+              />
+            </Field>
+
+            <Field label="Address">
+              <Inp
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Address"
+              />
+            </Field>
+          </div>
+        </div>
+
+        {/* ══════════════════ ICD-11 SEARCH ══════════════════ */}
+        <div style={css.card}>
+          <div style={css.cardTitle}>
+            <div style={css.sectionLine} /> ICD‑11 Disease Coding
+          </div>
+          <ICD11SearchComponent
+            key={editingIpNo || "new"}
+            onDiseasesChange={(diseases) => setSelectedDiseases(diseases)}
+            initialDiseases={selectedDiseases}
+          />
+        </div>
+
+        {/* ══════════════════ NOTES SECTION ══════════════════ */}
+        <div style={css.notesLayout}>
+          {/* Sidebar */}
+          <div style={css.sidebar}>
+            <div style={css.sidebarHeader}>Clinical Fields</div>
+            {noteFields.map((field) => (
+              <div
+                key={field}
+                style={css.sidebarItem(selectedField === field)}
+                onClick={() => handleButtonClick(field)}
+              >
+                {field}
+              </div>
+            ))}
+          </div>
+
+          {/* Notes area */}
+          <div style={css.notesCard}>
+            <div style={css.notesTitle}>
+              {selectedField || "Select a field from the left"}
+            </div>
+
+            <textarea
+              ref={notesRef}
+              style={css.textarea}
+              name="notes"
+              placeholder="Type your clinical notes here…"
+              value={formData.notes}
+              onChange={handleChange}
+            />
+
+            {/* Quick-add buttons */}
+            <div style={css.actionRow}>
+              <button
+                style={css.outlineBtn(tokens.sky)}
+                onClick={fetchInvestigations}
+              >
+                + Add Investigations
+              </button>
+              <button style={css.outlineBtn(tokens.teal)}>
+                + Add Medicines
+              </button>
+              <button style={css.outlineBtn(tokens.green)}>
+                + Discharge Medicines
+              </button>
+            </div>
+
+            {/* Submit row */}
+            <div
+              style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}
+            >
+              {isEditMode && (
+                <button style={css.btn("danger")} onClick={handleCancelEdit}>
+                  ✕ Cancel Edit
+                </button>
+              )}
+              <button
+                style={css.btn("primary")}
+                onClick={isEditMode ? handleUpdate : handleSubmit}
+              >
+                {isEditMode ? "💾 Update Summary" : "⬆ Upload Summary"}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Investigations Modal */}
+        {/* ══════════════════ INVESTIGATIONS MODAL ══════════════════ */}
         {showInvestigations && (
-          <div
-            className="modal"
-            style={{ display: "block", backgroundColor: "rgba(0,0,0,0.5)" }}
-          >
-            <div className="modal-dialog modal-lg">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">Patient Investigations</h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setShowInvestigations(false)}
-                  ></button>
-                </div>
-                <div className="modal-body">
-                  {loading ? (
-                    <div className="text-center">
-                      <div className="spinner-border" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                      </div>
-                    </div>
-                  ) : investigations.length === 0 ? (
-                    <p className="text-center">
-                      No investigations found for this patient.
+          <div style={css.modalOverlay}>
+            <div style={css.modalBox}>
+              <div style={css.modalHead}>
+                <span style={css.modalTitle}>🔬 Patient Investigations</span>
+                <button
+                  style={css.modalClose}
+                  onClick={() => setShowInvestigations(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={css.modalBody}>
+                {loading ? (
+                  <div style={{ textAlign: "center", padding: 32 }}>
+                    <div className="spinner-border text-primary" />
+                    <p style={{ marginTop: 12, color: tokens.muted }}>
+                      Loading investigations…
                     </p>
-                  ) : (
-                    <div>
-                      <div className="mb-3">
-                        <p className="text-muted">
-                          Select investigations to add to the summary.
-                          Unapproved investigations are highlighted in yellow.
-                        </p>
-                      </div>
-                      <div className="list-group">
-                        {investigations.map((investigation, index) => (
+                  </div>
+                ) : investigations.length === 0 ? (
+                  <p
+                    style={{
+                      textAlign: "center",
+                      color: tokens.muted,
+                      padding: 32,
+                    }}
+                  >
+                    No investigations found.
+                  </p>
+                ) : (
+                  <>
+                    <p
+                      style={{
+                        color: tokens.muted,
+                        fontSize: 13,
+                        marginBottom: 16,
+                      }}
+                    >
+                      Click to select investigations.{" "}
+                      <span style={{ color: tokens.amber }}>
+                        ⚠ Yellow = Pending Approval.
+                      </span>
+                    </p>
+                    {investigations.map((inv, i) => {
+                      const selected = selectedInvestigations.some(
+                        (si) =>
+                          si.reportType === inv.reportType &&
+                          si.investigation === inv.investigation,
+                      );
+                      return (
+                        <div
+                          key={i}
+                          style={css.invCard(selected, !inv.is_approved)}
+                          onClick={() => toggleInvestigationSelection(inv)}
+                        >
                           <div
-                            key={index}
-                            className={`list-group-item list-group-item-action ${!investigation.is_approved
-                              ? "list-group-item-warning"
-                              : ""
-                              } ${selectedInvestigations.some(
-                                (i) =>
-                                  i.reportType === investigation.reportType &&
-                                  i.investigation ===
-                                  investigation.investigation
-                              )
-                                ? "active"
-                                : ""
-                              }`}
-                            onClick={() =>
-                              toggleInvestigationSelection(investigation)
-                            }
-                            style={{ cursor: "pointer" }}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 6,
+                            }}
                           >
-                            <div className="d-flex w-100 justify-content-between">
-                              <h5 className="mb-1">
-                                {investigation.reportType}
-                              </h5>
-                              {!investigation.is_approved && (
-                                <span className="badge bg-warning text-dark">
-                                  Pending Approval
-                                </span>
-                              )}
-                            </div>
-                            <p
-                              className="mb-1"
-                              style={{ whiteSpace: "pre-wrap" }}
+                            <strong
+                              style={{ fontSize: 14, color: tokens.navy }}
                             >
-                              {investigation.investigation.length > 100
-                                ? `${investigation.investigation.substring(
-                                  0,
-                                  100
-                                )}...`
-                                : investigation.investigation}
-                            </p>
-                            <small className="text-muted">
-                              Impression:{" "}
-                              {investigation.impression.length > 50
-                                ? `${investigation.impression.substring(
-                                  0,
-                                  50
-                                )}...`
-                                : investigation.impression}
-                            </small>
+                              {inv.reportType}
+                            </strong>
+                            {!inv.is_approved && (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: tokens.amber,
+                                  background: `${tokens.amber}18`,
+                                  padding: "2px 8px",
+                                  borderRadius: 20,
+                                }}
+                              >
+                                Pending Approval
+                              </span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <span className="me-auto">
-                    {selectedInvestigations.length > 0 &&
-                      `${selectedInvestigations.length} investigation(s) selected`}
+                          <p
+                            style={{
+                              fontSize: 13,
+                              color: tokens.textSm,
+                              marginBottom: 4,
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {inv.investigation?.length > 120
+                              ? `${inv.investigation.substring(0, 120)}…`
+                              : inv.investigation}
+                          </p>
+                          <small style={{ color: tokens.muted }}>
+                            Impression:{" "}
+                            {inv.impression?.length > 60
+                              ? `${inv.impression.substring(0, 60)}…`
+                              : inv.impression}
+                          </small>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+              <div style={css.modalFoot}>
+                {selectedInvestigations.length > 0 && (
+                  <span
+                    style={{
+                      marginRight: "auto",
+                      fontSize: 13,
+                      color: tokens.sky,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {selectedInvestigations.length} selected
                   </span>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowInvestigations(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={addInvestigationsToNotes}
-                    disabled={selectedInvestigations.length === 0}
-                  >
-                    Add Selected to Summary
-                  </button>
-                </div>
+                )}
+                <button
+                  style={css.btn("ghost")}
+                  onClick={() => setShowInvestigations(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  style={{
+                    ...css.btn("primary"),
+                    opacity: selectedInvestigations.length ? 1 : 0.4,
+                  }}
+                  onClick={addInvestigationsToNotes}
+                  disabled={!selectedInvestigations.length}
+                >
+                  Add to Summary
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="container my-4">
-          <h2 className="mb-4 text-center">Summary Reports</h2>
-          <div className="table-responsive">
+        {/* ══════════════════ SUMMARY TABLE ══════════════════ */}
+        <div style={{ marginTop: 36 }}>
+          <div style={css.tableWrap}>
+            {/* Table header + result count */}
+            <div
+              style={{
+                ...css.tableHeader,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span>📋 Summary Reports</span>
+              <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.75 }}>
+                {filteredSummaries.length} of {summaries.length} records
+              </span>
+            </div>
+
+            {/* ── Filter bar ── */}
+            <div
+              style={{
+                padding: "16px 20px",
+                background: tokens.bg,
+                borderBottom: `1px solid ${tokens.border}`,
+              }}
+            >
+              {/* Row 1: date range + summary type + search btn */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1.4fr 1fr 1fr auto auto",
+                  gap: "10px 12px",
+                  alignItems: "end",
+                  marginBottom: 10,
+                }}
+              >
+                {/* From Date */}
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    🗓 From Date
+                  </span>
+                  <input
+                    type="date"
+                    name="fromDate"
+                    value={filters.fromDate}
+                    onChange={handleFilterChange}
+                    style={{ ...css.input, height: 34, fontSize: 12 }}
+                  />
+                </div>
+
+                {/* To Date */}
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    🗓 To Date
+                  </span>
+                  <input
+                    type="date"
+                    name="toDate"
+                    value={filters.toDate}
+                    onChange={handleFilterChange}
+                    style={{ ...css.input, height: 34, fontSize: 12 }}
+                  />
+                </div>
+
+                {/* Summary Type Dropdown */}
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    📄 Summary Type
+                  </span>
+                  <select
+                    name="summaryType"
+                    value={filters.summaryType}
+                    onChange={handleSummaryTypeFilterChange}
+                    style={{ ...css.select, height: 34, fontSize: 12 }}
+                  >
+                    <option value="">All Types</option>
+                    {summaryTypeOptions.map((t, i) => (
+                      <option key={t.summaryNo || i} value={t.summaryType}>
+                        {t.summaryType}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Patient */}
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    👤 Patient Name
+                  </span>
+                  <input
+                    name="patient"
+                    value={filters.patient}
+                    onChange={handleFilterChange}
+                    placeholder="Search name…"
+                    style={{ ...css.input, height: 34, fontSize: 12 }}
+                  />
+                </div>
+
+                {/* Status */}
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    🔖 Status
+                  </span>
+                  <select
+                    name="status"
+                    value={filters.status}
+                    onChange={handleFilterChange}
+                    style={{ ...css.select, height: 34, fontSize: 12 }}
+                  >
+                    <option value="">All</option>
+                    <option value="approved">Approved</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+
+                {/* Search button */}
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button
+                    onClick={applyServerFilters}
+                    style={{
+                      ...css.btn("primary"),
+                      height: 34,
+                      padding: "0 18px",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    🔍 Search
+                  </button>
+                </div>
+
+                {/* Clear button */}
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button
+                    onClick={clearFilters}
+                    style={{
+                      height: 34,
+                      padding: "0 14px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      border: `1.5px solid ${tokens.border}`,
+                      borderRadius: 8,
+                      background: tokens.white,
+                      color: tokens.muted,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      transition: "all .15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.borderColor = tokens.red;
+                      e.target.style.color = tokens.red;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.borderColor = tokens.border;
+                      e.target.style.color = tokens.muted;
+                    }}
+                  >
+                    ✕ Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2: UHID + IP No */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 5fr",
+                  gap: "10px 12px",
+                  alignItems: "end",
+                }}
+              >
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    🆔 UHID
+                  </span>
+                  <input
+                    name="uhid"
+                    value={filters.uhid}
+                    onChange={handleFilterChange}
+                    placeholder="Search UHID…"
+                    style={{ ...css.input, height: 34, fontSize: 12 }}
+                  />
+                </div>
+                <div style={css.fieldWrap}>
+                  <span style={{ ...css.label, color: tokens.sky }}>
+                    🏥 IP No
+                  </span>
+                  <input
+                    name="ipNo"
+                    value={filters.ipNo}
+                    onChange={handleFilterChange}
+                    placeholder="Search IP No…"
+                    style={{ ...css.input, height: 34, fontSize: 12 }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ── Table ── */}
             {summaries.length === 0 ? (
-              <p className="text-center">No Summary Reports Found</p>
+              <p
+                style={{
+                  textAlign: "center",
+                  padding: 40,
+                  color: tokens.muted,
+                }}
+              >
+                No summary reports found.
+              </p>
+            ) : filteredSummaries.length === 0 ? (
+              <p
+                style={{
+                  textAlign: "center",
+                  padding: 40,
+                  color: tokens.muted,
+                }}
+              >
+                No records match your filters.{" "}
+                <button
+                  onClick={clearFilters}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: tokens.sky,
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Clear filters
+                </button>
+              </p>
             ) : (
-              <table className="table table-bordered table-striped">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Patient Name</th>
-                    <th>Approve Status</th>
-                    <th>Summary Type</th>
-                    <th>UHID</th>
-                    <th>IP No</th>
-                    <th>Approve Date</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summaries.map((summary, index) => (
-                    <tr key={summary.id || index}>
-                      <td>
-                        {summary.date
-                          ? new Date(summary.date).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
-                          : "N/A"}
-                      </td>
-                      <td>{summary.patient}</td>
-                      <td>
-                        <span
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {[
+                        "Date",
+                        "Patient Name",
+                        "Status",
+                        "Summary Type",
+                        "UHID",
+                        "IP No",
+                        "Approved On",
+                        "Actions",
+                      ].map((h) => (
+                        <th key={h} style={css.th}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSummaries.map((s, i) => (
+                      <tr
+                        key={s.id || i}
+                        style={{
+                          background: i % 2 === 0 ? tokens.white : "#F8FAFC",
+                        }}
+                      >
+                        <td style={css.td}>{fmtDate(s.date)}</td>
+                        <td
                           style={{
-                            color: summary.approve ? "green" : "red",
-                            fontWeight: "bold",
+                            ...css.td,
+                            fontWeight: 600,
+                            color: tokens.navy,
                           }}
                         >
-                          {summary.approve ? "Approved" : "Pending"}
-                        </span>
-                      </td>
-                      <td>{summary.summaryType}</td>
-                      <td>{summary.uhid}</td>
-                      <td>{summary.ipNo}</td>
-                      <td>
-                        {summary.approve_time
-                          ? new Date(summary.approve_time).toLocaleString(
-                            "en-GB",
-                            {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              hour12: true,
-                            }
-                          )
-                          : "N/A"}
-                      </td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            className={`btn btn-sm ${summary.approve ? "btn-secondary" : "btn-primary"
-                              }`}
-                            onClick={() => handleEdit(summary.ipNo)}
-                            disabled={summary.approve}
+                          {s.patient}
+                        </td>
+                        <td style={css.td}>
+                          <span style={css.statusBadge(s.approve)}>
+                            <span style={css.statusDot(s.approve)} />
+                            {s.approve ? "Approved" : "Pending"}
+                          </span>
+                        </td>
+                        <td style={{ ...css.td, fontSize: 12 }}>
+                          {s.summaryType}
+                        </td>
+                        <td style={css.td}>{s.uhid}</td>
+                        <td style={{ ...css.td, fontWeight: 600 }}>{s.ipNo}</td>
+                        <td style={css.td}>{fmtDateTime(s.approve_time)}</td>
+                        <td style={css.td}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 6,
+                              flexWrap: "wrap",
+                            }}
                           >
-                            Edit
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleDelete(summary.ipNo)}
-                            disabled={summary.approve}
-                          >
-                            Delete
-                          </button>
-                          <button
-                            className={`btn btn-sm ${summary.approve ? "btn-secondary" : "btn-success"
-                              }`}
-                            onClick={() => handleApprove(summary.ipNo)}
-                            disabled={summary.approve}
-                          >
-                            Approve
-                          </button>
-
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => handlePrint(summary.ipNo)}
-                          >
-                            Print
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            <button
+                              style={{
+                                ...css.btn("ghost"),
+                                padding: "5px 12px",
+                                fontSize: 12,
+                                opacity: s.approve ? 0.4 : 1,
+                              }}
+                              onClick={() => handleEdit(s.ipNo)}
+                              disabled={s.approve}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              style={{
+                                ...css.btn("danger"),
+                                padding: "5px 12px",
+                                fontSize: 12,
+                                opacity: s.approve ? 0.4 : 1,
+                              }}
+                              onClick={() => handleDelete(s.ipNo)}
+                              disabled={s.approve}
+                            >
+                              Delete
+                            </button>
+                            <button
+                              style={{
+                                ...css.btn("success"),
+                                padding: "5px 12px",
+                                fontSize: 12,
+                                opacity: s.approve ? 0.4 : 1,
+                              }}
+                              onClick={() => handleApprove(s.ipNo)}
+                              disabled={s.approve}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              style={{
+                                ...css.btn("primary"),
+                                padding: "5px 12px",
+                                fontSize: 12,
+                              }}
+                              onClick={() => handlePrint(s.ipNo)}
+                            >
+                              Print
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       </div>
+      {/* /inner */}
     </div>
   );
 };

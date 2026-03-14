@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 // Assuming these icons or similar are available, otherwise use text
@@ -10,13 +10,29 @@ import {
   FiActivity,
   FiPackage,
   FiShoppingBag,
+  FiTruck,
+  FiFileText,
+  FiUsers,
+  FiClipboard,
+  FiLayers,
+} from "react-icons/fi";
+import { hasPagePermission } from "../Auth/FrontendPageMapping";
+import { fetchSidebarMapping } from "../Auth/apiRequest";
 
+const iconMap = {
+  FiHome,
+  FiUserPlus,
+  FiRepeat,
+  FiLogOut,
+  FiActivity,
+  FiPackage,
+  FiShoppingBag,
   FiTruck,
   FiFileText,
   FiUsers,
   FiClipboard,
   FiLayers
-} from "react-icons/fi";
+};
 
 // Use the same theme colors for consistency
 const colors = {
@@ -25,7 +41,7 @@ const colors = {
   textMain: "#1e293b",
   textMuted: "#64748b",
   border: "#e2e8f0",
-  surface: "#ffffff"
+  surface: "#ffffff",
 };
 
 const SidebarContainer = styled.div`
@@ -41,8 +57,12 @@ const SidebarContainer = styled.div`
   z-index: 1000;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
 
-  @media (max-width: 1024px) { width: 200px; }
-  @media (max-width: 768px) { width: 80px; } // Collapsed for tablet
+  @media (max-width: 1024px) {
+    width: 200px;
+  }
+  @media (max-width: 768px) {
+    width: 80px;
+  } // Collapsed for tablet
 `;
 
 const BrandSection = styled.div`
@@ -59,7 +79,9 @@ const BrandName = styled.span`
   font-size: 1.1rem;
   color: ${colors.primary};
   letter-spacing: -0.5px;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const NavMenu = styled.nav`
@@ -79,7 +101,9 @@ const NavGroupLabel = styled.div`
   color: ${colors.primary};
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const StyledNavLink = styled(NavLink)`
@@ -113,7 +137,9 @@ const StyledNavLink = styled(NavLink)`
 
   @media (max-width: 768px) {
     justify-content: center;
-    span { display: none; }
+    span {
+      display: none;
+    }
   }
 `;
 
@@ -128,7 +154,9 @@ const UserProfile = styled.div`
   align-items: center;
   gap: 12px;
   margin-bottom: 15px;
-  @media (max-width: 768px) { display: none; }
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const Avatar = styled.div`
@@ -147,8 +175,15 @@ const Avatar = styled.div`
 const UserInfo = styled.div`
   display: flex;
   flex-direction: column;
-  span:first-child { font-size: 0.85rem; font-weight: 600; color: ${colors.textMain}; }
-  span:last-child { font-size: 0.75rem; color: ${colors.textMuted}; }
+  span:first-child {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: ${colors.textMain};
+  }
+  span:last-child {
+    font-size: 0.75rem;
+    color: ${colors.textMuted};
+  }
 `;
 
 const LogoutButton = styled.button`
@@ -174,11 +209,23 @@ const LogoutButton = styled.button`
 
   @media (max-width: 768px) {
     border: none;
-    span { display: none; }
+    span {
+      display: none;
+    }
   }
 `;
 
-const Sidebar = ({ role }) => {
+const Sidebar = ({ role, allowedActions }) => {
+  const [sidebarData, setSidebarData] = useState([]);
+
+  useEffect(() => {
+    const loadSidebarData = async () => {
+      const data = await fetchSidebarMapping();
+      setSidebarData(data);
+    };
+    loadSidebarData();
+  }, []);
+
   return (
     <SidebarContainer>
       <BrandSection>
@@ -186,150 +233,29 @@ const Sidebar = ({ role }) => {
       </BrandSection>
 
       <NavMenu>
-        <NavGroupLabel>Main Menu</NavGroupLabel>
+        {sidebarData.map((group, groupIndex) => {
+          // Check if at least one page in this group is allowed
+          const hasAllowedPage = group.pages.some(page => hasPagePermission(page.route, allowedActions));
 
-        <StyledNavLink to="/Dashboard">
-          <FiHome /> <span>Dashboard</span>
-        </StyledNavLink>
-        <StyledNavLink to="/PatientRegistrationForm">
-          <FiUserPlus /> <span>Patient Registration</span>
-        </StyledNavLink>
+          if (!hasAllowedPage) return null;
 
-        <NavGroupLabel>Patient Management</NavGroupLabel>
+          return (
+            <React.Fragment key={groupIndex}>
+              {group.group && <NavGroupLabel>{group.group}</NavGroupLabel>}
+              {group.pages.map((page, pageIndex) => {
+                if (!hasPagePermission(page.route, allowedActions)) return null;
 
-        {role === "Pharmacist" && (
-          <>
-            <NavGroupLabel>Inventory</NavGroupLabel>
+                const IconComponent = iconMap[page.icon] || FiActivity;
 
-            <StyledNavLink to="/VendorManagement">
-              <FiTruck /> <span>Vendor Management</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/PharmacyCategory">
-              <FiPackage /> <span>Pharmacy Category</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/PharmacyItemMaster">
-              <FiPackage /> <span>Pharmacy Stock</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/GRNGeneration">
-              <FiActivity /> <span>GRN Generation</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/GRNAnalysis">
-              <FiActivity /> <span>GRN Analysis</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Pharmacy</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacy">
-              <FiPackage /> <span>IP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacy">
-              <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-          </>
-          )}
-
-        {role === "Super Admin" && (
-          <>
-            <NavGroupLabel>Inventory</NavGroupLabel>
-
-            <StyledNavLink to="/VendorManagement">
-              <FiTruck /> <span>Vendor Management</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/PharmacyCategory">
-              <FiPackage /> <span>Pharmacy Category</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/PharmacyItemMaster">
-              <FiPackage /> <span>Pharmacy Stock</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/GRNGeneration">
-              <FiActivity /> <span>GRN Generation</span>
-            </StyledNavLink>
-
-            <StyledNavLink to="/GRNAnalysis">
-              <FiActivity /> <span>GRN Analysis</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Pharmacy</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacy">
-              <FiPackage /> <span>IP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacy">
-              <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Doctor Management</NavGroupLabel>
-            <StyledNavLink to="/DoctorList">
-              <FiUsers /> <span>Doctors</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Billing</NavGroupLabel>
-            <StyledNavLink to="/InvestigationBilling">
-              <FiFileText /> <span>Billing Entry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/ViewBills">
-              <FiFileText /> <span>View Bills</span>
-            </StyledNavLink>
-            <StyledNavLink to="/ViewEstimate">
-              <FiFileText /> <span>View Estimates</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Reports</NavGroupLabel>
-            <StyledNavLink to="/CTList">
-              <FiActivity /> <span>CT Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/MRIList">
-              <FiActivity /> <span>MRI Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/USGList">
-              <FiActivity /> <span>USG Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/XRayList">
-              <FiActivity /> <span>X-Ray Reports</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Rooms</NavGroupLabel>
-            <StyledNavLink to="/Block">
-              <FiHome /> <span>Block</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomCategory">
-              <FiActivity /> <span>Room Category</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Room">
-              <FiHome /> <span>Room</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomEnquiry">
-              <FiActivity /> <span>Room Enquiry</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Front Office</NavGroupLabel>
-            <StyledNavLink to="/Admission">
-              <FiUserPlus /> <span>Admission</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Enquiry">
-              <FiFileText /> <span>Enquiry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeForm">
-              <FiLogOut /> <span>Discharge Form</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Summary">
-              <FiActivity /> <span>Discharge Summary</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeReport">
-              <FiFileText /> <span>Discharge Reports</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Nursing Station</NavGroupLabel>
-            <StyledNavLink to="/RoomShifting">
-              <FiRepeat /> <span>Room Shifting</span>
-            </StyledNavLink>
-          </>
-        )}
+                return (
+                  <StyledNavLink to={page.route} key={pageIndex}>
+                    <IconComponent /> <span>{page.name}</span>
+                  </StyledNavLink>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
       </NavMenu>
 
       <UserSection>
@@ -340,7 +266,12 @@ const Sidebar = ({ role }) => {
             <span>{role}</span>
           </UserInfo>
         </UserProfile>
-        <LogoutButton onClick={() => { localStorage.clear(); window.location.reload(); }}>
+        <LogoutButton
+          onClick={() => {
+            localStorage.clear();
+            window.location.reload();
+          }}
+        >
           <FiLogOut /> <span>Logout</span>
         </LogoutButton>
       </UserSection>

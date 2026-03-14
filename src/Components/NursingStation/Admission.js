@@ -1,12 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  PageWrapper, Container, Button, TableWrapper, Table, Th, Td, Tr,
-  ModalOverlay, ModalContainer, ModalHeader, ModalTitle,
+  PageWrapper, Container, FormContent, FormRow, InputWrapper, Label, Input,
+  Select, TextArea, Button, SectionTitle, SectionHeader, TableWrapper, Table, Th, Td, Tr,
+  SearchButton, ModalOverlay, ModalContainer, ModalHeader, ModalTitle,
   CloseButton, ModalBody, SearchRow, SearchInput, NoResults,
+  CollapsibleSection, SectionContent, CheckboxWrapper, Checkbox, FileInput,
+  ButtonContainer, InfoIcon, TabContainer, Tab
 } from "../GlobalStyles";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -268,7 +271,9 @@ const EMPTY_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const Admission = () => {
-  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [activeTab, setActiveTab] = useState("admission");
+  const [mlcVisible, setMlcVisible] = useState(false);
+  const [newBornVisible, setNewBornVisible] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -277,9 +282,10 @@ const Admission = () => {
 
   // Room modal
   const [showRoomModal, setShowRoomModal] = useState(false);
-  const [roomQuery, setRoomQuery] = useState("");
+  const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [roomResults, setRoomResults] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+  const [editingId, setEditingId] = useState(null); // Track if editing an admission
 
   // Bed modal
   const [showBedModal, setShowBedModal] = useState(false);
@@ -295,6 +301,7 @@ const Admission = () => {
   }, []);
 
   useEffect(() => {
+    fetchNextIpNumber();
     fetchDoctors();
     fetchAdmissions();
 
@@ -322,22 +329,33 @@ const Admission = () => {
 
   const fetchDoctors = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-      if (res.success) setDoctors(res.data || []);
-    } catch {}
+      const response = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
+      if (response.success) {
+        setFormData(prev => ({ ...prev, ipNumber: response.data.next_ipNumber }));
+      } else {
+        throw new Error(response.error || "Failed to fetch IP number");
+      }
+    } catch (error) {
+      console.error("Error fetching IP number:", error.message);
+      toast.error("Error fetching IP number");
+    }
+  };
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
+      if (response.success) {
+        setDoctors(response.data || []);
+      } else {
+        throw new Error(response.error || "Failed to fetch doctors");
+      }
+    } catch (error) {
+      console.error("Error fetching doctors:", error.message);
+      toast.error("Error fetching doctors");
+    }
   };
 
   const fetchAdmissions = async () => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
-      if (res.success) setAdmissions(res.data || []);
-    } catch {}
-  };
-
-  // ── Patient lookup by UHID ────────────────────────────────────────────────
-
-  const fetchPatientByUHID = async () => {
-    if (!formData.uhid) return toast.warning("Enter UHID");
     try {
       const already = admissions.find(
         (a) => a.uhid === formData.uhid && a.is_active !== false
@@ -379,8 +397,6 @@ const Admission = () => {
 
   // ── Admission lookup by IP Number ─────────────────────────────────────────
 
-  const fetchAdmissionByIP = async () => {
-    if (!formData.ipNumber) return toast.warning("Enter IP Number");
     try {
       const res = await apiRequest(
         `${HmsBaseUrl}admission/?ip_number=${encodeURIComponent(formData.ipNumber)}`,
@@ -414,16 +430,22 @@ const Admission = () => {
     }
   };
 
-  // ── Room search ───────────────────────────────────────────────────────────
-
   const searchRooms = async () => {
     setLoadingRooms(true);
     try {
-      const q = roomQuery ? `?room_number=${encodeURIComponent(roomQuery)}` : "";
-      const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
-      if (res.success) setRoomResults(res.data || []);
-      else setRoomResults([]);
-    } catch {
+      const queryParam = roomSearchQuery ? `?room_number=${encodeURIComponent(roomSearchQuery)}` : "";
+      const response = await apiRequest(`${HmsBaseUrl}search-rooms/${queryParam}`, "GET");
+      if (response.success) {
+        setRoomResults(response.data || []);
+        if (response.data.length === 0) {
+          toast.info("No rooms found");
+        }
+      } else {
+        throw new Error(response.error || "Failed to search rooms");
+      }
+    } catch (error) {
+      console.error("Error searching rooms:", error.message);
+      toast.error("Failed to search rooms");
       setRoomResults([]);
     } finally {
       setLoadingRooms(false);
@@ -443,13 +465,16 @@ const Admission = () => {
     toast.success(`Room ${formData.roomNo} / Bed ${bed} selected`);
   };
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  const openRoomSearchModal = () => {
+    setShowRoomModal(true);
+    searchRooms(); // Load all rooms initially
+  };
 
-  const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    setFormData((prev) => ({
+  const handleInputChange = (e) => {
+    const { name, value, type, checked, files } = e.target;
+    setFormData(prev => ({
       ...prev,
-      [name]: type === "file" ? files[0] : value,
+      [name]: type === "checkbox" ? checked : type === "file" ? files[0] : value
     }));
   };
 
@@ -463,19 +488,23 @@ const Admission = () => {
     setEditingId(adm._id || adm.id);
     setFormData({ ...EMPTY_FORM, ...adm });
     window.scrollTo(0, 0);
-    toast.info("Editing admission");
+    toast.info("Editing admission record");
   };
 
   const handleCancel = async (id) => {
-    if (!window.confirm("Cancel this admission?")) return;
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}admission/${id}/`, "DELETE");
-      if (res.success) {
-        toast.success("Admission cancelled");
-        fetchAdmissions();
+    if (window.confirm("Are you sure you want to cancel this admission?")) {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}admission/${id}/`, "DELETE");
+        if (response.success) {
+          toast.success("Admission cancelled successfully");
+          fetchAdmissions(); // Refresh list
+        } else {
+          throw new Error(response.error || "Failed to cancel admission");
+        }
+      } catch (error) {
+        console.error("Error cancelling admission:", error.message);
+        toast.error("Failed to cancel admission");
       }
-    } catch {
-      toast.error("Failed to cancel");
     }
   };
 
@@ -509,11 +538,13 @@ const Admission = () => {
     }
 
     try {
-      let res;
+      let response;
       if (editingId) {
-        res = await apiRequest(`${HmsBaseUrl}admission/${editingId}/`, "PUT", payload);
+        // Update
+        response = await apiRequest(`${HmsBaseUrl}admission/${editingId}/`, "PUT", formPayload);
       } else {
-        res = await apiRequest(`${HmsBaseUrl}admission/`, "POST", payload);
+        // Create
+        response = await apiRequest(`${HmsBaseUrl}admission/`, "POST", formPayload);
       }
       if (res.success) {
         toast.success(editingId ? "Admission updated!" : "Admission saved!");
@@ -542,7 +573,7 @@ const Admission = () => {
         });
         fetchAdmissions();
       } else {
-        throw new Error(res.error);
+        throw new Error(response.error || "Failed to save admission");
       }
     } catch {
       toast.error("Failed to save admission");
@@ -905,12 +936,12 @@ const Admission = () => {
               <tbody>
                 {admissions.length === 0 ? (
                   <Tr>
-                    <Td colSpan="8" style={{ textAlign: "center", padding: "24px" }}>
-                      No admissions found
+                    <Td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>
+                      No admission records found
                     </Td>
                   </Tr>
                 ) : (
-                  admissions.map((adm, idx) => (
+                  admissions.map((admission, idx) => (
                     <Tr key={idx}>
                       <Td>{adm.uhid}</Td>
                       <Td>{adm.ipNumber}</Td>
@@ -925,9 +956,16 @@ const Admission = () => {
                       <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
                       <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "-"}</Td>
                       <Td>
-                        <StatusBadge active={adm.is_active !== false}>
-                          {adm.is_active !== false ? "Active" : "Cancelled"}
-                        </StatusBadge>
+                        <span style={{
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: '600',
+                          background: admission.is_active !== false ? '#dcfce7' : '#fee2e2',
+                          color: admission.is_active !== false ? '#166534' : '#991b1b'
+                        }}>
+                          {admission.is_active !== false ? 'Active' : 'Cancelled'}
+                        </span>
                       </Td>
                       <Td>
                         <div style={{ display: "flex", gap: 5 }}>
@@ -939,7 +977,7 @@ const Admission = () => {
                           </MiniBtnPrint>
                           <MiniBtn danger onClick={() => handleCancel(adm._id || adm.id)} disabled={adm.is_active === false}>
                             🗑️ Cancel
-                          </MiniBtn>
+                          </Button>
                         </div>
                       </Td>
                     </Tr>
@@ -948,32 +986,32 @@ const Admission = () => {
               </tbody>
             </Table>
           </TableWrapper>
-        </TableSection>
+        </div>
       </Container>
 
       {/* ── Room Search Modal ──────────────────────────────────────── */}
       {showRoomModal && (
         <ModalOverlay onClick={() => setShowRoomModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700 }}>
+          <ModalContainer onClick={(e) => e.stopPropagation()}>
             <ModalHeader>
-              <ModalTitle>Search Rooms (Active Only)</ModalTitle>
+              <ModalTitle>Search Rooms</ModalTitle>
               <CloseButton onClick={() => setShowRoomModal(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>
               <SearchRow>
                 <SearchInput
                   type="text"
-                  placeholder="Room number..."
-                  value={roomQuery}
-                  onChange={(e) => setRoomQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && searchRooms()}
+                  placeholder="Enter room number..."
+                  value={roomSearchQuery}
+                  onChange={(e) => setRoomSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && searchRooms()}
                 />
                 <Button type="button" onClick={searchRooms} disabled={loadingRooms}>
-                  {loadingRooms ? "…" : "Search"}
+                  {loadingRooms ? "Searching..." : "Search"}
                 </Button>
               </SearchRow>
               {loadingRooms ? (
-                <NoResults>Loading…</NoResults>
+                <NoResults>Loading rooms...</NoResults>
               ) : roomResults.length > 0 ? (
                 <Table>
                   <thead>
@@ -985,12 +1023,12 @@ const Admission = () => {
                       <Th>Capacity</Th>
                       <Th>Nursing Station</Th>
                       <Th>Fee</Th>
-                      <Th></Th>
+                      <Th>Action</Th>
                     </tr>
                   </thead>
                   <tbody>
-                    {roomResults.map((room, i) => (
-                      <tr key={i}>
+                    {roomResults.map((room, index) => (
+                      <tr key={index}>
                         <Td>{room.room_number}</Td>
                         <Td>{room.room_category}</Td>
                         <Td>{room.block}</Td>
@@ -1006,7 +1044,7 @@ const Admission = () => {
                   </tbody>
                 </Table>
               ) : (
-                <NoResults>No active rooms found.</NoResults>
+                <NoResults>No rooms found. Try a different search.</NoResults>
               )}
             </ModalBody>
           </ModalContainer>

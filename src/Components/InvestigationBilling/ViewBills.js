@@ -11,9 +11,8 @@ import {
   Td,
   Tr,
   TableWrapper as GlobalTableWrapper,
-} from "../GlobalStyledComponents";
+} from "../GlobalStyles";
 
-// Modern styled components
 const PageContainer = styled.div`
   min-height: 100vh;
   background: linear-gradient(135deg, #e8f5e9 0%, #b2dfdb 100%);
@@ -46,9 +45,9 @@ const PageTitle = styled.h1`
   display: flex;
   align-items: center;
   gap: 1rem;
-  
+
   &::before {
-    content: '📄';
+    content: "📄";
     font-size: 2.5rem;
   }
 `;
@@ -67,19 +66,19 @@ const BackButton = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  
+
   &:hover {
     background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
   }
-  
+
   &:active {
     transform: translateY(0);
   }
-  
+
   &::before {
-    content: '←';
+    content: "←";
     font-size: 1.25rem;
   }
 `;
@@ -112,7 +111,7 @@ const Select = styled.select`
   font-size: 0.938rem;
   transition: all 0.3s ease;
   background: white;
-  
+
   &:focus {
     outline: none;
     border-color: #00897b;
@@ -126,7 +125,7 @@ const Input = styled.input`
   border-radius: 10px;
   font-size: 0.938rem;
   transition: all 0.3s ease;
-  
+
   &:focus {
     outline: none;
     border-color: #00897b;
@@ -148,7 +147,7 @@ const RadioLabel = styled.label`
   cursor: pointer;
   font-size: 0.938rem;
   color: #555;
-  
+
   input {
     cursor: pointer;
     width: 18px;
@@ -157,39 +156,43 @@ const RadioLabel = styled.label`
   }
 `;
 
-const TableWrapper = styled(GlobalTableWrapper)`
+const TableWrapper = styled.div`
+  overflow-x: auto;
   margin-top: 1.5rem;
-  
-  /* Custom scrollbar styling */
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+
   &::-webkit-scrollbar {
     height: 8px;
   }
-  
+
   &::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 10px;
   }
-  
+
   &::-webkit-scrollbar-thumb {
     background: #00897b;
     border-radius: 10px;
   }
-  
+
   &::-webkit-scrollbar-thumb:hover {
     background: #00695c;
   }
 `;
 
-const ModernTable = styled(GlobalTable)`
+const ModernTable = styled.table`
+  width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+  overflow: hidden;
   border-radius: 12px;
-  min-width: 1400px; /* Prevents table from shrinking too much */
+  min-width: 1400px;
 `;
 
 const TableHead = styled.thead`
   background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  
+
   th {
     color: white;
     font-weight: 600;
@@ -202,23 +205,23 @@ const TableHead = styled.thead`
   }
 `;
 
-const TableRow = styled(Tr)`
+const TableRow = styled.tr`
   background: white;
   transition: all 0.3s ease;
   border-bottom: 1px solid #f0f0f0;
-  
+
   &:hover {
     background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
     transform: scale(1.01);
     box-shadow: 0 4px 12px rgba(0, 137, 123, 0.1);
   }
-  
+
   &:last-child {
     border-bottom: none;
   }
 `;
 
-const TableCell = styled(Td)`
+const TableCell = styled.td`
   padding: 1rem;
   color: #555;
   font-size: 0.938rem;
@@ -232,7 +235,7 @@ const ActionIcon = styled.span`
   font-size: 1.25rem;
   transition: all 0.3s ease;
   display: inline-block;
-  
+
   &:hover {
     transform: scale(1.2);
   }
@@ -240,7 +243,6 @@ const ActionIcon = styled.span`
 
 const PrintIcon = styled(ActionIcon)`
   color: #00897b;
-  
   &:hover {
     color: #00695c;
   }
@@ -248,7 +250,6 @@ const PrintIcon = styled(ActionIcon)`
 
 const EditIcon = styled(ActionIcon)`
   color: #ff9800;
-  
   &:hover {
     color: #f57c00;
   }
@@ -256,7 +257,6 @@ const EditIcon = styled(ActionIcon)`
 
 const DeleteIcon = styled(ActionIcon)`
   color: #ef5350;
-  
   &:hover {
     color: #d32f2f;
   }
@@ -266,14 +266,14 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: #999;
-  
+
   &::before {
-    content: '📭';
+    content: "📭";
     font-size: 4rem;
     display: block;
     margin-bottom: 1rem;
   }
-  
+
   p {
     font-size: 1.125rem;
     font-weight: 500;
@@ -288,7 +288,7 @@ const ItemsList = styled.div`
 const ItemRow = styled.div`
   padding: 0.25rem 0;
   border-bottom: 1px solid #f0f0f0;
-  
+
   &:last-child {
     border-bottom: none;
   }
@@ -296,18 +296,19 @@ const ItemRow = styled.div`
 
 const StyledDatePicker = styled(DatePicker)`
   width: 100%;
-  
+
   .ant-picker-input input {
     padding: 0.75rem 1rem;
     font-size: 0.938rem;
   }
-  
+
   &.ant-picker {
     border: 2px solid #e0e0e0;
     border-radius: 10px;
     padding: 0;
-    
-    &:hover, &.ant-picker-focused {
+
+    &:hover,
+    &.ant-picker-focused {
       border-color: #00897b;
       box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
     }
@@ -330,6 +331,25 @@ const BillsReport = () => {
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  // ✅ Format date + time like EstimateBillsReport
+  const formatBillDate = (dateStr) => {
+    if (!dateStr) return "";
+    // If no timezone info, treat as UTC by appending 'Z'
+    const normalized =
+      dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z";
+    const date = new Date(normalized);
+    return date
+      .toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
+  };
   useEffect(() => {
     const today = dayjs().format("YYYY-MM-DD");
     setFromDate(today);
@@ -337,42 +357,49 @@ const BillsReport = () => {
   }, []);
 
   useEffect(() => {
-    const fetchEstimateBills = async () => {
+    const fetchBills = async () => {
       try {
         const queryParams = new URLSearchParams();
         Object.entries(filters).forEach(([key, value]) => {
-          if (value) queryParams.append(key, value);
+          if (value && value !== "ALL") queryParams.append(key, value);
         });
+
+        if (fromDate) queryParams.append("start_date", fromDate);
+        if (toDate) queryParams.append("end_date", toDate);
 
         const result = await apiRequest(
           `${HMSURL}investBillingGet/?${queryParams.toString()}`,
-          "GET"
+          "GET",
         );
 
         if (result.success) {
           setEstimateBills(result.data);
+          setFilteredBills(result.data);
         } else {
-          console.error("Failed to fetch estimate bills:", result.error);
-          toast.error(result.error || "Failed to fetch estimate bills");
+          console.error("Failed to fetch bills:", result.error);
+          toast.error(result.error || "Failed to fetch bills");
         }
       } catch (error) {
-        console.error("Error fetching estimate bills:", error);
+        console.error("Error fetching bills:", error);
         toast.error("An unexpected error occurred");
       }
     };
 
-    fetchEstimateBills();
-  }, [filters, HMSURL]);
+    fetchBills();
+  }, [filters, fromDate, toDate, HMSURL]);
 
   useEffect(() => {
     const fetchBillTypesAndDoctors = async () => {
       try {
         const billTypesResult = await apiRequest(`${HMSURL}bill-types/`, "GET");
         if (billTypesResult.success) {
-          setBillTypes(billTypesResult.data.items || []);
+          setBillTypes(billTypesResult.data.billTypes || []); // ✅ billTypes key
         }
 
-        const doctorsResult = await apiRequest(`${HMSURL}doctor_list/`, "GET");
+        const doctorsResult = await apiRequest(
+          `${HMSURL}doctor_list_diagnostics/`,
+          "GET",
+        );
         if (doctorsResult.success) {
           setDoctors(doctorsResult.data);
         }
@@ -388,35 +415,29 @@ const BillsReport = () => {
   useEffect(() => {
     const filtered = estimateBills.filter((bill) => {
       if (fromDate && toDate) {
-        const billDate = new Date(bill.investBillDate);
+        const billDate = new Date(bill.EstBillDate || bill.investBillDate);
         const startDate = new Date(fromDate);
         const endDate = new Date(toDate);
         startDate.setHours(0, 0, 0, 0);
         endDate.setHours(23, 59, 59, 999);
-
-        if (billDate < startDate || billDate > endDate) {
-          return false;
-        }
+        if (billDate < startDate || billDate > endDate) return false;
       }
 
-      if (filters.patientType === "IP" && !(bill.uhid && bill.ipNumber)) {
+      if (filters.patientType === "IP" && !(bill.uhid && bill.ipNumber))
         return false;
-      }
-      if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber)) {
+      if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber))
         return false;
-      }
 
-      if (filters.billType && bill.billType !== filters.billType) {
+      // ✅ Compare bill_type as string
+      if (
+        filters.billType &&
+        String(bill.bill_type) !== String(filters.billType)
+      )
         return false;
-      }
 
-      if (filters.doctor && bill.doctor !== filters.doctor) {
-        return false;
-      }
+      if (filters.doctor && bill.doctor !== filters.doctor) return false;
 
-      if (filters.uhid && !bill.uhid.includes(filters.uhid)) {
-        return false;
-      }
+      if (filters.uhid && !bill.uhid?.includes(filters.uhid)) return false;
 
       return true;
     });
@@ -426,10 +447,7 @@ const BillsReport = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleDateChange = (date, dateType) => {
@@ -443,20 +461,30 @@ const BillsReport = () => {
   const handlePrint = (bill) => {
     const printWindow = window.open("", "_blank", "height=600,width=800");
 
-    const formatDateTime = (dateStr, timeStr) => {
+    const formatDateTime = (dateStr) => {
       if (!dateStr) return "";
-      const date = new Date(dateStr);
-      const formattedDate = `${date.getDate().toString().padStart(2, "0")}/${(
-        date.getMonth() + 1
-      )
-        .toString()
-        .padStart(2, "0")}/${date.getFullYear()}`;
-      return timeStr ? `${formattedDate} ${timeStr}` : formattedDate;
+      const normalized =
+        dateStr.endsWith("Z") || dateStr.includes("+")
+          ? dateStr
+          : dateStr + "Z";
+      const date = new Date(normalized);
+      return date
+        .toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+        .toUpperCase();
     };
 
     const formatPatientName = (salutation, firstName, middleName, lastName) => {
-      return `${salutation || ""} ${firstName || ""} ${middleName ? middleName + " " : ""
-        }${lastName || ""}`.trim();
+      return `${salutation || ""} ${firstName || ""} ${
+        middleName ? middleName + " " : ""
+      }${lastName || ""}`.trim();
     };
 
     const html = `
@@ -472,19 +500,18 @@ const BillsReport = () => {
           .bill-title { font-weight: bold; display: inline-block; margin-right: 10px; }
           .bill-subtitle { font-weight: bold; display: inline-block; margin-left: 10px; }
           .bill-details { display: flex; justify-content: space-between; margin-bottom: 15px; }
-          .bill-details-left, .bill-details-right { width: 48%; }
+          .bill-details-left { width: 48%; }
           .bill-row { display: flex; margin-bottom: 5px; }
-          .bill-label { font-weight: bold; width: 100px; }
+          .bill-label { font-weight: bold; width: 120px; }
           .bill-value { flex-grow: 1; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
           th, td { border: 1px solid #000; padding: 5px; text-align: left; }
           th { background-color: #f2f2f2; }
-          .text-right { text-align: right; }
-          .signature { display: flex; justify-content: space-between; margin-top: 30px; }
           .total-section { margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; }
           .total-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
           .total-label { font-weight: bold; }
           .net-amount { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 5px; }
+          .signature { display: flex; justify-content: space-between; margin-top: 30px; }
         </style>
       </head>
       <body>
@@ -493,17 +520,17 @@ const BillsReport = () => {
           <div class="address">51/24.Saradha College Road, Salem - 636007</div>
           <div class="registration">CIN: U85110TZ20PLC033974</div>
         </div>
-        
+
         <div>
           <span class="bill-title">"${bill.paymentMethod || "NIL"}"</span>
-          <span class="bill-subtitle">${bill.billType || "NIL"}</span>
+          <span class="bill-subtitle">${bill.bill_name || "NIL"}</span>
         </div>
-        
+
         <div class="bill-details">
           <div class="bill-details-left">
             <div class="bill-row">
               <div class="bill-label">Bill Number</div>
-              <div class="bill-value">: ${bill.investBillNo || ""}</div>
+              <div class="bill-value">: ${bill.investBillNo || bill.EstBillNo || ""}</div>
             </div>
             <div class="bill-row">
               <div class="bill-label">OP Number</div>
@@ -511,16 +538,16 @@ const BillsReport = () => {
             </div>
             <div class="bill-row">
               <div class="bill-label">Bill Date</div>
-              <div class="bill-value">: ${formatDateTime(bill.investBillDate, bill.time)}</div>
+              <div class="bill-value">: ${formatDateTime(bill.investBillDate || bill.EstBillDate)}</div>
             </div>
             <div class="bill-row">
               <div class="bill-label">Name</div>
               <div class="bill-value">: ${formatPatientName(
-      bill.salutation,
-      bill.firstName,
-      bill.middleName,
-      bill.lastName
-    )}</div>
+                bill.salutation,
+                bill.firstName,
+                bill.middleName,
+                bill.lastName,
+              )}</div>
             </div>
             <div class="bill-row">
               <div class="bill-label">Doctor</div>
@@ -528,7 +555,7 @@ const BillsReport = () => {
             </div>
           </div>
         </div>
-        
+
         <table>
           <thead>
             <tr>
@@ -540,40 +567,42 @@ const BillsReport = () => {
             </tr>
           </thead>
           <tbody>
-            ${Array.isArray(bill.item)
-        ? bill.item
-          .map(
-            (item, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${item.itemName || ""}</td>
-                  <td>${item.quantity || 1}</td>
-                  <td>${parseFloat(item.price).toFixed(2)}</td>
-                  <td>${(parseFloat(item.price) * parseInt(item.quantity || 1)).toFixed(2)}</td>
-                </tr>
-              `
-          )
-          .join("")
-        : '<tr><td colspan="5">No Items</td></tr>'
-      }
+            ${
+              Array.isArray(bill.item)
+                ? bill.item
+                    .map(
+                      (item, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.itemName || ""}</td>
+                    <td>${item.quantity || 1}</td>
+                    <td>${parseFloat(item.price).toFixed(2)}</td>
+                    <td>${(
+                      parseFloat(item.price) * parseInt(item.quantity || 1)
+                    ).toFixed(2)}</td>
+                  </tr>`,
+                    )
+                    .join("")
+                : '<tr><td colspan="5">No Items</td></tr>'
+            }
           </tbody>
         </table>
-        
+
         <div class="total-section">
           <div class="total-row">
             <div class="total-label">Total</div>
-            <div class="total-value">${parseFloat(bill.total || 0).toFixed(2)}</div>
+            <div>${parseFloat(bill.total || 0).toFixed(2)}</div>
           </div>
           <div class="total-row">
             <div class="total-label">Discount</div>
-            <div class="total-value">${bill.discount || "0.00"}</div>
+            <div>${bill.discount || "0.00"}</div>
           </div>
           <div class="total-row net-amount">
             <div class="total-label">Net Amount</div>
-            <div class="total-value">${bill.finalPrice || "0.00"}</div>
+            <div>${bill.finalPrice || "0.00"}</div>
           </div>
         </div>
-        
+
         <div class="signature">
           <div>${bill.uhid || ""}</div>
           <div>(Signature)</div>
@@ -584,7 +613,6 @@ const BillsReport = () => {
 
     printWindow.document.write(html);
     printWindow.document.close();
-
     setTimeout(() => {
       printWindow.print();
     }, 500);
@@ -596,18 +624,18 @@ const BillsReport = () => {
 
   const handleDelete = async (bill) => {
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete bill: ${bill.investBillNo}?`
+      `Are you sure you want to delete bill: ${bill.investBillNo || bill.EstBillNo}?`,
     );
     if (!confirmDelete) return;
 
     try {
-      const result = await apiRequest(`${HMSURL}delete-bill/`, "DELETE", {
+      const result = await apiRequest(`${HMSURL}delete-bill/`, "PATCH", {
         billId: bill._id,
-        billType: bill.billType,
+        billType: bill.bill_type,
       });
 
       if (result.success) {
-        toast.success("Bill deleted and moved to Recycle Bin.");
+        toast.success("Bill deleted.");
         setEstimateBills((prev) => prev.filter((b) => b._id !== bill._id));
       } else {
         console.error("Delete failed:", result.error);
@@ -620,8 +648,9 @@ const BillsReport = () => {
   };
 
   const formatPatientName = (salutation, firstName, middleName, lastName) => {
-    return `${salutation} ${firstName} ${middleName ? middleName + " " : ""
-      }${lastName}`;
+    return `${salutation || ""} ${firstName || ""} ${
+      middleName ? middleName + " " : ""
+    }${lastName || ""}`.trim();
   };
 
   return (
@@ -653,6 +682,7 @@ const BillsReport = () => {
             />
           </FilterGroup>
 
+          {/* ✅ Bill Type dropdown showing bill_name */}
           <FilterGroup>
             <FilterLabel>Bill Type</FilterLabel>
             <Select
@@ -661,13 +691,11 @@ const BillsReport = () => {
               onChange={handleFilterChange}
             >
               <option value="">Select Bill Type</option>
-              {[...new Set(billTypes.map((bill) => bill.billType))].map(
-                (billType, index) => (
-                  <option key={index} value={billType}>
-                    {billType}
-                  </option>
-                )
-              )}
+              {billTypes.map((bill) => (
+                <option key={bill.bill_type} value={bill.bill_type}>
+                  {bill.bill_name}
+                </option>
+              ))}
             </Select>
           </FilterGroup>
 
@@ -680,13 +708,8 @@ const BillsReport = () => {
             >
               <option value="">Select Doctor</option>
               {doctors.map((doctor) => (
-                <option
-                  key={doctor.id}
-                  value={`${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name
-                    }`.trim()}
-                >
-                  {`${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name
-                    }`.trim()}
+                <option key={doctor.employeeId} value={doctor.employeeName}>
+                  {doctor.employeeName}
                 </option>
               ))}
             </Select>
@@ -745,15 +768,13 @@ const BillsReport = () => {
               <TableHead>
                 <tr>
                   <th>Sl.No</th>
-                  <th>Bill Date</th>
-                  <th>Time</th>
+                  <th>Date / Time</th> {/* ✅ Combined column */}
                   <th>Bill No</th>
                   <th>UHID No</th>
                   <th>IP No</th>
                   <th>Patient Name</th>
                   <th>Age</th>
-                  <th>Room No</th>
-                  <th>Bill Type</th>
+                  <th>Bill Type</th> {/* ✅ Will show bill_name */}
                   <th>Items</th>
                   <th>Bill Amount</th>
                   <th>Payment Method</th>
@@ -765,9 +786,11 @@ const BillsReport = () => {
                 {filteredBills.map((bill, index) => (
                   <TableRow key={index}>
                     <TableCell>{index + 1}</TableCell>
-                    <TableCell>{bill.investBillDate}</TableCell>
-                    <TableCell>{bill.time}</TableCell>
-                    <TableCell>{bill.investBillNo}</TableCell>
+                    {/* ✅ Combined Date/Time */}
+                    <TableCell>
+                      {formatBillDate(bill.investBillDate || bill.EstBillDate)}
+                    </TableCell>
+                    <TableCell>{bill.investBillNo || bill.EstBillNo}</TableCell>
                     <TableCell>{bill.uhid}</TableCell>
                     <TableCell>{bill.ipNumber}</TableCell>
                     <TableCell>
@@ -775,20 +798,21 @@ const BillsReport = () => {
                         bill.salutation,
                         bill.firstName,
                         bill.middleName,
-                        bill.lastName
+                        bill.lastName,
                       )}
                     </TableCell>
                     <TableCell>{bill.age}</TableCell>
-                    <TableCell>{bill.roomNo}</TableCell>
-                    <TableCell>{bill.billType}</TableCell>
+                    {/* ✅ Show bill_name */}
+                    <TableCell>{bill.bill_name}</TableCell>
                     <TableCell>
                       <ItemsList>
                         {Array.isArray(bill.item)
                           ? bill.item.map((item, idx) => (
-                            <ItemRow key={idx}>
-                              {item.itemName} - ₹{item.price} (Qty: {item.quantity})
-                            </ItemRow>
-                          ))
+                              <ItemRow key={idx}>
+                                {item.itemName} - ₹{item.price} (Qty:{" "}
+                                {item.quantity})
+                              </ItemRow>
+                            ))
                           : "No Items"}
                       </ItemsList>
                     </TableCell>
@@ -802,10 +826,7 @@ const BillsReport = () => {
                       >
                         🖨
                       </PrintIcon>
-                      <EditIcon
-                        onClick={() => handleEdit(bill)}
-                        title="Edit"
-                      >
+                      <EditIcon onClick={() => handleEdit(bill)} title="Edit">
                         ✏️
                       </EditIcon>
                       <DeleteIcon
