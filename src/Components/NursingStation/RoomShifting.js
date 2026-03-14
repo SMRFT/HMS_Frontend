@@ -216,28 +216,30 @@ const RoomShifting = () => {
     }
   };
 
-  const fetchPatient = async (type) => { // type: 'uhid' or 'ip'
-    const query = type === 'uhid' ? formData.uhid : formData.ipNo;
-    if (!query) {
-      alert(`Please enter ${type.toUpperCase()}`);
+  const fetchPatientByUHID = async () => {
+    if (!formData.uhid) {
+      alert("Please enter UHID");
       return;
     }
 
     try {
-      const response = await apiRequest(`${Hmsbaseurl}room-shifting/?search=${encodeURIComponent(query)}`, "GET");
-      if (response && response.uhid) { // Backend returns object directly
+      const response = await apiRequest(`${Hmsbaseurl}admission-by-uhid/${encodeURIComponent(formData.uhid)}/`, "GET");
+      if (response.success) {
+        const data = response.data;
         setFormData(prev => ({
           ...prev,
-          uhid: response.uhid,
-          ipNo: response.ip_no || "",
-          name: response.patient_name || "",
-          currentRoomNumber: response.current_room_no || "",
-          currentBedNumber: response.current_bed_no || "",
-          // Other fields might need adjustment or are not provided by simplistic backend view
-          // Keeping existing state for others or clearing them?
+          ipNo: data.ipNumber || "",
+          name: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim(),
+          age: data.age || "",
+          gender: data.gender || "",
+          admittedOn: data.admissionDate || "",
+          admittedTime: data.time || "",
+          currentRoomNumber: data.roomNo || "",
+          currentBedNumber: data.bedNo || "",
+          address: data.address || "",
         }));
       } else {
-        alert("Patient not found or not admitted");
+        alert("Patient not found");
       }
     } catch (error) {
       console.error("Error fetching patient:", error);
@@ -245,8 +247,36 @@ const RoomShifting = () => {
     }
   };
 
-  const fetchPatientByUHID = () => fetchPatient('uhid');
-  const fetchPatientByIP = () => fetchPatient('ip');
+  const fetchPatientByIP = async () => {
+    if (!formData.ipNo) {
+      alert("Please enter IP Number");
+      return;
+    }
+
+    try {
+      const response = await apiRequest(`${Hmsbaseurl}admission-by-ip/${encodeURIComponent(formData.ipNo)}/`, "GET");
+      if (response.success) {
+        const data = response.data;
+        setFormData(prev => ({
+          ...prev,
+          uhid: data.uhid || "",
+          name: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim(),
+          age: data.age || "",
+          gender: data.gender || "",
+          admittedOn: data.admissionDate || "",
+          admittedTime: data.time || "",
+          currentRoomNumber: data.roomNo || "",
+          currentBedNumber: data.bedNo || "",
+          address: data.address || "",
+        }));
+      } else {
+        alert("Patient not found");
+      }
+    } catch (error) {
+      console.error("Error fetching patient:", error);
+      alert("Error fetching patient details");
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
