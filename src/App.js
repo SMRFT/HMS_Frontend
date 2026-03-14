@@ -23,9 +23,7 @@ import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
-import VendorManagement from "./Components/InventoryMaster/VendorManagement";
-import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyStock";
-import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
+// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
@@ -52,6 +50,11 @@ import XRayList from "./Components/InvestigationReports/XRayList";
 import XRayReportForm from "./Components/InvestigationReports/XRayReportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
+
+import GRNGenerator from "./Components/InventoryMaster/GRNGeneration";
+import Pharmacystock from "./Components/InventoryMaster/PharmacyStock";
+import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
@@ -64,9 +67,16 @@ import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
 
 import Dashboard from "./Components/Dashboard/Dashboard";
+import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
+import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
+import LabWardRequest from "./Components/NursingStation/LabWardRequest";
+import Wardrequest from "./Components/NursingStation/wardrequest";
+
+
+
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -142,6 +152,8 @@ function App() {
     const routeTitles = {
       "/": "Login",
       "/Dashboard": "Dashboard",
+      "/AdvancedDashboard": "Advanced Dashboard",
+      "/DoctorDashboard": "Doctor Dashboard",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/RoomShifting": "Room Shifting",
@@ -149,9 +161,7 @@ function App() {
       "/RoomCategory": "Room Category",
       "/Room": "Room Master",
       "/Block": "Block Master",
-      "/PharmacyItemMaster": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
-      "/GRNGeneration": "GRN Generation",
       "/IPPharmacy": "IP Pharmacy",
       "/OPPharmacy": "OP Pharmacy",
       "/DischargeForm": "Discharge Form",
@@ -170,6 +180,9 @@ function App() {
       "/Package": "Package",
       "/Investigationprice": "Investigation Price",
       "/SidebarConfiguration": "Sidebar Editor",
+      "/GRNGenerator": "GRN Generator",
+      "/Pharmacystock": "Pharmacy Stock",
+      "/VendorManagement": "Vendor Management",
     };
 
     const path = location.pathname;
@@ -224,6 +237,12 @@ function App() {
             {hasPagePermission("/Dashboard", allowedActions) && (
               <Route path="/Dashboard" element={<Dashboard />} />
             )}
+            {hasPagePermission("/AdvancedDashboard", allowedActions) && (
+              <Route path="/AdvancedDashboard" element={<AdvancedDashboard />} />
+            )}
+            {hasPagePermission("/DoctorDashboard", allowedActions) && (
+              <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
+            )}
 
             {/* User Permission Manager */}
             {hasPagePermission("/UserPermissions", allowedActions) && (
@@ -273,6 +292,12 @@ function App() {
             {hasPagePermission("/RoomShifting", allowedActions) && (
               <Route path="/RoomShifting" element={<RoomShifting />} />
             )}
+            {hasPagePermission("/wardrequest", allowedActions) && (
+              <Route path="/wardrequest" element={<Wardrequest />} />
+            )}
+            {hasPagePermission("/LabWardRequest", allowedActions) && (
+              <Route path="/LabWardRequest" element={<LabWardRequest />} />
+            )}
 
             {/* Rooms */}
             {hasPagePermission("/RoomEnquiry", allowedActions) && (
@@ -284,31 +309,13 @@ function App() {
             {hasPagePermission("/Room", allowedActions) && (
               <Route path="/Room" element={<Room />} />
             )}
-            {hasPagePermission("/Bed", allowedActions) && (
-              <Route path="/Bed" element={<Bed />} />
-            )}
-            {hasPagePermission("/Service", allowedActions) && (
-              <Route path="/Service" element={<Service />} />
-            )}
             {hasPagePermission("/Block", allowedActions) && (
               <Route path="/Block" element={<Block />} />
             )}
 
             {/* Inventory */}
-            {hasPagePermission("/IPPharmacyStock", allowedActions) && (
-              <Route path="/IPPharmacyStock" element={<IPPharmacyStock />} />
-            )}
-            {hasPagePermission("/OPPharmacyStock", allowedActions) && (
-              <Route path="/OPPharmacyStock" element={<OPPharmacyStock />} />
-            )}
             {hasPagePermission("/VendorManagement", allowedActions) && (
               <Route path="/VendorManagement" element={<VendorManagement />} />
-            )}
-            {hasPagePermission("/IPGRNGeneration", allowedActions) && (
-              <Route path="/IPGRNGeneration" element={<IPGRNGeneration />} />
-            )}
-            {hasPagePermission("/OPGRNGeneration", allowedActions) && (
-              <Route path="/OPGRNGeneration" element={<OPGRNGeneration />} />
             )}
 
             {/* Pharmacy */}
@@ -364,6 +371,30 @@ function App() {
               <Route path="/XRayReportForm/:uhid/:subUhid" element={<XRayReportForm />} />
             )}
 
+            {/* Packages */}
+            {hasPagePermission("/Package", allowedActions) && (
+              <Route path="/Package" element={<Package />} />
+            )}
+            {/* Investigationprice */}
+            {hasPagePermission("/Investigationprice", allowedActions) && (
+              <Route path="/Investigationprice" element={<Investigationprice />} />
+            )}
+            {/* BillType */}
+            {hasPagePermission("/BillType", allowedActions) && (
+              <Route path="/BillType" element={<BillType />} />
+            )}
+            {/* GRNGenerator */}
+            {hasPagePermission("/GRNGenerator", allowedActions) && (
+              <Route path="/GRNGenerator" element={<GRNGenerator />} />
+            )}
+            {/* Pharmacystock */}
+            {hasPagePermission("/Pharmacystock", allowedActions) && (
+              <Route path="/Pharmacystock" element={<Pharmacystock />} />
+            )}
+            {/* VendorManagement */}
+            {hasPagePermission("/VendorManagement", allowedActions) && (
+              <Route path="/VendorManagement" element={<VendorManagement />} />
+            )}
           </Routes>
         </ContentWrapper>
       )}

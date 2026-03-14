@@ -1,6 +1,8 @@
 export const PAGE_PERMISSIONS = {
     // Dashboard
     "/Dashboard": "HMS-API-SUM", // Hypothetical map based on token, user to verify
+    "/AdvancedDashboard": "HMS-API-SUM", // Mirroring Dashboard for now
+    "/DoctorDashboard": "HMS-API-SUM",
 
     // Patient Registration 
     "/PatientRegistrationForm": "HMS-P-REG", // "HMS-P-REG-R" / "HMS-P-REG-RW" found in token

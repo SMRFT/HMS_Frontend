@@ -8,6 +8,8 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^13.5.0",
+    "ag-grid-community": "^35.1.0",
+    "ag-grid-react": "^35.1.0",
     "antd": "^6.2.3",
     "axios": "^1.13.4",
     "bootstrap": "^5.3.8",
