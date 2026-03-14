@@ -45,7 +45,7 @@ const colors = {
 };
 
 const SidebarContainer = styled.div`
-  width: 260px;
+  width: 200px;
   height: 100vh;
   position: fixed;
   left: 0;
@@ -66,30 +66,18 @@ const SidebarContainer = styled.div`
 `;
 
 const BrandSection = styled.div`
-  padding: 30px 24px;
+  padding: 20px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid #f1f5f9;
 `;
 
-const BrandLogo = styled.div`
-  width: 35px;
-  height: 35px;
-  background: linear-gradient(135deg, ${colors.primary}, #0f766e);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 1.2rem;
-`;
 
 const BrandName = styled.span`
   font-weight: 700;
   font-size: 1.1rem;
-  color: ${colors.textMain};
+  color: ${colors.primary};
   letter-spacing: -0.5px;
   @media (max-width: 768px) {
     display: none;
@@ -109,7 +97,8 @@ const NavGroupLabel = styled.div`
   padding: 10px 12px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: ${colors.textMuted};
+  white-space: nowrap;
+  color: ${colors.primary};
   text-transform: uppercase;
   letter-spacing: 0.05em;
   @media (max-width: 768px) {
@@ -123,6 +112,7 @@ const StyledNavLink = styled(NavLink)`
   gap: 12px;
   padding: 12px 16px;
   text-decoration: none;
+  white-space: nowrap;
   color: ${colors.textMuted};
   font-size: 0.9rem;
   font-weight: 500;
@@ -239,7 +229,6 @@ const Sidebar = ({ role, allowedActions }) => {
   return (
     <SidebarContainer>
       <BrandSection>
-        <BrandLogo>S</BrandLogo>
         <BrandName>Shanmuga Hospital</BrandName>
       </BrandSection>
 

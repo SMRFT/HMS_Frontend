@@ -23,7 +23,9 @@ import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
 import DischargeForm from "./Components/Discharge/DischargeForm";
-// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
+import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
@@ -60,6 +62,9 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import IPAdvance from "./Components/NursingStation/IPAdvance";
+import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
+import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -81,7 +86,7 @@ import Wardrequest from "./Components/NursingStation/wardrequest";
 const ContentWrapper = styled.div`
   margin-top: 15px;
   padding: 20px;
-  margin-left: 260px;
+  margin-left: 210px;
 
   @media (max-width: 1024px) {
     margin-left: 200px;
@@ -156,6 +161,7 @@ function App() {
       "/DoctorDashboard": "Doctor Dashboard",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
+      "/IPAdvance": "IPAdvance",
       "/RoomShifting": "Room Shifting",
       "/RoomEnquiry": "Room Enquiry",
       "/RoomCategory": "Room Category",

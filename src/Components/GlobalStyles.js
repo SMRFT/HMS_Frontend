@@ -6,7 +6,7 @@ export const fadeIn = keyframes`
   to { opacity: 1; transform: translateY(0); }
 `;
 
-// Theme Colors
+// Theme Colors — UNCHANGED
 export const colors = {
   primary: "#0d9488",
   primaryDark: "#0f766e",
@@ -24,8 +24,9 @@ export const colors = {
 // Layout Components
 export const PageWrapper = styled.div`
   min-height: 100vh;
+  width: 100%;
   background-color: ${colors.background};
-  padding: 20px;
+  padding: 8px;
   font-family:
     "Inter",
     -apple-system,
@@ -33,26 +34,43 @@ export const PageWrapper = styled.div`
     "Segoe UI",
     Roboto,
     sans-serif;
+  box-sizing: border-box;
+  overflow-x: hidden;
+
+  /* Remove padding on very small screens */
+  @media (max-width: 480px) {
+    padding: 4px;
+  }
 `;
 
 export const Container = styled.div`
   width: 100%;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   animation: ${fadeIn} 0.4s ease-out;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  /* On larger screens allow up to 1400px */
+  @media (min-width: 1400px) {
+    max-width: 1400px;
+  }
 `;
 
 export const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 2px solid ${colors.border};
   background: ${colors.background};
+  width: 100%;
+  box-sizing: border-box;
 `;
 
 export const Tab = styled.div`
-  padding: 12px 24px;
-  font-size: 0.9rem;
+  padding: 8px 14px;
+  font-size: 0.82rem;
   font-weight: ${(props) => (props.active ? "600" : "500")};
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
   background: ${(props) => (props.active ? colors.tabBg : "transparent")};
@@ -62,22 +80,44 @@ export const Tab = styled.div`
   transition: all 0.2s;
   position: relative;
   top: 2px;
+  white-space: nowrap;
 
   &:hover {
     color: ${colors.primary};
     background: ${colors.tabBg};
   }
+
+  @media (max-width: 480px) {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+  }
 `;
 
 export const FormContent = styled.div`
-  padding: 30px;
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 480px) {
+    padding: 8px;
+  }
 `;
 
 export const FormRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 360px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 // Form Elements
@@ -85,13 +125,16 @@ export const InputWrapper = styled.div`
   display: flex;
   flex-direction: column;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0; /* prevents overflow in grid/flex children */
 `;
 
 export const Label = styled.label`
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: ${colors.textMain};
-  margin-bottom: 6px;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
 
@@ -107,12 +150,15 @@ export const Label = styled.label`
 `;
 
 export const Input = styled.input`
-  padding: 10px 14px;
+  padding: 5px 8px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   transition: all 0.2s;
   background: ${colors.surface};
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 
   &:focus {
     outline: none;
@@ -124,37 +170,53 @@ export const Input = styled.input`
     background: #f1f5f9;
     cursor: not-allowed;
   }
+
+  /* Prevent date inputs from overflowing */
+  &[type="date"] {
+    min-width: 0;
+    width: 100%;
+  }
 `;
 
 export const Select = styled.select`
-  padding: 10px 14px;
+  padding: 5px 28px 5px 8px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   transition: all 0.2s;
   background-color: ${colors.surface};
   cursor: pointer;
   appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-  background-position: right 0.5rem center;
+  background-position: right 0.4rem center;
   background-repeat: no-repeat;
-  background-size: 1.5em 1.5em;
-  padding-right: 2.5rem;
+  background-size: 1.2em 1.2em;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 
   &:focus {
     outline: none;
     border-color: ${colors.primary};
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
+
+  &:disabled {
+    background-color: #f1f5f9;
+    cursor: not-allowed;
+  }
 `;
 
 export const TextArea = styled.textarea`
-  padding: 10px 14px;
+  padding: 5px 8px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   transition: all 0.2s;
-  min-height: 80px;
+  min-height: 60px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
 
   &:focus {
     outline: none;
@@ -164,7 +226,7 @@ export const TextArea = styled.textarea`
 `;
 
 export const Button = styled.button`
-  padding: 10px 24px;
+  padding: 5px 14px;
   border-radius: 6px;
   font-weight: 500;
   cursor: pointer;
@@ -172,8 +234,8 @@ export const Button = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 0.95rem;
+  gap: 6px;
+  font-size: 0.82rem;
   border: none;
   color: white;
 
@@ -208,13 +270,13 @@ export const Button = styled.button`
 export const SectionHeader = styled.div`
   display: flex;
   align-items: center;
-  margin: 30px 0 20px;
-  padding-bottom: 10px;
+  margin: 12px 0 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid ${colors.border};
 
   h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     color: ${colors.primary};
     font-weight: 600;
   }
@@ -223,13 +285,13 @@ export const SectionHeader = styled.div`
 export const SectionTitle = styled.div`
   display: flex;
   align-items: center;
-  margin: 30px 0 20px;
-  padding-bottom: 10px;
+  margin: 12px 0 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid ${colors.border};
 
   h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     color: ${colors.primary};
     font-weight: 600;
   }
@@ -240,8 +302,8 @@ export const ControlsContainer = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
 
   @media (max-width: 768px) {
@@ -252,7 +314,7 @@ export const ControlsContainer = styled.div`
 
 export const SearchContainer = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-end;
   flex-wrap: wrap;
 
@@ -263,7 +325,7 @@ export const SearchContainer = styled.div`
 
 // Table Components
 export const TableWrapper = styled.div`
-  margin-top: 20px;
+  margin-top: 10px;
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid ${colors.border};
@@ -276,20 +338,20 @@ export const Table = styled.table`
 
 export const Th = styled.th`
   background: ${colors.tabBg};
-  padding: 12px;
+  padding: 7px 10px;
   text-align: left;
   color: ${colors.textMain};
   border-bottom: 2px solid ${colors.border};
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   white-space: nowrap;
 `;
 
 export const Td = styled.td`
-  padding: 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid ${colors.border};
   color: ${colors.textMain};
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 `;
 
 export const Tr = styled.tr`
@@ -303,35 +365,31 @@ export const Tr = styled.tr`
 // Search Button (Small)
 export const SearchButton = styled.button`
   display: inline-block;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   background: ${colors.primary};
   color: white;
   border: none;
-  border-radius: 50%; /* Make it perfectly circular */
+  border-radius: 50%;
   text-align: center;
-  line-height: 24px; /* Center icon vertically */
-  font-size: 0.85rem;
+  line-height: 22px;
+  font-size: 0.78rem;
   font-weight: bold;
   cursor: pointer;
-  margin-left: 8px; /* Add spacing from input */
+  margin-left: 6px;
   transition: all 0.2s;
-
-  /* Flexbox centering for strict alignment */
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* Absolute positioning within InputWrapper */
   position: absolute;
-  right: 12px; /* Position inside the right edge of input */
+  right: 10px;
   top: 50%;
-  transform: translateY(20%); /* Center vertically */
-  z-index: 2; /* Ensure it stays above input */
+  transform: translateY(20%);
+  z-index: 2;
 
   &:hover {
     background: ${colors.primaryDark};
-    transform: translateY(20%) scale(1.1); /* Keep vertical centering on hover */
+    transform: translateY(20%) scale(1.1);
   }
 `;
 
@@ -363,7 +421,7 @@ export const ModalContainer = styled.div`
 `;
 
 export const ModalHeader = styled.div`
-  padding: 20px 24px;
+  padding: 14px 18px;
   border-bottom: 2px solid ${colors.border};
   display: flex;
   justify-content: space-between;
@@ -374,19 +432,19 @@ export const ModalHeader = styled.div`
 export const ModalTitle = styled.h2`
   margin: 0;
   color: ${colors.textMain};
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: 600;
 `;
 
 export const CloseButton = styled.button`
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   color: ${colors.textMuted};
   cursor: pointer;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -400,23 +458,23 @@ export const CloseButton = styled.button`
 `;
 
 export const ModalBody = styled.div`
-  padding: 24px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
 `;
 
 export const SearchRow = styled.div`
   display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 14px;
 `;
 
 export const SearchInput = styled.input`
   flex: 1;
-  padding: 10px 14px;
+  padding: 5px 8px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.95rem;
+  font-size: 0.82rem;
   transition: all 0.2s;
 
   &:focus {
@@ -428,21 +486,21 @@ export const SearchInput = styled.input`
 
 export const NoResults = styled.div`
   text-align: center;
-  padding: 40px 20px;
+  padding: 30px 20px;
   color: ${colors.textMuted};
-  font-size: 1rem;
+  font-size: 0.9rem;
 `;
 
 // Additional Form Components
 export const CollapsibleSection = styled.div`
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   border: 1px solid ${colors.border};
   border-radius: 4px;
   overflow: hidden;
 `;
 
 export const SectionContent = styled.div`
-  padding: 16px;
+  padding: 10px;
   background: white;
   display: ${(props) => (props.visible ? "block" : "none")};
 `;
@@ -450,39 +508,39 @@ export const SectionContent = styled.div`
 export const CheckboxWrapper = styled.div`
   display: flex;
   align-items: center;
-  margin: 12px 0;
+  margin: 6px 0;
 `;
 
 export const Checkbox = styled.input`
-  margin-right: 8px;
+  margin-right: 6px;
   cursor: pointer;
 `;
 
 export const FileInput = styled.input`
-  padding: 6px 0;
-  font-size: 0.85rem;
+  padding: 4px 0;
+  font-size: 0.78rem;
 `;
 
 export const ButtonContainer = styled.div`
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 20px;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid ${colors.border};
 `;
 
 export const InfoIcon = styled.span`
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: ${colors.primary};
   color: white;
   border-radius: 50%;
   text-align: center;
-  line-height: 16px;
-  font-size: 0.7rem;
+  line-height: 14px;
+  font-size: 0.65rem;
   font-weight: bold;
   cursor: help;
-  margin-left: 6px;
+  margin-left: 4px;
 `;
