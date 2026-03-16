@@ -311,17 +311,21 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/Admission">
               <FiUserPlus /> <span>Admission</span>
             </StyledNavLink>
+
             <StyledNavLink to="/Enquiry">
               <FiFileText /> <span>Enquiry</span>
             </StyledNavLink>
+            
+            <StyledNavLink to="/DischargeBilling">
+              <FiLogOut /> <span>Discharge Bill</span>
+            </StyledNavLink>
+
             <StyledNavLink to="/DischargeForm">
               <FiLogOut /> <span>Discharge Form</span>
             </StyledNavLink>
+
             <StyledNavLink to="/Summary">
               <FiActivity /> <span>Discharge Summary</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeReport">
-              <FiFileText /> <span>Discharge Reports</span>
             </StyledNavLink>
 
             <NavGroupLabel>Nursing Station</NavGroupLabel>
