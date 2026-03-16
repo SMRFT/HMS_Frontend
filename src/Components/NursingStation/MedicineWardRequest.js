@@ -1,20 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 
 // --- Color Palette matching the screenshot ---
+// ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
 const colors = {
-  headerTeal: "#136A63", // Dark teal for main header
-  buttonTeal: "#187771", // Teal for Add Medicine button
-  buttonOrange: "#F88C22", // Orange for New Request button
-  buttonGrey: "#5A6268", // Grey for Cancel
-  bgLightGrey: "#EEEEEE", // Background for patient info
-  bgWhite: "#FFFFFF",
-  borderLight: "#DDDDDD",
-  textDark: "#333333",
-  textMuted: "#666666",
-  textRed: "#DC3545", // For asterisks
-  // Legends
+  primary: "#136A63", // Teal for Medicine
+  primaryDark: "#0B4C47",
+  orange: "#F88C22",
+  orangeHover: "#E67D1E",
+  yellow: "#FFA000",
+  dark: "#37474F",
+  border: "#CFD8DC",
+  background: "#F5F7F8",
+  textMain: "#263238",
+  textMuted: "#78909C",
+  white: "#FFFFFF",
+  rowHighlight: "#E0F2F1",
+  headerBg: "#546E7A",
+  // Legend Colors
   legPending: "#FFC107",
   legSubstituted: "#B366CC",
   legBilled: "#28A745",
@@ -26,6 +30,8 @@ const colors = {
   legRegular: "#136A63"
 };
 
+// ─── Styled Components ────────────────────────────────────────────────────────
+
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -34,338 +40,415 @@ const ModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 `;
 
 const ModalContainer = styled.div`
-  background: ${colors.bgWhite};
-  width: 95%;
-  max-width: 1400px;
-  height: 90vh;
+  background: ${colors.background};
+  width: 96%;
+  max-width: 1500px;
+  height: 92vh;
   display: flex;
   flex-direction: column;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-  font-family: Arial, sans-serif;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  font-family: 'Inter', -apple-system, sans-serif;
 `;
 
-const ModalHeader = styled.div`
-  background: ${colors.headerTeal};
-  color: white;
-  padding: 10px 15px;
+const Header = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 1.1rem;
-  font-weight: bold;
-
+  padding: 15px 25px;
+  background: ${colors.primary};
+  color: white;
   button {
     background: transparent;
     border: none;
     color: white;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     cursor: pointer;
+    line-height: 1;
   }
+`;
+
+const Title = styled.h2`
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
 `;
 
 const ContentBody = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding: 10px 15px;
-  background: #F8F9FA;
+  padding: 20px;
 `;
 
-const PatientInfoBar = styled.div`
-  background: ${colors.bgLightGrey};
-  border: 1px solid ${colors.borderLight};
-  border-radius: 4px;
-  padding: 10px 15px;
+const PatientPanel = styled.div`
+  background: ${colors.white};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  padding: 15px 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+`;
+
+const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-bottom: 10px;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px 16px;
+  @media (max-width: 1300px) {
+    grid-template-columns: repeat(4, 2fr);
+  }
 `;
 
-const InfoGroup = styled.div`
+const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
-  
-  label {
-    font-size: 0.75rem;
-    color: ${colors.textDark};
-    font-weight: bold;
-  }
-  
-  div.value-box {
-    background: #E2E2E2;
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    color: ${colors.textDark};
-    border-radius: 2px;
-    min-height: 28px;
-    display: flex;
-    align-items: center;
-  }
-  
-  .flex-row {
-    display: flex;
-    gap: 5px;
-  }
-  .flex-row .value-box { flex: 1; }
-  .flex-row .small-box { flex: 0 0 40px; justify-content: center;}
+`;
+
+const FieldLabel = styled.span`
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+
+const FieldValue = styled.div`
+  background: #F1F5F7;
+  border: 1px solid ${colors.border};
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  color: ${colors.textMain};
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
 `;
 
 const TopActionBar = styled.div`
   display: flex;
   justify-content: flex-end;
-  padding: 8px 0;
-  border-top: 1px solid ${colors.borderLight};
-  border-bottom: 2px solid #E0E0E0;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 `;
 
-const OrangeBtn = styled.button`
-  background: ${colors.buttonOrange};
+const RequestBtn = styled.button`
+  background: ${colors.orange};
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 6px 16px;
-  font-weight: bold;
-  font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-weight: 700;
+  font-size: 0.9rem;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  &:hover { background: #E67D1E; }
+  transition: transform 0.1s, background 0.2s;
+  box-shadow: 0 4px 6px rgba(248, 140, 34, 0.2);
+  &:hover { background: ${colors.orangeHover}; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
 `;
 
-const FormSection = styled.div`
-  background: ${colors.bgWhite};
-  border: 1px solid ${colors.borderLight};
-  border-radius: 4px;
-  padding: 15px;
-  margin-bottom: 15px;
-`;
-
-const FormGridRow1 = styled.div`
+const RequestFormWrapper = styled.div`
   display: grid;
-  grid-template-columns: 1.5fr 3fr 2fr 1.5fr 0.8fr 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 15px;
-  align-items: end;
+  grid-template-columns: 1fr 360px;
+  gap: 0;
+  border: 1px solid ${colors.border};
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 25px;
+  background: ${colors.white};
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
 `;
 
-const FormGridRow2 = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1.5fr 3fr auto auto auto;
-  gap: 12px;
-  align-items: end;
+const FormPanel = styled.div`
+  padding: 24px;
+  border-right: 1px solid ${colors.border};
 `;
 
-const FormGroup = styled.div`
+const SidePanel = styled.div`
+  background: #fdfdfd;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  position: relative;
-  
-  label {
-    font-size: 0.75rem;
-    font-weight: bold;
-    color: ${colors.textDark};
-  }
-  .req { color: ${colors.textRed}; }
-  
-  .radio-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 0.75rem;
-    position: absolute;
-    top: -20px;
-    right: 0;
-  }
-  .radio-group input { margin-right: 3px; }
-  
-  .search-wrapper { display: flex; }
-  .search-wrapper input { border-radius: 3px 0 0 3px; flex: 1; }
-  .search-wrapper button { 
-    background: #11625B; color: white; border: none; 
-    border-radius: 0 3px 3px 0; width: 32px; cursor: pointer;
-  }
+`;
 
-  .add-wrapper { display: flex; gap: 5px; }
-  .add-wrapper select { flex: 1; }
-  .add-wrapper button { border: 1px solid #CCC; background: #F8F9FA; padding: 0 8px; border-radius: 3px; cursor: pointer; }
+const SidePanelHeader = styled.div`
+  background: #f1f5f7;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: ${colors.dark};
+  border-bottom: 1px solid ${colors.border};
+  display: flex;
+  justify-content: space-between;
+`;
+
+const SidePanelContent = styled.div`
+  flex: 1;
+  padding: 10px 20px;
+  max-height: 500px;
+  overflow-y: auto;
+`;
+
+const SidePanelFooter = styled.div`
+  padding: 20px;
+  border-top: 1px solid ${colors.border};
+  background: #f9fbfc;
+`;
+
+const FormGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px 20px;
+  margin-bottom: 20px;
+`;
+
+const FormItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+`;
+
+const FormLabel = styled.label`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMuted};
 `;
 
 const StyledInput = styled.input`
-  border: 1px solid #CCCCCC;
-  padding: 6px 10px;
-  border-radius: 3px;
-  font-size: 0.85rem;
+  border: 1px solid ${colors.border};
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 0.9rem;
   width: 100%;
   box-sizing: border-box;
-  &:focus { outline: none; border-color: ${colors.headerTeal}; }
+  &:focus { outline: none; border-color: ${colors.primary}; box-shadow: 0 0 0 2px rgba(19, 106, 99, 0.1); }
 `;
 
 const StyledSelect = styled.select`
-  border: 1px solid #CCCCCC;
-  padding: 6px 10px;
-  border-radius: 3px;
-  font-size: 0.85rem;
+  border: 1px solid ${colors.border};
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 0.9rem;
   width: 100%;
-  box-sizing: border-box;
   background-color: white;
-  &:focus { outline: none; border-color: ${colors.headerTeal}; }
+  &:focus { outline: none; border-color: ${colors.primary}; }
+`;
+
+const RadioGroup = styled.div`
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: ${colors.textMain};
+  margin-bottom: 5px;
 `;
 
 const CheckboxGroup = styled.div`
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  color: ${colors.textMuted};
-  height: 30px;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+  cursor: pointer;
+  user-select: none;
 `;
 
 const ActionButtons = styled.div`
   display: flex;
-  gap: 8px;
-  height: 30px;
-  
-  button {
-    border: none;
-    border-radius: 3px;
-    color: white;
-    font-size: 0.85rem;
-    padding: 0 15px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .cancel-btn { background: ${colors.buttonGrey}; }
-  .add-btn { background: ${colors.headerTeal}; }
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+`;
+
+const AddBtn = styled.button`
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 24px;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: ${colors.primaryDark}; }
+`;
+
+const CancelBtn = styled.button`
+  background: ${colors.textMuted};
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 24px;
+  font-weight: 600;
+  cursor: pointer;
 `;
 
 const TabsBar = styled.div`
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-  
-  .tab {
-    padding: 4px 16px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  .active-discharge { background: ${colors.legDischarge}; color: white; border: 1px solid ${colors.legDischarge}; }
-  .active-regular { background: ${colors.legRegular}; color: white; border: 1px solid ${colors.legRegular}; }
+  gap: 15px;
+  margin: 30px 0 15px 0;
+  border-bottom: 2px solid ${colors.border};
+  padding-bottom: 0;
 `;
 
-const GridTable = styled.table`
+const Tab = styled.div`
+  padding: 8px 25px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: ${props => props.active ? colors.primary : colors.textMuted};
+  border-bottom: 3px solid ${props => props.active ? colors.primary : 'transparent'};
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  &:hover { color: ${colors.primary}; }
+`;
+
+const StyledTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   background: white;
-  border: 1px solid ${colors.borderLight};
-  margin-bottom: 10px;
-  
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   th {
-    background: #F8F9FA;
-    padding: 8px 10px;
-    text-align: left;
-    font-size: 0.75rem;
-    color: ${colors.textDark};
-    border-bottom: 2px solid ${colors.borderLight};
-    white-space: nowrap;
-  }
-  
-  td {
-    padding: 8px 10px;
-    font-size: 0.85rem;
-    border-bottom: 1px solid ${colors.borderLight};
-    color: ${colors.textDark};
-  }
-  
-  .empty-row td {
-    text-align: center;
-    color: ${colors.textMuted};
-    padding: 15px;
-  }
-`;
-
-const InfoText = styled.div`
-  font-size: 0.8rem;
-  color: ${colors.textMuted};
-  margin-bottom: 10px;
-`;
-
-const ConfirmBar = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 20px;
-  border-bottom: 2px solid ${colors.borderLight};
-  padding-bottom: 15px;
-  
-  button {
-    background: #6C9F9A;
+    background: ${colors.headerBg};
     color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 7px 20px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    &:hover { background: ${colors.headerTeal}; }
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 600;
   }
+  td {
+    padding: 12px 15px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid #edf2f4;
+    color: ${colors.textMain};
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8fafb; }
 `;
 
 const LegendContainer = styled.div`
   display: flex;
   gap: 15px;
-  margin-bottom: 15px;
+  margin-top: 25px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid ${colors.border};
   flex-wrap: wrap;
 `;
 
 const LegendItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 0.75rem;
-  font-weight: bold;
-  color: white;
-  padding: 3px 10px;
-  border-radius: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 20px;
   background: ${props => props.color};
+  color: white;
 `;
 
-const SearchDropdown = styled.div`
+// ─── Searchable Dropdown Helper ───────────────────────────────────────────────
+
+const SearchWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const DropdownList = styled.ul`
   position: absolute;
-  top: 100%; left: 0; right: 0;
+  top: 100%;
+  left: 0;
+  right: 0;
   background: white;
-  border: 1px solid ${colors.borderLight};
-  border-radius: 0 0 4px 4px;
+  border: 1px solid ${colors.primary};
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 10;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  
-  .item {
-    padding: 8px 10px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    border-bottom: 1px solid #EEE;
-    &:hover { background: #F5F5F5; }
+  z-index: 1000;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 0 0 4px 4px;
+`;
+
+const DropdownItem = styled.li`
+  padding: 10px 15px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  &:hover {
+    background: ${colors.background};
+    color: ${colors.primaryDark};
+    font-weight: 600;
   }
 `;
+
+const SearchableDropdown = ({ value, onChange, options, placeholder = "Select...", displayKey = "name", valueKey = "id" }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (value) {
+      const selected = options.find(opt => (typeof opt === 'string' ? opt === value : opt[valueKey] === value));
+      if (selected) setSearchTerm(typeof selected === 'string' ? selected : selected[displayKey]);
+    } else {
+      setSearchTerm("");
+    }
+  }, [value, options, displayKey, valueKey]);
+
+  const filtered = options.filter(opt => {
+    const txt = typeof opt === 'string' ? opt : opt[displayKey];
+    return txt.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  return (
+    <SearchWrapper ref={wrapperRef}>
+      <StyledInput
+        type="text"
+        value={searchTerm}
+        onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }}
+        onFocus={() => setIsOpen(true)}
+        placeholder={placeholder}
+      />
+      {isOpen && filtered.length > 0 && (
+        <DropdownList>
+          {filtered.map((opt, idx) => (
+            <DropdownItem key={idx} onClick={() => {
+              const val = typeof opt === 'string' ? opt : opt[valueKey];
+              const txt = typeof opt === 'string' ? opt : opt[displayKey];
+              onChange(val);
+              setSearchTerm(txt);
+              setIsOpen(false);
+            }}>
+              {typeof opt === 'string' ? opt : opt[displayKey]}
+            </DropdownItem>
+          ))}
+        </DropdownList>
+      )}
+    </SearchWrapper>
+  );
+};
 
 const MedicineWardRequest = ({ patient, onClose }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Map incoming patient prop to display fields (matching LabWardRequest patterns)
+  // Map incoming patient prop to display fields
   const pd = patient?.patient_details || {};
   const resolvedPatient = {
     ipNo: patient?.ipNumber || pd.ipNumber || "-",
@@ -400,11 +483,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [showForm, setShowForm] = useState(false);
   
   // Form Fields
-  const [billtype, setBilltype] = useState(""); 
   const [billTypeNo, setBillTypeNo] = useState("");
+  const [billtype, setBilltype] = useState(""); 
   const [billTypeName, setBillTypeName] = useState("");
   const [drugType, setDrugType] = useState("Drug");
-  const [drugSearch, setDrugSearch] = useState("");
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [dosage, setDosage] = useState("");
@@ -425,9 +507,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
   const fetchBillTypes = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}get_LabBillType_list/`, "GET");
+      const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
       if (res.success) {
-        const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        const list = res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
         setBillTypeOptions(list);
         if (list.length === 1) {
           const opt = list[0];
@@ -449,30 +531,26 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const fetchDoctors = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-      if (res.success) setDoctors(res.data || []);
+      if (res.success) {
+        const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        setDoctors(list);
+      }
     } catch (e) { console.error("Error fetching doctors:", e); }
   };
 
-  const searchMedicine = async (term) => {
-    setDrugSearch(term);
-    setSelectedDrug(null);
-    if (term.length > 2) {
+  const handleMedicineSearch = async (val) => {
+    if (val.length > 2) {
       try {
         const res = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "GET");
+        // For search results, we manually filter since the endpoint might return full inventory
         const filtered = (res || []).filter(item => 
-          item.item_name?.toLowerCase().includes(term.toLowerCase())
-        );
+          item.item_name?.toLowerCase().includes(val.toLowerCase())
+        ).map(item => ({ id: item.id, name: item.item_name, price: item.price }));
         setSearchResults(filtered);
       } catch (e) { console.error("Search error", e); }
     } else {
       setSearchResults([]);
     }
-  };
-
-  const handleSelectMedicine = (med) => {
-    setSelectedDrug(med);
-    setDrugSearch(med.item_name);
-    setSearchResults([]);
   };
 
   const handleAddMedicine = () => {
@@ -484,7 +562,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
     const newMed = {
       ...selectedDrug,
-      itemName: selectedDrug.item_name,
+      itemName: selectedDrug.name,
       quantity: Number(qty),
       billType: billtype,
       billTypeNo,
@@ -505,7 +583,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   const resetForm = () => {
-    setDrugSearch("");
     setSelectedDrug(null);
     setNoOfDays("");
     setQty("");
@@ -526,7 +603,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       doctor: doctor || selectedMedicines[0]?.doctor || "General", 
       wardName: resolvedPatient.roomBed.split("|")[0].trim(),
       selectedMedicines: selectedMedicines,
-      total_amount: selectedMedicines.reduce((acc, m) => acc + (m.price * m.quantity), 0)
+      total_amount: selectedMedicines.reduce((acc, m) => acc + ( (m.price || 0) * m.quantity), 0)
     };
 
     try {
@@ -542,314 +619,255 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     } catch (e) { console.error(e); }
   };
 
-  const cancelMedicineDraft = (index) => {
-    const updated = [...selectedMedicines];
-    updated.splice(index, 1);
-    setSelectedMedicines(updated);
+  const removeSelectedMed = (index) => {
+    setSelectedMedicines(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Helper to get status color
   const getStatusColor = (status, isDischarge) => {
     if (isDischarge) return colors.legDischarge;
     if (status === "Pending") return colors.legPending;
     if (status === "Cancelled") return colors.legCancelled;
     if (status === "Billed") return colors.legBilled;
-    // ... map others as needed
     return colors.legRegular; 
   };
 
   return (
-    <ModalOverlay>
-      <ModalContainer>
-        <ModalHeader>
-          Medication Order
-          <button onClick={onClose}>×</button>
-        </ModalHeader>
-
-        <ContentBody>
-          {/* Top Info Grid */}
-          <PatientInfoBar>
-            <InfoGroup>
-              <label>IP No</label>
-              <div className="flex-row">
-                <div className="value-box">{resolvedPatient.ipNo}</div>
-                <div className="value-box small-box">{resolvedPatient.ipBadge}</div> 
-              </div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>UHID</label>
-              <div className="value-box">{resolvedPatient.uhid}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Name</label>
-              <div className="value-box">{resolvedPatient.name}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Address</label>
-              <div className="value-box">{resolvedPatient.address}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Admitting Date & Time</label>
-              <div className="value-box">{resolvedPatient.admitting}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Room No | Bed</label>
-              <div className="value-box">{resolvedPatient.roomBed}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Customer Type</label>
-              <div className="value-box">{resolvedPatient.customerType}</div>
-            </InfoGroup>
-            <InfoGroup>
-              <label>Company Name</label>
-              <div className="value-box">{resolvedPatient.companyName}</div>
-            </InfoGroup>
-          </PatientInfoBar>
+    <div style={{ padding: "20px" }}>
+          <PatientPanel>
+            <PatientGrid>
+              <FieldBox>
+                <FieldLabel>IP No</FieldLabel>
+                <FieldValue>{resolvedPatient.ipNo} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>UHID</FieldLabel>
+                <FieldValue>{resolvedPatient.uhid}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Name</FieldLabel>
+                <FieldValue>{resolvedPatient.name}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Address</FieldLabel>
+                <FieldValue>{resolvedPatient.address}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Admitting Date & Time</FieldLabel>
+                <FieldValue>{resolvedPatient.admitting}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Room | Bed</FieldLabel>
+                <FieldValue>{resolvedPatient.roomBed}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Customer Type</FieldLabel>
+                <FieldValue>{resolvedPatient.customerType}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Company</FieldLabel>
+                <FieldValue>{resolvedPatient.companyName}</FieldValue>
+              </FieldBox>
+            </PatientGrid>
+          </PatientPanel>
 
           <TopActionBar>
-            <OrangeBtn onClick={() => setShowForm(!showForm)}>
-              {showForm ? "- Close Form" : "− New Medicine Request"}
-            </OrangeBtn>
+            <RequestBtn onClick={() => setShowForm(!showForm)}>
+              {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
+            </RequestBtn>
           </TopActionBar>
 
-          {/* Form Area */}
           {showForm && (
-            <FormSection>
-              <FormGridRow1>
-                <FormGroup>
-                  <label>Medicine Bill Type <span className="req">*</span></label>
-                  <StyledSelect 
-                    value={billTypeNo && billtype ? `${billTypeNo}|${billtype}` : ""}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!val) {
-                        setBillTypeNo("");
-                        setBilltype("");
-                        setBillTypeName("");
-                        return;
-                      }
-                      const [no, type] = val.split("|");
-                      setBillTypeNo(no);
-                      setBilltype(type);
-                      setBillTypeName(billTypeOptions.find(opt => opt.billTypeNo === no && String(opt.bill_type) === type)?.bill_name || "");
-                    }}
-                  >
-                    <option value="">Select Bill Type</option>
-                    {billTypeOptions.map((opt) => (
-                      <option key={opt.billTypeNo} value={`${opt.billTypeNo}|${opt.bill_type}`}>
-                        {opt.bill_name}
-                      </option>
-                    ))}
-                  </StyledSelect>
-                </FormGroup>
+            <RequestFormWrapper>
+              <FormPanel>
+                <FormGrid>
+                  <FormItem>
+                    <FormLabel>Medicine Bill Type</FormLabel>
+                    <SearchableDropdown
+                      value={billTypeNo}
+                      onChange={(val) => {
+                        const opt = billTypeOptions.find(o => String(o.billTypeNo) === String(val));
+                        if(opt) {
+                          setBillTypeNo(val);
+                          setBilltype(opt.bill_type);
+                          setBillTypeName(opt.bill_name);
+                        }
+                      }}
+                      options={billTypeOptions.map(o => ({ id: o.billTypeNo, name: o.bill_name }))}
+                    />
+                  </FormItem>
 
-                <FormGroup>
-                  <div className="radio-group">
-                    <input type="radio" checked={drugType === "Drug"} onChange={() => setDrugType("Drug")} /> Drug
-                    <input type="radio" checked={drugType === "Chemical"} onChange={() => setDrugType("Chemical")} /> Chemical
-                  </div>
-                  <label>Drug Name <span className="req">*</span></label>
-                  <div className="search-wrapper">
-                    <StyledInput value={drugSearch} onChange={e => searchMedicine(e.target.value)} />
-                    <button>🔍</button>
-                  </div>
-                  {searchResults.length > 0 && (
-                    <SearchDropdown>
-                      {searchResults.map((m, i) => (
-                        <div key={i} className="item" onClick={() => handleSelectMedicine(m)}>
-                          {m.item_name}
-                        </div>
-                      ))}
-                    </SearchDropdown>
-                  )}
-                </FormGroup>
+                  <FormItem>
+                    <FormLabel>Drug Name</FormLabel>
+                    <SearchableDropdown
+                      value={selectedDrug?.id}
+                      onChange={(val) => {
+                        const drug = searchResults.find(r => r.id === val);
+                        if(drug) setSelectedDrug(drug);
+                      }}
+                      options={searchResults}
+                      placeholder="Search Medicine..."
+                    />
+                  </FormItem>
 
-                <FormGroup>
-                  <label>Doctor <span className="req">*</span></label>
-                  <StyledSelect value={doctor} onChange={e => setDoctor(e.target.value)}>
-                    <option value="">Select Doctor</option>
-                    {doctors.map((dr, idx) => (
-                      <option key={idx} value={dr.employeeName}>
-                        {dr.employeeName}
-                      </option>
-                    ))}
-                  </StyledSelect>
-                </FormGroup>
+                  <FormItem>
+                    <FormLabel>Doctor</FormLabel>
+                    <SearchableDropdown
+                      value={doctor}
+                      onChange={setDoctor}
+                      options={doctors.map(d => d.employeeName)}
+                    />
+                  </FormItem>
 
-                <FormGroup>
-                  <label>Dosage <span className="req">*</span></label>
-                  <div className="add-wrapper">
+                  <FormItem>
+                    <FormLabel>Dosage</FormLabel>
                     <StyledSelect value={dosage} onChange={e => setDosage(e.target.value)}>
-                      <option value=""></option>
-                      <option value="1-0-1">1-0-1</option>
-                      <option value="1-1-1">1-1-1</option>
-                      <option value="0-0-1">0-0-1</option>
+                      <option value="">Select Dosage</option>
+                      <option value="1-0-0">1-0-0 (Morning)</option>
+                      <option value="0-1-0">0-1-0 (Noon)</option>
+                      <option value="0-0-1">0-0-1 (Night)</option>
+                      <option value="1-0-1">1-0-1 (Morn-Night)</option>
+                      <option value="1-1-1">1-1-1 (Thrice)</option>
                     </StyledSelect>
-                    <button>+</button>
-                  </div>
-                </FormGroup>
+                  </FormItem>
 
-                <FormGroup>
-                  <label>No.of days <span className="req">*</span></label>
-                  <StyledInput type="number" value={noOfDays} onChange={e => setNoOfDays(e.target.value)} />
-                </FormGroup>
+                  <FormItem>
+                    <FormLabel>No. of Days</FormLabel>
+                    <StyledInput type="number" value={noOfDays} onChange={e => setNoOfDays(e.target.value)} />
+                  </FormItem>
 
-                <FormGroup>
-                  <label>Quantity <span className="req">*</span></label>
-                  <StyledInput type="number" value={qty} onChange={e => setQty(e.target.value)} />
-                </FormGroup>
+                  <FormItem>
+                    <FormLabel>Quantity</FormLabel>
+                    <StyledInput type="number" value={qty} onChange={e => setQty(e.target.value)} />
+                  </FormItem>
 
-                <FormGroup>
-                  <label>Dose</label>
-                  <StyledInput value={dose} onChange={e => setDose(e.target.value)} />
-                </FormGroup>
-              </FormGridRow1>
+                  <FormItem>
+                    <FormLabel>Dose</FormLabel>
+                    <StyledInput value={dose} onChange={e => setDose(e.target.value)} />
+                  </FormItem>
 
-              <FormGridRow2>
-                <FormGroup>
-                  <label>Dose Unit</label>
-                  <StyledSelect value={doseUnit} onChange={e => setDoseUnit(e.target.value)}>
-                    <option value=""></option>
-                    <option value="mg">mg</option>
-                    <option value="ml">ml</option>
-                  </StyledSelect>
-                </FormGroup>
+                  <FormItem>
+                    <FormLabel>Dose Unit</FormLabel>
+                    <StyledSelect value={doseUnit} onChange={e => setDoseUnit(e.target.value)}>
+                      <option value="">Select Unit</option>
+                      <option value="mg">mg</option>
+                      <option value="ml">ml</option>
+                      <option value="tab">Tablet</option>
+                      <option value="cap">Capsule</option>
+                    </StyledSelect>
+                  </FormItem>
 
-                <FormGroup>
-                  <label>Route</label>
-                  <StyledInput value={route} onChange={e => setRoute(e.target.value)} />
-                </FormGroup>
-
-                <FormGroup>
-                  <label>Remark</label>
+                  <FormItem>
+                    <FormLabel>Route</FormLabel>
+                    <StyledInput value={route} onChange={e => setRoute(e.target.value)} />
+                  </FormItem>
+                </FormGrid>
+                
+                <FormItem style={{marginBottom: "20px"}}>
+                  <FormLabel>Remark</FormLabel>
                   <StyledInput value={remark} onChange={e => setRemark(e.target.value)} />
-                </FormGroup>
+                </FormItem>
 
-                <CheckboxGroup>
-                  <input type="checkbox" checked={isRegular} onChange={e => setIsRegular(e.target.checked)} /> Regular Medicine
-                </CheckboxGroup>
-
-                <CheckboxGroup>
-                  <input type="checkbox" checked={isDischarge} onChange={e => setIsDischarge(e.target.checked)} /> Discharge Medicine
-                </CheckboxGroup>
+                <div style={{display: "flex", gap: "30px", marginBottom: "20px"}}>
+                  <CheckboxGroup onClick={() => setIsRegular(!isRegular)}>
+                    <input type="checkbox" checked={isRegular} readOnly /> Regular Medicine
+                  </CheckboxGroup>
+                  <CheckboxGroup onClick={() => setIsDischarge(!isDischarge)}>
+                    <input type="checkbox" checked={isDischarge} readOnly /> Discharge Medicine
+                  </CheckboxGroup>
+                </div>
 
                 <ActionButtons>
-                  <button className="cancel-btn" onClick={resetForm}>✕ Cancel</button>
-                  <button className="add-btn" onClick={handleAddMedicine}>+ Add Medicine</button>
+                  <CancelBtn onClick={resetForm}>✕ Reset</CancelBtn>
+                  <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
                 </ActionButtons>
-              </FormGridRow2>
-            </FormSection>
+              </FormPanel>
+
+              <SidePanel>
+                <SidePanelHeader>Selected Items ({selectedMedicines.length})</SidePanelHeader>
+                <SidePanelContent>
+                  {selectedMedicines.length === 0 ? (
+                    <div style={{textAlign: "center", color: colors.textMuted, marginTop: "40px", fontSize: "0.85rem"}}>
+                      No medicines added yet.
+                    </div>
+                  ) : (
+                    selectedMedicines.map((m, idx) => (
+                      <div key={idx} style={{padding: "12px 0", borderBottom: "1px solid #F0F0F0", position: "relative"}}>
+                        <div style={{fontWeight: "600", fontSize: "0.85rem", color: colors.primary}}>{m.itemName}</div>
+                        <div style={{fontSize: "0.75rem", color: colors.textMuted, marginTop: "4px"}}>
+                          {m.dosage} | {m.noOfDays} Days | Qty: {m.quantity}
+                        </div>
+                        <button 
+                          onClick={() => removeSelectedMed(idx)}
+                          style={{position: "absolute", right: "0", top: "12px", background: "none", border: "none", color: "#e53935", cursor: "pointer"}}
+                        >✕</button>
+                      </div>
+                    ))
+                  )}
+                </SidePanelContent>
+                <SidePanelFooter>
+                  <AddBtn style={{width: "100%", padding: "12px"}} onClick={handleConfirm}>Confirm Request</AddBtn>
+                </SidePanelFooter>
+              </SidePanel>
+            </RequestFormWrapper>
           )}
 
-          {/* Drafts Section */}
           <TabsBar>
-            <div className="tab active-discharge">Discharge Med</div>
-            <div className="tab active-regular">Regular Med</div>
+            <Tab active={true}>Request History</Tab>
           </TabsBar>
 
-          <GridTable>
+          <StyledTable>
             <thead>
               <tr>
-                <th>Req Date & Time</th><th>Medicine Name</th><th>Info</th><th>Dosage</th><th>Dose</th>
-                <th>No Of Days</th><th>Qty.</th><th>Route</th><th>Remark</th><th>Doctor</th>
-                <th>Ordered By</th><th>Bill Name</th><th>Wardname</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedMedicines.length === 0 ? (
-                <tr className="empty-row"><td colSpan="14">No data available in table</td></tr>
-              ) : (
-                selectedMedicines.map((m, i) => (
-                  <tr key={i}>
-                    <td>-</td>
-                    <td>{m.itemName}</td>
-                    <td>-</td>
-                    <td>{m.dosage}</td>
-                    <td>{m.dose} {m.doseUnit}</td>
-                    <td>{m.noOfDays}</td>
-                    <td>{m.quantity}</td>
-                    <td>{m.route}</td>
-                    <td>{m.remark}</td>
-                    <td>{m.doctor}</td>
-                    <td>-</td>
-                    <td>{m.billType}</td>
-                    <td>{patient.roomNo}</td>
-                    <td>
-                      <button onClick={() => cancelMedicineDraft(i)} style={{background:"none", border:"none", color:"red", cursor:"pointer"}}>✕</button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </GridTable>
-
-          <InfoText>Showing 0 to 0 of 0 entries</InfoText>
-          
-          <ConfirmBar>
-            <button onClick={handleConfirm}>✓ Confirm</button>
-          </ConfirmBar>
-
-          {/* Legends */}
-          <LegendContainer>
-            <LegendItem color={colors.legPending}>■ Pending</LegendItem>
-            <LegendItem color={colors.legSubstituted}>■ Substituted</LegendItem>
-            <LegendItem color={colors.legBilled}>■ Billed</LegendItem>
-            <LegendItem color={colors.legCancelled}>■ Cancelled</LegendItem>
-            <LegendItem color={colors.legStopped}>■ Stopped</LegendItem>
-            <LegendItem color={colors.legEmergency} style={{marginLeft: 'auto'}}>■ Emergency</LegendItem>
-            <LegendItem color={colors.legInsurance}>■ Insurance Item</LegendItem>
-            <LegendItem color={colors.legDischarge}>■ Discharge Med</LegendItem>
-            <LegendItem color={colors.legRegular}>■ Regular Med</LegendItem>
-          </LegendContainer>
-
-          {/* History Section */}
-          <GridTable>
-            <thead>
-              <tr>
-                <th>Status</th><th>Req Date & Time</th><th>Medicine Name</th><th>Substitute</th>
-                <th>Dosage</th><th>Dose</th><th>No Of Days</th><th>Qty.</th><th>Route</th>
-                <th>Remark</th><th>Doctor</th><th>Ordered By</th><th>Bill Name</th><th>Wardname</th><th>Actions</th>
+                <th>Req Date & Time</th>
+                <th>Medicine Name</th>
+                <th>Dosage</th>
+                <th>No Of Days</th>
+                <th>Qty.</th>
+                <th>Route</th>
+                <th>Doctor</th>
+                <th>Bill Name</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {requests.length === 0 ? (
-                <tr className="empty-row"><td colSpan="15">No historical requests found</td></tr>
+                <tr><td colSpan="9" style={{textAlign: "center", padding: "30px", color: colors.textMuted}}>No request history found.</td></tr>
               ) : (
-                requests.map(req => 
-                  req.medicines.map((m, mIdx) => (
-                    <tr key={`${req.id}-${mIdx}`}>
-                      <td>
-                        <div style={{
-                          background: getStatusColor(req.status, m.isDischarge),
-                          color: 'white', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', textAlign: 'center'
-                        }}>
-                          {req.status}
-                        </div>
-                      </td>
-                      <td>{req.reqDate} {req.reqTime}</td>
-                      <td>{m.name}</td>
-                      <td>-</td>
+                requests.map((req, i) => (
+                  req.medicines?.map((m, j) => (
+                    <tr key={`${i}-${j}`}>
+                      <td>{new Date(req.created_at || req.reqDate + ' ' + req.reqTime).toLocaleString("en-GB")}</td>
+                      <td>{m.itemName || m.name}</td>
                       <td>{m.dosage}</td>
-                      <td>{m.dose} {m.doseUnit}</td>
                       <td>{m.noOfDays}</td>
                       <td>{m.quantity}</td>
                       <td>{m.route}</td>
-                      <td>{m.remark}</td>
-                      <td>{m.doctor || req.doctorName}</td>
-                      <td>{req.userName}</td>
-                      <td>{m.billType}</td>
-                      <td>{req.wardName}</td>
-                      <td>-</td>
+                      <td>{req.doctor || req.doctorName}</td>
+                      <td>{req.billTypeName || m.billType}</td>
+                      <td>
+                        <LegendItem color={getStatusColor(req.status || m.status, m.isDischarge)}>
+                          {m.isDischarge ? "Discharge" : (req.status || m.status || "Pending")}
+                        </LegendItem>
+                      </td>
                     </tr>
                   ))
-                )
+                ))
               )}
             </tbody>
-          </GridTable>
+          </StyledTable>
 
-        </ContentBody>
-      </ModalContainer>
-    </ModalOverlay>
+          <LegendContainer>
+            <LegendItem color={colors.legPending}>Pending</LegendItem>
+            <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
+            <LegendItem color={colors.legBilled}>Billed</LegendItem>
+            <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
+            <LegendItem color={colors.legStopped}>Stopped</LegendItem>
+            <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
+            <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
+            <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
+            <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+          </LegendContainer>
+        </div>
   );
 };
 

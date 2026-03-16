@@ -6,351 +6,357 @@ import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
 import {
-  Table as GlobalTable,
+  PageWrapper,
+  FormRow,
+  InputWrapper,
+  Label,
+  Input,
+  Select,
+  Button,
+  Table,
   Th,
   Td,
   Tr,
-  TableWrapper as GlobalTableWrapper,
+  TableWrapper,
+  colors,
 } from "../GlobalStyles";
 
-// Modern styled components matching CTList design
-const PageContainer = styled.div`
-  min-height: 100vh;
-  background: linear-gradient(135deg, #e8f5e9 0%, #b2dfdb 100%);
-  padding: 2rem;
+// ─── Page Layout ──────────────────────────────────────────────────────────────
+
+const PageContainer = styled(PageWrapper)`
+  background: #f0f2f5;
+  padding: 12px;
 `;
 
 const ContentCard = styled.div`
   background: white;
-  border-radius: 20px;
-  padding: 2.5rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  margin-bottom: 2rem;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  margin-bottom: 8px;
 `;
 
 const HeaderContainer = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 10px;
 `;
 
 const PageTitle = styled.h1`
-  font-size: 2.5rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-size: 1rem;
+  font-weight: 700;
+  color: ${colors.primary};
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 1rem;
-
-  &::before {
-    content: "📊";
-    font-size: 2.5rem;
-  }
+  gap: 6px;
+  border-bottom: 2px solid ${colors.primary};
+  padding-bottom: 6px;
 `;
 
-const BackButton = styled.button`
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.938rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 137, 123, 0.3);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-
+const BackButton = styled(Button)`
+  background: ${colors.primary};
+  font-size: 0.78rem;
+  padding: 5px 12px;
   &:hover {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  &::before {
-    content: "←";
-    font-size: 1.25rem;
+    background: ${colors.primaryDark};
   }
 `;
 
-const FilterContainer = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-`;
+// ─── Filters ──────────────────────────────────────────────────────────────────
 
-const FilterGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-`;
-
-const FilterLabel = styled.label`
-  color: #00897b;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const Select = styled.select`
-  padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 0.938rem;
-  transition: all 0.3s ease;
-  background: white;
-
-  &:focus {
-    outline: none;
-    border-color: #00897b;
-    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
-  }
-`;
-
-const Input = styled.input`
-  padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 0.938rem;
-  transition: all 0.3s ease;
-
-  &:focus {
-    outline: none;
-    border-color: #00897b;
-    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
-  }
+const FilterGrid = styled(FormRow)`
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  margin-bottom: 10px;
 `;
 
 const RadioGroup = styled.div`
   display: flex;
-  gap: 1rem;
+  gap: 10px;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 2px;
 `;
 
 const RadioLabel = styled.label`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 4px;
   cursor: pointer;
-  font-size: 0.938rem;
-  color: #555;
-
+  font-size: 0.78rem;
+  color: ${colors.textMain};
   input {
     cursor: pointer;
-    width: 18px;
-    height: 18px;
-    accent-color: #00897b;
-  }
-`;
-
-const TableWrapper = styled.div`
-  overflow-x: auto;
-  margin-top: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-
-  /* Custom scrollbar styling */
-  &::-webkit-scrollbar {
-    height: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 10px;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #00897b;
-    border-radius: 10px;
-  }
-
-  &::-webkit-scrollbar-thumb:hover {
-    background: #00695c;
-  }
-`;
-
-const ModernTable = styled.table`
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  overflow: hidden;
-  border-radius: 12px;
-  min-width: 1200px; /* Prevents table from shrinking too much */
-`;
-
-const TableHead = styled.thead`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-
-  th {
-    color: white;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 1rem;
-    font-size: 0.875rem;
-    text-align: left;
-    white-space: nowrap;
-  }
-`;
-
-const TableRow = styled.tr`
-  background: white;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid #f0f0f0;
-
-  &:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
-    transform: scale(1.01);
-    box-shadow: 0 4px 12px rgba(0, 137, 123, 0.1);
-  }
-
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const TableCell = styled.td`
-  padding: 1rem;
-  color: #555;
-  font-size: 0.938rem;
-  vertical-align: middle;
-  white-space: nowrap;
-`;
-
-const ActionButton = styled.button`
-  padding: 0.65rem 1.5rem;
-  margin: 0.25rem;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  }
-
-  &:active {
-    transform: translateY(-1px);
-  }
-`;
-
-const PrintButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  color: white;
-
-  &:hover {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
-  }
-
-  &::before {
-    content: "🖨 ";
-  }
-`;
-
-const ConvertButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-  color: white;
-
-  &:hover {
-    background: linear-gradient(135deg, #fb8c00 0%, #ef6c00 100%);
-  }
-
-  &::before {
-    content: "🔄 ";
-  }
-`;
-
-const EmptyState = styled.div`
-  text-align: center;
-  padding: 4rem 2rem;
-  color: #999;
-
-  &::before {
-    content: "📭";
-    font-size: 4rem;
-    display: block;
-    margin-bottom: 1rem;
-  }
-
-  p {
-    font-size: 1.125rem;
-    font-weight: 500;
-    color: #666;
-  }
-`;
-
-const ItemsList = styled.div`
-  max-width: 300px;
-`;
-
-const ItemRow = styled.div`
-  padding: 0.25rem 0;
-  border-bottom: 1px solid #f0f0f0;
-
-  &:last-child {
-    border-bottom: none;
+    width: 14px;
+    height: 14px;
+    accent-color: ${colors.primary};
   }
 `;
 
 const StyledDatePicker = styled(DatePicker)`
   width: 100%;
-
+  height: 28px;
   .ant-picker-input input {
-    padding: 0.75rem 1rem;
-    font-size: 0.938rem;
+    font-size: 0.78rem;
+    padding: 0 6px;
   }
-
   &.ant-picker {
-    border: 2px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 0;
-
+    border: 1px solid ${colors.border};
+    border-radius: 6px;
+    padding: 0 6px;
+    height: 28px;
     &:hover,
     &.ant-picker-focused {
-      border-color: #00897b;
-      box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
+      border-color: ${colors.primary};
+      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
     }
   }
 `;
 
+// ─── Table extras ─────────────────────────────────────────────────────────────
+
+const ActionGroup = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+`;
+
+const ActionIcon = styled.span`
+  cursor: pointer;
+  font-size: 1rem;
+  transition: transform 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  &:hover {
+    transform: scale(1.15);
+    background: #f0f0f0;
+  }
+`;
+
+const ViewIcon = styled(ActionIcon)`
+  color: #7c3aed;
+`;
+
+const PrintBtn = styled(Button)`
+  background: ${colors.primary};
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  margin-right: 4px;
+  &:hover {
+    background: ${colors.primaryDark};
+  }
+`;
+
+const ConvertBtn = styled(Button)`
+  background: ${colors.secondary};
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  &:hover {
+    background: #d97706;
+  }
+`;
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const ModalBox = styled.div`
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: ${colors.primary};
+  color: white;
+`;
+
+const ModalTitle = styled.span`
+  font-size: 0.85rem;
+  font-weight: 600;
+`;
+const ModalClose = styled.button`
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  &:hover {
+    opacity: 0.8;
+  }
+`;
+
+const ModalBody = styled.div`
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+`;
+
+const ModalTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+`;
+const ModalTh = styled.th`
+  background: ${colors.tabBg};
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: ${colors.textMain};
+  border-bottom: 2px solid ${colors.border};
+  font-size: 0.72rem;
+  white-space: nowrap;
+`;
+const ModalTd = styled.td`
+  padding: 5px 8px;
+  border-bottom: 1px solid ${colors.border};
+  color: ${colors.textMain};
+`;
+const ModalTotalRow = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 4px 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+  border-top: 1px solid ${colors.border};
+  margin-top: 4px;
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 2rem;
+  color: ${colors.textMuted};
+  font-size: 0.82rem;
+  &::before {
+    content: "📭";
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 8px;
+  }
+`;
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const EstimateBillsReport = () => {
-  const [estimateBills, setEstimateBills] = useState([]);
-  const [filteredBills, setFilteredBills] = useState([]);
+  // Initialize dates as dayjs objects directly — avoids the race condition
+  // where useEffect sets them after the first fetch already fired with "".
+  const [fromDate, setFromDate] = useState(dayjs());
+  const [toDate, setToDate] = useState(dayjs());
+
   const [filters, setFilters] = useState({
     billType: "",
     doctor: "",
     patientType: "ALL",
     uhid: "",
   });
+
+  const [bills, setBills] = useState([]);
   const [billTypes, setBillTypes] = useState([]);
   const [doctors, setDoctors] = useState([]);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [viewBill, setViewBill] = useState(null);
+
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  const formatEstimateDate = (dateStr) => {
+  // ── Fetch metadata once ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const [btRes, drRes] = await Promise.all([
+          apiRequest(`${HMSURL}bill-types/`, "GET"),
+          apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET"),
+        ]);
+        if (btRes.success) setBillTypes(btRes.data.billTypes || []);
+        if (drRes.success) setDoctors(drRes.data);
+      } catch {
+        toast.error("Failed to load filter options");
+      }
+    };
+    fetchMeta();
+  }, [HMSURL]); // eslint-disable-line
+
+  // ── Fetch bills whenever any filter or date changes ──────────────────────────
+  // All filtering is done server-side — no client-side filter useEffect needed.
+  useEffect(() => {
+    const fetchBills = async () => {
+      try {
+        const qp = new URLSearchParams();
+
+        // Dates — always sent (initialized to today so always valid)
+        qp.append("fromDate", fromDate.format("YYYY-MM-DD"));
+        qp.append("toDate", toDate.format("YYYY-MM-DD"));
+
+        // Optional filters — only append when set
+        if (filters.billType) qp.append("billType", filters.billType);
+        if (filters.doctor) qp.append("doctor", filters.doctor);
+        if (filters.uhid) qp.append("uhid", filters.uhid);
+        if (filters.patientType !== "ALL")
+          qp.append("patientType", filters.patientType);
+
+        const result = await apiRequest(
+          `${HMSURL}get-estimate-billings/?${qp.toString()}`,
+          "GET",
+        );
+
+        if (result.success) {
+          setBills(result.data);
+        } else {
+          toast.error(result.error || "Failed to fetch estimate bills");
+          setBills([]);
+        }
+      } catch {
+        toast.error("An unexpected error occurred");
+        setBills([]);
+      }
+    };
+
+    fetchBills();
+  }, [filters, fromDate, toDate, HMSURL]); // eslint-disable-line
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleDateChange = (date, type) => {
+    if (!date) return;
+    type === "from" ? setFromDate(date) : setToDate(date);
+  };
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
+  const formatDateTime = (dateStr) => {
     if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return date
+    const normalized =
+      dateStr.endsWith("Z") || dateStr.includes("+") ? dateStr : dateStr + "Z";
+    return new Date(normalized)
       .toLocaleString("en-IN", {
         day: "2-digit",
         month: "2-digit",
@@ -363,496 +369,235 @@ const EstimateBillsReport = () => {
       .toUpperCase();
   };
 
-  useEffect(() => {
-    const today = dayjs().format("YYYY-MM-DD");
-    setFromDate(today);
-    setToDate(today);
-  }, []);
+  const fmtName = (s, f, m, l) =>
+    `${s || ""} ${f || ""} ${m ? m + " " : ""}${l || ""}`.trim();
 
-  useEffect(() => {
-    const fetchEstimateBills = async () => {
-      try {
-        const queryParams = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value && value !== "ALL") queryParams.append(key, value);
-        });
-
-        if (fromDate) queryParams.append("fromDate", fromDate);
-        if (toDate) queryParams.append("toDate", toDate);
-
-        const result = await apiRequest(
-          `${HMSURL}get-estimate-billings/?${queryParams.toString()}`,
-          "GET",
-        );
-
-        if (result.success) {
-          setEstimateBills(result.data);
-          setFilteredBills(result.data);
-        } else {
-          console.error("Failed to fetch estimate bills:", result.error);
-          toast.error(result.error || "Failed to fetch estimate bills");
-        }
-      } catch (error) {
-        console.error("Error fetching estimate bills:", error);
-        toast.error("An unexpected error occurred");
-      }
-    };
-
-    fetchEstimateBills();
-  }, [filters, fromDate, toDate]);
-
-  useEffect(() => {
-    const fetchBillTypesAndDoctors = async () => {
-      try {
-        const billTypesResult = await apiRequest(`${HMSURL}bill-types/`, "GET");
-        if (billTypesResult.success) {
-          setBillTypes(billTypesResult.data.billTypes || []); // ✅ use billTypes key
-        }
-
-        const doctorsResult = await apiRequest(
-          `${HMSURL}doctor_list_diagnostics/`,
-          "GET",
-        );
-        if (doctorsResult.success) {
-          setDoctors(doctorsResult.data);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("An unexpected error occurred");
-      }
-    };
-
-    fetchBillTypesAndDoctors();
-  }, []);
-
-  useEffect(() => {
-    const filtered = estimateBills.filter((bill) => {
-      if (fromDate && toDate) {
-        const billDate = new Date(bill.EstBillDate);
-        const startDate = new Date(fromDate);
-        const endDate = new Date(toDate);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(23, 59, 59, 999);
-
-        if (billDate < startDate || billDate > endDate) {
-          return false;
-        }
-      }
-
-      if (filters.patientType === "IP" && !(bill.uhid && bill.ipNumber)) {
-        return false;
-      }
-      if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber)) {
-        return false;
-      }
-
-      if (
-        filters.billType &&
-        String(bill.bill_type) !== String(filters.billType)
-      ) {
-        return false;
-      }
-
-      if (filters.doctor && bill.doctor !== filters.doctor) {
-        return false;
-      }
-
-      if (filters.uhid && !bill.uhid.includes(filters.uhid)) {
-        return false;
-      }
-
-      return true;
-    });
-
-    setFilteredBills(filtered);
-  }, [estimateBills, filters, fromDate, toDate]);
-
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleDateChange = (date, dateType) => {
-    if (dateType === "from") {
-      setFromDate(date ? date.format("YYYY-MM-DD") : "");
-    } else {
-      setToDate(date ? date.format("YYYY-MM-DD") : "");
-    }
-  };
-
+  // ── Print ─────────────────────────────────────────────────────────────────────
   const handlePrint = (bill) => {
-    const printWindow = window.open("", "_blank", "height=600,width=800");
+    const pw = window.open("", "_blank", "height=600,width=800");
+    const getTotalPrice = (items) =>
+      Array.isArray(items)
+        ? items.reduce(
+            (t, i) => t + parseFloat(i.price) * parseInt(i.quantity || 1),
+            0,
+          )
+        : 0;
 
-    const formatDateTime = (dateStr) => {
-      if (!dateStr) return "";
-      const date = new Date(dateStr);
-      return date
-        .toLocaleString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        })
-        .toUpperCase();
-    };
-
-    const getTotalPrice = (items) => {
-      if (!Array.isArray(items)) return 0;
-      return items.reduce(
-        (total, item) =>
-          total + parseFloat(item.price) * parseInt(item.quantity),
-        0,
-      );
-    };
-
-    const formatPatientName = (salutation, firstName, middleName, lastName) => {
-      return `${salutation || ""} ${firstName || ""} ${
-        middleName ? middleName + " " : ""
-      }${lastName || ""}`.trim();
-    };
-
-    const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Estimate Bill Print</title>
+    pw.document
+      .write(`<!DOCTYPE html><html><head><title>Estimate Bill Print</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 10px; }
-        .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-        .hospital-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-        .address { margin-bottom: 3px; }
-        .estimate-label { 
-          font-weight: bold; 
-          font-size: 16px; 
-          color: #ff9800; 
-          text-align: center; 
-          margin: 10px 0; 
-          text-decoration: underline;
-        }
-        .bill-title { font-weight: bold; display: inline-block; margin-right: 10px; }
-        .bill-subtitle { font-weight: bold; display: inline-block; margin-left: 10px; }
-        .bill-details { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .bill-details-left, .bill-details-right { width: 48%; }
-        .bill-row { display: flex; margin-bottom: 5px; }
-        .bill-label { font-weight: bold; width: 120px; }
-        .bill-value { flex-grow: 1; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        th, td { border: 1px solid #000; padding: 5px; text-align: left; }
-        th { background-color: #fff3e0; }
-        .text-right { text-align: right; }
-        .signature { display: flex; justify-content: space-between; margin-top: 30px; }
-        .total-section { margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; }
-        .total-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .total-label { font-weight: bold; }
-        .net-amount { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 5px; }
-        .note { 
-          margin-top: 20px; 
-          padding: 10px; 
-          background-color: #fff3e0; 
-          border-left: 4px solid #ff9800; 
-          font-style: italic;
-        }
-      </style>
-    </head>
-    <body>
+        body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:10px;}
+        .header{text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:10px;}
+        .hospital-name{font-weight:bold;font-size:14px;margin-bottom:3px;}
+        .estimate-label{font-weight:bold;font-size:16px;color:#ff9800;text-align:center;margin:10px 0;text-decoration:underline;}
+        .bill-row{display:flex;margin-bottom:5px;}
+        .bill-label{font-weight:bold;width:130px;}
+        .bill-value{flex-grow:1;}
+        table{width:100%;border-collapse:collapse;margin-bottom:15px;}
+        th,td{border:1px solid #000;padding:5px;text-align:left;}
+        th{background-color:#fff3e0;}
+        .total-section{margin-top:10px;border-top:1px solid #000;padding-top:5px;}
+        .total-row{display:flex;justify-content:space-between;margin-bottom:5px;}
+        .total-label{font-weight:bold;}
+        .net-amount{font-weight:bold;font-size:14px;border-top:1px solid #000;padding-top:5px;}
+        .note{margin-top:20px;padding:10px;background-color:#fff3e0;border-left:4px solid #ff9800;font-style:italic;}
+        .signature{display:flex;justify-content:space-between;margin-top:30px;}
+      </style></head><body>
       <div class="header">
         <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-        <div class="address">51/24.Saradha College Road, Salem - 636007</div>
-        <div class="registration">CIN: U85110TZ20PLC033974</div>
+        <div>51/24.Saradha College Road, Salem - 636007</div>
+        <div>CIN: U85110TZ20PLC033974</div>
       </div>
-      
       <div class="estimate-label">*** ESTIMATE BILL ***</div>
-      
-      <div>
-        <span class="bill-title">"${bill.paymentMethod || "NIL"}"</span>
-        <span class="bill-subtitle">${bill.bill_name || "NIL"}</span>
+      <div><b>"${bill.paymentMethod || "NIL"}"</b>&nbsp;&nbsp;<b>${bill.bill_name || "NIL"}</b></div>
+      <div style="margin:10px 0">
+        <div class="bill-row"><div class="bill-label">Estimate Number</div><div class="bill-value">: ${bill.EstBillNo || ""}</div></div>
+        <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
+        <div class="bill-row"><div class="bill-label">Estimate Date</div><div class="bill-value">: ${formatDateTime(bill.EstBillDate)}</div></div>
+        <div class="bill-row"><div class="bill-label">Name</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
+        <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
       </div>
-      
-      <div class="bill-details">
-        <div class="bill-details-left">
-          <div class="bill-row">
-            <div class="bill-label">Estimate Number</div>
-            <div class="bill-value">: ${bill.EstBillNo || ""}</div>
-          </div>
-          <div class="bill-row">
-            <div class="bill-label">OP Number</div>
-            <div class="bill-value">: ${bill.uhid || ""}</div>
-          </div>
-          <div class="bill-row">
-            <div class="bill-label">Estimate Date</div>
-            <div class="bill-value">: ${formatDateTime(bill.EstBillDate)}</div>
-          </div>
-          <div class="bill-row">
-            <div class="bill-label">Name</div>
-            <div class="bill-value">: ${formatPatientName(
-              bill.salutation,
-              bill.firstName,
-              bill.middleName,
-              bill.lastName,
-            )}</div>
-          </div>
-          <div class="bill-row">
-            <div class="bill-label">Doctor</div>
-            <div class="bill-value">: ${bill.doctor || ""}</div>
-          </div>
-        </div>
-      </div>
-      
-      <table>
-        <thead>
-          <tr>
-            <th>SlNo</th>
-            <th>Description</th>
-            <th>Qty</th>
-            <th>Cost</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            Array.isArray(bill.item)
-              ? bill.item
-                  .map(
-                    (item, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td>${item.itemName || ""}</td>
-                <td>${item.quantity || 1}</td>
-                <td>${parseFloat(item.price).toFixed(2)}</td>
-                <td>${(parseFloat(item.price) * parseInt(item.quantity || 1)).toFixed(2)}</td>
-              </tr>
-            `,
-                  )
-                  .join("")
-              : '<tr><td colspan="5">No Items</td></tr>'
-          }
-        </tbody>
-      </table>
-      
+      <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
+      <tbody>${
+        Array.isArray(bill.item)
+          ? bill.item
+              .map(
+                (it, i) =>
+                  `<tr><td>${i + 1}</td><td>${it.itemName || ""}</td><td>${it.quantity || 1}</td><td>${parseFloat(it.price).toFixed(2)}</td><td>${(parseFloat(it.price) * parseInt(it.quantity || 1)).toFixed(2)}</td></tr>`,
+              )
+              .join("")
+          : '<tr><td colspan="5">No Items</td></tr>'
+      }</tbody></table>
       <div class="total-section">
-        <div class="total-row">
-          <div class="total-label">Total</div>
-          <div class="total-value">${getTotalPrice(bill.item).toFixed(2)}</div>
-        </div>
-        <div class="total-row">
-          <div class="total-label">Discount</div>
-          <div class="total-value">${bill.discount || "0.00"}</div>
-        </div>
-        <div class="total-row net-amount">
-          <div class="total-label">Estimated Net Amount</div>
-          <div class="total-value">${bill.finalPrice || "0.00"}</div>
-        </div>
+        <div class="total-row"><div class="total-label">Total</div><div>${getTotalPrice(bill.item).toFixed(2)}</div></div>
+        <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
+        <div class="total-row net-amount"><div class="total-label">Estimated Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
       </div>
-      
-      <div class="note">
-        <strong>Note:</strong> This is an estimate bill. Final charges may vary based on actual services provided. 
-        Please convert this to a final bill at the time of payment.
-      </div>
-      
-      <div class="signature">
-        <div>${bill.uhid || ""}</div>
-        <div>(Authorized Signature)</div>
-      </div>
-    </body>
-    </html>
-  `;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+      <div class="note"><strong>Note:</strong> This is an estimate bill. Final charges may vary. Please convert to a final bill at the time of payment.</div>
+      <div class="signature"><div>${bill.uhid || ""}</div><div>(Authorized Signature)</div></div>
+    </body></html>`);
+    pw.document.close();
+    setTimeout(() => pw.print(), 500);
   };
+
   const handleConvert = (bill) => {
     navigate("/InvestigationBilling", { state: { patientData: bill } });
   };
 
-  const formatPatientName = (salutation, firstName, middleName, lastName) => {
-    return `${salutation || ""} ${firstName || ""} ${
-      middleName ? middleName + " " : ""
-    }${lastName || ""}`.trim();
-  };
+  // ─── JSX ──────────────────────────────────────────────────────────────────────
 
   return (
     <PageContainer>
       <HeaderContainer>
-        <PageTitle>Estimate Bills</PageTitle>
+        <PageTitle>📊 Estimate Bills</PageTitle>
         <BackButton onClick={() => navigate("/InvestigationBilling")}>
-          Back to Billing
+          ← Back to Billing
         </BackButton>
       </HeaderContainer>
 
       <ContentCard>
-        <FilterContainer>
-          <FilterGroup>
-            <FilterLabel>From Date</FilterLabel>
+        <FilterGrid>
+          <InputWrapper>
+            <Label>From Date</Label>
             <StyledDatePicker
-              value={fromDate ? dayjs(fromDate) : null}
-              onChange={(date) => handleDateChange(date, "from")}
-              format="YYYY-MM-DD"
+              value={fromDate}
+              onChange={(d) => handleDateChange(d, "from")}
+              format="DD-MM-YYYY"
+              allowClear={false}
             />
-          </FilterGroup>
+          </InputWrapper>
 
-          <FilterGroup>
-            <FilterLabel>To Date</FilterLabel>
+          <InputWrapper>
+            <Label>To Date</Label>
             <StyledDatePicker
-              value={toDate ? dayjs(toDate) : null}
-              onChange={(date) => handleDateChange(date, "to")}
-              format="YYYY-MM-DD"
+              value={toDate}
+              onChange={(d) => handleDateChange(d, "to")}
+              format="DD-MM-YYYY"
+              allowClear={false}
             />
-          </FilterGroup>
+          </InputWrapper>
 
-          <FilterGroup>
-            <FilterLabel>Bill Type</FilterLabel>
+          <InputWrapper>
+            <Label>Bill Type</Label>
             <Select
               name="billType"
               value={filters.billType}
               onChange={handleFilterChange}
             >
               <option value="">Select Bill Type</option>
-              {billTypes.map((bill) => (
-                <option key={bill.bill_type} value={bill.bill_type}>
-                  {bill.bill_name}
+              {billTypes.map((b) => (
+                <option key={b.bill_type} value={b.bill_type}>
+                  {b.bill_name}
                 </option>
               ))}
             </Select>
-          </FilterGroup>
+          </InputWrapper>
 
-          <FilterGroup>
-            <FilterLabel>Doctor</FilterLabel>
+          <InputWrapper>
+            <Label>Doctor</Label>
             <Select
               name="doctor"
               value={filters.doctor}
               onChange={handleFilterChange}
             >
               <option value="">Select Doctor</option>
-              {doctors.map((doctor) => (
-                <option key={doctor.employeeId} value={doctor.employeeName}>
-                  {doctor.employeeName}
+              {doctors.map((d) => (
+                <option key={d.employeeId} value={d.employeeName}>
+                  {d.employeeName}
                 </option>
               ))}
             </Select>
-          </FilterGroup>
+          </InputWrapper>
 
-          <FilterGroup>
-            <FilterLabel>UHID</FilterLabel>
+          <InputWrapper>
+            <Label>UHID</Label>
             <Input
               type="text"
               name="uhid"
               value={filters.uhid}
               onChange={handleFilterChange}
             />
-          </FilterGroup>
+          </InputWrapper>
 
-          <FilterGroup>
-            <FilterLabel>Patient Type</FilterLabel>
+          <InputWrapper>
+            <Label>Patient Type</Label>
             <RadioGroup>
-              <RadioLabel>
-                <input
-                  type="radio"
-                  name="patientType"
-                  value="OP"
-                  checked={filters.patientType === "OP"}
-                  onChange={handleFilterChange}
-                />
-                OP
-              </RadioLabel>
-              <RadioLabel>
-                <input
-                  type="radio"
-                  name="patientType"
-                  value="IP"
-                  checked={filters.patientType === "IP"}
-                  onChange={handleFilterChange}
-                />
-                IP
-              </RadioLabel>
-              <RadioLabel>
-                <input
-                  type="radio"
-                  name="patientType"
-                  value="ALL"
-                  checked={filters.patientType === "ALL"}
-                  onChange={handleFilterChange}
-                />
-                ALL
-              </RadioLabel>
+              {["OP", "IP", "ALL"].map((type) => (
+                <RadioLabel key={type}>
+                  <input
+                    type="radio"
+                    name="patientType"
+                    value={type}
+                    checked={filters.patientType === type}
+                    onChange={handleFilterChange}
+                  />
+                  {type}
+                </RadioLabel>
+              ))}
             </RadioGroup>
-          </FilterGroup>
-        </FilterContainer>
+          </InputWrapper>
+        </FilterGrid>
 
-        {filteredBills.length > 0 ? (
+        {bills.length > 0 ? (
           <TableWrapper>
-            <ModernTable>
-              <TableHead>
+            <Table>
+              <thead>
                 <tr>
-                  <th>Sl.No</th>
-                  <th>Date / Time</th>
-                  <th>Est.Bill No</th>
-                  <th>UHID</th>
-                  <th>IP No</th>
-                  <th>Patient Name</th>
-                  <th>Age</th>
-                  <th>Bill Type</th>
-                  <th>Items</th>
-                  <th>Estimate Amount</th>
-                  <th>Doctor</th>
-                  <th>Actions</th>
+                  <Th>Sl.No</Th>
+                  <Th>Date / Time</Th>
+                  <Th>Est.Bill No</Th>
+                  <Th>UHID</Th>
+                  <Th>IP No</Th>
+                  <Th>Patient Name</Th>
+                  <Th>Age</Th>
+                  <Th>Bill Type</Th>
+                  <Th>Estimate Amount</Th>
+                  <Th>Doctor</Th>
+                  <Th>Billed By</Th>
+                  <Th>Actions</Th>
                 </tr>
-              </TableHead>
+              </thead>
               <tbody>
-                {filteredBills.map((bill, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>
-                      {formatEstimateDate(bill.EstBillDate)}
-                    </TableCell>
-                    <TableCell>{bill.EstBillNo}</TableCell>
-                    <TableCell>{bill.uhid}</TableCell>
-                    <TableCell>{bill.ipNumber}</TableCell>
-                    <TableCell>
-                      {formatPatientName(
+                {bills.map((bill, index) => (
+                  <Tr key={index}>
+                    <Td>{index + 1}</Td>
+                    <Td>{formatDateTime(bill.EstBillDate)}</Td>
+                    <Td>{bill.EstBillNo}</Td>
+                    <Td>{bill.uhid}</Td>
+                    <Td>{bill.ipNumber}</Td>
+                    <Td>
+                      {fmtName(
                         bill.salutation,
                         bill.firstName,
                         bill.middleName,
                         bill.lastName,
                       )}
-                    </TableCell>
-                    <TableCell>{bill.age}</TableCell>
-                    <TableCell>{bill.bill_name}</TableCell>
-                    <TableCell>
-                      <ItemsList>
-                        {Array.isArray(bill.item)
-                          ? bill.item.map((item, idx) => (
-                              <ItemRow key={idx}>
-                                {item.itemName} - ₹{item.price} (Qty:{" "}
-                                {item.quantity})
-                              </ItemRow>
-                            ))
-                          : "No Items"}
-                      </ItemsList>
-                    </TableCell>
-                    <TableCell>₹ {bill.finalPrice}</TableCell>
-                    <TableCell>{bill.doctor}</TableCell>
-                    <TableCell>
-                      <PrintButton onClick={() => handlePrint(bill)}>
-                        Print
-                      </PrintButton>
-                      <ConvertButton onClick={() => handleConvert(bill)}>
-                        Convert
-                      </ConvertButton>
-                    </TableCell>
-                  </TableRow>
+                    </Td>
+                    <Td>{bill.age}</Td>
+                    <Td>{bill.bill_name}</Td>
+                    <Td>₹ {bill.finalPrice}</Td>
+                    <Td>{bill.doctor}</Td>
+                    <Td>{bill.created_by}</Td>
+                    <Td>
+                      <ActionGroup>
+                        <PrintBtn onClick={() => handlePrint(bill)}>
+                          🖨 Print
+                        </PrintBtn>
+                        <ViewIcon
+                          onClick={() => setViewBill(bill)}
+                          title="View Items"
+                        >
+                          👁
+                        </ViewIcon>
+                        <ConvertBtn onClick={() => handleConvert(bill)}>
+                          🔄 Convert
+                        </ConvertBtn>
+                      </ActionGroup>
+                    </Td>
+                  </Tr>
                 ))}
               </tbody>
-            </ModernTable>
+            </Table>
           </TableWrapper>
         ) : (
           <EmptyState>
@@ -860,6 +605,72 @@ const EstimateBillsReport = () => {
           </EmptyState>
         )}
       </ContentCard>
+
+      {/* ── View Items Modal ── */}
+      {viewBill && (
+        <ModalOverlay onClick={() => setViewBill(null)}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>
+                🔬 Items — Estimate No: {viewBill.EstBillNo}
+              </ModalTitle>
+              <ModalClose onClick={() => setViewBill(null)}>✕</ModalClose>
+            </ModalHeader>
+            <ModalBody>
+              <ModalTable>
+                <thead>
+                  <tr>
+                    <ModalTh>Sl.No</ModalTh>
+                    <ModalTh>Item Name</ModalTh>
+                    <ModalTh>Qty</ModalTh>
+                    <ModalTh>Price</ModalTh>
+                    <ModalTh>Amount</ModalTh>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(viewBill.item) && viewBill.item.length > 0 ? (
+                    viewBill.item.map((item, idx) => (
+                      <tr key={idx}>
+                        <ModalTd>{idx + 1}</ModalTd>
+                        <ModalTd>{item.itemName}</ModalTd>
+                        <ModalTd>{item.quantity || 1}</ModalTd>
+                        <ModalTd>₹ {parseFloat(item.price).toFixed(2)}</ModalTd>
+                        <ModalTd>
+                          ₹{" "}
+                          {(
+                            parseFloat(item.price) *
+                            parseInt(item.quantity || 1)
+                          ).toFixed(2)}
+                        </ModalTd>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <ModalTd
+                        colSpan={5}
+                        style={{ textAlign: "center", color: colors.textMuted }}
+                      >
+                        No items found
+                      </ModalTd>
+                    </tr>
+                  )}
+                </tbody>
+              </ModalTable>
+              <ModalTotalRow>
+                <span>
+                  Total: ₹ {parseFloat(viewBill.total || 0).toFixed(2)}
+                </span>
+                <span style={{ marginLeft: 12 }}>
+                  Discount: ₹ {viewBill.discount || "0.00"}
+                </span>
+                <span style={{ marginLeft: 12, color: colors.primary }}>
+                  Net: ₹ {viewBill.finalPrice || "0.00"}
+                </span>
+              </ModalTotalRow>
+            </ModalBody>
+          </ModalBox>
+        </ModalOverlay>
+      )}
     </PageContainer>
   );
 };
