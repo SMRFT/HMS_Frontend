@@ -94,10 +94,10 @@ import Wardrequest from "./Components/NursingStation/wardrequest";
 const ContentWrapper = styled.div`
   margin-top: 15px;
   padding: 20px;
-  margin-left: 210px;
+  margin-left: 260px;
 
   @media (max-width: 1024px) {
-    margin-left: 200px;
+    margin-left: 260px;
   }
   @media (max-width: 768px) {
     margin-left: 100px;
@@ -401,26 +401,41 @@ function App() {
             {hasPagePermission("/BillType", allowedActions) && (
               <>
                 <Route path="/BillType" element={<BillType />} />
-                {/* Reports */}
-                <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
 
-                {/* Velavan */}
-                <Route
-                  path="/InvoiceGeneration"
-                  element={<InvoiceGeneration />}
-                />
-                <Route path="/InvoiceReport" element={<InvoiceReport />} />
-                <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
-                <Route path="/VelavanItemList" element={<VelavanItemList />} />
-                <Route
-                  path="/AddVelavanVendors"
-                  element={<AddVelavanVendors />}
-                />
-                <Route
-                  path="/VelavanVendorList"
-                  element={<VelavanVendorList />}
-                />
               </>
+            )}
+            {/* Reports */}
+            {hasPagePermission("/DeptBUDReport", allowedActions) && (
+              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+            )}
+
+            {/* Velavan */}
+            {hasPagePermission("/InvoiceGeneration", allowedActions) && (
+              <Route
+                path="/InvoiceGeneration"
+                element={<InvoiceGeneration />}
+              />
+            )}
+            {hasPagePermission("/InvoiceReport", allowedActions) && (
+              <Route path="/InvoiceReport" element={<InvoiceReport />} />
+            )}
+            {hasPagePermission("/AddVelavanItems", allowedActions) && (
+              <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
+            )}
+            {hasPagePermission("/VelavanItemList", allowedActions) && (
+              <Route path="/VelavanItemList" element={<VelavanItemList />} />
+            )}
+            {hasPagePermission("/AddVelavanVendors", allowedActions) && (
+              <Route
+                path="/AddVelavanVendors"
+                element={<AddVelavanVendors />}
+              />
+            )}
+            {hasPagePermission("/VelavanVendorList", allowedActions) && (
+              <Route
+                path="/VelavanVendorList"
+                element={<VelavanVendorList />}
+              />
             )}
           </Routes>
         </ContentWrapper>

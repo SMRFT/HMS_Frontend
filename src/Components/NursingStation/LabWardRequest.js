@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
 import {
+  colors,
   PageWrapper,
   Table,
   Th,
@@ -9,96 +10,55 @@ import {
   Tr,
   TableWrapper,
   Input,
+  Select,
   Label,
   InputWrapper,
-  Header,
-  Title,
-  Section,
-  PrimaryButton,
-  SecondaryButton,
-  ButtonGroup,
-  LoadingIndicator,
+  Button
 } from "../GlobalStyles";
-
-// ─── Color palette (mirrors GlobalStyles conventions) ───────────────────────
-const colors = {
-  primary: "#00897B",
-  primaryDark: "#00695C",
-  orange: "#F57C00",
-  orangeHover: "#E65100",
-  yellow: "#FFA000",
-  dark: "#37474F",
-  border: "#CFD8DC",
-  background: "#F5F7F8",
-  textMain: "#263238",
-  textMuted: "#78909C",
-  white: "#FFFFFF",
-  rowHighlight: "#E0F2F1",
-  headerBg: "#546E7A",
-};
 
 // ─── Patient Info Panel ───────────────────────────────────────────────────────
 const PatientPanel = styled.div`
-  background: ${colors.white};
+  background: ${colors.surface};
   border: 1px solid ${colors.border};
-  border-radius: 6px;
-  padding: 16px 20px;
-  margin-bottom: 18px;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
 `;
 
 const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px 16px;
-  @media (max-width: 1100px) {
-    grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 24px;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
-`;
-
-const PatientRow2 = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(180px, 220px));
-  gap: 12px 16px;
-  margin-top: 12px;
 `;
 
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: ${colors.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.5px;
 `;
 
 const FieldValue = styled.div`
   background: ${colors.background};
   border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 0.88rem;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
   color: ${colors.textMain};
-  min-height: 34px;
+  min-height: 40px;
   display: flex;
   align-items: center;
-`;
-
-const IPBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: ${colors.dark};
-  color: ${colors.white};
-  border-radius: 3px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  margin-left: 8px;
 `;
 
 // ─── Legend & Actions bar ─────────────────────────────────────────────────────
@@ -106,160 +66,135 @@ const ActionsBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
-`;
-
-const LegendGroup = styled.div`
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-`;
-
-const LegendBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 13px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: default;
-  background: ${({ bg }) => bg || colors.dark};
-  color: ${colors.white};
-`;
-
-const LegendDot = styled.span`
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: ${({ color }) => color || colors.white};
-  opacity: 0.85;
-`;
-
-const RequestBtn = styled.button`
-  background: ${colors.orange};
-  color: ${colors.white};
-  border: none;
-  border-radius: 5px;
-  padding: 8px 18px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.18s;
-  &:hover {
-    background: ${colors.orangeHover};
-  }
-`;
-
-// ─── Table controls ───────────────────────────────────────────────────────────
-const TableControls = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-`;
-
-const ShowUpTo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: ${colors.textMain};
-  select {
-    border: 1px solid ${colors.border};
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 0.85rem;
-    background: ${colors.white};
-  }
-`;
-
-const SearchBox = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: ${colors.textMain};
-  input {
-    border: 1px solid ${colors.border};
-    border-radius: 4px;
-    padding: 5px 12px;
-    font-size: 0.85rem;
-    width: 200px;
-    background: ${colors.white};
-    &:focus {
-      outline: none;
-      border-color: ${colors.primary};
-    }
-  }
-`;
-
-// ─── Main Table ───────────────────────────────────────────────────────────────
-const StyledTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-`;
-
-const StyledTh = styled.th`
-  background: ${colors.headerBg};
-  color: ${colors.white};
-  padding: 10px 14px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.85rem;
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-  &:after {
-    content: " ⇅";
-    font-size: 0.7rem;
-    opacity: 0.7;
-  }
-`;
-
-const StyledTd = styled.td`
-  padding: 10px 14px;
-  border-bottom: 1px solid ${colors.border};
-  vertical-align: middle;
-  color: ${colors.textMain};
-`;
-
-const StyledTr = styled.tr`
-  background: ${({ highlight }) => (highlight ? colors.rowHighlight : colors.white)};
-  &:hover {
-    background: #f0f4f4;
-  }
+  margin-bottom: 20px;
 `;
 
 const StatusBadge = styled.span`
   display: inline-block;
   background: ${({ status }) =>
     status === "Result Pending"
-      ? colors.yellow
+      ? colors.secondary + "15"
       : status === "Result Entered"
-        ? colors.primary
-        : colors.dark};
-  color: ${colors.white};
-  border-radius: 14px;
+        ? "#136A6315"
+        : colors.textMuted + "10"};
+  color: ${({ status }) =>
+    status === "Result Pending"
+      ? colors.secondary
+      : status === "Result Entered"
+        ? "#136A63"
+        : colors.textMuted};
+  border: 1px solid currentColor;
+  border-radius: 20px;
   padding: 4px 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   white-space: nowrap;
 `;
 
-const ExpandBtn = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: ${colors.headerBg};
-  font-size: 1.2rem;
-  padding: 2px 6px;
+const IPBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #136A63;
+  color: white;
   border-radius: 4px;
-  transition: background 0.15s;
-  &:hover {
-    background: ${colors.border};
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  margin-left: 8px;
+`;
+
+const LegendGroup = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+`;
+
+const LegendBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+  padding: 4px 10px;
+  background: ${({ bg }) => bg + "15"};
+  border-radius: 4px;
+`;
+
+const LegendDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${({ color }) => color};
+`;
+
+const Pagination = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px 20px;
+  background: ${colors.background};
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: ${colors.textMuted};
+`;
+
+const PaginationBtns = styled.div`
+  display: flex;
+  gap: 6px;
+`;
+
+const PageBtn = styled.button`
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid ${(props) => (props.$active ? colors.primary : colors.border)};
+  background: ${(props) => (props.$active ? colors.primary : colors.surface)};
+  color: ${(props) => (props.$active ? colors.surface : colors.textMain)};
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(props) => (props.disabled ? 0.6 : 1)};
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: ${colors.primary};
+    color: ${(props) => (props.$active ? colors.surface : colors.primary)};
+    background: ${(props) => (props.$active ? colors.primaryDark : colors.background)};
+  }
+`;
+
+const SubTableWrapper = styled.div`
+  padding: 16px 24px;
+  background: ${colors.background};
+`;
+
+const SubTableControls = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const SubTable = styled(Table)`
+  font-size: 0.82rem;
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  overflow: hidden;
+
+  th {
+    background: ${colors.background};
+    padding: 10px 14px;
+    color: ${colors.textMuted};
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+  }
+
+  td {
+    padding: 10px 14px;
   }
 `;
 
@@ -467,75 +402,6 @@ const CancelBtn = styled.button`
   gap: 5px;
   &:hover {
     background: ${colors.textMain};
-  }
-`;
-
-// ─── Expand: Sub-table (tests) ────────────────────────────────────────────────
-const SubTableWrapper = styled.div`
-  padding: 14px 20px 16px;
-`;
-
-const SubTableControls = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-`;
-
-const SubTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.87rem;
-`;
-
-const SubTh = styled.th`
-  background: ${colors.background};
-  color: ${colors.textMain};
-  padding: 9px 14px;
-  text-align: left;
-  font-weight: 700;
-  border-bottom: 2px solid ${colors.border};
-  cursor: pointer;
-  user-select: none;
-  &:after {
-    content: " ⇅";
-    font-size: 0.7rem;
-    opacity: 0.5;
-  }
-`;
-
-const SubTd = styled.td`
-  padding: 9px 14px;
-  border-bottom: 1px solid ${colors.border};
-  color: ${colors.textMain};
-`;
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-const Pagination = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
-  font-size: 0.83rem;
-  color: ${colors.textMuted};
-`;
-
-const PaginationBtns = styled.div`
-  display: flex;
-  gap: 4px;
-`;
-
-const PageBtn = styled.button`
-  border: 1px solid ${colors.border};
-  background: ${({ active }) => (active ? colors.primary : colors.white)};
-  color: ${({ active }) => (active ? colors.white : colors.textMain)};
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-size: 0.83rem;
-  cursor: ${({ disabled }) => (disabled ? "not-allowed" : "pointer")};
-  opacity: ${({ disabled }) => (disabled ? 0.5 : 1)};
-  &:hover:not(:disabled) {
-    background: ${({ active }) => (active ? colors.primaryDark : colors.background)};
   }
 `;
 
@@ -839,8 +705,6 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
             <FieldLabel>Room No | Bed</FieldLabel>
             <FieldValue>{resolvedPatient.roomBed}</FieldValue>
           </FieldBox>
-        </PatientGrid>
-        <PatientRow2>
           <FieldBox>
             <FieldLabel>Customer Type</FieldLabel>
             <FieldValue>{resolvedPatient.customerType}</FieldValue>
@@ -849,28 +713,28 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
             <FieldLabel>Company Name</FieldLabel>
             <FieldValue>{resolvedPatient.companyName}</FieldValue>
           </FieldBox>
-        </PatientRow2>
+        </PatientGrid>
       </PatientPanel>
 
       {/* ── Actions Bar ── */}
       <ActionsBar>
         <LegendGroup>
-          <LegendBadge bg={colors.yellow}>
-            <LegendDot color={colors.white} />
+          <LegendBadge bg={colors.secondary}>
+            <LegendDot color={colors.secondary} />
             Result Pending
           </LegendBadge>
           <LegendBadge bg={colors.primary}>
-            <LegendDot color={colors.white} />
+            <LegendDot color={colors.primary} />
             Result Entered
           </LegendBadge>
-          <LegendBadge bg={colors.dark}>
-            <LegendDot color={colors.white} />
+          <LegendBadge bg={colors.textMuted}>
+            <LegendDot color={colors.textMuted} />
             Cancelled Request
           </LegendBadge>
         </LegendGroup>
-        <RequestBtn onClick={() => setShowRequestForm((v) => !v)}>
+        <Button onClick={() => setShowRequestForm((v) => !v)}>
           {showRequestForm ? "− Request" : "+ Request"}
-        </RequestBtn>
+        </Button>
       </ActionsBar>
 
       {/* ── Request Form (inline expand) ── */}
@@ -1073,71 +937,77 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       )}
 
       {/* ── Main Table ── */}
-      <TableControls>
-        <ShowUpTo>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: colors.textMain }}>
           Show up to
-          <select value={showUpTo} onChange={(e) => setShowUpTo(e.target.value)}>
+          <Select value={showUpTo} onChange={(e) => setShowUpTo(e.target.value)} style={{ width: "70px", padding: "4px 8px" }}>
             <option>10</option>
             <option>25</option>
             <option>50</option>
-          </select>
-        </ShowUpTo>
-        <SearchBox>
-          Search:
-          <input
-            placeholder="Search By Ward"
+          </Select>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
+          <Input
+            placeholder="Search by Ward..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "200px", padding: "6px 12px" }}
           />
-        </SearchBox>
-      </TableControls>
+        </div>
+      </div>
 
       <TableWrapper>
-        <StyledTable>
+        <Table>
           <thead>
-            <tr>
-              <StyledTh>Status</StyledTh>
-              <StyledTh>Request Date</StyledTh>
-              <StyledTh>Request Time</StyledTh>
-              <StyledTh>User Name</StyledTh>
-              <StyledTh>Bill No</StyledTh>
-              <StyledTh>Bill Type</StyledTh>
-              <StyledTh>Ward Name</StyledTh>
-              <StyledTh>Doctor Name</StyledTh>
-              <th style={{ background: colors.headerBg, width: 48 }} />
-            </tr>
+            <Tr>
+              <Th>Status</Th>
+              <Th>Date & Time</Th>
+              <Th>User Name</Th>
+              <Th>Bill No</Th>
+              <Th>Bill Type</Th>
+              <Th>Ward Name</Th>
+              <Th>Doctor Name</Th>
+              <Th style={{ width: "48px" }}></Th>
+            </Tr>
           </thead>
           <tbody>
             {filteredRequests.map((req) => (
               <React.Fragment key={req.id}>
-                <StyledTr highlight={req.id % 2 === 1}>
-                  <StyledTd>
+                <Tr>
+                  <Td>
                     <StatusBadge status={req.status}>{req.status}</StatusBadge>
-                  </StyledTd>
-                  <StyledTd>{req.reqDate}</StyledTd>
-                  <StyledTd>{req.reqTime}</StyledTd>
-                  <StyledTd>{req.userName}</StyledTd>
-                  <StyledTd>{req.billNo}</StyledTd>
-                  <StyledTd>{req.billType}</StyledTd>
-                  <StyledTd>{req.wardName}</StyledTd>
-                  <StyledTd
+                  </Td>
+                  <Td>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontWeight: 500 }}>{req.reqDate}</span>
+                      <small style={{ color: colors.textMuted }}>{req.reqTime}</small>
+                    </div>
+                  </Td>
+                  <Td>{req.userName}</Td>
+                  <Td>{req.billNo}</Td>
+                  <Td>{req.billType}</Td>
+                  <Td>{req.wardName}</Td>
+                  <Td
                     style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
                     onClick={() => toggleRow(req.id)}
                   >
                     {req.doctorName}
-                  </StyledTd>
-                  <StyledTd style={{ textAlign: "center" }}>
+                  </Td>
+                  <Td style={{ textAlign: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                      <ExpandBtn onClick={() => toggleRow(req.id)} title="View Tests">
-                        {expandedRow === req.id ? "⌃" : "⌄"}
-                      </ExpandBtn>
+                      <button 
+                        onClick={() => toggleRow(req.id)} 
+                        style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontSize: "1.2rem" }}
+                      >
+                        {expandedRow === req.id ? "▴" : "▾"}
+                      </button>
                       {req.status === "Result Pending" && (
                         <button
                           onClick={() => handleCancelRequest(req.id)}
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#e53935",
+                            color: colors.danger,
                             cursor: "pointer",
                             fontSize: "1rem",
                             display: "flex",
@@ -1149,57 +1019,57 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                         </button>
                       )}
                     </div>
-                  </StyledTd>
-                </StyledTr>
+                  </Td>
+                </Tr>
 
                 {expandedRow === req.id && (
-                  <ExpandedRow>
-                    <ExpandedCell colSpan={9}>
+                  <Tr>
+                    <Td colSpan={8} style={{ padding: 0 }}>
                       <SubTableWrapper>
                         <SubTableControls>
-                          <ShowUpTo>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
                             Show up to
-                            <select defaultValue="10">
+                            <Select defaultValue="10" style={{ width: "70px", padding: "4px 8px" }}>
                               <option>10</option>
                               <option>25</option>
-                            </select>
-                          </ShowUpTo>
-                          <SearchBox>
+                            </Select>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
                             Search:
-                            <input placeholder="Search By Test Name" />
-                          </SearchBox>
+                            <Input placeholder="Search By Test Name" style={{ width: "200px", padding: "4px 12px" }} />
+                          </div>
                         </SubTableControls>
                         <SubTable>
                           <thead>
-                            <tr>
-                              <SubTh>Test Name</SubTh>
-                              <SubTh>Collection Time</SubTh>
-                              <SubTh>Action</SubTh>
-                            </tr>
+                            <Tr>
+                              <Th>Test Name</Th>
+                              <Th>Collection Time</Th>
+                              <Th>Action</Th>
+                            </Tr>
                           </thead>
                           <tbody>
                             {req.tests.length === 0 ? (
-                              <tr>
-                                <SubTd
+                              <Tr>
+                                <Td
                                   colSpan={3}
                                   style={{ textAlign: "center", color: colors.textMuted }}
                                 >
                                   No tests found
-                                </SubTd>
-                              </tr>
+                                </Td>
+                              </Tr>
                             ) : (
                               req.tests.map((t, i) => (
-                                <tr key={i}>
-                                  <SubTd>{t.name}</SubTd>
-                                  <SubTd>{t.collectionTime}</SubTd>
-                                  <SubTd style={{ textAlign: "center" }}>
+                                <Tr key={i}>
+                                  <Td>{t.name}</Td>
+                                  <Td>{t.collectionTime}</Td>
+                                  <Td style={{ textAlign: "center" }}>
                                     {req.status === "Result Pending" && (
                                       <button
                                         onClick={() => handleRemoveIndividualTest(req.id, t)}
                                         style={{
                                           background: "none",
                                           border: "none",
-                                          color: "#e53935",
+                                          color: colors.danger,
                                           cursor: "pointer",
                                           fontSize: "0.9rem",
                                           display: "flex",
@@ -1212,8 +1082,8 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                                         ✕
                                       </button>
                                     )}
-                                  </SubTd>
-                                </tr>
+                                  </Td>
+                                </Tr>
                               ))
                             )}
                           </tbody>
@@ -1229,13 +1099,13 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                           </PaginationBtns>
                         </Pagination>
                       </SubTableWrapper>
-                    </ExpandedCell>
-                  </ExpandedRow>
+                    </Td>
+                  </Tr>
                 )}
               </React.Fragment>
             ))}
           </tbody>
-        </StyledTable>
+        </Table>
       </TableWrapper>
 
       <Pagination>

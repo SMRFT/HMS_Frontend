@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -277,6 +277,7 @@ const Admission = () => {
   const [doctors, setDoctors] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [lastSaved, setLastSaved] = useState(null); // admission data after save for print
   const [now, setNow] = useState(new Date());
 
@@ -285,7 +286,6 @@ const Admission = () => {
   const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [roomResults, setRoomResults] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
-  const [editingId, setEditingId] = useState(null); // Track if editing an admission
 
   // Bed modal
   const [showBedModal, setShowBedModal] = useState(false);
@@ -327,7 +327,7 @@ const Admission = () => {
 
   // ── Fetches ────────────────────────────────────────────────────────────────
 
-  const fetchDoctors = async () => {
+  const fetchNextIpNumber = async () => {
     try {
       const response = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
       if (response.success) {
@@ -355,16 +355,9 @@ const Admission = () => {
     }
   };
 
-  const fetchAdmissions = async () => {
+  const fetchPatientByUHID = async () => {
+    if (!formData.uhid) return toast.warning("Enter UHID first");
     try {
-      const already = admissions.find(
-        (a) => a.uhid === formData.uhid && a.is_active !== false
-      );
-      if (already)
-        toast.error(
-          `Patient is ALREADY ADMITTED (IP: ${already.ipNumber})`
-        );
-
       const res = await apiRequest(
         `${HmsBaseUrl}op-patient/${encodeURIComponent(formData.uhid)}/`,
         "GET"
@@ -395,8 +388,19 @@ const Admission = () => {
     }
   };
 
-  // ── Admission lookup by IP Number ─────────────────────────────────────────
+  const fetchAdmissions = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
+      if (res.success) {
+        setAdmissions(res.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch admissions:", error);
+    }
+  };
 
+  const fetchAdmissionByIP = async () => {
+    if (!formData.ipNumber) return toast.warning("Enter IP Number first");
     try {
       const res = await apiRequest(
         `${HmsBaseUrl}admission/?ip_number=${encodeURIComponent(formData.ipNumber)}`,
@@ -430,47 +434,47 @@ const Admission = () => {
     }
   };
 
-  const searchRooms = async () => {
-    setLoadingRooms(true);
-    try {
-      const queryParam = roomSearchQuery ? `?room_number=${encodeURIComponent(roomSearchQuery)}` : "";
-      const response = await apiRequest(`${HmsBaseUrl}search-rooms/${queryParam}`, "GET");
-      if (response.success) {
-        setRoomResults(response.data || []);
-        if (response.data.length === 0) {
-          toast.info("No rooms found");
-        }
-      } else {
-        throw new Error(response.error || "Failed to search rooms");
+const searchRooms = async () => {
+  setLoadingRooms(true);
+  try {
+    const queryParam = roomSearchQuery ? `?room_number=${encodeURIComponent(roomSearchQuery)}` : "";
+    const response = await apiRequest(`${HmsBaseUrl}search-rooms/${queryParam}`, "GET");
+    if (response.success) {
+      setRoomResults(response.data || []);
+      if (response.data.length === 0) {
+        toast.info("No rooms found");
       }
-    } catch (error) {
-      console.error("Error searching rooms:", error.message);
-      toast.error("Failed to search rooms");
-      setRoomResults([]);
-    } finally {
-      setLoadingRooms(false);
+    } else {
+      throw new Error(response.error || "Failed to search rooms");
     }
-  };
+  } catch (error) {
+    console.error("Error searching rooms:", error.message);
+    toast.error("Failed to search rooms");
+    setRoomResults([]);
+  } finally {
+    setLoadingRooms(false);
+  }
+};
 
-  const handleRoomSelect = (room) => {
-    setSelectedRoom(room);
-    setFormData((prev) => ({ ...prev, roomNo: room.room_number, bedNo: "" }));
-    setShowRoomModal(false);
-    setShowBedModal(true);
-  };
+const handleRoomSelect = (room) => {
+  setSelectedRoom(room);
+  setFormData((prev) => ({ ...prev, roomNo: room.room_number, bedNo: "" }));
+  setShowRoomModal(false);
+  setShowBedModal(true);
+};
 
-  const handleBedSelect = (bed) => {
-    setFormData((prev) => ({ ...prev, bedNo: bed }));
-    setShowBedModal(false);
-    toast.success(`Room ${formData.roomNo} / Bed ${bed} selected`);
-  };
+const handleBedSelect = (bed) => {
+  setFormData((prev) => ({ ...prev, bedNo: bed }));
+  setShowBedModal(false);
+  toast.success(`Room ${formData.roomNo} / Bed ${bed} selected`);
+};
 
-  const openRoomSearchModal = () => {
-    setShowRoomModal(true);
-    searchRooms(); // Load all rooms initially
-  };
+const openRoomSearchModal = () => {
+  setShowRoomModal(true);
+  searchRooms(); // Load all rooms initially
+};
 
-  const handleInputChange = (e) => {
+  const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -478,128 +482,128 @@ const Admission = () => {
     }));
   };
 
-  const handleReset = () => {
-    setFormData(EMPTY_FORM);
-    setEditingId(null);
-    setLastSaved(null);
-  };
+const handleReset = () => {
+  setFormData(EMPTY_FORM);
+  setEditingId(null);
+  setLastSaved(null);
+};
 
-  const handleEdit = (adm) => {
-    setEditingId(adm._id || adm.id);
-    setFormData({ ...EMPTY_FORM, ...adm });
-    window.scrollTo(0, 0);
-    toast.info("Editing admission record");
-  };
+const handleEdit = (adm) => {
+  setEditingId(adm._id || adm.id);
+  setFormData({ ...EMPTY_FORM, ...adm });
+  window.scrollTo(0, 0);
+  toast.info("Editing admission record");
+};
 
-  const handleCancel = async (id) => {
-    if (window.confirm("Are you sure you want to cancel this admission?")) {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}admission/${id}/`, "DELETE");
-        if (response.success) {
-          toast.success("Admission cancelled successfully");
-          fetchAdmissions(); // Refresh list
-        } else {
-          throw new Error(response.error || "Failed to cancel admission");
-        }
-      } catch (error) {
-        console.error("Error cancelling admission:", error.message);
-        toast.error("Failed to cancel admission");
-      }
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!formData.uhid) return toast.warning("UHID is required");
-    if (!formData.admittingDoctor) return toast.warning("Admitting Doctor is required");
-    if (!formData.roomNo) return toast.warning("Room is required");
-    if (!formData.bedNo) return toast.warning("Bed is required");
-
-    // Build admissionDateTime from current time
-    const admissionDateTime = now.toISOString();
-
-    const payload = new FormData();
-    const fieldsToSend = [
-      "uhid",
-      "admittingDoctor",   // employeeId
-      "consultingDoctor",  // employeeId
-      "roomNo", "bedNo",
-      "reasonForAdmission", "packageName",
-      "mlc_type", "mlc_remarks",
-    ];
-    fieldsToSend.forEach((k) => {
-      if (formData[k] !== null && formData[k] !== undefined && formData[k] !== "") {
-        payload.append(k, formData[k]);
-      }
-    });
-    payload.append("admissionDateTime", admissionDateTime);
-
-    if (formData.mlc_doc instanceof File) {
-      payload.append("mlc_doc", formData.mlc_doc);
-    }
-
+const handleCancel = async (id) => {
+  if (window.confirm("Are you sure you want to cancel this admission?")) {
     try {
-      let response;
-      if (editingId) {
-        // Update
-        response = await apiRequest(`${HmsBaseUrl}admission/${editingId}/`, "PUT", formPayload);
+      const response = await apiRequest(`${HmsBaseUrl}admission/${id}/`, "DELETE");
+      if (response.success) {
+        toast.success("Admission cancelled successfully");
+        fetchAdmissions(); // Refresh list
       } else {
-        // Create
-        response = await apiRequest(`${HmsBaseUrl}admission/`, "POST", formPayload);
+        throw new Error(response.error || "Failed to cancel admission");
       }
-      if (res.success) {
-        toast.success(editingId ? "Admission updated!" : "Admission saved!");
-        const savedData = res.data || {};
-        // Enrich with patient + doctor info for print
-        setLastSaved({
-          ...savedData,
-          salutation: formData.salutation,
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
-          age: formData.age,
-          gender: formData.gender,
-          phone: formData.phone,
-          permanent_address: formData.permanent_address,
-          area: formData.area,
-          city: formData.city,
-          state: formData.state,
-          zipcode: formData.zipcode,
-          customerType: formData.customerType,
-          admittingDoctorName: getDoctorName(formData.admittingDoctor),
-          roomNo: formData.roomNo,
-          bedNo: formData.bedNo,
-          admissionDateTime,
-          uhid: formData.uhid,
-        });
-        fetchAdmissions();
-      } else {
-        throw new Error(response.error || "Failed to save admission");
-      }
-    } catch {
-      toast.error("Failed to save admission");
+    } catch (error) {
+      console.error("Error cancelling admission:", error.message);
+      toast.error("Failed to cancel admission");
     }
-  };
+  }
+};
 
-  // ── Print ─────────────────────────────────────────────────────────────────
+const handleSubmit = async () => {
+  if (!formData.uhid) return toast.warning("UHID is required");
+  if (!formData.admittingDoctor) return toast.warning("Admitting Doctor is required");
+  if (!formData.roomNo) return toast.warning("Room is required");
+  if (!formData.bedNo) return toast.warning("Bed is required");
 
-  const handlePrint = (admData) => {
-    // Build barcode SVG inline using simple line pattern (Code128-like visual)
-    const printData = admData || lastSaved;
-    if (!printData) return;
+  // Build admissionDateTime from current time
+  const admissionDateTime = now.toISOString();
 
-    const ipNum = printData.ipNumber || "";
-    const patientName = [printData.salutation, printData.firstName, printData.middleName, printData.lastName]
-      .filter(Boolean).join(" ");
-    const admDT = printData.admissionDateTime ? new Date(printData.admissionDateTime) : new Date();
-    const admDateStr = admDT.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const admTimeStr = admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
-    const admittedBy = printData.admittingDoctorName || getDoctorName(printData.admittingDoctor) || "";
+  const payload = new FormData();
+  const fieldsToSend = [
+    "uhid",
+    "admittingDoctor",   // employeeId
+    "consultingDoctor",  // employeeId
+    "roomNo", "bedNo",
+    "reasonForAdmission", "packageName",
+    "mlc_type", "mlc_remarks",
+  ];
+  fieldsToSend.forEach((k) => {
+    if (formData[k] !== null && formData[k] !== undefined && formData[k] !== "") {
+      payload.append(k, formData[k]);
+    }
+  });
+  payload.append("admissionDateTime", admissionDateTime);
 
-    // Generate simple barcode-like pattern from IP number string
-    const barcodeLines = generateBarcodeSVG(ipNum);
+  if (formData.mlc_doc instanceof File) {
+    payload.append("mlc_doc", formData.mlc_doc);
+  }
 
-    const printWindow = window.open("", "_blank", "width=600,height=400");
-    printWindow.document.write(`
+  try {
+    let response;
+    if (editingId) {
+      // Update
+      response = await apiRequest(`${HmsBaseUrl}admission/${editingId}/`, "PUT", payload);
+    } else {
+      // Create
+      response = await apiRequest(`${HmsBaseUrl}admission/`, "POST", payload);
+    }
+    if (response.success) {
+      toast.success(editingId ? "Admission updated!" : "Admission saved!");
+      const savedData = response.data || {};
+      // Enrich with patient + doctor info for print
+      setLastSaved({
+        ...savedData,
+        salutation: formData.salutation,
+        firstName: formData.firstName,
+        middleName: formData.middleName,
+        lastName: formData.lastName,
+        age: formData.age,
+        gender: formData.gender,
+        phone: formData.phone,
+        permanent_address: formData.permanent_address,
+        area: formData.area,
+        city: formData.city,
+        state: formData.state,
+        zipcode: formData.zipcode,
+        customerType: formData.customerType,
+        admittingDoctorName: getDoctorName(formData.admittingDoctor),
+        roomNo: formData.roomNo,
+        bedNo: formData.bedNo,
+        admissionDateTime,
+        uhid: formData.uhid,
+      });
+      fetchAdmissions();
+    } else {
+      throw new Error(response.error || "Failed to save admission");
+    }
+  } catch {
+    toast.error("Failed to save admission");
+  }
+};
+
+// ── Print ─────────────────────────────────────────────────────────────────
+
+const handlePrint = (admData) => {
+  // Build barcode SVG inline using simple line pattern (Code128-like visual)
+  const printData = admData || lastSaved;
+  if (!printData) return;
+
+  const ipNum = printData.ipNumber || "";
+  const patientName = [printData.salutation, printData.firstName, printData.middleName, printData.lastName]
+    .filter(Boolean).join(" ");
+  const admDT = printData.admissionDateTime ? new Date(printData.admissionDateTime) : new Date();
+  const admDateStr = admDT.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const admTimeStr = admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const admittedBy = printData.admittingDoctorName || getDoctorName(printData.admittingDoctor) || "";
+
+  // Generate simple barcode-like pattern from IP number string
+  const barcodeLines = generateBarcodeSVG(ipNum);
+
+  const printWindow = window.open("", "_blank", "width=600,height=400");
+  printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -653,435 +657,428 @@ const Admission = () => {
       </body>
       </html>
     `);
-    printWindow.document.close();
-  };
+  printWindow.document.close();
+};
 
-  // Simple barcode SVG generator (Code-like visual bars from string)
-  const generateBarcodeSVG = (text) => {
-    if (!text) return "";
-    const width = 220;
-    const height = 50;
-    // Generate bar pattern from char codes
-    let bars = "";
-    let x = 0;
-    const chars = text.split("");
-    chars.forEach((ch, i) => {
-      const code = ch.charCodeAt(0);
-      // Alternating narrow/wide bars based on char code bits
-      for (let b = 0; b < 4; b++) {
-        const barW = ((code >> b) & 1) ? 3 : 1.5;
-        if (i % 2 === 0) {
-          bars += `<rect x="${x.toFixed(1)}" y="0" width="${barW}" height="${height}" fill="black"/>`;
-        }
-        x += barW + 1;
-        if (x > width - 10) break;
+// Simple barcode SVG generator (Code-like visual bars from string)
+const generateBarcodeSVG = (text) => {
+  if (!text) return "";
+  const width = 220;
+  const height = 50;
+  // Generate bar pattern from char codes
+  let bars = "";
+  let x = 0;
+  const chars = text.split("");
+  chars.forEach((ch, i) => {
+    const code = ch.charCodeAt(0);
+    // Alternating narrow/wide bars based on char code bits
+    for (let b = 0; b < 4; b++) {
+      const barW = ((code >> b) & 1) ? 3 : 1.5;
+      if (i % 2 === 0) {
+        bars += `<rect x="${x.toFixed(1)}" y="0" width="${barW}" height="${height}" fill="black"/>`;
       }
-    });
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${bars}</svg>`;
-  };
+      x += barW + 1;
+      if (x > width - 10) break;
+    }
+  });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">${bars}</svg>`;
+};
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+// ─── Render ────────────────────────────────────────────────────────────────
 
-  return (
-    <PageWrapper>
-      <Container style={{ padding: 0 }}>
-        <PageHeader>
-          <PageTitle>
-            {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
-          </PageTitle>
-          <ClockDisplay>
-            {formatDate(now)} &nbsp; {formatClock(now)}
-          </ClockDisplay>
-        </PageHeader>
+return (
+  <PageWrapper>
+    <Container style={{ padding: 0 }}>
+      <PageHeader>
+        <PageTitle>
+          {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
+        </PageTitle>
+        <ClockDisplay>
+          {formatDate(now)} &nbsp; {formatClock(now)}
+        </ClockDisplay>
+      </PageHeader>
 
-        <FormGrid>
+      <FormGrid>
 
-          {/* ── Patient Search ─────────────────────────────────────── */}
-          <Field span={2}>
-            <Lbl required>UHID</Lbl>
-            <InputRow>
-              <Inp
-                name="uhid"
-                value={formData.uhid}
-                onChange={handleChange}
-                placeholder="Enter UHID"
-                readOnly={!!editingId}
-              />
-              <IconBtn type="button" onClick={fetchPatientByUHID}>🔍 Search</IconBtn>
-            </InputRow>
-          </Field>
-
-          <Field span={2}>
-            <Lbl>IP Number</Lbl>
-            <InputRow>
-              <Inp
-                name="ipNumber"
-                value={formData.ipNumber}
-                onChange={handleChange}
-                placeholder="Search by IP Number"
-                readOnly={!editingId}
-              />
-              <IconBtn type="button" onClick={fetchAdmissionByIP}>🔍</IconBtn>
-            </InputRow>
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Date &amp; Time</Lbl>
+        {/* ── Patient Search ─────────────────────────────────────── */}
+        <Field span={2}>
+          <Lbl required>UHID</Lbl>
+          <InputRow>
             <Inp
-              value={`${formatDate(now)}  ${formatClock(now)}`}
-              readOnly
-              style={{ fontFamily: "monospace", background: "#f3f4f6" }}
-            />
-          </Field>
-
-          {/* ── Patient Info (read-only from lookup) ───────────────── */}
-          <SectionDivider>Patient Details (auto-filled from UHID)</SectionDivider>
-
-          <Field span={3}>
-            <Lbl>Patient Name</Lbl>
-            <Inp
-              value={[formData.salutation, formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" ")}
-              readOnly
-            />
-          </Field>
-
-          <Field>
-            <Lbl>Age</Lbl>
-            <Inp value={formData.age} readOnly />
-          </Field>
-
-          <Field>
-            <Lbl>Gender</Lbl>
-            <Inp value={formData.gender} readOnly />
-          </Field>
-
-          <Field>
-            <Lbl>Customer Type</Lbl>
-            <Inp value={formData.customerType} readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Insurance Company</Lbl>
-            <Inp value={formData.insuranceCompany} readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Privileged Customer ID</Lbl>
-            <Inp value={formData.privilegedCustomerId} readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Phone</Lbl>
-            <Inp value={formData.phone} readOnly />
-          </Field>
-
-          <Field span={3}>
-            <Lbl>Permanent Address</Lbl>
-            <Inp value={formData.permanent_address} readOnly />
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Area</Lbl>
-            <Inp value={formData.area} readOnly />
-          </Field>
-
-          <Field>
-            <Lbl>City</Lbl>
-            <Inp value={formData.city} readOnly />
-          </Field>
-
-          <Field>
-            <Lbl>State</Lbl>
-            <Inp value={formData.state} readOnly />
-          </Field>
-
-          <Field>
-            <Lbl>Zip Code</Lbl>
-            <Inp value={formData.zipcode} readOnly />
-          </Field>
-
-          {/* ── Doctors ───────────────────────────────────────────── */}
-          <SectionDivider>Clinical</SectionDivider>
-
-          <Field span={3}>
-            <Lbl required>Admitting Doctor</Lbl>
-            <Sel name="admittingDoctor" value={formData.admittingDoctor} onChange={handleChange}>
-              <option value="">Select Doctor</option>
-              {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeId}>
-                  {d.employeeName}
-                </option>
-              ))}
-            </Sel>
-          </Field>
-
-          <Field span={3}>
-            <Lbl>Consulting Doctor</Lbl>
-            <Sel name="consultingDoctor" value={formData.consultingDoctor} onChange={handleChange}>
-              <option value="">Select Doctor</option>
-              {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeId}>
-                  {d.employeeName}
-                </option>
-              ))}
-            </Sel>
-          </Field>
-
-          {/* ── Room / Bed ──────────────────────────────────────── */}
-          <SectionDivider>Room &amp; Bed</SectionDivider>
-
-          <Field span={2}>
-            <Lbl required>Room No.</Lbl>
-            <InputRow>
-              <Inp
-                name="roomNo"
-                value={formData.roomNo}
-                onChange={handleChange}
-                placeholder="Select room"
-              />
-              <IconBtn
-                type="button"
-                onClick={() => { setShowRoomModal(true); searchRooms(); }}
-              >
-                🔍
-              </IconBtn>
-            </InputRow>
-          </Field>
-
-          <Field span={2}>
-            <Lbl required>Bed No.</Lbl>
-            <Inp
-              name="bedNo"
-              value={formData.bedNo}
+              name="uhid"
+              value={formData.uhid}
               onChange={handleChange}
-              placeholder="Enter bed number"
+              placeholder="Enter UHID"
+              readOnly={!!editingId}
             />
-          </Field>
+            <IconBtn type="button" onClick={fetchPatientByUHID}>🔍 Search</IconBtn>
+          </InputRow>
+        </Field>
 
-          {/* ── Reason & Package ───────────────────────────────── */}
-          <Field span={3}>
-            <Lbl>Reason for Admission</Lbl>
-            <Txta name="reasonForAdmission" value={formData.reasonForAdmission} onChange={handleChange} rows={2} />
-          </Field>
-
-          <Field span={3}>
-            <Lbl>Package Name</Lbl>
-            <Sel name="packageName" value={formData.packageName} onChange={handleChange}>
-              <option value=""></option>
-              <option>General Package</option>
-              <option>ECHS Package</option>
-              <option>Insurance Package</option>
-            </Sel>
-          </Field>
-
-          {/* ── MLC ──────────────────────────────────────────── */}
-          <SectionDivider>MLC (if applicable)</SectionDivider>
-
-          <Field span={2}>
-            <Lbl>MLC Type</Lbl>
-            <Sel name="mlc_type" value={formData.mlc_type} onChange={handleChange}>
-              <option value=""></option>
-              <option value="Accident">Accident</option>
-              <option value="Assault">Assault</option>
-              <option value="Other">Other</option>
-            </Sel>
-          </Field>
-
-          <Field span={2}>
-            <Lbl>MLC Document</Lbl>
+        <Field span={2}>
+          <Lbl>IP Number</Lbl>
+          <InputRow>
             <Inp
-              type="file"
-              name="mlc_doc"
+              name="ipNumber"
+              value={formData.ipNumber}
               onChange={handleChange}
-              style={{ paddingTop: 3, height: "auto" }}
+              placeholder="Search by IP Number"
+              readOnly={!editingId}
             />
-          </Field>
+            <IconBtn type="button" onClick={fetchAdmissionByIP}>🔍</IconBtn>
+          </InputRow>
+        </Field>
 
-          <Field span={2}>
-            <Lbl>MLC Remarks</Lbl>
-            <Txta name="mlc_remarks" value={formData.mlc_remarks} onChange={handleChange} rows={2} />
-          </Field>
+        <Field span={2}>
+          <Lbl>Date &amp; Time</Lbl>
+          <Inp
+            value={`${formatDate(now)}  ${formatClock(now)}`}
+            readOnly
+            style={{ fontFamily: "monospace", background: "#f3f4f6" }}
+          />
+        </Field>
 
-        </FormGrid>
+        {/* ── Patient Info (read-only from lookup) ───────────────── */}
+        <SectionDivider>Patient Details (auto-filled from UHID)</SectionDivider>
 
-        <ActionBar>
-          {lastSaved && (
-            <PrintBtn onClick={() => handlePrint(lastSaved)}>
-              🖨️ Print Slip
-            </PrintBtn>
-          )}
-          <SmBtn secondary onClick={handleReset}>↺ Reset</SmBtn>
-          <SmBtn onClick={handleSubmit}>
-            {editingId ? "💾 Update" : "💾 Save Admission"}
-          </SmBtn>
-        </ActionBar>
+        <Field span={3}>
+          <Lbl>Patient Name</Lbl>
+          <Inp
+            value={[formData.salutation, formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" ")}
+            readOnly
+          />
+        </Field>
 
-        {/* ── Admitted Patients Table ─────────────────────────────── */}
-        <TableSection>
-          <TableTitle>Admitted Patients</TableTitle>
-          <TableWrapper>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>UHID</Th>
-                  <Th>IP Number</Th>
-                  <Th>Patient Name</Th>
-                  <Th>Adm. Date &amp; Time</Th>
-                  <Th>Room / Bed</Th>
-                  <Th>Doctor</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {admissions.length === 0 ? (
-                  <Tr>
-                    <Td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>
-                      No admission records found
+        <Field>
+          <Lbl>Age</Lbl>
+          <Inp value={formData.age} readOnly />
+        </Field>
+
+        <Field>
+          <Lbl>Gender</Lbl>
+          <Inp value={formData.gender} readOnly />
+        </Field>
+
+        <Field>
+          <Lbl>Customer Type</Lbl>
+          <Inp value={formData.customerType} readOnly />
+        </Field>
+
+        <Field span={2}>
+          <Lbl>Insurance Company</Lbl>
+          <Inp value={formData.insuranceCompany} readOnly />
+        </Field>
+
+        <Field span={2}>
+          <Lbl>Privileged Customer ID</Lbl>
+          <Inp value={formData.privilegedCustomerId} readOnly />
+        </Field>
+
+        <Field span={2}>
+          <Lbl>Phone</Lbl>
+          <Inp value={formData.phone} readOnly />
+        </Field>
+
+        <Field span={3}>
+          <Lbl>Permanent Address</Lbl>
+          <Inp value={formData.permanent_address} readOnly />
+        </Field>
+
+        <Field span={2}>
+          <Lbl>Area</Lbl>
+          <Inp value={formData.area} readOnly />
+        </Field>
+
+        <Field>
+          <Lbl>City</Lbl>
+          <Inp value={formData.city} readOnly />
+        </Field>
+
+        <Field>
+          <Lbl>State</Lbl>
+          <Inp value={formData.state} readOnly />
+        </Field>
+
+        <Field>
+          <Lbl>Zip Code</Lbl>
+          <Inp value={formData.zipcode} readOnly />
+        </Field>
+
+        {/* ── Doctors ───────────────────────────────────────────── */}
+        <SectionDivider>Clinical</SectionDivider>
+
+        <Field span={3}>
+          <Lbl required>Admitting Doctor</Lbl>
+          <Sel name="admittingDoctor" value={formData.admittingDoctor} onChange={handleChange}>
+            <option value="">Select Doctor</option>
+            {doctors.map((d) => (
+              <option key={d.employeeId} value={d.employeeId}>
+                {d.employeeName}
+              </option>
+            ))}
+          </Sel>
+        </Field>
+
+        <Field span={3}>
+          <Lbl>Consulting Doctor</Lbl>
+          <Sel name="consultingDoctor" value={formData.consultingDoctor} onChange={handleChange}>
+            <option value="">Select Doctor</option>
+            {doctors.map((d) => (
+              <option key={d.employeeId} value={d.employeeId}>
+                {d.employeeName}
+              </option>
+            ))}
+          </Sel>
+        </Field>
+
+        {/* ── Room / Bed ──────────────────────────────────────── */}
+        <SectionDivider>Room &amp; Bed</SectionDivider>
+
+        <Field span={2}>
+          <Lbl required>Room No.</Lbl>
+          <InputRow>
+            <Inp
+              name="roomNo"
+              value={formData.roomNo}
+              onChange={handleChange}
+              placeholder="Select room"
+            />
+            <IconBtn
+              type="button"
+              onClick={() => { setShowRoomModal(true); searchRooms(); }}
+            >
+              🔍
+            </IconBtn>
+          </InputRow>
+        </Field>
+
+        <Field span={2}>
+          <Lbl required>Bed No.</Lbl>
+          <Inp
+            name="bedNo"
+            value={formData.bedNo}
+            onChange={handleChange}
+            placeholder="Enter bed number"
+          />
+        </Field>
+
+        {/* ── Reason & Package ───────────────────────────────── */}
+        <Field span={3}>
+          <Lbl>Reason for Admission</Lbl>
+          <Txta name="reasonForAdmission" value={formData.reasonForAdmission} onChange={handleChange} rows={2} />
+        </Field>
+
+        <Field span={3}>
+          <Lbl>Package Name</Lbl>
+          <Sel name="packageName" value={formData.packageName} onChange={handleChange}>
+            <option value=""></option>
+            <option>General Package</option>
+            <option>ECHS Package</option>
+            <option>Insurance Package</option>
+          </Sel>
+        </Field>
+
+        {/* ── MLC ──────────────────────────────────────────── */}
+        <SectionDivider>MLC (if applicable)</SectionDivider>
+
+        <Field span={2}>
+          <Lbl>MLC Type</Lbl>
+          <Sel name="mlc_type" value={formData.mlc_type} onChange={handleChange}>
+            <option value=""></option>
+            <option value="Accident">Accident</option>
+            <option value="Assault">Assault</option>
+            <option value="Other">Other</option>
+          </Sel>
+        </Field>
+
+        <Field span={2}>
+          <Lbl>MLC Document</Lbl>
+          <Inp
+            type="file"
+            name="mlc_doc"
+            onChange={handleChange}
+            style={{ paddingTop: 3, height: "auto" }}
+          />
+        </Field>
+
+        <Field span={2}>
+          <Lbl>MLC Remarks</Lbl>
+          <Txta name="mlc_remarks" value={formData.mlc_remarks} onChange={handleChange} rows={2} />
+        </Field>
+
+      </FormGrid>
+
+      <ActionBar>
+        {lastSaved && (
+          <PrintBtn onClick={() => handlePrint(lastSaved)}>
+            🖨️ Print Slip
+          </PrintBtn>
+        )}
+        <SmBtn secondary onClick={handleReset}>↺ Reset</SmBtn>
+        <SmBtn onClick={handleSubmit}>
+          {editingId ? "💾 Update" : "💾 Save Admission"}
+        </SmBtn>
+      </ActionBar>
+
+      {/* ── Admitted Patients Table ─────────────────────────────── */}
+      <TableSection>
+        <TableTitle>Admitted Patients</TableTitle>
+        <TableWrapper>
+          <Table>
+            <thead>
+              <tr>
+                <Th>UHID</Th>
+                <Th>IP Number</Th>
+                <Th>Patient Name</Th>
+                <Th>Adm. Date &amp; Time</Th>
+                <Th>Room / Bed</Th>
+                <Th>Doctor</Th>
+                <Th>Status</Th>
+                <Th>Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {admissions.length === 0 ? (
+                <Tr>
+                  <Td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>
+                    No admission records found
+                  </Td>
+                </Tr>
+              ) : (
+                admissions.map((adm, idx) => (
+                  <Tr key={idx}>
+                    <Td>{adm.uhid}</Td>
+                    <Td>{adm.ipNumber}</Td>
+                    <Td>
+                      {[adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ") || "-"}
+                    </Td>
+                    <Td>
+                      {adm.admissionDateTime
+                        ? new Date(adm.admissionDateTime).toLocaleString("en-IN")
+                        : "-"}
+                    </Td>
+                    <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
+                    <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "-"}</Td>
+                    <Td>
+                      <StatusBadge active={adm.is_active !== false}>
+                        {adm.is_active !== false ? "Active" : "Cancelled"}
+                      </StatusBadge>
+                    </Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <MiniBtn onClick={() => handleEdit(adm)} disabled={adm.is_active === false}>
+                          ✏️
+                        </MiniBtn>
+                        <MiniBtnPrint onClick={() => handlePrint(adm)}>
+                          🖨️
+                        </MiniBtnPrint>
+                        <MiniBtn danger onClick={() => handleCancel(adm._id || adm.id)} disabled={adm.is_active === false}>
+                          🗑️
+                        </MiniBtn>
+                      </div>
                     </Td>
                   </Tr>
-                ) : (
-                  admissions.map((admission, idx) => (
-                    <Tr key={idx}>
-                      <Td>{adm.uhid}</Td>
-                      <Td>{adm.ipNumber}</Td>
-                      <Td>
-                        {[adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ") || "-"}
-                      </Td>
-                      <Td>
-                        {adm.admissionDateTime
-                          ? new Date(adm.admissionDateTime).toLocaleString("en-IN")
-                          : "-"}
-                      </Td>
-                      <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
-                      <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "-"}</Td>
-                      <Td>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.75rem',
-                          fontWeight: '600',
-                          background: admission.is_active !== false ? '#dcfce7' : '#fee2e2',
-                          color: admission.is_active !== false ? '#166534' : '#991b1b'
-                        }}>
-                          {admission.is_active !== false ? 'Active' : 'Cancelled'}
-                        </span>
-                      </Td>
-                      <Td>
-                        <div style={{ display: "flex", gap: 5 }}>
-                          <MiniBtn onClick={() => handleEdit(adm)} disabled={adm.is_active === false}>
-                            ✏️ Edit
-                          </MiniBtn>
-                          <MiniBtnPrint onClick={() => handlePrint(adm)}>
-                            🖨️
-                          </MiniBtnPrint>
-                          <MiniBtn danger onClick={() => handleCancel(adm._id || adm.id)} disabled={adm.is_active === false}>
-                            🗑️ Cancel
-                          </Button>
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-          </TableWrapper>
-        </div>
-      </Container>
-
-      {/* ── Room Search Modal ──────────────────────────────────────── */}
-      {showRoomModal && (
-        <ModalOverlay onClick={() => setShowRoomModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>Search Rooms</ModalTitle>
-              <CloseButton onClick={() => setShowRoomModal(false)}>×</CloseButton>
-            </ModalHeader>
-            <ModalBody>
-              <SearchRow>
-                <SearchInput
-                  type="text"
-                  placeholder="Enter room number..."
-                  value={roomSearchQuery}
-                  onChange={(e) => setRoomSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && searchRooms()}
-                />
-                <Button type="button" onClick={searchRooms} disabled={loadingRooms}>
-                  {loadingRooms ? "Searching..." : "Search"}
-                </Button>
-              </SearchRow>
-              {loadingRooms ? (
-                <NoResults>Loading rooms...</NoResults>
-              ) : roomResults.length > 0 ? (
-                <Table>
-                  <thead>
-                    <tr>
-                      <Th>Room No.</Th>
-                      <Th>Category</Th>
-                      <Th>Block</Th>
-                      <Th>Floor</Th>
-                      <Th>Capacity</Th>
-                      <Th>Nursing Station</Th>
-                      <Th>Fee</Th>
-                      <Th>Action</Th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roomResults.map((room, index) => (
-                      <tr key={index}>
-                        <Td>{room.room_number}</Td>
-                        <Td>{room.room_category}</Td>
-                        <Td>{room.block}</Td>
-                        <Td>{room.floor}</Td>
-                        <Td>{room.capacity}</Td>
-                        <Td>{room.nursing_station}</Td>
-                        <Td>₹{room.admission_fee}</Td>
-                        <Td>
-                          <MiniBtn onClick={() => handleRoomSelect(room)}>Select</MiniBtn>
-                        </Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              ) : (
-                <NoResults>No rooms found. Try a different search.</NoResults>
+                ))
               )}
-            </ModalBody>
-          </ModalContainer>
-        </ModalOverlay>
-      )}
+            </tbody>
+          </Table>
+        </TableWrapper>
+      </TableSection>
+    </Container>
 
-      {/* ── Bed Select Modal ───────────────────────────────────────── */}
-      {showBedModal && selectedRoom && (
-        <ModalOverlay onClick={() => setShowBedModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <ModalHeader>
-              <ModalTitle>Select Bed — Room {selectedRoom.room_number}</ModalTitle>
-              <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
-            </ModalHeader>
-            <ModalBody>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12 }}>
-                {(selectedRoom.beds || []).map((bed, i) => (
-                  <MiniBtn
-                    key={i}
-                    onClick={() => handleBedSelect(bed.bed_number || bed)}
-                    disabled={bed.is_occupied}
-                    style={{ height: 36, padding: "0 14px", fontSize: "0.8rem" }}
-                  >
-                    {bed.bed_number || bed}
-                    {bed.is_occupied ? " (Occ.)" : ""}
-                  </MiniBtn>
-                ))}
-                {(!selectedRoom.beds || selectedRoom.beds.length === 0) && (
-                  <NoResults>No beds configured for this room.</NoResults>
-                )}
-              </div>
-            </ModalBody>
-          </ModalContainer>
-        </ModalOverlay>
-      )}
-    </PageWrapper>
-  );
+    {/* ── Room Search Modal ──────────────────────────────────────── */}
+    {showRoomModal && (
+      <ModalOverlay onClick={() => setShowRoomModal(false)}>
+        <ModalContainer onClick={(e) => e.stopPropagation()}>
+          <ModalHeader>
+            <ModalTitle>Search Rooms</ModalTitle>
+            <CloseButton onClick={() => setShowRoomModal(false)}>×</CloseButton>
+          </ModalHeader>
+          <ModalBody>
+            <SearchRow>
+              <SearchInput
+                type="text"
+                placeholder="Enter room number..."
+                value={roomSearchQuery}
+                onChange={(e) => setRoomSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchRooms()}
+              />
+              <Button type="button" onClick={searchRooms} disabled={loadingRooms}>
+                {loadingRooms ? "Searching..." : "Search"}
+              </Button>
+            </SearchRow>
+            {loadingRooms ? (
+              <NoResults>Loading rooms...</NoResults>
+            ) : roomResults.length > 0 ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Room No.</Th>
+                    <Th>Category</Th>
+                    <Th>Block</Th>
+                    <Th>Floor</Th>
+                    <Th>Capacity</Th>
+                    <Th>Nursing Station</Th>
+                    <Th>Fee</Th>
+                    <Th>Action</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roomResults.map((room, index) => (
+                    <tr key={index}>
+                      <Td>{room.room_number}</Td>
+                      <Td>{room.room_category}</Td>
+                      <Td>{room.block}</Td>
+                      <Td>{room.floor}</Td>
+                      <Td>{room.capacity}</Td>
+                      <Td>{room.nursing_station}</Td>
+                      <Td>₹{room.admission_fee}</Td>
+                      <Td>
+                        <MiniBtn onClick={() => handleRoomSelect(room)}>Select</MiniBtn>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (
+              <NoResults>No rooms found. Try a different search.</NoResults>
+            )}
+          </ModalBody>
+        </ModalContainer>
+      </ModalOverlay>
+    )}
+
+    {/* ── Bed Select Modal ───────────────────────────────────────── */}
+    {showBedModal && selectedRoom && (
+      <ModalOverlay onClick={() => setShowBedModal(false)}>
+        <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 400 }}>
+          <ModalHeader>
+            <ModalTitle>Select Bed — Room {selectedRoom.room_number}</ModalTitle>
+            <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
+          </ModalHeader>
+          <ModalBody>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12 }}>
+              {(selectedRoom.beds || []).map((bed, i) => (
+                <MiniBtn
+                  key={i}
+                  onClick={() => handleBedSelect(bed.bed_number || bed)}
+                  disabled={bed.is_occupied}
+                  style={{ height: 36, padding: "0 14px", fontSize: "0.8rem" }}
+                >
+                  {bed.bed_number || bed}
+                  {bed.is_occupied ? " (Occ.)" : ""}
+                </MiniBtn>
+              ))}
+              {(!selectedRoom.beds || selectedRoom.beds.length === 0) && (
+                <NoResults>No beds configured for this room.</NoResults>
+              )}
+            </div>
+          </ModalBody>
+        </ModalContainer>
+      </ModalOverlay>
+    )}
+  </PageWrapper>
+);
 };
 
 export default Admission;
