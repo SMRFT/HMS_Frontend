@@ -632,14 +632,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   return (
-    <ModalOverlay>
-      <ModalContainer>
-        <Header>
-          <Title>Medication Order</Title>
-          <button onClick={onClose}>×</button>
-        </Header>
-
-        <ContentBody>
+    <div style={{ padding: "20px" }}>
           <PatientPanel>
             <PatientGrid>
               <FieldBox>
@@ -874,9 +867,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
             <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
           </LegendContainer>
-        </ContentBody>
-      </ModalContainer>
-    </ModalOverlay>
+        </div>
   );
 };
 

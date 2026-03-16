@@ -55,7 +55,7 @@ import Enquiry from "./Components/Register/Enquiry";
 
 import GRNGenerator from "./Components/InventoryMaster/GRNGeneration";
 import Pharmacystock from "./Components/InventoryMaster/PharmacyStock";
-import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
@@ -94,10 +94,10 @@ import Wardrequest from "./Components/NursingStation/wardrequest";
 const ContentWrapper = styled.div`
   margin-top: 15px;
   padding: 20px;
-  margin-left: 210px;
+  margin-left: 260px;
 
   @media (max-width: 1024px) {
-    margin-left: 200px;
+    margin-left: 260px;
   }
   @media (max-width: 768px) {
     margin-left: 100px;
@@ -379,12 +379,15 @@ function App() {
               <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
             )}
             {hasPagePermission("/XRayList", allowedActions) && (
-              <Route path="/XRayList" element={<XRayList />} />
-              <Route
-                path="/XRayReportForm/:uhid/:subUhid"
-                element={<XRayReportForm />}
-              />
-              <Route path="/RadiologySlot" element={<RadiologySlot />} />
+              <>
+                <Route path="/XRayList" element={<XRayList />} />
+                <Route
+                  path="/XRayReportForm/:uhid/:subUhid"
+                  element={<XRayReportForm />}
+                />
+                <Route path="/RadiologySlot" element={<RadiologySlot />} />
+              </>
+            )}
 
             {/* Packages */}
             {hasPagePermission("/Package", allowedActions) && (
@@ -396,27 +399,44 @@ function App() {
             )}
             {/* BillType */}
             {hasPagePermission("/BillType", allowedActions) && (
-              <Route path="/BillType" element={<BillType />} />
-              {/* Reports */}
-              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+              <>
+                <Route path="/BillType" element={<BillType />} />
 
-              {/* Velavan */}
+              </>
+            )}
+            {/* Reports */}
+            {hasPagePermission("/DeptBUDReport", allowedActions) && (
+              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
+            )}
+
+            {/* Velavan */}
+            {hasPagePermission("/InvoiceGeneration", allowedActions) && (
               <Route
                 path="/InvoiceGeneration"
                 element={<InvoiceGeneration />}
               />
+            )}
+            {hasPagePermission("/InvoiceReport", allowedActions) && (
               <Route path="/InvoiceReport" element={<InvoiceReport />} />
+            )}
+            {hasPagePermission("/AddVelavanItems", allowedActions) && (
               <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
+            )}
+            {hasPagePermission("/VelavanItemList", allowedActions) && (
               <Route path="/VelavanItemList" element={<VelavanItemList />} />
+            )}
+            {hasPagePermission("/AddVelavanVendors", allowedActions) && (
               <Route
                 path="/AddVelavanVendors"
                 element={<AddVelavanVendors />}
               />
+            )}
+            {hasPagePermission("/VelavanVendorList", allowedActions) && (
               <Route
                 path="/VelavanVendorList"
                 element={<VelavanVendorList />}
               />
-            </>
+            )}
           </Routes>
         </ContentWrapper>
       )}
@@ -432,3 +452,4 @@ export default function AppWrapper() {
     </Router>
   );
 }
+

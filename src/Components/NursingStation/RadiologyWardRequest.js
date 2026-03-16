@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
 import {
+  colors,
   PageWrapper,
   Table,
   Th,
@@ -9,27 +10,11 @@ import {
   Tr,
   TableWrapper,
   Input,
+  Select,
   Label,
   InputWrapper,
-  colors as globalColors,
+  Button
 } from "../GlobalStyles";
-
-// ─── Color palette (mirrors LabWardRequest/GlobalStyles) ──────────────────────
-const colors = {
-  primary: "#00897B",
-  primaryDark: "#00695C",
-  orange: "#F57C00",
-  orangeHover: "#E65100",
-  yellow: "#FFA000",
-  dark: "#37474F",
-  border: "#CFD8DC",
-  background: "#F5F7F8",
-  textMain: "#263238",
-  textMuted: "#78909C",
-  white: "#FFFFFF",
-  rowHighlight: "#E0F2F1",
-  headerBg: "#546E7A",
-};
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 
@@ -64,174 +49,101 @@ const SecondaryButton = styled.button`
 `;
 
 const PatientPanel = styled.div`
-  background: ${colors.white};
+  background: ${colors.surface};
   border: 1px solid ${colors.border};
-  border-radius: 6px;
-  padding: 16px 20px;
-  margin-bottom: 18px;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
 `;
 
 const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px 16px;
-  @media (max-width: 1100px) {
-    grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 24px;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
   }
 `;
 
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: ${colors.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.5px;
 `;
 
 const FieldValue = styled.div`
   background: ${colors.background};
   border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 0.88rem;
-  color: ${colors.textMain};
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-`;
-
-const ActionsBar = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-`;
-
-const RequestBtn = styled.button`
-  background: ${colors.orange};
-  color: ${colors.white};
-  border: none;
-  border-radius: 5px;
-  padding: 8px 18px;
+  border-radius: 8px;
+  padding: 8px 12px;
   font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.18s;
-  &:hover {
-    background: ${colors.orangeHover};
-  }
-`;
-
-// ─── Table Controls ───────────────────────────────────────────────────────────
-
-const TableControls = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-`;
-
-const ShowUpTo = styled.div`
+  font-weight: 500;
+  color: ${colors.textMain};
+  min-height: 40px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: ${colors.textMain};
-  select {
-    border: 1px solid ${colors.border};
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 0.85rem;
-    background: ${colors.white};
-  }
-`;
-
-const SearchBox = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: ${colors.textMain};
-  input {
-    border: 1px solid ${colors.border};
-    border-radius: 4px;
-    padding: 5px 12px;
-    font-size: 0.85rem;
-    width: 200px;
-    background: ${colors.white};
-    &:focus {
-      outline: none;
-      border-color: ${colors.primary};
-    }
-  }
-`;
-
-// ─── Table Styling ────────────────────────────────────────────────────────────
-
-const StyledTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.88rem;
-`;
-
-const StyledTh = styled.th`
-  background: ${colors.headerBg};
-  color: ${colors.white};
-  padding: 10px 14px;
-  text-align: left;
-  font-weight: 600;
-  font-size: 0.85rem;
-  white-space: nowrap;
-`;
-
-const StyledTd = styled.td`
-  padding: 10px 14px;
-  border-bottom: 1px solid ${colors.border};
-  vertical-align: middle;
-  color: ${colors.textMain};
-`;
-
-const StyledTr = styled.tr`
-  background: ${({ highlight }) => (highlight ? colors.rowHighlight : colors.white)};
-  &:hover {
-    background: #f0f4f4;
-  }
 `;
 
 const StatusBadge = styled.span`
   display: inline-block;
   background: ${({ status }) =>
     status === "Cancelled"
-      ? "#e53935"
+      ? colors.danger + "20"
       : status === "Result Pending"
-        ? colors.yellow
-        : colors.primary};
-  color: ${colors.white};
-  border-radius: 14px;
+        ? colors.secondary + "15"
+        : "#136A6315"};
+  color: ${({ status }) =>
+    status === "Cancelled"
+      ? colors.danger
+      : status === "Result Pending"
+        ? colors.secondary
+        : "#136A63"};
+  border: 1px solid currentColor;
+  border-radius: 20px;
   padding: 4px 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 600;
   white-space: nowrap;
 `;
 
-const ExpandBtn = styled.button`
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: ${colors.headerBg};
-  font-size: 1.2rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: background 0.15s;
-  &:hover {
-    background: ${colors.border};
+const SubTable = styled(Table)`
+  font-size: 0.82rem;
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  overflow: hidden;
+
+  th {
+    background: ${colors.background};
+    padding: 10px 14px;
+    color: ${colors.textMuted};
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
   }
+
+  td {
+    padding: 10px 14px;
+  }
+`;
+
+const ActionsBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background: ${colors.surface};
+  padding: 12px 16px;
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
 `;
 
 // ─── Expand: History Details (SubTable) ───────────────────────────────────────
@@ -246,32 +158,6 @@ const ExpandedCell = styled.td`
 
 const SubTableWrapper = styled.div`
   padding: 15px 25px 20px 65px;
-`;
-
-const SubTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  overflow: hidden;
-`;
-
-const SubTh = styled.th`
-  background: #f1f5f7;
-  color: ${colors.textMuted};
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid ${colors.border};
-`;
-
-const SubTd = styled.td`
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  border-bottom: 1px dotted ${colors.border};
 `;
 
 // ─── Form Components (Sidebar Pattern) ────────────────────────────────────────
@@ -688,11 +574,6 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   return (
     <PageWrapper style={{ padding: "10px", minHeight: "600px" }}>
-      <Header>
-        <Title>Radiology / Other Service Request</Title>
-        <SecondaryButton onClick={onClose}>Close</SecondaryButton>
-      </Header>
-
       <PatientPanel>
         <PatientGrid>
           <FieldBox><FieldLabel>UHID</FieldLabel><FieldValue>{resolvedPatient.uhid}</FieldValue></FieldBox>
@@ -706,9 +587,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
       <ActionsBar>
         <div />
-        <RequestBtn onClick={() => { setShowRequestForm(!showRequestForm); if(!showRequestForm) setExpandedRow(null); }}>
+        <Button onClick={() => { setShowRequestForm(!showRequestForm); if(!showRequestForm) setExpandedRow(null); }}>
           {showRequestForm ? "View History" : "+ New Other Request"}
-        </RequestBtn>
+        </Button>
       </ActionsBar>
 
       {showRequestForm ? (
@@ -825,34 +706,37 @@ export default function RadiologyWardRequest({ patient, onClose }) {
         </RequestFormWrapper>
       ) : (
         <>
-          <TableControls>
-            <ShowUpTo>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem", color: colors.textMain }}>
               Show up to
-              <select value={showUpTo} onChange={(e) => setShowUpTo(Number(e.target.value))}>
+              <Select value={showUpTo} onChange={(e) => setShowUpTo(Number(e.target.value))} style={{ width: "70px", padding: "4px 8px" }}>
                 <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
-              </select>
-            </ShowUpTo>
-            <SearchBox>
-              Search:
-              <input placeholder="Search History..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            </SearchBox>
-          </TableControls>
+              </Select>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
+              <Input
+                placeholder="Search history..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: "200px", padding: "6px 12px" }}
+              />
+            </div>
+          </div>
 
           <TableWrapper>
-            <StyledTable>
+            <Table>
               <thead>
                 <Tr>
-                  <StyledTh>Status</StyledTh>
-                  <StyledTh>Req Date</StyledTh>
-                  <StyledTh>Req Time</StyledTh>
-                  <StyledTh>User</StyledTh>
-                  <StyledTh>Bill No</StyledTh>
-                  <StyledTh>Bill Type</StyledTh>
-                  <StyledTh>Ward</StyledTh>
-                  <StyledTh>Doctor</StyledTh>
-                  <StyledTh style={{ width: 60 }} />
+                  <Th>Status</Th>
+                  <Th>Date & Time</Th>
+                  <Th>User</Th>
+                  <Th>Bill No</Th>
+                  <Th>Bill Type</Th>
+                  <Th>Ward</Th>
+                  <Th>Doctor</Th>
+                  <Th style={{ width: "60px" }} />
                 </Tr>
               </thead>
               <tbody>
@@ -861,58 +745,70 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 ) : (
                   filteredRequests.map((req) => (
                     <React.Fragment key={req.id}>
-                      <StyledTr highlight={req.id % 2 === 1}>
-                        <StyledTd><StatusBadge status={req.status}>{req.status}</StatusBadge></StyledTd>
-                        <StyledTd>{req.reqDate}</StyledTd>
-                        <StyledTd>{req.reqTime}</StyledTd>
-                        <StyledTd>{req.userName}</StyledTd>
-                        <StyledTd><strong>{req.billNo}</strong></StyledTd>
-                        <StyledTd>{req.billTypeName || '-'}</StyledTd>
-                        <StyledTd>{req.wardName}</StyledTd>
-                        <StyledTd 
-                          style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
-                          onClick={() => toggleRow(req.id)}
-                        >
-                          {req.doctorName}
-                        </StyledTd>
-                        <StyledTd>
-                          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                            <ExpandBtn onClick={() => toggleRow(req.id)}>
-                              {expandedRow === req.id ? "⌃" : "⌄"}
-                            </ExpandBtn>
-                            {req.status === "Result Pending" && (
-                              <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
-                            )}
-                          </div>
-                        </StyledTd>
-                      </StyledTr>
+                        <Tr>
+                          <Td><StatusBadge status={req.status}>{req.status}</StatusBadge></Td>
+                          <Td>
+                            <div style={{ display: "flex", flexDirection: "column" }}>
+                              <span style={{ fontWeight: 500 }}>{req.reqDate}</span>
+                              <small style={{ color: colors.textMuted }}>{req.reqTime}</small>
+                            </div>
+                          </Td>
+                          <Td>{req.userName}</Td>
+                          <Td><strong>{req.billNo}</strong></Td>
+                          <Td>{req.billTypeName || '-'}</Td>
+                          <Td>{req.wardName}</Td>
+                          <Td 
+                            style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
+                            onClick={() => toggleRow(req.id)}
+                          >
+                            {req.doctorName}
+                          </Td>
+                          <Td>
+                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                              <button 
+                                onClick={() => toggleRow(req.id)} 
+                                style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontSize: "1.2rem" }}
+                              >
+                                {expandedRow === req.id ? "▴" : "▾"}
+                              </button>
+                              {req.status === "Result Pending" && (
+                                <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
+                              )}
+                            </div>
+                          </Td>
+                        </Tr>
 
                       {expandedRow === req.id && (
                         <ExpandedRow>
                           <ExpandedCell colSpan={9}>
                             <SubTableWrapper>
-                              <SubTable>
-                                <thead>
-                                  <tr>
-                                    <SubTh>Test Name</SubTh>
-                                    <SubTh>Type</SubTh>
-                                    <SubTh>Action</SubTh>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {req.tests.map((t, idx) => (
-                                    <tr key={idx}>
-                                      <SubTd>{t.name}</SubTd>
-                                      <SubTd>{t.packageName ? `Package (${t.packageName})` : "Individual"}</SubTd>
-                                      <SubTd>
-                                        {req.status === "Result Pending" && (
-                                          <button onClick={() => handleRemoveIndividualTest(req.id, t)} style={{ background: "none", border: "none", color: "#e53935", cursor: "pointer" }}>✕ Remove</button>
-                                        )}
-                                      </SubTd>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </SubTable>
+                            <SubTable>
+                              <thead>
+                                <Tr>
+                                  <Th>Test Name</Th>
+                                  <Th>Type</Th>
+                                  <Th>Action</Th>
+                                </Tr>
+                              </thead>
+                              <tbody>
+                                {req.tests.map((t, idx) => (
+                                  <Tr key={idx}>
+                                    <Td>{t.name}</Td>
+                                    <Td>{t.packageName ? `Package (${t.packageName})` : "Individual"}</Td>
+                                    <Td>
+                                      {req.status === "Result Pending" && (
+                                        <button 
+                                          onClick={() => handleRemoveIndividualTest(req.id, t)} 
+                                          style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer" }}
+                                        >
+                                          ✕ Remove
+                                        </button>
+                                      )}
+                                    </Td>
+                                  </Tr>
+                                ))}
+                              </tbody>
+                            </SubTable>
                             </SubTableWrapper>
                           </ExpandedCell>
                         </ExpandedRow>
@@ -921,7 +817,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                   ))
                 )}
               </tbody>
-            </StyledTable>
+            </Table>
           </TableWrapper>
         </>
       )}

@@ -378,12 +378,13 @@ export const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   animation: ${fadeIn} 0.2s ease-out;
+  backdrop-filter: blur(4px);
 `;
 
 export const ModalContainer = styled.div`
@@ -404,7 +405,7 @@ export const ModalHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: ${colors.tabBg};
+  background: ${(props) => props.$bg || colors.tabBg};
 `;
 
 export const ModalTitle = styled.h2`
