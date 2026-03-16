@@ -55,7 +55,7 @@ import Enquiry from "./Components/Register/Enquiry";
 
 import GRNGenerator from "./Components/InventoryMaster/GRNGeneration";
 import Pharmacystock from "./Components/InventoryMaster/PharmacyStock";
-// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
@@ -88,7 +88,7 @@ import SidebarEditor from "./Components/Admin/SidebarEditor";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 
-
+import Items from "./Components/Stores/Items";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -197,6 +197,7 @@ function App() {
       "/GRNGenerator": "GRN Generator",
       "/Pharmacystock": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
+      "/Items": "Items",
     };
 
     const path = location.pathname;

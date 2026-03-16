@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -286,6 +286,7 @@ const Admission = () => {
   const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [roomResults, setRoomResults] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+  const [editingId, setEditingId] = useState(null); // Track if editing an admission
 
   // Bed modal
   const [showBedModal, setShowBedModal] = useState(false);
