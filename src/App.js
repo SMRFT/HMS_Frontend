@@ -19,7 +19,6 @@ import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
-import DischargeForm from "./Components/Discharge/DischargeForm";
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
@@ -179,7 +178,6 @@ function App() {
                 <Route path="/IPAdvance" element={<IPAdvance />} />
 
                 <Route path="/DischargeBilling" element={<DischargeBilling />} />
-                <Route path="/DischargeForm" element={<DischargeForm />} />
                 <Route path="/DischargeReport" element={<DischargeReport />} />
 
                 <Route path="/IPPharmacy" element={<IPPharmacy />} />
