@@ -1,206 +1,530 @@
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
   Container,
   PageWrapper,
   SectionHeader,
+  TableWrapper,
+  colors,
 } from "../GlobalStyles";
 
-const BlockSection = styled.div`
-  margin-bottom: 24px;
-  background: white;
-  border-radius: 8px;
+/* ─── Animations ─────────────────────────────────────────── */
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+`;
+
+/* ─── Layout ─────────────────────────────────────────────── */
+const PageInner = styled.div`
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: ${colors.background};
+  min-height: 100vh;
 `;
 
-const BlockTitle = styled.h3`
-  color: #1e3a8a; // Dark blue
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 8px;
-  margin-bottom: 16px;
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
 `;
 
-const FloorSection = styled.div`
-  margin-bottom: 16px;
+const PageTitle = styled.h2`
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: ${colors.primary};
+    border-radius: 2px;
+  }
 `;
 
-const FloorTitle = styled.h4`
-    color: #4b5563;
+/* ─── Legend ─────────────────────────────────────────────── */
+const Legend = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  padding: 6px 14px;
+  flex-wrap: wrap;
+`;
+
+const LegendDot = styled.span`
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: ${(p) => p.color};
+  flex-shrink: 0;
+`;
+
+const LegendLabel = styled.span`
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: ${colors.textMuted};
+  margin-right: 10px;
+`;
+
+/* ─── Block Card ─────────────────────────────────────────── */
+const BlockCard = styled.div`
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  animation: ${slideUp} 0.35s ease both;
+  animation-delay: ${(p) => p.index * 60}ms;
+`;
+
+const BlockHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: ${colors.tabBg};
+  border-bottom: 1px solid ${colors.border};
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: #b2dfdb;
+  }
+`;
+
+const BlockName = styled.h3`
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .icon {
     font-size: 1rem;
-    margin-bottom: 8px;
-    font-weight: 600;
+  }
 `;
 
+const BlockMeta = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+`;
+
+const Badge = styled.span`
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: ${(p) => p.bg || colors.border};
+  color: ${(p) => p.color || colors.textMain};
+`;
+
+const Chevron = styled.span`
+  font-size: 0.7rem;
+  color: ${colors.textMuted};
+  transition: transform 0.2s;
+  transform: ${(p) => (p.open ? "rotate(180deg)" : "rotate(0deg)")};
+`;
+
+const BlockBody = styled.div`
+  padding: ${(p) => (p.open ? "14px 16px" : "0")};
+  max-height: ${(p) => (p.open ? "9999px" : "0")};
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.2s;
+`;
+
+/* ─── Floor ──────────────────────────────────────────────── */
+const FloorSection = styled.div`
+  margin-bottom: 18px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const FloorLabel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: ${colors.border};
+  }
+`;
+
+/* ─── Room Grid & Cards ──────────────────────────────────── */
 const RoomGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+  gap: 12px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
 `;
 
 const RoomCard = styled.div`
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 12px;
-  background: #f9fafb;
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  overflow: hidden;
+  background: ${colors.surface};
+  transition: box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
 `;
 
-const RoomHeader = styled.div`
+const RoomTop = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #e0e0e0;
-  padding-bottom: 4px;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: #f1f5f9;
+  border-bottom: 1px solid ${colors.border};
 `;
 
 const RoomNumber = styled.span`
-  font-weight: bold;
-  color: #374151;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: ${colors.textMain};
 `;
 
-const RoomType = styled.span`
-  font-size: 0.8rem;
-  color: #6b7280;
-  background: #e5e7eb;
-  padding: 2px 6px;
+const RoomTypeBadge = styled.span`
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
   border-radius: 4px;
+  background: ${colors.tabBg};
+  color: ${colors.primary};
+  white-space: nowrap;
 `;
 
-const BedList = styled.div`
+const BedGrid = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
+  padding: 8px 10px;
 `;
 
-const BedItem = styled.div`
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: white;
-  background-color: ${props =>
-    props.status === 'Available' ? '#10b981' : // Green
-      props.status === 'Occupied' ? '#ef4444' : // Red
-        '#f59e0b' // Orange (Maintenance)
-  };
-  cursor: default;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+const BedChip = styled.div`
   flex: 1 1 auto;
+  min-width: 52px;
   text-align: center;
-  min-width: 60px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+  cursor: default;
+  transition: filter 0.15s;
+
+  background-color: ${(p) =>
+    p.status === "Available"
+      ? colors.success
+      : p.status === "Occupied"
+        ? colors.danger
+        : "#f59e0b"};
 
   &:hover {
-      opacity: 0.9;
+    filter: brightness(1.08);
   }
 `;
 
-const Legend = styled.div`
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
-    justify-content: flex-end;
+const NoBeds = styled.span`
+  font-size: 0.75rem;
+  color: ${colors.textMuted};
+  padding: 4px 0;
 `;
 
-const LegendItem = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 6px;
+/* ─── Stats Row ──────────────────────────────────────────── */
+const StatsRow = styled.div`
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+`;
+
+const StatCard = styled.div`
+  flex: 1 1 120px;
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+`;
+
+const StatValue = styled.div`
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: ${(p) => p.color || colors.textMain};
+  line-height: 1;
+`;
+
+const StatLabel = styled.div`
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+
+/* ─── Empty State ────────────────────────────────────────── */
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 60px 20px;
+  color: ${colors.textMuted};
+
+  .icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    opacity: 0.4;
+  }
+
+  p {
     font-size: 0.9rem;
+    margin: 0;
+  }
 `;
 
-const ColorBox = styled.div`
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    background-color: ${props => props.color};
+/* ─── Loading ────────────────────────────────────────────── */
+const SkeletonBlock = styled.div`
+  height: 120px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: ${pulse} 1.5s ease-in-out infinite;
+  margin-bottom: 16px;
 `;
 
+/* ─── Helpers ────────────────────────────────────────────── */
+function calcStats(data) {
+  let total = 0, available = 0, occupied = 0, maintenance = 0;
+  data.forEach((b) =>
+    Object.values(b.floors).forEach((rooms) =>
+      rooms.forEach((room) =>
+        (room.beds || []).forEach((bed) => {
+          total++;
+          if (bed.status === "Available") available++;
+          else if (bed.status === "Occupied") occupied++;
+          else maintenance++;
+        })
+      )
+    )
+  );
+  return { total, available, occupied, maintenance };
+}
 
+/* ─── Component ──────────────────────────────────────────── */
 const EnquiryRoom = () => {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [openBlocks, setOpenBlocks] = useState({});
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => {
-    fetchEnquiryData();
-  }, []);
+  useEffect(() => { fetchEnquiryData(); }, []);
 
-const fetchEnquiryData = async () => {
-  try {
-    const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
+  const fetchEnquiryData = async () => {
+    setLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
+      const apiData = response?.data || response;
 
-    console.log("API Response:", response); // 👈 add this
+      if (!Array.isArray(apiData)) { setData([]); return; }
 
-    if (response && response.data && Array.isArray(response.data)) {
-      setData(response.data);
-    } else if (Array.isArray(response)) {
-      setData(response);
-    } else {
-      setData([]);
+      const grouped = {};
+      apiData.forEach((floorEntry) => {
+        const floor = floorEntry.floor;
+        (floorEntry.rooms || []).forEach((room) => {
+          const blockName = room.block || "UNKNOWN BLOCK";
+          if (!grouped[blockName]) {
+            grouped[blockName] = { block: { block_name: blockName }, floors: {} };
+          }
+          if (!grouped[blockName].floors[floor]) grouped[blockName].floors[floor] = [];
+          grouped[blockName].floors[floor].push({ ...room, id: `${room.room_number}_${floor}` });
+        });
+      });
+
+      const result = Object.values(grouped);
+      setData(result);
+      // expand all blocks by default
+      const defaults = {};
+      result.forEach((_, i) => { defaults[i] = true; });
+      setOpenBlocks(defaults);
+    } catch (error) {
+      console.error("Room enquiry error:", error);
+      toast.error("Failed to fetch room enquiry data");
+    } finally {
+      setLoading(false);
     }
+  };
 
-  } catch (error) {
-    toast.error("Failed to fetch room enquiry data");
-  }
-};
+  const toggleBlock = (index) =>
+    setOpenBlocks((prev) => ({ ...prev, [index]: !prev[index] }));
 
+  const stats = calcStats(data);
+
+  const blockBedStats = (blockData) => {
+    let available = 0, occupied = 0;
+    Object.values(blockData.floors).forEach((rooms) =>
+      rooms.forEach((room) =>
+        (room.beds || []).forEach((bed) => {
+          if (bed.status === "Available") available++;
+          else if (bed.status === "Occupied") occupied++;
+        })
+      )
+    );
+    return { available, occupied };
+  };
 
   return (
     <PageWrapper>
-      <Container>
-        <SectionHeader>
-          <h3>Room Enquiry</h3>
-        </SectionHeader>
+      <PageInner>
 
-        <Legend>
-          <LegendItem><ColorBox color="#10b981" /> Available</LegendItem>
-          <LegendItem><ColorBox color="#ef4444" /> Occupied</LegendItem>
-          <LegendItem><ColorBox color="#f59e0b" /> Maintenance</LegendItem>
-        </Legend>
+        {/* Top Bar */}
+        <TopBar>
+          <PageTitle>Room Enquiry</PageTitle>
+          <Legend>
+            <LegendDot color={colors.success} />
+            <LegendLabel>Available</LegendLabel>
+            <LegendDot color={colors.danger} />
+            <LegendLabel>Occupied</LegendLabel>
+            <LegendDot color="#f59e0b" />
+            <LegendLabel>Maintenance</LegendLabel>
+          </Legend>
+        </TopBar>
 
-        {data.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
-            No rooms configured or active.
-          </div>
-        ) : (
-          data.map((blockData, index) => (
-            <BlockSection key={index}>
-              <BlockTitle>Block: {blockData.block.block_name}</BlockTitle>
-              {Object.keys(blockData.floors).length === 0 ? (
-                <div style={{ padding: "10px", color: "#9ca3af" }}>No rooms in this block</div>
-              ) : (
-                Object.entries(blockData.floors).map(([floor, rooms]) => (
-                  <FloorSection key={floor}>
-                    <FloorTitle>Floor: {floor}</FloorTitle>
-                    <RoomGrid>
-                      {rooms.map(room => (
-                        <RoomCard key={room.id}>
-                          <RoomHeader>
-                            <RoomNumber>{room.room_number}</RoomNumber>
-                            <RoomType>{room.room_type}</RoomType>
-                          </RoomHeader>
-                          <BedList>
-                            {room.beds.length === 0 ? (
-                              <span style={{ fontSize: "0.8rem", color: "#9ca3af" }}>No Beds</span>
-                            ) : (
-                              room.beds.map(bed => (
-                                <BedItem key={bed.id} status={bed.status} title={`${bed.status} - ${bed.bed_type}`}>
-                                  {bed.bed_number}
-                                </BedItem>
-                              ))
-                            )}
-                          </BedList>
-                        </RoomCard>
-                      ))}
-                    </RoomGrid>
-                  </FloorSection>
-                ))
-              )}
-            </BlockSection>
-          ))
+        {/* Stats */}
+        {!loading && data.length > 0 && (
+          <StatsRow>
+            <StatCard>
+              <StatValue color={colors.textMain}>{stats.total}</StatValue>
+              <StatLabel>Total Beds</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue color={colors.success}>{stats.available}</StatValue>
+              <StatLabel>Available</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue color={colors.danger}>{stats.occupied}</StatValue>
+              <StatLabel>Occupied</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue color="#f59e0b">{stats.maintenance}</StatValue>
+              <StatLabel>Maintenance</StatLabel>
+            </StatCard>
+          </StatsRow>
         )}
-      </Container>
+
+        {/* Loading Skeletons */}
+        {loading && (
+          <>
+            <SkeletonBlock />
+            <SkeletonBlock />
+            <SkeletonBlock />
+          </>
+        )}
+
+        {/* Empty */}
+        {!loading && data.length === 0 && (
+          <EmptyState>
+            <div className="icon">🏨</div>
+            <p>No rooms configured or active.</p>
+          </EmptyState>
+        )}
+
+        {/* Block Cards */}
+        {!loading && data.map((blockData, index) => {
+          const bs = blockBedStats(blockData);
+          const isOpen = !!openBlocks[index];
+
+          return (
+            <BlockCard key={index} index={index}>
+              <BlockHeader onClick={() => toggleBlock(index)}>
+                <BlockName>
+                  <span className="icon">🏢</span>
+                  Block {blockData.block.block_name}
+                </BlockName>
+                <BlockMeta>
+                  <Badge bg="#dcfce7" color="#16a34a">{bs.available} free</Badge>
+                  <Badge bg="#fee2e2" color="#dc2626">{bs.occupied} taken</Badge>
+                  <Chevron open={isOpen}>▼</Chevron>
+                </BlockMeta>
+              </BlockHeader>
+
+              <BlockBody open={isOpen}>
+                {Object.keys(blockData.floors).length === 0 ? (
+                  <NoBeds>No rooms in this block.</NoBeds>
+                ) : (
+                  Object.entries(blockData.floors).map(([floor, rooms]) => (
+                    <FloorSection key={floor}>
+                      <FloorLabel>Floor {floor}</FloorLabel>
+                      <RoomGrid>
+                        {rooms.map((room) => (
+                          <RoomCard key={room.room_number}>
+                            <RoomTop>
+                              <RoomNumber>{room.room_number}</RoomNumber>
+                              <RoomTypeBadge>{room.room_type}</RoomTypeBadge>
+                            </RoomTop>
+                            <BedGrid>
+                              {!room.beds || room.beds.length === 0 ? (
+                                <NoBeds>No Beds</NoBeds>
+                              ) : (
+                                room.beds.map((bed, i) => (
+                                  <BedChip key={i} status={bed.status} title={bed.status}>
+                                    {bed.bed_number}
+                                  </BedChip>
+                                ))
+                              )}
+                            </BedGrid>
+                          </RoomCard>
+                        ))}
+                      </RoomGrid>
+                    </FloorSection>
+                  ))
+                )}
+              </BlockBody>
+            </BlockCard>
+          );
+        })}
+
+      </PageInner>
     </PageWrapper>
   );
 };
