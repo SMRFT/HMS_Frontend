@@ -320,10 +320,6 @@ const Sidebar = ({ role }) => {
               <FiLogOut /> <span>Discharge Bill</span>
             </StyledNavLink>
 
-            <StyledNavLink to="/DischargeForm">
-              <FiLogOut /> <span>Discharge Form</span>
-            </StyledNavLink>
-
             <StyledNavLink to="/Summary">
               <FiActivity /> <span>Discharge Summary</span>
             </StyledNavLink>
