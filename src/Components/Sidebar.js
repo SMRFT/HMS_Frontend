@@ -335,6 +335,18 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/RoomShifting">
               <FiRepeat /> <span>Room Shifting</span>
             </StyledNavLink>
+
+            <NavGroupLabel>Operation Theatre</NavGroupLabel>
+            <StyledNavLink to="/OTMaster">
+              <FiTag /> <span>OT Master</span>
+            </StyledNavLink>
+            <StyledNavLink to="/AnesNameMaster">
+              <FiTag /> <span>Anesthesia Name Master</span>
+            </StyledNavLink>
+            <StyledNavLink to="/SurgerySchedule">
+              <FiTag /> <span>Surgery Schedule</span>
+            </StyledNavLink>
+
             <NavGroupLabel>Reports</NavGroupLabel>
             <StyledNavLink to="/DeptBUDReport">
               <FiFileText /> <span>Department Bill Report (Edit & Delete)</span>
@@ -342,6 +354,7 @@ const Sidebar = ({ role }) => {
             <StyledNavLink to="/InvoiceReport">
               <FiFileText /> <span>Velavan Invoice List</span>
             </StyledNavLink>
+
             <NavGroupLabel>Velavan</NavGroupLabel>
             <StyledNavLink to="/InvoiceGeneration">
               <FiTag /> <span>Invoice Generation</span>

@@ -68,6 +68,9 @@ import AddVelavanItems from "./Components/Velavan/AddVelavanItems";
 import AddVelavanVendors from "./Components/Velavan/AddVelavanVendors";
 import VelavanItemList from "./Components/Velavan/VelavanItemList";
 import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
+import OTMaster from "./Components/OT/OTMaster";
+import AnesNameMaster from "./Components/OT/AnesNameMaster";
+import SurgerySchedule from "./Components/OT/SurgerySchedule";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -309,6 +312,10 @@ function App() {
                 path="/VelavanVendorList"
                 element={<VelavanVendorList />}
               />
+              {/* OT */}
+              <Route path="/OTMaster" element={<OTMaster />} />
+              <Route path="/AnesNameMaster" element={<AnesNameMaster />} />
+              <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
             </>
           </Routes>
         </ContentWrapper>
