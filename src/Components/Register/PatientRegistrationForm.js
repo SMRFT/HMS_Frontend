@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import styled from "styled-components"
-import axios from "axios"
+import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
 import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
@@ -326,12 +326,10 @@ const PatientRegistrationForm = () => {
     // Fetch stats
     useEffect(() => {
         const fetchStats = async () => {
-            try {
-                const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
-                const response = await axios.get(`${Hmsbaseurl}patient-registration-stats/?${query}`);
-                setStats(response.data);
-            } catch (error) {
-                console.error("Error fetching stats:", error);
+            const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
+            const result = await apiRequest(`${Hmsbaseurl}patient-registration-stats/?${query}`);
+            if (result.success) {
+                setStats(result.data);
             }
         };
         fetchStats();
@@ -339,13 +337,11 @@ const PatientRegistrationForm = () => {
 
     // Fetch list
     const handleViewList = async () => {
-        try {
-            const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
-            const response = await axios.get(`${Hmsbaseurl}patient-visit-list/?${query}`);
-            setVisitList(response.data);
+        const query = `fromDate=${filterDate.from}&toDate=${filterDate.to}&doctorId=${filterDoctor}`;
+        const result = await apiRequest(`${Hmsbaseurl}patient-visit-list/?${query}`);
+        if (result.success) {
+            setVisitList(result.data);
             setShowVisitList(true);
-        } catch (error) {
-            console.error("Error fetching visit list:", error);
         }
     };
 
@@ -690,13 +686,9 @@ const PatientRegistrationForm = () => {
     // Fetch Last UHID on mount
     useEffect(() => {
         const fetchLastUhid = async () => {
-            try {
-                const response = await axios.get(`${Hmsbaseurl}get-last-uhid/`);
-                if (response.data && response.data.uhid) {
-                    setLastUhid(response.data.uhid);
-                }
-            } catch (error) {
-                console.error("Error fetching last UHID:", error);
+            const result = await apiRequest(`${Hmsbaseurl}get-last-uhid/`);
+            if (result.success && result.data && result.data.uhid) {
+                setLastUhid(result.data.uhid);
             }
         };
         fetchLastUhid();
@@ -761,130 +753,118 @@ const PatientRegistrationForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
-        try {
-            const formData = new FormData()
+        const formData = new FormData()
 
-            const backendKeys = {
-                regDate: "registration_date",
-                salutation: "salutation",
-                permanentAddress: "permanent_address",
-                homePhone: "home_phone",
-                bloodGroup: "blood_group",
-                spouseName: "spouse_name",
-                mlcType: "mlc_type",
-                mlcDoc: "mlc_doc",
-                mlcRemarks: "mlc_remarks",
-                passAlertToAuthority: "pass_alert_to_authority",
-                birthTime: "birth_time",
-                birthTimeAmPm: "birth_time_am_pm",
-                mothersUhidNo: "mothers_uhid_no",
-                pediatricianResponsible: "pediatrician_responsible",
-                doctorId: "employeeId", // Map to backend field
-                emergencyContact: "emergency_contact",
-                referredDoctorPhone: "referred_doctor_phone",
-                customerType: "customer_type",
-                insuranceProviderCode: "company_code",
+        const backendKeys = {
+            regDate: "registration_date",
+            salutation: "salutation",
+            permanentAddress: "permanent_address",
+            homePhone: "home_phone",
+            bloodGroup: "blood_group",
+            spouseName: "spouse_name",
+            mlcType: "mlc_type",
+            mlcDoc: "mlc_doc",
+            mlcRemarks: "mlc_remarks",
+            passAlertToAuthority: "pass_alert_to_authority",
+            birthTime: "birth_time",
+            birthTimeAmPm: "birth_time_am_pm",
+            mothersUhidNo: "mothers_uhid_no",
+            pediatricianResponsible: "pediatrician_responsible",
+            doctorId: "employeeId", // Map to backend field
+            emergencyContact: "emergency_contact",
+            referredDoctorPhone: "referred_doctor_phone",
+            customerType: "customer_type",
+            insuranceProviderCode: "company_code",
+        }
+
+        // Append all patient data to formData
+        Object.keys(patient).forEach((key) => {
+            const backendKey = backendKeys[key] || key
+
+            // Skip MLC fields if isMlc is false
+            if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
+                return;
             }
 
-            // Append all patient data to formData
-            Object.keys(patient).forEach((key) => {
-                const backendKey = backendKeys[key] || key
-
-                // Skip MLC fields if isMlc is false
-                if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
-                    return;
-                }
-
-                if (key === "mlcDoc" && patient[key]) {
-                    formData.append(backendKey, patient[key])
-                } else if (patient[key] !== null && patient[key] !== undefined) {
-                    formData.append(backendKey, patient[key])
-                }
-            })
-
-            const response = await fetch(`${Hmsbaseurl}patients/register/`, {
-                method: "POST",
-                body: formData,
-            })
-
-            if (response.ok) {
-                const data = await response.json()
-                console.log("Patient Registered:", data)
-                alert("Patient Registered Successfully! UHID: " + data.uhid)
-
-                // Reset form
-                setPatient({
-                    regDate: "",
-                    salutation: "",
-                    firstName: "",
-                    lastName: "",
-                    name: "",
-                    dob: "",
-                    age: "",
-                    gender: "",
-                    permanentAddress: "",
-                    area: "",
-                    zipcode: "",
-                    city: "",
-                    state: "",
-                    email: "",
-                    mobilePhone: "",
-                    homePhone: "",
-                    bloodGroup: "",
-                    spouseName: "",
-                    referredBy: "",
-                    doctorName: "",
-                    doctorId: "",
-                    registrationFee: 0,
-                    consultingFee: 0,
-                    totalFees: 0,
-                    mlcType: "",
-                    mlcDoc: null,
-                    mlcRemarks: "",
-                    passAlertToAuthority: false,
-                    birthTime: "",
-                    birthTimeAmPm: "AM",
-                    weight: "",
-                    mothersUhidNo: "",
-                    pediatricianResponsible: "",
-                })
-                setIsMlc(false)
-
-                // Reset fee calculator
-                setSelectedDoctor({})
-                setRegistrationFee(0)
-                setConsultingFee(0)
-                setHospitalFee(0)
-                setBookingFee(0)
-                setTotalFees(0)
-            } else {
-                const errorData = await response.json()
-                console.error("Error:", errorData)
-                alert("Error registering patient. Check console for details.")
+            if (key === "mlcDoc" && patient[key]) {
+                formData.append(backendKey, patient[key])
+            } else if (patient[key] !== null && patient[key] !== undefined) {
+                formData.append(backendKey, patient[key])
             }
-        } catch (error) {
-            console.error("Network Error:", error)
-            alert("Failed to connect to the server.")
+        })
+
+        const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
+
+        if (result.success) {
+            console.log("Patient Registered:", result.data)
+            alert("Patient Registered Successfully! UHID: " + result.data.uhid)
+
+            // Reset form
+            setPatient({
+                regDate: "",
+                salutation: "",
+                firstName: "",
+                lastName: "",
+                name: "",
+                dob: "",
+                age: "",
+                gender: "",
+                permanentAddress: "",
+                area: "",
+                zipcode: "",
+                city: "",
+                state: "",
+                email: "",
+                mobilePhone: "",
+                homePhone: "",
+                bloodGroup: "",
+                spouseName: "",
+                referredBy: "",
+                doctorName: "",
+                doctorId: "",
+                registrationFee: 0,
+                consultingFee: 0,
+                totalFees: 0,
+                mlcType: "",
+                mlcDoc: null,
+                mlcRemarks: "",
+                passAlertToAuthority: false,
+                birthTime: "",
+                birthTimeAmPm: "AM",
+                weight: "",
+                mothersUhidNo: "",
+                pediatricianResponsible: "",
+            })
+            setIsMlc(false)
+
+            // Reset fee calculator
+            setSelectedDoctor({})
+            setRegistrationFee(0)
+            setConsultingFee(0)
+            setHospitalFee(0)
+            setBookingFee(0)
+            setTotalFees(0)
+        } else {
+            console.error("Error:", result.error)
+            alert("Error registering patient: " + (result.error || "Check console for details."))
         }
     }
 
     // Fetch patients based on search criteria
     const fetchPatients = async () => {
-        try {
-            let query = ""
-            if (uhid) {
-                query = `uhid=${uhid}`
-            } else if (ipNumber) {
-                query = `ip_number=${ipNumber}`
-            } else if (mobile) {
-                query = `mobile=${mobile}`
-            }
+        let query = ""
+        if (uhid) {
+            query = `uhid=${uhid}`
+        } else if (ipNumber) {
+            query = `ip_number=${ipNumber}`
+        } else if (mobile) {
+            query = `mobile=${mobile}`
+        }
 
-            const response = await axios.get(`${Hmsbaseurl}create/?${query}`)
-            setPatients(response.data)
+        const result = await apiRequest(`${Hmsbaseurl}create/?${query}`)
+        if (result.success) {
+            setPatients(result.data)
             setShowSearchModal(true)
-        } catch (error) {
-            console.error("Error fetching data:", error)
         }
     }
 
@@ -896,52 +876,45 @@ const PatientRegistrationForm = () => {
     }
 
     // Load doctors and reference doctors
-    const loadDoctors = () => {
+    const loadDoctors = async () => {
         const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-        axios
-            .get(`${Hmsbaseurl}doctor_schedule/`)
-            .then((response) => {
-                const doctorsData = response.data
-                    .filter((doctor) => doctor.day_schedule && doctor.day_schedule.includes(todayDay))
-                    .map((doctor) => ({
-                        id: doctor.employeeId, // Capture employeeId
-                        name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
-                        registrationFee: Number.parseFloat(doctor.registration_fee),
-                        consultingFee: Number.parseFloat(doctor.consulting_fee),
-                        specialty: doctor.specialty,
-                        type: "Internal"
-                    }))
-                setDoctors(doctorsData)
-            })
-            .catch((error) => console.error("Error fetching doctors:", error))
+        const result = await apiRequest(`${Hmsbaseurl}doctor_schedule/`);
+        if (result.success) {
+            const doctorsData = result.data
+                .filter((doctor) => doctor.day_schedule && doctor.day_schedule.includes(todayDay))
+                .map((doctor) => ({
+                    id: doctor.employeeId, // Capture employeeId
+                    name: `${doctor.first_name} ${doctor.middle_name || ""} ${doctor.last_name}`.trim(),
+                    registrationFee: Number.parseFloat(doctor.registration_fee),
+                    consultingFee: Number.parseFloat(doctor.consulting_fee),
+                    specialty: doctor.specialty,
+                    type: "Internal"
+                }))
+            setDoctors(doctorsData)
+        }
     };
 
-    const loadReferenceDoctors = () => {
-        axios.get(`${Hmsbaseurl}get-reference-doctors/`)
-            .then((response) => {
-                // Ensure shape matches expectation
-                const formattedRefs = response.data.map(d => ({
-                    ...d,
-                    id: d.id, // Ensure ID is captured for reference doctors too if needed
-                    name: d.doctor, // Map 'doctor' field to 'name' for consistent usage
-                    type: "Reference"
-                }));
-                setReferenceDoctors(formattedRefs)
-            })
-            .catch((error) => {
-                console.error("Error fetching reference doctors:", error)
-            })
+    const loadReferenceDoctors = async () => {
+        const result = await apiRequest(`${Hmsbaseurl}get-reference-doctors/`);
+        if (result.success) {
+            // Ensure shape matches expectation
+            const formattedRefs = result.data.map(d => ({
+                ...d,
+                id: d.id, // Ensure ID is captured for reference doctors too if needed
+                name: d.doctor, // Map 'doctor' field to 'name' for consistent usage
+                type: "Reference"
+            }));
+            setReferenceDoctors(formattedRefs)
+        }
     }
-
-    const loadInsuranceProviders = () => {
-        axios.get(`${Hmsbaseurl}insurance-providers/`)
-            .then((response) => {
-                const fetchedData = response.data.data || response.data;
-                const activeProviders = Array.isArray(fetchedData) ? fetchedData.filter(p => !p.blocked) : [];
-                setInsuranceProviders(activeProviders);
-            })
-            .catch((error) => console.error("Error fetching insurance:", error));
-    };;
+    const loadInsuranceProviders = async () => {
+        const result = await apiRequest(`${Hmsbaseurl}insurance-providers/`);
+        if (result.success) {
+            const fetchedData = result.data.data || result.data;
+            const activeProviders = Array.isArray(fetchedData) ? fetchedData.filter(p => !p.blocked) : [];
+            setInsuranceProviders(activeProviders);
+        }
+    };
 
     // Fetch doctors on component mount
     useEffect(() => {
@@ -1961,16 +1934,11 @@ const PatientRegistrationForm = () => {
 
 // Styled Components
 const PageContainer = styled.div`
-  max-width: 100%;
-  margin: 0 auto;
+  width: 100%;
   min-height: 100vh;
   background-color: #f8fafc;
   font-family: 'Inter', 'Segoe UI', sans-serif;
   padding: 24px;
-  
-  @media (min-width: 1400px) {
-    padding: 40px 80px;
-  }
 `
 
 const PageHeader = styled.header`

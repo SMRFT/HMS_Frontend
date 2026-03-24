@@ -16,10 +16,14 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
     const branch = localStorage.getItem("selected_branch");
 
     const defaultHeaders = {
-      "Content-Type": "application/json",
       Authorization: token, // Use 'Bearer' if backend expects it
       "Branch-Code": branch,
     };
+
+    // Only set Content-Type to application/json if data is not FormData
+    if (!(data instanceof FormData)) {
+      defaultHeaders["Content-Type"] = "application/json";
+    }
 
     const config = {
       method,
@@ -144,9 +148,13 @@ export const fetchAllEmployees = async () => {
  * Fetches the dynamic sidebar mapping from the backend.
  * @returns {Promise<Array>} List of sidebar groups and pages
  */
-export const fetchSidebarMapping = async () => {
+export const fetchSidebarMapping = async (employeeId = null) => {
     try {
-        const response = await axios.get(`${Hmsbaseurl}get-sidebar-mapping/`);
+        const url = (employeeId && employeeId !== "null" && employeeId !== "undefined")
+            ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
+            : `${Hmsbaseurl}get-sidebar-mapping/`;
+            
+        const response = await axios.get(url);
         if (response.data && Array.isArray(response.data)) {
             return response.data;
         }

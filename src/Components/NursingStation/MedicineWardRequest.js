@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { Search, Plus, X } from "lucide-react";
 
 // --- Color Palette matching the screenshot ---
 // ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
@@ -467,6 +468,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         hour: "2-digit", minute: "2-digit", hour12: true,
       })
       : "-",
+    admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
     roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
     customerType: patient?.customerType || pd.customer_type || "-",
     companyName: patient?.companyName || pd.company_code || "-",
@@ -478,17 +480,21 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [doctors, setDoctors] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   // UI States
   const [showForm, setShowForm] = useState(false);
   
   // Form Fields
-  const [billTypeNo, setBillTypeNo] = useState("");
-  const [billtype, setBilltype] = useState(""); 
-  const [billTypeName, setBillTypeName] = useState("");
+  const [pharmacyDept, setPharmacyDept] = useState("OP001");
+  const [billTypeNo, setBillTypeNo] = useState("42");
+  const [billtype, setBilltype] = useState("42"); 
+  const [billTypeName, setBillTypeName] = useState("PHARMACY OP BILL (SH)");
   const [drugType, setDrugType] = useState("Drug");
   const [selectedDrug, setSelectedDrug] = useState(null);
-  const [doctor, setDoctor] = useState("");
+  const [doctor, setDoctor] = useState(""); // Stores employeeId
+  const [doctorName, setDoctorName] = useState(""); // Stores display name
   const [dosage, setDosage] = useState("");
   const [noOfDays, setNoOfDays] = useState("");
   const [qty, setQty] = useState("");
@@ -498,24 +504,67 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [remark, setRemark] = useState("");
   const [isRegular, setIsRegular] = useState(true);
   const [isDischarge, setIsDischarge] = useState(false);
+  const [dosageOptions, setDosageOptions] = useState([]);
+  const [showDosageModal, setShowDosageModal] = useState(false);
+  const [newDosageName, setNewDosageName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Note: Patient object might have doctor name OR ID under different fields.
+    // If it's the admitting doctor, it's usually an ID but maybe a name after backend formatting.
+    if (patient?.admittingDoctor) {
+      const docObj = doctors.find(d => d.employeeId === patient.admittingDoctor || d.employeeName === patient.admittingDoctor);
+      if (docObj) {
+        setDoctor(docObj.employeeId);
+        setDoctorName(docObj.employeeName);
+      } else {
+        setDoctor(patient.admittingDoctor);
+      }
+    } else if (patient?.doctor_name) {
+      setDoctor(patient.doctor_name);
+    } else if (pd.doctorName) {
+      setDoctor(pd.doctorName);
+    }
+  }, [patient, pd, doctors]);
 
   useEffect(() => {
     fetchRequests();
     fetchDoctors();
     fetchBillTypes();
+    fetchDosages();
   }, []);
+
+  const fetchDosages = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "GET");
+      if (res.success) setDosageOptions(res.data?.data || []);
+    } catch (e) { console.error("Error fetching dosages:", e); }
+  };
+
+  const handleSaveDosage = async () => {
+    if (!newDosageName) return alert("Enter dosage name");
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "POST", { dosage_name: newDosageName });
+      if (res.success) {
+        setNewDosageName("");
+        setShowDosageModal(false);
+        fetchDosages();
+      }
+    } catch (e) { console.error("Error saving dosage:", e); }
+  };
 
   const fetchBillTypes = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
-      if (res.success) {
-        const list = res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
+      if (res.success || res.records) {
+        const list = res.records || res.data?.billTypes || (Array.isArray(res.data) ? res.data : []);
         setBillTypeOptions(list);
-        if (list.length === 1) {
+        if (list.length > 0) {
           const opt = list[0];
           setBillTypeNo(opt.billTypeNo);
           setBilltype(opt.bill_type);
           setBillTypeName(opt.bill_name);
+          setPharmacyDept(opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001");
         }
       }
     } catch (e) { console.error("Error fetching bill types:", e); }
@@ -541,17 +590,44 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const handleMedicineSearch = async (val) => {
     if (val.length > 2) {
       try {
-        const res = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "GET");
-        // For search results, we manually filter since the endpoint might return full inventory
-        const filtered = (res || []).filter(item => 
+        const res = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`, "GET");
+        // Fix for standard apiRequest return shape: { success, data }
+        const list = res.success ? (Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data) ? res.data : [])) : [];
+
+        const filtered = list.filter(item => 
           item.item_name?.toLowerCase().includes(val.toLowerCase())
-        ).map(item => ({ id: item.id, name: item.item_name, price: item.price }));
+        ).map(item => ({ 
+          id: item.item_id + "_" + item.batch_number, 
+          item_id: item.item_id,
+          batch_number: item.batch_number,
+          name: item.item_name, 
+          price: item.mrp,
+          total_stock: item.total_stock || 0,
+          expiry_date: item.expiry_date || "-"
+        }));
         setSearchResults(filtered);
       } catch (e) { console.error("Search error", e); }
     } else {
       setSearchResults([]);
     }
   };
+
+  // Auto-calculate quantity based on dosage & days
+  useEffect(() => {
+    if (dosage && noOfDays) {
+      let timesPerDay = 0;
+      if (dosage.includes("-")) {
+        const parts = dosage.split("-").map(p => Number(p) || 0);
+        timesPerDay = parts.reduce((acc, curr) => acc + curr, 0);
+      } else {
+        timesPerDay = Number(dosage) || 0;
+      }
+      const days = Number(noOfDays) || 0;
+      if (timesPerDay > 0 && days > 0) {
+        setQty(timesPerDay * days);
+      }
+    }
+  }, [dosage, noOfDays]);
 
   const handleAddMedicine = () => {
     if (!selectedDrug) return alert("Select a drug from search.");
@@ -561,21 +637,13 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     if (!qty) return alert("Enter Quantity.");
 
     const newMed = {
-      ...selectedDrug,
+      item_id: selectedDrug.item_id,
       itemName: selectedDrug.name,
+      qty: Number(qty),
       quantity: Number(qty),
-      billType: billtype,
-      billTypeNo,
-      billTypeName,
-      doctor,
-      dosage,
-      noOfDays,
-      dose,
-      doseUnit,
-      route,
-      remark,
-      isRegular,
-      isDischarge
+      price: selectedDrug.price,
+      noOfDays: noOfDays,
+      dosage: dosage,
     };
 
     setSelectedMedicines([...selectedMedicines, newMed]);
@@ -592,31 +660,32 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   const handleConfirm = async () => {
-    if (selectedMedicines.length === 0) return alert("No medicines added to confirm.");
+    if (selectedMedicines.length === 0) return alert("No medicines added.");
 
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
+      patient_name: resolvedPatient.name,
       bill_type: billtype,
       billTypeNo,
       billTypeName,
-      doctor: doctor || selectedMedicines[0]?.doctor || "General", 
-      wardName: resolvedPatient.roomBed.split("|")[0].trim(),
-      selectedMedicines: selectedMedicines,
-      total_amount: selectedMedicines.reduce((acc, m) => acc + ( (m.price || 0) * m.quantity), 0)
+      wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
+      medicine_particulars: selectedMedicines,
+      total_amount: selectedMedicines.reduce((acc, m) => acc + ( (m.price || 0) * m.quantity), 0),
+      doctor: doctorName,
+      doctor_id: doctor,
+      billing_status: "Ward Request",
+      billing_mode: "WARD REQUEST"
     };
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}save_medicine_ward_request/`, "POST", payload);
       if (res.success) {
-        alert("Medication Order Saved!");
+        alert("Ward Request saved successfully");
         setSelectedMedicines([]);
-        setShowForm(false);
         fetchRequests();
-      } else {
-        alert("Failed to save: " + res.error);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error("Save error", e); }
   };
 
   const removeSelectedMed = (index) => {
@@ -632,8 +701,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-          <PatientPanel>
+    <>
+      <div style={{ padding: "20px" }}>
+        <PatientPanel>
             <PatientGrid>
               <FieldBox>
                 <FieldLabel>IP No</FieldLabel>
@@ -654,6 +724,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               <FieldBox>
                 <FieldLabel>Admitting Date & Time</FieldLabel>
                 <FieldValue>{resolvedPatient.admitting}</FieldValue>
+              </FieldBox>
+              <FieldBox>
+                <FieldLabel>Admitting Dr</FieldLabel>
+                <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
               </FieldBox>
               <FieldBox>
                 <FieldLabel>Room | Bed</FieldLabel>
@@ -690,44 +764,99 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                           setBillTypeNo(val);
                           setBilltype(opt.bill_type);
                           setBillTypeName(opt.bill_name);
+                          setPharmacyDept(opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001");
+                          setSearchResults([]);
+                          setSelectedDrug(null);
+                          setSearchQuery("");
                         }
                       }}
                       options={billTypeOptions.map(o => ({ id: o.billTypeNo, name: o.bill_name }))}
                     />
                   </FormItem>
 
-                  <FormItem>
-                    <FormLabel>Drug Name</FormLabel>
-                    <SearchableDropdown
-                      value={selectedDrug?.id}
-                      onChange={(val) => {
-                        const drug = searchResults.find(r => r.id === val);
-                        if(drug) setSelectedDrug(drug);
-                      }}
-                      options={searchResults}
-                      placeholder="Search Medicine..."
-                    />
+                  <FormItem style={{ gridColumn: "span 2" }}>
+                    <FormLabel>Medicine Name</FormLabel>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <StyledInput 
+                        style={{ flex: 1 }}
+                        placeholder="Search medicine (min 3 chars)..."
+                        value={selectedDrug ? selectedDrug.name : searchQuery}
+                        onChange={(e) => {
+                          if (selectedDrug) setSelectedDrug(null);
+                          setSearchQuery(e.target.value);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (searchQuery.length > 2) {
+                              setIsSearchModalOpen(true);
+                              handleMedicineSearch(searchQuery);
+                            } else {
+                              alert("Please enter at least 3 characters.");
+                            }
+                          }
+                        }}
+                      />
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          if (searchQuery.length > 2) {
+                            setIsSearchModalOpen(true);
+                            handleMedicineSearch(searchQuery);
+                          } else {
+                            alert("Please enter at least 3 characters.");
+                          }
+                        }}
+                        style={{
+                          background: colors.primary, color: 'white', padding: '0 16px',
+                          borderRadius: '4px', border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px'
+                        }}
+                      >
+                        <Search size={16} /> Search
+                      </button>
+                    </div>
                   </FormItem>
 
                   <FormItem>
                     <FormLabel>Doctor</FormLabel>
                     <SearchableDropdown
                       value={doctor}
-                      onChange={setDoctor}
-                      options={doctors.map(d => d.employeeName)}
+                      onChange={(val) => {
+                        setDoctor(val);
+                        const docObj = doctors.find(d => d.employeeId === val);
+                        if (docObj) setDoctorName(docObj.employeeName);
+                      }}
+                      options={doctors.map(d => ({ id: d.employeeId, name: d.employeeName }))}
                     />
                   </FormItem>
 
                   <FormItem>
                     <FormLabel>Dosage</FormLabel>
-                    <StyledSelect value={dosage} onChange={e => setDosage(e.target.value)}>
-                      <option value="">Select Dosage</option>
-                      <option value="1-0-0">1-0-0 (Morning)</option>
-                      <option value="0-1-0">0-1-0 (Noon)</option>
-                      <option value="0-0-1">0-0-1 (Night)</option>
-                      <option value="1-0-1">1-0-1 (Morn-Night)</option>
-                      <option value="1-1-1">1-1-1 (Thrice)</option>
-                    </StyledSelect>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <StyledSelect value={dosage} onChange={e => setDosage(e.target.value)} style={{ flex: 1 }}>
+                        <option value="">Select Dosage</option>
+                        <option value="1-0-0">1-0-0 (Morning)</option>
+                        <option value="0-1-0">0-1-0 (Noon)</option>
+                        <option value="0-0-1">0-0-1 (Night)</option>
+                        <option value="1-0-1">1-0-1 (Morn-Night)</option>
+                        <option value="1-1-1">1-1-1 (Thrice)</option>
+                        {dosageOptions.map((opt, idx) => (
+                          <option key={idx} value={opt.dosage_name}>{opt.dosage_name}</option>
+                        ))}
+                      </StyledSelect>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowDosageModal(true)}
+                        style={{
+                          background: colors.primary, color: 'white', width: '38px', height: '38px',
+                          borderRadius: '4px', border: 'none', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
                   </FormItem>
 
                   <FormItem>
@@ -834,23 +963,51 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 <tr><td colSpan="9" style={{textAlign: "center", padding: "30px", color: colors.textMuted}}>No request history found.</td></tr>
               ) : (
                 requests.map((req, i) => (
-                  req.medicines?.map((m, j) => (
-                    <tr key={`${i}-${j}`}>
-                      <td>{new Date(req.created_at || req.reqDate + ' ' + req.reqTime).toLocaleString("en-GB")}</td>
-                      <td>{m.itemName || m.name}</td>
-                      <td>{m.dosage}</td>
-                      <td>{m.noOfDays}</td>
-                      <td>{m.quantity}</td>
-                      <td>{m.route}</td>
-                      <td>{req.doctor || req.doctorName}</td>
-                      <td>{req.billTypeName || m.billType}</td>
-                      <td>
-                        <LegendItem color={getStatusColor(req.status || m.status, m.isDischarge)}>
-                          {m.isDischarge ? "Discharge" : (req.status || m.status || "Pending")}
-                        </LegendItem>
-                      </td>
-                    </tr>
-                  ))
+                  <tr key={i}>
+                    <td>{req.reqDate} {req.reqTime}</td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div key={idx} style={{borderBottom: idx < req.medicines.length - 1 ? "1px solid #eee" : "none", padding: "4px 0"}}>
+                          {m.itemName || m.name}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div key={idx} style={{borderBottom: idx < req.medicines.length - 1 ? "1px solid #eee" : "none", padding: "4px 0"}}>
+                          {m.dosage}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div key={idx} style={{borderBottom: idx < req.medicines.length - 1 ? "1px solid #eee" : "none", padding: "4px 0"}}>
+                          {m.noOfDays}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div key={idx} style={{borderBottom: idx < req.medicines.length - 1 ? "1px solid #eee" : "none", padding: "4px 0"}}>
+                          {m.quantity}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div key={idx} style={{borderBottom: idx < req.medicines.length - 1 ? "1px solid #eee" : "none", padding: "4px 0"}}>
+                          {m.route}
+                        </div>
+                      ))}
+                    </td>
+                    <td>{req.doctorName || req.doctor}</td>
+                    <td>{req.billName}</td>
+                    <td>
+                      <LegendItem color={getStatusColor(req.status || "Pending", false)}>
+                        {req.status || "Pending"}
+                      </LegendItem>
+                    </td>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -868,6 +1025,129 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
           </LegendContainer>
         </div>
+
+      {/* ─── Medicine Search Modal ────────────────────────────────────── */}
+      {isSearchModalOpen && (
+        <ModalOverlay style={{ zIndex: 2000 }}>
+          <ModalContainer style={{ width: '80%', height: '80%', maxWidth: '1000px' }} onClick={e => e.stopPropagation()}>
+            <Header>
+              <Title>Select Medicine ({pharmacyDept})</Title>
+              <button onClick={() => setIsSearchModalOpen(false)}>×</button>
+            </Header>
+            <ContentBody>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <StyledInput 
+                  style={{ flex: 1 }}
+                  placeholder="Search again..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.length > 2) {
+                      handleMedicineSearch(searchQuery);
+                    }
+                  }}
+                />
+                <button 
+                  onClick={() => {
+                    if (searchQuery.length > 2) handleMedicineSearch(searchQuery);
+                  }}
+                  style={{
+                    background: colors.primary, color: 'white', padding: '0 16px',
+                    borderRadius: '4px', border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px'
+                  }}
+                >
+                  <Search size={16} /> Search
+                </button>
+              </div>
+
+              {searchResults.length > 0 ? (
+                <div style={{ overflowX: 'auto', border: `1px solid ${colors.border}`, borderRadius: '8px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ background: colors.headerBg, color: '#fff' }}>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Item Name</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Batch No</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Expiry</th>
+                        <th style={{ padding: '10px', textAlign: 'right' }}>MRP (₹)</th>
+                        <th style={{ padding: '10px', textAlign: 'right' }}>Stock</th>
+                        <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchResults.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: `1px solid ${colors.border}` }}>
+                          <td style={{ padding: '10px' }}>{item.name}</td>
+                          <td style={{ padding: '10px' }}>{item.batch_number}</td>
+                          <td style={{ padding: '10px' }}>{item.expiry_date && item.expiry_date !== '-' ? new Date(item.expiry_date).toLocaleDateString() : '-'}</td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{Number(item.price).toFixed(2)}</td>
+                          <td style={{ padding: '10px', textAlign: 'right' }}>{item.total_stock}</td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <button 
+                              style={{
+                                background: colors.primary, color: 'white', border: 'none', 
+                                padding: '6px 12px', borderRadius: '4px', cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                setSelectedDrug(item);
+                                setIsSearchModalOpen(false);
+                              }}
+                            >
+                              Select
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center', color: colors.textMuted }}>
+                  No stock found matching your search in {pharmacyDept}.
+                </div>
+              )}
+            </ContentBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+      {showDosageModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1100
+        }}>
+          <div style={{ background: 'white', padding: '24px', borderRadius: '8px', width: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ margin: 0 }}>Add New Dosage</h3>
+              <X size={20} style={{ cursor: 'pointer' }} onClick={() => setShowDosageModal(false)} />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Dosage Name (e.g. 1-1-1)</label>
+              <input 
+                value={newDosageName} 
+                onChange={e => setNewDosageName(e.target.value)} 
+                placeholder="Enter dosage..."
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setShowDosageModal(false)}
+                style={{ padding: '8px 16px', borderRadius: '4px', border: '1px solid #ccc', background: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSaveDosage}
+                style={{ background: colors.primary, color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+              >
+                Save Dosage
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
