@@ -23,7 +23,6 @@ import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
-import DischargeForm from "./Components/Discharge/DischargeForm";
 // import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
@@ -198,7 +197,6 @@ function App() {
       "/VendorManagement": "Vendor Management",
       "/IPPharmacy": "IP Pharmacy",
       "/OPPharmacy": "OP Pharmacy",
-      "/DischargeForm": "Discharge Form",
       "/Summary": "Discharge Summary",
       "/DoctorList": "Doctor List",
       "/DoctorSchedule": "Doctor Schedule",
@@ -317,9 +315,7 @@ function App() {
             {hasPagePermission("/RegistrationBills", allowedActions, dynamicPermissions) && (
               <Route path="/RegistrationBills" element={<RegistrationBills />} />
             )}
-            {hasPagePermission("/DischargeForm", allowedActions, dynamicPermissions) && (
-              <Route path="/DischargeForm" element={<DischargeForm />} />
-            )}
+
             {hasPagePermission("/Summary", allowedActions, dynamicPermissions) && (
               <Route path="/Summary" element={<Summary />} />
             )}

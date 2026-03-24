@@ -376,10 +376,10 @@ const RoomGrid = styled.div`
 
 /* Room card — colour by status */
 const roomColors = {
-  available:  { bg: "#f0fdf4", border: "#86efac", header: "#dcfce7", dot: "#22c55e" },
-  occupied:   { bg: "#fff1f2", border: "#fca5a5", header: "#fee2e2", dot: "#ef4444" },
-  maintenance:{ bg: "#fffbeb", border: "#fcd34d", header: "#fef3c7", dot: "#f59e0b" },
-  partial:    { bg: "#eff6ff", border: "#93c5fd", header: "#dbeafe", dot: "#3b82f6" },
+  available: { bg: "#f0fdf4", border: "#86efac", header: "#dcfce7", dot: "#22c55e" },
+  occupied: { bg: "#fff1f2", border: "#fca5a5", header: "#fee2e2", dot: "#ef4444" },
+  maintenance: { bg: "#fffbeb", border: "#fcd34d", header: "#fef3c7", dot: "#f59e0b" },
+  partial: { bg: "#eff6ff", border: "#93c5fd", header: "#dbeafe", dot: "#3b82f6" },
 };
 
 const RoomCard = styled.div`
@@ -445,8 +445,8 @@ const BedChip = styled.button`
   color: #fff;
   background: ${(p) =>
     p.bedStatus === "Available" ? "#22c55e"
-    : p.bedStatus === "Occupied" ? "#ef4444"
-    : "#f59e0b"};
+      : p.bedStatus === "Occupied" ? "#ef4444"
+        : "#f59e0b"};
   opacity: ${(p) => p.disabled ? 0.55 : 1};
 
   &:hover:not(:disabled) {
@@ -502,34 +502,34 @@ const EMPTY_FORM = {
 function getRoomStatus(beds) {
   if (!beds || beds.length === 0) return "available";
   const statuses = beds.map((b) => b.status);
-  const allOcc  = statuses.every((s) => s === "Occupied");
-  const allMaint= statuses.every((s) => s === "Maintenance");
-  const anyOcc  = statuses.some((s) => s === "Occupied");
-  const anyAvail= statuses.some((s) => s === "Available");
+  const allOcc = statuses.every((s) => s === "Occupied");
+  const allMaint = statuses.every((s) => s === "Maintenance");
+  const anyOcc = statuses.some((s) => s === "Occupied");
+  const anyAvail = statuses.some((s) => s === "Available");
   if (allMaint) return "maintenance";
-  if (allOcc)   return "occupied";
+  if (allOcc) return "occupied";
   if (anyOcc && anyAvail) return "partial";
   return "available";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 const Admission = () => {
-  const [formData, setFormData]   = useState(EMPTY_FORM);
-  const [doctors, setDoctors]     = useState([]);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [doctors, setDoctors] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [lastSaved, setLastSaved] = useState(null);
-  const [now, setNow]             = useState(new Date());
+  const [now, setNow] = useState(new Date());
 
   // Room modal
   const [showRoomModal, setShowRoomModal] = useState(false);
-  const [roomFilter, setRoomFilter]       = useState({ room_number: "", block: "", floor: "" });
-  const [allRooms, setAllRooms]           = useState([]);   // raw flat list from API
-  const [loadingRooms, setLoadingRooms]   = useState(false);
+  const [roomFilter, setRoomFilter] = useState({ room_number: "", block: "", floor: "" });
+  const [allRooms, setAllRooms] = useState([]);   // raw flat list from API
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Bed modal
-  const [showBedModal, setShowBedModal]   = useState(false);
-  const [selectedRoom, setSelectedRoom]   = useState(null);
+  const [showBedModal, setShowBedModal] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState(null);
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -539,7 +539,6 @@ const Admission = () => {
   }, []);
 
   useEffect(() => {
-    fetchNextIpNumber();
     fetchDoctors();
     fetchAdmissions();
     const style = document.createElement("style");
@@ -550,7 +549,7 @@ const Admission = () => {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const formatClock = (d) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const formatDate  = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const formatDate = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
   const getDoctorName = (id) => {
     const doc = doctors.find((d) => String(d.employeeId) === String(id));
     return doc ? doc.employeeName : id;
@@ -559,30 +558,16 @@ const Admission = () => {
   // ── Fetches ────────────────────────────────────────────────────────────────
   const fetchDoctors = async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
-      if (response.success) {
-        setFormData(prev => ({ ...prev, ipNumber: response.data.next_ipNumber }));
-      } else {
-        throw new Error(response.error || "Failed to fetch IP number");
-      }
-    } catch (error) {
-      console.error("Error fetching IP number:", error.message);
-      toast.error("Error fetching IP number");
-    }
+      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
+      if (res.success) setDoctors(res.data || []);
+    } catch { }
   };
 
-  const fetchDoctors = async () => {
+  const fetchAdmissions = async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-      if (response.success) {
-        setDoctors(response.data || []);
-      } else {
-        throw new Error(response.error || "Failed to fetch doctors");
-      }
-    } catch (error) {
-      console.error("Error fetching doctors:", error.message);
-      toast.error("Error fetching doctors");
-    }
+      const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
+      if (res.success) setAdmissions(res.data || []);
+    } catch { }
   };
 
   // Load ALL rooms (no filter) once when modal opens
@@ -592,8 +577,8 @@ const Admission = () => {
       const f = { ...roomFilter, ...filterOverride };
       const params = new URLSearchParams();
       if (f.room_number) params.append("room_number", f.room_number);
-      if (f.block)       params.append("block", f.block);
-      if (f.floor)       params.append("floor", f.floor);
+      if (f.block) params.append("block", f.block);
+      if (f.floor) params.append("floor", f.floor);
       const q = params.toString() ? `?${params.toString()}` : "";
       const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
       // The API returns a flat list; we group by block → floor
@@ -672,8 +657,8 @@ const Admission = () => {
     setFormData((prev) => ({ ...prev, [name]: type === "file" ? files[0] : value }));
   };
 
-  const handleReset  = () => { setFormData(EMPTY_FORM); setEditingId(null); setLastSaved(null); };
-  const handleEdit   = (adm) => {
+  const handleReset = () => { setFormData(EMPTY_FORM); setEditingId(null); setLastSaved(null); };
+  const handleEdit = (adm) => {
     setEditingId(adm._id || adm.id);
     setFormData({ ...EMPTY_FORM, ...adm });
     window.scrollTo(0, 0);
@@ -688,24 +673,24 @@ const Admission = () => {
   };
 
   const handleSubmit = async () => {
-    if (!formData.uhid)            return toast.warning("UHID is required");
+    if (!formData.uhid) return toast.warning("UHID is required");
     if (!formData.admittingDoctor) return toast.warning("Admitting Doctor is required");
-    if (!formData.roomNo)          return toast.warning("Room is required");
-    if (!formData.bedNo)           return toast.warning("Bed is required");
+    if (!formData.roomNo) return toast.warning("Room is required");
+    if (!formData.bedNo) return toast.warning("Bed is required");
 
     const admissionDateTime = now.toISOString();
     const payload = new FormData();
-    ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","packageName","mlc_type","mlc_remarks"].forEach((k) => {
-      if (formData[k]) payload.append(k, formData[k]);
-    });
+    ["uhid", "admittingDoctor", "consultingDoctor", "roomNo", "bedNo",
+      "reasonForAdmission", "packageName", "mlc_type", "mlc_remarks"].forEach((k) => {
+        if (formData[k]) payload.append(k, formData[k]);
+      });
     payload.append("admissionDateTime", admissionDateTime);
     if (formData.mlc_doc instanceof File) payload.append("mlc_doc", formData.mlc_doc);
 
     try {
-      const url  = editingId ? `${HmsBaseUrl}admission/${editingId}/` : `${HmsBaseUrl}admission/`;
+      const url = editingId ? `${HmsBaseUrl}admission/${editingId}/` : `${HmsBaseUrl}admission/`;
       const meth = editingId ? "PUT" : "POST";
-      const res  = await apiRequest(url, meth, payload);
+      const res = await apiRequest(url, meth, payload);
       if (res.success) {
         toast.success(editingId ? "Updated!" : "Saved!");
         setLastSaved({
@@ -723,7 +708,7 @@ const Admission = () => {
   const handlePrint = (admData) => {
     const printData = admData || lastSaved;
     if (!printData) return;
-    const patientName = [printData.salutation,printData.firstName,printData.middleName,printData.lastName].filter(Boolean).join(" ");
+    const patientName = [printData.salutation, printData.firstName, printData.middleName, printData.lastName].filter(Boolean).join(" ");
     const admDT = printData.admissionDateTime ? new Date(printData.admissionDateTime) : new Date();
     const barcodeLines = generateBarcodeSVG(printData.ipNumber || "");
     const pw = window.open("", "_blank", "width=600,height=400");
@@ -735,17 +720,17 @@ const Admission = () => {
       @media print{body{padding:0;}.slip{border:none;}}
       </style></head><body><div class="slip"><div class="row">
       <div class="left">${barcodeLines}<div class="bold">${patientName}</div>
-      <div>${printData.age||""} ${printData.gender||""}</div>
-      <div>${printData.permanent_address||""}</div>
-      <div>${[printData.area,printData.city,printData.state].filter(Boolean).join(", ")}</div>
-      <div>${printData.phone||""}</div>
-      <div>Admitted: ${printData.admittingDoctorName||""}</div></div>
-      <div class="right"><div class="big">IP NO: ${printData.ipNumber||""}</div>
-      <div class="bold">${printData.customerType||""}</div>
-      <div>UHID: ${printData.uhid||""}</div>
+      <div>${printData.age || ""} ${printData.gender || ""}</div>
+      <div>${printData.permanent_address || ""}</div>
+      <div>${[printData.area, printData.city, printData.state].filter(Boolean).join(", ")}</div>
+      <div>${printData.phone || ""}</div>
+      <div>Admitted: ${printData.admittingDoctorName || ""}</div></div>
+      <div class="right"><div class="big">IP NO: ${printData.ipNumber || ""}</div>
+      <div class="bold">${printData.customerType || ""}</div>
+      <div>UHID: ${printData.uhid || ""}</div>
       <div>DOA: ${admDT.toLocaleDateString("en-IN")}</div>
-      <div>TIME: ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div>
-      <div>Room: ${printData.roomNo||""} / Bed: ${printData.bedNo||""}</div>
+      <div>TIME: ${admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</div>
+      <div>Room: ${printData.roomNo || ""} / Bed: ${printData.bedNo || ""}</div>
       </div></div></div>
       <script>window.onload=function(){window.print();window.close();};</script>
       </body></html>`);
@@ -807,7 +792,7 @@ const Admission = () => {
 
           <Field span={3}>
             <Lbl>Patient Name</Lbl>
-            <Inp value={[formData.salutation,formData.firstName,formData.middleName,formData.lastName].filter(Boolean).join(" ")} readOnly />
+            <Inp value={[formData.salutation, formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(" ")} readOnly />
           </Field>
           <Field><Lbl>Age</Lbl><Inp value={formData.age} readOnly /></Field>
           <Field><Lbl>Gender</Lbl><Inp value={formData.gender} readOnly /></Field>
@@ -919,18 +904,18 @@ const Admission = () => {
               </thead>
               <tbody>
                 {admissions.length === 0 ? (
-                  <Tr><Td colSpan="8" style={{ textAlign:"center", padding:"24px" }}>No admissions found</Td></Tr>
+                  <Tr><Td colSpan="8" style={{ textAlign: "center", padding: "24px" }}>No admissions found</Td></Tr>
                 ) : admissions.map((adm, idx) => (
                   <Tr key={idx}>
                     <Td>{adm.uhid}</Td>
                     <Td>{adm.ipNumber}</Td>
-                    <Td>{[adm.salutation,adm.firstName,adm.middleName,adm.lastName].filter(Boolean).join(" ") || "-"}</Td>
+                    <Td>{[adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ") || "-"}</Td>
                     <Td>{adm.admissionDateTime ? new Date(adm.admissionDateTime).toLocaleString("en-IN") : "-"}</Td>
-                    <Td>{`${adm.roomNo||"-"} / ${adm.bedNo||"-"}`}</Td>
+                    <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
                     <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "-"}</Td>
                     <Td><StatusBadge active={adm.is_active !== false}>{adm.is_active !== false ? "Active" : "Cancelled"}</StatusBadge></Td>
                     <Td>
-                      <div style={{ display:"flex", gap:5 }}>
+                      <div style={{ display: "flex", gap: 5 }}>
                         <MiniBtn onClick={() => handleEdit(adm)} disabled={adm.is_active === false}>✏️ Edit</MiniBtn>
                         <MiniBtnPrint onClick={() => handlePrint(adm)}>🖨️</MiniBtnPrint>
                         <MiniBtn danger onClick={() => handleCancel(adm._id || adm.id)} disabled={adm.is_active === false}>🗑️ Cancel</MiniBtn>
@@ -991,7 +976,7 @@ const Admission = () => {
                 </FilterField>
                 <FilterBtn onClick={() => fetchAllRooms()}>Search</FilterBtn>
                 <FilterBtn
-                  onClick={() => { setRoomFilter({ room_number:"", block:"", floor:"" }); fetchAllRooms({ room_number:"", block:"", floor:"" }); }}
+                  onClick={() => { setRoomFilter({ room_number: "", block: "", floor: "" }); fetchAllRooms({ room_number: "", block: "", floor: "" }); }}
                   style={{ background: colors.textMuted }}
                 >
                   Clear
@@ -1008,7 +993,7 @@ const Admission = () => {
 
               {/* Room Grid */}
               {loadingRooms ? (
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(148px,1fr))", gap:8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(148px,1fr))", gap: 8 }}>
                   {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} />)}
                 </div>
               ) : Object.keys(groupedRooms).length === 0 ? (
@@ -1017,7 +1002,7 @@ const Admission = () => {
                 Object.entries(groupedRooms).map(([block, floors], bIdx) => (
                   <BlockSection key={block} idx={bIdx}>
                     <BlockHeader>🏢 Block {block}</BlockHeader>
-                    {Object.entries(floors).sort(([a],[b]) => Number(a)-Number(b)).map(([floor, rooms]) => (
+                    {Object.entries(floors).sort(([a], [b]) => Number(a) - Number(b)).map(([floor, rooms]) => (
                       <FloorGroup key={floor}>
                         <FloorLabel>Floor {floor}</FloorLabel>
                         <RoomGrid>
@@ -1029,10 +1014,10 @@ const Admission = () => {
                                 status={status}
                                 onClick={() => handleRoomClick(room)}
                                 title={
-                                  status === "occupied"    ? "Room fully occupied — cannot select" :
-                                  status === "maintenance" ? "Room under maintenance — cannot select" :
-                                  status === "partial"     ? "Partially available — click to choose a bed" :
-                                  "Available — click to choose a bed"
+                                  status === "occupied" ? "Room fully occupied — cannot select" :
+                                    status === "maintenance" ? "Room under maintenance — cannot select" :
+                                      status === "partial" ? "Partially available — click to choose a bed" :
+                                        "Available — click to choose a bed"
                                 }
                               >
                                 <RoomCardTop status={status}>
@@ -1086,7 +1071,7 @@ const Admission = () => {
               <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:10, padding:12 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
                 {(selectedRoom.beds || []).map((bed, i) => {
                   const avail = bed.status === "Available";
                   return (
@@ -1094,13 +1079,13 @@ const Admission = () => {
                       key={i}
                       bedStatus={bed.status}
                       disabled={!avail}
-                      style={{ minWidth:70, height:42, fontSize:"0.82rem", flex:"1 1 70px" }}
+                      style={{ minWidth: 70, height: 42, fontSize: "0.82rem", flex: "1 1 70px" }}
                       onClick={() => avail && handleBedSelect(bed.bed_number)}
                       title={`${bed.bed_number} — ${bed.status}`}
                     >
                       {bed.bed_number}
                       <br />
-                      <span style={{ fontSize:"0.6rem", opacity:0.85 }}>{bed.status}</span>
+                      <span style={{ fontSize: "0.6rem", opacity: 0.85 }}>{bed.status}</span>
                     </BedChip>
                   );
                 })}
