@@ -159,6 +159,12 @@ const SugName  = styled.span`font-weight:600;color:${T.textMain};`;
 const SugPrice = styled.span`font-size:0.74rem;color:${T.success};font-weight:700;`;
 const SugEmpty = styled.div`padding:10px;text-align:center;font-size:0.78rem;color:${T.textMuted};`;
 
+// ─── Bill type bar ────────────────────────────────────────────────────────────
+const BillTypeBar = styled.div`
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 14px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;
+`;
+
 // ─── Financials ───────────────────────────────────────────────────────────────
 const FinGrid    = styled.div`display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid ${T.border};@media(max-width:900px){grid-template-columns:repeat(2,1fr);}`;
 const FinCol     = styled.div`padding:10px 12px;border-right:1px solid ${T.border};display:flex;flex-direction:column;gap:8px;&:last-child{border-right:none;}`;
@@ -168,12 +174,6 @@ const FinIn      = styled.input`flex:1;padding:4px 8px;font-size:0.78rem;border:
 const Rupee      = styled.span`color:${T.textMuted};font-size:0.75rem;flex-shrink:0;`;
 const FinActions = styled.div`display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px;background:#fafafa;border-top:1px solid ${T.border};`;
 const ErrMsg     = styled.div`color:${T.danger};font-size:0.76rem;padding:6px 14px;background:#fee2e2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:6px;`;
-
-// ─── Bill type bar ────────────────────────────────────────────────────────────
-const BillTypeBar = styled.div`
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:10px 14px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;
-`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants & Helpers
@@ -281,12 +281,10 @@ const estToForm = e => ({
 });
 
 // ─── Normalise items from API ─────────────────────────────────────────────────
-// FIX: check price !== undefined (not just != null) to handle string "10000"
+// Handles both { itemName, price } and MongoDB format { itemName, "2": "10000" }
 const normaliseItems = (list) =>
   (Array.isArray(list) ? list : []).map(it => {
-    // If price field already exists (even as string like "10000"), keep it
-    if (it.price !== undefined && it.price !== null) return it;
-    // Fallback: find a numeric key that isn't a known text field
+    if (it.price != null) return it;
     const priceKey = Object.keys(it).find(
       k => k !== "itemName" && k !== "_id" && !isNaN(Number(k))
     );
@@ -297,7 +295,7 @@ const normaliseItems = (list) =>
 // ItemSearchInput — uses pre-fetched allItems, no API calls on keystroke
 // ═════════════════════════════════════════════════════════════════════════════
 
-const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false }) => {
+const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false, billTypeName = "" }) => {
   const [showSug, setShowSug] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 280 });
   const inputRef = useRef(null);
@@ -308,7 +306,6 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
     ? allItems.filter(it => it.itemName?.toLowerCase().includes(value.trim().toLowerCase()))
     : allItems;
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const onMouseDown = e => {
       const inInput = inputRef.current?.contains(e.target);
@@ -341,9 +338,7 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
     setShowSug(true);
   };
 
-  // FIX: guard focus when disabled; otherwise open dropdown
   const handleFocus = () => {
-    if (disabled) return;
     measure();
     setShowSug(true);
   };
@@ -361,7 +356,6 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
 
   return (
     <>
-      {/* FIX: pass disabled prop to the actual input element */}
       <TInput
         ref={inputRef}
         value={value}
@@ -369,48 +363,67 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
         onFocus={handleFocus}
         placeholder={placeholder}
         autoComplete="off"
-        disabled={disabled}
-        style={{
-          width: "100%",
-          background: disabled ? "#f8fafc" : itemsLoading ? "#f8fafc" : "#fff",
-          cursor: disabled ? "not-allowed" : "text",
-        }}
+        style={{ width: "100%", background: itemsLoading ? "#f8fafc" : "#fff" }}
       />
-      {/* FIX: only show dropdown when not disabled and showSug is true */}
-      {showSug && !disabled && (
+      {showSug && (
         <div
           ref={dropRef}
           style={{
             position:     "fixed",
             top:          dropPos.top,
             left:         dropPos.left,
-            width:        Math.max(dropPos.width, 320),
+            width:        Math.max(dropPos.width, 380),
             background:   "#fff",
             border:       `1px solid ${T.border}`,
             borderRadius: "6px",
             boxShadow:    "0 8px 24px rgba(0,0,0,0.14)",
             zIndex:       99999,
-            maxHeight:    "280px",
+            maxHeight:    "320px",
             overflowY:    "auto",
           }}
         >
+          {/* Dropdown header showing which bill type these items belong to */}
+          {!itemsLoading && allItems.length > 0 && (
+            <div style={{
+              padding: "5px 10px 4px",
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              color: T.surface,
+              background: T.primary,
+              borderRadius: "6px 6px 0 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}>
+              <span>📋 {billTypeName || "Items"}</span>
+              <span style={{ opacity: 0.8 }}>
+                {value.trim() ? `${filtered.length} / ${allItems.length}` : `${allItems.length} items`}
+              </span>
+            </div>
+          )}
+
           {itemsLoading ? (
-            <SugEmpty>⏳ Loading items…</SugEmpty>
+            <SugEmpty style={{ padding: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <MiniSpinner />
+                <span>Loading {billTypeName} items…</span>
+              </div>
+            </SugEmpty>
           ) : filtered.length === 0 ? (
             <SugEmpty>
               {allItems.length === 0
-                ? "No items for this bill type"
-                : "No match — try different keywords"}
+                ? `No items found for ${billTypeName || "this bill type"}`
+                : `No match — try different keywords`}
             </SugEmpty>
           ) : (
             <>
-              {value.trim() && (
+              {value.trim() && filtered.length < allItems.length && (
                 <div style={{
-                  padding: "4px 10px 3px", fontSize: "0.66rem", fontWeight: 700,
+                  padding: "3px 10px", fontSize: "0.65rem", fontWeight: 600,
                   color: T.textMuted, background: "#f8fafc",
                   borderBottom: `1px solid ${T.border}`,
                 }}>
-                  {filtered.length} of {allItems.length} items
+                  Showing {filtered.length} of {allItems.length} items
                 </div>
               )}
               {filtered.map((s, i) => (
@@ -418,9 +431,13 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
                   key={`${s.itemName}-${i}`}
                   onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
                 >
-                  <SugName>{s.itemName}</SugName>
-                  {/* FIX: show price for string "10000" — use loose check */}
-                  {s.price !== undefined && s.price !== null && String(s.price) !== "" && String(s.price) !== "0" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <SugName>{s.itemName}</SugName>
+                    {s.package_name && (
+                      <span style={{ fontSize: "0.67rem", color: T.textMuted }}>{s.package_name}</span>
+                    )}
+                  </div>
+                  {s.price != null && String(s.price) !== "0" && String(s.price) !== "" && (
                     <SugPrice>₹{parseFloat(s.price).toLocaleString("en-IN")}</SugPrice>
                   )}
                 </SuggestionItem>
@@ -476,19 +493,30 @@ const FinancialGrid = ({ f, onChange, totals }) => (
 );
 
 // ═════════════════════════════════════════════════════════════════════════════
-// ItemsSection
+// ItemsSection — receives pre-fetched allItems, passes to ItemSearchInput
 // ═════════════════════════════════════════════════════════════════════════════
 
 const ItemsSection = ({
   items, newItem, onNIChange, onItemSelect, onAdd, onClear, onEdit, onRemove, disabled,
-  doctors, billTypeNo, allItems, itemsLoading,
+  doctors, billTypeNo, billTypeName, allItems, itemsLoading,
 }) => (
   <TScrollWrap>
     <ITable>
       <ITHead>
         <tr>
           <ITH style={{width:34}}>#</ITH>
-          <ITH style={{minWidth:180}}>Item Name</ITH>
+          <ITH style={{minWidth:200}}>
+            Item Name
+            {billTypeName && (
+              <span style={{
+                marginLeft: 6, fontSize: "0.6rem", fontWeight: 600,
+                background: T.primary, color: "#fff",
+                padding: "1px 6px", borderRadius: 10,
+              }}>
+                {billTypeName}
+              </span>
+            )}
+          </ITH>
           <ITH style={{width:64}}>Qty</ITH>
           <ITH style={{width:80}}>Rate</ITH>
           <ITH style={{width:72}}>Disc</ITH>
@@ -512,6 +540,7 @@ const ItemsSection = ({
               disabled={disabled}
               allItems={allItems}
               itemsLoading={itemsLoading}
+              billTypeName={billTypeName}
             />
           </ITD>
           <ITD><TInput $w="58px" type="number" min={1} value={newItem.quantity}      onChange={e=>onNIChange("quantity",Number(e.target.value)||1)} disabled={disabled}/></ITD>
@@ -599,10 +628,12 @@ const DischargeBilling = () => {
   const [allItems,     setAllItems]     = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
 
-  // FIX: track whether a bill type has been explicitly selected by the user
-  // On mount we only fetch master data; items are fetched only after
-  // either: (a) bill types load and we pick the default, or (b) user picks a type
-  const [selectedBT, setSelectedBT] = useState(null); // start as null — no fetch yet
+  // Selected bill type (default = DISCHARGE / DIS01)
+  const [selectedBT, setSelectedBT] = useState({
+    billTypeNo: DEFAULT_BILL_TYPE_NO,
+    bill_type:  DEFAULT_BILL_TYPE_NUM,
+    bill_name:  "DISCHARGE",
+  });
 
   // ── Create tab state ───────────────────────────────────────────────────────
   const [uhid,       setUhid]       = useState("");
@@ -640,18 +671,14 @@ const DischargeBilling = () => {
         const bRes = await apiRequest(`${BASE}bill-types/`, "GET");
         const list  = Array.isArray(bRes?.billTypes) ? bRes.billTypes : [];
         setBillTypes(list);
-
-        // Auto-select DISCHARGE (DIS01) as default once bill types arrive
-        const discharge = list.find(b => b.billTypeNo === DEFAULT_BILL_TYPE_NO)
-          || list[0]; // fallback to first if DIS01 not found
-
+        // Auto-select DISCHARGE (DIS01) as default
+        const discharge = list.find(b => b.billTypeNo === DEFAULT_BILL_TYPE_NO);
         if (discharge) {
           setSelectedBT({
             billTypeNo: discharge.billTypeNo,
-            bill_type:  discharge.bill_type ?? DEFAULT_BILL_TYPE_NUM,
+            bill_type:  discharge.bill_type,
             bill_name:  discharge.bill_name,
           });
-          // Items will be fetched by the useEffect below reacting to selectedBT
         }
       } catch {}
 
@@ -660,59 +687,54 @@ const DischargeBilling = () => {
     fetchMasterData();
   }, []);
 
-  // ── FIX: Fetch items ONLY when selectedBT changes (not on mount with null) ─
+  // ── Fetch items whenever selected bill type changes ────────────────────────
+  // Items are loaded ONCE per bill-type change, not on every keystroke.
+  // API call: GET /investigation-items/?billTypeNo=DIS01&billType=2
   useEffect(() => {
-    // Skip if no bill type selected yet
-    if (!selectedBT || !selectedBT.billTypeNo || selectedBT.bill_type == null) return;
-
+    if (!selectedBT.billTypeNo || selectedBT.bill_type == null) return;
     let cancelled = false;
 
     const fetchItems = async () => {
       setItemsLoading(true);
-      setAllItems([]); // clear stale items immediately so old list doesn't flash
-
+      setAllItems([]); // clear stale items immediately so dropdown shows loading
       try {
         const url = `${BASE}investigation-items/?billTypeNo=${encodeURIComponent(selectedBT.billTypeNo)}&billType=${encodeURIComponent(String(selectedBT.bill_type))}`;
-        console.log("[DischargeBilling] Fetching items:", url);
-
         const res  = await apiRequest(url, "GET");
-        console.log("[DischargeBilling] Items response:", res);
+        console.log("res",res)
 
-        // FIX: handle multiple response shapes from backend
-        const list = Array.isArray(res?.items) ? res.items   // { items: [...] }
-                   : Array.isArray(res?.data)  ? res.data    // { data: [...] }
-                   : Array.isArray(res)         ? res         // [...]
-                   : [];
-
-        console.log(`[DischargeBilling] Parsed ${list.length} items for ${selectedBT.billTypeNo}`);
-
+        const list =
+          Array.isArray(res?.data?.items) ? res.data.items :
+          Array.isArray(res?.items)       ? res.items :
+          Array.isArray(res?.data)        ? res.data :
+          Array.isArray(res)              ? res :
+          [];
+        console.log("list",list)
+        
         if (!cancelled) setAllItems(normaliseItems(list));
-      } catch (err) {
-        console.error("[DischargeBilling] Items fetch error:", err);
+        console.log("normaliseItems",normaliseItems)
+      } catch {
         if (!cancelled) setAllItems([]);
       } finally {
         if (!cancelled) setItemsLoading(false);
       }
     };
-
+    
     fetchItems();
     return () => { cancelled = true; };
-  }, [selectedBT?.billTypeNo, selectedBT?.bill_type]);
+  }, [selectedBT.billTypeNo, selectedBT.bill_type]);
 
   // ── Bill type change handler ────────────────────────────────────────────────
   const handleBillTypeChange = e => {
     const chosen = billTypes.find(b => b.billTypeNo === e.target.value);
-    console.log("[BillType] User selected:", chosen);
-    if (chosen) {
-      setSelectedBT({
-        billTypeNo: chosen.billTypeNo,
-        bill_type:  chosen.bill_type ?? DEFAULT_BILL_TYPE_NUM,
-        bill_name:  chosen.bill_name,
-      });
-      // Clear new item row so stale search text is gone when items reload
-      setNewItem(EMPTY_ITEM);
-      // allItems will be re-fetched automatically by the useEffect above
-    }
+    if (!chosen) return;
+    setSelectedBT({
+      billTypeNo: chosen.billTypeNo,
+      bill_type:  chosen.bill_type,
+      bill_name:  chosen.bill_name,
+    });
+    // Reset new item row so name input is blank (stale item from old type removed)
+    setNewItem(EMPTY_ITEM);
+    // allItems will be cleared + re-fetched by the useEffect above
   };
 
   // ── Patient search ─────────────────────────────────────────────────────────
@@ -744,7 +766,6 @@ const DischargeBilling = () => {
   const handleNIChange = (field, value) =>
     setNewItem(p => recalcItem({ ...p, [field]: value }, field, value));
 
-  // When an item is selected from the autocomplete dropdown
   const handleItemSelect = useCallback(item => {
     setNewItem(p => {
       const itemName = item.itemName || "";
@@ -848,9 +869,6 @@ const DischargeBilling = () => {
     finally { setSaving(false); }
   };
 
-  // Derive current bill type display value safely
-  const currentBillTypeNo = selectedBT?.billTypeNo || DEFAULT_BILL_TYPE_NO;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageWrap>
@@ -871,25 +889,6 @@ const DischargeBilling = () => {
 
         {/* ═══ CREATE / EDIT TAB ═══ */}
         {tab==="create" && (<>
-
-          {/* Editing estimate banner */}
-          {editingEst && (
-            <ConvertBanner>
-              <span style={{fontSize:"1.2rem",marginTop:1}}>✏️</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:"0.84rem",fontWeight:700,marginBottom:3}}>
-                  Editing Estimate — <span style={{color:"#7c3aed"}}>{editingEst.estimate_number}</span>
-                </div>
-                <div style={{fontSize:"0.76rem",fontWeight:400,color:"#6d28d9",lineHeight:1.5}}>
-                  All fields pre-filled. • Click <strong>Update Estimate</strong> to save changes&nbsp;&nbsp;
-                  • Click <strong>Convert &amp; Save Bill</strong> to finalise as a bill
-                </div>
-              </div>
-              <Btn $ghost $sm style={{borderColor:"#7c3aed",color:"#7c3aed",flexShrink:0}} onClick={handleReset}>
-                ✕ Cancel
-              </Btn>
-            </ConvertBanner>
-          )}
 
           {/* Patient search */}
           <Card>
@@ -960,17 +959,17 @@ const DischargeBilling = () => {
                 {itemsLoading && (
                   <span style={{fontSize:"0.71rem",color:T.textMuted,display:"flex",alignItems:"center",gap:5}}>
                     <MiniSpinner/>
-                    Loading items…
+                    Loading {selectedBT.bill_name} items…
                   </span>
                 )}
                 {!itemsLoading && allItems.length > 0 && (
                   <span style={{fontSize:"0.71rem",color:T.success,fontWeight:600}}>
-                    ✓ {allItems.length} items ready
+                    ✓ {allItems.length} {selectedBT.bill_name} items ready
                   </span>
                 )}
-                {!itemsLoading && allItems.length === 0 && selectedBT && (
+                {!itemsLoading && allItems.length === 0 && selectedBT.billTypeNo && (
                   <span style={{fontSize:"0.71rem",color:T.amber,fontWeight:600}}>
-                    ⚠ No items for this bill type
+                    ⚠ No items for {selectedBT.bill_name}
                   </span>
                 )}
                 {items.length > 0 && (
@@ -982,39 +981,58 @@ const DischargeBilling = () => {
               </div>
             </CardHead>
 
-            {/* Bill type selection bar */}
+            {/* ── Bill type selection bar ── */}
+            {/* Changing this dropdown re-fetches allItems and updates the item search dropdown */}
             <BillTypeBar>
-              <span style={{fontSize:"0.74rem",fontWeight:700,color:T.textMid,flexShrink:0}}>Bill Type:</span>
+              <span style={{fontSize:"0.74rem",fontWeight:700,color:T.textMid,flexShrink:0}}>
+                Bill Type:
+              </span>
               <FSelect
-                value={currentBillTypeNo}
+                value={selectedBT.billTypeNo}
                 onChange={handleBillTypeChange}
                 disabled={masterLoading}
-                style={{height:30,fontSize:"0.8rem",minWidth:200}}
+                style={{height:30,fontSize:"0.8rem",minWidth:220}}
               >
-                {/* FIX: show placeholder while loading */}
-                {masterLoading && (
-                  <option value="">Loading bill types…</option>
-                )}
-                {!masterLoading && billTypes.length === 0 && (
+                {billTypes.length === 0 ? (
                   <option value={DEFAULT_BILL_TYPE_NO}>DISCHARGE</option>
+                ) : (
+                  billTypes.map(b => (
+                    <option key={b.billTypeNo} value={b.billTypeNo}>
+                      {b.bill_name}
+                    </option>
+                  ))
                 )}
-                {billTypes.map(b=>(
-                  <option key={b.billTypeNo} value={b.billTypeNo}>
-                    {b.bill_name}
-                  </option>
-                ))}
               </FSelect>
+
               {masterLoading && (
                 <span style={{fontSize:"0.73rem",color:T.textMuted,display:"flex",alignItems:"center",gap:5}}>
-                  <MiniSpinner/> Loading…
+                  <MiniSpinner/> Loading bill types…
                 </span>
               )}
-              {/* Show current bill type info */}
-              {selectedBT && !masterLoading && (
-                <span style={{fontSize:"0.72rem",color:T.textMuted}}>
-                  Type No: <strong>{selectedBT.billTypeNo}</strong> · Type ID: <strong>{selectedBT.bill_type}</strong>
+
+              {/* Live status pill for selected bill type's item count */}
+              {!masterLoading && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "3px 10px", borderRadius: 20,
+                  fontSize: "0.71rem", fontWeight: 700,
+                  background: itemsLoading ? "#fef9c3" : allItems.length > 0 ? "#dcfce7" : "#fee2e2",
+                  color:      itemsLoading ? T.amber    : allItems.length > 0 ? T.success : T.danger,
+                  border:     `1px solid ${itemsLoading ? "#fde68a" : allItems.length > 0 ? "#86efac" : "#fca5a5"}`,
+                }}>
+                  {itemsLoading ? (
+                    <><MiniSpinner/> Fetching items…</>
+                  ) : allItems.length > 0 ? (
+                    `✓ ${allItems.length} items loaded`
+                  ) : (
+                    "No items found"
+                  )}
                 </span>
               )}
+
+              <span style={{fontSize:"0.71rem",color:T.textMuted,marginLeft:"auto"}}>
+                ↑ Change bill type to load different items in the search dropdown
+              </span>
             </BillTypeBar>
 
             <ItemsSection
@@ -1028,7 +1046,8 @@ const DischargeBilling = () => {
               onRemove={key=>setItems(p=>p.filter(i=>i._key!==key))}
               disabled={!patient}
               doctors={doctors}
-              billTypeNo={currentBillTypeNo}
+              billTypeNo={selectedBT.billTypeNo}
+              billTypeName={selectedBT.bill_name}
               allItems={allItems}
               itemsLoading={itemsLoading}
             />
