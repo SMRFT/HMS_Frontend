@@ -603,14 +603,7 @@ const Admission = () => {
     } finally {
       setLoadingRooms(false);
     }
-  } catch (error) {
-    console.error("Error searching rooms:", error.message);
-    toast.error("Failed to search rooms");
-    setRoomResults([]);
-  } finally {
-    setLoadingRooms(false);
-  }
-};
+  };
 
   const openRoomModal = () => {
     setShowRoomModal(true);

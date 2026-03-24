@@ -22,7 +22,8 @@ import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
 import Block from "./Components/Rooms/Block";
-import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+import DischargeForm from "./Components/Discharge/DischargeForm";
+// import VendorManagement from "./Components/InventoryMaster/VendorManagement";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
@@ -88,6 +89,10 @@ import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 
 import Items from "./Components/Stores/Items";
+import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
+import StoresGRNReport from "./Components/Stores/StoresGRNReport";
+import StoresIntent from "./Components/Stores/StoresIntent";
+import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -197,6 +202,10 @@ function App() {
       "/Pharmacystock": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
       "/Items": "Items",
+      "/StoresGRNGeneration": "Stores GRN Generation",
+      "/StoresGRNReport": "Stores GRN Report",
+      "/StoresIntent": "Stores Intent",
+      "/StoresIntentApproval": "Store Intent Approval",
     };
 
     const path = location.pathname;
@@ -436,6 +445,21 @@ function App() {
                 path="/VelavanVendorList"
                 element={<VelavanVendorList />}
               />
+            )}
+            {hasPagePermission("/Items", allowedActions) && (
+              <Route path="/Items" element={<Items />} />
+            )}
+            {hasPagePermission("/StoresGRNGeneration", allowedActions) && (
+              <Route path="/StoresGRNGeneration" element={<StoresGRNGeneration />} />
+            )}
+            {hasPagePermission("/StoresGRNReport", allowedActions) && (
+              <Route path="/StoresGRNReport" element={<StoresGRNReport />} />
+            )}            
+            {hasPagePermission("/StoresIntent", allowedActions) && (
+              <Route path="/StoresIntent" element={<StoresIntent />} />
+            )}
+            {hasPagePermission("/StoresIntentApproval", allowedActions) && (
+              <Route path="/StoresIntentApproval" element={<StoreIntentApproval />} />
             )}
           </Routes>
         </ContentWrapper>
