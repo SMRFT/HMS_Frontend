@@ -121,7 +121,6 @@ const FormGroup = styled.div`
   gap: 0.5rem;
 `;
 
-// Extended Label with icon support on top of GlobalStyles Label
 const IconLabel = styled(Label)`
   color: #2c3e50;
   font-weight: 600;
@@ -134,7 +133,6 @@ const IconLabel = styled(Label)`
   }
 `;
 
-// Extended Input with disabled styling on top of GlobalStyles Input
 const StyledInput = styled(Input)`
   padding: 0.875rem 1rem;
   border: 2px solid #e0e0e0;
@@ -153,7 +151,6 @@ const StyledInput = styled(Input)`
   }
 `;
 
-// Extended TextArea on top of GlobalStyles TextArea
 const StyledTextArea = styled(TextArea)`
   padding: 0.875rem 1rem;
   border: 2px solid #e0e0e0;
@@ -313,7 +310,7 @@ const formatDisplayTime = (date) =>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const CTReportForm = () => {
+const XRayReportForm = () => {
   const { uhid, subUhid } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -396,10 +393,10 @@ const CTReportForm = () => {
     );
 
     if (result.success) {
-      toast.success("CT report submitted successfully! ✓");
+      toast.success("X-Ray report submitted successfully! ✓");
       navigate(-1);
     } else {
-      toast.error(result.error || "Error submitting CT report");
+      toast.error(result.error || "Error submitting X-Ray report");
       console.error("Error:", result.error);
     }
   };
@@ -411,7 +408,7 @@ const CTReportForm = () => {
       <PageWrapper>
         <Container>
           <FormCard>
-            <PageTitle>CT Report Form</PageTitle>
+            <PageTitle>X-Ray Report Form</PageTitle>
             <ErrorMessage>
               <ErrorTitle>Error Loading Data</ErrorTitle>
               <ErrorText>
@@ -434,9 +431,9 @@ const CTReportForm = () => {
     <PageWrapper>
       <Container>
         <FormCard>
-          <PageTitle>CT Report Form</PageTitle>
+          <PageTitle>X-Ray Report Form</PageTitle>
           <Subtitle>
-            Complete the form below to submit a CT investigation report
+            Complete the form below to submit an X-Ray investigation report
           </Subtitle>
 
           <DateTimeBanner>
@@ -505,7 +502,7 @@ const CTReportForm = () => {
                 <StyledInput type="text" value={investBillNo} disabled />
               </FormGroup>
               <FormGroup>
-                <IconLabel icon="🔬">Item</IconLabel>
+                <IconLabel icon="🔊">Item</IconLabel>
                 <StyledInput type="text" value={itemName} disabled />
               </FormGroup>
             </FormRow>
@@ -533,4 +530,4 @@ const CTReportForm = () => {
   );
 };
 
-export default CTReportForm;
+export default XRayReportForm;

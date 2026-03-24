@@ -539,6 +539,7 @@ const Admission = () => {
   }, []);
 
   useEffect(() => {
+    fetchNextIpNumber();
     fetchDoctors();
     fetchAdmissions();
     const style = document.createElement("style");
@@ -558,16 +559,30 @@ const Admission = () => {
   // ── Fetches ────────────────────────────────────────────────────────────────
   const fetchDoctors = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-      if (res.success) setDoctors(res.data || []);
-    } catch {}
+      const response = await apiRequest(`${HmsBaseUrl}autoipNumber/`, "GET");
+      if (response.success) {
+        setFormData(prev => ({ ...prev, ipNumber: response.data.next_ipNumber }));
+      } else {
+        throw new Error(response.error || "Failed to fetch IP number");
+      }
+    } catch (error) {
+      console.error("Error fetching IP number:", error.message);
+      toast.error("Error fetching IP number");
+    }
   };
 
-  const fetchAdmissions = async () => {
+  const fetchDoctors = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
-      if (res.success) setAdmissions(res.data || []);
-    } catch {}
+      const response = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
+      if (response.success) {
+        setDoctors(response.data || []);
+      } else {
+        throw new Error(response.error || "Failed to fetch doctors");
+      }
+    } catch (error) {
+      console.error("Error fetching doctors:", error.message);
+      toast.error("Error fetching doctors");
+    }
   };
 
   // Load ALL rooms (no filter) once when modal opens
@@ -588,7 +603,14 @@ const Admission = () => {
     } finally {
       setLoadingRooms(false);
     }
-  };
+  } catch (error) {
+    console.error("Error searching rooms:", error.message);
+    toast.error("Failed to search rooms");
+    setRoomResults([]);
+  } finally {
+    setLoadingRooms(false);
+  }
+};
 
   const openRoomModal = () => {
     setShowRoomModal(true);

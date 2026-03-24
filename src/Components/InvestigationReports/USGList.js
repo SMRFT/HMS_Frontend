@@ -1,83 +1,120 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import styled from 'styled-components';
+import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
+import {
+  PageWrapper,
+  Container,
+  Button,
+  Table,
+  Th,
+  Td,
+  Tr,
+  TableWrapper,
+  ModalOverlay,
+  ModalContainer,
+  ModalHeader,
+  ModalTitle,
+  CloseButton,
+  ModalBody,
+  Label,
+  TextArea,
+  ButtonContainer,
+  colors,
+} from "../GlobalStyles";
 
-// Page Container with gradient background
-const PageContainer = styled.div`
-  min-height: 100vh;
-  background: linear-gradient(135deg, #e8f5e9 0%, #b2dfdb 100%);
-  padding: 2rem;
-`;
+// ─── Page Layout ──────────────────────────────────────────────────────────────
 
-// Card Container
 const ContentCard = styled.div`
   background: white;
   border-radius: 20px;
-  padding: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   margin-bottom: 2rem;
 `;
 
-// Modern Page Title
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 2px solid #f0f0f0;
+`;
+
 const PageTitle = styled.h1`
-  font-size: 2.5rem;
+  font-size: 1.45rem;
   font-weight: 800;
   background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  
-  &::before {
-    content: '🔬';
-    font-size: 2.5rem;
-  }
-`;
-
-// Section Header
-const SectionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 3rem 0 1.5rem 0;
-  padding-bottom: 1rem;
-  border-bottom: 3px solid #f0f0f0;
-`;
-
-const SectionTitle = styled.h2`
-  color: #2c3e50;
-  font-size: 1.75rem;
-  font-weight: 700;
   margin: 0;
-  position: relative;
-  
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   &::before {
-    content: '';
-    position: absolute;
-    left: -1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 5px;
-    height: 100%;
-    background: linear-gradient(180deg, #00897b 0%, #00695c 100%);
-    border-radius: 3px;
+    content: "🔬";
+    font-size: 1.3rem;
   }
 `;
 
-const SectionIcon = styled.span`
-  font-size: 1.5rem;
+// ─── Stat Cards ───────────────────────────────────────────────────────────────
+
+const StatsRow = styled.div`
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.1rem;
 `;
 
-// Filter Container
+const StatCard = styled.div`
+  flex: 1;
+  min-width: 90px;
+  background: ${(p) => p.bg || "#f8f8f8"};
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-left: 3px solid ${(p) => p.accent || "#ccc"};
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+`;
+
+const StatIcon = styled.span`
+  font-size: 1.1rem;
+  flex-shrink: 0;
+`;
+
+const StatInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const StatCount = styled.span`
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: ${(p) => p.color || "#333"};
+  line-height: 1.1;
+`;
+
+const StatLabel = styled.span`
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+`;
+
+// ─── Date Filter Bar ──────────────────────────────────────────────────────────
+
 const FilterContainer = styled.div`
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 0.6rem;
+  margin-bottom: 1.1rem;
   flex-wrap: wrap;
   align-items: flex-end;
 `;
@@ -85,269 +122,234 @@ const FilterContainer = styled.div`
 const FilterGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 `;
 
 const FilterLabel = styled.label`
   color: #00897b;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 `;
 
 const DateInput = styled.input`
-  padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 0.938rem;
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 0.8rem;
   color: #555;
-  transition: all 0.3s ease;
-  
+  transition: all 0.2s ease;
   &:focus {
     outline: none;
     border-color: #00897b;
-    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.1);
   }
 `;
 
-const FilterButton = styled.button`
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 137, 123, 0.3);
-  
-  &:hover {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 137, 123, 0.4);
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-`;
-
-const ResetButton = styled(FilterButton)`
+const ResetButton = styled(Button)`
   background: linear-gradient(135deg, #757575 0%, #616161 100%);
-  
+  padding: 0.4rem 1rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   &:hover {
     background: linear-gradient(135deg, #616161 0%, #424242 100%);
-  }
-`;
-
-// Enhanced Table Styles
-const ModernTable = styled.table`
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-`;
-
-const TableHead = styled.thead`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  
-  th {
-    color: white;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 1.25rem 1rem;
-    font-size: 0.875rem;
-    border: none;
-    text-align: left;
-    
-    &:first-child {
-      border-top-left-radius: 12px;
-    }
-    
-    &:last-child {
-      border-top-right-radius: 12px;
-    }
-  }
-`;
-
-const TableRow = styled.tr`
-  background: white;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid #f0f0f0;
-  
-  &:hover {
-    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
-    transform: scale(1.01);
-    box-shadow: 0 4px 12px rgba(0, 137, 123, 0.1);
-  }
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const TableCell = styled.td`
-  padding: 1.25rem 1rem;
-  color: #555;
-  font-size: 0.938rem;
-  vertical-align: middle;
-`;
-
-// Button Styles
-const ActionButton = styled.button`
-  padding: 0.65rem 1.5rem;
-  margin: 0.25rem;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  
-  &:hover:not(:disabled) {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  }
-  
-  &:active:not(:disabled) {
     transform: translateY(-1px);
   }
-  
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
 `;
 
-const GoToReportButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
-  color: white;
+// ─── Column Search Row ────────────────────────────────────────────────────────
+
+const SearchInput = styled.input`
   width: 100%;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: #444;
+  background: #fafafa;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  &:focus {
+    outline: none;
+    border-color: #00897b;
+    box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.12);
+    background: #fff;
   }
-  
-  &::before {
-    content: '📋';
-  }
-`;
-
-const PreviewButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #26a69a 0%, #00897b 100%);
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #00897b 0%, #00796b 100%);
-  }
-  
-  &::before {
-    content: '👁';
+  &::placeholder {
+    color: #bbb;
+    font-style: italic;
   }
 `;
 
-const ApproveButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-  }
-  
-  &::before {
-    content: '✓';
-    font-weight: bold;
-  }
-`;
-
-const DeleteButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #ef5350 0%, #e53935 100%);
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
-  }
-  
-  &::before {
-    content: '🗑';
+const SearchSelect = styled.select`
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 7px;
+  font-size: 0.8rem;
+  color: #444;
+  background: #fafafa;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  &:focus {
+    outline: none;
+    border-color: #00897b;
+    box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.12);
+    background: #fff;
   }
 `;
 
-const ActionButtonsContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  align-items: center;
+const SearchTh = styled.th`
+  padding: 0.4rem 0.5rem 0.6rem;
+  background: #f8fffe;
+  border-bottom: 2px solid #e0f2f1;
 `;
 
-// Status Badge
-const StatusBadge = styled.span`
-  padding: 0.5rem 1.25rem;
-  border-radius: 25px;
-  font-size: 0.813rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+// ─── Icon Action Buttons with CSS Tooltips ────────────────────────────────────
+
+const IconBtn = styled.button`
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  text-transform: uppercase;
-  
-  ${props => props.approved ? `
-    background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
-    color: #2e7d32;
-    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
-    
-    &::before {
-      content: '✓';
-      font-size: 1rem;
-      font-weight: bold;
-      background: #2e7d32;
-      color: white;
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-  ` : `
-    background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%);
-    color: #f57f17;
-    box-shadow: 0 4px 12px rgba(245, 127, 23, 0.2);
-    
-    &::before {
-      content: '⏱';
-      font-size: 1rem;
-    }
-  `}
+  justify-content: center;
+  font-size: 1rem;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s,
+    filter 0.15s;
+  flex-shrink: 0;
+  background: ${(p) => p.bg || "#eee"};
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1);
+  }
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(1);
+  }
+  &:disabled {
+    opacity: 0.28;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    filter: none;
+  }
+
+  /* Tooltip bubble */
+  &::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 20, 20, 0.9);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 4px 9px;
+    border-radius: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s;
+    z-index: 9999;
+    letter-spacing: 0.3px;
+  }
+  /* Tooltip arrow */
+  &::before {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 1px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(20, 20, 20, 0.9);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.18s;
+    z-index: 9999;
+  }
+  &:hover:not(:disabled)::after,
+  &:hover:not(:disabled)::before {
+    opacity: 1;
+  }
 `;
 
-// Empty State
+const ActionRow = styled.div`
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+  flex-wrap: nowrap;
+`;
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+const StatusBadge = styled.span`
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+  ${(props) => {
+    if (!props.hasReport)
+      return `
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      color: #1565c0;
+    `;
+    if (props.approved)
+      return `
+      background: linear-gradient(135deg, #c8e6c9 0%, #a5d6a7 100%);
+      color: #2e7d32;
+    `;
+    return `
+      background: linear-gradient(135deg, #fff9c4 0%, #fff59d 100%);
+      color: #f57f17;
+    `;
+  }}
+`;
+
+const SlotBadge = styled.span`
+  padding: 0.22rem 0.55rem;
+  border-radius: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  background: linear-gradient(135deg, #ede7f6 0%, #d1c4e9 100%);
+  color: #4527a0;
+  white-space: nowrap;
+`;
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: #999;
-  
   &::before {
-    content: '📭';
+    content: "📭";
     font-size: 4rem;
     display: block;
     margin-bottom: 1rem;
   }
-  
   p {
     font-size: 1.125rem;
     font-weight: 500;
@@ -355,39 +357,37 @@ const EmptyState = styled.div`
   }
 `;
 
-// Modal Styles
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(0, 137, 123, 0.9) 0%, rgba(0, 105, 92, 0.9) 100%);
+// ─── Modal Base ───────────────────────────────────────────────────────────────
+
+const StyledModalOverlay = styled(ModalOverlay)`
+  background: linear-gradient(
+    135deg,
+    rgba(0, 137, 123, 0.9) 0%,
+    rgba(0, 105, 92, 0.9) 100%
+  );
   backdrop-filter: blur(10px);
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  justify-content: center;
+  overflow-y: auto;
+  padding: 1rem;
 `;
 
-const ModalContent = styled.div`
-  background: white;
-  padding: 3rem;
+const StyledModalContent = styled(ModalContainer)`
   border-radius: 24px;
+  padding: 2.5rem;
   max-width: 700px;
-  width: 90%;
+  width: 100%;
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: auto;
+  position: relative;
   animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  
   @keyframes slideUp {
     from {
-      transform: translateY(100px);
+      transform: translateY(40px);
       opacity: 0;
     }
     to {
@@ -397,36 +397,21 @@ const ModalContent = styled.div`
   }
 `;
 
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
+const StyledModalHeader = styled(ModalHeader)`
   border-bottom: 2px solid #f0f0f0;
-`;
-
-const ModalTitle = styled.h3`
-  margin: 0;
-  color: #2c3e50;
-  font-size: 1.75rem;
-  font-weight: 700;
-  flex: 1;
+  background: transparent;
+  padding: 0 0 1rem 0;
+  margin-bottom: 2rem;
 `;
 
 const ModalIcon = styled.span`
   font-size: 2rem;
 `;
 
-const ModalBody = styled.div`
-  margin: 1.5rem 0;
-`;
-
 const InfoRow = styled.div`
   display: flex;
-  padding: 1rem 0;
+  padding: 0.875rem 0;
   border-bottom: 1px solid #f5f5f5;
-  
   &:last-child {
     border-bottom: none;
   }
@@ -435,665 +420,1033 @@ const InfoRow = styled.div`
 const InfoLabel = styled.span`
   color: #00897b;
   font-weight: 700;
-  font-size: 0.938rem;
-  min-width: 160px;
+  font-size: 0.875rem;
+  min-width: 150px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
 
 const InfoValue = styled.span`
   color: #555;
-  font-size: 1rem;
+  font-size: 0.938rem;
   flex: 1;
   line-height: 1.6;
+  white-space: pre-wrap;
 `;
 
-const CloseButton = styled.button`
+const ModalCloseButton = styled(CloseButton)`
   margin-top: 2rem;
   padding: 1rem 2rem;
   background: linear-gradient(135deg, #00897b 0%, #00695c 100%);
   color: white;
-  border: none;
   border-radius: 12px;
-  cursor: pointer;
   font-size: 1.063rem;
   font-weight: 700;
-  transition: all 0.3s ease;
-  box-shadow: 0 6px 20px rgba(0, 137, 123, 0.4);
   width: 100%;
   text-transform: uppercase;
   letter-spacing: 1px;
-  
+  box-shadow: 0 6px 20px rgba(0, 137, 123, 0.4);
+  height: auto;
   &:hover {
     background: linear-gradient(135deg, #00796b 0%, #004d40 100%);
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 137, 123, 0.5);
-  }
-  
-  &:active {
-    transform: translateY(0);
+    color: white;
   }
 `;
 
-const EditButton = styled(ActionButton)`
-  background: linear-gradient(135deg, #42a5f5 0%, #1e88e5 100%);
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);
-  }
-  
-  &::before {
-    content: '✏️';
-  }
-`;
-
-const EditModalContent = styled(ModalContent)`
+const EditModalContent = styled(StyledModalContent)`
   max-width: 600px;
 `;
 
-const TextArea = styled.textarea`
+const StyledTextArea = styled(TextArea)`
   width: 100%;
   min-height: 200px;
-  padding: 1rem;
   border: 2px solid #e0e0e0;
   border-radius: 12px;
-  font-size: 1rem;
-  font-family: inherit;
-  color: #555;
-  resize: vertical;
-  transition: all 0.3s ease;
-  
+  box-sizing: border-box;
   &:focus {
-    outline: none;
     border-color: #00897b;
     box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
   }
 `;
 
-const ModalButtonGroup = styled.div`
-  display: flex;
+const ModalButtonGroup = styled(ButtonContainer)`
   gap: 1rem;
   margin-top: 2rem;
+  border-top: 2px solid #f0f0f0;
+  padding-top: 1.5rem;
+  position: sticky;
+  bottom: 0;
+  background: white;
+  z-index: 1;
 `;
 
-const SaveButton = styled(CloseButton)`
+const SaveButton = styled(ModalCloseButton)`
   background: linear-gradient(135deg, #66bb6a 0%, #43a047 100%);
-  
   &:hover {
     background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
   }
 `;
 
-const CancelButton = styled(CloseButton)`
+const CancelModalButton = styled(ModalCloseButton)`
   background: linear-gradient(135deg, #757575 0%, #616161 100%);
-  
   &:hover {
     background: linear-gradient(135deg, #616161 0%, #424242 100%);
   }
 `;
 
-// Modal Component
-const Modal = ({ report, onClose }) => {
+// ─── Slot Modal Styles ────────────────────────────────────────────────────────
+
+const SlotModalContent = styled(StyledModalContent)`
+  max-width: 580px;
+`;
+
+const SlotModalOverlay = styled(StyledModalOverlay)`
+  background: linear-gradient(
+    135deg,
+    rgba(124, 77, 255, 0.88) 0%,
+    rgba(101, 31, 255, 0.88) 100%
+  );
+`;
+
+const SlotFormGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+`;
+
+const SlotLabel = styled.label`
+  color: #4527a0;
+  font-weight: 700;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+`;
+
+const SlotInput = styled.input`
+  padding: 0.875rem 1rem;
+  border: 2px solid #d1c4e9;
+  border-radius: 12px;
+  font-size: 1rem;
+  color: #333;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  &:focus {
+    outline: none;
+    border-color: #7c4dff;
+    box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.15);
+  }
+`;
+
+const SlotDivider = styled.div`
+  height: 1px;
+  background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+  margin: 1rem 0 1.5rem 0;
+`;
+
+const SlotSectionTitle = styled.h3`
+  font-size: 0.938rem;
+  font-weight: 700;
+  color: #7c4dff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const ImpressionOptionalNote = styled.p`
+  font-size: 0.8rem;
+  color: #888;
+  margin: -0.75rem 0 1rem 0;
+  font-style: italic;
+`;
+
+const SlotSaveButton = styled(ModalCloseButton)`
+  background: linear-gradient(135deg, #7c4dff 0%, #651fff 100%);
+  &:hover {
+    background: linear-gradient(135deg, #651fff 0%, #6200ea 100%);
+  }
+`;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatDate = (date) => {
+  if (!date) return "";
+  if (typeof date === "string") return date.split("T")[0];
+  if (date instanceof Date) return date.toISOString().split("T")[0];
+  return "";
+};
+
+const getToday = () => new Date().toISOString().split("T")[0];
+
+const formatSlotDisplay = (slotDateTime) => {
+  if (!slotDateTime) return null;
+  try {
+    const d = new Date(slotDateTime);
+    return d.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return slotDateTime;
+  }
+};
+
+// ─── Preview Modal ────────────────────────────────────────────────────────────
+
+const Modal = ({ row, onClose }) => {
+  const report = row.report;
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={(e) => e.stopPropagation()}>
-        <ModalHeader>
+    <StyledModalOverlay onClick={onClose}>
+      <StyledModalContent onClick={(e) => e.stopPropagation()}>
+        <StyledModalHeader>
           <ModalIcon>🏥</ModalIcon>
           <ModalTitle>USG Report Details</ModalTitle>
-        </ModalHeader>
-
-        <ModalBody>
+        </StyledModalHeader>
+        <ModalBody style={{ padding: 0 }}>
           <InfoRow>
             <InfoLabel>Bill No</InfoLabel>
-            <InfoValue>{report.investBillNo}</InfoValue>
+            <InfoValue>{row.investBillNo}</InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>Patient Name</InfoLabel>
-            <InfoValue>{report.patientName}</InfoValue>
+            <InfoValue>{row.patientName}</InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>UHID</InfoLabel>
-            <InfoValue>{report.patientId}</InfoValue>
+            <InfoValue>{row.uhid}</InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>IP Number</InfoLabel>
-            <InfoValue>{report.ipNumber}</InfoValue>
+            <InfoValue>{row.ipNumber}</InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>Age</InfoLabel>
-            <InfoValue>{report.age || 'N/A'}</InfoValue>
+            <InfoValue>{row.age || "N/A"}</InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>Gender</InfoLabel>
-            <InfoValue>{report.gender || 'N/A'}</InfoValue>
+            <InfoValue>{row.gender || "N/A"}</InfoValue>
           </InfoRow>
           <InfoRow>
-            <InfoLabel>Investigation</InfoLabel>
-            <InfoValue>{report.investigation}</InfoValue>
+            <InfoLabel>Slot Date/Time</InfoLabel>
+            <InfoValue>
+              {report?.slot_DateTime
+                ? formatSlotDisplay(report.slot_DateTime)
+                : "Not scheduled"}
+            </InfoValue>
+          </InfoRow>
+          <InfoRow>
+            <InfoLabel>Report Date</InfoLabel>
+            <InfoValue>
+              {report?.date ? formatDate(report.date) : "N/A"}
+            </InfoValue>
           </InfoRow>
           <InfoRow>
             <InfoLabel>Impression</InfoLabel>
-            <InfoValue>{report.impression}</InfoValue>
+            <InfoValue>{report?.impression || "N/A"}</InfoValue>
           </InfoRow>
         </ModalBody>
-
-        <CloseButton onClick={onClose}>
-          Close
-        </CloseButton>
-      </ModalContent>
-    </ModalOverlay>
+        <ModalCloseButton onClick={onClose}>Close</ModalCloseButton>
+      </StyledModalContent>
+    </StyledModalOverlay>
   );
 };
 
-// Edit Modal Component
-const EditModal = ({ report, onClose, onSave }) => {
-  const [impression, setImpression] = useState(report.impression || '');
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
 
-  const handleSave = () => {
-    onSave(impression);
-  };
-
+const EditModal = ({ row, onClose, onSave }) => {
+  const [impression, setImpression] = useState(row.report?.impression || "");
   return (
-    <ModalOverlay onClick={onClose}>
+    <StyledModalOverlay onClick={onClose}>
       <EditModalContent onClick={(e) => e.stopPropagation()}>
-        <ModalHeader>
+        <StyledModalHeader>
           <ModalIcon>✏️</ModalIcon>
           <ModalTitle>Edit Impression</ModalTitle>
-        </ModalHeader>
-
-        <ModalBody>
+        </StyledModalHeader>
+        <ModalBody style={{ padding: 0 }}>
           <InfoRow>
             <InfoLabel>Patient Name</InfoLabel>
-            <InfoValue>{report.patientName}</InfoValue>
+            <InfoValue>{row.patientName}</InfoValue>
           </InfoRow>
           <InfoRow>
-            <InfoLabel>Investigation</InfoLabel>
-            <InfoValue>{report.investigation}</InfoValue>
+            <InfoLabel>Bill No</InfoLabel>
+            <InfoValue>{row.investBillNo}</InfoValue>
           </InfoRow>
-
-          <div style={{ marginTop: '1.5rem' }}>
-            <FilterLabel style={{ display: 'block', marginBottom: '0.5rem' }}>
+          <div style={{ marginTop: "1.5rem" }}>
+            <Label style={{ display: "block", marginBottom: "0.5rem" }}>
               Impression
-            </FilterLabel>
-            <TextArea
+            </Label>
+            <StyledTextArea
               value={impression}
               onChange={(e) => setImpression(e.target.value)}
               placeholder="Enter impression..."
             />
           </div>
         </ModalBody>
-
         <ModalButtonGroup>
-          <SaveButton onClick={handleSave}>
+          <SaveButton onClick={() => onSave(impression)}>
             Save Changes
           </SaveButton>
-          <CancelButton onClick={onClose}>
-            Cancel
-          </CancelButton>
+          <CancelModalButton onClick={onClose}>Cancel</CancelModalButton>
         </ModalButtonGroup>
       </EditModalContent>
-    </ModalOverlay>
+    </StyledModalOverlay>
   );
 };
 
-// Utility function to format date to YYYY-MM-DD
-const formatDate = (date) => {
-  if (!date) return '';
-  if (typeof date === 'string') {
-    return date.split('T')[0];
-  }
-  if (date instanceof Date) {
-    return date.toISOString().split('T')[0];
-  }
-  return '';
-};
+// ─── Slot Modal ───────────────────────────────────────────────────────────────
 
-// Main Component
-const USGList = ({ patientId }) => {
-  const [investigations, setInvestigations] = useState([]);
-  const [usgReports, setUsgReports] = useState([]);
-  const [filteredReports, setFilteredReports] = useState([]);
-  const [selectedReport, setSelectedReport] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingReport, setEditingReport] = useState(null);
-  const navigate = useNavigate();
-  const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+const SlotModal = ({ row, onClose, onSaved, HMSURL }) => {
+  const hasReport = row.hasReport;
 
-  // Date filter states
-  const today = new Date().toISOString().split('T')[0];
-  const [fromDate, setFromDate] = useState(today);
-  const [toDate, setToDate] = useState(today);
-
-  useEffect(() => {
-    const fetchInvestigations = async () => {
-      const result = await apiRequest(`${HMSURL}usg_investigations/`, "GET");
-
-      if (result.success) {
-        setInvestigations(result.data);
-      } else {
-        console.error("Error fetching investigations:", result.error);
-        toast.error(result.error || "Failed to fetch investigations");
-      }
-    };
-
-    fetchInvestigations();
-  }, [HMSURL]);
-
-  useEffect(() => {
-    const fetchUsgReports = async () => {
+  const initSlotDate = () => {
+    if (row.report?.slot_DateTime) {
       try {
-        const url = patientId
-          ? `${HMSURL}usg_reports/${patientId}/`
-          : `${HMSURL}usg_reports/`;
+        return new Date(row.report.slot_DateTime).toISOString().slice(0, 10);
+      } catch {}
+    }
+    return getToday();
+  };
+  const initSlotTime = () => {
+    if (row.report?.slot_DateTime) {
+      try {
+        return new Date(row.report.slot_DateTime).toTimeString().slice(0, 5);
+      } catch {}
+    }
+    return new Date().toTimeString().slice(0, 5);
+  };
 
-        const result = await apiRequest(url, "GET");
+  const [slotDate, setSlotDate] = useState(initSlotDate);
+  const [slotTime, setSlotTime] = useState(initSlotTime);
+  const [impression, setImpression] = useState(row.report?.impression || "");
+  const [saving, setSaving] = useState(false);
 
-        if (result.success) {
-          // Filter out deleted reports and construct patientName
-          const reportsWithPatientName = result.data
-            .filter(report => !report.is_deleted)
-            .map(report => ({
-              ...report,
-              patientName: `${report.salutation || ''} ${report.firstName || ''} ${report.lastName || ''}`.trim()
-            }));
-
-          setUsgReports(reportsWithPatientName);
-        } else {
-          console.error("Error fetching USG reports:", result.error);
-          toast.error(result.error || "Failed to fetch USG reports");
-        }
-      } catch (error) {
-        console.error("Error fetching USG reports:", error);
-        toast.error("An unexpected error occurred");
-      }
-    };
-
-    fetchUsgReports();
-  }, [patientId, HMSURL]);
-
-
-
-  const filterReportsByDate = useCallback(() => {
-    if (!fromDate || !toDate) {
-      setFilteredReports(usgReports);
+  const handleSave = async () => {
+    if (!slotDate || !slotTime) {
+      toast.error("Please select both slot date and time.");
       return;
     }
-
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-
-    // Set time to start and end of day for accurate comparison
-    from.setHours(0, 0, 0, 0);
-    to.setHours(23, 59, 59, 999);
-
-    const filtered = usgReports.filter(report => {
-      const reportDate = new Date(formatDate(report.date));
-      reportDate.setHours(0, 0, 0, 0);
-      return reportDate >= from && reportDate <= to;
-    });
-
-    setFilteredReports(filtered);
-  }, [usgReports, fromDate, toDate]);
-
-  // Apply date filter whenever USG reports, fromDate, or toDate changes
-  useEffect(() => {
-    filterReportsByDate();
-  }, [filterReportsByDate]);
-
-  const handleResetFilter = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setFromDate(today);
-    setToDate(today);
-  };
-
-  const handleGoToReport = (investigation, itemName) => {
-    const parts = investigation.uhid.split("/");
-    const subUhid = parts[1];
-
-    navigate(`/USGList/${parts[0]}/${subUhid}`, {
-      state: {
-        uhid: parts[0],
-        subUhid: subUhid,
-        itemName: itemName,
-        ipNumber: investigation.ipNumber,
-        investBillNo: investigation.investBillNo,
-        salutation: investigation.salutation,
-        firstName: investigation.firstName,
-        middleName: investigation.middleName,
-        lastName: investigation.lastName,
-        age: investigation.age,
-        gender: investigation.gender,
-        investBillDate: investigation.investBillDate,
-      },
-    });
-  };
-
-  const handlePreview = (report) => {
-    setSelectedReport(report);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleDelete = async (report) => {
+    const slotDateTime = `${slotDate}T${slotTime}:00`;
+    setSaving(true);
     try {
-      const encodedinvestBillNo = encodeURIComponent(report.investBillNo);
-      const investigation = report.investigation;
-
-      if (!investigation) {
-        alert("Investigation type is required for deletion");
-        return;
-      }
-
-      const result = await apiRequest(
-        `${HMSURL}usg-reports/delete/${encodedinvestBillNo}/`,
-        "PATCH",
-        { investigation: investigation }
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to delete the report");
-      }
-
-      alert(`Report deleted successfully!`);
-      window.location.reload();
-
-      setUsgReports((prevReports) =>
-        prevReports.filter(
-          (r) =>
-            r.patientId !== report.patientId ||
-            r.investigation !== report.investigation
-        )
-      );
-    } catch (error) {
-      console.error("Error deleting the report:", error);
-      alert(`Error: ${error.message || "An error occurred while deleting the report."}`);
-    }
-  };
-
-  const handleApprove = async (report) => {
-    try {
-      const encodedinvestBillNo = encodeURIComponent(report.investBillNo);
-      const formattedDate = formatDate(report.date);
-
-      console.log('Approving report with date:', formattedDate);
-
-      const result = await apiRequest(
-        `${HMSURL}usg-reports/approve/${encodedinvestBillNo}/`,
-        "PATCH",
-        {
-          investigation: report.investigation,
-          date: formattedDate,
+      const encodedBill = encodeURIComponent(row.investBillNo);
+      const encodedItem = encodeURIComponent(row.itemName);
+      let result;
+      if (!hasReport) {
+        result = await apiRequest(`${HMSURL}scan-reports/`, "POST", {
+          investBillNo: row.investBillNo,
+          investBillDate: row.investBillDate,
+          billTypeNo: row.billTypeNo || "",
+          itemName: row.itemName,
+          slot_DateTime: slotDateTime,
+          impression: impression || "",
+        });
+        if (!result.success) {
+          toast.error(result.error || "Failed to create report");
+          return;
         }
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to approve the report.");
-      }
-
-      const updatedReport = result.data;
-      alert(`Report approved successfully!`);
-
-      setUsgReports((prevReports) =>
-        prevReports.map((r) => {
-          const rDate = formatDate(r.date);
-          const updatedDate = formatDate(updatedReport.date);
-
-          if (r.patientId === updatedReport.patientId &&
-            r.investigation === updatedReport.investigation &&
-            rDate === updatedDate) {
-            return { ...r, ...updatedReport };
-          }
-
-          return r;
-        })
-      );
-    } catch (error) {
-      console.error("Error approving the report:", error);
-      alert("An error occurred while approving the report. Please try again.");
-    }
-  };
-
-  const handleEdit = (report) => {
-    setEditingReport(report);
-    setIsEditModalOpen(true);
-  };
-
-  const handleSaveEdit = async (newImpression) => {
-    try {
-      const encodedinvestBillNo = encodeURIComponent(editingReport.investBillNo);
-      const formattedDate = formatDate(editingReport.date);
-
-      const result = await apiRequest(
-        `${HMSURL}usg-reports/edit/${encodedinvestBillNo}/`,
-        "PATCH",
-        {
-          investigation: editingReport.investigation,
-          date: formattedDate,
-          impression: newImpression,
+        toast.success("Slot scheduled and report created! ✓");
+      } else {
+        const patchData = { slot_DateTime: slotDateTime };
+        if (impression && impression !== row.report?.impression)
+          patchData.impression = impression;
+        result = await apiRequest(
+          `${HMSURL}scan-reports/slot/${encodedBill}/${encodedItem}/`,
+          "PATCH",
+          patchData,
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to update slot");
+          return;
         }
-      );
-
-      if (!result.success) {
-        throw new Error(result.error || "Failed to update the report.");
+        toast.success("Slot updated successfully! ✓");
       }
-
-      const updatedReport = result.data;
-      toast.success("Report updated successfully!");
-
-      setUsgReports((prevReports) =>
-        prevReports.map((r) => {
-          const rDate = formatDate(r.date);
-          const updatedDate = formatDate(updatedReport.date);
-
-          if (r.patientId === updatedReport.patientId &&
-            r.investigation === updatedReport.investigation &&
-            rDate === updatedDate) {
-            return { ...r, ...updatedReport };
-          }
-
-          return r;
-        })
-      );
-
-      setIsEditModalOpen(false);
-      setEditingReport(null);
-    } catch (error) {
-      console.error("Error updating the report:", error);
-      toast.error("An error occurred while updating the report. Please try again.");
+      onSaved({
+        investBillNo: row.investBillNo,
+        itemName: row.itemName,
+        slot_DateTime: slotDateTime,
+        impression: impression || row.report?.impression || "",
+        is_approved: row.report?.is_approved || false,
+        wasCreated: !hasReport,
+      });
+      onClose();
+    } catch {
+      toast.error("An unexpected error occurred.");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <PageContainer>
-      <PageTitle>USG Investigations</PageTitle>
-
-      <ContentCard>
-        <SectionHeader>
-          <SectionIcon>📋</SectionIcon>
-          <SectionTitle>Pending Investigations</SectionTitle>
-        </SectionHeader>
-
-        <ModernTable>
-          <TableHead>
-            <tr>
-              <th>Bill No</th>
-              <th>UHID</th>
-              <th>IP Number</th>
-              <th>Patient Name</th>
-              <th>Investigation</th>
-              <th>Actions</th>
-            </tr>
-          </TableHead>
-          <tbody>
-            {investigations.length > 0 ? (
-              investigations.map((investigation) => (
-                <TableRow key={investigation.uhid}>
-                  <TableCell>{investigation.investBillNo}</TableCell>
-                  <TableCell>{investigation.uhid}</TableCell>
-                  <TableCell>{investigation.ipNumber}</TableCell>
-                  <TableCell>
-                    {`${investigation.salutation} ${investigation.firstName} ${investigation.middleName ? investigation.middleName + " " : ""
-                      }${investigation.lastName}`}
-                  </TableCell>
-                  <TableCell>
-                    {JSON.parse(investigation.item).map((item, index) => (
-                      <div key={index} style={{ marginBottom: '0.5rem' }}>
-                        {item.itemName}
-                      </div>
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    {JSON.parse(investigation.item).map((item, index) => (
-                      <div key={index}>
-                        <GoToReportButton
-                          onClick={() => handleGoToReport(investigation, item.itemName)}
-                        >
-                          Go to Report
-                        </GoToReportButton>
-                      </div>
-                    ))}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan="5">
-                  <EmptyState>
-                    <p>No pending investigations</p>
-                  </EmptyState>
-                </TableCell>
-              </TableRow>
-            )}
-          </tbody>
-        </ModernTable>
-      </ContentCard>
-
-      <ContentCard>
-        <SectionHeader>
-          <SectionIcon>📄</SectionIcon>
-          <SectionTitle>USG Reports</SectionTitle>
-        </SectionHeader>
-
-        <FilterContainer>
-          <FilterGroup>
-            <FilterLabel>From Date</FilterLabel>
-            <DateInput
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+    <SlotModalOverlay onClick={onClose}>
+      <SlotModalContent onClick={(e) => e.stopPropagation()}>
+        <StyledModalHeader>
+          <ModalIcon>🕐</ModalIcon>
+          <ModalTitle>{hasReport ? "Update Slot" : "Schedule Slot"}</ModalTitle>
+        </StyledModalHeader>
+        <ModalBody style={{ padding: 0 }}>
+          <InfoRow>
+            <InfoLabel>Patient</InfoLabel>
+            <InfoValue>{row.patientName}</InfoValue>
+          </InfoRow>
+          <InfoRow>
+            <InfoLabel>Bill No</InfoLabel>
+            <InfoValue>{row.investBillNo}</InfoValue>
+          </InfoRow>
+          <InfoRow>
+            <InfoLabel>IP Number</InfoLabel>
+            <InfoValue>{row.ipNumber}</InfoValue>
+          </InfoRow>
+          <InfoRow>
+            <InfoLabel>Item</InfoLabel>
+            <InfoValue>{row.itemName || "—"}</InfoValue>
+          </InfoRow>
+          <div style={{ marginTop: "1.75rem" }}>
+            <SlotSectionTitle>📅 Slot Date &amp; Time</SlotSectionTitle>
+            <SlotFormGroup>
+              <SlotLabel>📅 Slot Date</SlotLabel>
+              <SlotInput
+                type="date"
+                value={slotDate}
+                onChange={(e) => setSlotDate(e.target.value)}
+              />
+            </SlotFormGroup>
+            <SlotFormGroup>
+              <SlotLabel>⏰ Slot Time</SlotLabel>
+              <SlotInput
+                type="time"
+                value={slotTime}
+                onChange={(e) => setSlotTime(e.target.value)}
+              />
+            </SlotFormGroup>
+            <SlotDivider />
+            <SlotSectionTitle>📝 Impression</SlotSectionTitle>
+            <ImpressionOptionalNote>
+              {hasReport
+                ? "Update impression (leave unchanged to keep existing)."
+                : "Optional — can be added now or later."}
+            </ImpressionOptionalNote>
+            <StyledTextArea
+              value={impression}
+              onChange={(e) => setImpression(e.target.value)}
+              placeholder="Enter impression / findings (optional)..."
+              style={{ minHeight: "120px", border: "2px solid #d1c4e9" }}
             />
-          </FilterGroup>
+          </div>
+        </ModalBody>
+        <ModalButtonGroup>
+          <SlotSaveButton onClick={handleSave} disabled={saving}>
+            {saving
+              ? "Saving…"
+              : hasReport
+                ? "Update Slot"
+                : "Schedule & Create"}
+          </SlotSaveButton>
+          <CancelModalButton onClick={onClose} disabled={saving}>
+            Cancel
+          </CancelModalButton>
+        </ModalButtonGroup>
+      </SlotModalContent>
+    </SlotModalOverlay>
+  );
+};
 
-          <FilterGroup>
-            <FilterLabel>To Date</FilterLabel>
-            <DateInput
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-            />
-          </FilterGroup>
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-          <FilterGroup>
-            <FilterLabel>&nbsp;</FilterLabel>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <ResetButton onClick={handleResetFilter}>
-                Reset
-              </ResetButton>
-            </div>
-          </FilterGroup>
-        </FilterContainer>
+const USGList = ({
+  billTypeNo = "USG01",
+  investBillNo: investBillNoFilter,
+}) => {
+  const [rows, setRows] = useState([]);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRow, setEditingRow] = useState(null);
+  const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
+  const [slotRow, setSlotRow] = useState(null);
 
-        <ModernTable>
-          <TableHead>
-            <tr>
-              <th>Bill No</th>
-              <th>UHID</th>
-              <th>IP Number</th>
-              <th>Patient Name</th>
-              <th>Age</th>
-              <th>Gender</th>
-              <th>Investigation</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </TableHead>
-          <tbody>
-            {Array.isArray(filteredReports) && filteredReports.length > 0 ? (
-              filteredReports.map((report, index) => (
-                <TableRow key={`${report.patientId}-${report.investigation}-${index}`}>
-                  <TableCell>{report.investBillNo}</TableCell>
-                  <TableCell>{report.patientId}</TableCell>
-                  <TableCell>{report.ipNumber}</TableCell>
-                  <TableCell>{report.patientName}</TableCell>
-                  <TableCell>{report.age || 'N/A'}</TableCell>
-                  <TableCell>{report.gender || 'N/A'}</TableCell>
-                  <TableCell>{report.investigation}</TableCell>
-                  <TableCell>{formatDate(report.date)}</TableCell>
-                  <TableCell>
-                    <StatusBadge approved={report.is_approved}>
-                      {report.is_approved ? "Approved" : "Pending"}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell>
-                    <ActionButtonsContainer>
-                      <PreviewButton onClick={() => handlePreview(report)}>
-                        Preview
-                      </PreviewButton>
-                      <ApproveButton
-                        onClick={() => handleApprove(report)}
-                        disabled={report.is_approved}
-                      >
-                        Approve
-                      </ApproveButton>
-                      <EditButton
-                        onClick={() => handleEdit(report)}
-                        disabled={report.is_approved}
-                      >
-                        Edit
-                      </EditButton>
-                      <DeleteButton
-                        onClick={() => handleDelete(report)}
-                        disabled={report.is_approved}
-                      >
-                        Delete
-                      </DeleteButton>
-                    </ActionButtonsContainer>
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan="9">
-                  <EmptyState>
-                    <p>No reports available for selected date range</p>
-                  </EmptyState>
-                </TableCell>
-              </TableRow>
-            )}
-          </tbody>
-        </ModernTable>
-      </ContentCard>
+  const navigate = useNavigate();
+  const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-      {isModalOpen && selectedReport && (
-        <Modal report={selectedReport} onClose={handleCloseModal} />
+  const [fromDate, setFromDate] = useState(getToday);
+  const [toDate, setToDate] = useState(getToday);
+
+  // ── Column search state ────────────────────────────────────────────────────
+  const [searchBillNo, setSearchBillNo] = useState("");
+  const [searchUhid, setSearchUhid] = useState("");
+  const [searchIpNumber, setSearchIpNumber] = useState("");
+  const [searchPatient, setSearchPatient] = useState("");
+  const [searchStatus, setSearchStatus] = useState("");
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        billTypeNo,
+        from_date: fromDate,
+        to_date: toDate,
+      });
+      if (investBillNoFilter) params.append("investBillNo", investBillNoFilter);
+      const result = await apiRequest(
+        `${HMSURL}investigations/?${params.toString()}`,
+        "GET",
+      );
+      if (!result.success) {
+        toast.error(result.error || "Failed to fetch data");
+        return;
+      }
+      const merged = (result.data || []).map((row) => ({
+        investBillNo: row.investBillNo,
+        uhid: row.uhid,
+        ipNumber: row.ipNumber,
+        investBillDate: row.investBillDate,
+        item: row.item,
+        itemName: row.itemName || "",
+        billTypeNo: row.billTypeNo || billTypeNo,
+        patientName:
+          `${row.salutation || ""} ${row.firstName || ""} ${row.lastName || ""}`.trim(),
+        age: row.age,
+        gender: row.gender,
+        report: row.report || null,
+        hasReport: !!row.hasReport,
+      }));
+      setRows(merged);
+    } catch {
+      toast.error("An unexpected error occurred");
+    }
+  }, [HMSURL, billTypeNo, investBillNoFilter, fromDate, toDate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // ── Reset ──────────────────────────────────────────────────────────────────
+  const handleResetFilter = () => {
+    setFromDate(getToday());
+    setToDate(getToday());
+    setSearchBillNo("");
+    setSearchUhid("");
+    setSearchIpNumber("");
+    setSearchPatient("");
+    setSearchStatus("");
+  };
+
+  // ── Client-side filtering ──────────────────────────────────────────────────
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      const statusLabel = !row.hasReport
+        ? "pending"
+        : row.report?.is_approved
+          ? "approved"
+          : "reported";
+      return (
+        (!searchBillNo ||
+          (row.investBillNo || "")
+            .toLowerCase()
+            .includes(searchBillNo.toLowerCase())) &&
+        (!searchUhid ||
+          (row.uhid || "").toLowerCase().includes(searchUhid.toLowerCase())) &&
+        (!searchIpNumber ||
+          (row.ipNumber || "")
+            .toLowerCase()
+            .includes(searchIpNumber.toLowerCase())) &&
+        (!searchPatient ||
+          (row.patientName || "")
+            .toLowerCase()
+            .includes(searchPatient.toLowerCase())) &&
+        (!searchStatus || statusLabel === searchStatus)
+      );
+    });
+  }, [
+    rows,
+    searchBillNo,
+    searchUhid,
+    searchIpNumber,
+    searchPatient,
+    searchStatus,
+  ]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleGoToReport = (row) => {
+    const parts = (row.uhid || "").split("/");
+    const uhidBase = parts[0] || "";
+    const subUhid = parts[1] || "";
+    navigate(`/USGReportForm/${uhidBase}/${subUhid}`, {
+      state: {
+        uhid: uhidBase,
+        subUhid,
+        itemName: row.itemName,
+        ipNumber: row.ipNumber,
+        investBillNo: row.investBillNo,
+        salutation: "",
+        firstName: row.patientName,
+        middleName: "",
+        lastName: "",
+        age: row.age,
+        gender: row.gender,
+        investBillDate: row.investBillDate,
+        billTypeNo,
+      },
+    });
+  };
+
+  const handleOpenSlot = (row) => {
+    setSlotRow(row);
+    setIsSlotModalOpen(true);
+  };
+
+  const handleSlotSaved = ({
+    investBillNo,
+    itemName,
+    slot_DateTime,
+    impression,
+    wasCreated,
+  }) => {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.investBillNo !== investBillNo || r.itemName !== itemName)
+          return r;
+        const updatedReport = wasCreated
+          ? { slot_DateTime, impression, is_approved: false, is_active: true }
+          : {
+              ...r.report,
+              slot_DateTime,
+              ...(impression ? { impression } : {}),
+            };
+        return { ...r, report: updatedReport, hasReport: true };
+      }),
+    );
+  };
+
+  const handlePreview = (row) => {
+    setSelectedRow(row);
+    setIsModalOpen(true);
+  };
+  const handleEdit = (row) => {
+    setEditingRow(row);
+    setIsEditModalOpen(true);
+  };
+
+  const handleApprove = async (row) => {
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/approve/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        "PATCH",
+        {},
+      );
+      if (!result.success) throw new Error(result.error);
+      toast.success("Report approved successfully!");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+            ? { ...r, report: { ...r.report, is_approved: true } }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An error occurred while approving. Please try again.");
+    }
+  };
+
+  const handleSaveEdit = async (newImpression) => {
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.itemName)}/`,
+        "PATCH",
+        { impression: newImpression },
+      );
+      if (!result.success) throw new Error(result.error);
+      toast.success("Report updated successfully!");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === editingRow.investBillNo &&
+          r.itemName === editingRow.itemName
+            ? { ...r, report: { ...r.report, impression: newImpression } }
+            : r,
+        ),
+      );
+      setIsEditModalOpen(false);
+      setEditingRow(null);
+    } catch {
+      toast.error("An error occurred while updating. Please try again.");
+    }
+  };
+
+  const handleDelete = async (row) => {
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/delete/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        "PATCH",
+        {},
+      );
+      if (!result.success) throw new Error(result.error);
+      toast.success("Report deleted successfully!");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+            ? { ...r, report: null, hasReport: false }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An error occurred while deleting. Please try again.");
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  // Stats derived from ALL rows (not filtered)
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const pending = rows.filter((r) => !r.hasReport).length;
+    const reported = rows.filter(
+      (r) => r.hasReport && !r.report?.is_approved,
+    ).length;
+    const approved = rows.filter((r) => r.report?.is_approved).length;
+    // Item breakdown — count per unique itemName
+    const itemMap = {};
+    rows.forEach((r) => {
+      const name = r.itemName || "Unknown";
+      itemMap[name] = (itemMap[name] || 0) + 1;
+    });
+    return { total, pending, reported, approved, itemMap };
+  }, [rows]);
+
+  return (
+    <PageWrapper>
+      <Container>
+        <ContentCard>
+          {/* ── Top bar: title + compact date filters ── */}
+          <TopBar>
+            <PageTitle>USG Investigations</PageTitle>
+            <FilterContainer>
+              <FilterGroup>
+                <FilterLabel>From</FilterLabel>
+                <DateInput
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                />
+              </FilterGroup>
+              <FilterGroup>
+                <FilterLabel>To</FilterLabel>
+                <DateInput
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                />
+              </FilterGroup>
+              <ResetButton onClick={handleResetFilter}>↺ Reset</ResetButton>
+            </FilterContainer>
+          </TopBar>
+
+          {/* ── Stat Cards ── */}
+          <StatsRow>
+            <StatCard bg="#f0faf8" accent="#00897b">
+              <StatIcon>📋</StatIcon>
+              <StatInfo>
+                <StatCount color="#00695c">{stats.total}</StatCount>
+                <StatLabel>Total</StatLabel>
+              </StatInfo>
+            </StatCard>
+            <StatCard bg="#e3f2fd" accent="#1e88e5">
+              <StatIcon>⏳</StatIcon>
+              <StatInfo>
+                <StatCount color="#1565c0">{stats.pending}</StatCount>
+                <StatLabel>Pending</StatLabel>
+              </StatInfo>
+            </StatCard>
+            <StatCard bg="#fffde7" accent="#f9a825">
+              <StatIcon>⏱</StatIcon>
+              <StatInfo>
+                <StatCount color="#f57f17">{stats.reported}</StatCount>
+                <StatLabel>Reported</StatLabel>
+              </StatInfo>
+            </StatCard>
+            <StatCard bg="#e8f5e9" accent="#43a047">
+              <StatIcon>✅</StatIcon>
+              <StatInfo>
+                <StatCount color="#2e7d32">{stats.approved}</StatCount>
+                <StatLabel>Approved</StatLabel>
+              </StatInfo>
+            </StatCard>
+            {/* Per-item breakdown */}
+            {Object.entries(stats.itemMap).map(([itemName, count]) => (
+              <StatCard key={itemName} bg="#f3e5f5" accent="#8e24aa">
+                <StatIcon>🔬</StatIcon>
+                <StatInfo>
+                  <StatCount color="#6a1b9a">{count}</StatCount>
+                  <StatLabel title={itemName}>
+                    {itemName.length > 14
+                      ? itemName.slice(0, 13) + "…"
+                      : itemName}
+                  </StatLabel>
+                </StatInfo>
+              </StatCard>
+            ))}
+          </StatsRow>
+
+          <TableWrapper>
+            <Table>
+              <thead>
+                {/* Column headers */}
+                <tr>
+                  <Th>Bill No</Th>
+                  <Th>UHID</Th>
+                  <Th>IP Number</Th>
+                  <Th>Patient Name</Th>
+                  <Th>Age</Th>
+                  <Th>Gender</Th>
+                  <Th>Item</Th>
+                  <Th>Bill Date</Th>
+                  <Th>Slot</Th>
+                  <Th>Status</Th>
+                  <Th>Actions</Th>
+                </tr>
+
+                {/* Per-column search row */}
+                <tr>
+                  <SearchTh>
+                    <SearchInput
+                      type="text"
+                      placeholder="🔍 Bill No"
+                      value={searchBillNo}
+                      onChange={(e) => setSearchBillNo(e.target.value)}
+                    />
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchInput
+                      type="text"
+                      placeholder="🔍 UHID"
+                      value={searchUhid}
+                      onChange={(e) => setSearchUhid(e.target.value)}
+                    />
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchInput
+                      type="text"
+                      placeholder="🔍 IP No"
+                      value={searchIpNumber}
+                      onChange={(e) => setSearchIpNumber(e.target.value)}
+                    />
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchInput
+                      type="text"
+                      placeholder="🔍 Patient"
+                      value={searchPatient}
+                      onChange={(e) => setSearchPatient(e.target.value)}
+                    />
+                  </SearchTh>
+                  {/* Age, Gender, Item, Bill Date, Slot — no search */}
+                  <SearchTh />
+                  <SearchTh />
+                  <SearchTh />
+                  <SearchTh />
+                  <SearchTh />
+                  {/* Status dropdown search */}
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchStatus}
+                      onChange={(e) => setSearchStatus(e.target.value)}
+                    >
+                      <option value="">All Status</option>
+                      <option value="pending">⏳ Pending</option>
+                      <option value="reported">⏱ Reported</option>
+                      <option value="approved">✓ Approved</option>
+                    </SearchSelect>
+                  </SearchTh>
+                  {/* Actions — no search */}
+                  <SearchTh />
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredRows.length > 0 ? (
+                  filteredRows.map((row, index) => (
+                    <Tr
+                      key={`${row.investBillNo}-${row.itemName}-${index}`}
+                      style={{
+                        background: row.hasReport
+                          ? "linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%)"
+                          : "white",
+                      }}
+                    >
+                      <Td>{row.investBillNo}</Td>
+                      <Td>{row.uhid}</Td>
+                      <Td>{row.ipNumber}</Td>
+                      <Td>{row.patientName}</Td>
+                      <Td>{row.age || "N/A"}</Td>
+                      <Td>{row.gender || "N/A"}</Td>
+                      <Td>{row.itemName || "—"}</Td>
+                      <Td>{formatDate(row.investBillDate)}</Td>
+                      <Td>
+                        {row.report?.slot_DateTime ? (
+                          <SlotBadge>
+                            🕐 {formatSlotDisplay(row.report.slot_DateTime)}
+                          </SlotBadge>
+                        ) : (
+                          <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
+                            —
+                          </span>
+                        )}
+                      </Td>
+                      <Td>
+                        {!row.hasReport ? (
+                          <StatusBadge hasReport={false}>
+                            ⏳ Pending
+                          </StatusBadge>
+                        ) : row.report?.is_approved ? (
+                          <StatusBadge hasReport approved>
+                            ✓ Approved
+                          </StatusBadge>
+                        ) : (
+                          <StatusBadge hasReport>⏱ Reported</StatusBadge>
+                        )}
+                      </Td>
+
+                      {/* Icon-only action buttons */}
+                      <Td>
+                        <ActionRow>
+                          {/* Set / Update Slot — only if ipNumber exists */}
+                          {row.ipNumber && (
+                            <IconBtn
+                              bg="linear-gradient(135deg,#7c4dff,#651fff)"
+                              onClick={() => handleOpenSlot(row)}
+                              disabled={row.report?.is_approved}
+                              data-tip={
+                                row.report?.is_approved
+                                  ? "Slot locked (approved)"
+                                  : row.hasReport
+                                    ? "Update Slot"
+                                    : "Set Slot"
+                              }
+                            >
+                              🕐
+                            </IconBtn>
+                          )}
+
+                          <IconBtn
+                            bg="linear-gradient(135deg,#00897b,#00695c)"
+                            onClick={() => handleGoToReport(row)}
+                            disabled={row.hasReport}
+                            data-tip={
+                              row.hasReport
+                                ? "Already Submitted"
+                                : "Go to Report"
+                            }
+                          >
+                            📋
+                          </IconBtn>
+
+                          <IconBtn
+                            bg="linear-gradient(135deg,#26a69a,#00897b)"
+                            onClick={() => handlePreview(row)}
+                            disabled={!row.hasReport}
+                            data-tip="Preview Report"
+                          >
+                            👁
+                          </IconBtn>
+
+                          <IconBtn
+                            bg="linear-gradient(135deg,#66bb6a,#43a047)"
+                            onClick={() => handleApprove(row)}
+                            disabled={!row.hasReport || row.report?.is_approved}
+                            data-tip={
+                              row.report?.is_approved
+                                ? "Already Approved"
+                                : "Approve Report"
+                            }
+                          >
+                            ✅
+                          </IconBtn>
+
+                          <IconBtn
+                            bg="linear-gradient(135deg,#42a5f5,#1e88e5)"
+                            onClick={() => handleEdit(row)}
+                            disabled={!row.hasReport || row.report?.is_approved}
+                            data-tip="Edit Impression"
+                          >
+                            ✏️
+                          </IconBtn>
+
+                          <IconBtn
+                            bg="linear-gradient(135deg,#ef5350,#e53935)"
+                            onClick={() => handleDelete(row)}
+                            disabled={!row.hasReport || row.report?.is_approved}
+                            data-tip="Delete Report"
+                          >
+                            🗑️
+                          </IconBtn>
+                        </ActionRow>
+                      </Td>
+                    </Tr>
+                  ))
+                ) : (
+                  <tr>
+                    <Td colSpan="11">
+                      <EmptyState>
+                        <p>
+                          {rows.length > 0
+                            ? "No results match your search criteria"
+                            : "No investigations found for selected date range"}
+                        </p>
+                      </EmptyState>
+                    </Td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+          </TableWrapper>
+        </ContentCard>
+      </Container>
+
+      {isModalOpen && selectedRow && (
+        <Modal
+          row={selectedRow}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedRow(null);
+          }}
+        />
       )}
-      {isEditModalOpen && editingReport && (
+
+      {isEditModalOpen && editingRow && (
         <EditModal
-          report={editingReport}
+          row={editingRow}
           onClose={() => {
             setIsEditModalOpen(false);
-            setEditingReport(null);
+            setEditingRow(null);
           }}
           onSave={handleSaveEdit}
         />
       )}
-    </PageContainer>
+
+      {isSlotModalOpen && slotRow && (
+        <SlotModal
+          row={slotRow}
+          HMSURL={HMSURL}
+          onClose={() => {
+            setIsSlotModalOpen(false);
+            setSlotRow(null);
+          }}
+          onSaved={handleSlotSaved}
+        />
+      )}
+    </PageWrapper>
   );
 };
 
