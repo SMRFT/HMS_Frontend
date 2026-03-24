@@ -90,6 +90,10 @@ import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 
 import Items from "./Components/Stores/Items";
+import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
+import StoresGRNReport from "./Components/Stores/StoresGRNReport";
+import StoresIntent from "./Components/Stores/StoresIntent";
+import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -214,6 +218,10 @@ function App() {
       "/Pharmacystock": "Pharmacy Stock",
       "/VendorManagement": "Vendor Management",
       "/Items": "Items",
+      "/StoresGRNGeneration": "Stores GRN Generation",
+      "/StoresGRNReport": "Stores GRN Report",
+      "/StoresIntent": "Stores Intent",
+      "/StoresIntentApproval": "Store Intent Approval",
     };
 
     const path = location.pathname;
