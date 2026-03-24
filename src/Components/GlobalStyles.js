@@ -45,18 +45,12 @@ export const PageWrapper = styled.div`
 
 export const Container = styled.div`
   width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
+  margin: 0;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   animation: ${fadeIn} 0.4s ease-out;
   box-sizing: border-box;
   overflow: hidden;
-
-  /* On larger screens allow up to 1400px */
-  @media (min-width: 1400px) {
-    max-width: 1400px;
-  }
 `;
 
 export const TabContainer = styled.div`
