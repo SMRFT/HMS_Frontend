@@ -1,1095 +1,1187 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import styled, { keyframes } from "styled-components";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
-import styled, { keyframes, createGlobalStyle } from "styled-components";
+import {
+  PageWrapper, Container, Button, TableWrapper, Table, Th, Td, Tr,
+  ModalOverlay, ModalContainer, ModalHeader, ModalTitle,
+  CloseButton, ModalBody, NoResults, colors,
+} from "../GlobalStyles";
 
-import DischargeViewBills     from "./DischargeViewBills";
-import DischargeViewEstimates from "./DischargeViewEstimates";
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const T = {
-  primary:   "#0f766e",
-  amber:     "#d97706",
-  danger:    "#dc2626",
-  success:   "#16a34a",
-  blue:      "#2563eb",
-  border:    "#e2e8f0",
-  bg:        "#f8fafc",
-  surface:   "#ffffff",
-  textMain:  "#0f172a",
-  textMid:   "#475569",
-  textMuted: "#94a3b8",
-  radius:    "8px",
-  shadow:    "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
-  shadowMd:  "0 4px 16px rgba(0,0,0,0.10)",
-};
-
-const slideDown = keyframes`from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}`;
-const fadeUp    = keyframes`from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}`;
-const spin      = keyframes`to{transform:rotate(360deg);}`;
-
-const GlobalStyle = createGlobalStyle`
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:${T.bg};color:${T.textMain};}
+// ─── Animations ───────────────────────────────────────────────────────────────
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+const pulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+`;
+const shimmer = keyframes`
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 `;
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-const PageWrap = styled.div`min-height:100vh;background:${T.bg};`;
-const AppBar   = styled.header`
-  background:${T.primary};height:48px;padding:0 20px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.15);
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 60%, #065f46 100%);
+  padding: 12px 20px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(13,148,136,0.3);
 `;
-const AppTitle = styled.div`color:#fff;font-weight:700;font-size:0.88rem;display:flex;align-items:center;gap:8px;`;
-const Crumb    = styled.div`color:rgba(255,255,255,0.7);font-size:0.72rem;`;
-const Content  = styled.div`max-width:1300px;margin:0 auto;padding:16px;`;
-
-const TabBar = styled.div`
-  display:flex;gap:2px;margin-bottom:14px;
-  background:${T.surface};border:1px solid ${T.border};
-  border-radius:${T.radius};padding:4px;width:fit-content;
+const PageTitle = styled.h2`
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.03em;
 `;
-const Tab = styled.button`
-  padding:7px 18px;border:none;border-radius:6px;cursor:pointer;
-  font-size:0.81rem;font-weight:600;transition:all 0.15s;display:flex;align-items:center;gap:6px;
-  background:${p=>p.$active?T.primary:"transparent"};
-  color:${p=>p.$active?"#fff":T.textMid};
-  &:hover{background:${p=>p.$active?T.primary:T.bg};}
-`;
-
-const Card      = styled.div`background:${T.surface};border:1px solid ${T.border};border-radius:${T.radius};box-shadow:${T.shadow};margin-bottom:12px;animation:${fadeUp} 0.2s ease;`;
-const CardHead  = styled.div`background:#f8fafc;border-bottom:1px solid ${T.border};padding:8px 14px;display:flex;align-items:center;justify-content:space-between;`;
-const CardTitle = styled.span`font-size:0.69rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:${T.textMuted};`;
-
-const Badge = styled.span`
-  display:inline-flex;align-items:center;padding:2px 8px;
-  border-radius:20px;font-size:0.66rem;font-weight:700;
-  background:${p=>({estimate:"#fef3c7",billed:"#dcfce7",pending:"#dbeafe",manual:"#f1f5f9",converting:"#ede9fe"}[p.$v]||"#f1f5f9")};
-  color:${p=>({estimate:T.amber,billed:T.success,pending:T.blue,manual:T.textMuted,converting:"#7c3aed"}[p.$v]||T.textMuted)};
+const ClockDisplay = styled.div`
+  font-size: 0.75rem;
+  color: #ccfbf1;
+  font-weight: 600;
+  font-family: monospace;
+  background: rgba(255,255,255,0.12);
+  padding: 4px 10px;
+  border-radius: 20px;
 `;
 
-const Toast = styled.div`
-  position:fixed;top:14px;right:16px;z-index:9999;
-  padding:10px 18px;border-radius:${T.radius};color:#fff;
-  font-weight:600;font-size:0.84rem;max-width:380px;
-  background:${p=>p.$err?T.danger:T.success};
-  box-shadow:${T.shadowMd};animation:${slideDown} 0.2s ease;
+// ─── Section Card ─────────────────────────────────────────────────────────────
+const SectionCard = styled.div`
+  margin: 0 14px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  animation: ${slideUp} 0.3s ease both;
+  animation-delay: ${p => p.delay || 0}ms;
+`;
+const SectionHead = styled.div`
+  background: linear-gradient(90deg, #f0fdf9 0%, #e0f2f1 100%);
+  padding: 7px 14px;
+  border-bottom: 1px solid #ccfbf1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0d9488;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+const SectionBody = styled.div`
+  padding: 10px 14px 12px;
 `;
 
-const ConvertBanner = styled.div`
-  display:flex;align-items:flex-start;gap:12px;
-  padding:12px 16px;margin-bottom:12px;
-  background:#ede9fe;border:1.5px solid #7c3aed;
-  border-radius:${T.radius};color:#5b21b6;
-  animation:${slideDown} 0.25s ease;
+// ─── Form Grid ────────────────────────────────────────────────────────────────
+const FormGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px 12px;
+  align-items: end;
 `;
-
-const SearchBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 14px;background:#fafafa;border-bottom:1px solid ${T.border};`;
-const FG        = styled.div`display:flex;flex-direction:column;gap:3px;min-width:${p=>p.$w||"150px"};flex:${p=>p.$flex||"none"};`;
-const FL        = styled.label`font-size:0.66rem;font-weight:700;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.4px;`;
-const Req       = styled.span`color:${T.danger};margin-left:2px;`;
-const FInput    = styled.input`
-  height:32px;padding:0 10px;font-size:0.82rem;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};transition:border 0.12s;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-  &[type=date]{cursor:pointer;}
-  &::placeholder{color:${T.textMuted};}
+const Field = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  grid-column: span ${p => p.span || 1};
 `;
-const FSelect = styled.select`
-  height:32px;padding:0 8px;font-size:0.82rem;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};transition:border 0.12s;cursor:pointer;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-  &:disabled{background:#f8fafc;color:${T.textMuted};cursor:not-allowed;}
+const Lbl = styled.label`
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  &::after {
+    content: ${p => p.required ? '" *"' : '""'};
+    color: #ef4444;
+    font-size: 0.75rem;
+  }
 `;
-
-const Btn = styled.button`
-  height:${p=>p.$sm?"30px":"34px"};padding:0 ${p=>p.$sm?"12px":"16px"};
-  border-radius:6px;font-size:${p=>p.$sm?"0.77rem":"0.81rem"};
-  font-weight:600;cursor:pointer;border:1.5px solid transparent;
-  display:inline-flex;align-items:center;gap:5px;transition:all 0.13s;
-  ${p=>p.$primary && `background:${T.primary};color:#fff;border-color:${T.primary};`}
-  ${p=>p.$amber   && `background:${T.amber};color:#fff;border-color:${T.amber};`}
-  ${p=>p.$ghost   && `background:#f1f5f9;color:${T.textMid};border-color:${T.border};`}
-  ${p=>p.$purple  && `background:#7c3aed;color:#fff;border-color:#7c3aed;`}
-  &:hover{opacity:0.88;} &:disabled{opacity:0.45;cursor:not-allowed;}
+const Inp = styled.input`
+  height: 30px;
+  padding: 0 8px;
+  font-size: 0.78rem;
+  border: 1.5px solid ${p => p.error ? '#ef4444' : '#d1d5db'};
+  border-radius: 5px;
+  background: ${p => p.readOnly ? '#f8fafc' : '#fff'};
+  color: #111827;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+`;
+const Sel = styled.select`
+  height: 30px;
+  padding: 0 6px;
+  font-size: 0.78rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 5px;
+  background: #fff;
+  color: #111827;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.18s;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+`;
+const Txta = styled.textarea`
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  border: 1.5px solid #d1d5db;
+  border-radius: 5px;
+  resize: vertical;
+  min-height: 48px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.18s;
+  &:focus { border-color: #0d9488; outline: none; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+`;
+const InputRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
 `;
 const IconBtn = styled.button`
-  width:32px;height:32px;border-radius:6px;border:none;
-  background:${T.primary};color:#fff;cursor:pointer;font-size:0.85rem;
-  display:flex;align-items:center;justify-content:center;transition:opacity 0.12s;
-  &:hover{opacity:0.85;} &:disabled{opacity:0.5;cursor:not-allowed;}
-`;
-const Spinner = styled.div`
-  width:14px;height:14px;border:2px solid rgba(255,255,255,0.35);
-  border-top-color:#fff;border-radius:50%;animation:${spin} 0.6s linear infinite;
-`;
-const MiniSpinner = styled.div`
-  width:10px;height:10px;border:2px solid #94a3b8;
-  border-top-color:${T.primary};border-radius:50%;
-  animation:${spin} 0.6s linear infinite;display:inline-block;
-`;
-
-// ─── Patient grid ─────────────────────────────────────────────────────────────
-const PGrid = styled.div`display:grid;grid-template-columns:repeat(4,1fr);@media(max-width:768px){grid-template-columns:repeat(2,1fr);}`;
-const PCell = styled.div`padding:8px 14px;border-right:${p=>p.$nr?"none":`1px solid ${T.border}`};border-bottom:${p=>p.$nb?"none":`1px solid ${T.border}`};`;
-const PLbl  = styled.div`font-size:0.62rem;font-weight:700;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.4px;`;
-const PVal  = styled.div`font-size:0.83rem;font-weight:600;color:${T.textMain};margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`;
-
-// ─── Items table ──────────────────────────────────────────────────────────────
-const TScrollWrap = styled.div`overflow-x:auto; overflow-y:visible;`;
-const ITable      = styled.table`width:100%;border-collapse:collapse;font-size:0.79rem;min-width:1000px;`;
-const ITHead      = styled.thead`background:#f8fafc;`;
-const ITH         = styled.th`padding:7px 8px;text-align:left;font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:${T.textMuted};border-bottom:1px solid ${T.border};white-space:nowrap;`;
-const ITR         = styled.tr`border-bottom:1px dashed ${T.border};&:last-child{border-bottom:none;}&:hover{background:#f8fbff;}`;
-const AddRow      = styled.tr`background:#fffbeb;border-bottom:2px solid ${T.amber};`;
-const ITD         = styled.td`padding:6px 8px;color:${T.textMain};vertical-align:middle;overflow:visible;position:relative;`;
-const TInput      = styled.input`width:${p=>p.$w||"100%"};padding:4px 7px;font-size:0.78rem;border:1px solid ${T.border};border-radius:5px;outline:none;background:${p=>p.$ro?"#f8fafc":"#fff"};color:${p=>p.$ro?T.textMuted:T.textMain};transition:border 0.12s;&:focus{border-color:${T.primary};}`;
-const TSelect     = styled.select`width:${p=>p.$w||"100%"};padding:4px 6px;font-size:0.78rem;border:1px solid ${T.border};border-radius:5px;outline:none;background:#fff;color:${T.textMain};cursor:pointer;&:focus{border-color:${T.primary};}`;
-const EmptyRow    = styled.div`text-align:center;padding:34px;color:${T.textMuted};font-size:0.84rem;`;
-
-// ─── Item search autocomplete ─────────────────────────────────────────────────
-const SuggestionItem = styled.div`
-  padding:7px 10px;font-size:0.8rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
-  border-bottom:1px solid #f1f5f9;
-  &:last-child{border-bottom:none;}
-  &:hover{background:#e6f7f5;}
-`;
-const SugName  = styled.span`font-weight:600;color:${T.textMain};`;
-const SugPrice = styled.span`font-size:0.74rem;color:${T.success};font-weight:700;`;
-const SugEmpty = styled.div`padding:10px;text-align:center;font-size:0.78rem;color:${T.textMuted};`;
-
-// ─── Bill type bar ────────────────────────────────────────────────────────────
-const BillTypeBar = styled.div`
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:10px 14px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.18s;
+  &:hover { background: #0f766e; }
+  &:disabled { opacity: 0.5; cursor: default; }
 `;
 
-// ─── Financials ───────────────────────────────────────────────────────────────
-const FinGrid    = styled.div`display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid ${T.border};@media(max-width:900px){grid-template-columns:repeat(2,1fr);}`;
-const FinCol     = styled.div`padding:10px 12px;border-right:1px solid ${T.border};display:flex;flex-direction:column;gap:8px;&:last-child{border-right:none;}`;
-const FinRow     = styled.div`display:flex;align-items:center;gap:6px;font-size:0.78rem;`;
-const FinLbl     = styled.span`min-width:${p=>p.$w||"90px"};color:${T.textMid};font-weight:500;font-size:0.75rem;flex-shrink:0;`;
-const FinIn      = styled.input`flex:1;padding:4px 8px;font-size:0.78rem;border:1px solid ${T.border};border-radius:5px;outline:none;text-align:right;min-width:0;background:${p=>p.$ro?"#f8fafc":"#fff"};color:${p=>p.$ro?T.textMuted:T.textMain};transition:border 0.12s;&:focus{border-color:${T.primary};}${p=>p.$net&&`font-weight:700;color:${T.success};background:#f0fdf4;border-color:#86efac;`}`;
-const Rupee      = styled.span`color:${T.textMuted};font-size:0.75rem;flex-shrink:0;`;
-const FinActions = styled.div`display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:10px 14px;background:#fafafa;border-top:1px solid ${T.border};`;
-const ErrMsg     = styled.div`color:${T.danger};font-size:0.76rem;padding:6px 14px;background:#fee2e2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:6px;`;
+// ─── Patient Info Card ────────────────────────────────────────────────────────
+const PatientCard = styled.div`
+  background: linear-gradient(135deg, #f0fdf9 0%, #e0f2f1 100%);
+  border: 1.5px solid #99f6e4;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 2px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 14px;
+  animation: ${slideUp} 0.25s ease;
+`;
+const PatInfoItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+`;
+const PatLabel = styled.span`
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #0f766e;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+const PatValue = styled.span`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #134e4a;
+`;
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Constants & Helpers
-// ═════════════════════════════════════════════════════════════════════════════
+// ─── Action Bar ───────────────────────────────────────────────────────────────
+const ActionBar = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 10px 14px 14px;
+`;
+const SaveBtn = styled.button`
+  height: 34px;
+  padding: 0 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(13,148,136,0.35);
+  transition: all 0.18s;
+  &:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13,148,136,0.45); }
+  &:active { transform: translateY(0); }
+`;
+const ResetBtn = styled.button`
+  height: 34px;
+  padding: 0 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1.5px solid #e2e8f0;
+  cursor: pointer;
+  background: #fff;
+  color: #64748b;
+  transition: all 0.18s;
+  &:hover { border-color: #94a3b8; color: #334155; }
+`;
+const PrintBtn = styled.button`
+  height: 34px;
+  padding: 0 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(124,58,237,0.3);
+  transition: all 0.18s;
+  &:hover { transform: translateY(-1px); }
+`;
 
-const BASE       = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+// ─── Table ────────────────────────────────────────────────────────────────────
+const TableSection = styled.div`
+  margin: 0 0 0 0;
+  border-top: 2px solid #e0f2f1;
+  padding: 14px 14px;
+  background: #f8fafc;
+`;
+const TableTitle = styled.h3`
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #0d9488;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+const StatusBadge = styled.span`
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: ${p => p.active ? '#dcfce7' : '#fee2e2'};
+  color: ${p => p.active ? '#166534' : '#991b1b'};
+`;
+const MiniBtn = styled.button`
+  height: 25px;
+  padding: 0 9px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  background: ${p => p.danger ? '#ef4444' : p.purple ? '#7c3aed' : '#0d9488'};
+  color: #fff;
+  transition: opacity 0.15s;
+  &:disabled { opacity: 0.35; cursor: default; }
+  &:hover:not(:disabled) { opacity: 0.82; }
+`;
 
-const DEFAULT_BILL_TYPE_NO  = "DIS01";
-const DEFAULT_BILL_TYPE_NUM = 2;
-
-const EMPTY_FORM = {
-  advance_amount:"", sales_return:"", medicines:"", taxable:"", non_tax:"",
-  tpa_paid:"", sales_tax:"", gst_amount:"", room_tax:"", cess:"", luxury_tax:"",
-  discount_percent:"", discount_amount:"", disc_reason:"", remarks:"",
-  bill_upto: new Date().toISOString().split("T")[0],
+// ─── Room Modal ───────────────────────────────────────────────────────────────
+const RoomModalContainer = styled(ModalContainer)`
+  max-width: 980px;
+  max-height: 90vh;
+`;
+const RoomModalBody = styled(ModalBody)`
+  background: ${colors.background};
+  padding: 14px;
+`;
+const FilterBar = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  align-items: flex-end;
+`;
+const FilterField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 110px;
+`;
+const FilterLabel = styled.label`
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+`;
+const FilterInput = styled.input`
+  height: 28px;
+  padding: 0 7px;
+  font-size: 0.75rem;
+  border: 1px solid ${colors.border};
+  border-radius: 5px;
+  background: ${colors.surface};
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  &:focus { border-color: ${colors.primary}; }
+`;
+const FilterBtn = styled.button`
+  height: 28px;
+  padding: 0 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  background: ${p => p.muted ? colors.textMuted : colors.primary};
+  color: #fff;
+  align-self: flex-end;
+  transition: opacity 0.15s;
+  &:hover { opacity: 0.85; }
+`;
+const LegendBar = styled.div`
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+`;
+const LegendItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: ${colors.textMuted};
+`;
+const LegendDot = styled.span`
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  background: ${p => p.color};
+  flex-shrink: 0;
+`;
+const BlockSection = styled.div`
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  animation: ${slideUp} 0.22s ease both;
+  animation-delay: ${p => p.idx * 35}ms;
+`;
+const BlockHeader = styled.div`
+  padding: 7px 12px;
+  background: linear-gradient(90deg, #e0f2f1, #f0fdf9);
+  border-bottom: 1px solid ${colors.border};
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: ${colors.primary};
+`;
+const FloorGroup = styled.div`padding: 10px 12px;`;
+const FloorLabel = styled.div`
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &::after { content: ""; flex: 1; height: 1px; background: ${colors.border}; }
+`;
+const RoomGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+const roomColors = {
+  available:   { bg: "#f0fdf4", border: "#86efac", header: "#dcfce7" },
+  occupied:    { bg: "#fff1f2", border: "#fca5a5", header: "#fee2e2" },
+  maintenance: { bg: "#fffbeb", border: "#fcd34d", header: "#fef3c7" },
+  partial:     { bg: "#eff6ff", border: "#93c5fd", header: "#dbeafe" },
 };
-const EMPTY_ITEM = {
-  itemName:"", quantity:1, rate:"", discount:0, amount:0,
-  doctor:"", doctor_fee:"", item_description:"", package_name:""
+const RoomCard = styled.div`
+  border: 1.5px solid ${p => roomColors[p.status]?.border || colors.border};
+  border-radius: 7px;
+  overflow: hidden;
+  cursor: ${p => (p.status === "occupied" || p.status === "maintenance") ? "not-allowed" : "pointer"};
+  opacity: ${p => (p.status === "occupied" || p.status === "maintenance") ? 0.68 : 1};
+  background: ${p => roomColors[p.status]?.bg || "#fff"};
+  transition: box-shadow 0.18s, transform 0.18s;
+  ${p => (p.status !== "occupied" && p.status !== "maintenance") && `
+    &:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); transform: translateY(-2px); }
+  `}
+`;
+const RoomCardTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: ${p => roomColors[p.status]?.header || "#f1f5f9"};
+  border-bottom: 1px solid ${p => roomColors[p.status]?.border || colors.border};
+`;
+const RoomNum = styled.span`font-size: 0.78rem; font-weight: 700; color: ${colors.textMain};`;
+const RoomStatusPill = styled.span`
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: ${p =>
+    p.status === "available" ? "#22c55e" :
+    p.status === "occupied"  ? "#ef4444" :
+    p.status === "partial"   ? "#3b82f6" : "#f59e0b"};
+  color: #fff;
+  text-transform: capitalize;
+`;
+const RoomType = styled.span`font-size: 0.6rem; color: ${colors.textMuted}; padding: 0 8px 4px; display: block;`;
+const BedRow = styled.div`display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px;`;
+const BedChip = styled.button`
+  flex: 1 1 auto;
+  min-width: 42px;
+  text-align: center;
+  padding: 3px 4px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  cursor: ${p => p.disabled ? "not-allowed" : "pointer"};
+  color: #fff;
+  background: ${p =>
+    p.bedStatus === "Available" ? "#22c55e" :
+    p.bedStatus === "Occupied"  ? "#ef4444" : "#f59e0b"};
+  opacity: ${p => p.disabled ? 0.5 : 1};
+  transition: filter 0.15s, border-color 0.15s;
+  &:hover:not(:disabled) { filter: brightness(1.1); border-color: rgba(0,0,0,0.2); }
+`;
+const SkeletonCard = styled.div`
+  height: 100px;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.4s ease-in-out infinite;
+`;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const EMPTY = {
+  uhid: "", ipNumber: "", admittingDoctor: "", consultingDoctor: "",
+  roomNo: "", bedNo: "", reasonForAdmission: "", packageName: "",
+  mlc_type: "", mlc_doc: null, mlc_remarks: "",
+  salutation: "", firstName: "", middleName: "", lastName: "",
+  age: "", gender: "", phone: "", permanent_address: "",
+  area: "", zipcode: "", city: "", state: "",
+  customerType: "", insuranceCompany: "", insuranceCompanyName: "",
+  company_id: "", privilegedCustomerId: "",
 };
 
-const fmt = v => (parseFloat(v)||0).toFixed(2);
+function getRoomStatus(beds) {
+  if (!beds || !beds.length) return "available";
+  const s = beds.map(b => b.status);
+  if (s.every(x => x === "Occupied"))    return "occupied";
+  if (s.every(x => x === "Maintenance")) return "maintenance";
+  if (s.some(x => x === "Occupied") && s.some(x => x === "Available")) return "partial";
+  return "available";
+}
 
-const calcTotals = (items, f) => {
-  const totalAmount = items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const itemDisc    = items.reduce((s,i)=>s+(parseFloat(i.discount)||0),0);
-  const discPct     = parseFloat(f.discount_percent)||0;
-  const discAmt     = parseFloat(f.discount_amount)||(totalAmount*discPct/100);
-  const totalDisc   = discAmt+itemDisc;
-  const netAmount   = Math.max(0,
-    totalAmount
-    +(parseFloat(f.gst_amount)||0)+(parseFloat(f.room_tax)||0)+(parseFloat(f.medicines)||0)
-    +(parseFloat(f.sales_tax)||0)+(parseFloat(f.cess)||0)+(parseFloat(f.luxury_tax)||0)
-    -(parseFloat(f.advance_amount)||0)-(parseFloat(f.sales_return)||0)-(parseFloat(f.tpa_paid)||0)
-    -totalDisc
-  );
-  return { totalAmount, itemDisc, discAmt, totalDisc, netAmount };
-};
+// ─── Component ────────────────────────────────────────────────────────────────
+const Admission = () => {
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-const buildPayload = (items, f, totals, status, patient) => ({
-  status,
-  uhid:             patient?.uhid      || null,
-  ip_number:        patient?.ip_number || null,
-  items:            items.map(({_key,_fromInvest,...r})=>r),
-  total_amount:     totals.totalAmount,
-  advance_amount:   parseFloat(f.advance_amount)  ||0,
-  sales_return:     parseFloat(f.sales_return)    ||0,
-  medicines_amount: parseFloat(f.medicines)       ||0,
-  taxable_amount:   parseFloat(f.taxable)         ||0,
-  non_tax_amount:   parseFloat(f.non_tax)         ||0,
-  gst_amount:       parseFloat(f.gst_amount)      ||0,
-  room_tax:         parseFloat(f.room_tax)        ||0,
-  discount_percent: parseFloat(f.discount_percent)||0,
-  discount_amount:  totals.discAmt,
-  disc_reason:      f.disc_reason||"",
-  item_disc:        totals.itemDisc,
-  total_disc:       totals.totalDisc,
-  net_amount:       totals.netAmount,
-  remarks:          f.remarks||"",
-});
+  const [form,       setForm]       = useState(EMPTY);
+  const [editingIP,  setEditingIP]  = useState(null); // ip_number for edit
+  const [lastSaved,  setLastSaved]  = useState(null);
+  const [now,        setNow]        = useState(new Date());
 
-const recalcItem = (item, field, value) => {
-  const u    = {...item,[field]:value};
-  const qty  = parseFloat(field==="quantity"?value:u.quantity)||0;
-  const rate = parseFloat(field==="rate"    ?value:u.rate)    ||0;
-  const disc = parseFloat(field==="discount"?value:u.discount)||0;
-  if (["quantity","rate","discount"].includes(field)) u.amount = Math.max(0, qty*rate-disc);
-  return u;
-};
+  const [doctors,    setDoctors]    = useState([]);
+  const [admissions, setAdmissions] = useState([]);
+  const [packages,   setPackages]   = useState([]);
 
-const investToRow = it => ({
-  itemName:it.itemName||"", quantity:it.quantity||1, rate:it.price||0, discount:0,
-  amount:(it.quantity||1)*(it.price||0), doctor:it.doctor||"", doctor_fee:"",
-  item_description:it.billTypeNo||"", package_name:it.package_name||"",
-  invest_bill_no:it.invest_bill_no||"", bill_object_id:it.bill_object_id||"",
-  payment_status:it.payment_status||"", test_id:it.test_id??null,
-  _key:`inv_${it.test_id??it.itemName}_${Date.now()}_${Math.random()}`,
-  _fromInvest:true,
-});
+  // Room modal
+  const [showRoomModal,  setShowRoomModal]  = useState(false);
+  const [roomFilter,     setRoomFilter]     = useState({ room_number: "", block: "", floor: "" });
+  const [allRooms,       setAllRooms]       = useState([]);
+  const [loadingRooms,   setLoadingRooms]   = useState(false);
 
-const parseItems = raw => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try { return JSON.parse(raw); } catch { return []; }
-};
+  // Bed modal
+  const [showBedModal,   setShowBedModal]   = useState(false);
+  const [selectedRoom,   setSelectedRoom]   = useState(null);
 
-const estToForm = e => ({
-  advance_amount:  String(parseFloat(e.advance_amount)  ||""),
-  sales_return:    String(parseFloat(e.sales_return)    ||""),
-  medicines:       String(parseFloat(e.medicines_amount)||""),
-  taxable:         String(parseFloat(e.taxable_amount)  ||""),
-  non_tax:         String(parseFloat(e.non_tax_amount)  ||""),
-  tpa_paid:"", sales_tax:"",
-  gst_amount:      String(parseFloat(e.gst_amount)      ||""),
-  room_tax:        String(parseFloat(e.room_tax)        ||""),
-  cess:"", luxury_tax:"",
-  discount_percent:String(parseFloat(e.discount_percent)||""),
-  discount_amount: String(parseFloat(e.discount_amount) ||""),
-  disc_reason:     e.disc_reason||"",
-  remarks:         e.remarks    ||"",
-  bill_upto: e.bill_date
-    ? new Date(e.bill_date).toISOString().split("T")[0]
-    : new Date().toISOString().split("T")[0],
-});
+  // Search loading flags
+  const [searchingUHID,  setSearchingUHID]  = useState(false);
+  const [searchingIP,    setSearchingIP]    = useState(false);
 
-// ─── Normalise items from API ─────────────────────────────────────────────────
-// Handles both { itemName, price } and MongoDB format { itemName, "2": "10000" }
-const normaliseItems = (list) =>
-  (Array.isArray(list) ? list : []).map(it => {
-    if (it.price != null) return it;
-    const priceKey = Object.keys(it).find(
-      k => k !== "itemName" && k !== "_id" && !isNaN(Number(k))
-    );
-    return { ...it, price: priceKey ? it[priceKey] : "" };
-  });
-
-// ═════════════════════════════════════════════════════════════════════════════
-// ItemSearchInput — uses pre-fetched allItems, no API calls on keystroke
-// ═════════════════════════════════════════════════════════════════════════════
-
-const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], itemsLoading = false, billTypeName = "" }) => {
-  const [showSug, setShowSug] = useState(false);
-  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 280 });
-  const inputRef = useRef(null);
-  const dropRef  = useRef(null);
-
-  // Pure client-side filter — no API calls on keystroke
-  const filtered = value.trim()
-    ? allItems.filter(it => it.itemName?.toLowerCase().includes(value.trim().toLowerCase()))
-    : allItems;
-
+  // ── Clock ─────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const onMouseDown = e => {
-      const inInput = inputRef.current?.contains(e.target);
-      const inDrop  = dropRef.current?.contains(e.target);
-      if (!inInput && !inDrop) setShowSug(false);
-    };
-    const onScroll = () => {
-      if (inputRef.current) {
-        const r = inputRef.current.getBoundingClientRect();
-        setDropPos({ top: r.bottom + 3, left: r.left, width: r.width });
-      }
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("scroll", onScroll, true);
-    };
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  const measure = () => {
-    if (!inputRef.current) return;
-    const r = inputRef.current.getBoundingClientRect();
-    setDropPos({ top: r.bottom + 3, left: r.left, width: r.width });
+  // ── Init ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetchDoctors();
+    fetchAdmissions();
+    fetchPackages();
+  }, []);
+
+  const formatClock = d => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const formatDate  = d => d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const getDoctorName = id => {
+    const doc = doctors.find(d => String(d.employeeId) === String(id));
+    return doc ? doc.employeeName : id;
   };
 
+  // ── Fetches ───────────────────────────────────────────────────────────────
+  const fetchDoctors = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
+      if (res.success) setDoctors(res.data || []);
+    } catch {}
+  };
+
+  const fetchAdmissions = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
+      if (res.success) setAdmissions(res.data || []);
+    } catch {}
+  };
+
+  const fetchPackages = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
+      if (res.success) setPackages(res.packages || []);
+    } catch {}
+  };
+
+  const fetchAllRooms = async (filterOverride = {}) => {
+    setLoadingRooms(true);
+    try {
+      const f = { ...roomFilter, ...filterOverride };
+      const params = new URLSearchParams();
+      if (f.room_number) params.append("room_number", f.room_number);
+      if (f.block)       params.append("block", f.block);
+      if (f.floor)       params.append("floor", f.floor);
+      const q = params.toString() ? `?${params.toString()}` : "";
+      const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
+      setAllRooms(Array.isArray(res) ? res : (res.data || []));
+    } catch {
+      setAllRooms([]);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  // ── Group rooms ───────────────────────────────────────────────────────────
+  const groupedRooms = (() => {
+    const g = {};
+    allRooms.forEach(room => {
+      const b = room.block || "MAIN";
+      const f = room.floor ?? "G";
+      if (!g[b]) g[b] = {};
+      if (!g[b][f]) g[b][f] = [];
+      g[b][f].push(room);
+    });
+    return g;
+  })();
+
+  // ── Search by UHID ────────────────────────────────────────────────────────
+  const handleSearchByUHID = async () => {
+    const uhid = form.uhid.trim();
+    if (!uhid) return toast.warning("Enter UHID");
+    setSearchingUHID(true);
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
+      if (res.already_admitted) {
+        toast.error(res.error);
+        return;
+      }
+      if (!res.success) throw new Error(res.error || "Not found");
+      const d = res.data;
+      setForm(prev => ({
+        ...prev,
+        ...d,
+        ipNumber: "",  // will be auto-generated on save
+      }));
+      toast.success("Patient loaded from UHID");
+    } catch (e) {
+      toast.error(e.message || "Patient not found");
+    } finally {
+      setSearchingUHID(false);
+    }
+  };
+
+  // ── Search by IP Number ───────────────────────────────────────────────────
+  const handleSearchByIP = async () => {
+    const ip = form.ipNumber.trim();
+    if (!ip) return toast.warning("Enter IP Number");
+    setSearchingIP(true);
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}admission-by-ip/${encodeURIComponent(ip)}/`, "GET");
+      if (!res.success) throw new Error(res.error || "Not found");
+      const d = res.data;
+      setEditingIP(d.ipNumber);
+      setForm({ ...EMPTY, ...d });
+      toast.success(`Loaded admission: ${d.ipNumber}`);
+    } catch (e) {
+      toast.error(e.message || "Admission not found");
+    } finally {
+      setSearchingIP(false);
+    }
+  };
+
+  // ── Room / Bed selection ──────────────────────────────────────────────────
+  const openRoomModal = () => { setShowRoomModal(true); fetchAllRooms(); };
+
+  const handleRoomClick = room => {
+    const s = getRoomStatus(room.beds);
+    if (s === "occupied" || s === "maintenance") return;
+    setSelectedRoom(room);
+    setShowRoomModal(false);
+    setShowBedModal(true);
+  };
+
+  const handleBedSelect = bedNumber => {
+    setForm(prev => ({ ...prev, roomNo: selectedRoom.room_number, bedNo: bedNumber }));
+    setShowBedModal(false);
+    toast.success(`Room ${selectedRoom.room_number} / Bed ${bedNumber} selected`);
+  };
+
+  // ── Form ──────────────────────────────────────────────────────────────────
   const handleChange = e => {
-    onChange(e.target.value);
-    measure();
-    setShowSug(true);
+    const { name, value, type, files } = e.target;
+    setForm(prev => ({ ...prev, [name]: type === "file" ? files[0] : value }));
   };
 
-  const handleFocus = () => {
-    measure();
-    setShowSug(true);
+  const handleReset = () => { setForm(EMPTY); setEditingIP(null); setLastSaved(null); };
+
+  const handleEdit = adm => {
+    setEditingIP(adm.ipNumber);
+    setForm({ ...EMPTY, ...adm });
+    window.scrollTo(0, 0);
+    toast.info(`Editing: ${adm.ipNumber}`);
   };
 
-  const handleSelect = item => {
-    onSelect(item);
-    setShowSug(false);
+  const handleCancel = async ipNumber => {
+    if (!window.confirm("Cancel this admission?")) return;
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}admission/${ipNumber}/`, "DELETE");
+      if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
+    } catch { toast.error("Failed to cancel"); }
   };
 
-  const placeholder = itemsLoading
-    ? "Loading items…"
-    : allItems.length > 0
-    ? `Search ${allItems.length} items…`
-    : "No items available";
+  const handleSubmit = async () => {
+    if (!form.uhid)            return toast.warning("UHID is required");
+    if (!form.admittingDoctor) return toast.warning("Admitting Doctor is required");
+    if (!form.roomNo)          return toast.warning("Room is required");
+    if (!form.bedNo)           return toast.warning("Bed is required");
 
-  return (
-    <>
-      <TInput
-        ref={inputRef}
-        value={value}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        placeholder={placeholder}
-        autoComplete="off"
-        style={{ width: "100%", background: itemsLoading ? "#f8fafc" : "#fff" }}
-      />
-      {showSug && (
-        <div
-          ref={dropRef}
-          style={{
-            position:     "fixed",
-            top:          dropPos.top,
-            left:         dropPos.left,
-            width:        Math.max(dropPos.width, 380),
-            background:   "#fff",
-            border:       `1px solid ${T.border}`,
-            borderRadius: "6px",
-            boxShadow:    "0 8px 24px rgba(0,0,0,0.14)",
-            zIndex:       99999,
-            maxHeight:    "320px",
-            overflowY:    "auto",
-          }}
-        >
-          {/* Dropdown header showing which bill type these items belong to */}
-          {!itemsLoading && allItems.length > 0 && (
-            <div style={{
-              padding: "5px 10px 4px",
-              fontSize: "0.65rem",
-              fontWeight: 700,
-              color: T.surface,
-              background: T.primary,
-              borderRadius: "6px 6px 0 0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}>
-              <span>📋 {billTypeName || "Items"}</span>
-              <span style={{ opacity: 0.8 }}>
-                {value.trim() ? `${filtered.length} / ${allItems.length}` : `${allItems.length} items`}
-              </span>
-            </div>
-          )}
+    const admissionDateTime = now.toISOString();
+    const payload = new FormData();
+    ["uhid", "admittingDoctor", "consultingDoctor", "roomNo", "bedNo",
+      "reasonForAdmission", "packageName", "mlc_type", "mlc_remarks"].forEach(k => {
+        if (form[k]) payload.append(k, form[k]);
+    });
+    payload.append("admissionDateTime", admissionDateTime);
+    if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
 
-          {itemsLoading ? (
-            <SugEmpty style={{ padding: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <MiniSpinner />
-                <span>Loading {billTypeName} items…</span>
-              </div>
-            </SugEmpty>
-          ) : filtered.length === 0 ? (
-            <SugEmpty>
-              {allItems.length === 0
-                ? `No items found for ${billTypeName || "this bill type"}`
-                : `No match — try different keywords`}
-            </SugEmpty>
-          ) : (
-            <>
-              {value.trim() && filtered.length < allItems.length && (
-                <div style={{
-                  padding: "3px 10px", fontSize: "0.65rem", fontWeight: 600,
-                  color: T.textMuted, background: "#f8fafc",
-                  borderBottom: `1px solid ${T.border}`,
-                }}>
-                  Showing {filtered.length} of {allItems.length} items
-                </div>
-              )}
-              {filtered.map((s, i) => (
-                <SuggestionItem
-                  key={`${s.itemName}-${i}`}
-                  onMouseDown={e => { e.preventDefault(); handleSelect(s); }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <SugName>{s.itemName}</SugName>
-                    {s.package_name && (
-                      <span style={{ fontSize: "0.67rem", color: T.textMuted }}>{s.package_name}</span>
-                    )}
-                  </div>
-                  {s.price != null && String(s.price) !== "0" && String(s.price) !== "" && (
-                    <SugPrice>₹{parseFloat(s.price).toLocaleString("en-IN")}</SugPrice>
-                  )}
-                </SuggestionItem>
-              ))}
-            </>
-          )}
+    try {
+      const url  = editingIP ? `${HmsBaseUrl}admission/${editingIP}/` : `${HmsBaseUrl}admission/`;
+      const meth = editingIP ? "PUT" : "POST";
+      const res  = await apiRequest(url, meth, payload);
+      if (res.success) {
+        toast.success(editingIP ? "Admission updated!" : "Admission saved!");
+        setLastSaved({
+          ...res.data,
+          admittingDoctorName: getDoctorName(form.admittingDoctor),
+          admissionDateTime,
+        });
+        fetchAdmissions();
+        if (!editingIP) handleReset();
+      } else throw new Error(res.error);
+    } catch (e) { toast.error(e.message || "Failed to save"); }
+  };
+
+  // ── Print ─────────────────────────────────────────────────────────────────
+  const handlePrint = admData => {
+    const d = admData || lastSaved;
+    if (!d) return;
+    const name   = [d.salutation, d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+    const admDT  = d.admissionDateTime ? new Date(d.admissionDateTime) : new Date();
+    const pw = window.open("", "_blank", "width=600,height=420");
+    pw.document.write(`<!DOCTYPE html><html><head><title>IP Slip</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:Arial,sans-serif;font-size:13px;padding:20px;}
+      .slip{width:540px;margin:0 auto;border:1px solid #000;padding:16px;}
+      .row{display:flex;justify-content:space-between;margin-bottom:12px;}
+      .bold{font-weight:bold;}.big{font-size:20px;font-weight:bold;color:#0d9488;}
+      hr{border:none;border-top:1px solid #ccc;margin:10px 0;}
+      @media print{body{padding:0;}.slip{border:none;}}
+      </style></head><body><div class="slip">
+      <div style="text-align:center;padding-bottom:10px;border-bottom:2px solid #0d9488;">
+        <div class="big">🏥 IP Admission Slip</div>
+      </div>
+      <hr/>
+      <div class="row">
+        <div>
+          <div class="bold">${name}</div>
+          <div>${d.age || ""} / ${d.gender || ""}</div>
+          <div>${d.phone || ""}</div>
+          <div>${d.permanent_address || ""}</div>
+          <div>${[d.area, d.city, d.state].filter(Boolean).join(", ")}</div>
+          <div>Dr. ${d.admittingDoctorName || ""}</div>
         </div>
-      )}
-    </>
-  );
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Financial grid sub-component
-// ═════════════════════════════════════════════════════════════════════════════
-
-const FinancialGrid = ({ f, onChange, totals }) => (
-  <FinGrid>
-    <FinCol>
-      <FinRow><FinLbl>Total Amount</FinLbl><Rupee>₹</Rupee><FinIn $ro value={fmt(totals.totalAmount)} readOnly/></FinRow>
-      <FinRow><FinLbl>Advance</FinLbl>     <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.advance_amount}   onChange={e=>onChange("advance_amount",   e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Sales Return</FinLbl><Rupee>₹</Rupee><FinIn type="number" min={0} value={f.sales_return}     onChange={e=>onChange("sales_return",     e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Medicines</FinLbl>   <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.medicines}        onChange={e=>onChange("medicines",        e.target.value)}/></FinRow>
-    </FinCol>
-    <FinCol>
-      <FinRow><FinLbl>Taxable</FinLbl>  <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.taxable}   onChange={e=>onChange("taxable",   e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Non Tax</FinLbl>  <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.non_tax}   onChange={e=>onChange("non_tax",   e.target.value)}/></FinRow>
-      <FinRow><FinLbl>TPA Paid</FinLbl> <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.tpa_paid}  onChange={e=>onChange("tpa_paid",  e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Sales Tax</FinLbl><Rupee>₹</Rupee><FinIn type="number" min={0} value={f.sales_tax} onChange={e=>onChange("sales_tax", e.target.value)}/></FinRow>
-      <FinRow><FinLbl style={{fontWeight:700}}>Net Amount</FinLbl><Rupee>₹</Rupee><FinIn $ro $net value={fmt(totals.netAmount)} readOnly/></FinRow>
-    </FinCol>
-    <FinCol>
-      <FinRow><FinLbl>GST</FinLbl>       <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.gst_amount}  onChange={e=>onChange("gst_amount",  e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Room Tax</FinLbl>  <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.room_tax}    onChange={e=>onChange("room_tax",    e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Cess</FinLbl>      <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.cess}        onChange={e=>onChange("cess",        e.target.value)}/></FinRow>
-      <FinRow><FinLbl>Luxury Tax</FinLbl><Rupee>₹</Rupee><FinIn type="number" min={0} value={f.luxury_tax}  onChange={e=>onChange("luxury_tax",  e.target.value)}/></FinRow>
-    </FinCol>
-    <FinCol>
-      <FinRow>
-        <FinLbl>Discount</FinLbl>
-        <FinIn type="number" min={0} max={100} value={f.discount_percent}
-          onChange={e=>onChange("discount_percent",e.target.value)}
-          style={{width:48,flexGrow:0,textAlign:"center"}}/>
-        <span style={{fontSize:"0.73rem",color:T.textMuted}}>%</span>
-        <FinIn type="number" min={0} value={f.discount_amount} onChange={e=>onChange("discount_amount",e.target.value)}/>
-      </FinRow>
-      <FinRow><FinLbl>Disc Reason</FinLbl><FinIn value={f.disc_reason} onChange={e=>onChange("disc_reason",e.target.value)} style={{textAlign:"left"}}/></FinRow>
-      <FinRow><FinLbl>Item Disc</FinLbl>  <Rupee>₹</Rupee><FinIn $ro value={fmt(totals.itemDisc)}  readOnly/></FinRow>
-      <FinRow><FinLbl>Total Disc</FinLbl> <Rupee>₹</Rupee><FinIn $ro value={fmt(totals.totalDisc)} readOnly/></FinRow>
-      <FinRow><FinLbl>Remarks</FinLbl>    <FinIn value={f.remarks||""} onChange={e=>onChange("remarks",e.target.value)} style={{textAlign:"left"}}/></FinRow>
-    </FinCol>
-  </FinGrid>
-);
-
-// ═════════════════════════════════════════════════════════════════════════════
-// ItemsSection — receives pre-fetched allItems, passes to ItemSearchInput
-// ═════════════════════════════════════════════════════════════════════════════
-
-const ItemsSection = ({
-  items, newItem, onNIChange, onItemSelect, onAdd, onClear, onEdit, onRemove, disabled,
-  doctors, billTypeNo, billTypeName, allItems, itemsLoading,
-}) => (
-  <TScrollWrap>
-    <ITable>
-      <ITHead>
-        <tr>
-          <ITH style={{width:34}}>#</ITH>
-          <ITH style={{minWidth:200}}>
-            Item Name
-            {billTypeName && (
-              <span style={{
-                marginLeft: 6, fontSize: "0.6rem", fontWeight: 600,
-                background: T.primary, color: "#fff",
-                padding: "1px 6px", borderRadius: 10,
-              }}>
-                {billTypeName}
-              </span>
-            )}
-          </ITH>
-          <ITH style={{width:64}}>Qty</ITH>
-          <ITH style={{width:80}}>Rate</ITH>
-          <ITH style={{width:72}}>Disc</ITH>
-          <ITH style={{width:88}}>Amount</ITH>
-          <ITH style={{minWidth:130}}>Doctor</ITH>
-          <ITH style={{width:68}}>Dr.Fee</ITH>
-          <ITH>Description</ITH>
-          <ITH style={{width:72}}>Source</ITH>
-          <ITH style={{width:36}}></ITH>
-        </tr>
-      </ITHead>
-      <tbody>
-        {/* ── New item add row ── */}
-        <AddRow>
-          <ITD style={{color:T.amber,fontWeight:700,fontSize:"0.7rem"}}>+</ITD>
-          <ITD>
-            <ItemSearchInput
-              value={newItem.itemName}
-              onChange={v => onNIChange("itemName", v)}
-              onSelect={onItemSelect}
-              disabled={disabled}
-              allItems={allItems}
-              itemsLoading={itemsLoading}
-              billTypeName={billTypeName}
-            />
-          </ITD>
-          <ITD><TInput $w="58px" type="number" min={1} value={newItem.quantity}      onChange={e=>onNIChange("quantity",Number(e.target.value)||1)} disabled={disabled}/></ITD>
-          <ITD><TInput $w="70px" type="number" min={0} value={newItem.rate}          onChange={e=>onNIChange("rate",e.target.value)} disabled={disabled}/></ITD>
-          <ITD><TInput $w="60px" type="number" min={0} value={newItem.discount}      onChange={e=>onNIChange("discount",e.target.value)} disabled={disabled}/></ITD>
-          <ITD><TInput $w="76px" $ro value={fmt(newItem.amount)} readOnly/></ITD>
-          <ITD>
-            <TSelect value={newItem.doctor} onChange={e=>onNIChange("doctor",e.target.value)} disabled={disabled}>
-              <option value="">— Doctor —</option>
-              {doctors.map((d,i)=>{
-                const name = d.employeeName||d.doctor_name||d.name||(typeof d==="string"?d:"");
-                const id   = d.employeeId  ||d.doctor_id  ||d.id  ||i;
-                return <option key={id} value={name}>{name}</option>;
-              })}
-            </TSelect>
-          </ITD>
-          <ITD><TInput $w="62px" type="number" min={0} value={newItem.doctor_fee}    onChange={e=>onNIChange("doctor_fee",e.target.value)} disabled={disabled}/></ITD>
-          <ITD><TInput value={newItem.item_description} onChange={e=>onNIChange("item_description",e.target.value)} disabled={disabled} placeholder="Notes…"/></ITD>
-          <ITD></ITD>
-          <ITD>
-            <div style={{display:"flex",gap:4}}>
-              <button onClick={onAdd} disabled={disabled}
-                style={{width:26,height:26,borderRadius:5,background:disabled?"#94a3b8":T.primary,border:"none",color:"#fff",fontWeight:700,fontSize:"1rem",cursor:disabled?"not-allowed":"pointer"}}>+</button>
-              <button onClick={onClear}
-                style={{width:26,height:26,borderRadius:5,background:"#f1f5f9",border:`1px solid ${T.border}`,cursor:"pointer",fontSize:"0.85rem"}}>↺</button>
-            </div>
-          </ITD>
-        </AddRow>
-
-        {/* ── Existing items ── */}
-        {items.length===0 ? (
-          <tr><td colSpan={11}><EmptyRow>{disabled?"Search a patient to load items.":"No items yet — add above."}</EmptyRow></td></tr>
-        ) : items.map((item,idx)=>(
-          <ITR key={item._key}>
-            <ITD style={{color:T.textMuted,fontWeight:600,fontSize:"0.75rem"}}>{idx+1}</ITD>
-            <ITD style={{fontWeight:600}}>
-              {item.itemName}
-              {item.package_name&&<div style={{fontSize:"0.68rem",color:T.textMuted}}>{item.package_name}</div>}
-            </ITD>
-            <ITD><TInput $w="58px" type="number" min={1}  value={item.quantity} onChange={e=>onEdit(item._key,"quantity",Number(e.target.value)||1)}/></ITD>
-            <ITD><TInput $w="70px" type="number" min={0}  value={item.rate}     onChange={e=>onEdit(item._key,"rate",e.target.value)}/></ITD>
-            <ITD><TInput $w="60px" type="number" min={0}  value={item.discount} onChange={e=>onEdit(item._key,"discount",e.target.value)}/></ITD>
-            <ITD style={{fontWeight:700}}>₹{fmt(item.amount)}</ITD>
-            <ITD>
-              <TSelect value={item.doctor||""} onChange={e=>onEdit(item._key,"doctor",e.target.value)}>
-                <option value="">— Doctor —</option>
-                {doctors.map((d,i)=>{
-                  const name = d.employeeName||d.doctor_name||d.name||(typeof d==="string"?d:"");
-                  const id   = d.employeeId  ||d.doctor_id  ||d.id  ||i;
-                  return <option key={id} value={name}>{name}</option>;
-                })}
-              </TSelect>
-            </ITD>
-            <ITD><TInput $w="62px" type="number" min={0} value={item.doctor_fee||""} onChange={e=>onEdit(item._key,"doctor_fee",e.target.value)}/></ITD>
-            <ITD style={{fontSize:"0.74rem",color:T.textMuted}}>{item.invest_bill_no||item.item_description||"—"}</ITD>
-            <ITD>
-              {item._fromInvest
-                ?<Badge $v="pending">{item.payment_status||"Invest"}</Badge>
-                :<Badge $v="manual">Manual</Badge>}
-            </ITD>
-            <ITD>
-              <button onClick={()=>onRemove(item._key)}
-                style={{background:"none",border:"none",cursor:"pointer",color:T.danger,fontSize:"0.9rem",padding:"2px 4px",borderRadius:4}}>🗑</button>
-            </ITD>
-          </ITR>
-        ))}
-      </tbody>
-    </ITable>
-  </TScrollWrap>
-);
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Main Component
-// ═════════════════════════════════════════════════════════════════════════════
-
-const DischargeBilling = () => {
-  const [tab, setTab] = useState("create");
-
-  // ── Master data ────────────────────────────────────────────────────────────
-  const [doctors,       setDoctors]       = useState([]);
-  const [billTypes,     setBillTypes]     = useState([]);
-  const [masterLoading, setMasterLoading] = useState(false);
-
-  // ── Pre-fetched items for selected bill type ───────────────────────────────
-  const [allItems,     setAllItems]     = useState([]);
-  const [itemsLoading, setItemsLoading] = useState(false);
-
-  // Selected bill type (default = DISCHARGE / DIS01)
-  const [selectedBT, setSelectedBT] = useState({
-    billTypeNo: DEFAULT_BILL_TYPE_NO,
-    bill_type:  DEFAULT_BILL_TYPE_NUM,
-    bill_name:  "DISCHARGE",
-  });
-
-  // ── Create tab state ───────────────────────────────────────────────────────
-  const [uhid,       setUhid]       = useState("");
-  const [ipNumber,   setIpNumber]   = useState("");
-  const [searching,  setSearching]  = useState(false);
-  const [searchErr,  setSearchErr]  = useState("");
-  const [patient,    setPatient]    = useState(null);
-  const [items,      setItems]      = useState([]);
-  const [newItem,    setNewItem]    = useState(EMPTY_ITEM);
-  const [form,       setFormRaw]    = useState(EMPTY_FORM);
-  const [saving,     setSaving]     = useState(false);
-  const [editingEst, setEditingEst] = useState(null);
-
-  const setForm = (k,v) => setFormRaw(p=>({...p,[k]:v}));
-  const totals  = calcTotals(items, form);
-
-  const [estRefresh,  setEstRefresh]  = useState(0);
-  const [billRefresh, setBillRefresh] = useState(0);
-
-  const [toast, setToast] = useState(null);
-  const showToast = (msg, err=false) => { setToast({msg,err}); setTimeout(()=>setToast(null),3800); };
-
-  // ── Fetch doctors & bill types on mount ────────────────────────────────────
-  useEffect(() => {
-    const fetchMasterData = async () => {
-      setMasterLoading(true);
-      try {
-        const dRes = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-        if (dRes?.success) setDoctors(dRes.data || []);
-        else if (Array.isArray(dRes)) setDoctors(dRes);
-        else if (Array.isArray(dRes?.data)) setDoctors(dRes.data);
-      } catch {}
-
-      try {
-        const bRes = await apiRequest(`${BASE}bill-types/`, "GET");
-        const list  = Array.isArray(bRes?.billTypes) ? bRes.billTypes : [];
-        setBillTypes(list);
-        // Auto-select DISCHARGE (DIS01) as default
-        const discharge = list.find(b => b.billTypeNo === DEFAULT_BILL_TYPE_NO);
-        if (discharge) {
-          setSelectedBT({
-            billTypeNo: discharge.billTypeNo,
-            bill_type:  discharge.bill_type,
-            bill_name:  discharge.bill_name,
-          });
-        }
-      } catch {}
-
-      setMasterLoading(false);
-    };
-    fetchMasterData();
-  }, []);
-
-  // ── Fetch items whenever selected bill type changes ────────────────────────
-  // Items are loaded ONCE per bill-type change, not on every keystroke.
-  // API call: GET /investigation-items/?billTypeNo=DIS01&billType=2
-  useEffect(() => {
-    if (!selectedBT.billTypeNo || selectedBT.bill_type == null) return;
-    let cancelled = false;
-
-    const fetchItems = async () => {
-      setItemsLoading(true);
-      setAllItems([]); // clear stale items immediately so dropdown shows loading
-      try {
-        const url = `${BASE}investigation-items/?billTypeNo=${encodeURIComponent(selectedBT.billTypeNo)}&billType=${encodeURIComponent(String(selectedBT.bill_type))}`;
-        const res  = await apiRequest(url, "GET");
-        console.log("res",res)
-
-        const list =
-          Array.isArray(res?.data?.items) ? res.data.items :
-          Array.isArray(res?.items)       ? res.items :
-          Array.isArray(res?.data)        ? res.data :
-          Array.isArray(res)              ? res :
-          [];
-        console.log("list",list)
-        
-        if (!cancelled) setAllItems(normaliseItems(list));
-        console.log("normaliseItems",normaliseItems)
-      } catch {
-        if (!cancelled) setAllItems([]);
-      } finally {
-        if (!cancelled) setItemsLoading(false);
-      }
-    };
-    
-    fetchItems();
-    return () => { cancelled = true; };
-  }, [selectedBT.billTypeNo, selectedBT.bill_type]);
-
-  // ── Bill type change handler ────────────────────────────────────────────────
-  const handleBillTypeChange = e => {
-    const chosen = billTypes.find(b => b.billTypeNo === e.target.value);
-    if (!chosen) return;
-    setSelectedBT({
-      billTypeNo: chosen.billTypeNo,
-      bill_type:  chosen.bill_type,
-      bill_name:  chosen.bill_name,
-    });
-    // Reset new item row so name input is blank (stale item from old type removed)
-    setNewItem(EMPTY_ITEM);
-    // allItems will be cleared + re-fetched by the useEffect above
+        <div style="text-align:right;">
+          <div class="big">IP: ${d.ipNumber || ""}</div>
+          <div class="bold">${d.customerType || ""}</div>
+          <div>UHID: ${d.uhid || ""}</div>
+          <div>Date: ${admDT.toLocaleDateString("en-IN")}</div>
+          <div>Time: ${admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false })}</div>
+          <div>Room: ${d.roomNo || ""} / Bed: ${d.bedNo || ""}</div>
+        </div>
+      </div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();};</script>
+      </body></html>`);
+    pw.document.close();
   };
 
-  // ── Patient search ─────────────────────────────────────────────────────────
-  const doSearch = async mode => {
-    const val = (mode==="uhid"?uhid:ipNumber).trim();
-    if (!val) { setSearchErr("Please enter a value"); return; }
-    setSearchErr(""); setSearching(true);
-    setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
-    try {
-      const param = mode==="uhid"
-        ? `uhid=${encodeURIComponent(val)}`
-        : `ipNumber=${encodeURIComponent(val)}`;
-      const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}`, "GET");
-      const res = raw?.data !== undefined ? raw.data : raw;
-      const p   = res?.patient;
-      if (p) {
-        const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "" };
-        setPatient(norm);
-        if (norm.uhid)      setUhid(norm.uhid);
-        if (norm.ip_number) setIpNumber(norm.ip_number);
-        if (Array.isArray(res.invest_items) && res.invest_items.length)
-          setItems(res.invest_items.map(investToRow));
-      } else setSearchErr("No record found");
-    } catch { setSearchErr("Search failed — check network"); }
-    finally   { setSearching(false); }
-  };
+  // ─── Render ───────────────────────────────────────────────────────────────
+  const patientName = [form.salutation, form.firstName, form.middleName, form.lastName].filter(Boolean).join(" ");
+  const hasPatient  = !!form.firstName;
 
-  // ── New item helpers ───────────────────────────────────────────────────────
-  const handleNIChange = (field, value) =>
-    setNewItem(p => recalcItem({ ...p, [field]: value }, field, value));
-
-  const handleItemSelect = useCallback(item => {
-    setNewItem(p => {
-      const itemName = item.itemName || "";
-      const rate     = item.price    || "";
-      const qty      = parseFloat(p.quantity) || 1;
-      const rateNum  = parseFloat(rate)       || 0;
-      const disc     = parseFloat(p.discount) || 0;
-      const amount   = Math.max(0, qty * rateNum - disc);
-      return { ...p, itemName, rate, amount };
-    });
-  }, []);
-
-  const handleAddItem = () => {
-    if (!newItem.itemName.trim()) { showToast("Enter item name first", true); return; }
-    setItems(p => [...p, { ...newItem, _key: `m_${Date.now()}`, _fromInvest: false }]);
-    setNewItem(EMPTY_ITEM);
-  };
-
-  const handleReset = () => {
-    setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
-    setUhid(""); setIpNumber(""); setSearchErr(""); setFormRaw(EMPTY_FORM);
-    setEditingEst(null);
-  };
-
-  // ── Edit / Convert from estimates list ─────────────────────────────────────
-  const handleEditConvert = useCallback(est => {
-    if (!est?.id) return;
-    const pd = est.patient_details || {};
-    setPatient({
-      patient_name:   pd.patient_name   || "",
-      age:            pd.age            || "",
-      gender:         pd.gender         || "",
-      doctor:         pd.doctor         || "",
-      admission_date: pd.admission_date || "",
-      uhid:           est.uhid          || "",
-      ip_number:      est.ip_number     || "",
-      mobile:         pd.mobile         || "",
-      room_no:        pd.room_no        || "",
-      total_days:     pd.total_days     ?? 0,
-      patient_type:   pd.patient_type   || "",
-      company:        pd.company        || "",
-    });
-    setUhid(est.uhid        || "");
-    setIpNumber(est.ip_number || "");
-    setItems(parseItems(est.items).map((it, idx) => ({
-      ...EMPTY_ITEM, ...it,
-      amount: parseFloat(it.amount) || (parseFloat(it.quantity || 1) * parseFloat(it.rate || 0)),
-      _key: `est_${idx}_${Date.now()}`, _fromInvest: false,
-    })));
-    setNewItem(EMPTY_ITEM);
-    setFormRaw(estToForm(est));
-    setEditingEst({ id: est.id, estimate_number: est.estimate_number });
-    setTab("create");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast(`📋 Estimate ${est.estimate_number} loaded — edit & save`);
-  }, []);
-
-  // ── Save / Update Estimate ─────────────────────────────────────────────────
-  const handleSaveEstimate = async () => {
-    if (!patient)      { showToast("Search a patient first", true); return; }
-    if (!items.length) { showToast("Add at least one item",  true); return; }
-    setSaving(true);
-    try {
-      const t   = calcTotals(items, form);
-      const res = editingEst?.id
-        ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient))
-        : await apiRequest(`${BASE}discharge-billing/`,                  "POST",  buildPayload(items, form, t, "Estimate", patient));
-      const d = res?.id ? res : res?.data;
-      if (d?.id) {
-        showToast(`✓ Estimate saved — ${d.estimate_number || ""}`);
-        handleReset(); setEstRefresh(n => n + 1); setTab("estimates");
-      } else showToast(JSON.stringify(res?.error || res), true);
-    } catch { showToast("Network error", true); }
-    finally { setSaving(false); }
-  };
-
-  // ── Save as Final Bill ─────────────────────────────────────────────────────
-  const handleSaveBill = async () => {
-    if (!patient)      { showToast("Search a patient first", true); return; }
-    if (!items.length) { showToast("Add at least one item",  true); return; }
-    setSaving(true);
-    try {
-      const t = calcTotals(items, form);
-      if (editingEst?.id) {
-        await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient));
-        const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {});
-        const d   = res?.id ? res : res?.data;
-        if (d?.id || d?.bill_no) {
-          showToast(`✓ Converted to Bill — ${d.bill_no || ""}`);
-          handleReset(); setEstRefresh(n => n + 1); setBillRefresh(n => n + 1); setTab("bills");
-        } else showToast(JSON.stringify(res?.error || res), true);
-      } else {
-        const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient));
-        const d   = res?.id ? res : res?.data;
-        if (d?.id) {
-          showToast(`✓ Bill saved — ${d.bill_no || ""}`);
-          handleReset(); setBillRefresh(n => n + 1); setTab("bills");
-        } else showToast(JSON.stringify(res?.error || res), true);
-      }
-    } catch { showToast("Network error", true); }
-    finally { setSaving(false); }
-  };
-
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <PageWrap>
-      <GlobalStyle/>
-      {toast && <Toast $err={toast.err}>{toast.msg}</Toast>}
+    <PageWrapper>
+      <Container style={{ padding: 0 }}>
 
-      <AppBar>
-        <AppTitle>🏥 HMS — Discharge Billing</AppTitle>
-        <Crumb>Home / Discharge / Billing</Crumb>
-      </AppBar>
+        {/* Header */}
+        <PageHeader>
+          <PageTitle>
+            <span>🏥</span>
+            {editingIP ? `Editing Admission — ${editingIP}` : "New IP Admission"}
+          </PageTitle>
+          <ClockDisplay>{formatDate(now)} &nbsp; {formatClock(now)}</ClockDisplay>
+        </PageHeader>
 
-      <Content>
-        <TabBar>
-          <Tab $active={tab==="create"}    onClick={()=>setTab("create")}>🧾 Create Bill</Tab>
-          <Tab $active={tab==="estimates"} onClick={()=>setTab("estimates")}>📋 Estimates</Tab>
-          <Tab $active={tab==="bills"}     onClick={()=>setTab("bills")}>✅ Bills</Tab>
-        </TabBar>
-
-        {/* ═══ CREATE / EDIT TAB ═══ */}
-        {tab==="create" && (<>
-
-          {/* Patient search */}
-          <Card>
-            <CardHead>
-              <CardTitle>Patient Search</CardTitle>
-              {editingEst && <Badge $v="converting">✏️ Editing Estimate</Badge>}
-            </CardHead>
-            <SearchBar>
-              <FG $w="200px">
-                <FL>UHID <Req>*</Req></FL>
-                <div style={{display:"flex",gap:5}}>
-                  <FInput style={{flex:1}} value={uhid}
-                    onChange={e=>{setUhid(e.target.value);setSearchErr("");}}
-                    placeholder="e.g. S025/011667"
-                    onKeyDown={e=>e.key==="Enter"&&doSearch("uhid")}/>
-                  <IconBtn onClick={()=>doSearch("uhid")} disabled={searching}>
-                    {searching?<Spinner/>:"🔍"}
+        {/* ── Search ── */}
+        <SectionCard delay={0}>
+          <SectionHead>🔍 Patient / Admission Search</SectionHead>
+          <SectionBody>
+            <FormGrid>
+              <Field span={3}>
+                <Lbl required>Search by UHID</Lbl>
+                <InputRow>
+                  <Inp
+                    name="uhid"
+                    value={form.uhid}
+                    onChange={handleChange}
+                    placeholder="Enter UHID (e.g. S026/0000003)"
+                    readOnly={!!editingIP}
+                    onKeyDown={e => e.key === "Enter" && handleSearchByUHID()}
+                  />
+                  <IconBtn type="button" onClick={handleSearchByUHID} disabled={searchingUHID || !!editingIP}>
+                    {searchingUHID ? "..." : "🔍 Fetch"}
                   </IconBtn>
-                </div>
-              </FG>
-              <FG $w="200px">
-                <FL>IP Number <Req>*</Req></FL>
-                <div style={{display:"flex",gap:5}}>
-                  <FInput style={{flex:1}} value={ipNumber}
-                    onChange={e=>{setIpNumber(e.target.value);setSearchErr("");}}
-                    placeholder="e.g. S025/012488"
-                    onKeyDown={e=>e.key==="Enter"&&doSearch("ipNumber")}/>
-                  <IconBtn onClick={()=>doSearch("ipNumber")} disabled={searching}>
-                    {searching?<Spinner/>:"🔍"}
+                </InputRow>
+              </Field>
+              <Field span={3}>
+                <Lbl>Search by IP Number (to edit)</Lbl>
+                <InputRow>
+                  <Inp
+                    name="ipNumber"
+                    value={form.ipNumber}
+                    onChange={handleChange}
+                    placeholder="Enter IP Number (e.g. S026/500003)"
+                    onKeyDown={e => e.key === "Enter" && handleSearchByIP()}
+                  />
+                  <IconBtn type="button" onClick={handleSearchByIP} disabled={searchingIP}>
+                    {searchingIP ? "..." : "🔍 Load"}
                   </IconBtn>
-                </div>
-              </FG>
-              <FG $w="150px">
-                <FL>Bill Up To</FL>
-                <FInput type="date" value={form.bill_upto} onChange={e=>setForm("bill_upto",e.target.value)}/>
-              </FG>
-            </SearchBar>
-            {searchErr && <ErrMsg>⚠ {searchErr}</ErrMsg>}
-          </Card>
+                </InputRow>
+              </Field>
+            </FormGrid>
+          </SectionBody>
+        </SectionCard>
 
-          {/* Patient details */}
-          {patient && (
-            <Card>
-              <CardHead>
-                <CardTitle>Patient Details</CardTitle>
-                <Badge $v={editingEst?"converting":"billed"}>
-                  {editingEst?"✏️ Editing Estimate":"✓ Loaded"}
-                </Badge>
-              </CardHead>
-              <PGrid>
-                <PCell><PLbl>Name</PLbl>              <PVal>{patient.patient_name||"—"}</PVal></PCell>
-                <PCell><PLbl>Age / Gender</PLbl>      <PVal>{patient.age||"—"} / {patient.gender||"—"}</PVal></PCell>
-                <PCell><PLbl>Doctor</PLbl>             <PVal style={{fontSize:"0.79rem"}}>{patient.doctor||"—"}</PVal></PCell>
-                <PCell $nr><PLbl>Admission Date</PLbl> <PVal>{patient.admission_date||"—"}</PVal></PCell>
-                <PCell $nb><PLbl>UHID / IP No</PLbl>   <PVal style={{fontFamily:"monospace",fontSize:"0.78rem"}}>{patient.uhid} / {patient.ip_number||"—"}</PVal></PCell>
-                <PCell $nb><PLbl>Mobile</PLbl>          <PVal>{patient.mobile||"—"}</PVal></PCell>
-                <PCell $nb><PLbl>Room / Days</PLbl>     <PVal>{patient.room_no||"—"} / {patient.total_days??0}d</PVal></PCell>
-                <PCell $nb $nr><PLbl>Type / Company</PLbl><PVal style={{fontSize:"0.78rem",textTransform:"uppercase"}}>{patient.patient_type||"—"} / {patient.company||"—"}</PVal></PCell>
-              </PGrid>
-            </Card>
+        {/* ── Patient Info ── */}
+        {hasPatient && (
+          <SectionCard delay={40}>
+            <SectionHead>👤 Patient Details</SectionHead>
+            <SectionBody style={{ paddingBottom: 10 }}>
+              <PatientCard>
+                <PatInfoItem>
+                  <PatLabel>Patient Name</PatLabel>
+                  <PatValue>{patientName || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem>
+                  <PatLabel>UHID</PatLabel>
+                  <PatValue>{form.uhid || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem>
+                  <PatLabel>Age / Gender</PatLabel>
+                  <PatValue>{[form.age, form.gender].filter(Boolean).join(" / ") || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem>
+                  <PatLabel>Phone</PatLabel>
+                  <PatValue>{form.phone || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem>
+                  <PatLabel>Customer Type</PatLabel>
+                  <PatValue>{form.customerType || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem>
+                  <PatLabel>Insurance</PatLabel>
+                  <PatValue>{form.insuranceCompanyName || form.insuranceCompany || "—"}</PatValue>
+                </PatInfoItem>
+                <PatInfoItem style={{ gridColumn: "span 2" }}>
+                  <PatLabel>Address</PatLabel>
+                  <PatValue style={{ fontSize: "0.72rem" }}>
+                    {[form.permanent_address, form.area, form.city, form.state, form.zipcode].filter(Boolean).join(", ") || "—"}
+                  </PatValue>
+                </PatInfoItem>
+              </PatientCard>
+            </SectionBody>
+          </SectionCard>
+        )}
+
+        {/* ── Clinical ── */}
+        <SectionCard delay={80}>
+          <SectionHead>🩺 Clinical Details</SectionHead>
+          <SectionBody>
+            <FormGrid>
+              <Field span={3}>
+                <Lbl required>Admitting Doctor</Lbl>
+                <Sel name="admittingDoctor" value={form.admittingDoctor} onChange={handleChange}>
+                  <option value="">— Select Doctor —</option>
+                  {doctors.map(d => <option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
+                </Sel>
+              </Field>
+              <Field span={3}>
+                <Lbl>Consulting Doctor</Lbl>
+                <Sel name="consultingDoctor" value={form.consultingDoctor} onChange={handleChange}>
+                  <option value="">— Select Doctor —</option>
+                  {doctors.map(d => <option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
+                </Sel>
+              </Field>
+              <Field span={3}>
+                <Lbl>Reason for Admission</Lbl>
+                <Txta name="reasonForAdmission" value={form.reasonForAdmission} onChange={handleChange} rows={2} />
+              </Field>
+              <Field span={3}>
+                <Lbl>Package</Lbl>
+                <Sel name="packageName" value={form.packageName} onChange={handleChange}>
+                  <option value="">— No Package —</option>
+                  {packages.map(p => (
+                    <option key={p.packageNo} value={p.packageName}>
+                      {p.packageName}{p.department ? ` (${p.department})` : ""}
+                    </option>
+                  ))}
+                </Sel>
+              </Field>
+            </FormGrid>
+          </SectionBody>
+        </SectionCard>
+
+        {/* ── Room & Bed ── */}
+        <SectionCard delay={120}>
+          <SectionHead>🛏️ Room &amp; Bed Assignment</SectionHead>
+          <SectionBody>
+            <FormGrid>
+              <Field span={3}>
+                <Lbl required>Room Number</Lbl>
+                <InputRow>
+                  <Inp
+                    name="roomNo"
+                    value={form.roomNo}
+                    onChange={handleChange}
+                    placeholder="Click 🔍 to open room picker"
+                  />
+                  <IconBtn type="button" onClick={openRoomModal}>🔍 Pick Room</IconBtn>
+                </InputRow>
+              </Field>
+              <Field span={3}>
+                <Lbl required>Bed Number</Lbl>
+                <Inp
+                  name="bedNo"
+                  value={form.bedNo}
+                  readOnly
+                  placeholder="Auto-filled on bed selection"
+                  style={{ background: "#f8fafc" }}
+                />
+              </Field>
+            </FormGrid>
+          </SectionBody>
+        </SectionCard>
+
+        {/* ── MLC ── */}
+        <SectionCard delay={160}>
+          <SectionHead>⚖️ MLC Details (if applicable)</SectionHead>
+          <SectionBody>
+            <FormGrid>
+              <Field span={2}>
+                <Lbl>MLC Type</Lbl>
+                <Sel name="mlc_type" value={form.mlc_type} onChange={handleChange}>
+                  <option value="">— None —</option>
+                  <option value="Accident">Accident</option>
+                  <option value="Assault">Assault</option>
+                  <option value="Other">Other</option>
+                </Sel>
+              </Field>
+              <Field span={2}>
+                <Lbl>MLC Document</Lbl>
+                <Inp type="file" name="mlc_doc" onChange={handleChange} style={{ paddingTop: 4, height: "auto" }} />
+              </Field>
+              <Field span={2}>
+                <Lbl>MLC Remarks</Lbl>
+                <Txta name="mlc_remarks" value={form.mlc_remarks} onChange={handleChange} rows={2} />
+              </Field>
+            </FormGrid>
+          </SectionBody>
+        </SectionCard>
+
+        {/* ── Action Bar ── */}
+        <ActionBar>
+          {lastSaved && (
+            <PrintBtn onClick={() => handlePrint(lastSaved)}>🖨️ Print Slip</PrintBtn>
           )}
+          <ResetBtn onClick={handleReset}>↺ Reset</ResetBtn>
+          <SaveBtn onClick={handleSubmit}>
+            {editingIP ? "💾 Update Admission" : "💾 Save Admission"}
+          </SaveBtn>
+        </ActionBar>
 
-          {/* Bill type selector + Items */}
-          <Card>
-            <CardHead>
-              <CardTitle>Investigation / Billing Items</CardTitle>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                {itemsLoading && (
-                  <span style={{fontSize:"0.71rem",color:T.textMuted,display:"flex",alignItems:"center",gap:5}}>
-                    <MiniSpinner/>
-                    Loading {selectedBT.bill_name} items…
-                  </span>
-                )}
-                {!itemsLoading && allItems.length > 0 && (
-                  <span style={{fontSize:"0.71rem",color:T.success,fontWeight:600}}>
-                    ✓ {allItems.length} {selectedBT.bill_name} items ready
-                  </span>
-                )}
-                {!itemsLoading && allItems.length === 0 && selectedBT.billTypeNo && (
-                  <span style={{fontSize:"0.71rem",color:T.amber,fontWeight:600}}>
-                    ⚠ No items for {selectedBT.bill_name}
-                  </span>
-                )}
-                {items.length > 0 && (
-                  <span style={{fontSize:"0.71rem",color:T.textMuted}}>
-                    {items.length} item{items.length!==1?"s":""}
-                    {items.filter(i=>i._fromInvest).length>0&&` · ${items.filter(i=>i._fromInvest).length} from investigation`}
-                  </span>
+        {/* ── Admitted Patients Table ── */}
+        <TableSection>
+          <TableTitle>📋 Admitted Patients ({admissions.length})</TableTitle>
+          <TableWrapper>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>UHID</Th>
+                  <Th>IP Number</Th>
+                  <Th>Patient Name</Th>
+                  <Th>Admission Date &amp; Time</Th>
+                  <Th>Room / Bed</Th>
+                  <Th>Doctor</Th>
+                  <Th>Package</Th>
+                  <Th>Status</Th>
+                  <Th>Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {admissions.length === 0 ? (
+                  <Tr><Td colSpan="9" style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                    No admissions found
+                  </Td></Tr>
+                ) : admissions.map((adm, idx) => (
+                  <Tr key={idx}>
+                    <Td style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{adm.uhid}</Td>
+                    <Td style={{ fontFamily: "monospace", fontSize: "0.75rem", fontWeight: 700, color: "#0d9488" }}>{adm.ipNumber}</Td>
+                    <Td>{[adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ") || "—"}</Td>
+                    <Td style={{ fontSize: "0.74rem" }}>{adm.admissionDateTime ? new Date(adm.admissionDateTime).toLocaleString("en-IN") : "—"}</Td>
+                    <Td>{`${adm.roomNo || "—"} / ${adm.bedNo || "—"}`}</Td>
+                    <Td style={{ fontSize: "0.74rem" }}>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor) || "—"}</Td>
+                    <Td style={{ fontSize: "0.74rem" }}>{adm.packageName || "—"}</Td>
+                    <Td>
+                      <StatusBadge active={adm.is_admissionActive !== false && !adm.is_discharged}>
+                        {adm.is_discharged ? "Discharged" : adm.is_admissionActive !== false ? "Active" : "Cancelled"}
+                      </StatusBadge>
+                    </Td>
+                    <Td>
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <MiniBtn
+                          onClick={() => handleEdit(adm)}
+                          disabled={adm.is_admissionActive === false || adm.is_discharged}
+                        >✏️ Edit</MiniBtn>
+                        <MiniBtn purple onClick={() => handlePrint(adm)}>🖨️</MiniBtn>
+                        <MiniBtn
+                          danger
+                          onClick={() => handleCancel(adm.ipNumber)}
+                          disabled={adm.is_admissionActive === false || adm.is_discharged}
+                        >🗑️</MiniBtn>
+                      </div>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrapper>
+        </TableSection>
+
+      </Container>
+
+      {/* ════ ROOM PICKER MODAL ════ */}
+      {showRoomModal && (
+        <ModalOverlay onClick={() => setShowRoomModal(false)}>
+          <RoomModalContainer onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>🏨 Select Room &amp; Bed</ModalTitle>
+              <CloseButton onClick={() => setShowRoomModal(false)}>×</CloseButton>
+            </ModalHeader>
+            <RoomModalBody>
+              {/* Filters */}
+              <FilterBar>
+                <FilterField>
+                  <FilterLabel>Room Number</FilterLabel>
+                  <FilterInput
+                    placeholder="e.g. 101"
+                    value={roomFilter.room_number}
+                    onChange={e => setRoomFilter(p => ({ ...p, room_number: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && fetchAllRooms()}
+                  />
+                </FilterField>
+                <FilterField>
+                  <FilterLabel>Block</FilterLabel>
+                  <FilterInput
+                    placeholder="e.g. A"
+                    value={roomFilter.block}
+                    onChange={e => setRoomFilter(p => ({ ...p, block: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && fetchAllRooms()}
+                  />
+                </FilterField>
+                <FilterField>
+                  <FilterLabel>Floor</FilterLabel>
+                  <FilterInput
+                    type="number"
+                    placeholder="e.g. 2"
+                    value={roomFilter.floor}
+                    onChange={e => setRoomFilter(p => ({ ...p, floor: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && fetchAllRooms()}
+                  />
+                </FilterField>
+                <FilterBtn onClick={() => fetchAllRooms()}>Search</FilterBtn>
+                <FilterBtn muted onClick={() => { setRoomFilter({ room_number: "", block: "", floor: "" }); fetchAllRooms({ room_number: "", block: "", floor: "" }); }}>
+                  Clear
+                </FilterBtn>
+              </FilterBar>
+
+              {/* Legend */}
+              <LegendBar>
+                <LegendItem><LegendDot color="#22c55e" />Available</LegendItem>
+                <LegendItem><LegendDot color="#3b82f6" />Partially Available</LegendItem>
+                <LegendItem><LegendDot color="#ef4444" />Fully Occupied</LegendItem>
+                <LegendItem><LegendDot color="#f59e0b" />Maintenance</LegendItem>
+                <span style={{ fontSize: "0.68rem", color: "#94a3b8", marginLeft: "auto" }}>
+                  Click a green bed chip to select instantly
+                </span>
+              </LegendBar>
+
+              {/* Rooms */}
+              {loadingRooms ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(148px,1fr))", gap: 8 }}>
+                  {Array.from({ length: 12 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+              ) : Object.keys(groupedRooms).length === 0 ? (
+                <NoResults>No rooms found. Try clearing filters.</NoResults>
+              ) : (
+                Object.entries(groupedRooms).map(([block, floors], bIdx) => (
+                  <BlockSection key={block} idx={bIdx}>
+                    <BlockHeader>🏢 Block {block}</BlockHeader>
+                    {Object.entries(floors).sort(([a], [b]) => Number(a) - Number(b)).map(([floor, rooms]) => (
+                      <FloorGroup key={floor}>
+                        <FloorLabel>Floor {floor}</FloorLabel>
+                        <RoomGrid>
+                          {rooms.map(room => {
+                            const status = getRoomStatus(room.beds);
+                            return (
+                              <RoomCard
+                                key={room.room_number}
+                                status={status}
+                                onClick={() => handleRoomClick(room)}
+                                title={
+                                  status === "occupied"    ? "Fully occupied" :
+                                  status === "maintenance" ? "Under maintenance" :
+                                  status === "partial"     ? "Partially available — pick a bed" :
+                                  "Available — pick a bed"
+                                }
+                              >
+                                <RoomCardTop status={status}>
+                                  <RoomNum>{room.room_number}</RoomNum>
+                                  <RoomStatusPill status={status}>
+                                    {status === "partial" ? "Partial" : status}
+                                  </RoomStatusPill>
+                                </RoomCardTop>
+                                <RoomType>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RoomType>
+                                <BedRow>
+                                  {(room.beds || []).map((bed, i) => (
+                                    <BedChip
+                                      key={i}
+                                      bedStatus={bed.status}
+                                      disabled={bed.status !== "Available"}
+                                      title={`Bed ${bed.bed_number} — ${bed.status}`}
+                                      onClick={e => {
+                                        if (bed.status === "Available") {
+                                          e.stopPropagation();
+                                          setSelectedRoom(room);
+                                          handleBedSelect(bed.bed_number);
+                                          setShowRoomModal(false);
+                                        }
+                                      }}
+                                    >
+                                      {bed.bed_number}
+                                    </BedChip>
+                                  ))}
+                                </BedRow>
+                              </RoomCard>
+                            );
+                          })}
+                        </RoomGrid>
+                      </FloorGroup>
+                    ))}
+                  </BlockSection>
+                ))
+              )}
+            </RoomModalBody>
+          </RoomModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ════ BED SELECT MODAL ════ */}
+      {showBedModal && selectedRoom && (
+        <ModalOverlay onClick={() => setShowBedModal(false)}>
+          <ModalContainer onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <ModalHeader>
+              <ModalTitle>🛏️ Select Bed — Room {selectedRoom.room_number}</ModalTitle>
+              <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
+                {(selectedRoom.beds || []).map((bed, i) => {
+                  const avail = bed.status === "Available";
+                  return (
+                    <BedChip
+                      key={i}
+                      bedStatus={bed.status}
+                      disabled={!avail}
+                      style={{ minWidth: 72, height: 44, fontSize: "0.8rem", flex: "1 1 72px" }}
+                      onClick={() => avail && handleBedSelect(bed.bed_number)}
+                      title={`${bed.bed_number} — ${bed.status}`}
+                    >
+                      {bed.bed_number}
+                      <br />
+                      <span style={{ fontSize: "0.58rem", opacity: 0.9 }}>{bed.status}</span>
+                    </BedChip>
+                  );
+                })}
+                {(!selectedRoom.beds || !selectedRoom.beds.length) && (
+                  <NoResults>No beds configured.</NoResults>
                 )}
               </div>
-            </CardHead>
-
-            {/* ── Bill type selection bar ── */}
-            {/* Changing this dropdown re-fetches allItems and updates the item search dropdown */}
-            <BillTypeBar>
-              <span style={{fontSize:"0.74rem",fontWeight:700,color:T.textMid,flexShrink:0}}>
-                Bill Type:
-              </span>
-              <FSelect
-                value={selectedBT.billTypeNo}
-                onChange={handleBillTypeChange}
-                disabled={masterLoading}
-                style={{height:30,fontSize:"0.8rem",minWidth:220}}
-              >
-                {billTypes.length === 0 ? (
-                  <option value={DEFAULT_BILL_TYPE_NO}>DISCHARGE</option>
-                ) : (
-                  billTypes.map(b => (
-                    <option key={b.billTypeNo} value={b.billTypeNo}>
-                      {b.bill_name}
-                    </option>
-                  ))
-                )}
-              </FSelect>
-
-              {masterLoading && (
-                <span style={{fontSize:"0.73rem",color:T.textMuted,display:"flex",alignItems:"center",gap:5}}>
-                  <MiniSpinner/> Loading bill types…
-                </span>
-              )}
-
-              {/* Live status pill for selected bill type's item count */}
-              {!masterLoading && (
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "3px 10px", borderRadius: 20,
-                  fontSize: "0.71rem", fontWeight: 700,
-                  background: itemsLoading ? "#fef9c3" : allItems.length > 0 ? "#dcfce7" : "#fee2e2",
-                  color:      itemsLoading ? T.amber    : allItems.length > 0 ? T.success : T.danger,
-                  border:     `1px solid ${itemsLoading ? "#fde68a" : allItems.length > 0 ? "#86efac" : "#fca5a5"}`,
-                }}>
-                  {itemsLoading ? (
-                    <><MiniSpinner/> Fetching items…</>
-                  ) : allItems.length > 0 ? (
-                    `✓ ${allItems.length} items loaded`
-                  ) : (
-                    "No items found"
-                  )}
-                </span>
-              )}
-
-              <span style={{fontSize:"0.71rem",color:T.textMuted,marginLeft:"auto"}}>
-                ↑ Change bill type to load different items in the search dropdown
-              </span>
-            </BillTypeBar>
-
-            <ItemsSection
-              items={items}
-              newItem={newItem}
-              onNIChange={handleNIChange}
-              onItemSelect={handleItemSelect}
-              onAdd={handleAddItem}
-              onClear={()=>setNewItem(EMPTY_ITEM)}
-              onEdit={(key,field,val)=>setItems(p=>p.map(i=>i._key===key?recalcItem(i,field,val):i))}
-              onRemove={key=>setItems(p=>p.filter(i=>i._key!==key))}
-              disabled={!patient}
-              doctors={doctors}
-              billTypeNo={selectedBT.billTypeNo}
-              billTypeName={selectedBT.bill_name}
-              allItems={allItems}
-              itemsLoading={itemsLoading}
-            />
-          </Card>
-
-          {/* Financials + actions */}
-          <Card>
-            <CardHead><CardTitle>Financial Summary</CardTitle></CardHead>
-            <FinancialGrid f={form} onChange={setForm} totals={totals}/>
-            <FinActions>
-              <Btn $ghost onClick={handleReset}>✕ Reset</Btn>
-              <Btn $amber onClick={handleSaveEstimate} disabled={saving||!patient}>
-                {saving?<Spinner/>:"📋"} {editingEst?" Update Estimate":" Save as Estimate"}
-              </Btn>
-              {editingEst ? (
-                <Btn $purple onClick={handleSaveBill} disabled={saving||!patient}>
-                  {saving?<Spinner/>:"🧾"} Convert &amp; Save Bill
-                </Btn>
-              ) : (
-                <Btn $primary onClick={handleSaveBill} disabled={saving||!patient}>
-                  {saving?<Spinner/>:"🧾"} Save as Final Bill
-                </Btn>
-              )}
-            </FinActions>
-          </Card>
-        </>)}
-
-        {/* ═══ ESTIMATES TAB ═══ */}
-        {tab==="estimates" && (
-          <DischargeViewEstimates
-            onEditConvert={handleEditConvert}
-            onRefreshTrigger={estRefresh}
-          />
-        )}
-
-        {/* ═══ BILLS TAB ═══ */}
-        {tab==="bills" && (
-          <DischargeViewBills onRefreshTrigger={billRefresh}/>
-        )}
-      </Content>
-    </PageWrap>
+            </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+    </PageWrapper>
   );
 };
 
-export default DischargeBilling;
+export default Admission;
