@@ -71,6 +71,7 @@ import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 import OTMaster from "./Components/OT/OTMaster";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
+import OTLabBilling from "./Components/OT/OTLabBilling";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -316,6 +317,7 @@ function App() {
               <Route path="/OTMaster" element={<OTMaster />} />
               <Route path="/AnesNameMaster" element={<AnesNameMaster />} />
               <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
+              <Route path="/OTLabBilling" element={<OTLabBilling />} />
             </>
           </Routes>
         </ContentWrapper>

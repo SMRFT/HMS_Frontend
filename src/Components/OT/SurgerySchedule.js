@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -15,6 +16,7 @@ import {
   UserCircle,
   CheckCheck,
   Printer,
+  FlaskConical,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
@@ -524,6 +526,36 @@ const emptyForm = {
 // ─────────────────────────────────────────────────────────────────────────────
 const SurgerySchedule = () => {
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const navigate = useNavigate();
+
+  // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
+  const raiseLabRequest = (s) => {
+    navigate("/OTLabBilling", {
+      state: {
+        patientData: {
+          // Patient info — s comes from _enrich() so uses enriched field names
+          uhid: s.uhid || "",
+          ipNumber: s.ip_number || "",
+          patient_name: s.patient_name || "", // full resolved name from _enrich
+          firstName: s.patient_name || "",
+          lastName: "",
+          salutation: "",
+          age: String(s.age || ""),
+          gender: s.gender || "",
+          // Company / insurance
+          customer_type: s.customer_type || "",
+          company_name: s.company_name || "",
+          company_code: s.company_code || "",
+          // Emergency flag
+          is_emergency: !!s.is_emergency,
+          // Pre-set doctor from surgeon
+          doctor: s.surgeon_name || "",
+          // Source reference
+          surgeryRef: s.reference_no || "",
+        },
+      },
+    });
+  };
 
   // Date filter
   const [fromDate, setFromDate] = useState(today());
@@ -1904,8 +1936,8 @@ const SurgerySchedule = () => {
                         )}
                       </Td>
                       <Td>{s.surgery_name}</Td>
-                      <Td>{s.anesthesia_name || s.anesthesia_name || "—"}</Td>
-                      <Td>{s.ot_name || s.ot_name}</Td>
+                      <Td>{s.anesthesia_name || "—"}</Td>
+                      <Td>{s.ot_name}</Td>
                       <Td>
                         {(() => {
                           const isConfirmed = s.status === "Confirmed";
@@ -2008,6 +2040,15 @@ const SurgerySchedule = () => {
                                 }
                               >
                                 <CheckCheck size={15} />
+                              </IconAction>
+
+                              {/* Raise Lab Request */}
+                              <IconAction
+                                col="#0891b2"
+                                title="Raise Lab Request"
+                                onClick={() => raiseLabRequest(s)}
+                              >
+                                <FlaskConical size={15} />
                               </IconAction>
                             </ActionBtnRow>
                           );
