@@ -530,7 +530,7 @@ const SurgerySchedule = () => {
 
   // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
   const raiseLabRequest = (s) => {
-    navigate("/OTLabBilling", {
+    navigate("/LabBilling", {
       state: {
         patientData: {
           // Patient info — s comes from _enrich() so uses enriched field names
@@ -620,15 +620,17 @@ const SurgerySchedule = () => {
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const [otRes, doctorRes, anesNameRes, surgicalRes] = await Promise.all([
-          apiRequest(`${HMSURL}list_ots/`, "GET"),
-          apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET"),
-          apiRequest(`${HMSURL}list_anes/`, "GET"),
-          apiRequest(
-            `${HMSURL}investigation-items/?billTypeNo=SUR01&billType=61`,
-            "GET",
-          ),
-        ]);
+        const [otRes, doctorRes, anesNameRes, surgicalRes, diagnosisRes] =
+          await Promise.all([
+            apiRequest(`${HMSURL}list_ots/`, "GET"),
+            apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET"),
+            apiRequest(`${HMSURL}list_anes/`, "GET"),
+            apiRequest(
+              `${HMSURL}investigation-items/?billTypeNo=SUR01&billType=61`,
+              "GET",
+            ),
+            apiRequest(`${HMSURL}list_diagnosis/`, "GET"),
+          ]);
 
         setOtOptions(toArray(otRes));
         setAnesNameOptions(toArray(anesNameRes));
@@ -643,6 +645,9 @@ const SurgerySchedule = () => {
           surgicalRes?.data?.items ||
           toArray(surgicalRes);
         setSurgicalItems(Array.isArray(rawSurgical) ? rawSurgical : []);
+
+        // Diagnosis list — { diagnostics_id, diagnostics_name }
+        setDiagnosisOptions(toArray(diagnosisRes));
       } catch {
         // Non-blocking — dropdowns stay empty if API fails
       }
@@ -1495,13 +1500,17 @@ const SurgerySchedule = () => {
                 >
                   <option value="">-- Select --</option>
                   {diagnosisOptions.map((d) => (
-                    <option key={d.id || d.name} value={d.name}>
-                      {d.name}
+                    <option
+                      key={d.diagnostics_id ?? d.id ?? d.diagnostics_name}
+                      value={d.diagnostics_name}
+                    >
+                      {d.diagnostics_name}
                     </option>
                   ))}
+                  {/* Fallback: show saved value if not in current list */}
                   {formData.diagnosis &&
                     !diagnosisOptions.find(
-                      (d) => d.name === formData.diagnosis,
+                      (d) => d.diagnostics_name === formData.diagnosis,
                     ) && (
                       <option value={formData.diagnosis}>
                         {formData.diagnosis}
