@@ -276,7 +276,6 @@ const Admission = () => {
   const [newBornVisible, setNewBornVisible] = useState(false);
   const [doctors, setDoctors] = useState([]);
   const [admissions, setAdmissions] = useState([]);
-  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [lastSaved, setLastSaved] = useState(null); // admission data after save for print
   const [now, setNow] = useState(new Date());

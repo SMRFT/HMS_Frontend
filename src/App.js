@@ -55,7 +55,7 @@ import Enquiry from "./Components/Register/Enquiry";
 
 import GRNGenerator from "./Components/InventoryMaster/GRNGeneration";
 import Pharmacystock from "./Components/InventoryMaster/PharmacyStock";
-import VendorManagement from "./Components/InventoryMaster/VendorManagement";
+
 
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
