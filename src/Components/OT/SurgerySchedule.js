@@ -549,7 +549,7 @@ const SurgerySchedule = () => {
           // Emergency flag
           is_emergency: !!s.is_emergency,
           // Pre-set doctor from surgeon
-          doctor: s.surgeon_name || "",
+          doctor: s.surgeon_name || s.surgeon_id || "",
           // Source reference
           surgeryRef: s.reference_no || "",
         },
@@ -1936,8 +1936,8 @@ const SurgerySchedule = () => {
                         )}
                       </Td>
                       <Td>{s.surgery_name}</Td>
-                      <Td>{s.anesthesia_name || "—"}</Td>
-                      <Td>{s.ot_name}</Td>
+                      <Td>{s.anesthesia_name || s.anesthesia_id || "—"}</Td>
+                      <Td>{s.ot_name || s.ot_id}</Td>
                       <Td>
                         {(() => {
                           const isConfirmed = s.status === "Confirmed";
@@ -2042,11 +2042,18 @@ const SurgerySchedule = () => {
                                 <CheckCheck size={15} />
                               </IconAction>
 
-                              {/* Raise Lab Request */}
+                              {/* Raise Lab Request — only enabled after Confirmed */}
                               <IconAction
                                 col="#0891b2"
-                                title="Raise Lab Request"
-                                onClick={() => raiseLabRequest(s)}
+                                title={
+                                  isConfirmed
+                                    ? "Raise Lab Request"
+                                    : "Available after Confirmed"
+                                }
+                                disabled={!isConfirmed}
+                                onClick={() =>
+                                  isConfirmed && raiseLabRequest(s)
+                                }
                               >
                                 <FlaskConical size={15} />
                               </IconAction>

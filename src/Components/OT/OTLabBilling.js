@@ -328,6 +328,7 @@ const OTLabBilling = () => {
     doctor: "",
     salutation: "",
     firstName: "",
+    patientName: "",
     lastName: "",
     age: "",
     gender: "",
@@ -405,10 +406,15 @@ const OTLabBilling = () => {
       salutation: d.salutation || "",
       firstName: d.firstName || "",
       lastName: d.lastName || "",
-      age: d.age || "",
+      // patient_name from enriched schedule data (full resolved name)
+      patientName: d.patient_name || d.firstName || "",
+      age: String(d.age || ""),
       gender: d.gender || "",
-      doctor: d.doctor || "",
-      referredBy: d.doctor || "", // default referredBy = surgeon
+      // Store raw incoming doctor value (may be a name or an ID)
+      // The second effect resolves it against the loaded doctors list
+      _rawDoctor: d.doctor || "",
+      doctor: "", // resolved by second effect
+      referredBy: "", // resolved by second effect
       surgeryRef: d.surgeryRef || "",
       customer_type: d.customer_type || "",
       company_name: d.company_name || "",
@@ -416,6 +422,27 @@ const OTLabBilling = () => {
       is_emergency: !!d.is_emergency,
     }));
   }, [location.state]);
+
+  // ── Resolve doctor name once doctors list loads ────────────────────────────
+  // Handles race: location.state fires before doctor_list_diagnostics returns.
+  // Also handles the case where surgeon_id (e.g. "60380") was passed instead
+  // of surgeon_name — we match against employeeId too.
+  useEffect(() => {
+    if (!doctors.length) return;
+    const raw = formData._rawDoctor;
+    if (!raw) return;
+
+    // Try to find by name first, then by employeeId
+    const match = doctors.find(
+      (d) =>
+        d.employeeName.trim() === raw ||
+        d.employeeId === raw ||
+        String(d.employeeId) === String(raw),
+    );
+
+    const resolved = match ? match.employeeName.trim() : raw;
+    setFormData((p) => ({ ...p, doctor: resolved, referredBy: resolved }));
+  }, [doctors, formData._rawDoctor]); // eslint-disable-line
 
   // ── Item selection ─────────────────────────────────────────────────────────
   const handleItemChange = (name) => {
@@ -464,7 +491,9 @@ const OTLabBilling = () => {
         salutation: d.salutation || "",
         firstName: d.firstName || "",
         lastName: d.lastName || "",
-        age: d.age || "",
+        patientName:
+          `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`.trim(),
+        age: String(d.age || ""),
         gender: d.gender || "",
         customer_type: d.customer_type || "",
         company_name: d.company_name || "",
@@ -490,7 +519,9 @@ const OTLabBilling = () => {
         salutation: d.salutation || "",
         firstName: d.firstName || "",
         lastName: d.lastName || "",
-        age: d.age || "",
+        patientName:
+          `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`.trim(),
+        age: String(d.age || ""),
         gender: d.gender || "",
         customer_type: d.customer_type || "",
         company_name: d.company_name || "",
@@ -549,7 +580,7 @@ const OTLabBilling = () => {
       paymentMethod: "Credit",
       paymentStatus: "Pending",
       item: productList,
-      surgeryRef: formData.surgeryRef || "",
+      is_emergency: !!formData.is_emergency,
     };
 
     const res = await apiRequest(`${HMSURL}investBilling/`, "POST", payload);
@@ -704,7 +735,10 @@ const OTLabBilling = () => {
               <Label>Patient Name</Label>
               <Input
                 type="text"
-                value={`${formData.firstName || ""}${formData.lastName ? " " + formData.lastName : ""}`}
+                value={
+                  formData.patientName ||
+                  `${formData.firstName || ""}${formData.lastName ? " " + formData.lastName : ""}`.trim()
+                }
                 readOnly
               />
             </InputWrapper>
@@ -717,6 +751,37 @@ const OTLabBilling = () => {
             <InputWrapper>
               <Label>Gender</Label>
               <Input type="text" value={formData.gender} readOnly />
+            </InputWrapper>
+
+            {/* Emergency Case checkbox */}
+            <InputWrapper style={{ justifyContent: "flex-end" }}>
+              <Label>&nbsp;</Label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: "0.84rem",
+                  cursor: "pointer",
+                  color: "#dc2626",
+                  fontWeight: 600,
+                  padding: "6px 0",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name="is_emergency"
+                  checked={!!formData.is_emergency}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      is_emergency: e.target.checked,
+                    }))
+                  }
+                  style={{ accentColor: "#dc2626", width: 15, height: 15 }}
+                />
+                Emergency Case
+              </label>
             </InputWrapper>
           </FormRow>
 
