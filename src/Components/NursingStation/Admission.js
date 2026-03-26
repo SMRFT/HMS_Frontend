@@ -1,1282 +1,1131 @@
-import { useState, useEffect } from "react";
-import styled, { keyframes } from "styled-components";
+import { useState, useEffect, useRef } from "react";
+import styled, { keyframes, createGlobalStyle } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import {
-  PageWrapper, Container, TableWrapper, Table, Th, Td, Tr,
-  ModalOverlay, ModalContainer, ModalHeader, ModalTitle,
-  CloseButton, ModalBody, NoResults, colors,
+  PageWrapper, Container, ModalOverlay, ModalContainer,
+  ModalHeader, ModalTitle, CloseButton, ModalBody, colors,
 } from "../GlobalStyles";
 
 // ─── Animations ───────────────────────────────────────────────────────────────
-const slideUp = keyframes`
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-`;
+const fadeIn = keyframes`from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}`;
+const pulse  = keyframes`0%,100%{opacity:1}50%{opacity:.45}`;
+const slideUp = keyframes`from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}`;
 
-const pulse = keyframes`
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.45; }
-`;
-
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to   { opacity: 1; }
+// ─── Global Print Style ────────────────────────────────────────────────────────
+const GlobalPrint = createGlobalStyle`
+  @media print {
+    body > *:not(#print-root) { display: none !important; }
+    #print-root { display: block !important; }
+  }
 `;
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-
 const PageHeader = styled.div`
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-  padding: 10px 16px;
-  border-radius: 6px 6px 0 0;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  border-radius: 6px 6px 0 0;
 `;
-
 const PageTitleEl = styled.h2`
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #fff;
-  margin: 0;
-  letter-spacing: 0.04em;
+  font-size: 0.9rem;font-weight:700;color:#fff;margin:0;letter-spacing:.04em;
+`;
+const NewAdmBtn = styled.button`
+  height:32px;padding:0 16px;font-size:.8rem;font-weight:700;
+  background:#f97316;color:#fff;border:none;border-radius:5px;cursor:pointer;
+  display:flex;align-items:center;gap:6px;
+  &:hover{background:#ea6c0a;}
 `;
 
-const ClockDisplay = styled.div`
-  font-size: 0.75rem;
-  color: #ccfbf1;
-  font-weight: 600;
-  font-family: monospace;
+// ─── Stats Row ─────────────────────────────────────────────────────────────────
+const StatsRow = styled.div`
+  display:grid;grid-template-columns:repeat(4,1fr);gap:0;
+  border-bottom:1px solid #e5e7eb;
 `;
-
-const FormGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px 10px;
-  padding: 12px 16px;
-  align-items: end;
+const StatCard = styled.div`
+  padding:14px 20px;display:flex;align-items:center;gap:14px;
+  border-right:1px solid #e5e7eb;
+  &:last-child{border-right:none;}
+  animation:${fadeIn} .4s ease both;
+  animation-delay:${p=>p.idx*.08}s;
 `;
-
-const Field = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  grid-column: span ${({ span }) => span || 1};
+const StatIcon = styled.div`
+  width:42px;height:42px;border-radius:10px;
+  background:${p=>p.bg||'#f0fdf4'};
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;flex-shrink:0;
 `;
+const StatInfo = styled.div``;
+const StatLabel = styled.div`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;`;
+const StatValue = styled.div`font-size:1.6rem;font-weight:800;color:#111827;line-height:1.1;`;
 
-const Lbl = styled.label`
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #374151;
-  white-space: nowrap;
-  &::after {
-    content: ${({ required }) => (required ? '" *"' : '""')};
-    color: #ef4444;
-  }
-`;
-
-const Inp = styled.input`
-  height: 28px;
-  padding: 0 7px;
-  font-size: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: ${({ readOnly }) => (readOnly ? "#f3f4f6" : "#fff")};
-  color: ${({ readOnly }) => (readOnly ? "#6b7280" : "#111827")};
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  &:focus { border-color: #0d9488; box-shadow: 0 0 0 2px #ccfbf1; }
-`;
-
-const Sel = styled.select`
-  height: 28px;
-  padding: 0 4px;
-  font-size: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #fff;
-  color: #111827;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  &:focus { border-color: #0d9488; }
-  &:disabled { background: #f3f4f6; color: #6b7280; }
-`;
-
-const Txta = styled.textarea`
-  padding: 4px 7px;
-  font-size: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  resize: vertical;
-  min-height: 44px;
-  width: 100%;
-  box-sizing: border-box;
-  &:focus { border-color: #0d9488; outline: none; }
-`;
-
-const InputRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 3px;
-`;
-
-const IconBtn = styled.button`
-  height: 28px;
-  padding: 0 7px;
-  font-size: 0.72rem;
-  background: #0d9488;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  &:hover { background: #0f766e; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
-
-const SectionDivider = styled.div`
-  grid-column: span 6;
-  border-top: 1px solid #e5e7eb;
-  margin: 4px 0 2px;
-  padding-top: 6px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #0d9488;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-`;
-
-const ActionBar = styled.div`
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  padding: 8px 16px 12px;
-  border-top: 1px solid #e5e7eb;
-`;
-
-const SmBtn = styled.button`
-  height: 30px;
-  padding: 0 14px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  background: ${({ secondary }) => (secondary ? "#e5e7eb" : "#0d9488")};
-  color: ${({ secondary }) => (secondary ? "#374151" : "#fff")};
-  &:hover { opacity: 0.88; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
-
-const PrintBtn = styled.button`
-  height: 30px;
-  padding: 0 14px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  background: #7c3aed;
-  color: #fff;
-  &:hover { opacity: 0.88; }
-`;
-
-const TableSection = styled.div`
-  border-top: 1px solid #e5e7eb;
-  padding: 12px 16px;
-`;
-
-const TableTitle = styled.h3`
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #0d9488;
-  margin: 0 0 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-`;
-
-const StatusBadge = styled.span`
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  background: ${({ active }) => (active ? "#dcfce7" : "#fee2e2")};
-  color: ${({ active }) => (active ? "#166534" : "#991b1b")};
-`;
-
-const MiniBtn = styled.button`
-  height: 24px;
-  padding: 0 8px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  border-radius: 3px;
-  border: none;
-  cursor: pointer;
-  background: ${({ danger }) => (danger ? "#ef4444" : "#0d9488")};
-  color: #fff;
-  &:disabled { opacity: 0.4; cursor: default; }
-  &:hover:not(:disabled) { opacity: 0.85; }
-`;
-
-const MiniBtnPrint = styled.button`
-  height: 24px;
-  padding: 0 8px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  border-radius: 3px;
-  border: none;
-  cursor: pointer;
-  background: #7c3aed;
-  color: #fff;
-  &:hover { opacity: 0.85; }
-`;
-
-const PackageInfo = styled.div`
-  grid-column: span 6;
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.72rem;
-  animation: ${fadeIn} 0.3s ease;
-`;
-
-const PackageInfoTitle = styled.div`
-  font-weight: 700;
-  color: #166534;
-  margin-bottom: 4px;
-`;
-
-const PackageItemsGrid = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-`;
-
-const PackageItemChip = styled.span`
-  background: #dcfce7;
-  color: #166534;
-  border-radius: 3px;
-  padding: 1px 6px;
-  font-size: 0.67rem;
-  font-weight: 500;
-`;
-
-// ─── Room Modal Styles ────────────────────────────────────────────────────────
-
-const RoomModalContainer = styled(ModalContainer)`
-  max-width: 960px;
-  max-height: 88vh;
-`;
-
-const RoomModalBody = styled(ModalBody)`
-  background: ${colors.background};
-  padding: 14px;
-`;
-
+// ─── Filter Bar ────────────────────────────────────────────────────────────────
 const FilterBar = styled.div`
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-  align-items: flex-end;
+  display:flex;gap:10px;align-items:flex-end;padding:14px 20px;
+  border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;
+`;
+const FField = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 140px'};`;
+const FLabel = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
+const FSelect = styled.select`
+  height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;
+  border-radius:5px;background:#fff;color:#111827;outline:none;
+  &:focus{border-color:#0d9488;}
+`;
+const FInput = styled.input`
+  height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;
+  border-radius:5px;background:#fff;color:#111827;outline:none;
+  &:focus{border-color:#0d9488;}
+`;
+const SearchBtn = styled.button`
+  height:32px;padding:0 18px;font-size:.78rem;font-weight:600;
+  background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;
+  display:flex;align-items:center;gap:5px;
+  &:hover{background:#0f766e;}
 `;
 
-const FilterField = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1 1 120px;
+// ─── Table ─────────────────────────────────────────────────────────────────────
+const TableWrap = styled.div`overflow-x:auto;`;
+const Table = styled.table`width:100%;border-collapse:collapse;font-size:.78rem;`;
+const Thead = styled.thead`background:#f9fafb;`;
+const Th = styled.th`
+  padding:9px 12px;text-align:left;font-size:.7rem;font-weight:700;
+  color:#6b7280;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:2px solid #e5e7eb;white-space:nowrap;
+`;
+const Tr = styled.tr`
+  border-bottom:1px solid #f3f4f6;
+  animation:${fadeIn} .3s ease both;
+  animation-delay:${p=>p.idx*.04}s;
+  &:hover{background:#f0fdf4;}
+`;
+const Td = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
+
+const AdmBadge = styled.span`
+  padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700;
+  background:${p=>p.active?'#dcfce7':'#fee2e2'};
+  color:${p=>p.active?'#166534':'#991b1b'};
 `;
 
-const FilterLabel = styled.label`
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: ${colors.textMuted};
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+// ─── Show count + search ───────────────────────────────────────────────────────
+const TableTopBar = styled.div`
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;border-bottom:1px solid #e5e7eb;
+`;
+const ShowSelect = styled.div`
+  display:flex;align-items:center;gap:6px;font-size:.75rem;color:#6b7280;
+`;
+const SearchBox = styled.div`display:flex;align-items:center;gap:6px;font-size:.75rem;color:#6b7280;`;
+const SInput = styled.input`
+  height:28px;padding:0 8px;font-size:.75rem;border:1px solid #d1d5db;
+  border-radius:4px;outline:none;&:focus{border-color:#0d9488;}
 `;
 
-const FilterInput = styled.input`
-  height: 28px;
-  padding: 0 7px;
-  font-size: 0.75rem;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  background: ${colors.surface};
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-  &:focus { border-color: ${colors.primary}; }
+// ─── Action Menu ───────────────────────────────────────────────────────────────
+const ActionWrap = styled.div`position:relative;display:inline-block;`;
+const DotBtn = styled.button`
+  width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;
+  background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;color:#6b7280;
+  &:hover{background:#f3f4f6;}
+`;
+const DropMenu = styled.div`
+  position:absolute;right:0;top:32px;background:#fff;border:1px solid #e5e7eb;
+  border-radius:7px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:200;
+  min-width:170px;overflow:hidden;animation:${fadeIn} .15s ease;
+`;
+const DropItem = styled.button`
+  width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;
+  background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  color:${p=>p.danger?'#dc2626':'#374151'};
+  &:hover{background:${p=>p.danger?'#fff1f2':'#f0fdf4'};}
 `;
 
-const FilterBtn = styled.button`
-  height: 28px;
-  padding: 0 14px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  background: ${colors.primary};
-  color: #fff;
-  align-self: flex-end;
-  &:hover { background: ${colors.primaryDark}; }
+// ─── Pagination ────────────────────────────────────────────────────────────────
+const Pager = styled.div`
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 20px;border-top:1px solid #e5e7eb;font-size:.75rem;color:#6b7280;
+`;
+const PBtn = styled.button`
+  height:28px;padding:0 14px;font-size:.75rem;border:1px solid #e5e7eb;
+  border-radius:4px;background:${p=>p.active?'#0d9488':'#fff'};
+  color:${p=>p.active?'#fff':'#374151'};cursor:pointer;
+  &:disabled{opacity:.45;cursor:default;}
+  &:hover:not(:disabled):not([data-active]){background:#f3f4f6;}
 `;
 
+// ─── Form Modal ────────────────────────────────────────────────────────────────
+const FormModal = styled(ModalContainer)`max-width:860px;max-height:90vh;overflow-y:auto;`;
+const FormGrid = styled.div`
+  display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:16px;
+`;
+const Field = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
+const Lbl = styled.label`
+  font-size:.7rem;font-weight:600;color:#374151;
+  &::after{content:${p=>p.required?'" *"':'""'};color:#ef4444;}
+`;
+const Inp = styled.input`
+  height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;
+  background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};
+  outline:none;width:100%;box-sizing:border-box;
+  &:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}
+`;
+const Sel = styled.select`
+  height:28px;padding:0 4px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;
+  background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;
+  &:focus{border-color:#0d9488;}
+  &:disabled{background:#f3f4f6;color:#6b7280;}
+`;
+const Txta = styled.textarea`
+  padding:4px 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;
+  resize:vertical;min-height:44px;width:100%;box-sizing:border-box;
+  &:focus{border-color:#0d9488;outline:none;}
+`;
+const SecDiv = styled.div`
+  grid-column:span 6;border-top:1px solid #e5e7eb;
+  margin:4px 0 2px;padding-top:6px;font-size:.7rem;font-weight:700;
+  color:#0d9488;text-transform:uppercase;letter-spacing:.05em;
+`;
+const FormActions = styled.div`
+  display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;
+  border-top:1px solid #e5e7eb;
+`;
+const SmBtn = styled.button`
+  height:30px;padding:0 16px;font-size:.75rem;font-weight:600;border-radius:4px;
+  border:none;cursor:pointer;
+  background:${p=>p.secondary?'#e5e7eb':'#0d9488'};
+  color:${p=>p.secondary?'#374151':'#fff'};
+  &:hover{opacity:.88;}
+  &:disabled{opacity:.5;cursor:not-allowed;}
+`;
+
+// ─── Room Modal ────────────────────────────────────────────────────────────────
+const RoomModalContainer = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
+const RoomModalBody = styled(ModalBody)`background:#f8fafc;padding:14px;`;
+
+const FilterBarR = styled.div`display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;`;
+const FilterFieldR = styled.div`display:flex;flex-direction:column;gap:2px;flex:1 1 120px;`;
+const FilterLabelR = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
+const FilterInputR = styled.input`
+  height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;
+  background:#fff;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}
+`;
+const FilterBtnR = styled.button`
+  height:28px;padding:0 14px;font-size:.75rem;font-weight:600;border-radius:4px;
+  border:none;cursor:pointer;background:#0d9488;color:#fff;align-self:flex-end;
+  &:hover{background:#0f766e;}
+`;
 const LegendBar = styled.div`
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-  padding: 6px 12px;
-  background: ${colors.surface};
-  border: 1px solid ${colors.border};
-  border-radius: 6px;
+  display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:6px 12px;
+  background:#fff;border:1px solid #e5e7eb;border-radius:6px;
 `;
-
-const LegendItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: ${colors.textMuted};
-`;
-
-const LegendDot = styled.span`
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  background: ${(p) => p.color};
-  flex-shrink: 0;
-`;
-
+const LegendItem = styled.div`display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:500;color:#6b7280;`;
+const LegendDot = styled.span`display:inline-block;width:12px;height:12px;border-radius:3px;background:${p=>p.color};flex-shrink:0;`;
 const BlockSection = styled.div`
-  background: ${colors.surface};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  margin-bottom: 14px;
-  overflow: hidden;
-  animation: ${slideUp} 0.25s ease both;
-  animation-delay: ${(p) => p.idx * 40}ms;
+  background:#fff;border:1px solid #e5e7eb;border-radius:8px;
+  margin-bottom:14px;overflow:hidden;
+  animation:${slideUp} .25s ease both;animation-delay:${p=>p.idx*40}ms;
 `;
-
 const BlockHeader = styled.div`
-  padding: 7px 12px;
-  background: ${colors.tabBg};
-  border-bottom: 1px solid ${colors.border};
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: ${colors.primary};
+  padding:7px 12px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;
+  font-size:.78rem;font-weight:700;color:#0d9488;
 `;
-
-const FloorGroup = styled.div`
-  padding: 10px 12px;
-`;
-
+const FloorGroup = styled.div`padding:10px 12px;`;
 const FloorLabel = styled.div`
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: ${colors.textMuted};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  &::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: ${colors.border};
-  }
+  font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;
+  &::after{content:"";flex:1;height:1px;background:#e5e7eb;}
 `;
-
-const RoomGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 8px;
-  margin-bottom: 10px;
-`;
+const RoomGrid = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
 
 const roomColors = {
-  available:   { bg: "#f0fdf4", border: "#86efac", header: "#dcfce7", dot: "#22c55e" },
-  occupied:    { bg: "#fff1f2", border: "#fca5a5", header: "#fee2e2", dot: "#ef4444" },
-  maintenance: { bg: "#fffbeb", border: "#fcd34d", header: "#fef3c7", dot: "#f59e0b" },
-  partial:     { bg: "#eff6ff", border: "#93c5fd", header: "#dbeafe", dot: "#3b82f6" },
+  available:   {bg:"#f0fdf4",border:"#86efac",header:"#dcfce7"},
+  occupied:    {bg:"#fff1f2",border:"#fca5a5",header:"#fee2e2"},
+  maintenance: {bg:"#fffbeb",border:"#fcd34d",header:"#fef3c7"},
+  partial:     {bg:"#eff6ff",border:"#93c5fd",header:"#dbeafe"},
 };
-
 const RoomCard = styled.div`
-  border: 1.5px solid ${(p) => roomColors[p.status]?.border || colors.border};
-  border-radius: 7px;
-  overflow: hidden;
-  cursor: ${(p) => (p.status === "occupied" || p.status === "maintenance") ? "not-allowed" : "pointer"};
-  transition: box-shadow 0.18s, transform 0.18s;
-  opacity: ${(p) => (p.status === "occupied" || p.status === "maintenance") ? 0.72 : 1};
-  background: ${(p) => roomColors[p.status]?.bg || "#fff"};
-  ${(p) => (p.status !== "occupied" && p.status !== "maintenance") && `
-    &:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.13); transform: translateY(-2px); }
-  `}
+  border:1.5px solid ${p=>roomColors[p.status]?.border||'#e5e7eb'};
+  border-radius:7px;overflow:hidden;
+  cursor:${p=>(p.status==='occupied'||p.status==='maintenance')?'not-allowed':'pointer'};
+  opacity:${p=>(p.status==='occupied'||p.status==='maintenance')?.72:1};
+  background:${p=>roomColors[p.status]?.bg||'#fff'};
+  transition:box-shadow .18s,transform .18s;
+  ${p=>(p.status!=='occupied'&&p.status!=='maintenance')&&`&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}`}
 `;
-
 const RoomCardTop = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 8px;
-  background: ${(p) => roomColors[p.status]?.header || "#f1f5f9"};
-  border-bottom: 1px solid ${(p) => roomColors[p.status]?.border || colors.border};
+  display:flex;align-items:center;justify-content:space-between;padding:5px 8px;
+  background:${p=>roomColors[p.status]?.header||'#f1f5f9'};
+  border-bottom:1px solid ${p=>roomColors[p.status]?.border||'#e5e7eb'};
 `;
-
-const RoomNum = styled.span`
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: ${colors.textMain};
-`;
-
+const RoomNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
 const RoomStatusPill = styled.span`
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: ${(p) => roomColors[p.status]?.dot || "#ccc"};
-  color: #fff;
-  text-transform: capitalize;
+  font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;
+  background:${p=>p.status==='available'?'#22c55e':p.status==='occupied'?'#ef4444':p.status==='maintenance'?'#f59e0b':'#3b82f6'};
+  color:#fff;text-transform:capitalize;
 `;
-
-const BedRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 6px 8px;
-`;
-
+const BedRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
 const BedChip = styled.button`
-  flex: 1 1 auto;
-  min-width: 44px;
-  text-align: center;
-  padding: 3px 5px;
-  border-radius: 4px;
-  font-size: 0.67rem;
-  font-weight: 600;
-  border: 1.5px solid transparent;
-  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
-  transition: filter 0.15s, border-color 0.15s;
-  color: #fff;
-  background: ${(p) =>
-    p.bedStatus === "Available" ? "#22c55e"
-      : p.bedStatus === "Occupied" ? "#ef4444"
-        : "#f59e0b"};
-  opacity: ${(p) => (p.disabled ? 0.55 : 1)};
-  &:hover:not(:disabled) { filter: brightness(1.1); border-color: rgba(0,0,0,0.2); }
+  flex:1 1 auto;min-width:44px;text-align:center;padding:3px 5px;border-radius:4px;
+  font-size:.67rem;font-weight:600;border:1.5px solid transparent;
+  cursor:${p=>p.disabled?'not-allowed':'pointer'};transition:filter .15s,border-color .15s;
+  color:#fff;
+  background:${p=>p.bedStatus==='Available'?'#22c55e':p.bedStatus==='Occupied'?'#ef4444':'#f59e0b'};
+  opacity:${p=>p.disabled?.55:1};
+  &:hover:not(:disabled){filter:brightness(1.1);border-color:rgba(0,0,0,.2);}
 `;
-
-const RoomType = styled.span`
-  font-size: 0.6rem;
-  color: ${colors.textMuted};
-  padding: 0 8px 4px;
-  display: block;
-`;
-
+const RoomType = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
 const Skeleton = styled.div`
-  height: 100px;
-  border-radius: 7px;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: ${pulse} 1.4s ease-in-out infinite;
+  height:100px;border-radius:7px;
+  background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);
+  background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;
+`;
+const InputRow = styled.div`display:flex;align-items:center;gap:3px;`;
+const IconBtn = styled.button`
+  height:28px;padding:0 7px;font-size:.72rem;background:#0d9488;color:#fff;
+  border:none;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;
+  &:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}
+`;
+const NoResults = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
+
+// ─── Print Slip Modal ──────────────────────────────────────────────────────────
+const PrintModalContainer = styled(ModalContainer)`max-width:520px;`;
+const PrintModalBody = styled(ModalBody)`padding:0;background:#fff;`;
+const PrintSlip = styled.div`
+  padding:16px;font-family:'Courier New',monospace;font-size:12px;color:#000;
+  border:2px solid #000;margin:16px;
+  @media print{margin:0;border:none;}
+`;
+const SlipRow = styled.div`display:flex;justify-content:space-between;gap:12px;`;
+const SlipLeft = styled.div`flex:1;`;
+const SlipRight = styled.div`text-align:right;`;
+const SlipBig = styled.div`font-size:18px;font-weight:900;letter-spacing:.5px;`;
+const SlipLine = styled.div`margin:2px 0;font-size:11px;`;
+const SlipBold = styled.div`font-weight:700;margin:2px 0;font-size:12px;`;
+const PrintActions = styled.div`
+  display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;
+  border-top:1px solid #e5e7eb;
+`;
+const PrintBtn2 = styled.button`
+  height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;
+  border:none;cursor:pointer;
+  background:${p=>p.secondary?'#e5e7eb':'#7c3aed'};
+  color:${p=>p.secondary?'#374151':'#fff'};
+  &:hover{opacity:.88;}
 `;
 
-// ─── Print CSS ────────────────────────────────────────────────────────────────
-const PRINT_STYLE = `
-  @media print {
-    body * { visibility: hidden !important; }
-    #admission-print-slip, #admission-print-slip * { visibility: visible !important; }
-    #admission-print-slip {
-      position: fixed !important;
-      left: 0; top: 0; width: 100vw; padding: 0; margin: 0;
+// ─── Barcode SVG ───────────────────────────────────────────────────────────────
+function BarcodeSVG({ value, width = 200, height = 48 }) {
+  if (!value) return null;
+  const bars = [];
+  let x = 0;
+  for (let i = 0; i < value.length && x < width - 8; i++) {
+    const code = value.charCodeAt(i);
+    for (let b = 0; b < 7 && x < width - 8; b++) {
+      const bw = ((code >> b) & 1) ? 2.5 : 1.2;
+      if (i % 2 === 0) bars.push({ x: x.toFixed(1), w: bw });
+      x += bw + 0.8;
     }
   }
-`;
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={width} height={height} style={{ display: "block" }}>
+      {bars.map((b, i) => (
+        <rect key={i} x={b.x} y={0} width={b.w} height={height} fill="black" />
+      ))}
+    </svg>
+  );
+}
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────────────────────
 const EMPTY_FORM = {
-  uhid: "", ipNumber: "",
-  admittingDoctor: "", consultingDoctor: "",
-  roomNo: "", bedNo: "",
-  reasonForAdmission: "",
-  packageName: "", packageNo: "",
-  mlc_type: "", mlc_doc: null, mlc_remarks: "",
-  salutation: "", firstName: "", middleName: "", lastName: "",
-  age: "", gender: "", phone: "", permanent_address: "",
-  area: "", zipcode: "", city: "", state: "",
-  customerType: "", insuranceCompany: "", insuranceCompanyName: "",
-  company_id: "", privilegedCustomerId: "",
+  uhid:"",ipNumber:"",admittingDoctor:"",consultingDoctor:"",
+  roomNo:"",bedNo:"",reasonForAdmission:"",packageName:"",packageNo:"",
+  mlc_type:"",mlc_doc:null,mlc_remarks:"",
+  salutation:"",firstName:"",middleName:"",lastName:"",
+  age:"",gender:"",phone:"",permanent_address:"",
+  area:"",zipcode:"",city:"",state:"",
+  customerType:"",insuranceCompany:"",insuranceCompanyName:"",
+  company_id:"",privilegedCustomerId:"",
 };
 
 function getRoomStatus(beds) {
-  if (!beds || beds.length === 0) return "available";
-  const s = beds.map((b) => b.status);
-  if (s.every((x) => x === "Maintenance")) return "maintenance";
-  if (s.every((x) => x === "Occupied"))    return "occupied";
-  if (s.some((x) => x === "Occupied") && s.some((x) => x === "Available")) return "partial";
+  if (!beds||beds.length===0) return "available";
+  const s = beds.map(b=>b.status);
+  if (s.every(x=>x==="Maintenance")) return "maintenance";
+  if (s.every(x=>x==="Occupied"))    return "occupied";
+  if (s.some(x=>x==="Occupied")&&s.some(x=>x==="Available")) return "partial";
   return "available";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 const Admission = () => {
-  const [formData, setFormData]         = useState(EMPTY_FORM);
-  const [doctors, setDoctors]           = useState([]);
-  const [admissions, setAdmissions]     = useState([]);
-  const [editingId, setEditingId]       = useState(null);
-  const [lastSaved, setLastSaved]       = useState(null);
-  const [now, setNow]                   = useState(new Date());
-  const [saving, setSaving]             = useState(false);
-
-  const [packages, setPackages]         = useState([]);
-  const [packageItems, setPackageItems] = useState([]);
-  const [loadingPkg, setLoadingPkg]     = useState(false);
-
-  const [showRoomModal, setShowRoomModal] = useState(false);
-  const [roomFilter, setRoomFilter]       = useState({ room_number: "", block: "", floor: "" });
-  const [allRooms, setAllRooms]           = useState([]);
-  const [loadingRooms, setLoadingRooms]   = useState(false);
-  const [showBedModal, setShowBedModal]   = useState(false);
-  const [selectedRoom, setSelectedRoom]   = useState(null);
-
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  // state
+  const [admissions, setAdmissions]     = useState([]);
+  const [doctors, setDoctors]           = useState([]);
+  const [packages, setPackages]         = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [saving, setSaving]             = useState(false);
 
-  useEffect(() => {
-    fetchDoctors();
-    fetchAdmissions();
-    fetchPackages();
-    const style = document.createElement("style");
-    style.innerHTML = PRINT_STYLE;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
+  // filters
+  const [filterDoctor, setFilterDoctor] = useState("ALL");
+  const [filterFrom,   setFilterFrom]   = useState(new Date().toISOString().slice(0,10));
+  const [filterTo,     setFilterTo]     = useState(new Date().toISOString().slice(0,10));
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [tableSearch,  setTableSearch]  = useState("");
+  const [perPage,      setPerPage]      = useState(15);
+  const [page,         setPage]         = useState(1);
 
-  const fmt  = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const fmtT = (d) => d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const getDoctorName = (id) => doctors.find((d) => String(d.employeeId) === String(id))?.employeeName || id || "-";
-  const pName = (d) => [d.salutation, d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ");
+  // form modal
+  const [showForm,  setShowForm]  = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [formData,  setFormData]  = useState(EMPTY_FORM);
 
-  const fetchDoctors = async () => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
-      if (res.success) setDoctors(res.data || []);
-    } catch { }
+  // room / bed
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [roomFilter, setRoomFilter] = useState({room_number:"",block:"",floor:""});
+  const [allRooms, setAllRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [showBedModal,   setShowBedModal]   = useState(false);
+  const [selectedRoom,   setSelectedRoom]   = useState(null);
+
+  // print
+  const [printData, setPrintData] = useState(null);
+
+  // action dropdown
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const menuRef = useRef(null);
+
+  const now = new Date();
+  const fmt  = d => new Date(d).toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const fmtT = d => new Date(d).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true});
+
+  const getDoctorName = id =>
+    doctors.find(d=>String(d.employeeId)===String(id))?.employeeName || String(id||"-");
+
+  const pName = d =>
+    [d.salutation,d.firstName,d.middleName,d.lastName].filter(Boolean).join(" ") || "-";
+
+  // ── Click outside menu ─────────────────────────────────────────────────────
+  useEffect(()=>{
+    const handler = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null);
+    };
+    document.addEventListener("mousedown",handler);
+    return ()=>document.removeEventListener("mousedown",handler);
+  },[]);
+
+  // ── Init fetches ───────────────────────────────────────────────────────────
+  useEffect(()=>{ fetchDoctors(); fetchAdmissions(); fetchPackages(); },[]);
+
+  const fetchDoctors = async ()=>{
+    try{
+      const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`,"GET");
+      if(res.success) setDoctors(res.data||[]);
+    }catch{}
   };
 
-const fetchAdmissions = async () => {
-  try {
-    const res = await apiRequest(`${HmsBaseUrl}admission/`, "GET");
-    const list =
-      res?.admissions ||
-      res?.data?.admissions ||
-      res?.data ||
-      (Array.isArray(res) ? res : []);
-    setAdmissions(Array.isArray(list) ? list : []);
-  } catch {
-    setAdmissions([]);
-  }
-};
-
-const fetchPackages = async () => {
-  try {
-    const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
-    console.log("packages res", res);
-
-    const list =
-      res?.packages ||
-      res?.data?.packages ||
-      res?.data ||
-      [];
-
-    setPackages(Array.isArray(list) ? list : []);
-  } catch {
-    setPackages([]);
-  }
-};
-  const fetchPackageItems = async (packageNo) => {
-    if (!packageNo) { setPackageItems([]); return; }
-    setLoadingPkg(true);
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}package-items/?packageNo=${packageNo}`, "GET");
-      if (res.success) setPackageItems(res.items || []);
-    } catch { setPackageItems([]); }
-    finally { setLoadingPkg(false); }
+  const fetchAdmissions = async ()=>{
+    setLoading(true);
+    try{
+      const res = await apiRequest(`${HmsBaseUrl}admission/`,"GET");
+      // Handle both response shapes
+      const list =
+        res?.data        && Array.isArray(res.data)        ? res.data :
+        res?.admissions  && Array.isArray(res.admissions)  ? res.admissions :
+        res?.data?.admissions && Array.isArray(res.data.admissions) ? res.data.admissions :
+        Array.isArray(res) ? res : [];
+      setAdmissions(list);
+    }catch{ setAdmissions([]); }
+    finally{ setLoading(false); }
   };
 
-  const fetchAllRooms = async (filterOverride = {}) => {
+  const fetchPackages = async ()=>{
+    try{
+      const res = await apiRequest(`${HmsBaseUrl}packages/`,"GET");
+      const list = res?.packages||res?.data?.packages||res?.data||[];
+      setPackages(Array.isArray(list)?list:[]);
+    }catch{ setPackages([]); }
+  };
+
+  const fetchAllRooms = async (fo={})=>{
     setLoadingRooms(true);
-    try {
-      const f = { ...roomFilter, ...filterOverride };
-      const params = new URLSearchParams();
-      if (f.room_number) params.append("room_number", f.room_number);
-      if (f.block)       params.append("block", f.block);
-      if (f.floor)       params.append("floor", f.floor);
-      const q = params.toString() ? `?${params.toString()}` : "";
-      const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
-      setAllRooms(Array.isArray(res) ? res : (res.data || []));
-    } catch { setAllRooms([]); }
-    finally { setLoadingRooms(false); }
+    try{
+      const f={...roomFilter,...fo};
+      const params=new URLSearchParams();
+      if(f.room_number) params.append("room_number",f.room_number);
+      if(f.block)       params.append("block",f.block);
+      if(f.floor)       params.append("floor",f.floor);
+      const q=params.toString()?`?${params.toString()}`:"";
+      const res=await apiRequest(`${HmsBaseUrl}search-rooms/${q}`,"GET");
+      setAllRooms(Array.isArray(res)?res:(res.data||[]));
+    }catch{ setAllRooms([]); }
+    finally{ setLoadingRooms(false); }
   };
 
-  const openRoomModal = () => { setShowRoomModal(true); fetchAllRooms(); };
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0,10);
+  const stats = {
+    totalRequests: admissions.length,
+    todayAdmissions: admissions.filter(a=>(a.admissionDateTime||"").slice(0,10)===todayStr).length,
+    todayDischarge:  admissions.filter(a=>a.is_discharged&&(a.lastmodified_date||"").slice(0,10)===todayStr).length,
+    avgStay: 5,
+  };
 
-  const groupedRooms = (() => {
-    const g = {};
-    allRooms.forEach((room) => {
-      const block = room.block || "UNKNOWN";
-      const floor = room.floor ?? "?";
-      if (!g[block]) g[block] = {};
-      if (!g[block][floor]) g[block][floor] = [];
+  // ── Filtered admissions ────────────────────────────────────────────────────
+  const filtered = admissions.filter(a=>{
+    if(filterDoctor!=="ALL" && String(a.admittingDoctor)!==String(filterDoctor)) return false;
+    if(filterStatus==="Admitted" && !a.is_admissionActive) return false;
+    if(filterStatus==="Discharged" && !a.is_discharged) return false;
+    if(filterFrom){const d=(a.admissionDateTime||"").slice(0,10);if(d<filterFrom)return false;}
+    if(filterTo  ){const d=(a.admissionDateTime||"").slice(0,10);if(d>filterTo  )return false;}
+    if(tableSearch){
+      const q=tableSearch.toLowerCase();
+      const row=`${a.uhid} ${a.ipNumber} ${pName(a)} ${getDoctorName(a.admittingDoctor)} ${a.roomNo||""} ${a.bedNo|""}`.toLowerCase();
+      if(!row.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.max(1,Math.ceil(filtered.length/perPage));
+  const paginated  = filtered.slice((page-1)*perPage, page*perPage);
+
+  // ── Edit ───────────────────────────────────────────────────────────────────
+  const handleEdit = adm => {
+    setOpenMenuId(null);
+    setEditingId(adm.ipNumber);
+    setFormData({
+      ...EMPTY_FORM,
+      uhid:              adm.uhid||"",
+      ipNumber:          adm.ipNumber||"",
+      admittingDoctor:   adm.admittingDoctor||"",
+      consultingDoctor:  adm.consultingDoctor||"",
+      roomNo:            adm.roomNo||"",
+      bedNo:             adm.bedNo||"",
+      reasonForAdmission:adm.reasonForAdmission||"",
+      packageName:       adm.packageName||"",
+      mlc_type:          adm.mlc_type||"",
+      mlc_remarks:       adm.mlc_remarks||"",
+      salutation:        adm.salutation||"",
+      firstName:         adm.firstName||"",
+      middleName:        adm.middleName||"",
+      lastName:          adm.lastName||"",
+      age:               adm.age||"",
+      gender:            adm.gender||"",
+      phone:             adm.phone||adm.mobilePhone||"",
+      permanent_address: adm.permanent_address||"",
+      area:              adm.area||"",
+      zipcode:           adm.zipcode||"",
+      city:              adm.city||"",
+      state:             adm.state||"",
+      customerType:      adm.customerType||adm.customer_type||"",
+      insuranceCompany:  adm.insuranceCompany||"",
+      insuranceCompanyName:adm.insuranceCompanyName||"",
+    });
+    setShowForm(true);
+  };
+
+  // ── Cancel ─────────────────────────────────────────────────────────────────
+  const handleCancel = async adm => {
+    setOpenMenuId(null);
+    if(!window.confirm(`Cancel admission for ${pName(adm)}?`)) return;
+    try{
+      const res=await apiRequest(`${HmsBaseUrl}admission/${encodeURIComponent(adm.ipNumber)}/`,"DELETE");
+      if(res.success){ toast.success("Admission cancelled"); fetchAdmissions(); }
+      else toast.error(res.error||"Failed to cancel");
+    }catch{ toast.error("Failed to cancel"); }
+  };
+
+  // ── Print ──────────────────────────────────────────────────────────────────
+  const handlePrint = adm => {
+    setOpenMenuId(null);
+    setPrintData({
+      ...adm,
+      admittingDoctorName: getDoctorName(adm.admittingDoctor),
+    });
+  };
+
+  // ── Submit form ────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if(!formData.admittingDoctor) return toast.warning("Admitting Doctor is required");
+    if(!formData.roomNo)          return toast.warning("Room is required");
+    if(!formData.bedNo)           return toast.warning("Bed is required");
+    setSaving(true);
+    const payload=new FormData();
+    ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
+     "reasonForAdmission","packageName","mlc_type","mlc_remarks"].forEach(k=>{
+      if(formData[k]) payload.append(k,formData[k]);
+    });
+    payload.append("admissionDateTime",new Date().toISOString());
+    if(formData.mlc_doc instanceof File) payload.append("mlc_doc",formData.mlc_doc);
+    try{
+      let res;
+      if(editingId){
+        res=await apiRequest(`${HmsBaseUrl}admission/${encodeURIComponent(editingId)}/`,"PUT",payload);
+      }else{
+        if(!formData.uhid) return toast.warning("UHID is required");
+        res=await apiRequest(`${HmsBaseUrl}admission/`,"POST",payload);
+      }
+      if(res.success){
+        toast.success(editingId?"Admission updated!":"Admission saved!");
+        setShowForm(false);
+        setEditingId(null);
+        setFormData(EMPTY_FORM);
+        fetchAdmissions();
+      }else toast.error(res.error||"Failed to save");
+    }catch{ toast.error("Failed to save"); }
+    finally{ setSaving(false); }
+  };
+
+  // ── Fetch patient by UHID ──────────────────────────────────────────────────
+  const fetchPatientByUHID = async ()=>{
+    const uhid=formData.uhid.trim();
+    if(!uhid) return toast.warning("Enter UHID");
+    try{
+      const res=await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`,"GET");
+      if(!res.success){ toast.error(res.error||"Patient not found"); return; }
+      const d=res.data;
+      setFormData(prev=>({
+        ...prev,
+        salutation:d.salutation||"",firstName:d.firstName||"",
+        middleName:d.middleName||"",lastName:d.lastName||"",
+        age:d.age||"",gender:d.gender||"",phone:d.phone||d.mobilePhone||"",
+        permanent_address:d.permanent_address||"",area:d.area||"",
+        zipcode:d.zipcode||"",city:d.city||"",state:d.state||"",
+        customerType:d.customerType||d.customer_type||"",
+        insuranceCompany:d.insuranceCompany||"",
+        insuranceCompanyName:d.insuranceCompanyName||"",
+        company_id:d.company_id||"",
+      }));
+      toast.success("Patient loaded");
+    }catch{ toast.error("Failed to fetch patient"); }
+  };
+
+  // ── Room helpers ───────────────────────────────────────────────────────────
+  const openRoomModal = ()=>{ setShowRoomModal(true); fetchAllRooms(); };
+
+  const groupedRooms = (()=>{
+    const g={};
+    allRooms.forEach(room=>{
+      const block=room.block||"UNKNOWN";
+      const floor=room.floor??"?";
+      if(!g[block]) g[block]={};
+      if(!g[block][floor]) g[block][floor]=[];
       g[block][floor].push(room);
     });
     return g;
   })();
 
-  // ── Search by UHID ─────────────────────────────────────────────────────────
-  const fetchPatientByUHID = async () => {
-    const uhid = formData.uhid.trim();
-    if (!uhid) return toast.warning("Enter UHID");
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
-      if (!res.success) { toast.error(res.error || "Patient not found"); return; }
-      const d = res.data;
-      setFormData((prev) => ({
-        ...prev,
-        salutation:           d.salutation || "",
-        firstName:            d.firstName || "",
-        middleName:           d.middleName || "",
-        lastName:             d.lastName || "",
-        age:                  d.age || "",
-        gender:               d.gender || "",
-        phone:                d.phone || "",
-        permanent_address:    d.permanent_address || "",
-        area:                 d.area || "",
-        zipcode:              d.zipcode || "",
-        city:                 d.city || "",
-        state:                d.state || "",
-        customerType:         d.customerType || "",
-        insuranceCompany:     d.insuranceCompany || "",
-        insuranceCompanyName: d.insuranceCompanyName || "",
-        company_id:           d.company_id || "",
-        privilegedCustomerId: d.privilegedCustomerId || "",
-      }));
-      toast.success("Patient details loaded");
-    } catch { toast.error("Failed to fetch patient"); }
-  };
-
-  // ── Search by IP ───────────────────────────────────────────────────────────
-  const fetchAdmissionByIP = async () => {
-    const ip = formData.ipNumber.trim();
-    if (!ip) return toast.warning("Enter IP Number");
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}admission-by-ip/${encodeURIComponent(ip)}/`, "GET");
-      if (!res.success) return toast.error(res.error || "Admission not found");
-      const d = res.data;
-      setEditingId(d.ipNumber);
-      setFormData({
-        ...EMPTY_FORM,
-        uhid:                 d.uhid || "",
-        ipNumber:             d.ipNumber || "",
-        admittingDoctor:      d.admittingDoctor || "",
-        consultingDoctor:     d.consultingDoctor || "",
-        roomNo:               d.roomNo || "",
-        bedNo:                d.bedNo || "",
-        reasonForAdmission:   d.reasonForAdmission || "",
-        packageName:          d.packageName || "",
-        packageNo:            "",
-        mlc_type:             d.mlc_type || "",
-        mlc_remarks:          d.mlc_remarks || "",
-        salutation:           d.salutation || "",
-        firstName:            d.firstName || "",
-        middleName:           d.middleName || "",
-        lastName:             d.lastName || "",
-        age:                  d.age || "",
-        gender:               d.gender || "",
-        phone:                d.phone || "",
-        permanent_address:    d.permanent_address || "",
-        area:                 d.area || "",
-        zipcode:              d.zipcode || "",
-        city:                 d.city || "",
-        state:                d.state || "",
-        customerType:         d.customerType || "",
-        insuranceCompany:     d.insuranceCompany || "",
-        insuranceCompanyName: d.insuranceCompanyName || "",
-        company_id:           d.company_id || "",
-        privilegedCustomerId: d.privilegedCustomerId || "",
-      });
-      toast.success(`Loaded admission: ${d.ipNumber}`);
-    } catch { toast.error("Failed to fetch admission"); }
-  };
-
-  // ── Room click → open bed modal ────────────────────────────────────────────
-  const handleRoomClick = (room) => {
-    const status = getRoomStatus(room.beds);
-    if (status === "occupied" || status === "maintenance") return;
+  const handleRoomClick = room=>{
+    const status=getRoomStatus(room.beds);
+    if(status==="occupied"||status==="maintenance") return;
     setSelectedRoom(room);
     setShowRoomModal(false);
     setShowBedModal(true);
   };
 
-  // ── Bed select ─────────────────────────────────────────────────────────────
-  // FIX: Accept `room` as an explicit parameter so we never depend on
-  // `selectedRoom` state which may still be null due to React's async
-  // state batching when setSelectedRoom and handleBedSelect are called
-  // in the same synchronous event handler.
-  const handleBedSelect = (bedNumber, room) => {
-    const resolvedRoom = room || selectedRoom;
-    if (!resolvedRoom) return; // safety guard — should never reach here
-    setFormData((prev) => ({
-      ...prev,
-      roomNo: resolvedRoom.room_number,
-      bedNo:  bedNumber,
-    }));
+  const handleBedSelect = (bedNumber,room)=>{
+    const r=room||selectedRoom;
+    if(!r) return;
+    setFormData(prev=>({...prev,roomNo:r.room_number,bedNo:bedNumber}));
     setShowBedModal(false);
     setShowRoomModal(false);
-    toast.success(`Room ${resolvedRoom.room_number} / Bed ${bedNumber} selected`);
+    toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, files } = e.target;
-    if (name === "packageNo") {
-      const selected = packages.find((p) => String(p.packageNo) === value);
-      setFormData((prev) => ({
-        ...prev,
-        packageNo:   value,
-        packageName: selected ? selected.packageName : "",
-      }));
-      fetchPackageItems(value);
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: type === "file" ? files[0] : value }));
+  const handleFormChange = e=>{
+    const{name,value,type,files}=e.target;
+    if(name==="packageNo"){
+      const sel=packages.find(p=>String(p.packageNo)===value);
+      setFormData(prev=>({...prev,packageNo:value,packageName:sel?sel.packageName:""}));
+    }else{
+      setFormData(prev=>({...prev,[name]:type==="file"?files[0]:value}));
     }
   };
 
-  const handleReset = () => {
-    setFormData(EMPTY_FORM);
-    setEditingId(null);
-    setLastSaved(null);
-    setPackageItems([]);
-    setSelectedRoom(null);
-  };
-
-  const handleEdit = (adm) => {
-    setEditingId(adm.ipNumber);
-    setFormData({
-      ...EMPTY_FORM,
-      uhid:                 adm.uhid || "",
-      ipNumber:             adm.ipNumber || "",
-      admittingDoctor:      adm.admittingDoctor || "",
-      consultingDoctor:     adm.consultingDoctor || "",
-      roomNo:               adm.roomNo || "",
-      bedNo:                adm.bedNo || "",
-      reasonForAdmission:   adm.reasonForAdmission || "",
-      packageName:          adm.packageName || "",
-      packageNo:            "",
-      mlc_type:             adm.mlc_type || "",
-      mlc_remarks:          adm.mlc_remarks || "",
-      salutation:           adm.salutation || "",
-      firstName:            adm.firstName || "",
-      middleName:           adm.middleName || "",
-      lastName:             adm.lastName || "",
-      age:                  adm.age || "",
-      gender:               adm.gender || "",
-      phone:                adm.phone || "",
-      permanent_address:    adm.permanent_address || "",
-      area:                 adm.area || "",
-      zipcode:              adm.zipcode || "",
-      city:                 adm.city || "",
-      state:                adm.state || "",
-      customerType:         adm.customerType || "",
-      insuranceCompany:     adm.insuranceCompany || "",
-      insuranceCompanyName: adm.insuranceCompanyName || "",
-      company_id:           adm.company_id || "",
-      privilegedCustomerId: adm.privilegedCustomerId || "",
-    });
-    setPackageItems([]);
-    setSelectedRoom(null);
-    window.scrollTo(0, 0);
-    toast.info("Editing admission");
-  };
-
-  const handleCancel = async (ipNum) => {
-    if (!window.confirm("Cancel this admission?")) return;
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}admission/${encodeURIComponent(ipNum)}/`, "DELETE");
-      if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
-      else toast.error(res.error || "Failed to cancel");
-    } catch { toast.error("Failed to cancel"); }
-  };
-
-  const handleSubmit = async () => {
-    if (!formData.uhid)            return toast.warning("UHID is required");
-    if (!formData.admittingDoctor) return toast.warning("Admitting Doctor is required");
-    if (!formData.roomNo)          return toast.warning("Room is required");
-    if (!formData.bedNo)           return toast.warning("Bed is required");
-
-    setSaving(true);
-    const admissionDateTime = now.toISOString();
-    const payload = new FormData();
-    ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","packageName","mlc_type","mlc_remarks"].forEach((k) => {
-      if (formData[k]) payload.append(k, formData[k]);
-    });
-    payload.append("admissionDateTime", admissionDateTime);
-    if (formData.mlc_doc instanceof File) payload.append("mlc_doc", formData.mlc_doc);
-
-    try {
-      let res;
-      if (editingId) {
-        res = await apiRequest(`${HmsBaseUrl}admission/${encodeURIComponent(editingId)}/`, "PUT", payload);
-      } else {
-        res = await apiRequest(`${HmsBaseUrl}admission/`, "POST", payload);
+  // ─── Print actual browser print ────────────────────────────────────────────
+  const doPrint = ()=>{
+    const w=window.open("","_blank","width=600,height=400");
+    const pd=printData;
+    const admDT=pd.admissionDateTime?new Date(pd.admissionDateTime):new Date();
+    // Simple barcode bars
+    let barsHtml="";
+    const ipStr=pd.ipNumber||"";
+    let xPos=0;
+    for(let i=0;i<ipStr.length&&xPos<190;i++){
+      const code=ipStr.charCodeAt(i);
+      for(let b=0;b<7&&xPos<190;b++){
+        const bw=((code>>b)&1)?2.5:1.2;
+        if(i%2===0) barsHtml+=`<rect x="${xPos.toFixed(1)}" y="0" width="${bw}" height="44" fill="black"/>`;
+        xPos+=bw+0.8;
       }
-      if (res.success) {
-        toast.success(editingId ? "Admission updated!" : "Admission saved!");
-        setLastSaved({
-          ...res.data,
-          admittingDoctorName: getDoctorName(formData.admittingDoctor),
-          admissionDateTime,
-        });
-        fetchAdmissions();
-        if (!editingId && res.data?.ipNumber) {
-          setFormData((prev) => ({ ...prev, ipNumber: res.data.ipNumber }));
-          setEditingId(res.data.ipNumber);
-        }
-      } else {
-        toast.error(res.error || "Failed to save admission");
-      }
-    } catch { toast.error("Failed to save admission"); }
-    finally { setSaving(false); }
-  };
-
-  const handlePrint = (admData) => {
-    const pd = admData || lastSaved;
-    if (!pd) return;
-    const admDT  = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
-    const barSVG = generateBarcodeSVG(pd.ipNumber || "");
-    const pw = window.open("", "_blank", "width=600,height=400");
-    pw.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title>
-      <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:13px;padding:20px;}
-      .slip{width:540px;margin:0 auto;border:1px solid #000;padding:16px;}
-      .row{display:flex;justify-content:space-between;margin-bottom:12px;}
-      .bold{font-weight:bold;}.big{font-size:18px;font-weight:bold;}
+    }
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title>
+      <style>*{margin:0;padding:0;box-sizing:border-box;}
+      body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}
+      .slip{width:500px;border:2px solid #000;padding:14px;}
+      .row{display:flex;justify-content:space-between;gap:12px;}
+      .right{text-align:right;}
+      .big{font-size:18px;font-weight:900;letter-spacing:.5px;}
+      .bold{font-weight:700;font-size:12px;}
+      .line{margin:2px 0;font-size:11px;}
       @media print{body{padding:0;}.slip{border:none;}}
-      </style></head><body><div class="slip"><div class="row">
-      <div class="left">${barSVG}<div class="bold">${pName(pd)}</div>
-      <div>${pd.age || ""} ${pd.gender || ""}</div>
-      <div>${pd.permanent_address || ""}</div>
-      <div>${[pd.area, pd.city, pd.state].filter(Boolean).join(", ")}</div>
-      <div>${pd.phone || ""}</div>
-      <div>${pd.customerType || ""}${pd.insuranceCompanyName ? ` · ${pd.insuranceCompanyName}` : ""}</div>
-      <div>Dr. ${pd.admittingDoctorName || getDoctorName(pd.admittingDoctor)}</div></div>
-      <div class="right"><div class="big">IP NO: ${pd.ipNumber || ""}</div>
-      <div>UHID: ${pd.uhid || ""}</div>
-      <div>DOA: ${admDT.toLocaleDateString("en-IN")}</div>
-      <div>TIME: ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div>
-      <div>Room: ${pd.roomNo || ""} / Bed: ${pd.bedNo || ""}</div>
-      ${pd.packageName ? `<div>Package: ${pd.packageName}</div>` : ""}
-      </div></div></div>
-      <script>window.onload=function(){window.print();window.close();};</script>
+      </style></head><body>
+      <div class="slip">
+        <div class="row">
+          <div class="left">
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="44">${barsHtml}</svg>
+            <div class="bold">${pName(pd)}</div>
+            <div class="line">${pd.age||""} ${pd.gender||""}</div>
+            <div class="line">S/o. ${pd.lastName||""}</div>
+            <div class="line">${pd.permanent_address||""}</div>
+            <div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div>
+            <div class="line">${pd.phone||pd.mobilePhone||""}</div>
+            <div class="line">${pd.customerType||pd.customer_type||""}</div>
+            <div class="line">Dr. ${pd.admittingDoctorName||getDoctorName(pd.admittingDoctor)}</div>
+          </div>
+          <div class="right">
+            <div class="big">IP NO: ${pd.ipNumber||""}</div>
+            <div class="line">${pd.insuranceCompanyName||""}</div>
+            <div class="line">UHID : ${pd.uhid||""}</div>
+            <div class="line">DOA : ${admDT.toLocaleDateString("en-IN")}</div>
+            <div class="line">TIME: ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div>
+            <div class="line">Room: ${pd.roomNo||""} / ${pd.bedNo||""}</div>
+            ${pd.packageName?`<div class="line">Pkg: ${pd.packageName}</div>`:''}
+            <div class="line">Adhar Number :</div>
+          </div>
+        </div>
+      </div>
+      <script>window.onload=function(){window.print();window.close();};<\/script>
       </body></html>`);
-    pw.document.close();
-  };
-
-  const generateBarcodeSVG = (text) => {
-    if (!text) return "";
-    const w = 220, h = 50; let bars = "", x = 0;
-    text.split("").forEach((ch, i) => {
-      const code = ch.charCodeAt(0);
-      for (let b = 0; b < 4; b++) {
-        const bw = ((code >> b) & 1) ? 3 : 1.5;
-        if (i % 2 === 0) bars += `<rect x="${x.toFixed(1)}" y="0" width="${bw}" height="${h}" fill="black"/>`;
-        x += bw + 1;
-        if (x > w - 10) break;
-      }
-    });
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">${bars}</svg>`;
+    w.document.close();
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
-      <Container style={{ padding: 0 }}>
+      <GlobalPrint />
+      <Container style={{ padding:0 }}>
 
+        {/* Header */}
         <PageHeader>
-          <PageTitleEl>{editingId ? "✏️ Edit Admission" : "🏥 New Admission"}</PageTitleEl>
-          <ClockDisplay>{fmt(now)} &nbsp; {fmtT(now)}</ClockDisplay>
+          <PageTitleEl>🏥 Admission Requests</PageTitleEl>
+          <NewAdmBtn onClick={()=>{ setEditingId(null); setFormData(EMPTY_FORM); setShowForm(true); }}>
+            + New Admission
+          </NewAdmBtn>
         </PageHeader>
 
-        <FormGrid>
+        {/* Stats */}
+        <StatsRow>
+          {[
+            { label:"Total Admission Requests", value:stats.totalRequests,   icon:"👤", bg:"#eff6ff" },
+            { label:"Todays Admissions",         value:stats.todayAdmissions, icon:"📅", bg:"#f0fdf4" },
+            { label:"Todays Discharge",          value:stats.todayDischarge,  icon:"↗️", bg:"#fef9c3" },
+            { label:"Avg Length of Stay",        value:stats.avgStay,         icon:"⏱️", bg:"#fdf4ff" },
+          ].map((s,i)=>(
+            <StatCard key={i} idx={i}>
+              <StatIcon bg={s.bg}>{s.icon}</StatIcon>
+              <StatInfo>
+                <StatLabel>{s.label}</StatLabel>
+                <StatValue>{s.value}</StatValue>
+              </StatInfo>
+            </StatCard>
+          ))}
+        </StatsRow>
 
-          {/* ── Search ────────────────────────────────────────────────── */}
-          <Field span={2}>
-            <Lbl required>UHID</Lbl>
-            <InputRow>
-              <Inp
-                name="uhid"
-                value={formData.uhid}
-                onChange={handleChange}
-                placeholder="Enter UHID"
-                readOnly={!!editingId}
-              />
-              <IconBtn type="button" onClick={fetchPatientByUHID} disabled={!!editingId}>
-                🔍 Search
-              </IconBtn>
-            </InputRow>
-          </Field>
-
-          <Field span={2}>
-            <Lbl>IP Number</Lbl>
-            <InputRow>
-              <Inp
-                name="ipNumber"
-                value={formData.ipNumber}
-                onChange={handleChange}
-                placeholder={editingId ? formData.ipNumber : "Search by IP No."}
-                readOnly={!!editingId}
-              />
-              {!editingId && <IconBtn type="button" onClick={fetchAdmissionByIP}>🔍</IconBtn>}
-            </InputRow>
-          </Field>
-
-          <Field span={2}>
-            <Lbl>Date &amp; Time</Lbl>
-            <Inp value={`${fmt(now)}  ${fmtT(now)}`} readOnly style={{ fontFamily: "monospace", background: "#f3f4f6" }} />
-          </Field>
-
-          {/* ── Patient Details ────────────────────────────────────────── */}
-          <SectionDivider>Patient Details (auto-filled from UHID)</SectionDivider>
-
-          <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(formData)} readOnly /></Field>
-          <Field><Lbl>Age</Lbl><Inp value={formData.age} readOnly /></Field>
-          <Field><Lbl>Gender</Lbl><Inp value={formData.gender} readOnly /></Field>
-          <Field><Lbl>Customer Type</Lbl><Inp value={formData.customerType} readOnly /></Field>
-
-          <Field span={3}>
-            <Lbl>Insurance Company</Lbl>
-            <Inp value={formData.insuranceCompanyName || formData.insuranceCompany || ""} readOnly placeholder="—" />
-          </Field>
-          <Field span={3}>
-            <Lbl>Privileged Customer ID</Lbl>
-            <Inp value={formData.privilegedCustomerId} readOnly placeholder="—" />
-          </Field>
-
-          <Field span={2}><Lbl>Phone</Lbl><Inp value={formData.phone} readOnly /></Field>
-          <Field span={4}><Lbl>Permanent Address</Lbl><Inp value={formData.permanent_address} readOnly /></Field>
-          <Field span={2}><Lbl>Area</Lbl><Inp value={formData.area} readOnly /></Field>
-          <Field><Lbl>City</Lbl><Inp value={formData.city} readOnly /></Field>
-          <Field><Lbl>State</Lbl><Inp value={formData.state} readOnly /></Field>
-          <Field><Lbl>Zip</Lbl><Inp value={formData.zipcode} readOnly /></Field>
-
-          {/* ── Clinical ──────────────────────────────────────────────── */}
-          <SectionDivider>Clinical</SectionDivider>
-
-          <Field span={3}>
-            <Lbl required>Admitting Doctor</Lbl>
-            <Sel name="admittingDoctor" value={formData.admittingDoctor} onChange={handleChange}>
-              <option value="">Select Doctor</option>
-              {doctors.map((d) => <option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
-            </Sel>
-          </Field>
-          <Field span={3}>
-            <Lbl>Consulting Doctor</Lbl>
-            <Sel name="consultingDoctor" value={formData.consultingDoctor} onChange={handleChange}>
-              <option value="">Select Doctor</option>
-              {doctors.map((d) => <option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
-            </Sel>
-          </Field>
-
-          {/* ── Room & Bed ────────────────────────────────────────────── */}
-          <SectionDivider>Room &amp; Bed</SectionDivider>
-
-          <Field span={2}>
-            <Lbl required>Room No.</Lbl>
-            <InputRow>
-              <Inp name="roomNo" value={formData.roomNo} onChange={handleChange} placeholder="Click 🔍 to pick" />
-              <IconBtn type="button" onClick={openRoomModal}>🔍</IconBtn>
-            </InputRow>
-          </Field>
-          <Field span={2}>
-            <Lbl required>Bed No.</Lbl>
-            <Inp name="bedNo" value={formData.bedNo} readOnly placeholder="Auto-filled on bed select" style={{ background: "#f3f4f6" }} />
-          </Field>
-
-          {/* ── Reason & Package ──────────────────────────────────────── */}
-          <SectionDivider>Admission &amp; Package</SectionDivider>
-
-          <Field span={3}>
-            <Lbl>Reason for Admission</Lbl>
-            <Txta name="reasonForAdmission" value={formData.reasonForAdmission} onChange={handleChange} rows={2} />
-          </Field>
-
-          <Field span={3}>
-            <Lbl>Package</Lbl>
-            <Sel name="packageNo" value={formData.packageNo} onChange={handleChange}>
-              <option value="">— Select Package —</option>
-              {packages.map((pkg) => (
-                <option key={pkg.packageNo} value={String(pkg.packageNo)}>
-                  {pkg.packageName}{pkg.totalPrice ? ` (₹${pkg.totalPrice})` : ""}
-                </option>
+        {/* Filters */}
+        <FilterBar>
+          <FField flex="1 1 180px">
+            <FLabel>Admitting Doctor</FLabel>
+            <FSelect value={filterDoctor} onChange={e=>{setFilterDoctor(e.target.value);setPage(1);}}>
+              <option value="ALL">ALL</option>
+              {doctors.map(d=>(
+                <option key={d.employeeId} value={String(d.employeeId)}>{d.employeeName}</option>
               ))}
-            </Sel>
-            {formData.packageName && !formData.packageNo && (
-              <span style={{ fontSize: "0.68rem", color: "#6b7280", marginTop: 2 }}>
-                Current: {formData.packageName}
-              </span>
-            )}
-          </Field>
+            </FSelect>
+          </FField>
+          <FField flex="0 0 150px">
+            <FLabel>From Date</FLabel>
+            <FInput type="date" value={filterFrom} onChange={e=>{setFilterFrom(e.target.value);setPage(1);}} />
+          </FField>
+          <FField flex="0 0 150px">
+            <FLabel>To Date</FLabel>
+            <FInput type="date" value={filterTo} onChange={e=>{setFilterTo(e.target.value);setPage(1);}} />
+          </FField>
+          <FField flex="0 0 140px">
+            <FLabel>Status</FLabel>
+            <FSelect value={filterStatus} onChange={e=>{setFilterStatus(e.target.value);setPage(1);}}>
+              <option>All</option>
+              <option>Admitted</option>
+              <option>Discharged</option>
+            </FSelect>
+          </FField>
+          <SearchBtn onClick={fetchAdmissions}>🔍 Search</SearchBtn>
+        </FilterBar>
 
-          {packageItems.length > 0 && (
-            <PackageInfo>
-              <PackageInfoTitle>📦 Package Items — {formData.packageName}</PackageInfoTitle>
-              <PackageItemsGrid>
-                {packageItems.map((item, i) => (
-                  <PackageItemChip key={i}>
-                    {item.itemName || item.name || item.service_name || JSON.stringify(item)}
-                  </PackageItemChip>
-                ))}
-              </PackageItemsGrid>
-            </PackageInfo>
-          )}
-          {loadingPkg && (
-            <div style={{ gridColumn: "span 6", fontSize: "0.72rem", color: "#6b7280" }}>
-              Loading package items…
-            </div>
-          )}
+        {/* Table Top Bar */}
+        <TableTopBar>
+          <ShowSelect>
+            Show up to&nbsp;
+            <FSelect style={{width:60,height:26}} value={perPage} onChange={e=>{setPerPage(Number(e.target.value));setPage(1);}}>
+              {[10,15,25,50].map(n=><option key={n}>{n}</option>)}
+            </FSelect>
+          </ShowSelect>
+          <SearchBox>
+            Search:&nbsp;
+            <SInput value={tableSearch} onChange={e=>{setTableSearch(e.target.value);setPage(1);}} placeholder="Name / UHID…"/>
+          </SearchBox>
+        </TableTopBar>
 
-          {/* ── MLC ───────────────────────────────────────────────────── */}
-          <SectionDivider>MLC (if applicable)</SectionDivider>
+        {/* Table */}
+        <TableWrap>
+          <Table>
+            <Thead>
+              <tr>
+                <Th>Status</Th>
+                <Th>Adm Date</Th>
+                <Th>Time</Th>
+                <Th>UHID</Th>
+                <Th>Name</Th>
+                <Th>Age</Th>
+                <Th>Gender</Th>
+                <Th>Admitting Dr.</Th>
+                <Th>Room/Bed</Th>
+                <Th>Actions</Th>
+              </tr>
+            </Thead>
+            <tbody>
+              {loading ? (
+                <tr><Td colSpan={10} style={{textAlign:"center",padding:24}}>Loading…</Td></tr>
+              ) : paginated.length===0 ? (
+                <tr><Td colSpan={10} style={{textAlign:"center",padding:24,color:"#6b7280"}}>No admissions found</Td></tr>
+              ) : paginated.map((adm,idx)=>(
+                <Tr key={adm.ipNumber||idx} idx={idx}>
+                  <Td>
+                    <AdmBadge active={adm.is_admissionActive&&!adm.is_discharged}>
+                      {adm.is_discharged?"Discharged":adm.is_admissionActive?"Admitted":"Cancelled"}
+                    </AdmBadge>
+                  </Td>
+                  <Td>{adm.admissionDateTime?fmt(adm.admissionDateTime):"-"}</Td>
+                  <Td>{adm.admissionDateTime?fmtT(adm.admissionDateTime):"-"}</Td>
+                  <Td style={{fontWeight:600,color:"#0d9488"}}>{adm.uhid||"-"}</Td>
+                  <Td style={{fontWeight:600}}>{pName(adm)}</Td>
+                  <Td>{adm.age||"-"}</Td>
+                  <Td>{adm.gender||"-"}</Td>
+                  <Td>{adm.admittingDoctorName||getDoctorName(adm.admittingDoctor)}</Td>
+                  <Td>{`${adm.roomNo||"-"}/${adm.bedNo||"-"}`}</Td>
+                  <Td>
+                    <ActionWrap ref={openMenuId===adm.ipNumber?menuRef:null}>
+                      <DotBtn onClick={()=>setOpenMenuId(openMenuId===adm.ipNumber?null:adm.ipNumber)}>⋮</DotBtn>
+                      {openMenuId===adm.ipNumber&&(
+                        <DropMenu>
+                          <DropItem onClick={()=>handleEdit(adm)}>✏️ Edit</DropItem>
+                          <DropItem onClick={()=>handleCancel(adm)} danger disabled={!adm.is_admissionActive}>
+                            🗑️ Cancel
+                          </DropItem>
+                          <DropItem onClick={()=>handlePrint(adm)}>🖨️ Print Admission Slip</DropItem>
+                        </DropMenu>
+                      )}
+                    </ActionWrap>
+                  </Td>
+                </Tr>
+              ))}
+            </tbody>
+          </Table>
+        </TableWrap>
 
-          <Field span={2}>
-            <Lbl>MLC Type</Lbl>
-            <Sel name="mlc_type" value={formData.mlc_type} onChange={handleChange}>
-              <option value=""></option>
-              <option value="Accident">Accident</option>
-              <option value="Assault">Assault</option>
-              <option value="Other">Other</option>
-            </Sel>
-          </Field>
-          <Field span={2}>
-            <Lbl>MLC Document</Lbl>
-            <Inp type="file" name="mlc_doc" onChange={handleChange} style={{ paddingTop: 3, height: "auto" }} />
-          </Field>
-          <Field span={2}>
-            <Lbl>MLC Remarks</Lbl>
-            <Txta name="mlc_remarks" value={formData.mlc_remarks} onChange={handleChange} rows={2} />
-          </Field>
-
-        </FormGrid>
-
-        {/* ── Admitted Patients Table ──────────────────────────────── */}
-        <TableSection>
-          <TableTitle>Admitted Patients</TableTitle>
-          <TableWrapper>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>UHID</Th><Th>IP Number</Th><Th>Patient Name</Th>
-                  <Th>Adm. Date &amp; Time</Th><Th>Room / Bed</Th>
-                  <Th>Doctor</Th><Th>Package</Th>
-                  <Th>Customer Type</Th><Th>Status</Th><Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {admissions.length === 0 ? (
-                  <Tr><Td colSpan="10" style={{ textAlign: "center", padding: "24px" }}>No admissions found</Td></Tr>
-                ) : admissions.map((adm, idx) => (
-                  <Tr key={idx}>
-                    <Td>{adm.uhid}</Td>
-                    <Td>{adm.ipNumber}</Td>
-                    <Td>{pName(adm) || "-"}</Td>
-                    <Td>{adm.admissionDateTime ? new Date(adm.admissionDateTime).toLocaleString("en-IN") : "-"}</Td>
-                    <Td>{`${adm.roomNo || "-"} / ${adm.bedNo || "-"}`}</Td>
-                    <Td>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor)}</Td>
-                    <Td>{adm.packageName || "-"}</Td>
-                    <Td>{adm.customerType || "-"}</Td>
-                    <Td>
-                      <StatusBadge active={adm.is_admissionActive !== false}>
-                        {adm.is_admissionActive !== false ? "Active" : "Cancelled"}
-                      </StatusBadge>
-                    </Td>
-                    <Td>
-                      <div style={{ display: "flex", gap: 5 }}>
-                        <MiniBtn onClick={() => handleEdit(adm)} disabled={adm.is_admissionActive === false}>✏️ Edit</MiniBtn>
-                        <MiniBtnPrint onClick={() => handlePrint(adm)}>🖨️</MiniBtnPrint>
-                        <MiniBtn danger onClick={() => handleCancel(adm.ipNumber)} disabled={adm.is_admissionActive === false}>🗑️ Cancel</MiniBtn>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableWrapper>
-        </TableSection>
+        {/* Pagination */}
+        <Pager>
+          <span>Showing {Math.min((page-1)*perPage+1,filtered.length)}–{Math.min(page*perPage,filtered.length)} of {filtered.length} entries</span>
+          <div style={{display:"flex",gap:4}}>
+            <PBtn onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>Previous</PBtn>
+            {Array.from({length:totalPages},(_,i)=>i+1).slice(Math.max(0,page-3),page+2).map(n=>(
+              <PBtn key={n} active={n===page} data-active={n===page||undefined} onClick={()=>setPage(n)}>{n}</PBtn>
+            ))}
+            <PBtn onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}>Next</PBtn>
+          </div>
+        </Pager>
       </Container>
 
-      {/* ══ ROOM PICKER MODAL ══════════════════════════════════════════ */}
-      {showRoomModal && (
-        <ModalOverlay onClick={() => setShowRoomModal(false)}>
-          <RoomModalContainer onClick={(e) => e.stopPropagation()}>
+      {/* ══ FORM MODAL ══════════════════════════════════════════════════ */}
+      {showForm&&(
+        <ModalOverlay onClick={()=>setShowForm(false)}>
+          <FormModal onClick={e=>e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>{editingId?"✏️ Edit Admission":"🏥 New Admission"}</ModalTitle>
+              <CloseButton onClick={()=>setShowForm(false)}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody style={{padding:0}}>
+              <FormGrid>
+                {/* Search */}
+                <Field span={2}>
+                  <Lbl required>UHID</Lbl>
+                  <InputRow>
+                    <Inp name="uhid" value={formData.uhid} onChange={handleFormChange}
+                      placeholder="Enter UHID" readOnly={!!editingId}/>
+                    <IconBtn type="button" onClick={fetchPatientByUHID} disabled={!!editingId}>🔍</IconBtn>
+                  </InputRow>
+                </Field>
+                <Field span={2}>
+                  <Lbl>IP Number</Lbl>
+                  <Inp value={formData.ipNumber} readOnly style={{background:"#f3f4f6"}}/>
+                </Field>
+                <Field span={2}>
+                  <Lbl>Date &amp; Time</Lbl>
+                  <Inp value={`${fmt(now)}  ${now.toLocaleTimeString("en-IN")}`} readOnly style={{fontFamily:"monospace",background:"#f3f4f6"}}/>
+                </Field>
+
+                <SecDiv>Patient Details</SecDiv>
+                <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(formData)} readOnly/></Field>
+                <Field><Lbl>Age</Lbl><Inp value={formData.age} readOnly/></Field>
+                <Field><Lbl>Gender</Lbl><Inp value={formData.gender} readOnly/></Field>
+                <Field><Lbl>Customer Type</Lbl><Inp value={formData.customerType} readOnly/></Field>
+                <Field span={3}><Lbl>Insurance</Lbl><Inp value={formData.insuranceCompanyName||formData.insuranceCompany||""} readOnly placeholder="—"/></Field>
+                <Field span={2}><Lbl>Phone</Lbl><Inp value={formData.phone} readOnly/></Field>
+                <Field span={4}><Lbl>Address</Lbl><Inp value={formData.permanent_address} readOnly/></Field>
+                <Field span={2}><Lbl>Area</Lbl><Inp value={formData.area} readOnly/></Field>
+                <Field><Lbl>City</Lbl><Inp value={formData.city} readOnly/></Field>
+                <Field><Lbl>State</Lbl><Inp value={formData.state} readOnly/></Field>
+                <Field><Lbl>Zip</Lbl><Inp value={formData.zipcode} readOnly/></Field>
+
+                <SecDiv>Clinical</SecDiv>
+                <Field span={3}>
+                  <Lbl required>Admitting Doctor</Lbl>
+                  <Sel name="admittingDoctor" value={formData.admittingDoctor} onChange={handleFormChange}>
+                    <option value="">Select Doctor</option>
+                    {doctors.map(d=><option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
+                  </Sel>
+                </Field>
+                <Field span={3}>
+                  <Lbl>Consulting Doctor</Lbl>
+                  <Sel name="consultingDoctor" value={formData.consultingDoctor} onChange={handleFormChange}>
+                    <option value="">Select Doctor</option>
+                    {doctors.map(d=><option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
+                  </Sel>
+                </Field>
+
+                <SecDiv>Room &amp; Bed</SecDiv>
+                <Field span={2}>
+                  <Lbl required>Room No.</Lbl>
+                  <InputRow>
+                    <Inp name="roomNo" value={formData.roomNo} onChange={handleFormChange} placeholder="Click 🔍 to pick"/>
+                    <IconBtn type="button" onClick={openRoomModal}>🔍</IconBtn>
+                  </InputRow>
+                </Field>
+                <Field span={2}>
+                  <Lbl required>Bed No.</Lbl>
+                  <Inp name="bedNo" value={formData.bedNo} readOnly style={{background:"#f3f4f6"}} placeholder="Auto-filled"/>
+                </Field>
+
+                <SecDiv>Admission &amp; Package</SecDiv>
+                <Field span={3}>
+                  <Lbl>Reason for Admission</Lbl>
+                  <Txta name="reasonForAdmission" value={formData.reasonForAdmission} onChange={handleFormChange} rows={2}/>
+                </Field>
+                <Field span={3}>
+                  <Lbl>Package</Lbl>
+                  <Sel name="packageNo" value={formData.packageNo} onChange={handleFormChange}>
+                    <option value="">— Select Package —</option>
+                    {packages.map(pkg=>(
+                      <option key={pkg.packageNo} value={String(pkg.packageNo)}>
+                        {pkg.packageName}{pkg.totalPrice?` (₹${pkg.totalPrice})`:""}
+                      </option>
+                    ))}
+                  </Sel>
+                  {formData.packageName&&!formData.packageNo&&(
+                    <span style={{fontSize:".68rem",color:"#6b7280",marginTop:2}}>Current: {formData.packageName}</span>
+                  )}
+                </Field>
+
+                <SecDiv>MLC (if applicable)</SecDiv>
+                <Field span={2}>
+                  <Lbl>MLC Type</Lbl>
+                  <Sel name="mlc_type" value={formData.mlc_type} onChange={handleFormChange}>
+                    <option value=""/>
+                    <option value="Accident">Accident</option>
+                    <option value="Assault">Assault</option>
+                    <option value="Other">Other</option>
+                  </Sel>
+                </Field>
+                <Field span={2}>
+                  <Lbl>MLC Document</Lbl>
+                  <Inp type="file" name="mlc_doc" onChange={handleFormChange} style={{paddingTop:3,height:"auto"}}/>
+                </Field>
+                <Field span={2}>
+                  <Lbl>MLC Remarks</Lbl>
+                  <Txta name="mlc_remarks" value={formData.mlc_remarks} onChange={handleFormChange} rows={2}/>
+                </Field>
+              </FormGrid>
+              <FormActions>
+                <SmBtn secondary onClick={()=>{setShowForm(false);setEditingId(null);setFormData(EMPTY_FORM);}}>Cancel</SmBtn>
+                <SmBtn onClick={handleSubmit} disabled={saving}>{saving?"Saving…":editingId?"Update Admission":"Save Admission"}</SmBtn>
+              </FormActions>
+            </ModalBody>
+          </FormModal>
+        </ModalOverlay>
+      )}
+
+      {/* ══ ROOM PICKER MODAL ═══════════════════════════════════════════ */}
+      {showRoomModal&&(
+        <ModalOverlay onClick={()=>setShowRoomModal(false)}>
+          <RoomModalContainer onClick={e=>e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>🏨 Select Room</ModalTitle>
-              <CloseButton onClick={() => setShowRoomModal(false)}>×</CloseButton>
+              <CloseButton onClick={()=>setShowRoomModal(false)}>×</CloseButton>
             </ModalHeader>
             <RoomModalBody>
-              <FilterBar>
-                <FilterField>
-                  <FilterLabel>Room Number</FilterLabel>
-                  <FilterInput
-                    placeholder="e.g. 101"
-                    value={roomFilter.room_number}
-                    onChange={(e) => setRoomFilter((p) => ({ ...p, room_number: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && fetchAllRooms()}
-                  />
-                </FilterField>
-                <FilterField>
-                  <FilterLabel>Block</FilterLabel>
-                  <FilterInput
-                    placeholder="e.g. A"
-                    value={roomFilter.block}
-                    onChange={(e) => setRoomFilter((p) => ({ ...p, block: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && fetchAllRooms()}
-                  />
-                </FilterField>
-                <FilterField>
-                  <FilterLabel>Floor</FilterLabel>
-                  <FilterInput
-                    type="number"
-                    placeholder="e.g. 2"
-                    value={roomFilter.floor}
-                    onChange={(e) => setRoomFilter((p) => ({ ...p, floor: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && fetchAllRooms()}
-                  />
-                </FilterField>
-                <FilterBtn onClick={() => fetchAllRooms()}>Search</FilterBtn>
-                <FilterBtn
-                  onClick={() => {
-                    setRoomFilter({ room_number: "", block: "", floor: "" });
-                    fetchAllRooms({ room_number: "", block: "", floor: "" });
-                  }}
-                  style={{ background: colors.textMuted }}
-                >
+              <FilterBarR>
+                <FilterFieldR>
+                  <FilterLabelR>Room Number</FilterLabelR>
+                  <FilterInputR placeholder="e.g. 101" value={roomFilter.room_number}
+                    onChange={e=>setRoomFilter(p=>({...p,room_number:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&fetchAllRooms()}/>
+                </FilterFieldR>
+                <FilterFieldR>
+                  <FilterLabelR>Block</FilterLabelR>
+                  <FilterInputR placeholder="e.g. A" value={roomFilter.block}
+                    onChange={e=>setRoomFilter(p=>({...p,block:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&fetchAllRooms()}/>
+                </FilterFieldR>
+                <FilterFieldR>
+                  <FilterLabelR>Floor</FilterLabelR>
+                  <FilterInputR type="number" placeholder="e.g. 2" value={roomFilter.floor}
+                    onChange={e=>setRoomFilter(p=>({...p,floor:e.target.value}))}
+                    onKeyDown={e=>e.key==="Enter"&&fetchAllRooms()}/>
+                </FilterFieldR>
+                <FilterBtnR onClick={()=>fetchAllRooms()}>Search</FilterBtnR>
+                <FilterBtnR style={{background:"#6b7280"}}
+                  onClick={()=>{setRoomFilter({room_number:"",block:"",floor:""});fetchAllRooms({room_number:"",block:"",floor:""});}}>
                   Clear
-                </FilterBtn>
-              </FilterBar>
-
+                </FilterBtnR>
+              </FilterBarR>
               <LegendBar>
-                <LegendItem><LegendDot color="#22c55e" />Available</LegendItem>
-                <LegendItem><LegendDot color="#3b82f6" />Partially Available</LegendItem>
-                <LegendItem><LegendDot color="#ef4444" />Fully Occupied</LegendItem>
-                <LegendItem><LegendDot color="#f59e0b" />Maintenance</LegendItem>
+                <LegendItem><LegendDot color="#22c55e"/>Available</LegendItem>
+                <LegendItem><LegendDot color="#3b82f6"/>Partially Available</LegendItem>
+                <LegendItem><LegendDot color="#ef4444"/>Fully Occupied</LegendItem>
+                <LegendItem><LegendDot color="#f59e0b"/>Maintenance</LegendItem>
               </LegendBar>
-
-              {loadingRooms ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(148px,1fr))", gap: 8 }}>
-                  {Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} />)}
+              {loadingRooms?(
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
+                  {Array.from({length:12}).map((_,i)=><Skeleton key={i}/>)}
                 </div>
-              ) : Object.keys(groupedRooms).length === 0 ? (
+              ):Object.keys(groupedRooms).length===0?(
                 <NoResults>No rooms found.</NoResults>
-              ) : (
-                Object.entries(groupedRooms).map(([block, floors], bIdx) => (
-                  <BlockSection key={block} idx={bIdx}>
-                    <BlockHeader>🏢 Block {block}</BlockHeader>
-                    {Object.entries(floors).sort(([a], [b]) => Number(a) - Number(b)).map(([floor, rooms]) => (
-                      <FloorGroup key={floor}>
-                        <FloorLabel>Floor {floor}</FloorLabel>
-                        <RoomGrid>
-                          {rooms.map((room) => {
-                            const status = getRoomStatus(room.beds);
-                            return (
-                              <RoomCard
-                                key={room.room_number}
-                                status={status}
-                                onClick={() => handleRoomClick(room)}
-                              >
-                                <RoomCardTop status={status}>
-                                  <RoomNum>{room.room_number}</RoomNum>
-                                  <RoomStatusPill status={status}>{status === "partial" ? "Partial" : status}</RoomStatusPill>
-                                </RoomCardTop>
-                                <RoomType>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RoomType>
-                                <BedRow>
-                                  {(room.beds || []).map((bed, i) => (
-                                    <BedChip
-                                      key={i}
-                                      bedStatus={bed.status}
-                                      disabled={bed.status !== "Available"}
-                                      onClick={(e) => {
-                                        if (bed.status === "Available") {
-                                          e.stopPropagation();
-                                          // Pass `room` directly — avoids null selectedRoom
-                                          // race condition from async React state batching
-                                          handleBedSelect(bed.bed_number, room);
-                                        }
-                                      }}
-                                    >
-                                      {bed.bed_number}
-                                    </BedChip>
-                                  ))}
-                                </BedRow>
-                              </RoomCard>
-                            );
-                          })}
-                        </RoomGrid>
-                      </FloorGroup>
-                    ))}
-                  </BlockSection>
-                ))
-              )}
+              ):Object.entries(groupedRooms).map(([block,floors],bIdx)=>(
+                <BlockSection key={block} idx={bIdx}>
+                  <BlockHeader>🏢 Block {block}</BlockHeader>
+                  {Object.entries(floors).sort(([a],[b])=>Number(a)-Number(b)).map(([floor,rooms])=>(
+                    <FloorGroup key={floor}>
+                      <FloorLabel>Floor {floor}</FloorLabel>
+                      <RoomGrid>
+                        {rooms.map(room=>{
+                          const status=getRoomStatus(room.beds);
+                          return(
+                            <RoomCard key={room.room_number} status={status} onClick={()=>handleRoomClick(room)}>
+                              <RoomCardTop status={status}>
+                                <RoomNum>{room.room_number}</RoomNum>
+                                <RoomStatusPill status={status}>{status==="partial"?"Partial":status}</RoomStatusPill>
+                              </RoomCardTop>
+                              <RoomType>{room.room_type}{room.room_category?` · ${room.room_category}`:""}</RoomType>
+                              <BedRow>
+                                {(room.beds||[]).map((bed,i)=>(
+                                  <BedChip key={i} bedStatus={bed.status} disabled={bed.status!=="Available"}
+                                    onClick={e=>{
+                                      if(bed.status==="Available"){
+                                        e.stopPropagation();
+                                        handleBedSelect(bed.bed_number,room);
+                                      }
+                                    }}>
+                                    {bed.bed_number}
+                                  </BedChip>
+                                ))}
+                              </BedRow>
+                            </RoomCard>
+                          );
+                        })}
+                      </RoomGrid>
+                    </FloorGroup>
+                  ))}
+                </BlockSection>
+              ))}
             </RoomModalBody>
           </RoomModalContainer>
         </ModalOverlay>
       )}
 
-      {/* ══ BED SELECT FALLBACK MODAL ══════════════════════════════════ */}
-      {showBedModal && selectedRoom && (
-        <ModalOverlay onClick={() => setShowBedModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+      {/* ══ BED SELECT FALLBACK MODAL ════════════════════════════════════ */}
+      {showBedModal&&selectedRoom&&(
+        <ModalOverlay onClick={()=>setShowBedModal(false)}>
+          <ModalContainer onClick={e=>e.stopPropagation()} style={{maxWidth:420}}>
             <ModalHeader>
               <ModalTitle>Select Bed — Room {selectedRoom.room_number}</ModalTitle>
-              <CloseButton onClick={() => setShowBedModal(false)}>×</CloseButton>
+              <CloseButton onClick={()=>setShowBedModal(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
-                {(selectedRoom.beds || []).map((bed, i) => {
-                  const avail = bed.status === "Available";
-                  return (
-                    <BedChip
-                      key={i}
-                      bedStatus={bed.status}
-                      disabled={!avail}
-                      style={{ minWidth: 70, height: 42, fontSize: "0.82rem", flex: "1 1 70px" }}
-                      // selectedRoom is guaranteed non-null here (modal renders only when selectedRoom is set)
-                      onClick={() => avail && handleBedSelect(bed.bed_number, selectedRoom)}
-                    >
-                      {bed.bed_number}<br />
-                      <span style={{ fontSize: "0.6rem", opacity: 0.85 }}>{bed.status}</span>
+              <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:12}}>
+                {(selectedRoom.beds||[]).map((bed,i)=>{
+                  const avail=bed.status==="Available";
+                  return(
+                    <BedChip key={i} bedStatus={bed.status} disabled={!avail}
+                      style={{minWidth:70,height:42,fontSize:".82rem",flex:"1 1 70px"}}
+                      onClick={()=>avail&&handleBedSelect(bed.bed_number,selectedRoom)}>
+                      {bed.bed_number}<br/>
+                      <span style={{fontSize:".6rem",opacity:.85}}>{bed.status}</span>
                     </BedChip>
                   );
                 })}
-                {(!selectedRoom.beds || selectedRoom.beds.length === 0) && (
-                  <NoResults>No beds configured for this room.</NoResults>
-                )}
+                {(!selectedRoom.beds||selectedRoom.beds.length===0)&&<NoResults>No beds configured.</NoResults>}
               </div>
             </ModalBody>
           </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ══ PRINT SLIP MODAL ════════════════════════════════════════════ */}
+      {printData&&(
+        <ModalOverlay onClick={()=>setPrintData(null)}>
+          <PrintModalContainer onClick={e=>e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>🖨️ Admission Slip</ModalTitle>
+              <CloseButton onClick={()=>setPrintData(null)}>×</CloseButton>
+            </ModalHeader>
+            <PrintModalBody>
+              <PrintSlip id="print-slip-content">
+                <SlipRow>
+                  <SlipLeft>
+                    <BarcodeSVG value={printData.ipNumber} width={200} height={44}/>
+                    <SlipBold>{pName(printData)}</SlipBold>
+                    <SlipLine>{printData.age||""} {printData.gender||""}</SlipLine>
+                    <SlipLine>S/o. {printData.lastName||""}</SlipLine>
+                    <SlipLine>MAVAR 147, {printData.permanent_address||""}</SlipLine>
+                    <SlipLine>{[printData.area,printData.city,printData.state].filter(Boolean).join(", ")}</SlipLine>
+                    <SlipLine>{printData.phone||printData.mobilePhone||""}</SlipLine>
+                    <SlipLine>{printData.customerType||printData.customer_type||""}</SlipLine>
+                    <SlipLine>Dr. {printData.admittingDoctorName||getDoctorName(printData.admittingDoctor)}</SlipLine>
+                  </SlipLeft>
+                  <SlipRight>
+                    <SlipBig>IP NO: {printData.ipNumber||""}</SlipBig>
+                    <SlipLine>{printData.insuranceCompanyName||""}</SlipLine>
+                    <SlipLine>UHID : {printData.uhid||""}</SlipLine>
+                    <SlipLine>DOA : {printData.admissionDateTime?
+                      new Date(printData.admissionDateTime).toLocaleDateString("en-IN"):"-"}</SlipLine>
+                    <SlipLine>TIME: {printData.admissionDateTime?
+                      new Date(printData.admissionDateTime).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}):"-"}</SlipLine>
+                    <SlipLine>Room: {printData.roomNo||"-"}</SlipLine>
+                    {printData.packageName&&<SlipLine>Pkg: {printData.packageName}</SlipLine>}
+                    <SlipLine>Adhar Number :</SlipLine>
+                  </SlipRight>
+                </SlipRow>
+              </PrintSlip>
+              <PrintActions>
+                <PrintBtn2 secondary onClick={()=>setPrintData(null)}>Close</PrintBtn2>
+                <PrintBtn2 onClick={doPrint}>🖨️ Print</PrintBtn2>
+              </PrintActions>
+            </PrintModalBody>
+          </PrintModalContainer>
         </ModalOverlay>
       )}
     </PageWrapper>
