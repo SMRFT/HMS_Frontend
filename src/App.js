@@ -483,6 +483,26 @@ function App() {
                 <Route path="/items" element={<Items />} />
               )
             }
+            {
+              hasPagePermission("/StoresGRNGeneration", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresGRNGeneration" element={<StoresGRNGeneration />} />
+              )
+            }
+            {
+              hasPagePermission("/StoresGRNReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresGRNReport" element={<StoresGRNReport />} />
+              )
+            }
+            {
+              hasPagePermission("/StoresIntent", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresIntent" element={<StoresIntent />} />
+              )
+            }
+            {
+              hasPagePermission("/StoreIntentApproval", allowedActions, dynamicPermissions) && (
+                <Route path="/StoreIntentApproval" element={<StoreIntentApproval />} />
+              )
+            }
           </Routes>
         </ContentWrapper>
       )}
