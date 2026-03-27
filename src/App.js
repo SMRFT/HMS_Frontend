@@ -91,6 +91,10 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import AnesNameMaster from "./Components/OT/AnesNameMaster";
+import OTLabBilling from "./Components/OT/OTLabBilling";
+import OTMaster from "./Components/OT/OTMaster";
+import SurgerySchedule from "./Components/OT/SurgerySchedule";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -692,6 +696,29 @@ function App() {
               allowedActions,
               dynamicPermissions,
             ) && <Route path="/items" element={<Items />} />}
+            {/* OT*/}
+            {hasPagePermission(
+              "/AnesNameMaster",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/AnesNameMaster" element={<AnesNameMaster />} />}
+            {hasPagePermission(
+              "/OTLabBilling",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+            {hasPagePermission(
+              "/OTMaster",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/OTMaster" element={<OTMaster />} />}
+            {hasPagePermission(
+              "/SurgerySchedule",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
+            )}
           </Routes>
         </ContentWrapper>
       )}
