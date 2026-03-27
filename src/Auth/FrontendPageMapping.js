@@ -71,6 +71,8 @@ export const PAGE_PERMISSIONS = {
     "/SidebarConfiguration": "HMS-P-HMS", // Reusing test permission or standard admin
     "/StoresIntent": "HMS-P-IN",
     "/StoresIntentApproval": "HMS-P-INA",
+
+    
 };
 
 /**

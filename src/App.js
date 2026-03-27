@@ -93,7 +93,9 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
-
+import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
+import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintainance";
+import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -206,6 +208,9 @@ function App() {
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/AssetsManagement": "Assets Management",
+      "/AssetsMaintainance": "Assets Maintainance",
+      "/RecycleManagement": "Recycle Management",
     };
 
     const path = location.pathname;
@@ -238,21 +243,24 @@ function App() {
     return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
   }
 
+  const isNoSidebarRoute = hideSidebarRoutes.includes(location.pathname);
+
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
-      {!hideSidebarRoutes.includes(location.pathname) && <Sidebar role={role} allowedActions={allowedActions} />}
+      {!isNoSidebarRoute && <Sidebar role={role} allowedActions={allowedActions} />}
 
-      {hideSidebarRoutes.includes(location.pathname) ? (
-        location.pathname === "/MobileRegistration" ? (
-          <Routes>
-            <Route path="/MobileRegistration" element={<MobileRegistration />} />
-          </Routes>
-        ) : (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-            Redirecting based on your role...
-          </div>
-        )
+      {isNoSidebarRoute ? (
+        <div style={location.pathname === "/" ? { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" } : {}}>
+          {location.pathname === "/" ? (
+             <div>Redirecting based on your role...</div>
+          ) : (
+            <Routes>
+               <Route path="/MobileRegistration" element={<MobileRegistration />} />
+               <Route path="/AssetsManagement" element={<AssetsManagement />} />
+            </Routes>
+          )}
+        </div>
       ) : (
         <ContentWrapper>
           <Routes>
@@ -454,12 +462,21 @@ function App() {
             )}
             {hasPagePermission("/StoresGRNReport", allowedActions) && (
               <Route path="/StoresGRNReport" element={<StoresGRNReport />} />
-            )}            
+            )}              
             {hasPagePermission("/StoresIntent", allowedActions) && (
               <Route path="/StoresIntent" element={<StoresIntent />} />
             )}
-            {hasPagePermission("/StoresIntentApproval", allowedActions) && (
-              <Route path="/StoresIntentApproval" element={<StoreIntentApproval />} />
+            {hasPagePermission("/StoreIntentApproval", allowedActions) && (
+              <Route path="/StoreIntentApproval" element={<StoreIntentApproval />} />
+            )}
+            {hasPagePermission("/AssetsManagement", allowedActions) && (
+              <Route path="/AssetsManagement" element={<AssetsManagement />} />
+            )}
+            {hasPagePermission("/AssetsMaintainance", allowedActions) && (
+              <Route path="/AssetsMaintainance" element={<AssetsMaintainance />} />
+            )}
+            {hasPagePermission("/RecycleManagement", allowedActions) && (
+              <Route path="/RecycleManagement" element={<RecycleManagement />} />
             )}
           </Routes>
         </ContentWrapper>

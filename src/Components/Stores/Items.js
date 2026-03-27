@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
+import { LineChart, X } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import {
   PageWrapper,
@@ -20,7 +21,14 @@ import {
   Label,
   ButtonContainer,
   TabContainer,
-  Tab
+  Tab,
+  ModalOverlay,
+  ModalContainer,
+  ModalHeader,
+  ModalTitle,
+  ModalBody,
+  CloseButton,
+  colors
 } from '../GlobalStyles';
 
 const tabs = [
@@ -45,6 +53,12 @@ const Items = () => {
     const [filterCategory, setFilterCategory] = useState('');
     const [filterGroup, setFilterGroup] = useState('');
     const [filterLowStock, setFilterLowStock] = useState(false);
+
+    // Price History states
+    const [showPriceModal, setShowPriceModal] = useState(false);
+    const [priceData, setPriceData] = useState(null);
+    const [selectedItemName, setSelectedItemName] = useState('');
+    const [loadingPrices, setLoadingPrices] = useState(false);
 
     // Master list states for mappings
     const [allDepartments, setAllDepartments] = useState([]);
@@ -171,6 +185,26 @@ const Items = () => {
                 console.error("Error deleting record:", error);
                 alert("Error deleting record");
             }
+        }
+    };
+
+    const fetchPriceHistory = async (item, nameField, idField) => {
+        const itemId = item[idField];
+        setSelectedItemName(item[nameField]);
+        setLoadingPrices(true);
+        setShowPriceModal(true);
+        setPriceData(null);
+        try {
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/`);
+            if (response.success) {
+                setPriceData(response.data);
+            } else {
+                setPriceData({ error: response.error });
+            }
+        } catch (error) {
+            setPriceData({ error: 'Failed to fetch price history' });
+        } finally {
+            setLoadingPrices(false);
         }
     };
 
@@ -489,6 +523,14 @@ const Items = () => {
                                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                                 <Button style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #16a34a', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 'bold' }} onClick={() => handleEdit(item)}>Edit</Button>
                                                                 <Button style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #dc2626', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 'bold' }} onClick={() => handleDelete(item[idField])}>Delete</Button>
+                                                                {activeTab.id === 'item' && (
+                                                                    <Button 
+                                                                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #2563eb', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }} 
+                                                                        onClick={() => fetchPriceHistory(item, nameField, idField)}
+                                                                    >
+                                                                        <LineChart size={14} /> Prices
+                                                                    </Button>
+                                                                )}
                                                             </div>
                                                         </Td>
                                                     </Tr>
@@ -507,6 +549,73 @@ const Items = () => {
                     )}
                 </div>
             </Container>
+
+            {/* Price History Modal */}
+            {showPriceModal && (
+                <ModalOverlay>
+                    <ModalContainer style={{ maxWidth: '700px' }}>
+                        <ModalHeader>
+                            <ModalTitle>Price History - {selectedItemName}</ModalTitle>
+                            <CloseButton onClick={() => setShowPriceModal(false)}>
+                                <X size={20} />
+                            </CloseButton>
+                        </ModalHeader>
+                        <ModalBody>
+                            {loadingPrices ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Loading price history...</div>
+                            ) : priceData?.error ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: colors.danger }}>{priceData.error}</div>
+                            ) : priceData?.history?.length > 0 ? (
+                                <div>
+                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                                        <div style={{ flex: 1, background: colors.success + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 'bold', marginBottom: '5px' }}>Lowest Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.lowest}</div>
+                                        </div>
+                                        <div style={{ flex: 1, background: colors.primary + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.primary, fontWeight: 'bold', marginBottom: '5px' }}>Average Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.average}</div>
+                                        </div>
+                                        <div style={{ flex: 1, background: colors.danger + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.danger, fontWeight: 'bold', marginBottom: '5px' }}>Highest Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.highest}</div>
+                                        </div>
+                                    </div>
+                                    <h4 style={{ margin: '0 0 10px 0', color: colors.textMain }}>Purchase History</h4>
+                                    <TableWrapper>
+                                        <Table>
+                                            <thead>
+                                                <Tr>
+                                                    <Th>Date</Th>
+                                                    <Th>GRN Number</Th>
+                                                    <Th>Vendor</Th>
+                                                    <Th style={{ textAlign: 'right' }}>Qty</Th>
+                                                    <Th style={{ textAlign: 'right' }}>Unit Rate</Th>
+                                                </Tr>
+                                            </thead>
+                                            <tbody>
+                                                {priceData.history.map((record, idx) => (
+                                                    <Tr key={idx}>
+                                                        <Td>{record.date || '-'}</Td>
+                                                        <Td style={{ fontWeight: '500' }}>{record.grn_number}</Td>
+                                                        <Td>{record.vendor_id || '-'}</Td>
+                                                        <Td style={{ textAlign: 'right' }}>{record.quantity || 0}</Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: 'bold', color: colors.primary }}>₹{record.rate}</Td>
+                                                    </Tr>
+                                                ))}
+                                            </tbody>
+                                        </Table>
+                                    </TableWrapper>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
+                                    No purchase history found for this item.
+                                </div>
+                            )}
+                        </ModalBody>
+                    </ModalContainer>
+                </ModalOverlay>
+            )}
         </PageWrapper>
     );
 };
