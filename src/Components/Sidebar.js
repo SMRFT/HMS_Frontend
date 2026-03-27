@@ -18,27 +18,41 @@ import {
   Code,
   X,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
 } from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
 import LOGO from "../Components/Images/smrft.png";
 
 const iconMap = {
-  Home, FiHome: Home,
-  UserPlus, FiUserPlus: UserPlus,
-  Repeat, FiRepeat: Repeat,
-  LogOut, FiLogOut: LogOut,
-  Activity, FiActivity: Activity,
-  Package, FiPackage: Package,
-  ShoppingBag, FiShoppingBag: ShoppingBag,
-  Truck, FiTruck: Truck,
-  FileText, FiFileText: FileText,
-  Users, FiUsers: Users,
-  Clipboard, FiClipboard: Clipboard,
-  Layers, FiLayers: Layers,
-  Tag, FiTag: Tag,
-  Code, FiCode: Code
+  Home,
+  FiHome: Home,
+  UserPlus,
+  FiUserPlus: UserPlus,
+  Repeat,
+  FiRepeat: Repeat,
+  LogOut,
+  FiLogOut: LogOut,
+  Activity,
+  FiActivity: Activity,
+  Package,
+  FiPackage: Package,
+  ShoppingBag,
+  FiShoppingBag: ShoppingBag,
+  Truck,
+  FiTruck: Truck,
+  FileText,
+  FiFileText: FileText,
+  Users,
+  FiUsers: Users,
+  Clipboard,
+  FiClipboard: Clipboard,
+  Layers,
+  FiLayers: Layers,
+  Tag,
+  FiTag: Tag,
+  Code,
+  FiCode: Code,
 };
 
 // Use the same theme colors for consistency
@@ -67,13 +81,15 @@ const SidebarContainer = styled.div`
   flex-direction: column;
   z-index: 1300;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
-  transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+  transform: ${({ $isCollapsed }) =>
+    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   @media (max-width: 1024px) {
     width: 260px;
-    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
 
   @media (max-width: 768px) {
@@ -81,7 +97,8 @@ const SidebarContainer = styled.div`
     width: 260px;
     height: 100vh;
     top: 0;
-    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(0)" : "translateX(-100%)")};
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
 `;
@@ -118,7 +135,10 @@ const CloseMobileBtn = styled.button`
   z-index: 1010;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
-  &:hover { color: #e11d48; border-color: #fecaca; }
+  &:hover {
+    color: #e11d48;
+    border-color: #fecaca;
+  }
 
   @media (max-width: 768px) {
     display: flex;
@@ -191,7 +211,7 @@ const NavGroupHeader = styled.div`
   padding: 18px 16px 8px;
   cursor: pointer;
   user-select: none;
-  
+
   span {
     font-size: 0.7rem;
     font-weight: 700;
@@ -201,21 +221,25 @@ const NavGroupHeader = styled.div`
     letter-spacing: 0.1em;
     display: block;
   }
-  
+
   svg {
     color: ${colors.primary};
     transition: transform 0.2s;
     display: block;
   }
 
-  &:hover span, &:hover svg {
+  &:hover span,
+  &:hover svg {
     color: ${colors.primaryDark};
   }
 
   @media (max-width: 768px) {
     justify-content: space-between;
     padding: 18px 16px 8px;
-    span, svg { display: block; }
+    span,
+    svg {
+      display: block;
+    }
   }
 `;
 
@@ -239,7 +263,9 @@ const NavGroupContent = styled.div`
   gap: 4px;
   overflow: hidden;
   opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
-  transition: opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+  transition:
+    opacity 0.3s ease-in-out,
+    padding 0.3s ease-in-out;
   padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
 
   @media (max-width: 1024px) {
@@ -276,7 +302,9 @@ const StyledNavLink = styled(NavLink)`
 
   span {
     display: block;
-    @media (max-width: 768px) { display: block; }
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
   &:hover {
@@ -351,7 +379,9 @@ const UserInfo = styled.div`
     text-transform: capitalize;
   }
 
-  @media (max-width: 768px) { display: flex; }
+  @media (max-width: 768px) {
+    display: flex;
+  }
 `;
 
 const LogoutButton = styled.button`
@@ -372,7 +402,9 @@ const LogoutButton = styled.button`
 
   span {
     display: block;
-    @media (max-width: 768px) { display: block; }
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
   &:hover {
@@ -410,31 +442,35 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   // Ensures if a user navigates to a route that is currently closed, it will open automatically
   useEffect(() => {
     if (sidebarData.length > 0) {
-      const activeGroupIndex = sidebarData.findIndex(group =>
-        (group.pages || []).some(page => location.pathname.startsWith(page.route))
+      const activeGroupIndex = sidebarData.findIndex((group) =>
+        (group.pages || []).some((page) =>
+          location.pathname.startsWith(page.route),
+        ),
       );
       if (activeGroupIndex !== -1 && openGroups[activeGroupIndex] === false) {
-        setOpenGroups(prev => ({ ...prev, [activeGroupIndex]: true }));
+        setOpenGroups((prev) => ({ ...prev, [activeGroupIndex]: true }));
       }
     }
   }, [sidebarData, location.pathname]);
 
   const toggleGroup = (index) => {
-    setOpenGroups(prev => {
+    setOpenGroups((prev) => {
       // Fallback to true if it hasn't been defined yet, so a click will explicitly close it
       const isCurrentlyOpen = prev[index] ?? true;
       return { ...prev, [index]: !isCurrentlyOpen };
     });
   };
 
-  const closeMobileSidebar = () => { if (window.innerWidth <= 768) setIsCollapsed(false); };
+  const closeMobileSidebar = () => {
+    if (window.innerWidth <= 768) setIsCollapsed(false);
+  };
   const toggleDesktopCollapse = () => setIsCollapsed(!isCollapsed);
 
   return (
     <>
       <Overlay $isCollapsed={isCollapsed} onClick={closeMobileSidebar} />
 
-      <SidebarContainer $isCollapsed={isCollapsed} >
+      <SidebarContainer $isCollapsed={isCollapsed}>
         <BrandSection>
           <BrandLogo src={LOGO} alt="Logo" />
           <CloseMobileBtn onClick={closeMobileSidebar}>
@@ -452,7 +488,11 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
                 {group.group && (
                   <NavGroupHeader onClick={() => toggleGroup(groupIndex)}>
                     <span>{group.group}</span>
-                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {isOpen ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
                   </NavGroupHeader>
                 )}
 

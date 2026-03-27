@@ -842,6 +842,7 @@ const InvestigationBilling = () => {
       paymentMethod: formData.paymentMethod,
       paymentStatus: formData.paymentStatus,
       item: productList,
+      is_emergency: !!formData.is_emergency,
       EstBillNo: formData.EstBillNo,
       // ── Include editRemarks only when editing ──
       ...(isEditMode && formData.editRemarks
@@ -994,7 +995,7 @@ const InvestigationBilling = () => {
             <div class="bill-row"><div class="bill-label">Bill Number</div><div>: ${bill.investBillNo || ""}</div></div>
             <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${bill.uhid || ""}</div></div>
             <div class="bill-row"><div class="bill-label">Bill Date</div><div>: ${formatDateTime(bill.investBillDate)}, ${formatTimeTo12Hr(bill.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
+            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.age}Y / ${bill.gender}</div></div>
             <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${bill.doctor || ""}</div></div>
           </div>
         </div>
@@ -1041,7 +1042,7 @@ const InvestigationBilling = () => {
         <div style="margin-top:12px;padding:8px;background:#fffbeb;border-left:3px solid #d97706;font-style:italic;font-size:11px;">
           <strong>Note:</strong> This is an estimate. Final charges may vary.
         </div>
-        <div class="signature"><div>${estimate.uhid || ""}</div><div>(Authorized Signature)</div></div>
+        <div class="signature"><div>${localStorage.getItem("employeeId")}</div><div>(Authorized Signature)</div></div>
       </body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();

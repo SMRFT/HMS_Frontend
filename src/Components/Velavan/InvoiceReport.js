@@ -41,6 +41,20 @@ import { useNavigate } from "react-router-dom";
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+const parseItems = (items) => {
+  if (!items) return [];
+  if (Array.isArray(items)) return items;
+  if (typeof items === "string") {
+    try {
+      const parsed = JSON.parse(items);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
 const formatDate = (date) => {
   if (!date || new Date(date).toString() === "Invalid Date") return "N/A";
   const d = new Date(date);
@@ -349,7 +363,12 @@ const InvoiceReport = () => {
         if (!Array.isArray(response.data?.data))
           throw new Error("Invalid data format");
 
-        const data = response.data.data;
+        // Normalize items field to always be an array
+        const data = response.data.data.map((record) => ({
+          ...record,
+          items: parseItems(record.items),
+        }));
+
         setAllData(data);
         setFilteredData(data);
         if (data.length === 0)
@@ -455,6 +474,7 @@ const InvoiceReport = () => {
 
   // ── GRN Print ────────────────────────────────────────────────────
   const handleGRNPrint = (record) => {
+    const items = parseItems(record.items); // ← always an array
     const vendorDisplay = record.vendor || record.vendor_id || "N/A";
 
     const css = `
@@ -487,7 +507,7 @@ const InvoiceReport = () => {
       record.ip_number || record.patient_name || record.surgeon_name;
 
     const itemsHtml =
-      record.items?.length > 0
+      items.length > 0
         ? `
       <table>
         <thead>
@@ -501,22 +521,22 @@ const InvoiceReport = () => {
             <th rowspan="2">Unit Price</th><th rowspan="2">MRP</th>
             <th rowspan="2">Discount %</th><th rowspan="2">Disc. Amt</th>
             <th rowspan="2">Taxable Amt</th>
-            <th colspan="2" class="col-grp">Purchase Tax (${record.items[0]?.tax || 0}%)</th>
-            <th colspan="2">Selling Tax (${record.items[0]?.sellingTax || 0}%)</th>
+            <th colspan="2" class="col-grp">Purchase Tax (${items[0]?.tax || 0}%)</th>
+            <th colspan="2">Selling Tax (${items[0]?.sellingTax || 0}%)</th>
             <th rowspan="2">Unit Cost<br/>(with GST)</th>
             <th rowspan="2" class="col-grp">Purchase<br/>Cost</th>
             <th rowspan="2">Unit Selling<br/>Cost</th>
             <th rowspan="2">Selling<br/>Cost</th>
           </tr>
           <tr>
-            <th class="col-grp">CGST ${record.items[0]?.cgstPercent || 0}%</th>
-            <th>SGST ${record.items[0]?.sgstPercent || 0}%</th>
-            <th>CGST ${record.items[0]?.sellingCgstPercent || 0}%</th>
-            <th>SGST ${record.items[0]?.sellingsgstPercent || 0}%</th>
+            <th class="col-grp">CGST ${items[0]?.cgstPercent || 0}%</th>
+            <th>SGST ${items[0]?.sgstPercent || 0}%</th>
+            <th>CGST ${items[0]?.sellingCgstPercent || 0}%</th>
+            <th>SGST ${items[0]?.sellingsgstPercent || 0}%</th>
           </tr>
         </thead>
         <tbody>
-          ${record.items
+          ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
               const unitPrice = parseFloat(item.unitPrice || 0);
@@ -632,17 +652,19 @@ const InvoiceReport = () => {
 
   // ── Sales Print ──────────────────────────────────────────────────
   const handleSalesPrint = (record) => {
-    const sellingNonTaxableAmt = (record.items || []).reduce(
+    const items = parseItems(record.items); // ← always an array
+
+    const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
         sum +
         parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
       0,
     );
-    const sellingCgst = (record.items || []).reduce(
+    const sellingCgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
       0,
     );
-    const sellingSgst = (record.items || []).reduce(
+    const sellingSgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
       0,
     );
@@ -679,7 +701,7 @@ const InvoiceReport = () => {
     const gridCols = hasPatient ? "1fr 1fr 1fr" : "1fr 1fr";
 
     const itemsHtml =
-      record.items?.length > 0
+      items.length > 0
         ? `
       <table>
         <thead>
@@ -702,7 +724,7 @@ const InvoiceReport = () => {
           </tr>
         </thead>
         <tbody>
-          ${record.items
+          ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
               const unitSelling = parseFloat(item.unitSellingCost || 0);
@@ -798,17 +820,19 @@ const InvoiceReport = () => {
 
   // ── Velavan Print ────────────────────────────────────────────────
   const handleVelavanPrint = (record) => {
-    const sellingNonTaxableAmt = (record.items || []).reduce(
+    const items = parseItems(record.items); // ← always an array
+
+    const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
         sum +
         parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
       0,
     );
-    const sellingCgst = (record.items || []).reduce(
+    const sellingCgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
       0,
     );
-    const sellingSgst = (record.items || []).reduce(
+    const sellingSgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
       0,
     );
@@ -846,7 +870,7 @@ const InvoiceReport = () => {
     const gridCols = hasPatient ? "1fr 1fr 1fr" : "1fr 1fr";
 
     const itemsHtml =
-      record.items?.length > 0
+      items.length > 0
         ? `
       <table>
         <thead>
@@ -869,7 +893,7 @@ const InvoiceReport = () => {
           </tr>
         </thead>
         <tbody>
-          ${record.items
+          ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
               const unitSelling = parseFloat(item.unitSellingCost || 0);
@@ -966,7 +990,7 @@ const InvoiceReport = () => {
     openPrintWindow(`Velavan Invoice - ${record.grn_number}`, css, body);
   };
 
-  // ── Velavan Purchase Report (renamed from handlePrint) ───────────
+  // ── Velavan Purchase Report ──────────────────────────────────────
   const handlePurchasePrint = () => {
     const sortedData = [...filteredData].sort((a, b) =>
       (a.vendor || a.vendor_id || "")
@@ -1039,7 +1063,7 @@ const InvoiceReport = () => {
     openPrintWindow("Velavan Purchase Report", css, body);
   };
 
-  // ── Velavan Sales Report (new) ───────────────────────────────────
+  // ── Velavan Sales Report ─────────────────────────────────────────
   const handleSalesReportPrint = () => {
     const sortedData = [...filteredData].sort((a, b) =>
       (a.vendor || a.vendor_id || "")
@@ -1054,8 +1078,9 @@ const InvoiceReport = () => {
       const vendor = "SHANMUGA HOSPITAL LIMITED";
       if (!vendorGroups[vendor]) vendorGroups[vendor] = { rows: [], total: 0 };
       vendorGroups[vendor].rows.push(row);
-      // Compute selling total per record from items
-      const sellingAmt = (row.items || []).reduce((sum, item) => {
+
+      const rowItems = parseItems(row.items); // ← always an array
+      const sellingAmt = rowItems.reduce((sum, item) => {
         const base =
           parseFloat(item.unitSellingCost || 0) *
           parseFloat(item.quantity || 0);
@@ -1063,9 +1088,10 @@ const InvoiceReport = () => {
         const sgst = parseFloat(item.sellingSgstAmt || 0);
         return sum + base + cgst + sgst;
       }, 0);
+
       vendorGroups[vendor].total += sellingAmt;
       grandTotal += sellingAmt;
-      row._sellingTotal = sellingAmt; // temp for render
+      row._sellingTotal = sellingAmt;
     });
 
     let tableRows = "";
@@ -1323,7 +1349,8 @@ const InvoiceReport = () => {
   // ─────────────────────────────────────────────────────────────────
   const ViewModal = ({ showModal, selectedRecord, onClose }) => {
     if (!showModal || !selectedRecord) return null;
-    const r = selectedRecord;
+    // Normalize items to always be an array inside the modal
+    const r = { ...selectedRecord, items: parseItems(selectedRecord.items) };
     const vendorDisplay = r.vendor || r.vendor_id || "N/A";
     const hasPatient = r.ip_number || r.patient_name || r.surgeon_name;
     const InfoRow = ({ label, value }) => (
