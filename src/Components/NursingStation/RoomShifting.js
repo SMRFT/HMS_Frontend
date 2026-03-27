@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import styled, { keyframes } from "styled-components";
+import { useState, useEffect, useCallback } from "react";
+import styled from "styled-components";
+import { toast } from "react-toastify";
 
-// Animations
 import {
   PageWrapper,
   Container,
@@ -19,21 +19,30 @@ import {
   Td,
   Tr,
   colors,
-  CheckboxWrapper,
-  Checkbox
+  ModalOverlay,
+  ModalContainer,
+  ModalHeader,
+  ModalTitle,
+  CloseButton,
+  ModalBody,
+  SearchRow,
+  SearchInput,
+  NoResults,
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
+
+// ─── Local Styled Components ─────────────────────────────────────────────────
 
 const Header = ({ children }) => (
   <div style={{
     background: colors.surface,
-    padding: '12px 24px',
+    padding: "12px 24px",
     borderBottom: `1px solid ${colors.border}`,
-    fontSize: '0.85rem',
+    fontSize: "0.85rem",
     color: colors.textMuted,
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   }}>
     {children}
   </div>
@@ -41,319 +50,504 @@ const Header = ({ children }) => (
 
 const HospitalBadge = ({ children }) => (
   <div style={{
-    background: "#ff8c42", // headerOrange
-    color: 'white',
-    padding: '6px 16px',
+    background: "#ff8c42",
+    color: "white",
+    padding: "6px 16px",
     fontWeight: 600,
-    fontSize: '0.85rem',
-    letterSpacing: '0.5px'
+    fontSize: "0.85rem",
+    letterSpacing: "0.5px",
   }}>
     {children}
   </div>
 );
 
-const SearchButton = ({ onClick }) => (
+const InlineSearchButton = ({ onClick, disabled }) => (
   <button
     type="button"
     onClick={onClick}
+    disabled={disabled}
     style={{
-      position: 'absolute',
-      right: '4px',
-      top: '28px',
-      padding: '6px 12px',
-      background: colors.primary,
-      color: 'white',
-      border: 'none',
-      borderRadius: '3px',
-      fontSize: '0.8rem',
-      cursor: 'pointer'
+      position: "absolute",
+      right: "4px",
+      top: "26px",
+      padding: "5px 10px",
+      background: disabled ? colors.border : colors.primary,
+      color: "white",
+      border: "none",
+      borderRadius: "4px",
+      fontSize: "0.75rem",
+      cursor: disabled ? "not-allowed" : "pointer",
+      zIndex: 2,
     }}
   >
     🔍
   </button>
 );
 
-const ToggleLabel = ({ active, onClick, children }) => (
-  <span
-    onClick={onClick}
-    style={{
-      padding: '6px 16px',
-      borderRadius: '4px',
-      fontSize: '0.8rem',
-      fontWeight: 600,
-      background: active ? colors.success : '#e2e8f0',
-      color: active ? 'white' : colors.textMuted,
-      cursor: 'pointer',
-      userSelect: 'none'
-    }}
-  >
-    {children}
-  </span>
-);
-
-// Styled components for the missing elements
-const ToggleWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-`;
-
-const ResetButton = styled(Button)`
-  background-color: #64748b;
-  &:hover { background-color: #475569; }
-`;
-
-const SaveButton = styled(Button)`
-  background-color: ${colors.primary};
-`;
-
 const FilterSection = styled.div`
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
-  margin-top: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-top: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 `;
 
 const FilterRow = styled(FormRow)`
   align-items: flex-end;
 `;
 
-const SearchButtonLarge = styled(Button)`
-  height: 38px;
-  padding: 0 20px;
-`;
-
 const TableSection = styled.div`
   background: white;
-  padding: 20px;
+  padding: 16px 20px;
   border-radius: 8px;
-  margin-top: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-top: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 `;
 
 const TableControls = styled.div`
   display: flex;
   justify-content: space-between;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 12px;
 `;
 
 const ShowEntries = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: ${colors.textMuted};
 `;
 
 const EntriesSelect = styled(Select)`
-  width: 70px;
-  height: 32px;
-  padding: 0 8px;
+  width: 72px;
+  height: 30px;
+  padding: 0 6px;
 `;
 
-const ActionButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 1.2rem;
+const ReadOnlyInput = styled(Input)`
+  background: #f8fafc;
   color: ${colors.textMuted};
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  &:hover { background: #f1f5f9; }
+  cursor: default;
 `;
 
-const RoomShifting = () => {
-  const [formData, setFormData] = useState({
-    uhid: "",
-    ipNo: "",
-    slNo: "",
-    name: "",
-    age: "",
-    gender: "",
-    admittedOn: "",
-    admittedTime: "",
-    newRoom: "",
-    newBedNumber: "",
-    vacateOldRoom: true,
-    patientAt: "",
-    address: "",
-    dateOfShifting: new Date().toISOString().split('T')[0],
-    timeOfShifting: new Date().toTimeString().slice(0, 8),
-    currentRoomNumber: "",
-    currentBedNumber: "",
-    currentDues: "",
-    lastSettlementOn: ""
-  });
+const SectionLabel = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 8px 0 4px;
+  border-bottom: 1px solid ${colors.border};
+  margin-bottom: 6px;
+  grid-column: 1 / -1;
+`;
 
-  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+const Badge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: ${({ variant }) =>
+    variant === "active"    ? "#dcfce7" :
+    variant === "cancelled" ? "#fee2e2" :
+    "#fef9c3"};
+  color: ${({ variant }) =>
+    variant === "active"    ? "#166534" :
+    variant === "cancelled" ? "#991b1b" :
+    "#854d0e"};
+`;
 
-  const [filters, setFilters] = useState({
-    fromDate: new Date().toISOString().split('T')[0],
-    toDate: new Date().toISOString().split('T')[0],
-    filterUhid: "",
-    filterIpNumber: "",
-    filterSlNo: "",
-    currentRoomOnly: false
-  });
+const ActionBtn = styled.button`
+  background: none;
+  border: 1px solid ${({ danger }) => danger ? colors.danger : colors.border};
+  color: ${({ danger }) => danger ? colors.danger : colors.textMuted};
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin: 0 2px;
+  transition: all 0.15s;
+  &:hover {
+    background: ${({ danger }) => danger ? "#fee2e2" : "#f1f5f9"};
+  }
+`;
 
-  const [roomShiftings, setRoomShiftings] = useState([]);
-  const [entriesPerPage, setEntriesPerPage] = useState(15);
+// ─── Room Search Modal ────────────────────────────────────────────────────────
+
+const RoomSearchModal = ({ open, onClose, onSelect, baseUrl }) => {
+  const [rooms, setRooms]     = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter]   = useState({ room_number: "", block: "", floor: "" });
+
+  const search = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = new URLSearchParams();
+      if (filter.room_number) p.append("room_number", filter.room_number);
+      if (filter.block)       p.append("block",       filter.block);
+      if (filter.floor)       p.append("floor",       filter.floor);
+      const q   = p.toString() ? `?${p.toString()}` : "";
+      const res = await apiRequest(`${baseUrl}search-rooms/${q}`, "GET");
+      setRooms(Array.isArray(res) ? res : res.data || []);
+    } catch {
+      setRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, baseUrl]);
+
+  useEffect(() => { if (open) search(); }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <ModalOverlay>
+      <ModalContainer style={{ maxWidth: 700 }}>
+        <ModalHeader>
+          <ModalTitle>Search Available Rooms</ModalTitle>
+          <CloseButton onClick={onClose}>✕</CloseButton>
+        </ModalHeader>
+        <ModalBody>
+          <SearchRow>
+            <SearchInput
+              placeholder="Room No"
+              value={filter.room_number}
+              onChange={e => setFilter(p => ({ ...p, room_number: e.target.value }))}
+            />
+            <SearchInput
+              placeholder="Block"
+              value={filter.block}
+              onChange={e => setFilter(p => ({ ...p, block: e.target.value }))}
+            />
+            <SearchInput
+              placeholder="Floor"
+              value={filter.floor}
+              onChange={e => setFilter(p => ({ ...p, floor: e.target.value }))}
+            />
+            <Button type="button" onClick={search}>🔍 Search</Button>
+          </SearchRow>
+
+          {loading ? (
+            <NoResults>Loading rooms…</NoResults>
+          ) : rooms.length === 0 ? (
+            <NoResults>No rooms found</NoResults>
+          ) : (
+            <TableWrapper>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Room No</Th>
+                    <Th>Bed No</Th>
+                    <Th>Room Type</Th>
+                    <Th>Block</Th>
+                    <Th>Floor</Th>
+                    <Th>Status</Th>
+                    <Th>Select</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rooms.map((r, i) => (
+                    <Tr key={i}>
+                      <Td>{r.room_number || r.roomNo}</Td>
+                      <Td>{r.bed_number  || r.bedNo}</Td>
+                      <Td>{r.room_type   || "-"}</Td>
+                      <Td>{r.block       || "-"}</Td>
+                      <Td>{r.floor       || "-"}</Td>
+                      <Td>
+                        <Badge variant={r.is_available ? "active" : "cancelled"}>
+                          {r.is_available ? "Available" : "Occupied"}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        <Button
+                          type="button"
+                          style={{ padding: "3px 10px", fontSize: "0.75rem" }}
+                          onClick={() => { onSelect(r); onClose(); }}
+                        >
+                          Select
+                        </Button>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableWrapper>
+          )}
+        </ModalBody>
+      </ModalContainer>
+    </ModalOverlay>
+  );
+};
+
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+
+const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
+  const [newRoom, setNewRoom] = useState("");
+  const [newBed,  setNewBed]  = useState("");
+  const [roomModal, setRoomModal] = useState(false);
 
   useEffect(() => {
-    fetchRoomShiftings();
-  }, []);
+    if (record) {
+      setNewRoom(record.newRoomNo || "");
+      setNewBed(record.newBedNo  || "");
+    }
+  }, [record]);
 
-  const fetchRoomShiftings = async () => {
+  if (!open || !record) return null;
+
+  return (
+    <ModalOverlay>
+      <ModalContainer style={{ maxWidth: 440 }}>
+        <ModalHeader>
+          <ModalTitle>Edit Room Shifting</ModalTitle>
+          <CloseButton onClick={onClose}>✕</CloseButton>
+        </ModalHeader>
+        <ModalBody>
+          <FormRow>
+            <InputWrapper>
+              <Label>New Room No</Label>
+              <ReadOnlyInput value={newRoom} readOnly placeholder="Click 🔍 to pick room" />
+              <InlineSearchButton onClick={() => setRoomModal(true)} />
+            </InputWrapper>
+            <InputWrapper>
+              <Label>New Bed No</Label>
+              <Input value={newBed} onChange={e => setNewBed(e.target.value)} />
+            </InputWrapper>
+          </FormRow>
+          <ButtonContainer>
+            <Button secondary type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              type="button"
+              onClick={() =>
+                onSave(record._id || record.shiftingId, { newRoomNo: newRoom, newBedNo: newBed })
+              }
+            >
+              💾 Update
+            </Button>
+          </ButtonContainer>
+        </ModalBody>
+      </ModalContainer>
+
+      <RoomSearchModal
+        open={roomModal}
+        onClose={() => setRoomModal(false)}
+        baseUrl={baseUrl}
+        onSelect={r => {
+          setNewRoom(r.room_number || r.roomNo);
+          setNewBed(r.bed_number  || r.bedNo);
+          setRoomModal(false);
+        }}
+      />
+    </ModalOverlay>
+  );
+};
+
+// ─── Empty Form State ─────────────────────────────────────────────────────────
+
+const EMPTY = {
+  uhid:             "",
+  ipNumber:         "",
+  ipserial_number:  "",
+  name:             "",
+  age:              "",
+  gender:           "",
+  address:          "",
+  admittedOn:       "",
+  admittedTime:     "",
+  currentRoomNo:    "",
+  currentBedNo:     "",
+  newRoomNo:        "",
+  newBedNo:         "",
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const RoomShifting = () => {
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const [form, setForm]              = useState(EMPTY);
+  const [roomModal, setRoomModal]    = useState(false);
+  const [shiftings, setShiftings]    = useState([]);
+  const [entriesPerPage, setEntries] = useState(15);
+  const [editRecord, setEditRecord]  = useState(null);
+  const [editOpen,   setEditOpen]    = useState(false);
+
+  const [filters, setFilters] = useState({
+    fromDate: new Date().toISOString().split("T")[0],
+    toDate:   new Date().toISOString().split("T")[0],
+    uhid:     "",
+    ipNumber: "",
+  });
+
+  // Today's date shown (read-only); actual shifting date/time comes from backend
+  const todayDisplay = new Date().toLocaleDateString("en-GB");
+
+  // ── Fetch shifting records ─────────────────────────────────────────────────
+  const fetchShiftings = async () => {
     try {
-      const response = await apiRequest(`${Hmsbaseurl}room-shifting/`, "GET");
-      if (response.success) {
-        setRoomShiftings(Array.isArray(response.data) ? response.data : []);
-      }
-    } catch (error) {
-      console.error("Error fetching room shiftings:", error);
+      const p = new URLSearchParams();
+      if (filters.fromDate) p.append("from_date", filters.fromDate);
+      if (filters.toDate)   p.append("to_date",   filters.toDate);
+      if (filters.uhid)     p.append("uhid",      filters.uhid);
+      if (filters.ipNumber) p.append("ip_no",     filters.ipNumber);
+      const res = await apiRequest(`${HmsBaseUrl}room-shifting/?${p.toString()}`, "GET");
+      const data = Array.isArray(res) ? res : Array.isArray(res.data) ? res.data : [];
+      setShiftings(data);
+    } catch (err) {
+      console.error("Fetch shiftings error:", err);
     }
   };
 
+  useEffect(() => { fetchShiftings(); }, []);
+
+  // ── Fetch patient by UHID ─────────────────────────────────────────────────
   const fetchPatientByUHID = async () => {
-    if (!formData.uhid) {
-      alert("Please enter UHID");
-      return;
-    }
-
+    const uhid = form.uhid.trim();
+    if (!uhid) return toast.warning("Enter UHID");
     try {
-      const response = await apiRequest(`${Hmsbaseurl}admission-by-uhid/${encodeURIComponent(formData.uhid)}/`, "GET");
-      if (response.success) {
-        const data = response.data;
-        setFormData(prev => ({
-          ...prev,
-          ipNo: data.ipNumber || "",
-          name: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim(),
-          age: data.age || "",
-          gender: data.gender || "",
-          admittedOn: data.admissionDate || "",
-          admittedTime: data.time || "",
-          currentRoomNumber: data.roomNo || "",
-          currentBedNumber: data.bedNo || "",
-          address: data.address || "",
-        }));
-      } else {
-        alert("Patient not found");
-      }
-    } catch (error) {
-      console.error("Error fetching patient:", error);
-      alert("Error fetching patient details");
+      const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
+      if (!res.success) { toast.error(res.error || "Patient not found"); return; }
+      const d = res.data;
+      setForm(p => ({
+        ...p,
+        name:    [d.salutation, d.firstName, d.middleName, d.lastName].filter(Boolean).join(" "),
+        age:     d.age     || "",
+        gender:  d.gender  || "",
+        address: d.permanent_address || d.address || "",
+      }));
+      toast.success("Patient loaded");
+    } catch {
+      toast.error("Failed to fetch patient");
     }
   };
 
-  const fetchPatientByIP = async () => {
-    if (!formData.ipNo) {
-      alert("Please enter IP Number");
-      return;
-    }
-
+  // ── Fetch admission by IP Number ──────────────────────────────────────────
+  const fetchAdmissionByIP = async () => {
+    const ip = form.ipNumber.trim();
+    if (!ip) return toast.warning("Enter IP Number");
     try {
-      const response = await apiRequest(`${Hmsbaseurl}admission-by-ip/${encodeURIComponent(formData.ipNo)}/`, "GET");
-      if (response.success) {
-        const data = response.data;
-        setFormData(prev => ({
-          ...prev,
-          uhid: data.uhid || "",
-          name: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim(),
-          age: data.age || "",
-          gender: data.gender || "",
-          admittedOn: data.admissionDate || "",
-          admittedTime: data.time || "",
-          currentRoomNumber: data.roomNo || "",
-          currentBedNumber: data.bedNo || "",
-          address: data.address || "",
-        }));
-      } else {
-        alert("Patient not found");
+      const res = await apiRequest(
+        `${HmsBaseUrl}admission/?ip_number=${encodeURIComponent(ip)}`, "GET"
+      );
+      if (!res.success) throw new Error(res.error || "Not found");
+      const list =
+        Array.isArray(res.data?.data) ? res.data.data :
+        Array.isArray(res.data)       ? res.data       : [];
+      if (!list.length) return toast.error("No admission found for this IP Number");
+      const adm = list[0];
+
+      let admDate = "", admTime = "";
+      if (adm.admissionDateTime) {
+        const dt = new Date(adm.admissionDateTime);
+        admDate  = dt.toISOString().split("T")[0];
+        admTime  = dt.toTimeString().slice(0, 8);
       }
-    } catch (error) {
-      console.error("Error fetching patient:", error);
-      alert("Error fetching patient details");
+
+      // Last active room from room_details array
+      const activeRoom =
+        adm.room_details?.find(r => r.is_roomActive) || adm.room_details?.[0];
+
+      setForm(p => ({
+        ...p,
+        uhid:            adm.uhid             || "",
+        ipNumber:        adm.ipNumber         || ip,
+        ipserial_number: adm.ipserial_number  || "",
+        admittedOn:      admDate,
+        admittedTime:    admTime,
+        currentRoomNo:   activeRoom?.roomNo   || adm.roomNo || "",
+        currentBedNo:    activeRoom?.bedNo    || adm.bedNo  || "",
+        name:    adm.name || [adm.firstName, adm.lastName].filter(Boolean).join(" ") || p.name,
+        age:     adm.age    || p.age,
+        gender:  adm.gender || p.gender,
+        address: adm.permanent_address || adm.address || p.address,
+      }));
+      toast.success(`Admission loaded: ${adm.ipNumber || ip}`);
+    } catch (err) {
+      toast.error(err.message || "Admission not found");
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
+  // ── Handle room selection from modal ─────────────────────────────────────
+  const handleRoomSelect = (r) => {
+    setForm(p => ({
+      ...p,
+      newRoomNo: r.room_number || r.roomNo || "",
+      newBedNo:  r.bed_number  || r.bedNo  || "",
     }));
   };
 
-  const handleFilterChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
-    }));
-  };
+  // ── Reset form ────────────────────────────────────────────────────────────
+  const handleReset = () => setForm(EMPTY);
 
-  const handleReset = () => {
-    setFormData({
-      uhid: "",
-      ipNo: "",
-      slNo: "",
-      name: "",
-      age: "",
-      gender: "",
-      admittedOn: "",
-      admittedTime: "",
-      newRoom: "",
-      newBedNumber: "",
-      vacateOldRoom: true,
-      patientAt: "",
-      address: "",
-      dateOfShifting: new Date().toISOString().split('T')[0],
-      timeOfShifting: new Date().toTimeString().slice(0, 8),
-      currentRoomNumber: "",
-      currentBedNumber: "",
-      currentDues: "",
-      lastSettlementOn: ""
-    });
-  };
+  // ── Save shift ────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    const { uhid, ipNumber, newRoomNo, newBedNo, currentRoomNo, currentBedNo } = form;
+    if (!uhid && !ipNumber)      return toast.warning("Enter UHID or IP Number");
+    if (!newRoomNo || !newBedNo) return toast.warning("Select a new room and bed");
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
-
-    // Update admission with new room details
-    const admissionUpdate = {
-      roomNo: formData.newRoom,
-      bedNo: formData.newBedNumber
+    const payload = {
+      uhid,
+      ip_no:      ipNumber,
+      newRoomNo,
+      newBedNo,
+      oldRoomNo:  currentRoomNo,
+      oldBedNo:   currentBedNo,
     };
 
     try {
-      // Update admission record
-      const admissionResponse = await apiRequest(
-        `${Hmsbaseurl}admission/${encodeURIComponent(formData.uhid)}/`,
-        "PATCH",
-        admissionUpdate
-      );
-
-      // Create room shifting record
-      const shiftingResponse = await apiRequest(`${Hmsbaseurl}room-shifting/`, "POST", formData);
-
-      if (admissionResponse.success && shiftingResponse.success) {
-        alert("Room shifting completed successfully!");
+      const res = await apiRequest(`${HmsBaseUrl}room-shifting/`, "POST", payload);
+      if (res.success || res.message) {
+        toast.success("Room shifted successfully!");
         handleReset();
-        fetchRoomShiftings();
+        fetchShiftings();
       } else {
-        alert("Failed to complete room shifting");
+        toast.error(res.error || "Failed to shift room");
       }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("An error occurred while shifting room!");
+    } catch (err) {
+      console.error(err);
+      toast.error("An error occurred while shifting room");
     }
   };
 
-  const handleSearch = () => {
-    fetchRoomShiftings();
+  // ── Edit save ────────────────────────────────────────────────────────────
+  const handleEditSave = async (shiftingId, updates) => {
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}room-shifting/${shiftingId}/`, "PATCH", updates
+      );
+      if (res.success || res.message) {
+        toast.success("Updated successfully");
+        setEditOpen(false);
+        fetchShiftings();
+      } else {
+        toast.error(res.error || "Update failed");
+      }
+    } catch {
+      toast.error("Update failed");
+    }
   };
+
+  // ── Cancel shifting ───────────────────────────────────────────────────────
+  const handleCancel = async (shiftingId) => {
+    if (!window.confirm("Cancel this room shifting record?")) return;
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}room-shifting/${shiftingId}/cancel/`, "POST"
+      );
+      if (res.success || res.message) {
+        toast.success("Shifting cancelled");
+        fetchShiftings();
+      } else {
+        toast.error(res.error || "Cancel failed");
+      }
+    } catch {
+      toast.error("Cancel failed");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <PageWrapper>
@@ -364,255 +558,144 @@ const RoomShifting = () => {
 
       <Container>
         <FormContent>
-          <div>
-            {/* Row 1 */}
-            <FormRow>
-              <InputWrapper>
-                <Label>UHID</Label>
-                <Input
-                  type="text"
-                  name="uhid"
-                  value={formData.uhid}
-                  onChange={handleInputChange}
-                />
-                <SearchButton type="button" onClick={fetchPatientByUHID}>
-                  🔍
-                </SearchButton>
-              </InputWrapper>
 
-              <InputWrapper>
-                <Label>IP No</Label>
-                <Input
-                  type="text"
-                  name="ipNo"
-                  value={formData.ipNo}
-                  onChange={handleInputChange}
-                />
-                <SearchButton type="button" onClick={fetchPatientByIP}>
-                  🔍
-                </SearchButton>
-              </InputWrapper>
+          {/* ── Patient Lookup ── */}
+          <FormRow>
+            <SectionLabel>Patient Lookup</SectionLabel>
 
-              <InputWrapper>
-                <Label>SL No</Label>
-                <Input
-                  type="text"
-                  name="slNo"
-                  value={formData.slNo}
-                  onChange={handleInputChange}
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>UHID</Label>
+              <Input
+                type="text"
+                value={form.uhid}
+                onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchPatientByUHID()}
+                placeholder="Search by UHID"
+              />
+              <InlineSearchButton onClick={fetchPatientByUHID} />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Name</Label>
-                <Input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
-            </FormRow>
+            <InputWrapper>
+              <Label>IP Number</Label>
+              <Input
+                type="text"
+                value={form.ipNumber}
+                onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchAdmissionByIP()}
+                placeholder="Search by IP No"
+              />
+              <InlineSearchButton onClick={fetchAdmissionByIP} />
+            </InputWrapper>
 
-            {/* Row 2 */}
-            <FormRow>
-              <InputWrapper>
-                <Label>Age</Label>
-                <Input
-                  type="text"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>IP Serial No</Label>
+              <ReadOnlyInput value={form.ipserial_number} readOnly />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Gender</Label>
-                <Input
-                  type="text"
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>Patient Name</Label>
+              <ReadOnlyInput value={form.name} readOnly />
+            </InputWrapper>
+          </FormRow>
 
-              <InputWrapper>
-                <Label>Admitted On</Label>
-                <Input
-                  type="date"
-                  name="admittedOn"
-                  value={formData.admittedOn}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+          {/* ── Patient Details ── */}
+          <FormRow>
+            <SectionLabel>Patient Details</SectionLabel>
 
-              <InputWrapper>
-                <Label>Admitted Time</Label>
-                <Input
-                  type="time"
-                  name="admittedTime"
-                  value={formData.admittedTime}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
-            </FormRow>
+            <InputWrapper>
+              <Label>Age</Label>
+              <ReadOnlyInput value={form.age} readOnly />
+            </InputWrapper>
 
-            {/* Row 3 */}
-            <FormRow>
-              <InputWrapper>
-                <Label>New Room</Label>
-                <Input
-                  type="text"
-                  name="newRoom"
-                  value={formData.newRoom}
-                  onChange={handleInputChange}
-                />
-                <SearchButton type="button">🔍</SearchButton>
-              </InputWrapper>
+            <InputWrapper>
+              <Label>Gender</Label>
+              <ReadOnlyInput value={form.gender} readOnly />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>New Bed Number</Label>
-                <Input
-                  type="text"
-                  name="newBedNumber"
-                  value={formData.newBedNumber}
-                  onChange={handleInputChange}
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>Admitted On</Label>
+              <ReadOnlyInput type="date" value={form.admittedOn} readOnly />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Vacate Old Room</Label>
-                <ToggleWrapper>
-                  <ToggleLabel
-                    active={formData.vacateOldRoom}
-                    onClick={() => setFormData(prev => ({ ...prev, vacateOldRoom: !prev.vacateOldRoom }))}
-                  >
-                    {formData.vacateOldRoom ? "YES" : "NO"}
-                  </ToggleLabel>
-                </ToggleWrapper>
-              </InputWrapper>
+            <InputWrapper>
+              <Label>Admitted Time</Label>
+              <ReadOnlyInput type="time" value={form.admittedTime} readOnly />
+            </InputWrapper>
+          </FormRow>
 
-              <InputWrapper>
-                <Label>Patient At</Label>
-                <Select
-                  name="patientAt"
-                  value={formData.patientAt}
-                  onChange={handleInputChange}
-                >
-                  <option value="">Select</option>
-                  <option value="Ward">Ward</option>
-                  <option value="ICU">ICU</option>
-                  <option value="OT">OT</option>
-                </Select>
-              </InputWrapper>
-            </FormRow>
+          <FormRow>
+            <InputWrapper style={{ gridColumn: "span 4" }}>
+              <Label>Address</Label>
+              <ReadOnlyInput value={form.address} readOnly />
+            </InputWrapper>
+          </FormRow>
 
-            {/* Row 4 */}
-            <FormRow>
-              <InputWrapper span={2}>
-                <Label>Address</Label>
-                <Input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+          {/* ── Current Room ── */}
+          <FormRow>
+            <SectionLabel>Current Room</SectionLabel>
 
-              <InputWrapper>
-                <Label>Date Of Shifting</Label>
-                <Input
-                  type="date"
-                  name="dateOfShifting"
-                  value={formData.dateOfShifting}
-                  onChange={handleInputChange}
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>Current Room No</Label>
+              <ReadOnlyInput value={form.currentRoomNo} readOnly />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Time Of Shifting</Label>
-                <Input
-                  type="time"
-                  name="timeOfShifting"
-                  value={formData.timeOfShifting}
-                  onChange={handleInputChange}
-                  step="1"
-                />
-              </InputWrapper>
-            </FormRow>
+            <InputWrapper>
+              <Label>Current Bed No</Label>
+              <ReadOnlyInput value={form.currentBedNo} readOnly />
+            </InputWrapper>
+          </FormRow>
 
-            {/* Row 5 */}
-            <FormRow>
-              <InputWrapper>
-                <Label>Current Room Number</Label>
-                <Input
-                  type="text"
-                  name="currentRoomNumber"
-                  value={formData.currentRoomNumber}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+          {/* ── New Room Assignment ── */}
+          <FormRow>
+            <SectionLabel>New Room Assignment</SectionLabel>
 
-              <InputWrapper>
-                <Label>Current Bed Number</Label>
-                <Input
-                  type="text"
-                  name="currentBedNumber"
-                  value={formData.currentBedNumber}
-                  onChange={handleInputChange}
-                  readOnly
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>New Room No</Label>
+              <ReadOnlyInput
+                value={form.newRoomNo}
+                readOnly
+                placeholder="Click 🔍 to search"
+              />
+              <InlineSearchButton onClick={() => setRoomModal(true)} />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Current Dues</Label>
-                <Input
-                  type="text"
-                  name="currentDues"
-                  value={formData.currentDues}
-                  onChange={handleInputChange}
-                />
-              </InputWrapper>
+            <InputWrapper>
+              <Label>New Bed No</Label>
+              <Input
+                value={form.newBedNo}
+                onChange={e => setForm(p => ({ ...p, newBedNo: e.target.value }))}
+              />
+            </InputWrapper>
 
-              <InputWrapper>
-                <Label>Last Settlement On</Label>
-                <Input
-                  type="date"
-                  name="lastSettlementOn"
-                  value={formData.lastSettlementOn}
-                  onChange={handleInputChange}
-                />
-              </InputWrapper>
-            </FormRow>
+            <InputWrapper>
+              <Label>Shifting Date</Label>
+              <ReadOnlyInput
+                value={todayDisplay}
+                readOnly
+                title="Shifting date & time are recorded automatically by the server"
+              />
+            </InputWrapper>
+          </FormRow>
 
-            <ButtonContainer>
-              <ResetButton type="button" onClick={handleReset}>
-                🔄 Reset
-              </ResetButton>
-              <SaveButton type="button" onClick={handleSubmit}>
-                💾 Save
-              </SaveButton>
-            </ButtonContainer>
-          </div>
+          <ButtonContainer>
+            <Button secondary type="button" onClick={handleReset}>
+              🔄 Reset
+            </Button>
+            <Button type="button" onClick={handleSubmit}>
+              💾 Save Shift
+            </Button>
+          </ButtonContainer>
         </FormContent>
 
-        {/* Filter Section */}
+        {/* ── Filters ── */}
         <FilterSection>
           <FilterRow>
             <InputWrapper>
               <Label>From Date</Label>
               <Input
                 type="date"
-                name="fromDate"
                 value={filters.fromDate}
-                onChange={handleFilterChange}
+                onChange={e => setFilters(p => ({ ...p, fromDate: e.target.value }))}
               />
             </InputWrapper>
 
@@ -620,76 +703,53 @@ const RoomShifting = () => {
               <Label>To Date</Label>
               <Input
                 type="date"
-                name="toDate"
                 value={filters.toDate}
-                onChange={handleFilterChange}
+                onChange={e => setFilters(p => ({ ...p, toDate: e.target.value }))}
               />
             </InputWrapper>
 
             <InputWrapper>
               <Label>UHID</Label>
               <Input
-                type="text"
-                name="filterUhid"
-                value={filters.filterUhid}
-                onChange={handleFilterChange}
+                value={filters.uhid}
+                onChange={e => setFilters(p => ({ ...p, uhid: e.target.value }))}
               />
-              <SearchButton type="button">🔍</SearchButton>
             </InputWrapper>
 
             <InputWrapper>
               <Label>IP Number</Label>
               <Input
-                type="text"
-                name="filterIpNumber"
-                value={filters.filterIpNumber}
-                onChange={handleFilterChange}
-              />
-              <SearchButton type="button">🔍</SearchButton>
-            </InputWrapper>
-
-            <InputWrapper>
-              <Label>SL No</Label>
-              <Input
-                type="text"
-                name="filterSlNo"
-                value={filters.filterSlNo}
-                onChange={handleFilterChange}
+                value={filters.ipNumber}
+                onChange={e => setFilters(p => ({ ...p, ipNumber: e.target.value }))}
               />
             </InputWrapper>
 
-            <CheckboxWrapper>
-              <Checkbox
-                type="checkbox"
-                name="currentRoomOnly"
-                checked={filters.currentRoomOnly}
-                onChange={handleFilterChange}
-              />
-              <Label style={{ margin: 0 }}>Current Room Only</Label>
-            </CheckboxWrapper>
-
-            <SearchButtonLarge type="button" onClick={handleSearch}>
-              🔍 Search
-            </SearchButtonLarge>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <Button type="button" onClick={fetchShiftings}>
+                🔍 Search
+              </Button>
+            </div>
           </FilterRow>
         </FilterSection>
 
-        {/* Table Section */}
+        {/* ── Shifting Records Table ── */}
         <TableSection>
           <TableControls>
             <ShowEntries>
-              <span>Show up to</span>
+              Show
               <EntriesSelect
                 value={entriesPerPage}
-                onChange={(e) => setEntriesPerPage(Number(e.target.value))}
+                onChange={e => setEntries(Number(e.target.value))}
               >
-                <option value="10">10</option>
-                <option value="15">15</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
+                {[10, 15, 25, 50, 100].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
               </EntriesSelect>
+              entries
             </ShowEntries>
+            <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>
+              {shiftings.length} record(s)
+            </span>
           </TableControls>
 
           <TableWrapper>
@@ -697,47 +757,106 @@ const RoomShifting = () => {
               <thead>
                 <tr>
                   <Th>Actions</Th>
-                  <Th>Admission Date</Th>
-                  <Th>Room From Date</Th>
-                  <Th>Room To Date</Th>
                   <Th>UHID</Th>
+                  <Th>IP No</Th>
+                  <Th>IP Serial</Th>
                   <Th>Patient Name</Th>
-                  <Th>IP No / SL No</Th>
-                  <Th>Room No</Th>
-                  <Th>Bed No</Th>
-                  <Th>Room Occupant</Th>
+                  <Th>Admission Date</Th>
+                  <Th>Old Room / Bed</Th>
+                  <Th>New Room / Bed</Th>
+                  <Th>Shifting Date & Time</Th>
+                  <Th>Status</Th>
                 </tr>
               </thead>
               <tbody>
-                {roomShiftings.length === 0 ? (
+                {shiftings.length === 0 ? (
                   <Tr>
-                    <Td colSpan="10" style={{ textAlign: 'center', padding: '40px' }}>
+                    <Td
+                      colSpan="10"
+                      style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}
+                    >
                       No room shifting records found
                     </Td>
                   </Tr>
                 ) : (
-                  roomShiftings.slice(0, entriesPerPage).map((shifting, idx) => (
-                    <Tr key={idx}>
-                      <Td>
-                        <ActionButton title="More actions">⋮</ActionButton>
-                      </Td>
-                      <Td>{shifting.admittedOn || '-'}</Td>
-                      <Td>{shifting.dateOfShifting ? `${shifting.dateOfShifting} ${shifting.timeOfShifting || ''}` : '-'}</Td>
-                      <Td>-</Td>
-                      <Td>{shifting.uhid || '-'}</Td>
-                      <Td>{shifting.name || '-'}</Td>
-                      <Td>{`${shifting.ipNo || '-'} / ${shifting.slNo || '-'}`}</Td>
-                      <Td>{shifting.newRoom || shifting.currentRoomNumber || '-'}</Td>
-                      <Td>{shifting.newBedNumber || shifting.currentBedNumber || '-'}</Td>
-                      <Td>PATIENT</Td>
-                    </Tr>
-                  ))
+                  shiftings.slice(0, entriesPerPage).map((s, idx) => {
+                    const isCancelled = s.is_cancelled === true;
+                    const status      = isCancelled ? "cancelled" : "active";
+                    const shiftId     = s._id || s.shiftingId;
+
+                    const admDateStr = s.admissionDate
+                      ? new Date(s.admissionDate).toLocaleDateString("en-GB")
+                      : "-";
+
+                    const shiftDateStr = s.shiftingDate
+                      ? new Date(s.shiftingDate).toLocaleString("en-GB", {
+                          day: "2-digit", month: "2-digit", year: "numeric",
+                          hour: "2-digit", minute: "2-digit",
+                        })
+                      : "-";
+
+                    return (
+                      <Tr key={shiftId || idx}>
+                        <Td>
+                          {!isCancelled ? (
+                            <>
+                              <ActionBtn
+                                type="button"
+                                title="Edit"
+                                onClick={() => { setEditRecord(s); setEditOpen(true); }}
+                              >
+                                ✏️ Edit
+                              </ActionBtn>
+                              <ActionBtn
+                                type="button"
+                                danger
+                                title="Cancel"
+                                onClick={() => handleCancel(shiftId)}
+                              >
+                                ✕ Cancel
+                              </ActionBtn>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: "0.75rem", color: colors.textMuted }}>—</span>
+                          )}
+                        </Td>
+                        <Td>{s.uhid          || "-"}</Td>
+                        <Td>{s.ip_no || s.ipNumber || "-"}</Td>
+                        <Td>{s.ipserial_number || "-"}</Td>
+                        <Td>{s.patient_name || s.name || "-"}</Td>
+                        <Td>{admDateStr}</Td>
+                        <Td>{`${s.oldRoomNo || "-"} / ${s.oldBedNo || "-"}`}</Td>
+                        <Td>{`${s.newRoomNo || "-"} / ${s.newBedNo || "-"}`}</Td>
+                        <Td>{shiftDateStr}</Td>
+                        <Td>
+                          <Badge variant={status}>{status.toUpperCase()}</Badge>
+                        </Td>
+                      </Tr>
+                    );
+                  })
                 )}
               </tbody>
             </Table>
           </TableWrapper>
         </TableSection>
       </Container>
+
+      {/* ── Room Search Modal ── */}
+      <RoomSearchModal
+        open={roomModal}
+        onClose={() => setRoomModal(false)}
+        baseUrl={HmsBaseUrl}
+        onSelect={handleRoomSelect}
+      />
+
+      {/* ── Edit Modal ── */}
+      <EditModal
+        open={editOpen}
+        record={editRecord}
+        onClose={() => setEditOpen(false)}
+        onSave={handleEditSave}
+        baseUrl={HmsBaseUrl}
+      />
     </PageWrapper>
   );
 };
