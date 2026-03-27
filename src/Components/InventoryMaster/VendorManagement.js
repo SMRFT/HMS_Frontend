@@ -1,7 +1,4 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { FaEdit, FaTrash, FaPlus, FaSearch, FaTimes, FaCheck } from "react-icons/fa"
+import React, { useState, useEffect, useCallback } from "react";
 import {
   PageWrapper,
   Container,
@@ -15,563 +12,670 @@ import {
   Tr,
   Label,
   FormRow,
-  TextArea,
   FormContent,
   ControlsContainer,
   SearchContainer,
   InputWrapper,
   ButtonContainer,
   TableWrapper,
-  CheckboxWrapper,
-  Checkbox
-} from "../GlobalStyles"
+  colors,
+} from "../GlobalStyles";
+import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest"
-import { toast } from "react-toastify"
 
-const VendorManagement = () => {
-  const [vendors, setVendors] = useState([])
-  const [states, setStates] = useState([])
-  const [cities, setCities] = useState([])
-  const [loadingStates, setLoadingStates] = useState(false)
-  const [loadingCities, setLoadingCities] = useState(false)
+// ─── Styled Helpers ───────────────────────────────────────────────────────────
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
+  color: white;
+  padding: 20px 30px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
 
-  const [formData, setFormData] = useState({
-    vendor_type: "",
-    name: "",
-    address_line_1: "",
-    address_line_2: "",
-    city: "",
-    state: "",
-    pincode: "",
-    contact_person: "",
-    phone: "",
-    email: "",
-    url: "",
-    kgst_tin_number: "",
-    gstin: "",
-    payment: "",
-    terms: "",
-    credit_period: "",
-    export_data_code: "",
-    tds_percent: "",
-    igst_supplier: false,
-    blacklisted_supplier: false,
-    account_on_hold: false,
-    reason_for_holding: "",
-  })
+const PageTitle = styled.h1`
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+`;
 
-  const [search, setSearch] = useState("")
-  const [isEditing, setIsEditing] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
+const PageSubtitle = styled.p`
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+`;
+
+const FormCard = styled.div`
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  margin-bottom: 24px;
+`;
+
+const FormCardHeader = styled.div`
+  padding: 14px 20px;
+  border-bottom: 1px solid ${colors.border};
+  background: ${colors.tabBg};
+  border-radius: 8px 8px 0 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: ${colors.primary};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ErrorText = styled.span`
+  color: ${colors.danger};
+  font-size: 0.75rem;
+  margin-top: 4px;
+`;
+
+const ActionBtn = styled.button`
+  padding: 5px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: ${(p) => (p.danger ? "#fee2e2" : colors.tabBg)};
+  color: ${(p) => (p.danger ? colors.danger : colors.primary)};
+  &:hover {
+    background: ${(p) => (p.danger ? "#fecaca" : "#b2dfdb")};
+  }
+`;
+
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 50px 20px;
+  color: ${colors.textMuted};
+  font-size: 0.95rem;
+`;
+
+const Badge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: ${(p) => (p.supplier ? "#dbeafe" : "#fef3c7")};
+  color: ${(p) => (p.supplier ? "#1d4ed8" : "#92400e")};
+`;
+
+const Toast = styled.div`
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: ${(p) => (p.error ? colors.danger : colors.success)};
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease;
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+`;
+
+const LoadingDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${colors.textMuted};
+  margin: 0 2px;
+  animation: pulse 1s infinite;
+  @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+`;
+
+const SearchInput = styled(Input)`
+  min-width: 260px;
+`;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+const SUPPLIER_TYPES = ["SUPPLIER", "MANUFACTURER"];
+const PAYMENT_TERMS = ["CHEQUE", "CASH", "DD"];
+const COUNTRY = "India"; // default country for state/city
+
+const EMPTY_FORM = {
+  supplier_type: "",
+  name: "",
+  address_line1: "",
+  address_line2: "",
+  city: "",
+  state: "",
+  pincode: "",
+  contact_person: "",
+  phone: "",
+  email: "",
+  gstin: "",
+  payment_terms: "",
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+const VendorMaster = () => {
+  const [vendors, setVendors] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editId, setEditId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [toast, setToast] = useState(null);
+
+  // State / City
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  // ── Load India states on mount ─────────────────────────────────────────────
+  useEffect(() => {
+    const fetchStates = async () => {
+      setLoadingStates(true);
+      try {
+        const res = await fetch("https://countriesnow.space/api/v0.1/countries/states", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ country: COUNTRY }),
+        });
+        const data = await res.json();
+        if (!data.error && data.data?.states) {
+          setStates(data.data.states.map((s) => s.name).sort());
+        }
+      } catch {
+        console.error("Failed to load states");
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+    fetchStates();
+  }, []);
+
+  // ── Load cities when state changes ────────────────────────────────────────
+  useEffect(() => {
+    if (!form.state) {
+      setCities([]);
+      return;
+    }
+    const fetchCities = async () => {
+      setLoadingCities(true);
+      setCities([]);
+      try {
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/state/cities",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ country: COUNTRY, state: form.state }),
+          }
+        );
+        const data = await res.json();
+        if (!data.error && Array.isArray(data.data)) {
+          setCities(data.data.sort());
+        }
+      } catch {
+        console.error("Failed to load cities");
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+    fetchCities();
+  }, [form.state]);
+
+  // ── API helpers ────────────────────────────────────────────────────────────
+  const fetchVendors = useCallback(async () => {
+    try {
+      const response = await apiRequest(`${baseUrl}vendors/`, "GET");
+      if (response.success) {
+        setVendors(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      showToast("Failed to fetch vendors", "error");
+    }
+  }, []);
 
   useEffect(() => {
-    fetchVendors()
-    fetchStates()
-  }, [])
+    fetchVendors();
+  }, [fetchVendors]);
 
-  const fetchVendors = async () => {
-    try {
-      const response = await apiRequest(`${baseUrl}vendor/`, "GET")
-      if (response.success) {
-        setVendors(Array.isArray(response.data) ? response.data : [])
-      }
-    } catch (error) {
-      console.error("Error fetching vendors:", error)
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // ── Form Handlers ──────────────────────────────────────────────────────────
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      // Reset city when state changes
+      if (name === "state") updated.city = "";
+      return updated;
+    });
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const validate = () => {
+    const errs = {};
+    if (!form.supplier_type) errs.supplier_type = "Type is required";
+    if (!form.name.trim()) errs.name = "Name is required";
+    if (!form.address_line1.trim()) errs.address_line1 = "Address Line 1 is required";
+    if (form.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin)) {
+      errs.gstin = "Invalid GSTIN format";
     }
-  }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errs.email = "Invalid email address";
+    }
+    if (form.phone && !/^\+?[0-9]{7,15}$/.test(form.phone)) {
+      errs.phone = "Invalid phone number";
+    }
+    return errs;
+  };
 
-  const fetchStates = async () => {
-    setLoadingStates(true)
+  const handleSubmit = async () => {
+    const errs = validate();
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    setLoading(true);
     try {
-      const res = await fetch("https://countriesnow.space/api/v0.1/countries/states", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country: "India" }),
-      })
-      const data = await res.json()
-      if (data.data) {
-        setStates(data.data.states)
+      const url = editId ? `${baseUrl}vendors/${editId}/` : `${baseUrl}vendors/`;
+      const method = editId ? "PUT" : "POST";
+      const response = await apiRequest(url, method, form);
+      if (response.success) {
+        showToast(editId ? "Vendor updated successfully" : "Vendor added successfully");
+        setForm(EMPTY_FORM);
+        setEditId(null);
+        setShowForm(false);
+        fetchVendors();
+      } else {
+        showToast(JSON.stringify(response.data || response.error), "error");
       }
     } catch (error) {
-      console.error("Failed to load states", error)
+      console.error("Error saving vendor:", error);
+      showToast("Network error", "error");
     } finally {
-      setLoadingStates(false)
+      setLoading(false);
     }
-  }
-
-  const handleStateChange = async (e) => {
-    const stateName = e.target.value
-    setFormData((prev) => ({ ...prev, state: stateName, city: "" }))
-    setCities([])
-
-    if (!stateName) return
-
-    setLoadingCities(true)
-    try {
-      const res = await fetch("https://countriesnow.space/api/v0.1/countries/state/cities", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          country: "India",
-          state: stateName,
-        }),
-      })
-      const data = await res.json()
-      setCities(data.data || [])
-    } catch (error) {
-      console.error("Failed to load cities", error)
-    } finally {
-      setLoadingCities(false)
-    }
-  }
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }))
-  }
-
-  const handleSave = async () => {
-    try {
-      if (!formData.name || !formData.vendor_type) {
-        toast.error("Please fill in required fields: Name and Type")
-        return
-      }
-
-      let response
-      if (isEditing && editingId) {
-        response = await apiRequest(`${baseUrl}vendor/${editingId}/`, "PATCH", formData)
-      } else {
-        // vendor_id is auto-generated by backend
-        response = await apiRequest(`${baseUrl}vendor/`, "POST", formData)
-      }
-
-      if (response.success) {
-        toast.success(isEditing ? "Vendor updated successfully!" : "Vendor added successfully!")
-        resetForm()
-        fetchVendors()
-      } else {
-        // Enhanced error handling for field-specific errors
-        if (typeof response.data === 'object') {
-          const errMsgs = Object.entries(response.data)
-            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
-            .join('\n');
-          toast.error(errMsgs || response.error || "Failed to save vendor");
-        } else {
-          toast.error(response.error || "Failed to save vendor")
-        }
-      }
-    } catch (error) {
-      console.error("Error saving vendor:", error)
-      toast.error("An unexpected error occurred")
-    }
-  }
-
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this vendor?")) return
-    try {
-      const response = await apiRequest(`${baseUrl}vendor/${id}/`, "DELETE")
-      if (response.success) {
-        toast.success("Vendor deleted successfully")
-        fetchVendors()
-      } else {
-        toast.error(response.error || "Failed to delete vendor")
-      }
-    } catch (error) {
-      console.error("Error deleting vendor:", error)
-    }
-  }
+  };
 
   const handleEdit = (vendor) => {
-    setFormData({
-      ...vendor,
-      // Map backend fields to frontend if any mismatch remains
-      // (but we've standardized them now)
-    })
-    setIsEditing(true)
-    setEditingId(vendor.vendor_id || vendor.id || vendor._id?.$oid)
-    if (vendor.state) {
-      const event = { target: { value: vendor.state } };
-      handleStateChange(event).then(() => {
-        setFormData(prev => ({ ...prev, city: vendor.city }));
-      });
+    setForm({
+      supplier_type: vendor.supplier_type || "",
+      name: vendor.name || "",
+      address_line1: vendor.address_line1 || "",
+      address_line2: vendor.address_line2 || "",
+      city: vendor.city || "",
+      state: vendor.state || "",
+      pincode: vendor.pincode || "",
+      contact_person: vendor.contact_person || "",
+      phone: vendor.phone || "",
+      email: vendor.email || "",
+      gstin: vendor.gstin || "",
+      payment_terms: vendor.payment_terms || "",
+    });
+    setEditId(vendor.vendor_id);
+    setShowForm(true);
+    setErrors({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this vendor?")) return;
+    try {
+      const response = await apiRequest(`${baseUrl}vendors/${id}/`, "DELETE");
+      if (response.success) {
+        showToast("Vendor deleted successfully");
+        fetchVendors();
+      } else {
+        showToast("Delete failed", "error");
+      }
+    } catch (error) {
+      console.error("Error deleting vendor:", error);
+      showToast("Delete failed", "error");
     }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  };
 
-  const resetForm = () => {
-    setFormData({
-      vendor_type: "",
-      name: "",
-      address_line_1: "",
-      address_line_2: "",
-      city: "",
-      state: "",
-      pincode: "",
-      contact_person: "",
-      phone: "",
-      email: "",
-      url: "",
-      kgst_tin_number: "",
-      gstin: "",
-      payment: "",
-      terms: "",
-      credit_period: "",
-      export_data_code: "",
-      tds_percent: "",
-      igst_supplier: false,
-      blacklisted_supplier: false,
-      account_on_hold: false,
-      reason_for_holding: "",
-    })
-    setIsEditing(false)
-    setEditingId(null)
-    setCities([])
-  }
+  const handleCancel = () => {
+    setForm(EMPTY_FORM);
+    setEditId(null);
+    setShowForm(false);
+    setErrors({});
+  };
 
-  const filteredVendors = vendors.filter(
-    (vendor) =>
-      vendor.name?.toLowerCase().includes(search.toLowerCase()) ||
-      vendor.email?.toLowerCase().includes(search.toLowerCase()) ||
-      vendor.gstin?.includes(search) ||
-      vendor.vendor_id?.includes(search),
-  )
+  // ── Filter ─────────────────────────────────────────────────────────────────
+  const filtered = vendors.filter((v) => {
+    const q = search.toLowerCase();
+    return (
+      v.name?.toLowerCase().includes(q) ||
+      v.supplier_type?.toLowerCase().includes(q) ||
+      v.gstin?.toLowerCase().includes(q) ||
+      v.contact_person?.toLowerCase().includes(q) ||
+      v.city?.toLowerCase().includes(q)
+    );
+  });
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
+      {toast && <Toast error={toast.type === "error"}>{toast.msg}</Toast>}
+
       <Container>
-        <SectionTitle><h3>Vendor Management</h3></SectionTitle>
+        {/* Header */}
+        <PageHeader>
+          <div>
+            <PageTitle>🏢 Vendor Master</PageTitle>
+            <PageSubtitle>Manage suppliers and manufacturers</PageSubtitle>
+          </div>
+          {!showForm && (
+            <Button
+              onClick={() => setShowForm(true)}
+              style={{ background: "white", color: colors.primary }}
+            >
+              + Add Vendor
+            </Button>
+          )}
+        </PageHeader>
 
         <FormContent>
-          <FormRow>
-            <InputWrapper>
-              <Label required>Supplier / Manufacturer</Label>
-              <Select
-                name="vendor_type"
-                value={formData.vendor_type}
-                onChange={handleInputChange}
-              >
-                <option value="">Select Type</option>
-                <option value="SUPPLIER">Supplier</option>
-                <option value="MANUFACTURER">Manufacturer</option>
-                <option value="BOTH">Both</option>
-              </Select>
-            </InputWrapper>
-            <InputWrapper>
-              <Label required>Name</Label>
-              <Input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Enter vendor name"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Address Line 1</Label>
-              <Input
-                type="text"
-                name="address_line_1"
-                value={formData.address_line_1}
-                onChange={handleInputChange}
-                placeholder="Enter address line 1"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Address Line 2</Label>
-              <Input
-                type="text"
-                name="address_line_2"
-                value={formData.address_line_2}
-                onChange={handleInputChange}
-                placeholder="Enter address line 2"
-              />
-            </InputWrapper>
-          </FormRow>
+          {/* ── Form ── */}
+          {showForm && (
+            <FormCard>
+              <FormCardHeader>
+                🏢 {editId ? "Edit Vendor Details" : "Add New Vendor"}
+              </FormCardHeader>
+              <div style={{ padding: "20px" }}>
+                {/* Row 1 */}
+                <FormRow>
+                  <InputWrapper>
+                    <Label required>Supplier / Manufacturer</Label>
+                    <Select
+                      name="supplier_type"
+                      value={form.supplier_type}
+                      onChange={handleChange}
+                      style={errors.supplier_type ? { borderColor: colors.danger } : {}}
+                    >
+                      <option value="">-- Select Type --</option>
+                      {SUPPLIER_TYPES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </Select>
+                    {errors.supplier_type && <ErrorText>{errors.supplier_type}</ErrorText>}
+                  </InputWrapper>
 
-          <FormRow>
-            <InputWrapper>
-              <Label>State</Label>
-              <Select
-                name="state"
-                value={formData.state}
-                onChange={handleStateChange}
-                disabled={loadingStates}
-              >
-                <option value="">{loadingStates ? "Loading states..." : "Select State"}</option>
-                {states.map((s) => (
-                  <option key={s.name} value={s.name}>{s.name}</option>
-                ))}
-              </Select>
-            </InputWrapper>
-            <InputWrapper>
-              <Label>City</Label>
-              <Select
-                name="city"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                disabled={!formData.state || loadingCities}
-              >
-                <option value="">{loadingCities ? "Loading cities..." : "Select City"}</option>
-                {cities.map((c, i) => (
-                  <option key={i} value={c}>{c}</option>
-                ))}
-              </Select>
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Pincode</Label>
-              <Input
-                type="text"
-                name="pincode"
-                value={formData.pincode}
-                onChange={handleInputChange}
-                placeholder="Enter pincode"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Contact Person</Label>
-              <Input
-                type="text"
-                name="contact_person"
-                value={formData.contact_person}
-                onChange={handleInputChange}
-                placeholder="Enter contact person"
-              />
-            </InputWrapper>
-          </FormRow>
+                  <InputWrapper>
+                    <Label required>Name</Label>
+                    <Input
+                      name="name"
+                      value={form.name}
+                      onChange={handleChange}
+                      placeholder="Enter vendor name"
+                      style={errors.name ? { borderColor: colors.danger } : {}}
+                    />
+                    {errors.name && <ErrorText>{errors.name}</ErrorText>}
+                  </InputWrapper>
 
-          <FormRow>
-            <InputWrapper>
-              <Label>Phone</Label>
-              <Input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="Enter phone number"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="Enter email address"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>URL</Label>
-              <Input
-                type="url"
-                name="url"
-                value={formData.url}
-                onChange={handleInputChange}
-                placeholder="Enter website URL"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>GSTIN</Label>
-              <Input
-                type="text"
-                name="gstin"
-                value={formData.gstin}
-                onChange={handleInputChange}
-                placeholder="Enter GSTIN"
-              />
-            </InputWrapper>
-          </FormRow>
+                  <InputWrapper>
+                    <Label required>Address Line 1</Label>
+                    <Input
+                      name="address_line1"
+                      value={form.address_line1}
+                      onChange={handleChange}
+                      placeholder="Street / Door No."
+                      style={errors.address_line1 ? { borderColor: colors.danger } : {}}
+                    />
+                    {errors.address_line1 && <ErrorText>{errors.address_line1}</ErrorText>}
+                  </InputWrapper>
 
-          <FormRow>
-            <InputWrapper>
-              <Label>KGST / TIN Number</Label>
-              <Input
-                type="text"
-                name="kgst_tin_number"
-                value={formData.kgst_tin_number}
-                onChange={handleInputChange}
-                placeholder="Enter KGST/TIN number"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Payment</Label>
-              <Select
-                name="payment"
-                value={formData.payment}
-                onChange={handleInputChange}
-              >
-                <option value="">Select Payment Mode</option>
-                <option value="CASH">CASH</option>
-                <option value="CHEQUE">CHEQUE</option>
-                <option value="UPI">UPI</option>
-                <option value="NEFT">NEFT</option>
-                <option value="RTGS">RTGS</option>
-              </Select>
-            </InputWrapper>
-            <InputWrapper>
-              <Label>Credit Period (days)</Label>
-              <Input
-                type="number"
-                name="credit_period"
-                value={formData.credit_period}
-                onChange={handleInputChange}
-                placeholder="Enter credit period"
-              />
-            </InputWrapper>
-            <InputWrapper>
-              <Label>TDS %</Label>
-              <Input
-                type="number"
-                step="0.01"
-                name="tds_percent"
-                value={formData.tds_percent}
-                onChange={handleInputChange}
-                placeholder="Enter TDS percentage"
-              />
-            </InputWrapper>
-          </FormRow>
+                  <InputWrapper>
+                    <Label>Address Line 2</Label>
+                    <Input
+                      name="address_line2"
+                      value={form.address_line2}
+                      onChange={handleChange}
+                      placeholder="Area / Landmark"
+                    />
+                  </InputWrapper>
+                </FormRow>
 
-          <FormRow columns="2fr 1fr">
-            <InputWrapper>
-              <Label>Terms</Label>
-              <TextArea
-                name="terms"
-                value={formData.terms}
-                onChange={handleInputChange}
-                placeholder="Enter payment terms"
-                rows="3"
-              />
-            </InputWrapper>
-            <InputWrapper style={{ gap: '10px', paddingTop: '28px' }}>
-              <CheckboxWrapper>
-                <Checkbox
-                  type="checkbox"
-                  name="igst_supplier"
-                  checked={formData.igst_supplier}
-                  onChange={handleInputChange}
-                  id="igst_supplier"
-                />
-                <Label htmlFor="igst_supplier" style={{ marginBottom: 0 }}>IGST Supplier</Label>
-              </CheckboxWrapper>
-              <CheckboxWrapper>
-                <Checkbox
-                  type="checkbox"
-                  name="blacklisted_supplier"
-                  checked={formData.blacklisted_supplier}
-                  onChange={handleInputChange}
-                  id="blacklisted_supplier"
-                />
-                <Label htmlFor="blacklisted_supplier" style={{ marginBottom: 0 }}>Blacklisted Supplier</Label>
-              </CheckboxWrapper>
-              <CheckboxWrapper>
-                <Checkbox
-                  type="checkbox"
-                  name="account_on_hold"
-                  checked={formData.account_on_hold}
-                  onChange={handleInputChange}
-                  id="account_on_hold"
-                />
-                <Label htmlFor="account_on_hold" style={{ marginBottom: 0 }}>Account On Hold</Label>
-              </CheckboxWrapper>
-            </InputWrapper>
-          </FormRow>
+                {/* Row 2 */}
+                <FormRow>
+                  <InputWrapper>
+                    <Label>State</Label>
+                    <Select
+                      name="state"
+                      value={form.state}
+                      onChange={handleChange}
+                      disabled={loadingStates}
+                    >
+                      <option value="">
+                        {loadingStates ? "Loading states..." : "-- Select State --"}
+                      </option>
+                      {states.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </Select>
+                  </InputWrapper>
 
-          {formData.account_on_hold && (
-            <FormRow>
-              <InputWrapper>
-                <Label>Reason For Holding</Label>
-                <TextArea
-                  name="reason_for_holding"
-                  value={formData.reason_for_holding}
-                  onChange={handleInputChange}
-                  placeholder="Enter reason for holding account"
-                  rows="2"
-                />
-              </InputWrapper>
-            </FormRow>
+                  <InputWrapper>
+                    <Label>City</Label>
+                    <Select
+                      name="city"
+                      value={form.city}
+                      onChange={handleChange}
+                      disabled={!form.state || loadingCities}
+                    >
+                      <option value="">
+                        {loadingCities
+                          ? "Loading cities..."
+                          : !form.state
+                          ? "Select state first"
+                          : "-- Select City --"}
+                      </option>
+                      {cities.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </Select>
+                    {(loadingCities) && (
+                      <div style={{ position: "absolute", right: 36, top: 36 }}>
+                        <LoadingDot style={{ animationDelay: "0s" }} />
+                        <LoadingDot style={{ animationDelay: "0.2s" }} />
+                        <LoadingDot style={{ animationDelay: "0.4s" }} />
+                      </div>
+                    )}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>Pincode</Label>
+                    <Input
+                      name="pincode"
+                      value={form.pincode}
+                      onChange={handleChange}
+                      placeholder="e.g. 636007"
+                      maxLength={10}
+                    />
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>Contact Person</Label>
+                    <Input
+                      name="contact_person"
+                      value={form.contact_person}
+                      onChange={handleChange}
+                      placeholder="Contact person name"
+                    />
+                  </InputWrapper>
+                </FormRow>
+
+                {/* Row 3 */}
+                <FormRow>
+                  <InputWrapper>
+                    <Label>Phone</Label>
+                    <Input
+                      name="phone"
+                      value={form.phone}
+                      onChange={handleChange}
+                      placeholder="e.g. 06380630184"
+                      style={errors.phone ? { borderColor: colors.danger } : {}}
+                    />
+                    {errors.phone && <ErrorText>{errors.phone}</ErrorText>}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>Email</Label>
+                    <Input
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleChange}
+                      placeholder="vendor@example.com"
+                      style={errors.email ? { borderColor: colors.danger } : {}}
+                    />
+                    {errors.email && <ErrorText>{errors.email}</ErrorText>}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>GSTIN</Label>
+                    <Input
+                      name="gstin"
+                      value={form.gstin}
+                      onChange={(e) =>
+                        handleChange({
+                          target: { name: "gstin", value: e.target.value.toUpperCase() },
+                        })
+                      }
+                      placeholder="e.g. 33AAHCA7054L1ZJ"
+                      maxLength={15}
+                      style={errors.gstin ? { borderColor: colors.danger } : {}}
+                    />
+                    {errors.gstin && <ErrorText>{errors.gstin}</ErrorText>}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>Payment Terms</Label>
+                    <Select
+                      name="payment_terms"
+                      value={form.payment_terms}
+                      onChange={handleChange}
+                    >
+                      <option value="">-- Select Terms --</option>
+                      {PAYMENT_TERMS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </Select>
+                  </InputWrapper>
+                </FormRow>
+
+                <ButtonContainer>
+                  <Button secondary onClick={handleCancel}>
+                    ✕ Cancel
+                  </Button>
+                  <Button onClick={handleSubmit} disabled={loading}>
+                    {loading ? "Saving..." : editId ? "✔ Update Vendor" : "✔ Save Vendor"}
+                  </Button>
+                </ButtonContainer>
+              </div>
+            </FormCard>
           )}
 
-          <ButtonContainer>
-            <Button secondary onClick={resetForm}>
-              <FaTimes /> Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              {isEditing ? <FaCheck /> : <FaPlus />}
-              {isEditing ? "Update Vendor" : "Save Vendor"}
-            </Button>
-          </ButtonContainer>
+          {/* ── Table ── */}
+          <SectionTitle>
+            <h3>Vendor List</h3>
+          </SectionTitle>
+
+          <ControlsContainer>
+            <SearchContainer>
+              <InputWrapper>
+                <Label>Search</Label>
+                <SearchInput
+                  placeholder="Search by name, type, GSTIN, city..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </InputWrapper>
+            </SearchContainer>
+            <div style={{ color: colors.textMuted, fontSize: "0.85rem", alignSelf: "flex-end" }}>
+              {filtered.length} vendor(s) found
+            </div>
+          </ControlsContainer>
+
+          <TableWrapper>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>#</Th>
+                  <Th>Name</Th>
+                  <Th>Type</Th>
+                  <Th>Address</Th>
+                  <Th>City / State</Th>
+                  <Th>GSTIN</Th>
+                  <Th>Contact Person</Th>
+                  <Th>Phone</Th>
+                  <Th>Payment Terms</Th>
+                  <Th>Actions</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={10}>
+                      <EmptyState>
+                        No vendors found. Click "Add Vendor" to get started.
+                      </EmptyState>
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((vendor, idx) => (
+                    <Tr key={vendor.vendor_id}>
+                      <Td>{idx + 1}</Td>
+                      <Td style={{ fontWeight: 600, minWidth: 160 }}>{vendor.name}</Td>
+                      <Td>
+                        <Badge supplier={vendor.supplier_type === "SUPPLIER"}>
+                          {vendor.supplier_type}
+                        </Badge>
+                      </Td>
+                      <Td style={{ maxWidth: 180, fontSize: "0.82rem" }}>
+                        {[vendor.address_line1, vendor.address_line2]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </Td>
+                      <Td>
+                        {[vendor.city, vendor.state].filter(Boolean).join(", ") || "—"}
+                      </Td>
+                      <Td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+                        {vendor.gstin || "—"}
+                      </Td>
+                      <Td>{vendor.contact_person || "—"}</Td>
+                      <Td>{vendor.phone || "—"}</Td>
+                      <Td>{vendor.payment_terms || "—"}</Td>
+                      <Td>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <ActionBtn onClick={() => handleEdit(vendor)}>Edit</ActionBtn>
+                          <ActionBtn danger onClick={() => handleDelete(vendor.vendor_id)}>
+                            Delete
+                          </ActionBtn>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableWrapper>
         </FormContent>
-
-        <SectionTitle><h3>Vendor List</h3></SectionTitle>
-
-        <ControlsContainer>
-          <SearchContainer>
-            <Input
-              type="text"
-              placeholder="Search by ID, Name, Email, or GSTIN"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <Button title="Search"><FaSearch /></Button>
-          </SearchContainer>
-        </ControlsContainer>
-
-        <TableWrapper>
-          <Table>
-            <thead>
-              <tr>
-                <Th>ID</Th>
-                <Th>Name</Th>
-                <Th>Type</Th>
-                <Th>City / State</Th>
-                <Th>GSTIN</Th>
-                <Th>Phone</Th>
-                <Th>Action</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredVendors.length === 0 ? (
-                <Tr>
-                  <Td colSpan="7" style={{ textAlign: "center", color: "#999" }}>
-                    No vendors found
-                  </Td>
-                </Tr>
-              ) : (
-                filteredVendors.map((vendor) => (
-                  <Tr key={vendor.vendor_id || vendor.id || vendor._id?.$oid}>
-                    <Td>{vendor.vendor_id || '-'}</Td>
-                    <Td>{vendor.name}</Td>
-                    <Td>{vendor.vendor_type}</Td>
-                    <Td>{vendor.city || '-'}, {vendor.state || '-'}</Td>
-                    <Td>{vendor.gstin || '-'}</Td>
-                    <Td>{vendor.phone || '-'}</Td>
-                    <Td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <FaEdit
-                          style={{ cursor: 'pointer', color: '#0d9488' }}
-                          onClick={() => handleEdit(vendor)}
-                          title="Edit"
-                        />
-                        <FaTrash
-                          style={{ cursor: 'pointer', color: '#ef4444' }}
-                          onClick={() => handleDelete(vendor.vendor_id || vendor.id || vendor._id?.$oid)}
-                          title="Delete"
-                        />
-                      </div>
-                    </Td>
-                  </Tr>
-                ))
-              )}
-            </tbody>
-          </Table>
-        </TableWrapper>
       </Container>
     </PageWrapper>
-  )
-}
+  );
+};
 
-export default VendorManagement
+export default VendorMaster;

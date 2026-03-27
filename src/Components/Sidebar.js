@@ -1,33 +1,73 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import styled from "styled-components";
-// Assuming these icons or similar are available, otherwise use text
 import {
-  FiHome,
-  FiUserPlus,
-  FiRepeat,
-  FiLogOut,
-  FiActivity,
-  FiPackage,
-  FiShoppingBag,
-  FiTruck,
-  FiFileText,
-  FiUsers,
-  FiClipboard,
-  FiLayers,
-  FiTag,
-  FiCode,
-} from "react-icons/fi";
+  Home,
+  UserPlus,
+  Repeat,
+  LogOut,
+  Activity,
+  Package,
+  ShoppingBag,
+  Truck,
+  FileText,
+  Users,
+  Clipboard,
+  Layers,
+  Tag,
+  Code,
+  X,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { hasPagePermission } from "../Auth/FrontendPageMapping";
+import { fetchSidebarMapping } from "../Auth/apiRequest";
+import LOGO from "../Components/Images/smrft.png";
+
+const iconMap = {
+  Home,
+  FiHome: Home,
+  UserPlus,
+  FiUserPlus: UserPlus,
+  Repeat,
+  FiRepeat: Repeat,
+  LogOut,
+  FiLogOut: LogOut,
+  Activity,
+  FiActivity: Activity,
+  Package,
+  FiPackage: Package,
+  ShoppingBag,
+  FiShoppingBag: ShoppingBag,
+  Truck,
+  FiTruck: Truck,
+  FileText,
+  FiFileText: FileText,
+  Users,
+  FiUsers: Users,
+  Clipboard,
+  FiClipboard: Clipboard,
+  Layers,
+  FiLayers: Layers,
+  Tag,
+  FiTag: Tag,
+  Code,
+  FiCode: Code,
+};
 
 // Use the same theme colors for consistency
 const colors = {
   primary: "#0d9488",
+  primaryDark: "#0f766e",
   primaryLight: "rgba(13, 148, 136, 0.1)",
   textMain: "#1e293b",
   textMuted: "#64748b",
   border: "#e2e8f0",
   surface: "#ffffff",
+  background: "#f8fafc",
 };
+
+// --- Styled Components ---
 
 const SidebarContainer = styled.div`
   width: 260px;
@@ -39,84 +79,232 @@ const SidebarContainer = styled.div`
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 1300;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
+  transform: ${({ $isCollapsed }) =>
+    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 
   @media (max-width: 1024px) {
-    width: 200px;
+    width: 260px;
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
+
   @media (max-width: 768px) {
-    width: 80px;
-  } // Collapsed for tablet
+    z-index: 1400;
+    width: 260px;
+    height: 100vh;
+    top: 0;
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
+    transition: transform 0.3s ease;
+  }
+`;
+
+const Overlay = styled.div`
+  display: none;
+  @media (max-width: 768px) {
+    display: ${({ $isCollapsed }) => ($isCollapsed ? "block" : "none")};
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+`;
+
+const CloseMobileBtn = styled.button`
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid ${colors.border};
+  color: ${colors.textMuted};
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1010;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  &:hover {
+    color: #e11d48;
+    border-color: #fecaca;
+  }
+
+  @media (max-width: 768px) {
+    display: flex;
+  }
 `;
 
 const BrandSection = styled.div`
-  padding: 30px 24px;
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #f1f5f9;
-`;
+  justify-content: space-between;
+  height: 62px;
+  border-bottom: 1px solid ${colors.border};
+  flex-shrink: 0;
 
-const BrandLogo = styled.div`
-  width: 35px;
-  height: 35px;
-  background: linear-gradient(135deg, ${colors.primary}, #0f766e);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 1.2rem;
-`;
+  @media (max-width: 1024px) {
+    padding: 0 10px;
+    justify-content: space-between;
+  }
 
-const BrandName = styled.span`
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: ${colors.textMain};
-  letter-spacing: -0.5px;
   @media (max-width: 768px) {
-    display: none;
+    padding: 0 20px;
+    justify-content: space-between;
+  }
+`;
+
+const BrandLogo = styled.img`
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+
+  @media (max-width: 1024px) {
+    height: 60px;
+  }
+  @media (max-width: 768px) {
+    height: 40px;
   }
 `;
 
 const NavMenu = styled.nav`
   flex: 1;
-  padding: 20px 14px;
+  padding: 10px 14px;
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow-y: auto;
+  overflow-x: hidden;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 1024px) {
+    padding: 20px 8px;
+  }
+  @media (max-width: 768px) {
+    width: 100%;
+  }
 `;
 
-const NavGroupLabel = styled.div`
-  padding: 10px 12px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: ${colors.textMuted};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+const NavGroupHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 8px;
+  cursor: pointer;
+  user-select: none;
+
+  span {
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: ${colors.primary};
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+  }
+
+  svg {
+    color: ${colors.primary};
+    transition: transform 0.2s;
+    display: block;
+  }
+
+  &:hover span,
+  &:hover svg {
+    color: ${colors.primaryDark};
+  }
+
   @media (max-width: 768px) {
-    display: none;
+    justify-content: space-between;
+    padding: 18px 16px 8px;
+    span,
+    svg {
+      display: block;
+    }
+  }
+`;
+
+const NavGroupContentWrapper = styled.div`
+  display: grid;
+  grid-template-rows: ${({ $isOpen }) => ($isOpen ? "1fr" : "0fr")};
+  transition: grid-template-rows 0.3s ease-in-out;
+
+  @media (max-width: 1024px) {
+    grid-template-rows: 1fr;
+  }
+  @media (max-width: 768px) {
+    grid-template-rows: ${({ $isOpen }) => ($isOpen ? "1fr" : "0fr")};
+  }
+`;
+
+const NavGroupContent = styled.div`
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
+  transition:
+    opacity 0.3s ease-in-out,
+    padding 0.3s ease-in-out;
+  padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
+
+  @media (max-width: 1024px) {
+    opacity: 1;
+    overflow: visible;
+    padding-bottom: 8px;
+  }
+  @media (max-width: 768px) {
+    opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
+    overflow: hidden;
+    padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
   }
 `;
 
 const StyledNavLink = styled(NavLink)`
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   padding: 12px 16px;
   text-decoration: none;
+  white-space: nowrap;
   color: ${colors.textMuted};
   font-size: 0.9rem;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.2s ease;
 
   svg {
-    font-size: 1.2rem;
-    min-width: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  span {
+    display: block;
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
   &:hover {
@@ -131,53 +319,68 @@ const StyledNavLink = styled(NavLink)`
   }
 
   @media (max-width: 768px) {
-    justify-content: center;
-    span {
-      display: none;
-    }
+    justify-content: flex-start;
+    padding: 12px 16px;
+    gap: 12px;
   }
 `;
 
 const UserSection = styled.div`
   padding: 20px;
   border-top: 1px solid ${colors.border};
-  background: #fcfcfd;
+  background: ${colors.background};
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 260px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 20px;
+  }
 `;
 
 const UserProfile = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 15px;
-  @media (max-width: 768px) {
-    display: none;
-  }
 `;
 
 const Avatar = styled.div`
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #e2e8f0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: ${colors.primary};
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: ${colors.textMain};
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
 `;
 
 const UserInfo = styled.div`
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+
   span:first-child {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: ${colors.textMain};
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   span:last-child {
     font-size: 0.75rem;
     color: ${colors.textMuted};
+    text-transform: capitalize;
+  }
+
+  @media (max-width: 768px) {
+    display: flex;
   }
 `;
 
@@ -187,206 +390,135 @@ const LogoutButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px;
-  border: 1px solid ${colors.border};
+  padding: 12px;
+  border: 1px solid #fee2e2;
   background: white;
-  border-radius: 6px;
-  color: ${colors.textMuted};
+  border-radius: 10px;
+  color: #ef4444;
   font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 
-  &:hover {
-    background: #fff1f2;
-    color: #e11d48;
-    border-color: #fecdd3;
+  span {
+    display: block;
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
-  @media (max-width: 768px) {
-    border: none;
-    span {
-      display: none;
-    }
+  &:hover {
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
   }
 `;
 
-const Sidebar = ({ role }) => {
+// --- Main Component ---
+
+const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
+  const location = useLocation();
+  const [sidebarData, setSidebarData] = useState([]);
+
+  const [openGroups, setOpenGroups] = useState({});
+
+  useEffect(() => {
+    const loadSidebarData = async () => {
+      const employeeId = localStorage.getItem("employeeId");
+      const data = await fetchSidebarMapping(employeeId);
+      setSidebarData(data);
+
+      // Initialize all groups to be OPEN (true) by default
+      const initialOpen = {};
+      data.forEach((_, index) => {
+        initialOpen[index] = true;
+      });
+      setOpenGroups(initialOpen);
+    };
+    loadSidebarData();
+  }, []);
+
+  // Ensures if a user navigates to a route that is currently closed, it will open automatically
+  useEffect(() => {
+    if (sidebarData.length > 0) {
+      const activeGroupIndex = sidebarData.findIndex((group) =>
+        (group.pages || []).some((page) =>
+          location.pathname.startsWith(page.route),
+        ),
+      );
+      if (activeGroupIndex !== -1 && openGroups[activeGroupIndex] === false) {
+        setOpenGroups((prev) => ({ ...prev, [activeGroupIndex]: true }));
+      }
+    }
+  }, [sidebarData, location.pathname]);
+
+  const toggleGroup = (index) => {
+    setOpenGroups((prev) => {
+      // Fallback to true if it hasn't been defined yet, so a click will explicitly close it
+      const isCurrentlyOpen = prev[index] ?? true;
+      return { ...prev, [index]: !isCurrentlyOpen };
+    });
+  };
+
+  const closeMobileSidebar = () => {
+    if (window.innerWidth <= 768) setIsCollapsed(false);
+  };
+  const toggleDesktopCollapse = () => setIsCollapsed(!isCollapsed);
+
   return (
-    <SidebarContainer>
-      <BrandSection>
-        <BrandLogo>S</BrandLogo>
-        <BrandName>Shanmuga Hospital</BrandName>
-      </BrandSection>
+    <>
+      <Overlay $isCollapsed={isCollapsed} onClick={closeMobileSidebar} />
 
-      <NavMenu>
-        <NavGroupLabel>Main Menu</NavGroupLabel>
+      <SidebarContainer $isCollapsed={isCollapsed}>
+        <BrandSection>
+          <BrandLogo src={LOGO} alt="Logo" />
+          <CloseMobileBtn onClick={closeMobileSidebar}>
+            <X size={20} />
+          </CloseMobileBtn>
+        </BrandSection>
+        <NavMenu>
+          {sidebarData.map((group, groupIndex) => {
+            const pages = group.pages || [];
+            // Defaults to true, so it's open if undefined
+            const isOpen = openGroups[groupIndex] ?? true;
 
-        <StyledNavLink to="/Dashboard">
-          <FiHome /> <span>Dashboard</span>
-        </StyledNavLink>
-        <StyledNavLink to="/PatientRegistrationForm">
-          <FiUserPlus /> <span>Patient Registration</span>
-        </StyledNavLink>
+            return (
+              <React.Fragment key={groupIndex}>
+                {group.group && (
+                  <NavGroupHeader onClick={() => toggleGroup(groupIndex)}>
+                    <span>{group.group}</span>
+                    {isOpen ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
+                  </NavGroupHeader>
+                )}
 
-        <NavGroupLabel>Patient Management</NavGroupLabel>
+                <NavGroupContentWrapper $isOpen={isOpen}>
+                  <NavGroupContent $isOpen={isOpen}>
+                    {pages.map((page, pageIndex) => {
+                      const IconComponent = iconMap[page.icon] || Activity;
 
-        {role === "Super Admin" && (
-          <>
-            <NavGroupLabel>Inventory</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacyStock">
-              <FiPackage /> <span>IP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacyStock">
-              <FiShoppingBag /> <span>OP Pharmacy Stock</span>
-            </StyledNavLink>
-            <StyledNavLink to="/VendorManagement">
-              <FiTruck /> <span>Vendor Management</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Pharmacy</NavGroupLabel>
-            <StyledNavLink to="/IPPharmacy">
-              <FiPackage /> <span>IP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPPharmacy">
-              <FiShoppingBag /> <span>OP Pharmacy</span>
-            </StyledNavLink>
-            <StyledNavLink to="/IPGRNGeneration">
-              <FiActivity /> <span>IP GRN Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/OPGRNGeneration">
-              <FiActivity /> <span>OP GRN Generation</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Billing Master</NavGroupLabel>
-            <StyledNavLink to="/Package">
-              <FiFileText /> <span>Package</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Investigationprice">
-              <FiFileText /> <span>Investigation Price</span>
-            </StyledNavLink>
-            <StyledNavLink to="/BillType">
-              <FiFileText /> <span>Bill Type</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Doctor Management</NavGroupLabel>
-            <StyledNavLink to="/DoctorList">
-              <FiUsers /> <span>Doctors</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Billing</NavGroupLabel>
-            <StyledNavLink to="/InvestigationBilling">
-              <FiFileText /> <span>Department Billing</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Investigation Reports</NavGroupLabel>
-            <StyledNavLink to="/CTList">
-              <FiActivity /> <span>CT Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/MRIList">
-              <FiActivity /> <span>MRI Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/USGList">
-              <FiActivity /> <span>USG Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/XRayList">
-              <FiActivity /> <span>X-Ray Reports</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RadiologySlot">
-              <FiActivity /> <span>Radiology Slot</span>
-            </StyledNavLink>
-            <NavGroupLabel>Rooms</NavGroupLabel>
-            <StyledNavLink to="/Block">
-              <FiHome /> <span>Block</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomCategory">
-              <FiActivity /> <span>Room Category</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Room">
-              <FiHome /> <span>Room</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Bed">
-              <FiActivity /> <span>Bed</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Service">
-              <FiActivity /> <span>Service</span>
-            </StyledNavLink>
-            <StyledNavLink to="/RoomEnquiry">
-              <FiActivity /> <span>Room Enquiry</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Front Office</NavGroupLabel>
-            <StyledNavLink to="/Admission">
-              <FiUserPlus /> <span>Admission</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Enquiry">
-              <FiFileText /> <span>Enquiry</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeForm">
-              <FiLogOut /> <span>Discharge Form</span>
-            </StyledNavLink>
-            <StyledNavLink to="/Summary">
-              <FiActivity /> <span>Discharge Summary</span>
-            </StyledNavLink>
-            <StyledNavLink to="/DischargeReport">
-              <FiFileText /> <span>Discharge Reports</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Nursing Station</NavGroupLabel>
-            <StyledNavLink to="/RoomShifting">
-              <FiRepeat /> <span>Room Shifting</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Operation Theatre</NavGroupLabel>
-            <StyledNavLink to="/OTMaster">
-              <FiTag /> <span>OT Master</span>
-            </StyledNavLink>
-            <StyledNavLink to="/AnesNameMaster">
-              <FiTag /> <span>Anesthesia Name Master</span>
-            </StyledNavLink>
-            <StyledNavLink to="/SurgerySchedule">
-              <FiTag /> <span>Surgery Schedule</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Reports</NavGroupLabel>
-            <StyledNavLink to="/DeptBUDReport">
-              <FiFileText /> <span>Department Bill Report (Edit & Delete)</span>
-            </StyledNavLink>
-            <StyledNavLink to="/InvoiceReport">
-              <FiFileText /> <span>Velavan Invoice List</span>
-            </StyledNavLink>
-
-            <NavGroupLabel>Velavan</NavGroupLabel>
-            <StyledNavLink to="/InvoiceGeneration">
-              <FiTag /> <span>Invoice Generation</span>
-            </StyledNavLink>
-            <StyledNavLink to="/VelavanItemList">
-              <FiFileText /> <span>Velavan Item List</span>
-            </StyledNavLink>
-            <StyledNavLink to="/VelavanVendorList">
-              <FiFileText /> <span>Velavan Vendor List</span>
-            </StyledNavLink>
-          </>
-        )}
-      </NavMenu>
-
-      <UserSection>
-        <UserProfile>
-          <Avatar>{role ? role.charAt(0) : "S"}</Avatar>
-          <UserInfo>
-            <span>Staff Member</span>
-            <span>{role}</span>
-          </UserInfo>
-        </UserProfile>
-        <LogoutButton
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-        >
-          <FiLogOut /> <span>Logout</span>
-        </LogoutButton>
-      </UserSection>
-    </SidebarContainer>
+                      return (
+                        <StyledNavLink
+                          to={page.route}
+                          key={pageIndex}
+                          onClick={closeMobileSidebar}
+                        >
+                          <IconComponent /> <span>{page.name}</span>
+                        </StyledNavLink>
+                      );
+                    })}
+                  </NavGroupContent>
+                </NavGroupContentWrapper>
+              </React.Fragment>
+            );
+          })}
+        </NavMenu>
+      </SidebarContainer>
+    </>
   );
 };
 
