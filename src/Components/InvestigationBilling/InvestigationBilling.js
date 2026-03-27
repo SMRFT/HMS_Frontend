@@ -496,7 +496,7 @@ const InvestigationBilling = () => {
     // bill_name is set by BillsReport (resolved from DB).
     // billType is what was stored on the investbilling doc directly.
     // Use whichever is available so the dropdown can display correctly.
-    const resolvedBillName = data.billType || data.bill_name || "";
+    const resolvedBillName = data.bill_name || data.billType || "";
 
     setFormData({
       investBillNo: isEstimate ? "" : data.investBillNo || "",
@@ -544,14 +544,16 @@ const InvestigationBilling = () => {
     const data = location.state.patientData;
 
     // Match by bill_type (numeric id), billTypeNo, or bill name
-    const bt = billTypes.find(
-      (b) =>
-        (data.bill_type && String(b.bill_type) === String(data.bill_type)) ||
-        (data.billTypeNo && b.billTypeNo === data.billTypeNo) ||
-        (data.billType && b.bill_name === data.billType) ||
-        (data.bill_name && b.bill_name === data.bill_name),
-    );
-
+    const bt =
+      (data.bill_type &&
+        billTypes.find(
+          (b) => String(b.bill_type) === String(data.bill_type),
+        )) ||
+      (data.bill_name &&
+        billTypes.find((b) => b.bill_name === data.bill_name)) ||
+      (data.billType && billTypes.find((b) => b.bill_name === data.billType)) ||
+      (data.billTypeNo &&
+        billTypes.find((b) => b.billTypeNo === data.billTypeNo));
     if (bt) {
       const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
       handleBillTypeChange(
@@ -1006,7 +1008,7 @@ const InvestigationBilling = () => {
           <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
           <div class="total-row net-amount"><div class="total-label">Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
         </div>
-        <div class="signature"><div>${bill.uhid || ""}</div><div>(Signature)</div></div>
+        <div class="signature"><div>${localStorage.getItem("employeeId")}</div><div>(Signature)</div></div>
       </body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();
