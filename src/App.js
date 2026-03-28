@@ -95,6 +95,7 @@ import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
+import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -707,6 +708,16 @@ function App() {
               allowedActions,
               dynamicPermissions,
             ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+            {hasPagePermission(
+              "/OTMedicineBilling",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/OTMedicineBilling"
+                element={<OTMedicineBilling />}
+              />
+            )}
             {hasPagePermission(
               "/OTMaster",
               allowedActions,

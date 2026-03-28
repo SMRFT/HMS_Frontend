@@ -17,6 +17,7 @@ import {
   CheckCheck,
   Printer,
   FlaskConical,
+  Pill,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
@@ -530,7 +531,7 @@ const SurgerySchedule = () => {
 
   // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
   const raiseLabRequest = (s) => {
-    navigate("/OTLabBilling", {
+    navigate("/LabBilling", {
       state: {
         patientData: {
           // Patient info — s comes from _enrich() so uses enriched field names
@@ -551,6 +552,39 @@ const SurgerySchedule = () => {
           // Pre-set doctor from surgeon
           doctor: s.surgeon_name || s.surgeon_id || "",
           // Source reference
+          surgeryRef: s.reference_no || "",
+        },
+      },
+    });
+  };
+
+  // ── Raise Medicine Request → navigate to OTMedicineBilling ──────────────
+  const raiseMedicineRequest = (s) => {
+    navigate("/OTMedicineBilling", {
+      state: {
+        patientData: {
+          // ── Patient info (same fields as raiseLabRequest) ──────────────
+          uhid: s.uhid || "",
+          ipNumber: s.ip_number || "",
+          patient_name: s.patient_name || "",
+          firstName: s.patient_name || "",
+          lastName: "",
+          salutation: "",
+          age: String(s.age || ""),
+          gender: s.gender || "",
+          // ── Company / insurance ────────────────────────────────────────
+          customer_type: s.customer_type || "",
+          customerType: s.customer_type || "", // MedicineWardRequest uses camelCase
+          company_name: s.company_name || "",
+          companyName: s.company_name || "", // MedicineWardRequest uses camelCase
+          company_code: s.company_code || "",
+          // ── Emergency flag ─────────────────────────────────────────────
+          is_emergency: !!s.is_emergency,
+          // ── Doctor / OT (ward request specific fields) ─────────────────
+          admittingDoctor: s.surgeon_name || s.surgeon_id || "",
+          roomNo: s.ot_name || s.ot_id || "",
+          bedNo: "",
+          // ── Source reference ───────────────────────────────────────────
           surgeryRef: s.reference_no || "",
         },
       },
@@ -2065,6 +2099,22 @@ const SurgerySchedule = () => {
                                 }
                               >
                                 <FlaskConical size={15} />
+                              </IconAction>
+
+                              {/* Raise Medicine Request — only enabled after Confirmed */}
+                              <IconAction
+                                col="#7c3aed"
+                                title={
+                                  isConfirmed
+                                    ? "Raise Medicine Request"
+                                    : "Available after Confirmed"
+                                }
+                                disabled={!isConfirmed}
+                                onClick={() =>
+                                  isConfirmed && raiseMedicineRequest(s)
+                                }
+                              >
+                                <Pill size={15} />
                               </IconAction>
                             </ActionBtnRow>
                           );

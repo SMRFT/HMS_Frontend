@@ -1,25 +1,38 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import apiRequest from "../../Auth/apiRequest";
 import { Search, Plus, X } from "lucide-react";
+import apiRequest from "../../Auth/apiRequest";
 
-// --- Color Palette matching the screenshot ---
-// ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
+// ─── GlobalStyles imports ─────────────────────────────────────────────────────
+import {
+  colors as globalColors,
+  Container,
+  Button,
+  Label,
+  Input,
+  Select,
+  Table,
+  Th,
+  Td,
+  Tr,
+  TableWrapper,
+  NoResults,
+} from "../GlobalStyles";
+
+// ─── Color palette (matches MedicineWardRequest) ──────────────────────────────
 const colors = {
-  primary: "#136A63", // Teal for Medicine
+  primary: "#136A63",
   primaryDark: "#0B4C47",
   orange: "#F88C22",
   orangeHover: "#E67D1E",
-  yellow: "#FFA000",
   dark: "#37474F",
   border: "#CFD8DC",
   background: "#F5F7F8",
   textMain: "#263238",
   textMuted: "#78909C",
   white: "#FFFFFF",
-  rowHighlight: "#E0F2F1",
   headerBg: "#546E7A",
-  // Legend Colors
   legPending: "#FFC107",
   legSubstituted: "#B366CC",
   legBilled: "#28A745",
@@ -31,8 +44,83 @@ const colors = {
   legRegular: "#136A63",
 };
 
-// ─── Styled Components ────────────────────────────────────────────────────────
+// ─── Page wrapper ─────────────────────────────────────────────────────────────
+const PageWrapper = styled.div`
+  width: 100%;
+  min-height: 100vh;
+  background: ${colors.background};
+`;
 
+const TopBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid ${colors.border};
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+`;
+
+const BackBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid ${colors.primary};
+  color: ${colors.primary};
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  &:hover {
+    background: ${colors.primary};
+    color: #fff;
+  }
+`;
+
+const PageTitle = styled.h2`
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const SurgeryRefChip = styled.span`
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 2px 10px;
+`;
+
+const EmergencyChip = styled.span`
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 20px;
+  padding: 2px 10px;
+  animation: blink 1s step-start infinite;
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+`;
+
+// ─── Styled Components (verbatim from MedicineWardRequest) ────────────────────
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -46,7 +134,6 @@ const ModalOverlay = styled.div`
   z-index: 1000;
   backdrop-filter: blur(2px);
 `;
-
 const ModalContainer = styled.div`
   background: ${colors.background};
   width: 96%;
@@ -62,7 +149,6 @@ const ModalContainer = styled.div`
     -apple-system,
     sans-serif;
 `;
-
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
@@ -76,16 +162,13 @@ const Header = styled.div`
     color: white;
     font-size: 1.5rem;
     cursor: pointer;
-    line-height: 1;
   }
 `;
-
-const Title = styled.h2`
+const HeaderTitle = styled.h2`
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
 `;
-
 const ContentBody = styled.div`
   flex: 1;
   overflow-y: auto;
@@ -100,7 +183,6 @@ const PatientPanel = styled.div`
   margin-bottom: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 `;
-
 const PatientGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(8, 1fr);
@@ -109,13 +191,11 @@ const PatientGrid = styled.div`
     grid-template-columns: repeat(4, 2fr);
   }
 `;
-
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
 `;
-
 const FieldLabel = styled.span`
   font-size: 0.65rem;
   font-weight: 700;
@@ -123,7 +203,6 @@ const FieldLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.05em;
 `;
-
 const FieldValue = styled.div`
   background: #f1f5f7;
   border: 1px solid ${colors.border};
@@ -142,7 +221,6 @@ const TopActionBar = styled.div`
   justify-content: flex-end;
   margin-bottom: 15px;
 `;
-
 const RequestBtn = styled.button`
   background: ${colors.orange};
   color: white;
@@ -160,9 +238,6 @@ const RequestBtn = styled.button`
     background: ${colors.orangeHover};
     transform: translateY(-1px);
   }
-  &:active {
-    transform: translateY(0);
-  }
 `;
 
 const RequestFormWrapper = styled.div`
@@ -176,18 +251,15 @@ const RequestFormWrapper = styled.div`
   background: ${colors.white};
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 `;
-
 const FormPanel = styled.div`
   padding: 24px;
   border-right: 1px solid ${colors.border};
 `;
-
 const SidePanel = styled.div`
   background: #fdfdfd;
   display: flex;
   flex-direction: column;
 `;
-
 const SidePanelHeader = styled.div`
   background: #f1f5f7;
   padding: 12px 20px;
@@ -198,14 +270,12 @@ const SidePanelHeader = styled.div`
   display: flex;
   justify-content: space-between;
 `;
-
 const SidePanelContent = styled.div`
   flex: 1;
   padding: 10px 20px;
   max-height: 500px;
   overflow-y: auto;
 `;
-
 const SidePanelFooter = styled.div`
   padding: 20px;
   border-top: 1px solid ${colors.border};
@@ -218,14 +288,12 @@ const FormGrid = styled.div`
   gap: 15px 20px;
   margin-bottom: 20px;
 `;
-
 const FormItem = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
   position: relative;
 `;
-
 const FormLabel = styled.label`
   font-size: 0.8rem;
   font-weight: 600;
@@ -245,7 +313,6 @@ const StyledInput = styled.input`
     box-shadow: 0 0 0 2px rgba(19, 106, 99, 0.1);
   }
 `;
-
 const StyledSelect = styled.select`
   border: 1px solid ${colors.border};
   padding: 8px 12px;
@@ -259,15 +326,6 @@ const StyledSelect = styled.select`
   }
 `;
 
-const RadioGroup = styled.div`
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  font-size: 0.85rem;
-  color: ${colors.textMain};
-  margin-bottom: 5px;
-`;
-
 const CheckboxGroup = styled.div`
   display: flex;
   align-items: center;
@@ -278,14 +336,12 @@ const CheckboxGroup = styled.div`
   cursor: pointer;
   user-select: none;
 `;
-
 const ActionButtons = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
 `;
-
 const AddBtn = styled.button`
   background: ${colors.primary};
   color: white;
@@ -298,7 +354,6 @@ const AddBtn = styled.button`
     background: ${colors.primaryDark};
   }
 `;
-
 const CancelBtn = styled.button`
   background: ${colors.textMuted};
   color: white;
@@ -316,15 +371,13 @@ const TabsBar = styled.div`
   border-bottom: 2px solid ${colors.border};
   padding-bottom: 0;
 `;
-
 const Tab = styled.div`
   padding: 8px 25px;
   font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
-  color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
-  border-bottom: 3px solid
-    ${(props) => (props.active ? colors.primary : "transparent")};
+  color: ${(p) => (p.active ? colors.primary : colors.textMuted)};
+  border-bottom: 3px solid ${(p) => (p.active ? colors.primary : "transparent")};
   margin-bottom: -2px;
   transition: all 0.2s;
   &:hover {
@@ -371,7 +424,6 @@ const LegendContainer = styled.div`
   border: 1px solid ${colors.border};
   flex-wrap: wrap;
 `;
-
 const LegendItem = styled.div`
   display: flex;
   align-items: center;
@@ -380,17 +432,15 @@ const LegendItem = styled.div`
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
-  background: ${(props) => props.color};
+  background: ${(p) => p.color};
   color: white;
 `;
 
-// ─── Searchable Dropdown Helper ───────────────────────────────────────────────
-
+// ─── Searchable Dropdown ──────────────────────────────────────────────────────
 const SearchWrapper = styled.div`
   position: relative;
   width: 100%;
 `;
-
 const DropdownList = styled.ul`
   position: absolute;
   top: 100%;
@@ -407,7 +457,6 @@ const DropdownList = styled.ul`
   list-style: none;
   border-radius: 0 0 4px 4px;
 `;
-
 const DropdownItem = styled.li`
   padding: 10px 15px;
   font-size: 0.88rem;
@@ -433,30 +482,27 @@ const SearchableDropdown = ({
   const wrapperRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target))
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target))
         setIsOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
     if (value) {
-      const selected = options.find((opt) =>
-        typeof opt === "string" ? opt === value : opt[valueKey] === value,
+      const sel = options.find((o) =>
+        typeof o === "string" ? o === value : o[valueKey] === value,
       );
-      if (selected)
-        setSearchTerm(
-          typeof selected === "string" ? selected : selected[displayKey],
-        );
+      if (sel) setSearchTerm(typeof sel === "string" ? sel : sel[displayKey]);
     } else {
       setSearchTerm("");
     }
   }, [value, options, displayKey, valueKey]);
 
-  const filtered = options.filter((opt) => {
-    const txt = typeof opt === "string" ? opt : opt[displayKey];
+  const filtered = options.filter((o) => {
+    const txt = typeof o === "string" ? o : o[displayKey];
     return txt.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -465,27 +511,27 @@ const SearchableDropdown = ({
       <StyledInput
         type="text"
         value={searchTerm}
+        placeholder={placeholder}
         onChange={(e) => {
           setSearchTerm(e.target.value);
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
       />
       {isOpen && filtered.length > 0 && (
         <DropdownList>
-          {filtered.map((opt, idx) => (
+          {filtered.map((o, i) => (
             <DropdownItem
-              key={idx}
+              key={i}
               onClick={() => {
-                const val = typeof opt === "string" ? opt : opt[valueKey];
-                const txt = typeof opt === "string" ? opt : opt[displayKey];
+                const val = typeof o === "string" ? o : o[valueKey];
+                const txt = typeof o === "string" ? o : o[displayKey];
                 onChange(val);
                 setSearchTerm(txt);
                 setIsOpen(false);
               }}
             >
-              {typeof opt === "string" ? opt : opt[displayKey]}
+              {typeof o === "string" ? o : o[displayKey]}
             </DropdownItem>
           ))}
         </DropdownList>
@@ -494,42 +540,31 @@ const SearchableDropdown = ({
   );
 };
 
-const MedicineWardRequest = ({ patient, onClose }) => {
+// ─── Main Component ───────────────────────────────────────────────────────────
+const OTMedicineBilling = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Map incoming patient prop to display fields
-  const pd = patient?.patient_details || {};
+  // ── Patient data from navigation state ────────────────────────────────────
+  const pd = location.state?.patientData || {};
+
   const resolvedPatient = {
-    ipNo: patient?.ipNumber || pd.ipNumber || "-",
-    ipBadge: patient?.ipserial_number || pd.ipserial_number || "",
-    uhid: patient?.uhid || pd.uhid || "-",
-    name:
-      [
-        patient?.salutation ?? pd.salutation,
-        patient?.firstName ?? pd.firstName,
-        patient?.middleName ?? pd.middleName,
-        patient?.lastName ?? pd.lastName,
-      ]
-        .filter(Boolean)
-        .join(" ") || "Unknown Patient",
-    address: patient?.address || pd.permanent_address || "-",
-    admitting: patient?.admissionDateTime
-      ? new Date(patient.admissionDateTime).toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
-      : "-",
-    admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
-    roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
-    customerType: patient?.customerType || pd.customer_type || "-",
-    companyName: patient?.companyName || pd.company_code || "-",
+    ipNo: pd.ipNumber || "-",
+    uhid: pd.uhid || "-",
+    name: pd.patient_name || pd.firstName || "Unknown Patient",
+    age: pd.age || "-",
+    gender: pd.gender || "-",
+    admitting: "-",
+    admittingDr: pd.admittingDoctor || "-",
+    roomBed: `${pd.roomNo || "-"} | ${pd.bedNo || "-"}`,
+    customerType: pd.customerType || pd.customer_type || "-",
+    companyName: pd.companyName || pd.company_name || "-",
+    surgeryRef: pd.surgeryRef || "",
+    is_emergency: !!pd.is_emergency,
   };
 
-  // Data Arrays
+  // ── State ─────────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -537,19 +572,15 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [billTypeOptions, setBillTypeOptions] = useState([]);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  // UI States
   const [showForm, setShowForm] = useState(false);
 
-  // Form Fields
   const [pharmacyDept, setPharmacyDept] = useState("OP001");
   const [billTypeNo, setBillTypeNo] = useState("42");
   const [billtype, setBilltype] = useState("42");
   const [billTypeName, setBillTypeName] = useState("PHARMACY OP BILL (SH)");
-  const [drugType, setDrugType] = useState("Drug");
   const [selectedDrug, setSelectedDrug] = useState(null);
-  const [doctor, setDoctor] = useState(""); // Stores employeeId
-  const [doctorName, setDoctorName] = useState(""); // Stores display name
+  const [doctor, setDoctor] = useState("");
+  const [doctorName, setDoctorName] = useState("");
   const [dosage, setDosage] = useState("");
   const [noOfDays, setNoOfDays] = useState("");
   const [qty, setQty] = useState("");
@@ -562,166 +593,127 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [dosageOptions, setDosageOptions] = useState([]);
   const [showDosageModal, setShowDosageModal] = useState(false);
   const [newDosageName, setNewDosageName] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Note: Patient object might have doctor name OR ID under different fields.
-    // If it's the admitting doctor, it's usually an ID but maybe a name after backend formatting.
-    if (patient?.admittingDoctor) {
-      const docObj = doctors.find(
-        (d) =>
-          d.employeeId === patient.admittingDoctor ||
-          d.employeeName === patient.admittingDoctor,
-      );
-      if (docObj) {
-        setDoctor(docObj.employeeId);
-        setDoctorName(docObj.employeeName);
-      } else {
-        setDoctor(patient.admittingDoctor);
-      }
-    } else if (patient?.doctor_name) {
-      setDoctor(patient.doctor_name);
-    } else if (pd.doctorName) {
-      setDoctor(pd.doctorName);
-    }
-  }, [patient, pd, doctors]);
-
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchRequests();
     fetchDoctors();
     fetchBillTypes();
     fetchDosages();
-  }, []);
+  }, []); // eslint-disable-line
 
-  const fetchDosages = async () => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "GET");
-      if (res.success) setDosageOptions(res.data?.data || []);
-    } catch (e) {
-      console.error("Error fetching dosages:", e);
+  // Pre-fill admitting doctor from navigation state once doctors load
+  useEffect(() => {
+    if (!doctors.length || !pd.admittingDoctor) return;
+    const match = doctors.find(
+      (d) =>
+        d.employeeId === pd.admittingDoctor ||
+        d.employeeName === pd.admittingDoctor,
+    );
+    if (match) {
+      setDoctor(match.employeeId);
+      setDoctorName(match.employeeName);
+    } else {
+      setDoctor(pd.admittingDoctor);
     }
+  }, [doctors, pd.admittingDoctor]); // eslint-disable-line
+
+  // ── API calls ─────────────────────────────────────────────────────────────
+  const fetchDosages = async () => {
+    const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "GET");
+    if (res.success) setDosageOptions(res.data?.data || []);
   };
 
   const handleSaveDosage = async () => {
     if (!newDosageName) return alert("Enter dosage name");
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "POST", {
-        dosage_name: newDosageName,
-      });
-      if (res.success) {
-        setNewDosageName("");
-        setShowDosageModal(false);
-        fetchDosages();
-      }
-    } catch (e) {
-      console.error("Error saving dosage:", e);
+    const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "POST", {
+      dosage_name: newDosageName,
+    });
+    if (res.success) {
+      setNewDosageName("");
+      setShowDosageModal(false);
+      fetchDosages();
     }
   };
 
   const fetchBillTypes = async () => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
-      if (res.success || res.records) {
-        const list =
-          res.records ||
-          res.data?.billTypes ||
-          (Array.isArray(res.data) ? res.data : []);
-        setBillTypeOptions(list);
-        if (list.length > 0) {
-          const opt = list[0];
-          setBillTypeNo(opt.billTypeNo);
-          setBilltype(opt.bill_type);
-          setBillTypeName(opt.bill_name);
-          setPharmacyDept(
-            opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001",
-          );
-        }
+    const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
+    if (res.success || res.records) {
+      const list =
+        res.records ||
+        res.data?.billTypes ||
+        (Array.isArray(res.data) ? res.data : []);
+      setBillTypeOptions(list);
+      if (list.length > 0) {
+        const opt = list[0];
+        setBillTypeNo(opt.billTypeNo);
+        setBilltype(opt.bill_type);
+        setBillTypeName(opt.bill_name);
+        setPharmacyDept(
+          opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001",
+        );
       }
-    } catch (e) {
-      console.error("Error fetching bill types:", e);
     }
   };
 
   const fetchRequests = async () => {
-    try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${resolvedPatient.uhid}&ipNumber=${resolvedPatient.ipNo}`,
-        "GET",
-      );
-      if (res.success) setRequests(res.data?.data || []);
-    } catch (e) {
-      console.error("Error fetching requests:", e);
-    }
+    const res = await apiRequest(
+      `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${pd.uhid || ""}&ipNumber=${pd.ipNumber || ""}`,
+      "GET",
+    );
+    if (res.success) setRequests(res.data?.data || []);
   };
 
   const fetchDoctors = async () => {
-    try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}doctor_list_diagnostics/`,
-        "GET",
-      );
-      if (res.success) {
-        const list =
-          res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        setDoctors(list);
-      }
-    } catch (e) {
-      console.error("Error fetching doctors:", e);
+    const res = await apiRequest(
+      `${HmsBaseUrl}doctor_list_diagnostics/`,
+      "GET",
+    );
+    if (res.success) {
+      const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      setDoctors(list);
     }
   };
 
   const handleMedicineSearch = async (val) => {
-    if (val.length > 2) {
-      try {
-        const res = await apiRequest(
-          `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
-          "GET",
-        );
-        // Fix for standard apiRequest return shape: { success, data }
-        const list = res.success
-          ? Array.isArray(res.data?.data)
-            ? res.data.data
-            : Array.isArray(res.data)
-              ? res.data
-              : []
-          : [];
-
-        const filtered = list
-          .filter((item) =>
-            item.item_name?.toLowerCase().includes(val.toLowerCase()),
-          )
-          .map((item) => ({
-            id: item.item_id + "_" + item.batch_number,
-            item_id: item.item_id,
-            batch_number: item.batch_number,
-            name: item.item_name,
-            price: item.mrp,
-            total_stock: item.total_stock || 0,
-            expiry_date: item.expiry_date || "-",
-          }));
-        setSearchResults(filtered);
-      } catch (e) {
-        console.error("Search error", e);
-      }
-    } else {
+    if (val.length < 3) {
       setSearchResults([]);
+      return;
     }
+    const res = await apiRequest(
+      `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
+      "GET",
+    );
+    const list = res.success
+      ? Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+          ? res.data
+          : []
+      : [];
+    setSearchResults(
+      list
+        .filter((i) => i.item_name?.toLowerCase().includes(val.toLowerCase()))
+        .map((i) => ({
+          id: `${i.item_id}_${i.batch_number}`,
+          item_id: i.item_id,
+          batch_number: i.batch_number,
+          name: i.item_name,
+          price: i.mrp,
+          total_stock: i.total_stock || 0,
+          expiry_date: i.expiry_date || "-",
+        })),
+    );
   };
 
-  // Auto-calculate quantity based on dosage & days
+  // Auto-calculate quantity
   useEffect(() => {
     if (dosage && noOfDays) {
-      let timesPerDay = 0;
-      if (dosage.includes("-")) {
-        const parts = dosage.split("-").map((p) => Number(p) || 0);
-        timesPerDay = parts.reduce((acc, curr) => acc + curr, 0);
-      } else {
-        timesPerDay = Number(dosage) || 0;
-      }
+      const times = dosage.includes("-")
+        ? dosage.split("-").reduce((a, p) => a + (Number(p) || 0), 0)
+        : Number(dosage) || 0;
       const days = Number(noOfDays) || 0;
-      if (timesPerDay > 0 && days > 0) {
-        setQty(timesPerDay * days);
-      }
+      if (times > 0 && days > 0) setQty(times * days);
     }
   }, [dosage, noOfDays]);
 
@@ -729,7 +721,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     if (!selectedDrug) return alert("Select a drug from search.");
     if (!billtype) return alert("Select Medicine Bill Type.");
     if (!dosage) return alert("Enter Dosage.");
-    if (!noOfDays) return alert("Enter No.of days.");
+    if (!noOfDays) return alert("Enter No. of days.");
     if (!qty) return alert("Enter Quantity.");
 
     const newMed = {
@@ -738,11 +730,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       qty: Number(qty),
       quantity: Number(qty),
       price: selectedDrug.price,
-      noOfDays: noOfDays,
-      dosage: dosage,
+      noOfDays,
+      dosage,
     };
-
-    setSelectedMedicines([...selectedMedicines, newMed]);
+    setSelectedMedicines((p) => [...p, newMed]);
     resetForm();
   };
 
@@ -753,11 +744,11 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     setDose("");
     setRoute("");
     setRemark("");
+    setSearchQuery("");
   };
 
   const handleConfirm = async () => {
-    if (selectedMedicines.length === 0) return alert("No medicines added.");
-
+    if (!selectedMedicines.length) return alert("No medicines added.");
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -768,54 +759,61 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
       medicine_particulars: selectedMedicines,
       total_amount: selectedMedicines.reduce(
-        (acc, m) => acc + (m.price || 0) * m.quantity,
+        (a, m) => a + (m.price || 0) * m.quantity,
         0,
       ),
       doctor: doctorName,
       doctor_id: doctor,
       billing_status: "Ward Request",
       billing_mode: "WARD REQUEST",
+      surgeryRef: resolvedPatient.surgeryRef,
     };
-
-    try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}save_medicine_ward_request/`,
-        "POST",
-        payload,
-      );
-      if (res.success) {
-        alert("Ward Request saved successfully");
-        setSelectedMedicines([]);
-        fetchRequests();
-      }
-    } catch (e) {
-      console.error("Save error", e);
+    const res = await apiRequest(
+      `${HmsBaseUrl}save_ot_medicine_ward_request/`,
+      "POST",
+      payload,
+    );
+    if (res.success) {
+      alert("Ward Request saved successfully");
+      setSelectedMedicines([]);
+      fetchRequests();
     }
   };
 
-  const removeSelectedMed = (index) => {
-    setSelectedMedicines((prev) => prev.filter((_, i) => i !== index));
-  };
+  const removeSelectedMed = (i) =>
+    setSelectedMedicines((p) => p.filter((_, idx) => idx !== i));
 
-  const getStatusColor = (status, isDischarge) => {
-    if (isDischarge) return colors.legDischarge;
+  const getStatusColor = (status) => {
     if (status === "Pending") return colors.legPending;
     if (status === "Cancelled") return colors.legCancelled;
     if (status === "Billed") return colors.legBilled;
     return colors.legRegular;
   };
 
+  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
-    <>
+    <PageWrapper>
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
+      <TopBar>
+        <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
+        <PageTitle>
+          💊 OT Medicine Request
+          {resolvedPatient.surgeryRef && (
+            <SurgeryRefChip>🔗 {resolvedPatient.surgeryRef}</SurgeryRefChip>
+          )}
+          {resolvedPatient.is_emergency && (
+            <EmergencyChip>⚡ EMERGENCY</EmergencyChip>
+          )}
+        </PageTitle>
+      </TopBar>
+
       <div style={{ padding: "20px" }}>
+        {/* ── Patient panel ─────────────────────────────────────────────── */}
         <PatientPanel>
           <PatientGrid>
             <FieldBox>
               <FieldLabel>IP No</FieldLabel>
-              <FieldValue>
-                {resolvedPatient.ipNo}{" "}
-                {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
-              </FieldValue>
+              <FieldValue>{resolvedPatient.ipNo}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>UHID</FieldLabel>
@@ -826,12 +824,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               <FieldValue>{resolvedPatient.name}</FieldValue>
             </FieldBox>
             <FieldBox>
-              <FieldLabel>Address</FieldLabel>
-              <FieldValue>{resolvedPatient.address}</FieldValue>
+              <FieldLabel>Age</FieldLabel>
+              <FieldValue>{resolvedPatient.age}</FieldValue>
             </FieldBox>
             <FieldBox>
-              <FieldLabel>Admitting Date & Time</FieldLabel>
-              <FieldValue>{resolvedPatient.admitting}</FieldValue>
+              <FieldLabel>Gender</FieldLabel>
+              <FieldValue>{resolvedPatient.gender}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Admitting Dr</FieldLabel>
@@ -852,16 +850,19 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           </PatientGrid>
         </PatientPanel>
 
+        {/* ── New Request toggle ────────────────────────────────────────── */}
         <TopActionBar>
           <RequestBtn onClick={() => setShowForm(!showForm)}>
             {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
           </RequestBtn>
         </TopActionBar>
 
+        {/* ── Request Form ──────────────────────────────────────────────── */}
         {showForm && (
           <RequestFormWrapper>
             <FormPanel>
               <FormGrid>
+                {/* Bill Type */}
                 <FormItem>
                   <FormLabel>Medicine Bill Type</FormLabel>
                   <SearchableDropdown
@@ -891,6 +892,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   />
                 </FormItem>
 
+                {/* Medicine Name search */}
                 <FormItem style={{ gridColumn: "span 2" }}>
                   <FormLabel>Medicine Name</FormLabel>
                   <div style={{ display: "flex", gap: "8px" }}>
@@ -903,14 +905,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         setSearchQuery(e.target.value);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (searchQuery.length > 2) {
-                            setIsSearchModalOpen(true);
-                            handleMedicineSearch(searchQuery);
-                          } else {
-                            alert("Please enter at least 3 characters.");
-                          }
+                        if (e.key === "Enter" && searchQuery.length > 2) {
+                          setIsSearchModalOpen(true);
+                          handleMedicineSearch(searchQuery);
                         }
                       }}
                     />
@@ -920,9 +917,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         if (searchQuery.length > 2) {
                           setIsSearchModalOpen(true);
                           handleMedicineSearch(searchQuery);
-                        } else {
-                          alert("Please enter at least 3 characters.");
-                        }
+                        } else alert("Enter at least 3 characters.");
                       }}
                       style={{
                         background: colors.primary,
@@ -942,14 +937,15 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   </div>
                 </FormItem>
 
+                {/* Doctor */}
                 <FormItem>
                   <FormLabel>Doctor</FormLabel>
                   <SearchableDropdown
                     value={doctor}
                     onChange={(val) => {
                       setDoctor(val);
-                      const docObj = doctors.find((d) => d.employeeId === val);
-                      if (docObj) setDoctorName(docObj.employeeName);
+                      const d = doctors.find((x) => x.employeeId === val);
+                      if (d) setDoctorName(d.employeeName);
                     }}
                     options={doctors.map((d) => ({
                       id: d.employeeId,
@@ -958,6 +954,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   />
                 </FormItem>
 
+                {/* Dosage */}
                 <FormItem>
                   <FormLabel>Dosage</FormLabel>
                   <div style={{ display: "flex", gap: "8px" }}>
@@ -972,9 +969,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       <option value="0-0-1">0-0-1 (Night)</option>
                       <option value="1-0-1">1-0-1 (Morn-Night)</option>
                       <option value="1-1-1">1-1-1 (Thrice)</option>
-                      {dosageOptions.map((opt, idx) => (
-                        <option key={idx} value={opt.dosage_name}>
-                          {opt.dosage_name}
+                      {dosageOptions.map((o, i) => (
+                        <option key={i} value={o.dosage_name}>
+                          {o.dosage_name}
                         </option>
                       ))}
                     </StyledSelect>
@@ -1007,7 +1004,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     onChange={(e) => setNoOfDays(e.target.value)}
                   />
                 </FormItem>
-
                 <FormItem>
                   <FormLabel>Quantity</FormLabel>
                   <StyledInput
@@ -1016,7 +1012,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     onChange={(e) => setQty(e.target.value)}
                   />
                 </FormItem>
-
                 <FormItem>
                   <FormLabel>Dose</FormLabel>
                   <StyledInput
@@ -1024,7 +1019,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     onChange={(e) => setDose(e.target.value)}
                   />
                 </FormItem>
-
                 <FormItem>
                   <FormLabel>Dose Unit</FormLabel>
                   <StyledSelect
@@ -1038,7 +1032,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     <option value="cap">Capsule</option>
                   </StyledSelect>
                 </FormItem>
-
                 <FormItem>
                   <FormLabel>Route</FormLabel>
                   <StyledInput
@@ -1075,6 +1068,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               </ActionButtons>
             </FormPanel>
 
+            {/* Side panel */}
             <SidePanel>
               <SidePanelHeader>
                 Selected Items ({selectedMedicines.length})
@@ -1092,9 +1086,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     No medicines added yet.
                   </div>
                 ) : (
-                  selectedMedicines.map((m, idx) => (
+                  selectedMedicines.map((m, i) => (
                     <div
-                      key={idx}
+                      key={i}
                       style={{
                         padding: "12px 0",
                         borderBottom: "1px solid #F0F0F0",
@@ -1120,7 +1114,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                         {m.dosage} | {m.noOfDays} Days | Qty: {m.quantity}
                       </div>
                       <button
-                        onClick={() => removeSelectedMed(idx)}
+                        onClick={() => removeSelectedMed(i)}
                         style={{
                           position: "absolute",
                           right: "0",
@@ -1149,6 +1143,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           </RequestFormWrapper>
         )}
 
+        {/* ── Request History ───────────────────────────────────────────── */}
         <TabsBar>
           <Tab active={true}>Request History</Tab>
         </TabsBar>
@@ -1188,12 +1183,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     {req.reqDate} {req.reqTime}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
+                    {req.medicines?.map((m, j) => (
                       <div
-                        key={idx}
+                        key={j}
                         style={{
                           borderBottom:
-                            idx < req.medicines.length - 1
+                            j < req.medicines.length - 1
                               ? "1px solid #eee"
                               : "none",
                           padding: "4px 0",
@@ -1204,12 +1199,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     ))}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
+                    {req.medicines?.map((m, j) => (
                       <div
-                        key={idx}
+                        key={j}
                         style={{
                           borderBottom:
-                            idx < req.medicines.length - 1
+                            j < req.medicines.length - 1
                               ? "1px solid #eee"
                               : "none",
                           padding: "4px 0",
@@ -1220,12 +1215,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     ))}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
+                    {req.medicines?.map((m, j) => (
                       <div
-                        key={idx}
+                        key={j}
                         style={{
                           borderBottom:
-                            idx < req.medicines.length - 1
+                            j < req.medicines.length - 1
                               ? "1px solid #eee"
                               : "none",
                           padding: "4px 0",
@@ -1236,12 +1231,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     ))}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
+                    {req.medicines?.map((m, j) => (
                       <div
-                        key={idx}
+                        key={j}
                         style={{
                           borderBottom:
-                            idx < req.medicines.length - 1
+                            j < req.medicines.length - 1
                               ? "1px solid #eee"
                               : "none",
                           padding: "4px 0",
@@ -1252,12 +1247,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     ))}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
+                    {req.medicines?.map((m, j) => (
                       <div
-                        key={idx}
+                        key={j}
                         style={{
                           borderBottom:
-                            idx < req.medicines.length - 1
+                            j < req.medicines.length - 1
                               ? "1px solid #eee"
                               : "none",
                           padding: "4px 0",
@@ -1270,9 +1265,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   <td>{req.doctorName || req.doctor}</td>
                   <td>{req.billName}</td>
                   <td>
-                    <LegendItem
-                      color={getStatusColor(req.status || "Pending", false)}
-                    >
+                    <LegendItem color={getStatusColor(req.status || "Pending")}>
                       {req.status || "Pending"}
                     </LegendItem>
                   </td>
@@ -1295,7 +1288,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         </LegendContainer>
       </div>
 
-      {/* ─── Medicine Search Modal ────────────────────────────────────── */}
+      {/* ── Medicine Search Modal ─────────────────────────────────────────── */}
       {isSearchModalOpen && (
         <ModalOverlay style={{ zIndex: 2000 }}>
           <ModalContainer
@@ -1303,7 +1296,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <Header>
-              <Title>Select Medicine ({pharmacyDept})</Title>
+              <HeaderTitle>Select Medicine ({pharmacyDept})</HeaderTitle>
               <button onClick={() => setIsSearchModalOpen(false)}>×</button>
             </Header>
             <ContentBody>
@@ -1316,9 +1309,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && searchQuery.length > 2) {
+                    if (e.key === "Enter" && searchQuery.length > 2)
                       handleMedicineSearch(searchQuery);
-                    }
                   }}
                 />
                 <button
@@ -1342,7 +1334,6 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                   <Search size={16} /> Search
                 </button>
               </div>
-
               {searchResults.length > 0 ? (
                 <div
                   style={{
@@ -1383,9 +1374,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {searchResults.map((item, idx) => (
+                      {searchResults.map((item, i) => (
                         <tr
-                          key={idx}
+                          key={i}
                           style={{ borderBottom: `1px solid ${colors.border}` }}
                         >
                           <td style={{ padding: "10px" }}>{item.name}</td>
@@ -1441,6 +1432,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           </ModalContainer>
         </ModalOverlay>
       )}
+
+      {/* ── Add Dosage Modal ──────────────────────────────────────────────── */}
       {showDosageModal && (
         <div
           style={{
@@ -1536,8 +1529,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           </div>
         </div>
       )}
-    </>
+    </PageWrapper>
   );
 };
 
-export default MedicineWardRequest;
+export default OTMedicineBilling;
