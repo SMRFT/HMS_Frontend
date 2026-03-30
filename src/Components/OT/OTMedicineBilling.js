@@ -569,15 +569,12 @@ const OTMedicineBilling = () => {
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
-  const [billTypeOptions, setBillTypeOptions] = useState([]);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  const [pharmacyDept, setPharmacyDept] = useState("OP001");
-  const [billTypeNo, setBillTypeNo] = useState("42");
-  const [billtype, setBilltype] = useState("42");
-  const [billTypeName, setBillTypeName] = useState("PHARMACY OP BILL (SH)");
+  // Fixed for OT: always IP pharmacy, backend sets bill_type=18
+  const pharmacyDept = "IP001";
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [doctorName, setDoctorName] = useState("");
@@ -588,8 +585,6 @@ const OTMedicineBilling = () => {
   const [doseUnit, setDoseUnit] = useState("");
   const [route, setRoute] = useState("");
   const [remark, setRemark] = useState("");
-  const [isRegular, setIsRegular] = useState(true);
-  const [isDischarge, setIsDischarge] = useState(false);
   const [dosageOptions, setDosageOptions] = useState([]);
   const [showDosageModal, setShowDosageModal] = useState(false);
   const [newDosageName, setNewDosageName] = useState("");
@@ -598,7 +593,6 @@ const OTMedicineBilling = () => {
   useEffect(() => {
     fetchRequests();
     fetchDoctors();
-    fetchBillTypes();
     fetchDosages();
   }, []); // eslint-disable-line
 
@@ -636,29 +630,9 @@ const OTMedicineBilling = () => {
     }
   };
 
-  const fetchBillTypes = async () => {
-    const res = await apiRequest(`${HmsBaseUrl}bill-types/`, "GET");
-    if (res.success || res.records) {
-      const list =
-        res.records ||
-        res.data?.billTypes ||
-        (Array.isArray(res.data) ? res.data : []);
-      setBillTypeOptions(list);
-      if (list.length > 0) {
-        const opt = list[0];
-        setBillTypeNo(opt.billTypeNo);
-        setBilltype(opt.bill_type);
-        setBillTypeName(opt.bill_name);
-        setPharmacyDept(
-          opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001",
-        );
-      }
-    }
-  };
-
   const fetchRequests = async () => {
     const res = await apiRequest(
-      `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${pd.uhid || ""}&ipNumber=${pd.ipNumber || ""}`,
+      `${HmsBaseUrl}get_ot_medicine_ward_requests/?uhid=${pd.uhid || ""}&ipNumber=${pd.ipNumber || ""}`,
       "GET",
     );
     if (res.success) setRequests(res.data?.data || []);
@@ -681,7 +655,7 @@ const OTMedicineBilling = () => {
       return;
     }
     const res = await apiRequest(
-      `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
+      `${HmsBaseUrl}get_oppharmacy_stock/?outlet_code=${pharmacyDept}`,
       "GET",
     );
     const list = res.success
@@ -719,7 +693,6 @@ const OTMedicineBilling = () => {
 
   const handleAddMedicine = () => {
     if (!selectedDrug) return alert("Select a drug from search.");
-    if (!billtype) return alert("Select Medicine Bill Type.");
     if (!dosage) return alert("Enter Dosage.");
     if (!noOfDays) return alert("Enter No. of days.");
     if (!qty) return alert("Enter Quantity.");
@@ -732,6 +705,10 @@ const OTMedicineBilling = () => {
       price: selectedDrug.price,
       noOfDays,
       dosage,
+      dose,
+      doseUnit,
+      route,
+      remark,
     };
     setSelectedMedicines((p) => [...p, newMed]);
     resetForm();
@@ -753,19 +730,15 @@ const OTMedicineBilling = () => {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
       patient_name: resolvedPatient.name,
-      bill_type: billtype,
-      billTypeNo,
-      billTypeName,
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
-      medicine_particulars: selectedMedicines,
+      medicine_particulars: selectedMedicines, // includes remark per item
       total_amount: selectedMedicines.reduce(
         (a, m) => a + (m.price || 0) * m.quantity,
         0,
       ),
-      doctor: doctorName,
       doctor_id: doctor,
-      billing_status: "Ward Request",
-      billing_mode: "WARD REQUEST",
+      // Fields below are set by backend — not sent from frontend
+      // bill_type=18, billing_status, billing_mode, is_ward_request handled server-side
       surgeryRef: resolvedPatient.surgeryRef,
     };
     const res = await apiRequest(
@@ -862,33 +835,17 @@ const OTMedicineBilling = () => {
           <RequestFormWrapper>
             <FormPanel>
               <FormGrid>
-                {/* Bill Type */}
+                {/* Bill Type — fixed, read-only */}
                 <FormItem>
                   <FormLabel>Medicine Bill Type</FormLabel>
-                  <SearchableDropdown
-                    value={billTypeNo}
-                    onChange={(val) => {
-                      const opt = billTypeOptions.find(
-                        (o) => String(o.billTypeNo) === String(val),
-                      );
-                      if (opt) {
-                        setBillTypeNo(val);
-                        setBilltype(opt.bill_type);
-                        setBillTypeName(opt.bill_name);
-                        setPharmacyDept(
-                          opt.bill_name?.toLowerCase().includes("ip")
-                            ? "IP001"
-                            : "OP001",
-                        );
-                        setSearchResults([]);
-                        setSelectedDrug(null);
-                        setSearchQuery("");
-                      }
+                  <StyledInput
+                    value="PHARMACY IP BILL"
+                    readOnly
+                    style={{
+                      background: "#f1f5f7",
+                      color: colors.primary,
+                      fontWeight: 700,
                     }}
-                    options={billTypeOptions.map((o) => ({
-                      id: o.billTypeNo,
-                      name: o.bill_name,
-                    }))}
                   />
                 </FormItem>
 
@@ -1048,19 +1005,6 @@ const OTMedicineBilling = () => {
                   onChange={(e) => setRemark(e.target.value)}
                 />
               </FormItem>
-
-              <div
-                style={{ display: "flex", gap: "30px", marginBottom: "20px" }}
-              >
-                <CheckboxGroup onClick={() => setIsRegular(!isRegular)}>
-                  <input type="checkbox" checked={isRegular} readOnly /> Regular
-                  Medicine
-                </CheckboxGroup>
-                <CheckboxGroup onClick={() => setIsDischarge(!isDischarge)}>
-                  <input type="checkbox" checked={isDischarge} readOnly />{" "}
-                  Discharge Medicine
-                </CheckboxGroup>
-              </div>
 
               <ActionButtons>
                 <CancelBtn onClick={resetForm}>✕ Reset</CancelBtn>

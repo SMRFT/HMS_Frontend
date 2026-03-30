@@ -531,7 +531,7 @@ const SurgerySchedule = () => {
 
   // ── Raise Lab Request → navigate to InvestigationBilling ─────────────────
   const raiseLabRequest = (s) => {
-    navigate("/LabBilling", {
+    navigate("/OTLabBilling", {
       state: {
         patientData: {
           // Patient info — s comes from _enrich() so uses enriched field names

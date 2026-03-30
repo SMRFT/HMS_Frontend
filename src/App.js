@@ -30,7 +30,6 @@ import PatientRegistrationForm from "./Components/Register/PatientRegistrationFo
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
 import Summary from "./Components/Summary/Summary";
-import EditSummary from "./Components/Summary/EditSummary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master
 import DoctorList from "./Components/DoctorMaster/DoctorList";
@@ -230,10 +229,7 @@ function App() {
     };
 
     const path = location.pathname;
-    // Handle dynamic routes (e.g., /EditSummary/123)
-    if (path.startsWith("/EditSummary/")) {
-      document.title = "Edit Summary - Shanmuga Hospital";
-    } else if (path.startsWith("/SummaryPrint/")) {
+    if (path.startsWith("/SummaryPrint/")) {
       document.title = "Print Summary - Shanmuga Hospital";
     } else if (path.startsWith("/CTReportForm/")) {
       document.title = "CT Report Form - Shanmuga Hospital";
@@ -396,13 +392,7 @@ function App() {
               allowedActions,
               dynamicPermissions,
             ) && <Route path="/Summary" element={<Summary />} />}
-            {hasPagePermission(
-              "/Summary",
-              allowedActions,
-              dynamicPermissions,
-            ) && ( // Edit uses Summary permission
-              <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
-            )}
+
             {hasPagePermission(
               "/Summary",
               allowedActions,

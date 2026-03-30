@@ -451,6 +451,10 @@ const Summary = () => {
   const [selectedDiseases, setSelectedDiseases] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
+  const [showMedicines, setShowMedicines] = useState(false);
+  const [medicines, setMedicines] = useState([]);
+  const [selectedMedicines, setSelectedMedicines] = useState([]);
+  const [medicinesLoading, setMedicinesLoading] = useState(false);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const noteFields = [
@@ -675,6 +679,72 @@ const Summary = () => {
     }
     setShowInvestigations(false);
     setSelectedInvestigations([]);
+  };
+
+  const fetchMedicines = async () => {
+    if (!formData.ipNo?.trim()) {
+      alert("Please enter a valid IP Number first");
+      return;
+    }
+    setMedicinesLoading(true);
+    setMedicines([]);
+    setSelectedMedicines([]);
+    const result = await apiRequest(
+      `${HMSURL}patient-medicines/${encodeURIComponent(formData.ipNo)}/`,
+      "GET",
+    );
+    setMedicinesLoading(false);
+    if (
+      result.success &&
+      Array.isArray(result.data) &&
+      result.data.length > 0
+    ) {
+      setMedicines(result.data);
+      setShowMedicines(true);
+    } else {
+      alert("No medicines found for this patient");
+    }
+  };
+
+  const toggleMedicineSelection = (med, idx) => {
+    setSelectedMedicines((prev) => {
+      const exists = prev.some((m) => m._idx === idx);
+      return exists
+        ? prev.filter((m) => m._idx !== idx)
+        : [...prev, { ...med, _idx: idx }];
+    });
+  };
+
+  const addMedicinesToNotes = () => {
+    if (!selectedMedicines.length) {
+      alert("Please select at least one medicine");
+      return;
+    }
+    const header = "DISCHARGE MEDICINES:\n";
+    const rows = selectedMedicines
+      .map(
+        (m) =>
+          `• ${m.itemName}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`,
+      )
+      .join("\n");
+    const text = header + rows;
+
+    const targetField = "ADVICE ON DISCHARGE";
+    setFormData((prev) => {
+      const fd = { ...prev.fieldsData, [prev.currentField]: prev.notes };
+      fd[targetField] = fd[targetField]
+        ? `${fd[targetField]}\n\n${text}`
+        : text;
+      return {
+        ...prev,
+        fieldsData: fd,
+        currentField: targetField,
+        notes: fd[targetField],
+      };
+    });
+    setSelectedField(targetField);
+    setShowMedicines(false);
+    setSelectedMedicines([]);
   };
 
   /* ── Form changes ── */
@@ -1253,7 +1323,10 @@ const Summary = () => {
               <button style={css.outlineBtn(tokens.teal)}>
                 + Add Medicines
               </button>
-              <button style={css.outlineBtn(tokens.green)}>
+              <button
+                style={css.outlineBtn(tokens.green)}
+                onClick={fetchMedicines}
+              >
                 + Discharge Medicines
               </button>
             </div>
@@ -1412,6 +1485,180 @@ const Summary = () => {
                   }}
                   onClick={addInvestigationsToNotes}
                   disabled={!selectedInvestigations.length}
+                >
+                  Add to Summary
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════ MEDICINES MODAL ══════════════════ */}
+        {showMedicines && (
+          <div style={css.modalOverlay}>
+            <div style={css.modalBox}>
+              <div style={css.modalHead}>
+                <span style={css.modalTitle}>💊 Patient Medicines</span>
+                <button
+                  style={css.modalClose}
+                  onClick={() => setShowMedicines(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={css.modalBody}>
+                {medicinesLoading ? (
+                  <div style={{ textAlign: "center", padding: 32 }}>
+                    <div className="spinner-border text-primary" />
+                    <p style={{ marginTop: 12, color: tokens.muted }}>
+                      Loading medicines…
+                    </p>
+                  </div>
+                ) : medicines.length === 0 ? (
+                  <p
+                    style={{
+                      textAlign: "center",
+                      color: tokens.muted,
+                      padding: 32,
+                    }}
+                  >
+                    No medicines found.
+                  </p>
+                ) : (
+                  <>
+                    <p
+                      style={{
+                        color: tokens.muted,
+                        fontSize: 13,
+                        marginBottom: 16,
+                      }}
+                    >
+                      Click to select medicines to add to the discharge summary.
+                    </p>
+                    {medicines.map((med, i) => {
+                      const selected = selectedMedicines.some(
+                        (m) => m._idx === i,
+                      );
+                      return (
+                        <div
+                          key={i}
+                          style={css.invCard(selected, false)}
+                          onClick={() => toggleMedicineSelection(med, i)}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              marginBottom: 6,
+                            }}
+                          >
+                            <strong
+                              style={{ fontSize: 14, color: tokens.navy }}
+                            >
+                              {med.itemName}
+                            </strong>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {med.is_discharge_medicine && (
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: tokens.green,
+                                    background: `${tokens.green}18`,
+                                    padding: "2px 8px",
+                                    borderRadius: 20,
+                                  }}
+                                >
+                                  Discharge
+                                </span>
+                              )}
+                              {med.is_regular_medicine && (
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: tokens.sky,
+                                    background: `${tokens.sky}18`,
+                                    padding: "2px 8px",
+                                    borderRadius: 20,
+                                  }}
+                                >
+                                  Regular
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 18,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {med.dosage && (
+                              <small style={{ color: tokens.textSm }}>
+                                <span style={{ fontWeight: 600 }}>Dosage:</span>{" "}
+                                {med.dosage}
+                              </small>
+                            )}
+                            {med.noOfDays && (
+                              <small style={{ color: tokens.textSm }}>
+                                <span style={{ fontWeight: 600 }}>Days:</span>{" "}
+                                {med.noOfDays}
+                              </small>
+                            )}
+                            {med.qty && (
+                              <small style={{ color: tokens.textSm }}>
+                                <span style={{ fontWeight: 600 }}>Qty:</span>{" "}
+                                {med.qty} {med.doseUnit}
+                              </small>
+                            )}
+                            {med.route && (
+                              <small style={{ color: tokens.textSm }}>
+                                <span style={{ fontWeight: 600 }}>Route:</span>{" "}
+                                {med.route}
+                              </small>
+                            )}
+                            {med.remark && med.remark !== "Nil" && (
+                              <small style={{ color: tokens.muted }}>
+                                <span style={{ fontWeight: 600 }}>Remark:</span>{" "}
+                                {med.remark}
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+              <div style={css.modalFoot}>
+                {selectedMedicines.length > 0 && (
+                  <span
+                    style={{
+                      marginRight: "auto",
+                      fontSize: 13,
+                      color: tokens.sky,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {selectedMedicines.length} selected
+                  </span>
+                )}
+                <button
+                  style={css.btn("ghost")}
+                  onClick={() => setShowMedicines(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  style={{
+                    ...css.btn("primary"),
+                    opacity: selectedMedicines.length ? 1 : 0.4,
+                  }}
+                  onClick={addMedicinesToNotes}
+                  disabled={!selectedMedicines.length}
                 >
                   Add to Summary
                 </button>
