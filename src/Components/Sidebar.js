@@ -425,8 +425,8 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
   useEffect(() => {
     const loadSidebarData = async () => {
-      const employeeId = localStorage.getItem("employeeId");
-      const data = await fetchSidebarMapping(employeeId);
+      // Fetch entire raw menu structure instead of relying on backend logic to filter
+      const data = await fetchSidebarMapping();
       setSidebarData(data);
 
       // Initialize all groups to be OPEN (true) by default
@@ -479,7 +479,14 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
         </BrandSection>
         <NavMenu>
           {sidebarData.map((group, groupIndex) => {
-            const pages = group.pages || [];
+            // Filter pages based on JWT allowedActions
+            const allowedPages = (group.pages || []).filter(page => 
+               hasPagePermission(page.route, allowedActions, { [page.route]: page.permissions || [] })
+            );
+
+            // Hide the entire group if user has no access to any of its pages
+            if (allowedPages.length === 0) return null;
+
             // Defaults to true, so it's open if undefined
             const isOpen = openGroups[groupIndex] ?? true;
 
@@ -498,7 +505,7 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
                 <NavGroupContentWrapper $isOpen={isOpen}>
                   <NavGroupContent $isOpen={isOpen}>
-                    {pages.map((page, pageIndex) => {
+                    {allowedPages.map((page, pageIndex) => {
                       const IconComponent = iconMap[page.icon] || Activity;
 
                       return (
