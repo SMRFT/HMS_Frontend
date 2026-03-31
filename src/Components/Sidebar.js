@@ -79,7 +79,7 @@ const SidebarContainer = styled.div`
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
-  z-index: 1300;
+  z-index: 200;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
   transform: ${({ $isCollapsed }) =>
     $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
@@ -114,7 +114,7 @@ const Overlay = styled.div`
     height: 100vh;
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(2px);
-    z-index: 999;
+    z-index: 199;
   }
 `;
 
