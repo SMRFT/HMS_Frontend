@@ -29,12 +29,12 @@ import {
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
 
-// ─── Animations (copied from Admission) ──────────────────────────────────────
+// ─── Animations ───────────────────────────────────────────────────────────────
 const fadeIn   = keyframes`from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}`;
 const pulse    = keyframes`0%,100%{opacity:1}50%{opacity:.45}`;
 const slideUp2 = keyframes`from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}`;
 
-// ─── Room Picker Styled Components (identical to Admission) ───────────────────
+// ─── Room Picker Styled Components ────────────────────────────────────────────
 const RMC  = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
 const RMB  = styled(ModalBody)`background:#f8fafc;padding:14px;`;
 const FBR  = styled.div`display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;`;
@@ -111,7 +111,7 @@ const BedModal = ({ room, onClose, onSelect }) => {
   );
 };
 
-// ─── Room Status Helper (same as Admission) ───────────────────────────────────
+// ─── Room Status Helper ────────────────────────────────────────────────────────
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
   const s = beds.map(b => b.status);
@@ -120,6 +120,22 @@ const getRoomStatus = beds => {
   if (s.some(x => x === "Occupied") && s.some(x => x === "Available")) return "partial";
   return "available";
 };
+
+// ─── Already Shifted Banner ───────────────────────────────────────────────────
+const ShiftedBanner = styled.div`
+  background: #fef3c7;
+  border: 1.5px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+  grid-column: 1 / -1;
+`;
 
 // ─── Local Styled Components ──────────────────────────────────────────────────
 const InlineSearchButton = ({ onClick, disabled }) => (
@@ -182,6 +198,13 @@ const ReadOnlyInput = styled(Input)`
   cursor: default;
 `;
 
+const DisabledInput = styled(Input)`
+  background: #f1f5f9;
+  color: #9ca3af;
+  cursor: not-allowed;
+  pointer-events: none;
+`;
+
 const SectionLabel = styled.div`
   font-size: 0.72rem;
   font-weight: 700;
@@ -219,6 +242,7 @@ const ActionBtn = styled.button`
   margin: 0 2px;
   transition: all 0.15s;
   &:hover { background: ${({ danger }) => danger ? "#fee2e2" : "#f1f5f9"}; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
@@ -233,7 +257,10 @@ const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
   const [rFilter,   setRFilter]   = useState({ room_number:"", block:"", floor:"" });
 
   useEffect(() => {
-    if (record) { setNewRoomNo(record.newRoomNo || ""); setNewBedNo(record.newBedNo || ""); }
+    if (record) {
+      setNewRoomNo(record.newRoomNo || "");
+      setNewBedNo(record.newBedNo   || "");
+    }
   }, [record]);
 
   const fetchAllRooms = async (fo = {}) => {
@@ -284,10 +311,13 @@ const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
       <ModalOverlay>
         <ModalContainer style={{ maxWidth: 480 }}>
           <ModalHeader>
-            <ModalTitle>Edit Room Shifting</ModalTitle>
+            <ModalTitle>Edit Room Shifting — #{record.shifting_id}</ModalTitle>
             <CloseButton onClick={onClose}>✕</CloseButton>
           </ModalHeader>
           <ModalBody>
+            <div style={{ background:"#fef3c7", border:"1px solid #f59e0b", borderRadius:6, padding:"8px 12px", marginBottom:12, fontSize:".8rem", color:"#92400e" }}>
+              ⚠️ Editing will create a new shifting record and mark the current one inactive.
+            </div>
             <FormRow>
               <InputWrapper>
                 <Label>New Room No</Label>
@@ -303,7 +333,7 @@ const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
               <Button secondary type="button" onClick={onClose}>Cancel</Button>
               <Button
                 type="button"
-                onClick={() => onSave(record.shifting_id, { newRoomNo, newBedNo })}
+                onClick={() => onSave(record.shifting_id, { newRoomNo, newBedNo }, record.ipNumber)}
                 disabled={!newRoomNo || !newBedNo}
               >
                 💾 Update
@@ -399,20 +429,19 @@ const EMPTY = {
   name:            "",
   age:             "",
   gender:          "",
-  // address parts stored separately for display
   area:            "",
   city:            "",
   state:           "",
   zipcode:         "",
   admittedOn:      "",
   admittedTime:    "",
-  roomNo:          "",   // current room (from active room_details entry)
-  bedNo:           "",   // current bed
+  roomNo:          "",
+  bedNo:           "",
   newRoomNo:       "",
   newBedNo:        "",
+  has_shifted:     false,  // ← true means already shifted
 };
 
-// ─── Address formatter ────────────────────────────────────────────────────────
 const buildAddress = ({ area, city, state, zipcode } = {}) =>
   [area, city, state, zipcode].filter(Boolean).join(", ");
 
@@ -442,6 +471,9 @@ const RoomShifting = () => {
 
   const todayDisplay = new Date().toLocaleDateString("en-GB");
 
+  // Has this admission already been shifted (has active, non-cancelled shift)?
+  const alreadyShifted = form.has_shifted === true;
+
   // ── Fetch shifting history ─────────────────────────────────────────────────
   const fetchShiftings = async () => {
     try {
@@ -458,7 +490,7 @@ const RoomShifting = () => {
 
   useEffect(() => { fetchShiftings(); }, []);
 
-  // ── Rooms fetch (same logic as Admission.fetchAllRooms) ───────────────────
+  // ── Rooms fetch ───────────────────────────────────────────────────────────
   const fetchAllRooms = async (fo = {}) => {
     setLoadRooms(true);
     try {
@@ -474,7 +506,6 @@ const RoomShifting = () => {
     finally { setLoadRooms(false); }
   };
 
-  // Group rooms by block → floor (same as Admission)
   const grouped = (() => {
     const g = {};
     allRooms.forEach(r => {
@@ -500,124 +531,120 @@ const RoomShifting = () => {
     toast.success(`Room ${r.room_number} / Bed ${bedNo} selected`);
   };
 
-  // ── Active room from room_details array ───────────────────────────────────
-  const getActiveRoom = (room_details = []) =>
-    room_details.filter(r => r.is_roomActive).pop() ||
-    room_details.slice(-1)[0] ||
-    {};
+  // ── Fetch by UHID ─────────────────────────────────────────────────────────
+  const fetchByUHID = async () => {
+    const uhid = form.uhid.trim();
+    if (!uhid) return toast.warning("Enter UHID");
 
-  // ── Populate form from ip_patient_detail_by_ipNumber response ─────────────
-  // This view (doc 4) returns: ipNumber, ipserial_number, admissionDate,
-  // admissionTime, roomNo, bedNo, room_details, salutation, firstName,
-  // lastName, age, gender, area, city, state, zipcode
-  const populateFromIPView = (d) => {
-    const activeRoom = getActiveRoom(d.room_details || []);
-    const name = [d.salutation, d.firstName, d.lastName].filter(Boolean).join(" ");
-    setForm(p => ({
-      ...p,
-      uhid:            d.uhid            || "",
-      ipNumber:        d.ipNumber        || "",
-      ipserial_number: d.ipserial_number || "",
-      admittedOn:      d.admissionDate   || "",
-      admittedTime:    d.admissionTime   || "",
-      // Prefer roomNo/bedNo returned directly; fall back to active room_details entry
-      roomNo:          d.roomNo          || activeRoom.roomNo || "",
-      bedNo:           d.bedNo           || activeRoom.bedNo  || "",
-      name,
-      age:             d.age    || "",
-      gender:          d.gender || "",
-      area:            d.area    || "",
-      city:            d.city    || "",
-      state:           d.state   || "",
-      zipcode:         d.zipcode || "",
-    }));
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_active_admission/?uhid=${encodeURIComponent(uhid)}`,
+        "GET"
+      );
+
+      const adm     = res?.data?.data ?? res?.data ?? res;
+      const patient = adm?.patient || {};
+
+      if (!adm?.ipNumber && !adm?.uhid) {
+        return toast.error("No active admission found");
+      }
+
+      setForm(prev => ({
+        ...prev,
+        uhid:            adm.uhid             || "",
+        ipNumber:        adm.ipNumber         || "",
+        ipserial_number: String(adm.ipserial_number ?? ""),
+        admittedOn:      adm.admissionDate    || "",
+        admittedTime:    adm.admissionTime    || "",
+        roomNo:          adm.roomNo           || "",
+        bedNo:           adm.bedNo            || "",
+        name:            patient.patientname  || "",
+        age:             patient.age          || "",
+        gender:          patient.gender       || "",
+        city:            patient.city         || "",
+        state:           patient.state        || "",
+        area:            patient.area         || "",
+        zipcode:         patient.zipcode      || "",
+        has_shifted:     adm.has_shifted      || false,
+        newRoomNo:       "",
+        newBedNo:        "",
+      }));
+
+      if (adm.has_shifted) {
+        toast.info("Admission already shifted. You can edit or cancel the existing shift.");
+      } else {
+        toast.success(`Admission loaded: ${adm.ipNumber}`);
+      }
+
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.message || "Failed to fetch admission");
+    }
   };
 
-  // ── Fetch by UHID → active admission ──────────────────────────────────────
-const fetchByUHID = async () => {
-  const uhid = form.uhid.trim();
-
-  if (!uhid) {
-    toast.warning("Enter UHID");
-    return;
-  }
-
-  try {
-    const res = await apiRequest(
-      `${HmsBaseUrl}get_active_admission/?uhid=${encodeURIComponent(uhid)}`,
-      "GET"
-    );
-
-    console.log("API res:", res);
-
-    const adm = res?.data?.data ?? res?.data ?? res;
-    const patient = adm?.patient || {};
-
-    if (!adm?.ipNumber && !adm?.uhid) {
-      toast.error("No active admission found");
-      return;
-    }
-
-    setForm(prev => ({
-      ...prev,
-      uhid: adm.uhid || "",
-      ipNumber: adm.ipNumber || "",
-      ipserial_number: String(adm.ipserial_number ?? ""),
-
-      admittedOn: adm.admissionDate || "",
-      admittedTime: adm.admissionTime || "",
-
-      roomNo: adm.roomNo || "",
-      bedNo: adm.bedNo || "",
-
-      // ✅ FIXED: take from patient object
-      name: patient.patientname || "",
-      age: patient.age || "",
-      gender: patient.gender || "",
-
-      // ✅ Address fields
-      city: patient.city || "",
-      state: patient.state || "",
-      area: patient.area || "",
-      zipcode: patient.zipcode || "",
-    }));
-
-    toast.success(`Admission loaded: ${adm.ipNumber}`);
-
-  } catch (err) {
-    console.error(err);
-    toast.error(err?.message || "Failed to fetch admission");
-  }
-};
-
-  // ── Fetch by IP Number → ip_patient_detail_by_ipNumber ────────────────────
+  // ── Fetch by IP Number ────────────────────────────────────────────────────
   const fetchByIP = async () => {
     const ip = form.ipNumber.trim();
     if (!ip) return toast.warning("Enter IP Number");
     try {
-      const res = await apiRequest(`${HmsBaseUrl}ip-patient/${encodeURIComponent(ip)}/`, "GET");
-      if (res.error) throw new Error(res.error);
-      populateFromIPView(res);
-      toast.success(`Admission loaded: ${res.ipNumber || ip}`);
-    } catch (err) { toast.error(err.message || "Admission not found"); }
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_active_admission/?ip_number=${encodeURIComponent(ip)}`,
+        "GET"
+      );
+
+      const adm     = res?.data?.data ?? res?.data ?? res;
+      const patient = adm?.patient || {};
+
+      if (!adm?.ipNumber && !adm?.uhid) {
+        return toast.error("No active admission found");
+      }
+
+      setForm(prev => ({
+        ...prev,
+        uhid:            adm.uhid             || "",
+        ipNumber:        adm.ipNumber         || "",
+        ipserial_number: String(adm.ipserial_number ?? ""),
+        admittedOn:      adm.admissionDate    || "",
+        admittedTime:    adm.admissionTime    || "",
+        roomNo:          adm.roomNo           || "",
+        bedNo:           adm.bedNo            || "",
+        name:            patient.patientname  || "",
+        age:             patient.age          || "",
+        gender:          patient.gender       || "",
+        city:            patient.city         || "",
+        state:           patient.state        || "",
+        area:            patient.area         || "",
+        zipcode:         patient.zipcode      || "",
+        has_shifted:     adm.has_shifted      || false,
+        newRoomNo:       "",
+        newBedNo:        "",
+      }));
+
+      if (adm.has_shifted) {
+        toast.info("Admission already shifted. You can edit or cancel the existing shift.");
+      } else {
+        toast.success(`Admission loaded: ${adm.ipNumber}`);
+      }
+
+    } catch (err) {
+      toast.error(err?.message || "Admission not found");
+    }
   };
 
-  // ── Reset ─────────────────────────────────────────────────────────────────
   const handleReset = () => setForm(EMPTY);
 
   // ── Save Shift ────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    const { uhid, ipNumber, newRoomNo, newBedNo, roomNo, bedNo } = form;
-    if (!ipNumber && !uhid)      return toast.warning("Enter UHID or IP Number first");
+    const { uhid, ipNumber, newRoomNo, newBedNo } = form;
+
+    if (!ipNumber && !uhid) return toast.warning("Enter UHID or IP Number first");
     if (!newRoomNo || !newBedNo) return toast.warning("Select a new room and bed");
-    const payload = {
-      ip_number: ipNumber,
-      uhid,
-      oldRoomNo: roomNo,
-      oldBedNo:  bedNo,
-    };
+
+    const payload = { ip_number: ipNumber, uhid, newRoomNo, newBedNo };
+
     try {
       const res = await apiRequest(`${HmsBaseUrl}room-shifting/`, "POST", payload);
+
       if (res.success || res.message) {
         toast.success("Room shifted successfully!");
         handleReset();
@@ -627,22 +654,28 @@ const fetchByUHID = async () => {
       }
     } catch (err) {
       console.error(err);
-      toast.error("An error occurred while shifting room");
+      toast.error(
+        err?.response?.data?.error || err?.message || "An error occurred while shifting room"
+      );
     }
   };
 
-  // ── Edit save ─────────────────────────────────────────────────────────────
-  const handleEditSave = async (shiftingId, updates) => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${shiftingId}/`, "PATCH", updates);
-      if (res.success || res.message) {
-        toast.success("Updated successfully");
-        setEditOpen(false);
-        fetchShiftings();
-      } else { toast.error(res.error || "Update failed"); }
-    } catch { toast.error("Update failed"); }
-  };
-
+  // ── Edit save — passes ip_number for the PATCH URL ─────────────────────────
+const handleEditSave = async (shiftingId, updates, ipNumber) => {
+  try {
+    const ip = ipNumber || form.ipNumber;
+    const res = await apiRequest(
+      `${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`,  // ← add /update/
+      "PATCH",
+      { shifting_id: shiftingId, ...updates }
+    );
+    if (res.success || res.message) {
+      toast.success("Updated successfully — new shifting record created");
+      setEditOpen(false);
+      fetchShiftings();
+    } else { toast.error(res.error || "Update failed"); }
+  } catch { toast.error("Update failed"); }
+};
   // ── Cancel shifting ───────────────────────────────────────────────────────
   const handleCancel = async (shiftingId) => {
     if (!window.confirm("Cancel this room shifting record?")) return;
@@ -699,6 +732,17 @@ const fetchByUHID = async () => {
             </InputWrapper>
           </FormRow>
 
+          {/* ── Already-shifted banner ── */}
+          {alreadyShifted && (
+            <FormRow>
+              <ShiftedBanner>
+                ⚠️ This patient has already been shifted to a new room. To make changes, use
+                the&nbsp;<strong>Edit</strong>&nbsp;or&nbsp;<strong>Cancel</strong>&nbsp;
+                buttons in the shifting history table below.
+              </ShiftedBanner>
+            </FormRow>
+          )}
+
           {/* ── Patient Details ── */}
           <FormRow>
             <SectionLabel>Patient Details</SectionLabel>
@@ -724,7 +768,6 @@ const fetchByUHID = async () => {
             </InputWrapper>
           </FormRow>
 
-          {/* Address: built from area + city + state + zipcode */}
           <FormRow>
             <InputWrapper style={{ gridColumn: "1 / -1" }}>
               <Label>Address</Label>
@@ -732,7 +775,7 @@ const fetchByUHID = async () => {
             </InputWrapper>
           </FormRow>
 
-          {/* ── Current Room (from active room_details entry) ── */}
+          {/* ── Current Room ── */}
           <FormRow>
             <SectionLabel>Current Room</SectionLabel>
 
@@ -753,22 +796,32 @@ const fetchByUHID = async () => {
 
             <InputWrapper>
               <Label>New Room No</Label>
-              <ReadOnlyInput
-                value={form.newRoomNo}
-                readOnly
-                placeholder="Click 🔍 to search rooms"
-              />
-              <InlineSearchButton onClick={() => { setShowRoom(true); fetchAllRooms(); }} />
+              {alreadyShifted ? (
+                <DisabledInput value={form.newRoomNo} readOnly placeholder="Already shifted" />
+              ) : (
+                <>
+                  <ReadOnlyInput
+                    value={form.newRoomNo}
+                    readOnly
+                    placeholder="Click 🔍 to search rooms"
+                  />
+                  <InlineSearchButton onClick={() => { setShowRoom(true); fetchAllRooms(); }} />
+                </>
+              )}
             </InputWrapper>
 
             <InputWrapper>
               <Label>New Bed No</Label>
-              <ReadOnlyInput
-                value={form.newBedNo}
-                readOnly
-                placeholder="Auto-filled on room selection"
-                style={{ background: "#f3f4f6" }}
-              />
+              {alreadyShifted ? (
+                <DisabledInput value={form.newBedNo} readOnly placeholder="Already shifted" />
+              ) : (
+                <ReadOnlyInput
+                  value={form.newBedNo}
+                  readOnly
+                  placeholder="Auto-filled on room selection"
+                  style={{ background: "#f3f4f6" }}
+                />
+              )}
             </InputWrapper>
 
             <InputWrapper>
@@ -783,7 +836,15 @@ const fetchByUHID = async () => {
 
           <ButtonContainer>
             <Button secondary type="button" onClick={handleReset}>🔄 Reset</Button>
-            <Button type="button" onClick={handleSubmit}>💾 Save Shift</Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={alreadyShifted}
+              style={alreadyShifted ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+              title={alreadyShifted ? "Already shifted — use Edit or Cancel" : ""}
+            >
+              💾 Save Shift
+            </Button>
           </ButtonContainer>
         </FormContent>
 
@@ -834,11 +895,11 @@ const fetchByUHID = async () => {
               <thead>
                 <tr>
                   <Th>Actions</Th>
+                  <Th>Shift #</Th>
                   <Th>UHID</Th>
                   <Th>IP Number</Th>
                   <Th>IP Serial</Th>
                   <Th>Patient Name</Th>
-                  <Th>Admission Date</Th>
                   <Th>Old Room / Bed</Th>
                   <Th>New Room / Bed</Th>
                   <Th>Shifting Date &amp; Time</Th>
@@ -854,12 +915,9 @@ const fetchByUHID = async () => {
                   </Tr>
                 ) : (
                   shiftings.slice(0, entriesPerPage).map((s, idx) => {
-                    const isCancelled  = s.is_cancelled === true;
-                    const status       = isCancelled ? "cancelled" : "active";
-                    const shiftId      = s.shifting_id || s._id;
-
-                    const admDateStr = s.admissionDate
-                      ? new Date(s.admissionDate).toLocaleDateString("en-GB") : "-";
+                    const isCancelled = s.is_cancelled === true;
+                    const variant     = isCancelled ? "cancelled" : "active";
+                    const shiftId     = s.shifting_id || s._id;
 
                     const shiftDateStr = s.shiftingDateTime
                       ? new Date(s.shiftingDateTime).toLocaleString("en-GB", {
@@ -869,12 +927,15 @@ const fetchByUHID = async () => {
                       : "-";
 
                     return (
-                      <Tr key={shiftId || idx}>
+                      <Tr key={`${shiftId}-${idx}`}>
                         <Td>
                           {!isCancelled ? (
                             <>
-                              <ActionBtn type="button" title="Edit"
-                                onClick={() => { setEditRecord(s); setEditOpen(true); }}>
+                              <ActionBtn
+                                type="button"
+                                title="Edit (creates new record)"
+                                onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}
+                              >
                                 ✏️ Edit
                               </ActionBtn>
                               <ActionBtn danger type="button" title="Cancel"
@@ -886,15 +947,15 @@ const fetchByUHID = async () => {
                             <span style={{ fontSize:"0.75rem", color:colors.textMuted }}>—</span>
                           )}
                         </Td>
-                        <Td>{s.uhid           || "-"}</Td>
-                        <Td>{s.ipNumber       || "-"}</Td>
-                        <Td>{s.ipserial_number|| "-"}</Td>
-                        <Td>{s.patient_name   || "-"}</Td>
-                        <Td>{admDateStr}</Td>
+                        <Td style={{ fontWeight:700, color:colors.primary }}>{shiftId}</Td>
+                        <Td>{s.uhid            || "-"}</Td>
+                        <Td>{s.ipNumber        || "-"}</Td>
+                        <Td>{s.ipserial_number || "-"}</Td>
+                        <Td>{s.patient_name    || "-"}</Td>
                         <Td>{`${s.oldRoomNo||"-"} / ${s.oldBedNo||"-"}`}</Td>
                         <Td>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</Td>
                         <Td>{shiftDateStr}</Td>
-                        <Td><StatusBadge variant={status}>{status.toUpperCase()}</StatusBadge></Td>
+                        <Td><StatusBadge variant={variant}>{variant.toUpperCase()}</StatusBadge></Td>
                       </Tr>
                     );
                   })
@@ -905,7 +966,7 @@ const fetchByUHID = async () => {
         </TableSection>
       </Container>
 
-      {/* ══ ROOM PICKER MODAL (same UI as Admission) ══════════════════════ */}
+      {/* ══ ROOM PICKER MODAL ══════════════════════════════════════════════ */}
       {showRoom && (
         <ModalOverlay onClick={() => setShowRoom(false)}>
           <RMC onClick={e => e.stopPropagation()}>
@@ -989,7 +1050,6 @@ const fetchByUHID = async () => {
         </ModalOverlay>
       )}
 
-      {/* Bed fallback */}
       {showBed && selRoom && (
         <BedModal room={selRoom} onClose={() => setShowBed(false)} onSelect={handleBedSelect} />
       )}
