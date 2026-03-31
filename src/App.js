@@ -162,7 +162,7 @@ function App() {
       // Auto-navigate to default route
       if (location.pathname === "/") {
         if (userRole === "Pharmacist") navigate("/OPPharmacy");
-        else navigate("/PatientRegistrationForm");
+        else navigate("/Dashboard");
       }
       setIsLoading(false);
     };
