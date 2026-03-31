@@ -480,8 +480,10 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
         <NavMenu>
           {sidebarData.map((group, groupIndex) => {
             // Filter pages based on JWT allowedActions
-            const allowedPages = (group.pages || []).filter(page => 
-               hasPagePermission(page.route, allowedActions, { [page.route]: page.permissions || [] })
+            const allowedPages = (group.pages || []).filter((page) =>
+              hasPagePermission(page.route, allowedActions, {
+                [page.route]: page.permissions || [],
+              }),
             );
 
             // Hide the entire group if user has no access to any of its pages
