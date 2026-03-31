@@ -492,7 +492,7 @@ const InvoiceReport = () => {
       th{background:#e0f2fe;font-weight:bold;color:#1e40af;font-size:9px}
       .r{text-align:right;padding-right:6px}.l{text-align:left;padding-left:6px}
       .tot{background:#f0f9ff;font-weight:bold}
-      .col-grp{border-left:2px solid #0284c7}
+      .col-grp{border-left:2px solid #0ea5e9}
       .summary{display:flex;gap:10px;margin-top:16px}
       .gst{flex:1;border:2px solid #0ea5e9;background:#e0f2fe;padding:12px}
       .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#1e40af}
@@ -652,7 +652,7 @@ const InvoiceReport = () => {
 
   // ── Sales Print ──────────────────────────────────────────────────
   const handleSalesPrint = (record) => {
-    const items = parseItems(record.items); // ← always an array
+    const items = parseItems(record.items);
 
     const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
@@ -673,37 +673,40 @@ const InvoiceReport = () => {
       record.ip_number || record.patient_name || record.surgeon_name;
 
     const css = `
-      body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
-      h1{font-size:18px;font-weight:bold;color:#1e40af;text-align:center;margin:0 0 3px}
-      .sub{text-align:center;font-size:11px;margin:2px 0;color:#444}
-      .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
-        background:#e0f2fe;border:2px solid #0ea5e9;color:#1e40af;text-align:center}
-      .grid{display:grid;border:2px solid #0ea5e9;margin-bottom:12px}
-      .sec{border-right:1px solid #0ea5e9}.sec:last-child{border-right:none}
-      .hdr{background:#e0f2fe;padding:5px 8px;font-weight:bold;border-bottom:1px solid #0ea5e9;text-align:center;color:#1e40af;font-size:11px}
-      .cnt{padding:8px}.row{margin:4px 0;font-size:11px}
-      table{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #0ea5e9}
-      th,td{border:1px solid #0ea5e9;padding:5px;text-align:center;vertical-align:middle}
-      th{background:#e0f2fe;font-weight:bold;color:#1e40af;font-size:9.5px;white-space:nowrap}
-      .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
-      .tot{background:#f0f9ff;font-weight:bold}
-      .summary{display:flex;gap:10px;margin-top:14px}
-      .gst{flex:1;border:2px solid #0ea5e9;background:#e0f2fe;padding:10px}
-      .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#1e40af;border-bottom:1px solid #0ea5e9;padding-bottom:4px}
-      .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#1e40af}
-      .amts{min-width:240px;border:2px solid #0ea5e9}
-      .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #0ea5e9;font-size:11px;padding:6px 12px;font-weight:bold}
-      .amt-row:last-child{border-bottom:none;background:#e0f2fe;color:#1e40af}
-      .words{margin:12px 0;padding:10px;background:#e0f2fe;border:2px solid #0ea5e9;font-size:11px}
-      .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #0ea5e9}
-    `;
+  body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
+  h1{font-size:18px;font-weight:bold;color:#000;text-align:center;margin:0 0 3px}
+  .sub{text-align:center;font-size:11px;margin:2px 0;color:#000}
+  .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
+    background:#fff;border:2px solid #000;color:#000;text-align:center}
+  .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
+  .sec{border-right:1px solid #000;vertical-align:top}
+  .sec:last-child{border-right:none}
+  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
+  .cnt{padding:8px;text-align:left;vertical-align:top}
+  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+  .row b{white-space:nowrap}
+  table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
+  table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
+  table.items th{background:#fff;font-weight:bold;color:#000;font-size:9.5px;white-space:nowrap}
+  .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
+  .tot{background:#fff;font-weight:bold}
+  .summary{display:flex;gap:10px;margin-top:14px}
+  .gst{flex:1;border:2px solid #000;background:#fff;padding:10px}
+  .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#000;border-bottom:1px solid #000;padding-bottom:4px}
+  .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#000}
+  .amts{min-width:240px;border:2px solid #000}
+  .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #000;font-size:11px;padding:6px 12px;font-weight:bold;color:#000}
+  .amt-row:last-child{border-bottom:none;background:#fff;color:#000}
+  .words{margin:12px 0;padding:10px;background:#fff;border:2px solid #000;font-size:11px}
+  .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #000}
+`;
 
-    const gridCols = hasPatient ? "1fr 1fr 1fr" : "1fr 1fr";
+    const colWidth = hasPatient ? "33%" : "50%";
 
     const itemsHtml =
       items.length > 0
         ? `
-      <table>
+      <table class="items">
         <thead>
           <tr>
             <th rowspan="2">Sl.</th>
@@ -714,12 +717,12 @@ const InvoiceReport = () => {
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th><th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th><th rowspan="2">Non-Taxable Amt</th>
-            <th colspan="2" style="border-left:2px solid #0284c7">CGST</th>
+            <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
           </tr>
           <tr>
-            <th style="border-left:2px solid #0284c7">Rate %</th><th>Amt (₹)</th>
+            <th style="border-left:2px solid #000">Rate %</th><th>Amt (₹)</th>
             <th>Rate %</th><th>Amt (₹)</th>
           </tr>
         </thead>
@@ -744,7 +747,7 @@ const InvoiceReport = () => {
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
               <td class="r">₹${taxableAmt.toFixed(2)}</td>
-              <td style="border-left:2px solid #0284c7">${item.sellingCgstPercent || 0}%</td>
+              <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
               <td class="r">₹${sgstAmt.toFixed(2)}</td>
@@ -755,7 +758,7 @@ const InvoiceReport = () => {
           <tr class="tot">
             <td colspan="9" class="r"><b>TOTAL</b></td>
             <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
-            <td style="border-left:2px solid #0284c7"></td>
+            <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
@@ -770,35 +773,48 @@ const InvoiceReport = () => {
       <div class="sub">${cleanAddress(record.address)}</div>
       <div class="sub">Phone: ${record.phone || ""} | GSTIN: ${record.gstin || ""}</div>
       <div class="doctype">SALES INVOICE — ${record.grn_number}</div>
-      <div class="grid" style="grid-template-columns:${gridCols}">
-        <div class="sec"><div class="hdr">Invoice Details</div><div class="cnt">
-          <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-          <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
-        </div></div>
-        <div class="sec"><div class="hdr">Billed To</div><div class="cnt">
-          <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
-          <div class="row"><b>Address:</b> 51/24, Saradha College Road, Salem - 636007</div>
-          <div class="row"><b>Phone:</b> 04272706666</div>
-          <div class="row"><b>GSTIN:</b>33ABDCS8326A1ZP</div>
-        </div></div>
-        ${
-          hasPatient
-            ? `
-        <div class="sec"><div class="hdr">Patient Details</div><div class="cnt">
-          ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
-          ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-          ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
-        </div></div>`
-            : ""
-        }
-      </div>
+
+      <table class="grid">
+        <thead>
+          <tr>
+            <td class="sec hdr" style="width:${colWidth}">Invoice Details</td>
+            <td class="sec hdr" style="width:${colWidth}">Billed To</td>
+            ${hasPatient ? `<td class="sec hdr" style="width:34%">Patient Details</td>` : ""}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
+              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
+            </td>
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
+              <div class="row"><b>Address:</b><br/>51/24, Saradha College Road,<br/>Salem - 636007</div>
+              <div class="row"><b>Phone:</b> 04272706666</div>
+              <div class="row"><b>GSTIN:</b> 33ABDCS8326A1ZP</div>
+            </td>
+            ${
+              hasPatient
+                ? `
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
+              ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
+              ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+            </td>`
+                : ""
+            }
+          </tr>
+        </tbody>
+      </table>
+
       ${itemsHtml}
       <div class="summary">
         <div class="gst">
           <div class="gst-title">GST Summary</div>
           <div class="gst-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="gst-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="gst-row" style="border-top:1px solid #0ea5e9;padding-top:4px;margin-top:6px">
+          <div class="gst-row" style="border-top:1px solid #000;padding-top:4px;margin-top:6px">
             <span>Total GST</span><span>₹${(sellingCgst + sellingSgst).toFixed(2)}</span>
           </div>
         </div>
@@ -820,7 +836,7 @@ const InvoiceReport = () => {
 
   // ── Velavan Print ────────────────────────────────────────────────
   const handleVelavanPrint = (record) => {
-    const items = parseItems(record.items); // ← always an array
+    const items = parseItems(record.items);
 
     const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
@@ -841,38 +857,41 @@ const InvoiceReport = () => {
       record.ip_number || record.patient_name || record.surgeon_name;
 
     const css = `
-      body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
-      h1{font-size:17px;font-weight:bold;color:#1e40af;text-align:center;margin:0 0 3px}
-      .sub{text-align:center;font-size:10.5px;margin:2px 0;color:#444}
-      .divider{border-top:2px solid #0ea5e9;margin:8px 0}
-      .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
-        background:#e0f2fe;border:2px solid #0ea5e9;color:#1e40af;text-align:center}
-      .grid{display:grid;border:2px solid #0ea5e9;margin-bottom:12px}
-      .sec{border-right:1px solid #0ea5e9}.sec:last-child{border-right:none}
-      .hdr{background:#e0f2fe;padding:5px 8px;font-weight:bold;border-bottom:1px solid #0ea5e9;text-align:center;color:#1e40af;font-size:11px}
-      .cnt{padding:8px}.row{margin:4px 0;font-size:11px}
-      table{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #0ea5e9}
-      th,td{border:1px solid #0ea5e9;padding:5px;text-align:center;vertical-align:middle}
-      th{background:#e0f2fe;font-weight:bold;color:#1e40af;font-size:9.5px;white-space:nowrap}
-      .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
-      .tot{background:#f0f9ff;font-weight:bold}
-      .summary{display:flex;gap:10px;margin-top:14px}
-      .gst{flex:1;border:2px solid #0ea5e9;background:#e0f2fe;padding:10px}
-      .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#1e40af;border-bottom:1px solid #0ea5e9;padding-bottom:4px}
-      .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#1e40af}
-      .amts{min-width:240px;border:2px solid #0ea5e9}
-      .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #0ea5e9;font-size:11px;padding:6px 12px;font-weight:bold}
-      .amt-row:last-child{border-bottom:none;background:#e0f2fe;color:#1e40af}
-      .words{margin:12px 0;padding:10px;background:#e0f2fe;border:2px solid #0ea5e9;font-size:11px}
-      .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #0ea5e9}
-    `;
+  body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
+  h1{font-size:17px;font-weight:bold;color:#000;text-align:center;margin:0 0 3px}
+  .sub{text-align:center;font-size:10.5px;margin:2px 0;color:#000}
+  .divider{border-top:2px solid #000;margin:8px 0}
+  .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
+    background:#fff;border:2px solid #000;color:#000;text-align:center}
+  .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
+  .sec{border-right:1px solid #000;vertical-align:top}
+  .sec:last-child{border-right:none}
+  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
+  .cnt{padding:8px;text-align:left;vertical-align:top}
+  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+  .row b{white-space:nowrap}
+  table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
+  table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
+  table.items th{background:#fff;font-weight:bold;color:#000;font-size:9.5px;white-space:nowrap}
+  .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
+  .tot{background:#fff;font-weight:bold}
+  .summary{display:flex;gap:10px;margin-top:14px}
+  .gst{flex:1;border:2px solid #000;background:#fff;padding:10px}
+  .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#000;border-bottom:1px solid #000;padding-bottom:4px}
+  .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#000}
+  .amts{min-width:240px;border:2px solid #000}
+  .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #000;font-size:11px;padding:6px 12px;font-weight:bold;color:#000}
+  .amt-row:last-child{border-bottom:none;background:#fff;color:#000}
+  .words{margin:12px 0;padding:10px;background:#fff;border:2px solid #000;font-size:11px}
+  .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #000}
+`;
 
-    const gridCols = hasPatient ? "1fr 1fr 1fr" : "1fr 1fr";
+    const colWidth = hasPatient ? "33%" : "50%";
 
     const itemsHtml =
       items.length > 0
         ? `
-      <table>
+      <table class="items">
         <thead>
           <tr>
             <th rowspan="2">Sl.</th>
@@ -883,12 +902,12 @@ const InvoiceReport = () => {
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th><th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th><th rowspan="2">Non-Taxable Amt</th>
-            <th colspan="2" style="border-left:2px solid #0284c7">CGST</th>
+            <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
           </tr>
           <tr>
-            <th style="border-left:2px solid #0284c7">Rate %</th><th>Amt (₹)</th>
+            <th style="border-left:2px solid #000">Rate %</th><th>Amt (₹)</th>
             <th>Rate %</th><th>Amt (₹)</th>
           </tr>
         </thead>
@@ -913,7 +932,7 @@ const InvoiceReport = () => {
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
               <td class="r">₹${taxableAmt.toFixed(2)}</td>
-              <td style="border-left:2px solid #0284c7">${item.sellingCgstPercent || 0}%</td>
+              <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
               <td class="r">₹${sgstAmt.toFixed(2)}</td>
@@ -924,7 +943,7 @@ const InvoiceReport = () => {
           <tr class="tot">
             <td colspan="9" class="r"><b>TOTAL</b></td>
             <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
-            <td style="border-left:2px solid #0284c7"></td>
+            <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
@@ -941,36 +960,49 @@ const InvoiceReport = () => {
       <div class="sub">DL No.: TN/SLE/20B/0028 &nbsp;&amp;&nbsp; TN/SLE/21B/0028 &nbsp;|&nbsp; GSTIN No.: 33AAICV7109G1ZC</div>
       <div class="divider"></div>
       <div class="doctype">TAX INVOICE — ${record.grn_number}</div>
-      <div class="grid" style="grid-template-columns:${gridCols}">
-        <div class="sec"><div class="hdr">Invoice Details</div><div class="cnt">
-          <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-          <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
-        </div></div>
-        <div class="sec"><div class="hdr">Billed To</div><div class="cnt">
-          <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
-          <div class="row"><b>Address:</b> 51/24, Saradha College Road, Salem - 636007</div>
-          <div class="row"><b>Phone:</b> 04272706666</div>
-          <div class="row"><b>GSTIN:</b> 33ABDCS8326A1ZP</div>
-          <div class="row"><b>State:</b> 33 - Tamil Nadu</div>
-        </div></div>
-        ${
-          hasPatient
-            ? `
-        <div class="sec"><div class="hdr">Patient Details</div><div class="cnt">
-          ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
-          ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-          ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
-        </div></div>`
-            : ""
-        }
-      </div>
+
+      <table class="grid">
+        <thead>
+          <tr>
+            <td class="sec hdr" style="width:${colWidth}">Invoice Details</td>
+            <td class="sec hdr" style="width:${colWidth}">Billed To</td>
+            ${hasPatient ? `<td class="sec hdr" style="width:34%">Patient Details</td>` : ""}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
+              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
+            </td>
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
+              <div class="row"><b>Address:</b><br/>51/24, Saradha College Road,<br/>Salem - 636007</div>
+              <div class="row"><b>Phone:</b> 04272706666</div>
+              <div class="row"><b>GSTIN:</b> 33ABDCS8326A1ZP</div>
+              <div class="row"><b>State:</b> 33 - Tamil Nadu</div>
+            </td>
+            ${
+              hasPatient
+                ? `
+            <td class="sec cnt" style="text-align:left;vertical-align:top">
+              ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
+              ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
+              ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+            </td>`
+                : ""
+            }
+          </tr>
+        </tbody>
+      </table>
+
       ${itemsHtml}
       <div class="summary">
         <div class="gst">
           <div class="gst-title">GST Summary</div>
           <div class="gst-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="gst-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="gst-row" style="border-top:1px solid #0ea5e9;padding-top:4px;margin-top:6px">
+          <div class="gst-row" style="border-top:1px solid #000;padding-top:4px;margin-top:6px">
             <span>Total GST</span><span>₹${(sellingCgst + sellingSgst).toFixed(2)}</span>
           </div>
         </div>
@@ -989,7 +1021,6 @@ const InvoiceReport = () => {
 
     openPrintWindow(`Velavan Invoice - ${record.grn_number}`, css, body);
   };
-
   // ── Velavan Purchase Report ──────────────────────────────────────
   const handlePurchasePrint = () => {
     const sortedData = [...filteredData].sort((a, b) =>
@@ -1079,7 +1110,7 @@ const InvoiceReport = () => {
       if (!vendorGroups[vendor]) vendorGroups[vendor] = { rows: [], total: 0 };
       vendorGroups[vendor].rows.push(row);
 
-      const rowItems = parseItems(row.items); // ← always an array
+      const rowItems = parseItems(row.items);
       const sellingAmt = rowItems.reduce((sum, item) => {
         const base =
           parseFloat(item.unitSellingCost || 0) *
@@ -1096,23 +1127,32 @@ const InvoiceReport = () => {
 
     let tableRows = "";
     let sl = 1;
+
     Object.keys(vendorGroups).forEach((vendor) => {
       const { rows, total } = vendorGroups[vendor];
       rows.sort((a, b) =>
         (a.grn_number || "").localeCompare(b.grn_number || ""),
       );
-      tableRows += `<tr style="background:#e0f2fe">
-        <td colspan="6" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
-        <td style="font-weight:bold;text-align:right;background:#fff3cd">
+
+      // ── Vendor header row: name spans 5 cols, total in last col ──
+      tableRows += `
+      <tr style="background:#e0f2fe">
+        <td colspan="5" style="font-weight:bold;padding:8px;color:#1e40af;font-size:14px">
+          ${vendor}
+        </td>
+        <td style="font-weight:bold;text-align:right;background:#fff3cd;white-space:nowrap">
           ${formatCurrency(total)}
         </td>
       </tr>`;
+
+      // ── Data rows: selling amount in col 5, vendor total col 6 is empty ──
       rows.forEach((row) => {
-        tableRows += `<tr>
+        tableRows += `
+        <tr>
           <td style="text-align:center">${sl++}</td>
-          <td>${formatDate(row.date)}</td>
-          <td>${row.grn_number || "N/A"}</td>
-          <td>${formatDate(row.invoice_date)}</td>
+          <td style="text-align:center">${formatDate(row.date)}</td>
+          <td style="text-align:center">${row.grn_number || "N/A"}</td>
+          <td style="text-align:center">${formatDate(row.invoice_date)}</td>
           <td style="text-align:right">${formatCurrency(row._sellingTotal || 0)}</td>
           <td></td>
         </tr>`;
@@ -1120,30 +1160,59 @@ const InvoiceReport = () => {
     });
 
     const css = `
-      body{font-family:Arial,sans-serif;padding:10px;font-size:18px}
-      h1{text-align:center;font-size:21px;margin:10px 0}
-      h2{text-align:center;font-size:18px;color:#555;margin:0 0 10px}
-      table{border-collapse:collapse;width:100%;border:1px solid #333;font-size:15px}
-      th,td{border:1px dashed #999;padding:8px 13px;vertical-align:top;word-wrap:break-word}
-      th{background:#e0e0e0;font-weight:bold;text-align:center}
-    `;
+    body { font-family: Arial, sans-serif; padding: 10px; font-size: 13px; }
+    h1   { text-align: center; font-size: 18px; margin: 10px 0; font-weight: bold; text-decoration: underline; }
+    h2   { text-align: center; font-size: 14px; color: #555; margin: 0 0 14px; }
+    table { border-collapse: collapse; width: 100%; border: 1px solid #333; }
+    th, td { border: 1px dashed #999; padding: 7px 12px; vertical-align: middle; word-wrap: break-word; }
+    th { background: #d0d0d0; font-weight: bold; text-align: center; font-size: 13px; }
+    td { font-size: 13px; }
+    .grand-row td { background: #d4edda; font-weight: bold; }
+
+    /* Column widths */
+    col.sl   { width: 5%;  }
+    col.date { width: 13%; }
+    col.inv  { width: 18%; }
+    col.invd { width: 13%; }
+    col.sell { width: 22%; }
+    col.vtot { width: 22%; }
+
+    @media print {
+      body { padding: 0; }
+      @page { margin: 10mm; }
+    }
+  `;
+
     const body = `
-      <h1>Velavan Sales Report</h1>
-      <h2>${getDateRangeLabel()}</h2>
-      <table>
-        <thead><tr>
-          <th>Sl.</th><th>Date</th><th>Invoice No</th>
-          <th>Inv. Date</th><th style="text-align:right">Selling Amount</th>
+    <h1>Velavan Sales Report</h1>
+    <h2>${getDateRangeLabel()}</h2>
+    <table>
+      <colgroup>
+        <col class="sl">
+        <col class="date">
+        <col class="inv">
+        <col class="invd">
+        <col class="sell">
+        <col class="vtot">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Sl.</th>
+          <th>Date</th>
+          <th>Invoice No</th>
+          <th>Inv. Date</th>
+          <th style="text-align:right">Selling Amount</th>
           <th style="text-align:right">Vendor Total</th>
-        </tr></thead>
-        <tbody>
-          ${tableRows}
-          <tr style="background:#d4edda;font-weight:bold">
-            <td colspan="6" style="text-align:right;padding:8px">Grand Total:</td>
-            <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
-          </tr>
-        </tbody>
-      </table>`;
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+        <tr class="grand-row">
+          <td colspan="5" style="text-align:right;padding:8px">Grand Total:</td>
+          <td style="text-align:right;padding:8px;white-space:nowrap">${formatCurrency(grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>`;
 
     openPrintWindow("Velavan Sales Report", css, body);
   };
@@ -1462,16 +1531,14 @@ const InvoiceReport = () => {
                 style={{
                   ...detailItem,
                   background: "#e0f2fe",
-                  border: "2px solid #0284c7",
+                  border: "2px solid #000",
                   gridColumn: "span 2",
                 }}
               >
-                <span style={{ ...detailLabel, color: "#0284c7" }}>
+                <span style={{ ...detailLabel, color: "#000" }}>
                   Net Invoice Amount
                 </span>
-                <span
-                  style={{ fontSize: 20, fontWeight: 800, color: "#0284c7" }}
-                >
+                <span style={{ fontSize: 20, fontWeight: 800, color: "#000" }}>
                   {formatCurrency(r.net_invoice_amount || r.total_amount)}
                 </span>
               </div>

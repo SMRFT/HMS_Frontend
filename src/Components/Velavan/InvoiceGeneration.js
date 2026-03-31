@@ -289,7 +289,7 @@ const ModalOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1400; // ← was 1000, now above sidebar (1300)
 `;
 const ModalBox = styled.div`
   background: white;
@@ -399,8 +399,9 @@ const HistOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: 1500; // ← was 1100, now above ModalOverlay
 `;
+
 const HistBox = styled.div`
   background: white;
   border-radius: 10px;
@@ -461,7 +462,7 @@ const HistTable = styled.table`
 
 // ─── Invoice Preview ──────────────────────────────────────────────────────────
 const InvOverlay = styled(ModalOverlay)`
-  z-index: 1050;
+  z-index: 1450; // ← was 1050, now between Modal and History
 `;
 const InvBox = styled.div`
   background: white;
