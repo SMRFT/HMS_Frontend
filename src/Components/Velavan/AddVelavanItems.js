@@ -80,7 +80,7 @@ const MiniOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1200;
+  z-index: 1600;
 `;
 
 const MiniBox = styled.div`

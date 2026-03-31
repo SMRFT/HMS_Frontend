@@ -581,7 +581,7 @@ const InvoiceReport = () => {
       <h1>SHANMUGA HOSPITAL LIMITED</h1>
       <div class="address">51/24, Saradha College Road, Salem - 636007</div>
       <div class="address">Phone: 04272706666 | info@smrft.org</div>
-      <div class="doctype">VELAVAN INVOICE — ${record.grn_number}</div>
+      <div class="doctype">PURCHASE INVOICE — ${record.grn_number}</div>
       <div class="grid" style="grid-template-columns:${hasPatient ? "1fr 1fr 1fr" : "1fr 1fr"}">
         <div class="sec">
           <div class="hdr">Invoice Details</div>
@@ -610,6 +610,7 @@ const InvoiceReport = () => {
           <div class="cnt">
             ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
             ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
+            ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} -  ${record.company_name}</div>` : ""}
             ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
           </div>
         </div>`
@@ -800,6 +801,7 @@ const InvoiceReport = () => {
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
               ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
+              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} - ${record.company_name}</div>` : ""}
               ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
             </td>`
                 : ""
@@ -959,7 +961,7 @@ const InvoiceReport = () => {
       <div class="sub">State: 33 - Tamil Nadu &nbsp;|&nbsp; Mobile: 8248456660</div>
       <div class="sub">DL No.: TN/SLE/20B/0028 &nbsp;&amp;&nbsp; TN/SLE/21B/0028 &nbsp;|&nbsp; GSTIN No.: 33AAICV7109G1ZC</div>
       <div class="divider"></div>
-      <div class="doctype">TAX INVOICE — ${record.grn_number}</div>
+      <div class="doctype">SALES INVOICE — ${record.grn_number}</div>
 
       <table class="grid">
         <thead>
@@ -988,6 +990,7 @@ const InvoiceReport = () => {
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
               ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
+              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} - ${record.company_name}</div>` : ""}
               ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
             </td>`
                 : ""
