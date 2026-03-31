@@ -15,7 +15,7 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPagePermission } from "./Auth/FrontendPageMapping";
-import { fetchUserPermissions, fetchSidebarMapping } from "./Auth/apiRequest";
+import { fetchSidebarMapping } from "./Auth/apiRequest";
 import UserPermissionManager from "./Auth/UserPermissionManager";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
@@ -30,7 +30,6 @@ import PatientRegistrationForm from "./Components/Register/PatientRegistrationFo
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
 import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
 import Summary from "./Components/Summary/Summary";
-import EditSummary from "./Components/Summary/EditSummary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master
 import DoctorList from "./Components/DoctorMaster/DoctorList";
@@ -52,9 +51,7 @@ import XRayList from "./Components/InvestigationReports/XRayList";
 import XRayReportForm from "./Components/InvestigationReports/XRayReportForm";
 import Enquiry from "./Components/Register/Enquiry";
 
-
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
-
 
 // Insurance
 import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
@@ -94,16 +91,21 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import AnesNameMaster from "./Components/OT/AnesNameMaster";
+import OTLabBilling from "./Components/OT/OTLabBilling";
+import OTMaster from "./Components/OT/OTMaster";
+import SurgerySchedule from "./Components/OT/SurgerySchedule";
+import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
   padding: 20px;
-  margin-left: ${props => props.$collapsed ? '0' : '260px'};
+  margin-left: ${(props) => (props.$collapsed ? "0" : "260px")};
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   padding-top: 62px;
   @media (max-width: 1024px) {
-    margin-left: ${props => props.$collapsed ? '0' : '260px'};
+    margin-left: ${(props) => (props.$collapsed ? "0" : "260px")};
   }
   @media (max-width: 768px) {
     margin-left: 0;
@@ -136,24 +138,17 @@ function App() {
       let dPerms = {};
 
       try {
-        const [permissionData, allSidebarData] = await Promise.all([
-          employeeId ? fetchUserPermissions(employeeId) : Promise.resolve(null),
-          fetchSidebarMapping()
-        ]);
-
-        if (permissionData) {
-          const extraPermissions = permissionData?.allowed_pages || [];
-          if (Array.isArray(extraPermissions) && extraPermissions.length > 0) {
-            actions = [...new Set([...actions, ...extraPermissions])];
-            localStorage.setItem("allowedActions", JSON.stringify(actions));
-          }
-        }
+        const allSidebarData = await fetchSidebarMapping();
 
         if (allSidebarData && Array.isArray(allSidebarData)) {
-          allSidebarData.forEach(group => {
+          allSidebarData.forEach((group) => {
             if (group.pages) {
-              group.pages.forEach(page => {
-                if (page.route && page.permissions && page.permissions.length > 0) {
+              group.pages.forEach((page) => {
+                if (
+                  page.route &&
+                  page.permissions &&
+                  page.permissions.length > 0
+                ) {
                   dPerms[page.route] = page.permissions;
                 }
               });
@@ -172,7 +167,7 @@ function App() {
       // Auto-navigate to default route
       if (location.pathname === "/") {
         if (userRole === "Pharmacist") navigate("/OPPharmacy");
-        else navigate("/PatientRegistrationForm");
+        else navigate("/Dashboard");
       }
       setIsLoading(false);
     };
@@ -224,10 +219,7 @@ function App() {
     };
 
     const path = location.pathname;
-    // Handle dynamic routes (e.g., /EditSummary/123)
-    if (path.startsWith("/EditSummary/")) {
-      document.title = "Edit Summary - Shanmuga Hospital";
-    } else if (path.startsWith("/SummaryPrint/")) {
+    if (path.startsWith("/SummaryPrint/")) {
       document.title = "Print Summary - Shanmuga Hospital";
     } else if (path.startsWith("/CTReportForm/")) {
       document.title = "CT Report Form - Shanmuga Hospital";
@@ -246,11 +238,27 @@ function App() {
   // Routes where sidebar is hidden (login page and mobile reg)
   const hideSidebarRoutes = ["/", "/MobileRegistration"];
 
-  if (isLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>Loading...</div>;
+  if (isLoading)
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        Loading...
+      </div>
+    );
 
   // Allow public access to MobileRegistration
   if (!role && location.pathname !== "/MobileRegistration") {
-    return <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>Authentication error. Refresh the page.</div>;
+    return (
+      <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
+        Authentication error. Refresh the page.
+      </div>
+    );
   }
 
   return (
@@ -268,10 +276,20 @@ function App() {
       {hideSidebarRoutes.includes(location.pathname) ? (
         location.pathname === "/MobileRegistration" ? (
           <Routes>
-            <Route path="/MobileRegistration" element={<MobileRegistration />} />
+            <Route
+              path="/MobileRegistration"
+              element={<MobileRegistration />}
+            />
           </Routes>
         ) : (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "100vh",
+            }}
+          >
             Redirecting based on your role...
           </div>
         )
@@ -283,50 +301,100 @@ function App() {
           />
           <Routes>
             {/* Dashboard */}
-            {hasPagePermission("/Dashboard", allowedActions, dynamicPermissions) && (
-              <Route path="/Dashboard" element={<Dashboard />} />
+            {hasPagePermission(
+              "/Dashboard",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Dashboard" element={<Dashboard />} />}
+            {hasPagePermission(
+              "/AdvancedDashboard",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/AdvancedDashboard"
+                element={<AdvancedDashboard />}
+              />
             )}
-            {hasPagePermission("/AdvancedDashboard", allowedActions, dynamicPermissions) && (
-              <Route path="/AdvancedDashboard" element={<AdvancedDashboard />} />
-            )}
-            {hasPagePermission("/DoctorDashboard", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/DoctorDashboard",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
             )}
 
             {/* User Permission Manager */}
-            {hasPagePermission("/UserPermissions", allowedActions, dynamicPermissions) && (
-              <Route path="/UserPermissions" element={<UserPermissionManager />} />
+            {hasPagePermission(
+              "/UserPermissions",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/UserPermissions"
+                element={<UserPermissionManager />}
+              />
             )}
 
             {/* Sidebar Configuration Editor */}
-            {hasPagePermission("/SidebarConfiguration", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/SidebarConfiguration",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/SidebarConfiguration" element={<SidebarEditor />} />
             )}
 
             {/* Front Office */}
-            {hasPagePermission("/Admission", allowedActions, dynamicPermissions) && (
-              <Route path="/Admission" element={<Admission />} />
+            {hasPagePermission(
+              "/Admission",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Admission" element={<Admission />} />}
+            {hasPagePermission(
+              "/PatientRegistrationForm",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/PatientRegistrationForm"
+                element={<PatientRegistrationForm />}
+              />
             )}
-            {hasPagePermission("/PatientRegistrationForm", allowedActions, dynamicPermissions) && (
-              <Route path="/PatientRegistrationForm" element={<PatientRegistrationForm />} />
-            )}
-            {hasPagePermission("/Enquiry", allowedActions, dynamicPermissions) && (
-              <Route path="/Enquiry" element={<Enquiry />} />
-            )}
-            {hasPagePermission("/RegistrationBills", allowedActions, dynamicPermissions) && (
-              <Route path="/RegistrationBills" element={<RegistrationBills />} />
+            {hasPagePermission(
+              "/Enquiry",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Enquiry" element={<Enquiry />} />}
+            {hasPagePermission(
+              "/RegistrationBills",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/RegistrationBills"
+                element={<RegistrationBills />}
+              />
             )}
 
-            {hasPagePermission("/Summary", allowedActions, dynamicPermissions) && (
-              <Route path="/Summary" element={<Summary />} />
-            )}
-            {hasPagePermission("/Summary", allowedActions, dynamicPermissions) && ( // Edit uses Summary permission
-              <Route path="/EditSummary/:ipNo" element={<EditSummary />} />
-            )}
-            {hasPagePermission("/Summary", allowedActions, dynamicPermissions) && ( // Print uses Summary permission
+            {hasPagePermission(
+              "/Summary",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Summary" element={<Summary />} />}
+
+            {hasPagePermission(
+              "/Summary",
+              allowedActions,
+              dynamicPermissions,
+            ) && ( // Print uses Summary permission
               <Route path="/SummaryPrint/:ipNo" element={<SummaryPrint />} />
             )}
-            {hasPagePermission("/DischargeReport", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/DischargeReport",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/DischargeReport" element={<DischargeReport />} />
             )}
             {hasPagePermission("/DischargeBilling", allowedActions, dynamicPermissions) && (
@@ -334,96 +402,185 @@ function App() {
             )}
 
             {/* Insurance */}
-            {hasPagePermission("/InsuranceProvider", allowedActions, dynamicPermissions) && (
-              <Route path="/InsuranceProvider" element={<InsuranceProvider />} />
+            {hasPagePermission(
+              "/InsuranceProvider",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/InsuranceProvider"
+                element={<InsuranceProvider />}
+              />
             )}
 
             {/* Nursing Station */}
-            {hasPagePermission("/RoomShifting", allowedActions, dynamicPermissions) && (
-              <Route path="/RoomShifting" element={<RoomShifting />} />
-            )}
-            {hasPagePermission("/wardrequest", allowedActions, dynamicPermissions) && (
-              <Route path="/wardrequest" element={<Wardrequest />} />
-            )}
-            {hasPagePermission("/LabWardRequest", allowedActions, dynamicPermissions) && (
-              <Route path="/LabWardRequest" element={<LabWardRequest />} />
-            )}
+            {hasPagePermission(
+              "/RoomShifting",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/RoomShifting" element={<RoomShifting />} />}
+            {hasPagePermission(
+              "/wardrequest",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/wardrequest" element={<Wardrequest />} />}
+            {hasPagePermission(
+              "/LabWardRequest",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/LabWardRequest" element={<LabWardRequest />} />}
 
             {/* Rooms */}
-            {hasPagePermission("/RoomEnquiry", allowedActions, dynamicPermissions) && (
-              <Route path="/RoomEnquiry" element={<RoomEnquiry />} />
-            )}
-            {hasPagePermission("/RoomCategory", allowedActions, dynamicPermissions) && (
-              <Route path="/RoomCategory" element={<RoomCategory />} />
-            )}
+            {hasPagePermission(
+              "/RoomEnquiry",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/RoomEnquiry" element={<RoomEnquiry />} />}
+            {hasPagePermission(
+              "/RoomCategory",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/RoomCategory" element={<RoomCategory />} />}
             {hasPagePermission("/Room", allowedActions, dynamicPermissions) && (
               <Route path="/Room" element={<Room />} />
             )}
-            {hasPagePermission("/Block", allowedActions, dynamicPermissions) && (
-              <Route path="/Block" element={<Block />} />
-            )}
+            {hasPagePermission(
+              "/Block",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Block" element={<Block />} />}
 
             {/* Inventory */}
-            {hasPagePermission("/VendorManagement", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/VendorManagement",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/VendorManagement" element={<VendorManagement />} />
             )}
-            {hasPagePermission("/GRNGeneration", allowedActions, dynamicPermissions) && (
-              <Route path="/GRNGeneration" element={<GRNGeneration />} />
-            )}
-            {hasPagePermission("/GRNAnalysis", allowedActions, dynamicPermissions) && (
-              <Route path="/GRNAnalysis" element={<GRNAnalysis />} />
-            )}
-            {hasPagePermission("/PharmacyItemMaster", allowedActions, dynamicPermissions) && (
-              <Route path="/PharmacyItemMaster" element={<PharmacyItemMaster />} />
+            {hasPagePermission(
+              "/GRNGeneration",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/GRNGeneration" element={<GRNGeneration />} />}
+            {hasPagePermission(
+              "/GRNAnalysis",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/GRNAnalysis" element={<GRNAnalysis />} />}
+            {hasPagePermission(
+              "/PharmacyItemMaster",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/PharmacyItemMaster"
+                element={<PharmacyItemMaster />}
+              />
             )}
 
             {/* Pharmacy */}
-            {hasPagePermission("/IPPharmacy", allowedActions, dynamicPermissions) && (
-              <Route path="/IPPharmacy" element={<IPPharmacy />} />
-            )}
-            {hasPagePermission("/OPPharmacy", allowedActions, dynamicPermissions) && (
-              <Route path="/OPPharmacy" element={<OPPharmacy />} />
-            )}
+            {hasPagePermission(
+              "/IPPharmacy",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/IPPharmacy" element={<IPPharmacy />} />}
+            {hasPagePermission(
+              "/OPPharmacy",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/OPPharmacy" element={<OPPharmacy />} />}
 
             {/* Doctor Master */}
-            {hasPagePermission("/DoctorList", allowedActions, dynamicPermissions) && (
-              <Route path="/DoctorList" element={<DoctorList />} />
-            )}
-            {hasPagePermission("/DoctorList", allowedActions, dynamicPermissions) && ( // Schedule linked to Doctor List
-              <Route path="/DoctorSchedule/:employee_id" element={<DoctorSchedule />} />
+            {hasPagePermission(
+              "/DoctorList",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/DoctorList" element={<DoctorList />} />}
+            {hasPagePermission(
+              "/DoctorList",
+              allowedActions,
+              dynamicPermissions,
+            ) && ( // Schedule linked to Doctor List
+              <Route
+                path="/DoctorSchedule/:employee_id"
+                element={<DoctorSchedule />}
+              />
             )}
 
             {/* Investigation Billing */}
-            {hasPagePermission("/InvestigationBilling", allowedActions, dynamicPermissions) && (
-              <Route path="/InvestigationBilling" element={<InvestigationBilling />} />
+            {hasPagePermission(
+              "/InvestigationBilling",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/InvestigationBilling"
+                element={<InvestigationBilling />}
+              />
             )}
-            {hasPagePermission("/ViewBills", allowedActions, dynamicPermissions) && (
-              <Route path="/ViewBills" element={<ViewBills />} />
-            )}
-            {hasPagePermission("/ViewEstimate", allowedActions, dynamicPermissions) && (
-              <Route path="/ViewEstimate" element={<ViewEstimate />} />
-            )}
+            {hasPagePermission(
+              "/ViewBills",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/ViewBills" element={<ViewBills />} />}
+            {hasPagePermission(
+              "/ViewEstimate",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/ViewEstimate" element={<ViewEstimate />} />}
 
             {/* Investigation Reports */}
-            {hasPagePermission("/CTList", allowedActions, dynamicPermissions) && (
-              <Route path="/CTList" element={<CTList />} />
+            {hasPagePermission(
+              "/CTList",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/CTList" element={<CTList />} />}
+            {hasPagePermission(
+              "/CTList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/CTReportForm/:uhid/:subUhid"
+                element={<CTReportForm />}
+              />
             )}
-            {hasPagePermission("/CTList", allowedActions, dynamicPermissions) && (
-              <Route path="/CTReportForm/:uhid/:subUhid" element={<CTReportForm />} />
+            {hasPagePermission(
+              "/MRIList",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/MRIList" element={<MRIList />} />}
+            {hasPagePermission(
+              "/MRIList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/MRIReportForm/:uhid/:subUhid"
+                element={<MRIReportForm />}
+              />
             )}
-            {hasPagePermission("/MRIList", allowedActions, dynamicPermissions) && (
-              <Route path="/MRIList" element={<MRIList />} />
+            {hasPagePermission(
+              "/USGList",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/USGList" element={<USGList />} />}
+            {hasPagePermission(
+              "/USGList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/USGReportForm/:uhid/:subUhid"
+                element={<USGReportForm />}
+              />
             )}
-            {hasPagePermission("/MRIList", allowedActions, dynamicPermissions) && (
-              <Route path="/MRIReportForm/:uhid/:subUhid" element={<MRIReportForm />} />
-            )}
-            {hasPagePermission("/USGList", allowedActions, dynamicPermissions) && (
-              <Route path="/USGList" element={<USGList />} />
-            )}
-            {hasPagePermission("/USGList", allowedActions, dynamicPermissions) && (
-              <Route path="/USGReportForm/:uhid/:subUhid" element={<USGReportForm />} />
-            )}
-            {hasPagePermission("/XRayList", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/XRayList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <>
                 <Route path="/XRayList" element={<XRayList />} />
                 <Route
@@ -435,58 +592,127 @@ function App() {
             )}
 
             {/* Packages */}
-            {hasPagePermission("/Package", allowedActions, dynamicPermissions) && (
-              <Route path="/Package" element={<Package />} />
-            )}
+            {hasPagePermission(
+              "/Package",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/Package" element={<Package />} />}
             {/* Investigationprice */}
-            {hasPagePermission("/Investigationprice", allowedActions, dynamicPermissions) && (
-              <Route path="/Investigationprice" element={<Investigationprice />} />
+            {hasPagePermission(
+              "/Investigationprice",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/Investigationprice"
+                element={<Investigationprice />}
+              />
             )}
             {/* BillType */}
-            {hasPagePermission("/BillType", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/BillType",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <>
                 <Route path="/BillType" element={<BillType />} />
-
               </>
             )}
             {/* Reports */}
-            {hasPagePermission("/DeptBUDReport", allowedActions, dynamicPermissions) && (
-              <Route path="/DeptBUDReport" element={<DeptBUDReport />} />
-            )}
+            {hasPagePermission(
+              "/DeptBUDReport",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/DeptBUDReport" element={<DeptBUDReport />} />}
 
             {/* Velavan */}
-            {hasPagePermission("/InvoiceGeneration", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/InvoiceGeneration",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route
                 path="/InvoiceGeneration"
                 element={<InvoiceGeneration />}
               />
             )}
-            {hasPagePermission("/InvoiceReport", allowedActions, dynamicPermissions) && (
-              <Route path="/InvoiceReport" element={<InvoiceReport />} />
-            )}
-            {hasPagePermission("/AddVelavanItems", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/InvoiceReport",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/InvoiceReport" element={<InvoiceReport />} />}
+            {hasPagePermission(
+              "/AddVelavanItems",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/AddVelavanItems" element={<AddVelavanItems />} />
             )}
-            {hasPagePermission("/VelavanItemList", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/VelavanItemList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route path="/VelavanItemList" element={<VelavanItemList />} />
             )}
-            {hasPagePermission("/AddVelavanVendors", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/AddVelavanVendors",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route
                 path="/AddVelavanVendors"
                 element={<AddVelavanVendors />}
               />
             )}
-            {hasPagePermission("/VelavanVendorList", allowedActions, dynamicPermissions) && (
+            {hasPagePermission(
+              "/VelavanVendorList",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
               <Route
                 path="/VelavanVendorList"
                 element={<VelavanVendorList />}
               />
             )}
-            {
-              hasPagePermission("/items", allowedActions, dynamicPermissions) && (
-                <Route path="/items" element={<Items />} />
-              )
-            }
+            {hasPagePermission(
+              "/items",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/items" element={<Items />} />}
+            {/* OT*/}
+            {hasPagePermission(
+              "/AnesNameMaster",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/AnesNameMaster" element={<AnesNameMaster />} />}
+            {hasPagePermission(
+              "/OTLabBilling",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+            {hasPagePermission(
+              "/OTMedicineBilling",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route
+                path="/OTMedicineBilling"
+                element={<OTMedicineBilling />}
+              />
+            )}
+            {hasPagePermission(
+              "/OTMaster",
+              allowedActions,
+              dynamicPermissions,
+            ) && <Route path="/OTMaster" element={<OTMaster />} />}
+            {hasPagePermission(
+              "/SurgerySchedule",
+              allowedActions,
+              dynamicPermissions,
+            ) && (
+              <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
+            )}
           </Routes>
         </ContentWrapper>
       )}
@@ -502,4 +728,3 @@ export default function AppWrapper() {
     </Router>
   );
 }
-

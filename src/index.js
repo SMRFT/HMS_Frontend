@@ -19,6 +19,8 @@ function setforlocaldev() {
   console.log("🔧 Development token is empty - will redirect to login");
   const selectedBranch = "SHB001";
   localStorage.setItem("selected_branch", selectedBranch);
+  const selectedOutlet = "OLET001";
+  localStorage.setItem("selected_outlet", selectedOutlet);
   return dev_token;
 }
 
@@ -109,6 +111,7 @@ function getUserRole(allowedActions) {
     const employeeId = userPayload.aud; // Using 'aud' field as ID
     const name = userPayload.name;
     const userEmail = userPayload.email;
+
     const userRole = getUserRole(userPayload["allowed-actions"]);
 
     console.log("Employee ID:", employeeId);
@@ -131,7 +134,13 @@ function getUserRole(allowedActions) {
     localStorage.setItem("employeeId", employeeId);
     localStorage.setItem("name", name);
     localStorage.setItem("userEmail", userEmail);
+    localStorage.setItem("allowed-outlets", userPayload["allowed-outlets"]);
     localStorage.setItem("role", userRole);
+
+    localStorage.setItem(
+      "allowedActions",
+      JSON.stringify(userPayload["allowed-actions"] || []),
+    );
 
     console.log("✅ User payload and extracted data stored in localStorage");
     console.log("Stored data:", {

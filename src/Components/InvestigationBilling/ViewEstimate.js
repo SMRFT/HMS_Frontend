@@ -434,7 +434,7 @@ const EstimateBillsReport = () => {
         <div class="total-row net-amount"><div class="total-label">Estimated Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
       </div>
       <div class="note"><strong>Note:</strong> This is an estimate bill. Final charges may vary. Please convert to a final bill at the time of payment.</div>
-      <div class="signature"><div>${bill.uhid || ""}</div><div>(Authorized Signature)</div></div>
+      <div class="signature"><div>${bill.created_by || ""}</div><div>(Authorized Signature)</div></div>
     </body></html>`);
     pw.document.close();
     setTimeout(() => pw.print(), 500);

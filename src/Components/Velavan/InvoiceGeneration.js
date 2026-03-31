@@ -659,6 +659,7 @@ const Invoice = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [roundSign, setRoundSign] = useState("+");
   const [doctors, setDoctors] = useState([]);
+  const [roundAmtDisplay, setRoundAmtDisplay] = useState("");
 
   const userId = localStorage.getItem("employeeId");
 
@@ -776,6 +777,9 @@ const Invoice = () => {
           record.courier_transport_charge || 0,
         ),
       });
+      const abs = Math.abs(parseFloat(record.round_amount || 0));
+      setRoundAmtDisplay(abs > 0 ? String(abs) : "");
+      setRoundSign(parseFloat(record.round_amount || 0) < 0 ? "-" : "+");
     }
   }, [record]);
 
@@ -1316,6 +1320,7 @@ const Invoice = () => {
     setItems([]);
     setSummary(EMPTY_SUMMARY);
     setRoundSign("+");
+    setRoundAmtDisplay(""); // ← add this
     navigate("/InvoiceGeneration", { replace: true, state: {} });
   };
 
@@ -1962,16 +1967,24 @@ const Invoice = () => {
                           <option value="-">−</option>
                         </RoundSignSel>
                         <RoundInput
-                          type="number"
-                          step="0.01"
-                          value={Math.abs(summary.roundAmount || 0) || ""}
+                          type="text"
+                          value={roundAmtDisplay}
                           placeholder="0.00"
                           onChange={(e) => {
-                            const v = parseFloat(e.target.value) || 0;
+                            const raw = e.target.value;
+                            // Allow only digits and a single decimal point
+                            if (!/^(\d*\.?\d*)$/.test(raw)) return;
+                            setRoundAmtDisplay(raw);
+                            const v = parseFloat(raw) || 0;
                             setSummary((prev) => ({
                               ...prev,
                               roundAmount: roundSign === "+" ? v : -v,
                             }));
+                          }}
+                          onBlur={() => {
+                            // Normalize display on blur (e.g. "0." → "0.00")
+                            const v = parseFloat(roundAmtDisplay) || 0;
+                            setRoundAmtDisplay(v === 0 ? "" : String(v));
                           }}
                           style={{ fontSize: "0.82rem" }}
                         />
@@ -2074,7 +2087,7 @@ const Invoice = () => {
             <ModalScroll>
               {/* ── Section 1: Item Details ── */}
               <SectionDivider>Item Details</SectionDivider>
-              <GridRow cols="repeat(4,1fr)">
+              <GridRow cols="repeat(5,1fr)">
                 <InputWrapper style={{ margin: 0, gridColumn: "span 2" }}>
                   <Lbl>
                     Item Name *

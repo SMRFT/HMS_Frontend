@@ -212,7 +212,7 @@ const EMPTY_FORM = {
   ward_request: false,
   med_wise_discount: false,
   med_dispatch: false,
-  department_code: "",
+  outlet_code: "",
   billTypeNo: "",
 };
 
@@ -256,17 +256,17 @@ const BillType = () => {
     if (result.success) setInvCategories(result.data?.records || []);
   };
 
-  const [departments, setDepartments] = useState([]);
+  const [outlets, setOutlets] = useState([]);
 
-  const fetchDepartments = async () => {
-    const result = await apiRequest(`${HMSURL}departments/`, "GET");
-    if (result.success) setDepartments(result.data?.departments || []);
+  const fetchOutlets = async () => {
+    const result = await apiRequest(`${HMSURL}outlets/`, "GET");
+    if (result.success) setOutlets(result.data?.outlets || []);
   };
 
   useEffect(() => {
     fetchRecords();
     fetchInvCategories();
-    fetchDepartments();
+    fetchOutlets();
   }, []);
 
   const handleInputChange = (e) => {
@@ -408,7 +408,7 @@ const BillType = () => {
                 <Th>Code</Th>
                 <Th>Bill Name</Th>
                 <Th>Bill Type ID</Th>
-                <Th>Department</Th>
+                <Th>Outlet</Th>
                 <Th>Status</Th>
                 <Th>Actions</Th>
               </Tr>
@@ -455,10 +455,9 @@ const BillType = () => {
                       </span>
                     </Td>
                     <Td>
-                      {departments.find(
-                        (d) => d.department_code === rec.department_code,
-                      )?.department_name ||
-                        rec.department_code ||
+                      {outlets.find((o) => o.outlet_code === rec.outlet_code)
+                        ?.outlet_name ||
+                        rec.outlet_code ||
                         "—"}
                     </Td>
                     <Td>
@@ -562,27 +561,27 @@ const BillType = () => {
                       <option value="credit">Credit</option>
                     </select>
                   </Field>
-                  <Field label="Department">
+                  <Field label="Outlet">
                     <select
                       style={css.select}
-                      value={formData.department_code}
+                      value={formData.outlet_code}
                       onChange={(e) => {
-                        const selected = departments.find(
-                          (d) => d.department_code === e.target.value,
+                        const selected = outlets.find(
+                          (o) => o.outlet_code === e.target.value,
                         );
                         setFormData((prev) => ({
                           ...prev,
-                          department_code: selected?.department_code || "",
+                          outlet_code: selected?.outlet_code || "",
                         }));
                       }}
                     >
-                      <option value="">-- Select Department --</option>
-                      {departments.map((dept) => (
+                      <option value="">-- Select Outlet --</option>
+                      {outlets.map((outlet) => (
                         <option
-                          key={dept.department_code}
-                          value={dept.department_code}
+                          key={outlet.outlet_code}
+                          value={outlet.outlet_code}
                         >
-                          {dept.department_name}
+                          {outlet.outlet_name}
                         </option>
                       ))}
                     </select>
@@ -843,14 +842,14 @@ const BillType = () => {
                     { label: "Bill Type No", value: viewRec.billTypeNo },
                     { label: "Payment Mode", value: viewRec.payment_mode },
                     {
-                      label: "Department",
+                      label: "Outlet",
                       value: (() => {
-                        const d = departments.find(
-                          (x) => x.department_code === viewRec.department_code,
+                        const o = outlets.find(
+                          (x) => x.outlet_code === viewRec.outlet_code,
                         );
-                        return d
-                          ? `${d.department_name} (${d.department_code})`
-                          : viewRec.department_code || "—";
+                        return o
+                          ? `${o.outlet_name} (${o.outlet_code})`
+                          : viewRec.outlet_code || "—";
                       })(),
                     },
                     {
