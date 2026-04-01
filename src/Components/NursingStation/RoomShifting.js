@@ -217,20 +217,6 @@ const SectionLabel = styled.div`
   grid-column: 1 / -1;
 `;
 
-const StatusBadge = styled.span`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  background: ${({ variant }) =>
-    variant === "active"    ? "#dcfce7" :
-    variant === "cancelled" ? "#fee2e2" : "#fef9c3"};
-  color: ${({ variant }) =>
-    variant === "active"    ? "#166534" :
-    variant === "cancelled" ? "#991b1b" : "#854d0e"};
-`;
-
 const ActionBtn = styled.button`
   background: none;
   border: 1px solid ${({ danger }) => danger ? colors.danger : colors.border};
@@ -621,7 +607,7 @@ const RoomShifting = () => {
       }));
 
       if (adm.has_shifted) {
-        toast.info("Admission already shifted. You can edit or cancel the existing shift.");
+        toast.info("Admission already shifted. You can edit the existing shift.");
       } else {
         toast.success(`Admission loaded: ${adm.ipNumber}`);
       }
@@ -676,15 +662,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
     } else { toast.error(res.error || "Update failed"); }
   } catch { toast.error("Update failed"); }
 };
-  // ── Cancel shifting ───────────────────────────────────────────────────────
-  const handleCancel = async (shiftingId) => {
-    if (!window.confirm("Cancel this room shifting record?")) return;
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${shiftingId}/cancel/`, "POST");
-      if (res.success || res.message) { toast.success("Shifting cancelled"); fetchShiftings(); }
-      else toast.error(res.error || "Cancel failed");
-    } catch { toast.error("Cancel failed"); }
-  };
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -737,13 +714,13 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
             <FormRow>
               <ShiftedBanner>
                 ⚠️ This patient has already been shifted to a new room. To make changes, use
-                the&nbsp;<strong>Edit</strong>&nbsp;or&nbsp;<strong>Cancel</strong>&nbsp;
-                buttons in the shifting history table below.
+                the&nbsp;<strong>Edit</strong>
+                button in the shifting history table below.
               </ShiftedBanner>
             </FormRow>
           )}
 
-          {/* ── Patient Details ── */}
+          {/* ── Patient Details ── */} 
           <FormRow>
             <SectionLabel>Patient Details</SectionLabel>
 
@@ -841,7 +818,7 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
               onClick={handleSubmit}
               disabled={alreadyShifted}
               style={alreadyShifted ? { opacity: 0.5, cursor: "not-allowed" } : {}}
-              title={alreadyShifted ? "Already shifted — use Edit or Cancel" : ""}
+              title={alreadyShifted ? "Already shifted — use Edit" : ""}
             >
               💾 Save Shift
             </Button>
@@ -903,7 +880,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                   <Th>Old Room / Bed</Th>
                   <Th>New Room / Bed</Th>
                   <Th>Shifting Date &amp; Time</Th>
-                  <Th>Status</Th>
                 </tr>
               </thead>
               <tbody>
@@ -915,8 +891,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                   </Tr>
                 ) : (
                   shiftings.slice(0, entriesPerPage).map((s, idx) => {
-                    const isCancelled = s.is_cancelled === true;
-                    const variant     = isCancelled ? "cancelled" : "active";
                     const shiftId     = s.shifting_id || s._id;
 
                     const shiftDateStr = s.shiftingDateTime
@@ -929,7 +903,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                     return (
                       <Tr key={`${shiftId}-${idx}`}>
                         <Td>
-                          {!isCancelled ? (
                             <>
                               <ActionBtn
                                 type="button"
@@ -938,24 +911,16 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                               >
                                 ✏️ Edit
                               </ActionBtn>
-                              <ActionBtn danger type="button" title="Cancel"
-                                onClick={() => handleCancel(shiftId)}>
-                                ✕ Cancel
-                              </ActionBtn>
                             </>
-                          ) : (
-                            <span style={{ fontSize:"0.75rem", color:colors.textMuted }}>—</span>
-                          )}
                         </Td>
                         <Td style={{ fontWeight:700, color:colors.primary }}>{shiftId}</Td>
                         <Td>{s.uhid            || "-"}</Td>
                         <Td>{s.ipNumber        || "-"}</Td>
                         <Td>{s.ipserial_number || "-"}</Td>
                         <Td>{s.patient_name    || "-"}</Td>
-                        <Td>{`${s.oldRoomNo||"-"} / ${s.oldBedNo||"-"}`}</Td>
+                        <Td>{`${form.roomNo||"-"} / ${form.bedNo}`}</Td>
                         <Td>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</Td>
                         <Td>{shiftDateStr}</Td>
-                        <Td><StatusBadge variant={variant}>{variant.toUpperCase()}</StatusBadge></Td>
                       </Tr>
                     );
                   })
