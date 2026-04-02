@@ -112,13 +112,15 @@ export const fetchUserPermissions = async (employeeId) => {
  * Updates the user-specific allowed pages in the backend.
  * @param {string} employeeId 
  * @param {Array} allowedPages List of allowed page strings
+ * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (employeeId, allowedPages) => {
+export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = []) => {
     try {
         const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
             employeeId,
-            allowed_pages: allowedPages
+            allowed_pages: allowedPages,
+            hms_pages: hmsPages
         });
         return response;
     } catch (error) {

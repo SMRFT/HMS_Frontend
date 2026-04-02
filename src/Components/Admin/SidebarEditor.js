@@ -355,14 +355,46 @@ const SidebarEditor = () => {
         setLoading(true);
         try {
             const data = await fetchSidebarMapping();
-            const withIds = data.map((g, gi) => ({
-                ...g,
-                id: `group-${gi}-${Date.now()}`,
-                pages: (g.pages || []).map((p, pi) => ({
-                    ...p,
-                    id: `page-${gi}-${pi}-${Date.now()}`
-                }))
-            }));
+            
+            let maxGroupId = 0;
+            let maxPageId = 0;
+
+            // Find existing maximums safely parsing to int
+            data.forEach(g => {
+                const gId = parseInt(g.group_id, 10);
+                if (!isNaN(gId) && gId > maxGroupId) maxGroupId = gId;
+                
+                (g.pages || []).forEach(p => {
+                    const pId = parseInt(p.page_id, 10);
+                    if (!isNaN(pId) && pId > maxPageId) maxPageId = pId;
+                });
+            });
+
+            const withIds = data.map((g) => {
+                let group_id = parseInt(g.group_id, 10);
+                if (isNaN(group_id)) {
+                    maxGroupId += 1;
+                    group_id = maxGroupId;
+                }
+                
+                return {
+                    ...g,
+                    id: `grp_${group_id}`, // required for DND
+                    group_id: group_id,
+                    pages: (g.pages || []).map((p) => {
+                        let page_id = parseInt(p.page_id, 10);
+                        if (isNaN(page_id)) {
+                            maxPageId += 1;
+                            page_id = maxPageId;
+                        }
+                        return {
+                            ...p,
+                            id: `pg_${page_id}`, // required for DND
+                            page_id: page_id
+                        };
+                    })
+                };
+            });
             setMapping(withIds);
         } catch {
             toast.error("Failed to load sidebar configuration.");
@@ -374,12 +406,12 @@ const SidebarEditor = () => {
     const handleSave = async () => {
         try {
             const orderedMapping = mapping.map((group, index) => {
-                const { id, ...groupData } = group;
+                const { id, ...groupData } = group; // remove DND id before saving
                 return {
                     ...groupData,
                     order: index + 1,
                     pages: (groupData.pages || []).map(p => {
-                        const { id, ...pageData } = p;
+                        const { id, ...pageData } = p; // remove DND id
                         return pageData;
                     })
                 };
@@ -408,9 +440,31 @@ const SidebarEditor = () => {
         setMapping(m);
     };
 
+    const getNextGroupId = () => {
+        let maxId = 0;
+        mapping.forEach(g => {
+            const id = parseInt(g.group_id, 10);
+            if (!isNaN(id) && id > maxId) maxId = id;
+        });
+        return maxId + 1;
+    };
+
+    const getNextPageId = () => {
+        let maxId = 0;
+        mapping.forEach(g => {
+            (g.pages || []).forEach(p => {
+                const id = parseInt(p.page_id, 10);
+                if (!isNaN(id) && id > maxId) maxId = id;
+            });
+        });
+        return maxId + 1;
+    };
+
     const addGroup = () => {
+        const group_id = getNextGroupId();
         setMapping([...mapping, {
-            id: `group-${Date.now()}`,
+            id: `grp_${group_id}`,
+            group_id: group_id,
             group: 'New Group',
             order: mapping.length + 1,
             pages: []
@@ -421,8 +475,10 @@ const SidebarEditor = () => {
 
     const addPage = (gi) => {
         const m = [...mapping];
+        const page_id = getNextPageId();
         m[gi].pages.push({
-            id: `page-${Date.now()}`,
+            id: `pg_${page_id}`,
+            page_id: page_id,
             name: 'New Page',
             route: '/NewRoute',
             icon: 'FiActivity',
@@ -543,6 +599,7 @@ const SidebarEditor = () => {
                                                                 placeholder="Group Name"
                                                                 style={{ width: '220px', fontWeight: '700', fontSize: '0.95rem' }}
                                                             />
+                                                            <GroupBadge>Group ID: {group.group_id}</GroupBadge>
                                                             <GroupBadge>{group.pages?.length || 0} page{group.pages?.length !== 1 ? 's' : ''}</GroupBadge>
                                                         </GroupLeft>
 
@@ -561,10 +618,11 @@ const SidebarEditor = () => {
                                                             <thead>
                                                                 <tr>
                                                                     <th style={{ width: '4%' }}></th>
-                                                                    <th style={{ width: '22%' }}>Page Name</th>
-                                                                    <th style={{ width: '22%' }}>Route</th>
-                                                                    <th style={{ width: '18%' }}>Icon (react-icons/fi)</th>
-                                                                    <th style={{ width: '30%' }}>Permissions (comma-separated)</th>
+                                                                    <th style={{ width: '8%' }}>ID</th>
+                                                                    <th style={{ width: '20%' }}>Page Name</th>
+                                                                    <th style={{ width: '20%' }}>Route</th>
+                                                                    <th style={{ width: '15%' }}>Icon (react-icons/fi)</th>
+                                                                    <th style={{ width: '29%' }}>Permissions (comma-separated)</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
@@ -584,6 +642,9 @@ const SidebarEditor = () => {
                                                                                             <DragHandle {...provided.dragHandleProps}>
                                                                                                 <FiMove size={14} />
                                                                                             </DragHandle>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <GroupBadge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</GroupBadge>
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
