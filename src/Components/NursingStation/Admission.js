@@ -58,7 +58,16 @@ const FPHead = styled.div`
 `;
 const FPTitle = styled.div`font-size:.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
 const CloseFP = styled.button`width:26px;height:26px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
-
+// Add these styled components near the room modal section
+const TooltipWrap = styled.div`position:relative;display:contents;&:hover > .tip{display:block;}`;
+const Tip = styled.div`
+  display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:#1e293b;color:#fff;font-size:.65rem;font-weight:500;border-radius:5px;
+  padding:5px 9px;white-space:nowrap;z-index:10000;pointer-events:none;line-height:1.5;
+  box-shadow:0 4px 14px rgba(0,0,0,.28);
+  &::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#1e293b;}
+`;
 // ─── Form internals ────────────────────────────────────────────────────────────
 const FGrid  = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:14px 20px;`;
 const Field  = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
@@ -126,13 +135,30 @@ const BH2  = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px so
 const FG2  = styled.div`padding:10px 12px;`;
 const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
-const rC   = {available:{bg:"#f0fdf4",br:"#86efac",hd:"#dcfce7"},occupied:{bg:"#fff1f2",br:"#fca5a5",hd:"#fee2e2"},maintenance:{bg:"#fffbeb",br:"#fcd34d",hd:"#fef3c7"},partial:{bg:"#eff6ff",br:"#93c5fd",hd:"#dbeafe"}};
+const rC = {
+  available:            { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
+  "available-not-cleaned": { bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
+  occupied:             { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
+  maintenance:          { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
+  partial:              { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
+};
 const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(p.s==='occupied'||p.s==='maintenance')?'not-allowed':'pointer'};opacity:${p=>(p.s==='occupied'||p.s==='maintenance')?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(p.s!=='occupied'&&p.s!=='maintenance')&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
 const RCT  = styled.div`display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:${p=>rC[p.s]?.hd||'#f1f5f9'};border-bottom:1px solid ${p=>rC[p.s]?.br||'#e5e7eb'};`;
 const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
 const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#f59e0b':'#3b82f6'};color:#fff;text-transform:capitalize;`;
 const BRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
-const BC   = styled.button`flex:1 1 auto;min-width:44px;text-align:center;padding:3px 5px;border-radius:4px;font-size:.67rem;font-weight:600;border:1.5px solid transparent;cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;background:${p=>p.bs==='Available'?'#22c55e':p.bs==='Occupied'?'#ef4444':'#f59e0b'};opacity:${p=>p.disabled?.55:1};&:hover:not(:disabled){filter:brightness(1.1);}`;
+const BC = styled.button`
+  flex:1 1 auto;min-width:44px;text-align:center;padding:3px 5px;border-radius:4px;
+  font-size:.67rem;font-weight:600;border:1.5px solid transparent;
+  cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;
+  background:${p=>
+    p.bs==='Available'           ? '#22c55e'
+  : p.bs==='Occupied'            ? '#ef4444'
+  : p.bs==='Available - Not Cleaned' ? '#eab308'
+  : '#9ca3af'};
+  opacity:${p=>p.disabled?.55:1};
+  &:hover:not(:disabled){filter:brightness(1.1);}
+`;
 const RT2  = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
 const NR   = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
@@ -244,9 +270,11 @@ const EMPTY = {
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
   const s = beds.map(b => b.status);
-  if (s.every(x => x === "Maintenance")) return "maintenance";
-  if (s.every(x => x === "Occupied"))    return "occupied";
-  if (s.some(x => x === "Occupied") && s.some(x => x === "Available")) return "partial";
+  if (s.every(x => x === "Maintenance"))               return "maintenance";
+  if (s.every(x => x === "Occupied"))                  return "occupied";
+  if (s.every(x => x === "Available - Not Cleaned"))   return "available-not-cleaned";
+  if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
+  if (s.some(x => x === "Available - Not Cleaned") && !s.some(x => x === "Occupied")) return "available-not-cleaned";
   return "available";
 };
 
@@ -913,7 +941,13 @@ export default function Admission() {
                 <FBR2 clear onClick={() => { setRFilter({ room_number:"", block:"", floor:"" }); fetchAllRooms({ room_number:"", block:"", floor:"" }); }}>Clear</FBR2>
               </FBR>
               <LBar>
-                {[["#22c55e","Available"],["#3b82f6","Partial"],["#ef4444","Occupied"],["#f59e0b","Maintenance"]].map(([c,l]) => (
+                {[
+                  ["#22c55e","Available"],
+                  ["#eab308","Not Cleaned"],
+                  ["#3b82f6","Partial"],
+                  ["#ef4444","Occupied"],
+                  ["#9ca3af","Maintenance"]
+                ].map(([c,l]) => (
                   <LI key={l}><LD c={c}/>{l}</LI>
                 ))}
               </LBar>
@@ -931,19 +965,72 @@ export default function Admission() {
                       <RG2>
                         {rooms.map(room => {
                           const s = getRoomStatus(room.beds);
+                          const bedSummary = (room.beds || []).reduce((acc, b) => {
+                            acc[b.status] = (acc[b.status] || 0) + 1; return acc;
+                          }, {});
+                          const tipLines = Object.entries(bedSummary)
+                            .map(([st, cnt]) => `${cnt} ${st}`).join(" · ");
+                          const roomTip =
+                            s === "available"              ? `✅ Available · ${tipLines}`
+                          : s === "occupied"               ? `🔴 Fully Occupied · ${tipLines}`
+                          : s === "available-not-cleaned"  ? `🟡 Needs Cleaning · ${tipLines}`
+                          : s === "maintenance"            ? `🔧 Under Maintenance`
+                          : s === "partial"                ? `🔵 Partially Occupied · ${tipLines}`
+                          : tipLines;
                           return (
-                            <RC key={room.room_number} s={s} onClick={() => handleRoomClick(room)}>
-                              <RCT s={s}><RNum>{room.room_number}</RNum><RSP s={s}>{s === "partial" ? "Partial" : s}</RSP></RCT>
-                              <RT2>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RT2>
-                              <BRow>
-                                {(room.beds || []).map((bed, i) => (
-                                  <BC key={i} bs={bed.status} disabled={bed.status !== "Available"}
-                                    onClick={e => { if (bed.status === "Available") { e.stopPropagation(); handleBedSelect(bed.bed_number, room); } }}>
-                                    {bed.bed_number}
-                                  </BC>
-                                ))}
-                              </BRow>
-                            </RC>
+                            <div key={room.room_number} style={{ position:"relative" }}
+                              onMouseEnter={e => {
+                                const t = e.currentTarget.querySelector(".room-tip");
+                                if (t) t.style.display = "block";
+                              }}
+                              onMouseLeave={e => {
+                                const t = e.currentTarget.querySelector(".room-tip");
+                                if (t) t.style.display = "none";
+                              }}
+                            >
+                              <RC s={s} onClick={() => handleRoomClick(room)}>
+                                <RCT s={s}>
+                                  <RNum>{room.room_number}</RNum>
+                                  <RSP s={s}>
+                                    {s === "partial"                 ? "Partial"
+                                  : s === "available-not-cleaned"   ? "Not Cleaned"
+                                  : s}
+                                  </RSP>
+                                </RCT>
+                                <RT2>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RT2>
+                                <BRow>
+                                  {(room.beds || []).map((bed, i) => (
+                                    <BC key={i} bs={bed.status} disabled={bed.status !== "Available"}
+                                      title={
+                                        bed.status === "Available"               ? "✅ Ready to assign"
+                                      : bed.status === "Occupied"                ? "🔴 Patient admitted"
+                                      : bed.status === "Available - Not Cleaned" ? "🟡 Needs housekeeping"
+                                      : "🔧 Maintenance"
+                                      }
+                                      onClick={e => {
+                                        if (bed.status === "Available") {
+                                          e.stopPropagation();
+                                          handleBedSelect(bed.bed_number, room);
+                                        }
+                                      }}>
+                                      {bed.bed_number}
+                                    </BC>
+                                  ))}
+                                </BRow>
+                              </RC>
+                              {/* Room-level tooltip */}
+                              <div className="room-tip" style={{
+                                display:"none", position:"absolute", bottom:"calc(100% + 6px)", left:"50%",
+                                transform:"translateX(-50%)", background:"#1e293b", color:"#fff",
+                                fontSize:".65rem", fontWeight:500, borderRadius:5, padding:"5px 10px",
+                                whiteSpace:"nowrap", zIndex:10000, pointerEvents:"none", lineHeight:1.6,
+                                boxShadow:"0 4px 14px rgba(0,0,0,.28)"
+                              }}>
+                                <div style={{ fontWeight:700, marginBottom:2 }}>Room {room.room_number}</div>
+                                {tipLines && <div>{tipLines}</div>}
+                                {(s === "occupied" || s === "maintenance") && <div style={{ color:"#fca5a5", marginTop:2 }}>Cannot select</div>}
+                              </div>
+                            </div>
                           );
                         })}
                       </RG2>

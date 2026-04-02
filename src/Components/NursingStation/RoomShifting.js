@@ -557,7 +557,7 @@ const RoomShifting = () => {
       }));
 
       if (adm.has_shifted) {
-        toast.info("Admission already shifted. You can edit or cancel the existing shift.");
+        toast.info("Admission already shifted. You can edit the existing shift.");
       } else {
         toast.success(`Admission loaded: ${adm.ipNumber}`);
       }
@@ -871,7 +871,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
             <Table>
               <thead>
                 <tr>
-                  <Th>Actions</Th>
                   <Th>Shift #</Th>
                   <Th>UHID</Th>
                   <Th>IP Number</Th>
@@ -880,6 +879,7 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                   <Th>Old Room / Bed</Th>
                   <Th>New Room / Bed</Th>
                   <Th>Shifting Date &amp; Time</Th>
+                  <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
@@ -902,17 +902,6 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
 
                     return (
                       <Tr key={`${shiftId}-${idx}`}>
-                        <Td>
-                            <>
-                              <ActionBtn
-                                type="button"
-                                title="Edit (creates new record)"
-                                onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}
-                              >
-                                ✏️ Edit
-                              </ActionBtn>
-                            </>
-                        </Td>
                         <Td style={{ fontWeight:700, color:colors.primary }}>{shiftId}</Td>
                         <Td>{s.uhid            || "-"}</Td>
                         <Td>{s.ipNumber        || "-"}</Td>
@@ -921,6 +910,17 @@ const handleEditSave = async (shiftingId, updates, ipNumber) => {
                         <Td>{`${form.roomNo||"-"} / ${form.bedNo}`}</Td>
                         <Td>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</Td>
                         <Td>{shiftDateStr}</Td>
+                        <Td>
+                            <>
+                              <ActionBtn
+                                type="button"
+                                title="Edit"
+                                onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}
+                              >
+                                ✏️ Edit
+                              </ActionBtn>
+                            </>
+                        </Td>
                       </Tr>
                     );
                   })
