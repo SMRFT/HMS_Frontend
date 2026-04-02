@@ -160,7 +160,7 @@ const TableWrapper = styled.div`overflow-x: auto;`;
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 960px;
+  min-width: 860px;
 `;
 
 const Thead = styled.thead`background: #edf2f7;`;
@@ -208,11 +208,9 @@ const Badge = styled.span`
       case "card":     return "background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;";
       case "upi":      return "background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd;";
       case "ip":       return "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
+      case "notpaid":  return "background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; font-style:italic;";
       case "paid":     return "background:#c6f6d5; color:#276749; border:1px solid #9ae6b4;";
       case "billed":   return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
-      case "estimate": return "background:#fef9c3; color:#854d0e; border:1px solid #fde047;";
-      case "direct":   return "background:#d1fae5; color:#065f46; border:1px solid #6ee7b7;";
-      case "return":   return "background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;";
       default:         return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
     }
   }}
@@ -298,6 +296,226 @@ const StatPill = styled.span`
   border:1px solid ${({ border }) => border};
 `;
 
+// ─── Edit Confirmation Modal Styled Components ─────────────────────────────────
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(3px);
+  animation: ${fadeIn} 0.2s ease;
+`;
+
+const ModalBox = styled.div`
+  background: #ffffff;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.22), 0 0 0 1px rgba(15,118,110,0.08);
+  overflow: hidden;
+  animation: ${fadeIn} 0.25s cubic-bezier(0.22,1,0.36,1);
+`;
+
+const ModalTopBar = styled.div`
+  padding: 18px 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+
+  ${({ variant }) => variant === "delete" ? `
+    background: linear-gradient(130deg, #991b1b 0%, #dc2626 100%);
+  ` : `
+    background: linear-gradient(130deg, #1e40af 0%, #2563eb 100%);
+  `}
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 100px; height: 100px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+`;
+
+const ModalIcon = styled.div`
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+`;
+
+const ModalHeading = styled.div`
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+`;
+
+const ModalSubHeading = styled.div`
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+  margin-top: 2px;
+`;
+
+const ModalBody = styled.div`
+  padding: 22px 24px 20px;
+`;
+
+const ConfirmText = styled.p`
+  font-size: 13.5px;
+  color: #374151;
+  line-height: 1.6;
+  margin-bottom: 6px;
+`;
+
+const BillRef = styled.span`
+  font-weight: 700;
+  color: #1e40af;
+  font-family: monospace;
+  background: #eff6ff;
+  padding: 1px 7px;
+  border-radius: 5px;
+  border: 1px solid #bfdbfe;
+`;
+
+const ReasonSection = styled.div`
+  margin-top: 16px;
+  animation: ${fadeIn} 0.2s ease;
+`;
+
+const ReasonLabel = styled.label`
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 7px;
+
+  span {
+    color: #dc2626;
+    margin-left: 2px;
+  }
+`;
+
+const ReasonTextarea = styled.textarea`
+  width: 100%;
+  min-height: 80px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1f2937;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  background: #f9fafb;
+
+  &:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    background: #fff;
+  }
+
+  &::placeholder { color: #9ca3af; font-style: italic; }
+`;
+
+const ReasonError = styled.div`
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const ModalFooter = styled.div`
+  padding: 14px 24px 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+`;
+
+const ModalBtn = styled.button`
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  ${({ variant }) => variant === "cancel" ? `
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    &:hover { background: #e2e8f0; }
+  ` : variant === "confirm" ? `
+    background: linear-gradient(135deg, #1e40af, #2563eb);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    &:hover { background: linear-gradient(135deg, #1d3faa, #1e40af); }
+    &:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+  ` : variant === "danger" ? `
+    background: linear-gradient(135deg, #991b1b, #dc2626);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(220,38,38,0.25);
+    &:hover { background: linear-gradient(135deg, #7f1d1d, #991b1b); }
+    &:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+  ` : `
+    background: #f1f5f9;
+    color: #374151;
+  `}
+`;
+
+const StepDots = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+`;
+
+const StepDot = styled.div`
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: ${({ active }) => active ? "#2563eb" : "#e2e8f0"};
+  transition: background 0.2s;
+`;
+
+const StepLine = styled.div`
+  flex: 1;
+  height: 2px;
+  background: ${({ active }) => active ? "#2563eb" : "#e2e8f0"};
+  transition: background 0.2s;
+`;
+
+// ─── Delete Modal specific styled components ───────────────────────────────────
+const DeleteWarningBox = styled.div`
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: #c53030;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+`;
+
 // ─── Pure helpers (no state) ───────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -310,19 +528,38 @@ const formatDate = (iso) => {
 const formatTime = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+  const hours24 = d.getHours();
+  const minutes  = d.getMinutes();
+  const seconds  = d.getSeconds();
+  const ampm     = hours24 >= 12 ? "PM" : "AM";
+  const hours12  = hours24 % 12 || 12;
+  return `${String(hours12).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")} ${ampm}`;
 };
 
 /**
  * payment_details arrives as a Python OrderedDict string, e.g.:
  *   "OrderedDict([('method', 'cash'), ('Paid_amount', 103)])"
  *   "OrderedDict([('method', 'Multiple Payment'), ...])"
- * Extract the method value with a simple regex.
+ *
+ * Handles both single-quoted and double-quoted variants robustly.
+ * Returns null if not parseable — badge will show "—" in that case.
  */
 const parsePaymentMethod = (raw) => {
   if (!raw) return null;
-  const match = raw.match(/'method',\s*'([^']+)'/);
-  return match ? match[1] : null;
+
+  // Standard Python OrderedDict single-quoted: ('method', 'Cash')
+  const singleQ = raw.match(/\(\s*'method'\s*,\s*'([^']+)'\s*\)/i);
+  if (singleQ) return singleQ[1];
+
+  // Double-quoted variant: ("method", "Cash")
+  const doubleQ = raw.match(/\(\s*"method"\s*,\s*"([^"]+)"\s*\)/i);
+  if (doubleQ) return doubleQ[1];
+
+  // JSON-style colon: 'method': 'Cash'
+  const colonStyle = raw.match(/['"]method['"]\s*:\s*['"]([^'"]+)['"]/i);
+  if (colonStyle) return colonStyle[1];
+
+  return null;
 };
 
 const paymentVariant = (method) => {
@@ -338,7 +575,6 @@ const paymentVariant = (method) => {
 
 /**
  * Map bill_type numeric codes → readable labels.
- * Add more codes here as you discover them from the API.
  */
 const BILL_TYPE_LABELS = {
   "42": "PHARMACY OP BILL",
@@ -361,31 +597,38 @@ const ENTRIES_OPTIONS = [10, 25, 50, 100];
 // ─── formatBillData — maps exact API field names to internal shape ─────────────
 const formatBillData = (bills) =>
   bills.map((b) => ({
-    id:             b.Bill_id,                               // API: Bill_id
-    bill_date:      b.bill_date      || b.created_date || "",// API: bill_date (ISO with tz)
-    uhid:           b.uhid           || "",                  // API: uhid
-    patient_name:   b.patient_name   || "",                  // API: patient_name (added by view)
-    payment_method: parsePaymentMethod(b.payment_details),   // parsed from OrderedDict string
-    payment_details: b.payment_details || null,              // raw string, kept for future modal
-    billing_status: b.billing_status || "",                  // "Paid" | "Billed"
-    billing_mode:   b.billing_mode   || "",                  // "DIRECT" | "ESTIMATE"
-    bill_number:    b.bill_no        || "",                  // API: bill_no
-    bill_type:      b.bill_type      || "",                  // API: bill_type (e.g. "42")
-    estimate_no:    b.estimate_no    || null,                // API: estimate_no
-    total_amount:   parseFloat(b.total_amount ?? 0),         // API: total_amount
-    net_amount:     parseFloat(b.net_amount   ?? 0),         // API: net_amount
+    id:             b.Bill_id,
+    Bill_id:        b.Bill_id,
+    bill_date:      b.bill_date      || b.created_date || "",
+    uhid:           b.uhid           || "",
+    patient_name:   b.patient_name   || "",
+    payment_method: parsePaymentMethod(b.payment_details) || null,
+    payment_details: b.payment_details || null,
+    billing_mode:   b.billing_mode    || "",
+    billing_status: b.billing_status || "",
+    bill_number:    b.bill_no        || "",
+    bill_no:        b.bill_no        || "",
+    bill_type:      b.bill_type      || "",
+    estimate_no:    b.estimate_no    || null,
+    total_amount:   parseFloat(b.total_amount ?? 0),
+    net_amount:     parseFloat(b.net_amount   ?? 0),
     discount:       parseFloat(b.overall_discount_amount ?? 0),
+    overall_discount_type:   b.overall_discount_type  || "percent",
+    overall_discount_value:  b.overall_discount_value ?? 0,
+    overall_discount_amount: parseFloat(b.overall_discount_amount ?? 0),
     doctor_id:      b.doctor_id      || "",
+    inpatient_number: b.inpatient_number || "",
+    room_no:        b.room_no        || "",
+    medicine_particulars: b.medicine_particulars || [],
   }));
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function OPPharmacyViewBills() {
+export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) {
   const [fromDate,       setFromDate]       = useState(today());
   const [toDate,         setToDate]         = useState(today());
   const [searchBy,       setSearchBy]       = useState(SEARCH_BY_OPTIONS[0].value);
   const [searchText,     setSearchText]     = useState("");
 
-  // Bill-type filter populated dynamically from API data — no hardcoding
   const [billTypeFilter, setBillTypeFilter] = useState("ALL");
   const [billTypeCodes,  setBillTypeCodes]  = useState([]);
 
@@ -398,6 +641,139 @@ export default function OPPharmacyViewBills() {
   const [currentPage,    setCurrentPage]    = useState(1);
   const [sortKey,        setSortKey]        = useState("bill_date");
   const [sortDir,        setSortDir]        = useState("desc");
+
+  // ── Edit Confirmation Modal ───────────────────────────────────────────────
+  const [editModalBill,  setEditModalBill]  = useState(null);
+  const [editStep,       setEditStep]       = useState(1);
+  const [editReason,     setEditReason]     = useState("");
+  const [reasonError,    setReasonError]    = useState(false);
+
+  // ── Delete Confirmation Modal ─────────────────────────────────────────────
+  const [deleteModalBill,   setDeleteModalBill]   = useState(null);
+  const [deleteReason,      setDeleteReason]      = useState("");
+  const [deleteReasonError, setDeleteReasonError] = useState(false);
+  const [deleteLoading,     setDeleteLoading]     = useState(false);
+  const [deleteError,       setDeleteError]       = useState("");
+
+  // ── Edit Modal Handlers ───────────────────────────────────────────────────
+
+  const [printBill, setPrintBill] = useState(null);
+
+  const handlePrint = (bill) => {
+  setPrintBill(bill);
+};
+const handlePrintNow = () => {
+  const content = document.getElementById("print-area").innerHTML;
+  const win = window.open("", "", "width=900,height=700");
+
+  win.document.write(`
+    <html>
+      <head>
+        <title>Print</title>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; }
+          td, th { border: 1px solid #000; padding: 6px; font-size: 12px; }
+        </style>
+      </head>
+      <body>${content}</body>
+    </html>
+  `);
+
+  win.document.close();
+  win.print();
+};
+  const openEditModal = (bill) => {
+    setEditModalBill(bill);
+    setEditStep(1);
+    setEditReason("");
+    setReasonError(false);
+  };
+
+  const closeEditModal = () => {
+    setEditModalBill(null);
+    setEditStep(1);
+    setEditReason("");
+    setReasonError(false);
+  };
+
+  const handleEditConfirm = () => {
+    setEditStep(2);
+    setReasonError(false);
+  };
+
+  const handleEditProceed = () => {
+    if (!editReason.trim()) {
+      setReasonError(true);
+      return;
+    }
+    if (onEditBill) onEditBill({ ...editModalBill, editReason: editReason.trim() });
+    if (onSwitchToPharmacy) onSwitchToPharmacy();
+    closeEditModal();
+  };
+
+  // ── Delete Modal Handlers ─────────────────────────────────────────────────
+  const openDeleteModal = (bill) => {
+    setDeleteModalBill(bill);
+    setDeleteReason("");
+    setDeleteReasonError(false);
+    setDeleteError("");
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalBill(null);
+    setDeleteReason("");
+    setDeleteReasonError(false);
+    setDeleteError("");
+  };
+
+  /**
+   * Calls the backend delete endpoint.
+   * Backend will:
+   *   1. Soft-delete the OPPharmacyBill (is_deleted = True)
+   *   2. Decrease PharmacyStock.blocked_quantity for each medicine_particular
+   *      matched by item_id + batch_number
+   */
+  const handleDeleteConfirm = async () => {
+    if (!deleteReason.trim()) {
+      setDeleteReasonError(true);
+      return;
+    }
+
+    setDeleteLoading(true);
+    setDeleteError("");
+
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}oppharmacy_deletebill/`,
+        "POST",
+        {
+          bill_id: deleteModalBill.Bill_id,
+          delete_reason: deleteReason.trim(),
+        }
+      );
+
+      // ✅ SUCCESS
+      if (response.status === "success") {
+        // Remove from UI
+        setAllBills((prev) =>
+          prev.filter((b) => b.Bill_id !== deleteModalBill.Bill_id)
+        );
+        closeDeleteModal();
+      } else {
+        // ✅ BACKEND ERROR MESSAGE
+        setDeleteError(response.message || "Delete failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("Delete API error:", err);
+      setDeleteError(
+        err?.response?.data?.message ||
+        "Something went wrong while deleting. Please try again."
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   const fetchBills = useCallback(async () => {
@@ -412,11 +788,12 @@ export default function OPPharmacyViewBills() {
       const billsArray = Array.isArray(response?.data) ? response.data : [];
       console.log("Raw pending bills data:", response?.data);
 
-      const formatted = formatBillData(billsArray);
+     const formatted = formatBillData(
+  billsArray.filter(b => !b.is_deleted)
+);
       setAllBills(formatted);
       setCurrentPage(1);
 
-      // Derive unique bill_type codes from actual data — no hardcoding needed
       const codes = [...new Set(billsArray.map((b) => b.bill_type).filter(Boolean))];
       setBillTypeCodes(codes);
 
@@ -434,7 +811,32 @@ export default function OPPharmacyViewBills() {
 
   // ── Client-side filtering ────────────────────────────────────────────────
   const filtered = allBills.filter((b) => {
+    // Bill type filter
     if (billTypeFilter !== "ALL" && b.bill_type !== billTypeFilter) return false;
+
+    // Date range filter applied against bill_date
+    if (fromDate || toDate) {
+      const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
+      if (billDay) {
+        if (fromDate && billDay < fromDate) return false;
+        if (toDate   && billDay > toDate)   return false;
+      }
+    }
+
+    // Top-bar search: filter only by the selected "Search By" field
+    if (searchText && searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      const fieldMap = {
+        bill_date:    (b.bill_date    || "").slice(0, 10),
+        patient_name: (b.patient_name || "").toLowerCase(),
+        uhid:         (b.uhid         || "").toLowerCase(),
+        bill_no:      (b.bill_number  || "").toLowerCase(),
+      };
+      const val = fieldMap[searchBy] ?? "";
+      if (!val.includes(q)) return false;
+    }
+
+    // Table quick-search (searches all visible text columns)
     if (tableSearch) {
       const q = tableSearch.toLowerCase();
       return (
@@ -442,10 +844,10 @@ export default function OPPharmacyViewBills() {
         (b.uhid           || "").toLowerCase().includes(q) ||
         (b.bill_number    || "").toLowerCase().includes(q) ||
         (b.payment_method || "").toLowerCase().includes(q) ||
-        (b.billing_status || "").toLowerCase().includes(q) ||
-        (b.billing_mode   || "").toLowerCase().includes(q)
+        (b.billing_status || "").toLowerCase().includes(q)
       );
     }
+
     return true;
   });
 
@@ -492,6 +894,10 @@ export default function OPPharmacyViewBills() {
     return pages;
   };
 
+  // ─── Helper: is this bill "Paid"? ─────────────────────────────────────────
+  const isPaid = (bill) =>
+    (bill.billing_status || "").toLowerCase() === "paid";
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -501,7 +907,6 @@ export default function OPPharmacyViewBills() {
 
         {/* ── Filter Bar ── */}
         <FilterCard>
-          {/* Bill Type — options derived from API data, zero hardcoding */}
           <FieldGroup>
             <Label>Bill Type</Label>
             <Select
@@ -612,7 +1017,6 @@ export default function OPPharmacyViewBills() {
                     <Th onClick={() => handleSort("uhid")}>UHID No <SortIcon col="uhid" /></Th>
                     <Th onClick={() => handleSort("patient_name")}>Patient <SortIcon col="patient_name" /></Th>
                     <Th onClick={() => handleSort("payment_method")}>Payment Mode <SortIcon col="payment_method" /></Th>
-                    <Th onClick={() => handleSort("billing_mode")}>Billing Mode <SortIcon col="billing_mode" /></Th>
                     <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" /></Th>
                     <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" /></Th>
                     <Th onClick={() => handleSort("total_amount")}>Bill Amount <SortIcon col="total_amount" /></Th>
@@ -623,10 +1027,7 @@ export default function OPPharmacyViewBills() {
                 <tbody>
                   {paginated.map((bill, idx) => (
                     <Tr key={bill.id ?? idx}>
-                      {/* bill_date — date part */}
                       <Td>{formatDate(bill.bill_date)}</Td>
-
-                      {/* bill_date — time part (API has no separate bill_time field) */}
                       <Td>{formatTime(bill.bill_date)}</Td>
 
                       <Td style={{ color:"#2b6cb0", fontWeight:500 }}>
@@ -637,52 +1038,61 @@ export default function OPPharmacyViewBills() {
                         {bill.patient_name || "—"}
                       </Td>
 
-                      {/* payment_method parsed from payment_details OrderedDict string */}
                       <Td>
                         {bill.payment_method ? (
                           <Badge variant={paymentVariant(bill.payment_method)}>
                             {bill.payment_method}
                           </Badge>
                         ) : (
-                          <span style={{ color:"#a0aec0" }}>—</span>
+                          <Badge variant="notpaid">⏳ Not Yet Paid</Badge>
                         )}
                       </Td>
 
-                      {/* billing_mode: DIRECT | ESTIMATE */}
                       <Td>
-                        <Badge variant={bill.billing_mode === "ESTIMATE" ? "estimate" : "direct"}>
-                          {bill.billing_mode || "—"}
-                        </Badge>
-                      </Td>
-
-                      {/* billing_status: Paid | Billed */}
-                      <Td>
-                        <Badge variant={bill.billing_status === "Paid" ? "paid" : "billed"}>
+                        <Badge variant={isPaid(bill) ? "paid" : "billed"}>
                           {bill.billing_status || "—"}
                         </Badge>
                       </Td>
 
-                      {/* bill_no from API */}
                       <Td style={{ fontFamily:"monospace", fontSize:12 }}>
                         {bill.bill_number || "—"}
                       </Td>
 
-                      {/* total_amount from API */}
                       <Td><AmountCell>₹ {bill.total_amount.toFixed(2)}</AmountCell></Td>
-
-                      {/* net_amount from API */}
                       <Td><AmountCell>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
 
                       <Td>
                         <ActionGroup>
-                          <IconBtn variant="edit"   title="Edit"
-                            onClick={() => alert(`Edit: ${bill.bill_number}`)}>✏️</IconBtn>
-                          <IconBtn variant="delete" title="Delete"
-                            onClick={() => alert(`Delete: ${bill.bill_number}`)}>🗑️</IconBtn>
-                          <IconBtn variant="print"  title="Print"
-                            onClick={() => window.print()}>🖨️</IconBtn>
-                          <IconBtn variant="copy"   title="Duplicate"
-                            onClick={() => alert(`Duplicate: ${bill.bill_number}`)}>📋</IconBtn>
+                          {/* ── REQUIREMENT 1: Hide Edit button for Paid bills ── */}
+                          {!isPaid(bill) && (
+                            <IconBtn
+                              variant="edit"
+                              title="Edit"
+                              onClick={() => openEditModal(bill)}
+                            >
+                              ✏️
+                            </IconBtn>
+                          )}
+
+                          {/* ── REQUIREMENT 2 & 3: Delete opens confirmation modal ── */}
+                          <IconBtn
+                            variant="delete"
+                            title="Delete"
+                            onClick={() => openDeleteModal(bill)}
+                          >
+                            🗑️
+                          </IconBtn>
+
+                          <IconBtn variant="print" title="Print" onClick={() => window.print()}>
+                            🖨️
+                          </IconBtn>
+                          <IconBtn
+                            variant="copy"
+                            title="Duplicate"
+                            onClick={() => alert(`Duplicate: ${bill.bill_number}`)}
+                          >
+                            📋
+                          </IconBtn>
                         </ActionGroup>
                       </Td>
                     </Tr>
@@ -727,6 +1137,242 @@ export default function OPPharmacyViewBills() {
           )}
         </TableCard>
       </PageWrapper>
+
+      {/* ── Edit Confirmation Modal ── */}
+      {editModalBill && (
+        <ModalOverlay onClick={closeEditModal}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+
+            <ModalTopBar>
+              <ModalIcon>✏️</ModalIcon>
+              <div>
+                <ModalHeading>Edit Bill</ModalHeading>
+                <ModalSubHeading>
+                  {editStep === 1 ? "Confirm your intent" : "Provide an edit reason"}
+                </ModalSubHeading>
+              </div>
+            </ModalTopBar>
+
+            <ModalBody>
+              <StepDots>
+                <StepDot active={true} />
+                <StepLine active={editStep === 2} />
+                <StepDot active={editStep === 2} />
+              </StepDots>
+
+              {editStep === 1 && (
+                <>
+                  <ConfirmText>
+                    Are you sure you want to edit bill{" "}
+                    <BillRef>{editModalBill.bill_number || editModalBill.bill_no || "—"}</BillRef>
+                    {" "}for patient{" "}
+                    <strong>{editModalBill.patient_name || "—"}</strong>?
+                  </ConfirmText>
+                  <ConfirmText style={{ color: "#6b7280", fontSize: 12.5, marginTop: 6 }}>
+                    This will load the bill details into the billing form for modification.
+                    All existing entries will be replaced.
+                  </ConfirmText>
+                </>
+              )}
+
+              {editStep === 2 && (
+                <>
+                  <ConfirmText>
+                    Editing bill{" "}
+                    <BillRef>{editModalBill.bill_number || editModalBill.bill_no || "—"}</BillRef>.
+                    Please provide a reason for this edit.
+                  </ConfirmText>
+                  <ReasonSection>
+                    <ReasonLabel>
+                      Reason for Edit <span>*</span>
+                    </ReasonLabel>
+                    <ReasonTextarea
+                      autoFocus
+                      placeholder="e.g. Wrong quantity entered, incorrect medicine selected..."
+                      value={editReason}
+                      onChange={(e) => {
+                        setEditReason(e.target.value);
+                        if (e.target.value.trim()) setReasonError(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && e.ctrlKey) handleEditProceed();
+                      }}
+                    />
+                    {reasonError && (
+                      <ReasonError>
+                        ⚠ Reason is required to proceed with the edit.
+                      </ReasonError>
+                    )}
+                  </ReasonSection>
+                </>
+              )}
+            </ModalBody>
+
+            <ModalFooter>
+              <ModalBtn variant="cancel" onClick={closeEditModal}>
+                ✕ Cancel
+              </ModalBtn>
+
+              {editStep === 1 ? (
+                <ModalBtn variant="confirm" onClick={handleEditConfirm}>
+                  ✓ Yes, Edit
+                </ModalBtn>
+              ) : (
+                <ModalBtn
+                  variant="confirm"
+                  onClick={handleEditProceed}
+                  disabled={!editReason.trim()}
+                >
+                  → Proceed to Edit
+                </ModalBtn>
+              )}
+            </ModalFooter>
+
+          </ModalBox>
+        </ModalOverlay>
+      )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {deleteModalBill && (
+        <ModalOverlay onClick={!deleteLoading ? closeDeleteModal : undefined}>
+          <ModalBox onClick={(e) => e.stopPropagation()}>
+
+            <ModalTopBar variant="delete">
+              <ModalIcon>🗑️</ModalIcon>
+              <div>
+                <ModalHeading>Delete Bill</ModalHeading>
+                <ModalSubHeading>This action cannot be undone</ModalSubHeading>
+              </div>
+            </ModalTopBar>
+
+            <ModalBody>
+              <ConfirmText>
+                You are about to permanently delete bill{" "}
+                <BillRef style={{ color:"#991b1b", background:"#fff5f5", borderColor:"#fecaca" }}>
+                  {deleteModalBill.bill_number || deleteModalBill.bill_no || "—"}
+                </BillRef>{" "}
+                for patient <strong>{deleteModalBill.patient_name || "—"}</strong>.
+              </ConfirmText>
+
+              <DeleteWarningBox>
+                ⚠️ Deleting this bill will also release the blocked stock quantities for all
+                medicines in this bill back into available inventory.
+              </DeleteWarningBox>
+
+              <ReasonSection>
+                <ReasonLabel>
+                  Reason for Deletion <span>*</span>
+                </ReasonLabel>
+                <ReasonTextarea
+                  autoFocus
+                  placeholder="e.g. Bill created by mistake, patient cancelled order..."
+                  value={deleteReason}
+                  onChange={(e) => {
+                    setDeleteReason(e.target.value);
+                    if (e.target.value.trim()) setDeleteReasonError(false);
+                    setDeleteError("");
+                  }}
+                  disabled={deleteLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.ctrlKey) handleDeleteConfirm();
+                  }}
+                />
+                {deleteReasonError && (
+                  <ReasonError>
+                    ⚠ Reason is required to proceed with the deletion.
+                  </ReasonError>
+                )}
+                {deleteError && (
+                  <ReasonError style={{ marginTop: 8, fontSize: 12.5 }}>
+                    ⚠ {deleteError}
+                  </ReasonError>
+                )}
+              </ReasonSection>
+            </ModalBody>
+
+            <ModalFooter>
+              <ModalBtn variant="cancel" onClick={closeDeleteModal} disabled={deleteLoading}>
+                ✕ Cancel
+              </ModalBtn>
+              <ModalBtn
+                variant="danger"
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading || !deleteReason.trim()}
+              >
+                {deleteLoading ? "Deleting…" : "🗑️ Confirm Delete"}
+              </ModalBtn>
+            </ModalFooter>
+
+          </ModalBox>
+        </ModalOverlay>
+
+        
+      )}
+      {printBill && (
+  <ModalOverlay>
+    <ModalBox style={{ maxWidth: "900px" }}>
+      
+      <ModalTopBar>
+        <ModalHeading>Print Preview</ModalHeading>
+      </ModalTopBar>
+
+      <ModalBody>
+
+        {/* 🔥 PRINT CONTENT */}
+        <div id="print-area">
+
+          <h2 style={{ textAlign: "center" }}>
+            SHANMUGA HOSPITAL LIMITED
+          </h2>
+
+          <p><b>Patient:</b> {printBill.patient_name}</p>
+          <p><b>UHID:</b> {printBill.uhid}</p>
+          <p><b>Bill No:</b> {printBill.bill_no}</p>
+          <p><b>Date:</b> {formatDate(printBill.bill_date)}</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Particulars</th>
+                <th>Qty</th>
+                <th>Rate</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printBill.medicine_particulars?.map((med, i) => (
+                <tr key={i}>
+                  <td>{med.item_name}</td>
+                  <td>{med.quantity}</td>
+                  <td>{med.rate}</td>
+                  <td>{med.amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h3 style={{ textAlign: "right" }}>
+            Total: ₹{printBill.net_amount}
+          </h3>
+
+        </div>
+
+      </ModalBody>
+
+      <ModalFooter>
+        <ModalBtn variant="cancel" onClick={() => setPrintBill(null)}>
+          Close
+        </ModalBtn>
+
+        <ModalBtn variant="confirm" onClick={handlePrintNow}>
+          🖨️ Print
+        </ModalBtn>
+      </ModalFooter>
+
+    </ModalBox>
+  </ModalOverlay>
+)}
+
     </>
   );
 }

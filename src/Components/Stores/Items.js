@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Select from 'react-select';
+import ReactSelect from 'react-select';
 import apiRequest from '../../Auth/apiRequest';
+import { Plus, Search, Edit2, Trash2, X, FilterX } from 'lucide-react';
 import {
   PageWrapper,
   Container,
@@ -20,7 +21,15 @@ import {
   Label,
   ButtonContainer,
   TabContainer,
-  Tab
+  Tab,
+  ModalOverlay,
+  ModalContainer,
+  ModalHeader,
+  ModalTitle,
+  ModalBody,
+  CloseButton,
+  colors,
+  Select as StyledSelect
 } from '../GlobalStyles';
 
 const tabs = [
@@ -250,7 +259,7 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Department</Label>
-                        <Select
+                        <ReactSelect
                             name="department"
                             value={allDepartments.find(d => d.department_id === formData.department) ? { value: formData.department, label: allDepartments.find(d => d.department_id === formData.department).department_name } : null}
                             onChange={(option) => handleSelectChange('department', option)}
@@ -262,7 +271,7 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label required>Category</Label>
-                        <Select
+                        <ReactSelect
                             name="category"
                             value={allCategories.find(c => c.category_id === formData.category) ? { value: formData.category, label: allCategories.find(c => c.category_id === formData.category).category_name } : null}
                             onChange={(option) => handleSelectChange('category', option)}
@@ -275,7 +284,7 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label required>Group</Label>
-                        <Select
+                        <ReactSelect
                             name="group"
                             value={allGroups.find(g => g.group_id === formData.group) ? { value: formData.group, label: allGroups.find(g => g.group_id === formData.group).group_name } : null}
                             onChange={(option) => handleSelectChange('group', option)}
@@ -288,7 +297,7 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label required>Group Type</Label>
-                        <Select
+                        <ReactSelect
                             name="group_type"
                             value={allGroupTypes.find(gt => gt.group_type_id === formData.group_type) ? { value: formData.group_type, label: allGroupTypes.find(gt => gt.group_type_id === formData.group_type).group_type_name } : null}
                             onChange={(option) => handleSelectChange('group_type', option)}
@@ -349,98 +358,114 @@ const Items = () => {
                     ))}
                 </TabContainer>
 
-                <div style={{ padding: '20px' }}>
-                    <ControlsContainer style={{ width: '100%', marginBottom: '20px' }}>
-                        <h2>{activeTab.label}</h2>
-                        {!showForm && (
-                            <Button success onClick={() => setShowForm(true)}>
-                                + Add {activeTab.label.replace(' Master', '')}
-                            </Button>
-                        )}
-                    </ControlsContainer>
+                <div style={{ padding: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <h2 style={{ margin: 0, color: colors.primary, fontSize: '1.5rem', fontWeight: '700' }}>{activeTab.label}</h2>
+                            <span style={{ background: colors.tabBg, color: colors.primary, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: '600' }}>
+                                {filteredItems.length} Records
+                            </span>
+                        </div>
+                        <Button success onClick={() => setShowForm(true)} style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
+                            <Plus size={18} /> Add {activeTab.label.replace(' Master', '')}
+                        </Button>
+                    </div>
                     
-                    {!showForm && (
-                        <ControlsContainer style={{ background: '#f8f9fa', padding: '15px', borderRadius: '5px', border: '1px solid #dee2e6' }}>
-                            <SearchContainer style={{ flex: 1 }}>
+                    <ControlsContainer style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
+                        <SearchContainer style={{ flex: 1, gap: '16px' }}>
+                            <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
+                                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
                                 <Input 
-                                    placeholder={`Search ${activeTab.label}...`} 
+                                    placeholder={`Search by name or ID...`} 
                                     value={searchTerm} 
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    style={{ flex: 1, minWidth: '200px' }}
+                                    style={{ paddingLeft: '40px', height: '42px', borderRadius: '8px' }}
                                 />
-                                
-                                {activeTab.id === 'item' && (
-                                    <>
-                                        <div style={{minWidth: '200px'}}>
-                                            <Select
-                                                value={filterDepartment ? { value: filterDepartment, label: allDepartments.find(d => d.department_id === filterDepartment)?.department_name || 'All Departments' } : null}
-                                                onChange={(option) => setFilterDepartment(option ? option.value : '')}
-                                                options={allDepartments.map(dept => ({ value: dept.department_id, label: dept.department_name }))}
-                                                placeholder="All Departments"
-                                                isClearable
-                                            />
-                                        </div>
+                            </div>
+                            
+                            {activeTab.id === 'item' && (
+                                <>
+                                    <div style={{minWidth: '200px'}}>
+                                        <ReactSelect
+                                            value={allDepartments.find(d => d.department_id === filterDepartment) ? { value: filterDepartment, label: allDepartments.find(d => d.department_id === filterDepartment).department_name } : null}
+                                            onChange={(option) => setFilterDepartment(option ? option.value : '')}
+                                            options={allDepartments.map(dept => ({ value: dept.department_id, label: dept.department_name }))}
+                                            placeholder="All Departments"
+                                            isClearable
+                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                        />
+                                    </div>
 
-                                        <div style={{minWidth: '200px'}}>
-                                            <Select
-                                                value={filterCategory ? { value: filterCategory, label: allCategories.find(c => c.category_id === filterCategory)?.category_name || 'All Categories' } : null}
-                                                onChange={(option) => setFilterCategory(option ? option.value : '')}
-                                                options={allCategories.map(cat => ({ value: cat.category_id, label: cat.category_name }))}
-                                                placeholder="All Categories"
-                                                isClearable
-                                            />
-                                        </div>
+                                    <div style={{minWidth: '200px'}}>
+                                        <ReactSelect
+                                            value={allCategories.find(c => c.category_id === filterCategory) ? { value: filterCategory, label: allCategories.find(c => c.category_id === filterCategory).category_name } : null}
+                                            onChange={(option) => setFilterCategory(option ? option.value : '')}
+                                            options={allCategories.map(cat => ({ value: cat.category_id, label: cat.category_name }))}
+                                            placeholder="All Categories"
+                                            isClearable
+                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                        />
+                                    </div>
 
-                                        <div style={{minWidth: '200px'}}>
-                                            <Select
-                                                value={filterGroup ? { value: filterGroup, label: allGroups.find(g => g.group_id === filterGroup)?.group_name || 'All Groups' } : null}
-                                                onChange={(option) => setFilterGroup(option ? option.value : '')}
-                                                options={allGroups.map(grp => ({ value: grp.group_id, label: grp.group_name }))}
-                                                placeholder="All Groups"
-                                                isClearable
-                                            />
-                                        </div>
+                                    <div style={{minWidth: '200px'}}>
+                                        <ReactSelect
+                                            value={allGroups.find(g => g.group_id === filterGroup) ? { value: filterGroup, label: allGroups.find(g => g.group_id === filterGroup).group_name } : null}
+                                            onChange={(option) => setFilterGroup(option ? option.value : '')}
+                                            options={allGroups.map(grp => ({ value: grp.group_id, label: grp.group_name }))}
+                                            placeholder="All Groups"
+                                            isClearable
+                                            styles={{ control: base => ({ ...base, height: '42px', borderRadius: '8px', borderColor: colors.border }) }}
+                                        />
+                                    </div>
 
-                                        <div style={{ display: 'flex', alignItems: 'center', marginLeft: '10px' }}>
-                                            <input 
-                                                type="checkbox" 
-                                                id="lowStockCheckbox" 
-                                                checked={filterLowStock} 
-                                                onChange={(e) => setFilterLowStock(e.target.checked)} 
-                                                style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
-                                            />
-                                            <label htmlFor="lowStockCheckbox" style={{color: '#dc3545', fontWeight: 'bold', whiteSpace: 'nowrap', cursor: 'pointer', margin: 0}}>
-                                                Low Stock
-                                            </label>
-                                        </div>
-                                    </>
-                                )}
+                                    <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', background: filterLowStock ? '#fee2e2' : 'transparent', borderRadius: '8px', transition: 'all 0.2s', border: filterLowStock ? `1px solid ${colors.danger}` : `1px solid transparent` }}>
+                                        <input 
+                                            type="checkbox" 
+                                            id="lowStockCheckbox" 
+                                            checked={filterLowStock} 
+                                            onChange={(e) => setFilterLowStock(e.target.checked)} 
+                                            style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer', accentColor: colors.danger }}
+                                        />
+                                        <label htmlFor="lowStockCheckbox" style={{color: filterLowStock ? colors.danger : colors.textMuted, fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', margin: 0}}>
+                                            Low Stock
+                                        </label>
+                                    </div>
+                                </>
+                            )}
 
-                                <Button secondary onClick={clearFilters}>
-                                    Clear
-                                </Button>
-                            </SearchContainer>
-                        </ControlsContainer>
-                    )}
+                            <Button secondary onClick={clearFilters} style={{ height: '42px', padding: '0 16px', background: '#f1f5f9', color: colors.textMain, border: `1px solid ${colors.border}` }}>
+                                <FilterX size={18} /> Clear
+                            </Button>
+                        </SearchContainer>
+                    </ControlsContainer>
+
 
                     {showForm && (
-                        <div style={{ marginBottom: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#ffffff' }}>
-                            <h3 style={{ marginBottom: '20px' }}>{isEditing ? `Edit ${activeTab.label}` : `Add New ${activeTab.label}`}</h3>
-                            <form onSubmit={handleSubmit}>
-                                <FormRow>
-                                    {renderFormFields()}
-                                </FormRow>
-                                <ButtonContainer>
-                                    <Button type="submit">
-                                        {isEditing ? 'Update' : 'Save'}
-                                    </Button>
-                                    <Button secondary type="button" onClick={resetForm}>
-                                        Cancel
-                                    </Button>
-                                </ButtonContainer>
-                            </form>
-                        </div>
+                        <ModalOverlay>
+                            <ModalContainer style={{ maxWidth: '700px' }}>
+                                <ModalHeader>
+                                    <ModalTitle>{isEditing ? `Edit ${activeTab.label}` : `Add New ${activeTab.label}`}</ModalTitle>
+                                    <CloseButton onClick={resetForm}><X size={20} /></CloseButton>
+                                </ModalHeader>
+                                <ModalBody>
+                                    <form onSubmit={handleSubmit}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', padding: '10px' }}>
+                                            {renderFormFields()}
+                                        </div>
+                                        <ButtonContainer style={{ marginTop: '30px', borderTop: `1px solid ${colors.border}`, paddingTop: '20px' }}>
+                                            <Button type="submit" style={{ padding: '10px 30px', fontSize: '0.95rem' }}>
+                                                {isEditing ? 'Update Changes' : 'Save Record'}
+                                            </Button>
+                                            <Button secondary type="button" onClick={resetForm} style={{ padding: '10px 30px', fontSize: '0.95rem' }}>
+                                                Cancel
+                                            </Button>
+                                        </ButtonContainer>
+                                    </form>
+                                </ModalBody>
+                            </ModalContainer>
+                        </ModalOverlay>
                     )}
+
 
                     {!showForm && (
                         <>
@@ -472,23 +497,35 @@ const Items = () => {
                                                 const isLowStock = activeTab.id === 'item' && availQty <= Number(item.stockReorderLevel || 0);
 
                                                 return (
-                                                    <Tr key={item[idField]} style={isLowStock ? { backgroundColor: '#fee2e2', color: '#dc2626' } : {}}>
-                                                        {/* <Td>{item[idField]}</Td> */}
-                                                        <Td>{item[nameField]}</Td>
+                                                    <Tr key={item[idField]} style={isLowStock ? { backgroundColor: '#fff1f2' } : {}}>
+                                                        <Td style={{ fontWeight: '500' }}>{item[nameField]}</Td>
                                                         {activeTab.id === 'item' && (
                                                             <>
-                                                                <Td>{item.hsn}</Td>
+                                                                <Td>{item.hsn || '-'}</Td>
                                                                 <Td>{getGroupName(item.group)}</Td>
                                                                 <Td>{getCategoryName(item.category)}</Td>
-                                                                <Td style={{ fontWeight: isLowStock ? 'bold' : 'normal', color: isLowStock ? '#dc2626' : 'inherit' }}>{availQty}</Td>
-                                                                <Td>{item.stockReorderLevel}</Td>
+                                                                <Td style={{ fontWeight: '700', color: isLowStock ? colors.danger : colors.success }}>
+                                                                    {availQty}
+                                                                </Td>
+                                                                <Td style={{ color: colors.textMuted }}>{item.stockReorderLevel}</Td>
                                                             </>
                                                         )}
-                                                        {/* <Td>{new Date(item.created_date).toLocaleString()}</Td> */}
                                                         <Td>
                                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <Button style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #16a34a', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 'bold' }} onClick={() => handleEdit(item)}>Edit</Button>
-                                                                <Button style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #dc2626', padding: '4px 12px', fontSize: '0.8rem', fontWeight: 'bold' }} onClick={() => handleDelete(item[idField])}>Delete</Button>
+                                                                <Button 
+                                                                    onClick={() => handleEdit(item)}
+                                                                    style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7', padding: '6px 10px' }}
+                                                                    title="Edit"
+                                                                >
+                                                                    <Edit2 size={16} />
+                                                                </Button>
+                                                                <Button 
+                                                                    onClick={() => handleDelete(item[idField])}
+                                                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2', padding: '6px 10px' }}
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </Button>
                                                             </div>
                                                         </Td>
                                                     </Tr>

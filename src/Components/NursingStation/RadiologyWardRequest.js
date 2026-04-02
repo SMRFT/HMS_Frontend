@@ -424,10 +424,17 @@ export default function RadiologyWardRequest({ patient, onClose }) {
     name: [patient?.salutation ?? pd.salutation, patient?.firstName ?? pd.firstName, patient?.lastName ?? pd.lastName].filter(Boolean).join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
     admitting: patient?.admissionDateTime ? new Date(patient.admissionDateTime).toLocaleString("en-GB") : "-",
+    admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
     roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
     customerType: patient?.customerType || pd.customer_type || "-",
     wardName: patient?.wardName || "-",
   };
+
+  useEffect(() => {
+    if (patient?.admittingDoctor) {
+      setDoctor(patient.admittingDoctor);
+    }
+  }, [patient]);
 
   useEffect(() => {
     fetchBillTypes();
@@ -581,6 +588,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
           <FieldBox><FieldLabel>Patient Name</FieldLabel><FieldValue>{resolvedPatient.name}</FieldValue></FieldBox>
           <FieldBox><FieldLabel>Room | Bed</FieldLabel><FieldValue>{resolvedPatient.roomBed}</FieldValue></FieldBox>
           <FieldBox><FieldLabel>Admitting Date</FieldLabel><FieldValue>{resolvedPatient.admitting}</FieldValue></FieldBox>
+          <FieldBox><FieldLabel>Admitting Dr</FieldLabel><FieldValue>{resolvedPatient.admittingDr}</FieldValue></FieldBox>
           <FieldBox><FieldLabel>Customer Type</FieldLabel><FieldValue>{resolvedPatient.customerType}</FieldValue></FieldBox>
         </PatientGrid>
       </PatientPanel>

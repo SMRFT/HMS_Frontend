@@ -1,105 +1,62 @@
 import React, { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import {
-  FiHome,
-  FiUserPlus,
-  FiRepeat,
-  FiLogOut,
-  FiActivity,
-  FiPackage,
-  FiShoppingBag,
-  FiTruck,
-  FiFileText,
-  FiUsers,
-  FiClipboard,
-  FiLayers,
-  FiTag,
-  FiCode,
-  FiMenu,
-  FiX
-} from "react-icons/fi";
+  Home,
+  UserPlus,
+  Repeat,
+  LogOut,
+  Activity,
+  Package,
+  ShoppingBag,
+  Truck,
+  FileText,
+  Users,
+  Clipboard,
+  Layers,
+  Tag,
+  Code,
+  X,
+  ChevronDown,
+  ChevronRight
+} from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
 import LOGO from "../Components/Images/smrft.png";
 
 const iconMap = {
-  FiHome,
-  FiUserPlus,
-  FiRepeat,
-  FiLogOut,
-  FiActivity,
-  FiPackage,
-  FiShoppingBag,
-  FiTruck,
-  FiFileText,
-  FiUsers,
-  FiClipboard,
-  FiLayers,
-  FiTag,
-  FiCode
+  Home, FiHome: Home,
+  UserPlus, FiUserPlus: UserPlus,
+  Repeat, FiRepeat: Repeat,
+  LogOut, FiLogOut: LogOut,
+  Activity, FiActivity: Activity,
+  Package, FiPackage: Package,
+  ShoppingBag, FiShoppingBag: ShoppingBag,
+  Truck, FiTruck: Truck,
+  FileText, FiFileText: FileText,
+  Users, FiUsers: Users,
+  Clipboard, FiClipboard: Clipboard,
+  Layers, FiLayers: Layers,
+  Tag, FiTag: Tag,
+  Code, FiCode: Code
 };
 
 // Use the same theme colors for consistency
 const colors = {
   primary: "#0d9488",
+  primaryDark: "#0f766e",
   primaryLight: "rgba(13, 148, 136, 0.1)",
   textMain: "#1e293b",
   textMuted: "#64748b",
   border: "#e2e8f0",
   surface: "#ffffff",
+  background: "#f8fafc",
 };
 
 // --- Styled Components ---
 
-const MobileToggleBtn = styled.button`
-  display: none;
-  position: fixed;
-  top: 16px;
-  left: 16px;
-  z-index: 998;
-  background: ${colors.surface};
-  color: ${colors.primary};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 10px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s;
-
-  &:hover {
-    background: #f8fafc;
-  }
-
-  svg {
-    font-size: 1.4rem;
-  }
-
-  @media (max-width: 768px) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-`;
-
-const Overlay = styled.div`
-  display: none;
-  @media (max-width: 768px) {
-    display: ${({ $isOpen }) => ($isOpen ? "block" : "none")};
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(2px);
-    z-index: 999;
-    transition: opacity 0.3s ease;
-  }
-`;
-
 const SidebarContainer = styled.div`
-  width: 240px;
+  width: 260px;
   height: 100vh;
   position: fixed;
   left: 0;
@@ -108,80 +65,109 @@ const SidebarContainer = styled.div`
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
-  z-index: 1000;
+  z-index: 1300;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
-  transition: transform 0.3s ease, width 0.3s ease;
+  transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 
   @media (max-width: 1024px) {
-    width: 80px;
-  }
-
-  @media (max-width: 768px) {
     width: 260px;
-    transform: ${({ $isOpen }) => ($isOpen ? "translateX(0)" : "translateX(-100%)")};
+    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+  }
+
+  @media (max-width: 768px) {
+    z-index: 1400;
+    width: 260px;
+    height: 100vh;
+    top: 0;
+    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(0)" : "translateX(-100%)")};
+    transition: transform 0.3s ease;
   }
 `;
 
-const BrandSection = styled.div`
-  padding: 20px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid #f1f5f9;
-  min-height: 72px;
-
-  @media (max-width: 1024px) {
-    justify-content: center;
-  }
-  
+const Overlay = styled.div`
+  display: none;
   @media (max-width: 768px) {
-    justify-content: space-between;
-  }
-`;
-
-const BrandName = styled.span`
-  font-weight: 800;
-  font-size: 1.15rem;
-  color: ${colors.primary};
-  letter-spacing: -0.5px;
-  
-  @media (max-width: 1024px) {
-    display: none;
-  }
-  
-  @media (max-width: 768px) {
-    display: block;
+    display: ${({ $isCollapsed }) => ($isCollapsed ? "block" : "none")};
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 999;
   }
 `;
 
 const CloseMobileBtn = styled.button`
-  display: none;
-  background: none;
-  border: none;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid ${colors.border};
   color: ${colors.textMuted};
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 8px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1010;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
-  svg { font-size: 1.4rem; }
-
-  &:hover { color: #e11d48; background: #fff1f2; }
+  &:hover { color: #e11d48; border-color: #fecaca; }
 
   @media (max-width: 768px) {
     display: flex;
-    align-items: center;
+  }
+`;
+
+const BrandSection = styled.div`
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 62px;
+  border-bottom: 1px solid ${colors.border};
+  flex-shrink: 0;
+
+  @media (max-width: 1024px) {
+    padding: 0 10px;
+    justify-content: space-between;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0 20px;
+    justify-content: space-between;
+  }
+`;
+
+const BrandLogo = styled.img`
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+
+  @media (max-width: 1024px) {
+    height: 60px;
+  }
+  @media (max-width: 768px) {
+    height: 40px;
   }
 `;
 
 const NavMenu = styled.nav`
   flex: 1;
-  padding: 20px 14px;
+  padding: 10px 14px;
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow-y: auto;
-  
+  overflow-x: hidden;
+
   &::-webkit-scrollbar {
     width: 4px;
   }
@@ -189,29 +175,89 @@ const NavMenu = styled.nav`
     background: #e2e8f0;
     border-radius: 4px;
   }
-`;
-
-const NavGroupLabel = styled.div`
-  padding: 12px 12px 6px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  white-space: nowrap;
-  color: ${colors.primary};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 
   @media (max-width: 1024px) {
-    display: none;
+    padding: 20px 8px;
+  }
+  @media (max-width: 768px) {
+    width: 100%;
+  }
+`;
+
+const NavGroupHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 8px;
+  cursor: pointer;
+  user-select: none;
+  
+  span {
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: ${colors.primary};
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
   }
   
-  @media (max-width: 768px) {
+  svg {
+    color: ${colors.primary};
+    transition: transform 0.2s;
     display: block;
+  }
+
+  &:hover span, &:hover svg {
+    color: ${colors.primaryDark};
+  }
+
+  @media (max-width: 768px) {
+    justify-content: space-between;
+    padding: 18px 16px 8px;
+    span, svg { display: block; }
+  }
+`;
+
+const NavGroupContentWrapper = styled.div`
+  display: grid;
+  grid-template-rows: ${({ $isOpen }) => ($isOpen ? "1fr" : "0fr")};
+  transition: grid-template-rows 0.3s ease-in-out;
+
+  @media (max-width: 1024px) {
+    grid-template-rows: 1fr;
+  }
+  @media (max-width: 768px) {
+    grid-template-rows: ${({ $isOpen }) => ($isOpen ? "1fr" : "0fr")};
+  }
+`;
+
+const NavGroupContent = styled.div`
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
+  transition: opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+  padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
+
+  @media (max-width: 1024px) {
+    opacity: 1;
+    overflow: visible;
+    padding-bottom: 8px;
+  }
+  @media (max-width: 768px) {
+    opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
+    overflow: hidden;
+    padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
   }
 `;
 
 const StyledNavLink = styled(NavLink)`
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 12px;
   padding: 12px 16px;
   text-decoration: none;
@@ -219,16 +265,17 @@ const StyledNavLink = styled(NavLink)`
   color: ${colors.textMuted};
   font-size: 0.9rem;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.2s ease;
 
   svg {
-    font-size: 1.25rem;
-    min-width: 20px;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
   }
 
   span {
-    @media (max-width: 1024px) { display: none; }
+    display: block;
     @media (max-width: 768px) { display: block; }
   }
 
@@ -243,56 +290,47 @@ const StyledNavLink = styled(NavLink)`
     font-weight: 600;
   }
 
-  @media (max-width: 1024px) {
-    justify-content: center;
-    padding: 12px;
-  }
-  
   @media (max-width: 768px) {
     justify-content: flex-start;
     padding: 12px 16px;
+    gap: 12px;
   }
 `;
 
 const UserSection = styled.div`
   padding: 20px;
   border-top: 1px solid ${colors.border};
-  background: #fcfcfd;
+  background: ${colors.background};
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 260px;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 20px;
+  }
 `;
 
 const UserProfile = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 15px;
-
-  @media (max-width: 1024px) {
-    justify-content: center;
-  }
-  
-  @media (max-width: 768px) {
-    justify-content: flex-start;
-  }
 `;
 
 const Avatar = styled.div`
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: ${colors.primaryLight};
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: ${colors.primary};
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: ${colors.primary};
   flex-shrink: 0;
-`;
-
-const BrandLogo = styled.img`
-  width: 200px;
-  height: auto;
-  object-fit: contain;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
 `;
 
 const UserInfo = styled.div`
@@ -301,7 +339,7 @@ const UserInfo = styled.div`
   overflow: hidden;
 
   span:first-child {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: ${colors.textMain};
     white-space: nowrap;
@@ -310,9 +348,9 @@ const UserInfo = styled.div`
   span:last-child {
     font-size: 0.75rem;
     color: ${colors.textMuted};
+    text-transform: capitalize;
   }
 
-  @media (max-width: 1024px) { display: none; }
   @media (max-width: 768px) { display: flex; }
 `;
 
@@ -323,115 +361,122 @@ const LogoutButton = styled.button`
   justify-content: center;
   gap: 8px;
   padding: 12px;
-  border: 1px solid ${colors.border};
+  border: 1px solid #fee2e2;
   background: white;
-  border-radius: 8px;
-  color: ${colors.textMuted};
+  border-radius: 10px;
+  color: #ef4444;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 
   span {
-    @media (max-width: 1024px) { display: none; }
+    display: block;
     @media (max-width: 768px) { display: block; }
   }
 
   &:hover {
-    background: #fff1f2;
-    color: #e11d48;
-    border-color: #fecdd3;
+    background: #ef4444;
+    color: white;
+    border-color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
   }
-
-  @media (max-width: 1024px) { padding: 12px 0; }
-  @media (max-width: 768px) { padding: 12px; }
 `;
 
 // --- Main Component ---
 
-const Sidebar = ({ role, allowedActions }) => {
+const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
+  const location = useLocation();
   const [sidebarData, setSidebarData] = useState([]);
-  const [isOpen, setIsOpen] = useState(false); // Mobile toggle state
+
+  const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
     const loadSidebarData = async () => {
-      const data = await fetchSidebarMapping();
+      const employeeId = localStorage.getItem("employeeId");
+      const data = await fetchSidebarMapping(employeeId);
       setSidebarData(data);
+
+      // Initialize all groups to be OPEN (true) by default
+      const initialOpen = {};
+      data.forEach((_, index) => {
+        initialOpen[index] = true;
+      });
+      setOpenGroups(initialOpen);
     };
     loadSidebarData();
   }, []);
 
-  const closeSidebar = () => setIsOpen(false);
+  // Ensures if a user navigates to a route that is currently closed, it will open automatically
+  useEffect(() => {
+    if (sidebarData.length > 0) {
+      const activeGroupIndex = sidebarData.findIndex(group =>
+        (group.pages || []).some(page => location.pathname.startsWith(page.route))
+      );
+      if (activeGroupIndex !== -1 && openGroups[activeGroupIndex] === false) {
+        setOpenGroups(prev => ({ ...prev, [activeGroupIndex]: true }));
+      }
+    }
+  }, [sidebarData, location.pathname]);
+
+  const toggleGroup = (index) => {
+    setOpenGroups(prev => {
+      // Fallback to true if it hasn't been defined yet, so a click will explicitly close it
+      const isCurrentlyOpen = prev[index] ?? true;
+      return { ...prev, [index]: !isCurrentlyOpen };
+    });
+  };
+
+  const closeMobileSidebar = () => { if (window.innerWidth <= 768) setIsCollapsed(false); };
+  const toggleDesktopCollapse = () => setIsCollapsed(!isCollapsed);
 
   return (
     <>
-      {/* Floating Toggle Button visible ONLY on mobile */}
-      <MobileToggleBtn onClick={() => setIsOpen(true)}>
-        <FiMenu />
-      </MobileToggleBtn>
+      <Overlay $isCollapsed={isCollapsed} onClick={closeMobileSidebar} />
 
-      {/* Backdrop overlay for mobile */}
-      <Overlay $isOpen={isOpen} onClick={closeSidebar} />
-
-      <SidebarContainer $isOpen={isOpen}>
+      <SidebarContainer $isCollapsed={isCollapsed} >
         <BrandSection>
-          {/* <BrandName>Shanmuga Hospital</BrandName> */}
           <BrandLogo src={LOGO} alt="Logo" />
-          <CloseMobileBtn onClick={closeSidebar}>
-            <FiX />
+          <CloseMobileBtn onClick={closeMobileSidebar}>
+            <X size={20} />
           </CloseMobileBtn>
         </BrandSection>
-
         <NavMenu>
           {sidebarData.map((group, groupIndex) => {
-            // Check if at least one page in this group is allowed
-            const hasAllowedPage = group.pages.some((page) =>
-              hasPagePermission(page.route, allowedActions)
-            );
-
-            if (!hasAllowedPage) return null;
+            const pages = group.pages || [];
+            // Defaults to true, so it's open if undefined
+            const isOpen = openGroups[groupIndex] ?? true;
 
             return (
               <React.Fragment key={groupIndex}>
-                {group.group && <NavGroupLabel>{group.group}</NavGroupLabel>}
+                {group.group && (
+                  <NavGroupHeader onClick={() => toggleGroup(groupIndex)}>
+                    <span>{group.group}</span>
+                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </NavGroupHeader>
+                )}
 
-                {group.pages.map((page, pageIndex) => {
-                  if (!hasPagePermission(page.route, allowedActions)) return null;
+                <NavGroupContentWrapper $isOpen={isOpen}>
+                  <NavGroupContent $isOpen={isOpen}>
+                    {pages.map((page, pageIndex) => {
+                      const IconComponent = iconMap[page.icon] || Activity;
 
-                  const IconComponent = iconMap[page.icon] || FiActivity;
-
-                  return (
-                    <StyledNavLink
-                      to={page.route}
-                      key={pageIndex}
-                      onClick={closeSidebar} // Auto-close on mobile when link is clicked
-                    >
-                      <IconComponent /> <span>{page.name}</span>
-                    </StyledNavLink>
-                  );
-                })}
+                      return (
+                        <StyledNavLink
+                          to={page.route}
+                          key={pageIndex}
+                          onClick={closeMobileSidebar}
+                        >
+                          <IconComponent /> <span>{page.name}</span>
+                        </StyledNavLink>
+                      );
+                    })}
+                  </NavGroupContent>
+                </NavGroupContentWrapper>
               </React.Fragment>
             );
           })}
         </NavMenu>
-
-        <UserSection>
-          <UserProfile>
-            <Avatar>{role ? role.charAt(0).toUpperCase() : "S"}</Avatar>
-            <UserInfo>
-              <span>Staff Member</span>
-              <span>{role || "Unknown Role"}</span>
-            </UserInfo>
-          </UserProfile>
-          <LogoutButton
-            onClick={() => {
-              localStorage.clear();
-              window.location.reload();
-            }}
-          >
-            <FiLogOut /> <span>Logout</span>
-          </LogoutButton>
-        </UserSection>
       </SidebarContainer>
     </>
   );

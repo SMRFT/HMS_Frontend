@@ -614,6 +614,7 @@ export default function CentralCashCounter() {
 
   const [selectedMethods, setSelectedMethods] = useState({ cash: false, card: false, cheque: false });
   const [payments, setPayments] = useState({ cash: "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+  const [activeShift, setActiveShift] = useState(null);
 
   const sidebarItems = [
     { label: "Pending Bills", id: "pending-bills" },
@@ -627,7 +628,28 @@ export default function CentralCashCounter() {
     { label: "Patient Query", id: "patient-query" },
   ];
 
-  // ✅ FIXED: Proper date formatting function for ISO strings and "None" IDs
+  // ── Fetch active shift for TopSection display ───────────────────────────────
+  useEffect(() => {
+    const fetchActiveShift = async () => {
+      const employeeId = localStorage.getItem("employeeId");
+      const branch_code = localStorage.getItem("selected_branch");
+      if (!employeeId || !branch_code) return;
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}get_active_shift/?CashierID=${employeeId}&branch_code=${branch_code}`,
+          "GET"
+        );
+        if (res?.success && res?.data) {
+          setActiveShift(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch active shift:", err);
+      }
+    };
+    fetchActiveShift();
+  }, []);
+
+
   const formatBillData = (billsArray) => {
   return billsArray.map((item, index) => {
 
@@ -1044,12 +1066,21 @@ const submitPayment = async () => {
               <InfoRow>
                 <Label>SHIFT REFERENCE</Label>
                 <span>:</span>
-                <Value>-</Value>
+                <Value>{activeShift?.shiftno || "—"}</Value>
               </InfoRow>
               <InfoRow>
                 <Label>STARTING TIME</Label>
                 <span>:</span>
-                <Value>-</Value>
+                <Value>
+                  {activeShift?.StartingTime
+                    ? new Date(activeShift.StartingTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+                    : "—"}
+                </Value>
+              </InfoRow>
+              <InfoRow>
+                <Label>CASHIER ID</Label>
+                <span>:</span>
+                <Value>{activeShift?.CashierID || "—"}</Value>
               </InfoRow>
             </InfoColumn>
 
@@ -1057,20 +1088,44 @@ const submitPayment = async () => {
               <InfoRow>
                 <Label>OPENING BALANCE</Label>
                 <span>:</span>
-                <Amount>₹ 0.00</Amount>
+                <Amount>
+                  {activeShift
+                    ? "₹ " + parseFloat(activeShift.OpeningBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    : "₹ 0.00"}
+                </Amount>
               </InfoRow>
               <InfoRow>
                 <Label>CLOSING BALANCE</Label>
                 <span>:</span>
-                <Amount>₹ 0.00</Amount>
+                <Amount>
+                  {activeShift?.ClosingBalance
+                    ? "₹ " + parseFloat(activeShift.ClosingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    : "₹ 0.00"}
+                </Amount>
+              </InfoRow>
+              <InfoRow>
+                <Label>SHIFT STATUS</Label>
+                <span>:</span>
+                <Value style={{
+                  color: activeShift?.ShiftStatus === "active" ? "#10b981" : "#6b7280",
+                  fontWeight: 600,
+                  textTransform: "capitalize",
+                }}>
+                  {activeShift?.ShiftStatus || "—"}
+                </Value>
               </InfoRow>
             </InfoColumn>
 
             <InfoColumn>
               <InfoRow>
-                <Label>COUNTER NAME</Label>
+                <Label>CASH COUNTER</Label>
                 <span>:</span>
-                <Value>Central Cash Counter</Value>
+                <Value>{activeShift?.CashCounter || "Central Cash Counter"}</Value>
+              </InfoRow>
+              <InfoRow>
+                <Label>BRANCH</Label>
+                <span>:</span>
+                <Value>{activeShift?.branch_code || "—"}</Value>
               </InfoRow>
               <InfoRow>
                 <Label>Bill Date</Label>

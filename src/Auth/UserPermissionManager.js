@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { toast } from 'react-toastify';
-import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees } from './apiRequest';
+import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping } from './apiRequest';
 import { PAGE_PERMISSIONS } from './FrontendPageMapping';
-import { FiSave, FiSearch, FiUser, FiCheck, FiShield, FiLock } from 'react-icons/fi';
+import { FiSave, FiSearch, FiUser, FiCheck, FiShield, FiLock, FiExternalLink } from 'react-icons/fi';
 
 // --- Animations ---
 const fadeIn = keyframes`
@@ -315,12 +315,19 @@ const PermText = styled.div`
   }
   
   span { 
-    font-size: 0.8rem; 
-    color: #94a3b8;
+    font-size: 0.75rem; 
+    color: #64748b;
     background: #f1f5f9;
     padding: 2px 8px;
     border-radius: 6px;
     align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    
+    svg {
+      font-size: 0.7rem;
+    }
   }
 `;
 
@@ -376,24 +383,29 @@ const UserPermissionManager = () => {
     const [selectedEmpRole, setSelectedEmpRole] = useState("");
 
     const [permissions, setPermissions] = useState([]);
-    const [roles, setRoles] = useState([]); // Store roles too
+    const [roles, setRoles] = useState([]); 
+    const [sidebarData, setSidebarData] = useState([]);
     const [isLoadingList, setIsLoadingList] = useState(false);
     const [isLoadingPerms, setIsLoadingPerms] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        const loadEmployees = async () => {
+        const init = async () => {
             setIsLoadingList(true);
             try {
-                const data = await fetchAllEmployees();
-                setEmployees(data);
+                const [empData, sidebar] = await Promise.all([
+                    fetchAllEmployees(),
+                    fetchSidebarMapping()
+                ]);
+                setEmployees(empData);
+                setSidebarData(sidebar);
             } catch (e) {
-                toast.error("Failed to load user list");
+                toast.error("Failed to load initial data");
             } finally {
                 setIsLoadingList(false);
             }
         };
-        loadEmployees();
+        init();
     }, []);
 
     const filteredEmployees = useMemo(() => {
@@ -462,29 +474,36 @@ const UserPermissionManager = () => {
         }
     };
 
-    // Grouping
+    // Grouping based on dynamic sidebar data
     const groupedPermissions = useMemo(() => {
         const groups = {};
-        Object.entries(PAGE_PERMISSIONS).forEach(([route, permId]) => {
-            let category = "General";
-            const r = route.toLowerCase();
-            if (r.includes("pharmacy")) category = "Pharmacy Management";
-            else if (r.includes("btd") || r.includes("admission") || r.includes("patient")) category = "Patient Mgmt & Admission";
-            else if (r.includes("billing") || r.includes("invoice")) category = "Billing & Finance";
-            else if (r.includes("doctor")) category = "Doctor Management";
-            else if (r.includes("room") || r.includes("bed") || r.includes("block")) category = "Facility & Rooms";
-            else if (r.includes("inventory") || r.includes("vendor") || r.includes("grn")) category = "Inventory & Vendors";
-            else if (r.includes("report") || r.includes("list") || r.includes("investigation")) category = "Diagnostics & Reports";
-            else if (r.includes("user")) category = "Admin Controls";
+        
+        if (!sidebarData || sidebarData.length === 0) return groups;
 
+        sidebarData.forEach(group => {
+            const category = (group.group || group.category || "General").trim();
             if (!groups[category]) groups[category] = [];
-            // Avoid duplicates if multiple routes map to same ID
-            if (!groups[category].some(p => p.permId === permId)) {
-                groups[category].push({ route, permId });
-            }
+
+            group.pages.forEach(page => {
+                const perms = (page.permissions && Array.isArray(page.permissions) && page.permissions.length > 0)
+                    ? page.permissions
+                    : [PAGE_PERMISSIONS[page.route] || page.route]; // Use Route mapping as fallback
+
+                perms.forEach(permToken => {
+                    // Avoid listing exactly same token twice in same category if multiple pages use it
+                    if (!groups[category].some(p => p.permId === permToken && p.pageName === page.name)) {
+                        groups[category].push({
+                            pageName: page.name,
+                            route: page.route,
+                            permId: permToken,
+                            hasExplicitToken: !!(page.permissions && page.permissions.length > 0)
+                        });
+                    }
+                });
+            });
         });
         return groups;
-    }, []);
+    }, [sidebarData]);
 
     // Sort categories
     const sortedCategories = Object.keys(groupedPermissions).sort();
@@ -568,18 +587,29 @@ const UserPermissionManager = () => {
                                         <div key={category}>
                                             <SectionTitle>{category}</SectionTitle>
                                             <PermissionsGrid>
-                                                {groupedPermissions[category].map(({ route, permId }) => {
+                                                {groupedPermissions[category].map(({ pageName, route, permId, hasExplicitToken }) => {
                                                     const isActive = permissions.includes(permId);
                                                     return (
                                                         <PermissionCard
-                                                            key={permId}
+                                                            key={`${pageName}-${permId}`}
                                                             active={isActive}
                                                             onClick={() => togglePermission(permId)}
                                                             role="button"
                                                         >
                                                             <PermText active={isActive}>
-                                                                <strong>{permId}</strong>
-                                                                <span>{route}</span>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                    <strong>{permId}</strong>
+                                                                    <span style={{ 
+                                                                        fontSize: '0.65rem', 
+                                                                        background: hasExplicitToken ? '#dcfce7' : '#fef9c3',
+                                                                        color: hasExplicitToken ? '#166534' : '#854d0e',
+                                                                        borderRadius: '4px',
+                                                                        padding: '2px 6px'
+                                                                    }}>
+                                                                        {hasExplicitToken ? 'Sidebar' : 'Route'}
+                                                                    </span>
+                                                                </div>
+                                                                <span><FiExternalLink size={10} /> {pageName}</span>
                                                             </PermText>
                                                             <Switch active={isActive} />
                                                         </PermissionCard>

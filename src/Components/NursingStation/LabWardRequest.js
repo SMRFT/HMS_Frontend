@@ -428,6 +428,7 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
         hour: "2-digit", minute: "2-digit", hour12: true,
       })
       : "-",
+    admittingDr: patientProp?.admittingDoctor || pd?.admittingDoctor || "-",
     roomBed: `${patientProp?.roomNo || "-"} | ${patientProp?.bedNo || "-"}`,
     customerType: patientProp?.customerType || pd.customer_type || "-",
     companyName: patientProp?.companyName || pd.company_code || "-",
@@ -453,6 +454,12 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
   const [investigationItems, setInvestigationItems] = useState([]);
   const [selectedTests, setSelectedTests] = useState([]);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
+
+  useEffect(() => {
+    if (patientProp?.admittingDoctor) {
+      setDoctor(patientProp.admittingDoctor);
+    }
+  }, [patientProp]);
 
   useEffect(() => {
     console.log("LabWardRequest mounted for patient:", resolvedPatient.uhid);
@@ -601,6 +608,14 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       return;
     }
 
+    const mappedTests = selectedTests.map(t => ({
+      test_id: t.test_id || "",
+      itemCode: t.itemCode || "",
+      itemName: t.itemName,
+      price: t.price,
+      is_emergency: emergency
+    }));
+
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -609,13 +624,7 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       billTypeName: billTypeName,
       doctor: doctor,
       wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
-      selectedTests: selectedTests.map(t => ({
-        test_id: t.test_id || "",
-        itemCode: t.itemCode || "",
-        itemName: t.itemName,
-        price: t.price,
-        is_emergency: emergency
-      })),
+      item: mappedTests,
       total_amount: selectedTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0),
     };
 
@@ -700,6 +709,10 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
           <FieldBox>
             <FieldLabel>Admitting Date &amp; Time</FieldLabel>
             <FieldValue>{resolvedPatient.admitting}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Admitting Dr</FieldLabel>
+            <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
           </FieldBox>
           <FieldBox>
             <FieldLabel>Room No | Bed</FieldLabel>

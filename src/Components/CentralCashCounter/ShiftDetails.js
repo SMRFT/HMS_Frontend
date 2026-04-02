@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
+import apiRequest from "../../Auth/apiRequest";
 
-// Modal Styles (keeping existing styles)
+const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+// ─── Styled Components ───────────────────────────────────────────────────────
+
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; left: 0; right: 0; bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
@@ -54,25 +55,17 @@ const CloseButton = styled.button`
   align-items: center;
   justify-content: center;
   border-radius: 4px;
-
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+  &:hover { background-color: rgba(255,255,255,0.1); }
 `;
 
-const ModalBody = styled.div`
-  padding: 24px;
-`;
+const ModalBody = styled.div`padding: 24px;`;
 
 const FormGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   margin-bottom: 32px;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
 `;
 
 const FormGroup = styled.div`
@@ -93,11 +86,10 @@ const FormInput = styled.input`
   padding: 12px;
   font-size: 14px;
   background-color: ${(props) => (props.readOnly ? "#f3f4f6" : "white")};
-
   &:focus {
     outline: none;
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
   }
 `;
 
@@ -107,11 +99,10 @@ const FormSelect = styled.select`
   padding: 12px;
   font-size: 14px;
   background-color: white;
-
   &:focus {
     outline: none;
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
   }
 `;
 
@@ -135,557 +126,382 @@ const ActionButton = styled.button`
   transition: background-color 0.2s;
   opacity: ${(props) => (props.disabled ? 0.6 : 1)};
   cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
-
   ${(props) =>
     props.variant === "start"
-      ? `
-    background-color: #0d9488;
-    color: white;
-    
-    &:hover:not(:disabled) {
-      background-color: #0f766e;
-    }
-  `
-      : `
-    background-color: #dc2626;
-    color: white;
-    
-    &:hover:not(:disabled) {
-      background-color: #b91c1c;
-    }
-  `}
-`;
-
-const StatusIndicator = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 500;
-
-  ${(props) => {
-    switch (props.status) {
-      case "active":
-        return `
-          background-color: #d1fae5;
-          color: #065f46;
-        `;
-      case "completed":
-        return `
-          background-color: #fef3c7;
-          color: #92400e;
-        `;
-      default:
-        return `
-          background-color: #f3f4f6;
-          color: #4b5563;
-        `;
-    }
-  }}
-`;
-
-const StatusDot = styled.div`
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-
-  ${(props) => {
-    switch (props.status) {
-      case "active":
-        return "background-color: #10b981;";
-      case "completed":
-        return "background-color: #f59e0b;";
-      default:
-        return "background-color: #6b7280;";
-    }
-  }}
+      ? `background-color: #0d9488; color: white; &:hover:not(:disabled) { background-color: #0f766e; }`
+      : `background-color: #dc2626; color: white; &:hover:not(:disabled) { background-color: #b91c1c; }`}
 `;
 
 const LoadingSpinner = styled.div`
   display: inline-block;
-  width: 16px;
-  height: 16px;
+  width: 16px; height: 16px;
   border: 2px solid #ffffff40;
   border-top: 2px solid #ffffff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
+  @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 `;
 
 const ErrorMessage = styled.div`
-  background-color: #fef2f2;
-  color: #dc2626;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background-color: #fef2f2; color: #dc2626;
+  padding: 12px; border-radius: 4px;
+  margin-bottom: 16px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
 `;
 
 const SuccessMessage = styled.div`
-  background-color: #f0fdf4;
-  color: #166534;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background-color: #f0fdf4; color: #166534;
+  padding: 12px; border-radius: 4px;
+  margin-bottom: 16px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
 `;
 
 const WarningMessage = styled.div`
-  background-color: #fffbeb;
-  color: #92400e;
-  padding: 12px;
-  border-radius: 4px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background-color: #fffbeb; color: #92400e;
+  padding: 12px; border-radius: 4px;
+  margin-bottom: 16px; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
 `;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const getInitialFormData = () => ({
+  shiftNo:        "",
+  branchCode:     "",
+  cashCounter:    "",
+  openingBalance: "0.00",
+  shiftStatus:    "Shift Not Started",
+  closingBalance: "0.00",
+  cashierID:      localStorage.getItem("employeeId") || "",
+  cashierName:    localStorage.getItem("name") || "",
+  startingTime:   "",
+  closingTime:    "",
+  isActive:       false,
+});
+
+const formatDateTime = (isoString) => {
+  if (!isoString) return "";
+  try {
+    return new Date(isoString).toLocaleString();
+  } catch {
+    return "";
+  }
+};
+
+const formatCounterLabel = (counter) => {
+  if (!counter) return "";
+  // "counter2" → "Counter 2"
+  return counter.replace(/counter(\d+)/i, (_, n) => `Counter ${n}`);
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function ShiftDetails({ isOpen, onClose }) {
-  const [formData, setFormData] = useState({
-    cashCounter: "",
-    openingBalance: "₹ 0.00",
-    shiftStatus: "Shift Not Started",
-    closingBalance: "₹ 0.00",
-    cashierName: "",
-    cashierID: "",
-    startingTime: "",
-  });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [warning, setWarning] = useState("");
-  const [currentShiftId, setCurrentShiftId] = useState(null);
-  const [shiftActive, setShiftActive] = useState(false);
-  const [counterCheckLoading, setCounterCheckLoading] = useState(false);
+  const [formData, setFormData]               = useState(getInitialFormData);
+  const [loading, setLoading]                 = useState(false);
+  const [error, setError]                     = useState("");
+  const [success, setSuccess]                 = useState("");
+  const [warning, setWarning]                 = useState("");
+  const [currentShiftId, setCurrentShiftId]   = useState(null);
+  const [shiftActive, setShiftActive]         = useState(false);
 
-  // Enhanced CSRF token getter with fallback
-  const getCsrfToken = () => {
-    // Try multiple methods to get CSRF token
-    const cookieValue = getCookie("csrftoken");
-    if (cookieValue) return cookieValue;
-
-    // Try meta tag
-    const metaTag = document.querySelector('meta[name="csrf-token"]');
-    if (metaTag) return metaTag.getAttribute("content");
-
-    // Try hidden input
-    const hiddenInput = document.querySelector(
-      'input[name="csrfmiddlewaretoken"]'
-    );
-    if (hiddenInput) return hiddenInput.value;
-
-    return null;
+  // ── Clear all messages ────────────────────────────────────────────────────
+  const clearMessages = () => {
+    setError(""); setSuccess(""); setWarning("");
   };
 
-  // Helper function to get CSRF token from cookies
-  const getCookie = (name) => {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== "") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim();
-        if (cookie.substring(0, name.length + 1) === name + "=") {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-          break;
-        }
-      }
-    }
-    return cookieValue;
-  };
-
-  // Enhanced API request function
-  const makeApiRequest = async (url, options = {}) => {
-    const csrfToken = getCsrfToken();
-    const defaultHeaders = {
-      "Content-Type": "application/json",
-    };
-
-    // Add CSRF token if available
-    if (csrfToken) {
-      defaultHeaders["X-CSRFToken"] = csrfToken;
-    }
-
-    const requestOptions = {
-      ...options,
-      headers: {
-        ...defaultHeaders,
-        ...options.headers,
-      },
-    };
-
-    console.log("Making API request:", {
-      url,
-      method: requestOptions.method || "GET",
-      headers: requestOptions.headers,
-      body: requestOptions.body,
-    });
-
-    const response = await fetch(url, requestOptions);
-    return response;
-  };
-
-  // Reset form to initial state
-  const resetForm = () => {
-    setFormData({
-      cashCounter: "",
-      openingBalance: "₹ 0.00",
-      shiftStatus: "Shift Not Started",
-      closingBalance: "₹ 0.00",
-      cashierName: "",
-      cashierID: "",
-      startingTime: "",
-    });
-    setError("");
-    setSuccess("");
-    setWarning("");
+  // ── Reset form to initial state ───────────────────────────────────────────
+  const resetForm = useCallback(() => {
+    setFormData(getInitialFormData());
+    clearMessages();
     setShiftActive(false);
     setCurrentShiftId(null);
-  };
+  }, []);
 
-  // Check counter status when counter is selected
-  const checkCounterStatus = async (counterName) => {
-    if (!counterName) return;
+  // ── Populate form from API response ──────────────────────────────────────
+  const loadShiftData = useCallback((shiftData) => {
+    const isActive = shiftData.ShiftStatus === "active";
 
-    setCounterCheckLoading(true);
-    setError("");
-    setSuccess("");
-    setWarning("");
+    setCurrentShiftId(shiftData.shiftno || null);
+    setShiftActive(isActive);
 
-    try {
-      const response = await makeApiRequest(
-        `http://127.0.0.1:8000/shifts/check-counter/${counterName}/`,
-        { method: "GET" }
-      );
+    setFormData({
+      shiftNo:        shiftData.shiftno        || "",
+      branchCode:     shiftData.branch_code    || "",
+      cashCounter:    shiftData.CashCounter    || "",
+      openingBalance: shiftData.OpeningBalance != null ? shiftData.OpeningBalance : "0.00",
+      closingBalance: shiftData.ClosingBalance != null ? shiftData.ClosingBalance : "0.00",
+      shiftStatus:    isActive ? "Shift Active" : "Shift Completed",
+      cashierID:      shiftData.CashierID      || localStorage.getItem("employeeId") || "",
+      cashierName:    localStorage.getItem("name") || "",
+      startingTime:   formatDateTime(shiftData.StartingTime),
+      closingTime:    formatDateTime(shiftData.closingTime),
+      isActive:       shiftData.is_active ?? false,
+    });
+  }, []);
 
-      const data = await response.json();
+  // ── Fetch active shift whenever modal opens ───────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
 
-      if (response.ok && data.success) {
-        if (data.counter_active && data.data) {
-          // Counter is active, load existing shift data
-          setWarning(
-            `Already this counter is active. After closing the counter only you can activate this counter again.`
-          );
-          loadShiftData(data.data);
+    const employeeId  = localStorage.getItem("employeeId");
+    const branch_code = localStorage.getItem("selected_branch");
+
+    if (!employeeId || !branch_code) {
+      resetForm();
+      return;
+    }
+
+    const fetchActiveShift = async () => {
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}get_active_shift/?CashierID=${employeeId}&branch_code=${branch_code}`,
+          "GET"
+        );
+
+        if (res?.success && res?.data) {
+          loadShiftData(res.data.data);
+          console.log("hhhh",res.data.data)
         } else {
-          // Counter is available
-          setShiftActive(false);
-          setCurrentShiftId(null);
-          setFormData((prev) => ({
-            ...prev,
-            shiftStatus: "Shift Not Started",
-            startingTime: "",
-            cashierName: "",
-            cashierID: "",
-            openingBalance: "₹ 0.00",
-            closingBalance: "₹ 0.00",
-          }));
+          resetForm();
         }
-      } else {
-        setError(data.message || "Failed to check counter status");
+      } catch (err) {
+        console.error("Fetch shift error:", err);
+        resetForm();
       }
-    } catch (error) {
-      console.error("Error checking counter status:", error);
-      setError("Failed to check counter status");
-    } finally {
-      setCounterCheckLoading(false);
-    }
-  };
+    };
 
-  // Load shift data into form
-  const loadShiftData = (shiftData) => {
-    const shiftId = shiftData.id || shiftData._id;
-    console.log("Loading shift data:", shiftData, "ID:", shiftId);
+    fetchActiveShift();
+  }, [isOpen, loadShiftData, resetForm]);
 
-    setCurrentShiftId(shiftId);
-    setShiftActive(shiftData.shiftStatus === "active");
-    setFormData((prev) => ({
-      ...prev,
-      cashCounter: shiftData.cashCounter,
-      cashierName: shiftData.cashierName,
-      cashierID: shiftData.cashierID,
-      shiftStatus:
-        shiftData.shiftStatus === "active" ? "Shift Active" : "Shift Completed",
-      startingTime: new Date(shiftData.startingTime).toLocaleString(),
-      openingBalance: `₹ ${shiftData.openingBalance}`,
-      closingBalance: shiftData.closingBalance
-        ? `₹ ${shiftData.closingBalance}`
-        : "₹ 0.00",
-    }));
-  };
-
+  // ── Input change handler ──────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    // Check counter status when counter is selected
-    if (field === "cashCounter" && value) {
-      checkCounterStatus(value);
-    }
-
-    // Clear messages when user starts typing
-    if (error) setError("");
-    if (success) setSuccess("");
-    if (warning) setWarning("");
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    clearMessages();
   };
 
+  // ── Validation ────────────────────────────────────────────────────────────
   const validateForm = () => {
+    const employeeId = localStorage.getItem("employeeId");
+
     if (!formData.cashCounter) {
-      setError("Please select a cash counter");
+      setError("Please select a cash counter.");
       return false;
     }
-    if (!formData.cashierName.trim()) {
-      setError("Please enter cashier name");
+    if (!employeeId) {
+      setError("Cashier ID is missing. Please re-login.");
       return false;
     }
     if (shiftActive) {
-      setError(
-        "This counter is already active. Please close the current shift first."
-      );
+      setError("A shift is already active. Please close the current shift first.");
       return false;
     }
     return true;
   };
 
+  // ── Start Shift ───────────────────────────────────────────────────────────
   const handleStartCounter = async () => {
     if (!validateForm()) return;
 
+    const employeeId  = localStorage.getItem("employeeId");
+    const branch_code = localStorage.getItem("selected_branch");
+    const startingTime = new Date().toISOString();
+
     setLoading(true);
-    setError("");
-    setSuccess("");
-    setWarning("");
+    clearMessages();
+
+    const payload = {
+      CashierID:      employeeId,
+      CashCounter:    formData.cashCounter,
+      OpeningBalance: parseFloat(formData.openingBalance) || 0,
+      ShiftStatus:    "active",
+      StartingTime:   startingTime,
+      branch_code:    branch_code,
+    };
 
     try {
-      const response = await makeApiRequest(
-        "http://127.0.0.1:8000/shifts/start/",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            cashCounter: formData.cashCounter,
-            openingBalance:
-              parseFloat(formData.openingBalance.replace(/[₹, ]/g, "")) || 0,
-            cashierName: formData.cashierName.trim(),
-            cashierID: formData.cashierID.trim(),
-          }),
-        }
+      const response = await apiRequest(
+        `${HmsBaseUrl}cashcountershiftdetails/`,
+        "POST",
+        payload
       );
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        const shiftId = data.data.id || data.data._id;
-        setCurrentShiftId(shiftId);
+      if (response?.success) {
+        const shiftno = response.data?.shiftno;
+        setCurrentShiftId(shiftno);
         setShiftActive(true);
         setFormData((prev) => ({
           ...prev,
-          shiftStatus: "Shift Active",
-          startingTime: new Date(data.data.startingTime).toLocaleString(),
+          shiftNo:      shiftno || "",
+          shiftStatus:  "Shift Active",
+          startingTime: formatDateTime(startingTime),
         }));
         setSuccess("Shift started successfully.");
       } else {
-        setError(data.message || "Something went wrong.");
-        if (data.counter_active) {
-          setWarning(
-            "This counter is already active. Please close the current shift first."
-          );
+        setError(response?.message || "Something went wrong. Please try again.");
+        if (response?.counter_active) {
+          setWarning("This counter is already active. Please close it first.");
         }
       }
-    } catch (error) {
-      console.error("Start Shift Error:", error);
-      setError("Failed to start shift.");
+    } catch (err) {
+      console.error("Start Shift Error:", err);
+      setError("Failed to start shift. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCloseCounter = async () => {
-    if (!formData.cashierName || !formData.cashCounter || !shiftActive) {
-      setError("No active shift to close.");
+  // ── Stop Shift ────────────────────────────────────────────────────────────
+  const handleStopCounter = async () => {
+    if (!currentShiftId) {
+      setError("Shift not loaded properly. Please close and reopen this dialog.");
       return;
     }
 
+    setLoading(true);
+    clearMessages();
+
+    const payload = {
+      shiftno:        currentShiftId,
+      ClosingBalance: parseFloat(formData.closingBalance) || 0,
+      closingTime:    new Date().toISOString(),
+    };
+
     try {
-      const rawClosing = formData.closingBalance?.replace(/[₹,\s]/g, "");
-      const closingBalance =
-        rawClosing && !isNaN(rawClosing)
-          ? parseFloat(rawClosing).toFixed(2)
-          : null;
-      const cashierID = formData.cashierID; // 👈 get from formData
-      if (!closingBalance) {
-        setError("Invalid closing balance.");
-        return;
-      }
+      const response = await apiRequest(
+        `${HmsBaseUrl}cashcountershiftdetails/`,
+        "PATCH",
+        payload
+      );
 
-      if (!cashierID) {
-        setError("Cashier ID not found in form data.");
-        return;
-      }
-
-      const response = await fetch("http://127.0.0.1:8000/shifts/close/", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          cashierID: formData.cashierID,
-          closingBalance: parseFloat(closingBalance),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setSuccess("Shift closed successfully.");
-        loadShiftData(data.data);
+      if (response?.success) {
+        const closingTime = payload.closingTime;
         setShiftActive(false);
+        setFormData((prev) => ({
+          ...prev,
+          shiftStatus:  "Shift Completed",
+          closingTime:  formatDateTime(closingTime),
+        }));
+        setSuccess("Shift closed successfully.");
       } else {
-        setError(data.message || "Failed to close shift.");
+        setError(response?.message || "Failed to close shift.");
       }
     } catch (err) {
-      console.error("Error closing shift:", err);
-      setError("An unexpected error occurred.");
+      console.error("Stop Shift Error:", err);
+      setError("Failed to close shift. Please check your connection.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusType = () => {
-    if (formData.shiftStatus === "Shift Active") return "active";
-    if (formData.shiftStatus === "Shift Completed") return "completed";
-    return "not_started";
-  };
-
+  // ── Render ────────────────────────────────────────────────────────────────
   if (!isOpen) return null;
+
+  const counterLabel = formatCounterLabel(formData.cashCounter);
 
   return (
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
         <ModalHeader>
           <ModalTitle>Shift Details</ModalTitle>
           <CloseButton onClick={onClose}>×</CloseButton>
         </ModalHeader>
+
         <ModalBody>
-          {error && <ErrorMessage>⚠️ {error}</ErrorMessage>}
+          {error   && <ErrorMessage>⚠️ {error}</ErrorMessage>}
           {success && <SuccessMessage>✅ {success}</SuccessMessage>}
           {warning && <WarningMessage>⚠️ {warning}</WarningMessage>}
 
           <FormGrid>
+
+            {/* Cash Counter */}
             <FormGroup>
               <FormLabel>Cash Counter</FormLabel>
-              <FormSelect
-                value={formData.cashCounter}
-                onChange={(e) =>
-                  handleInputChange("cashCounter", e.target.value)
-                }
-                disabled={shiftActive || counterCheckLoading}
-              >
-                <option value="">
-                  {counterCheckLoading ? "Checking..." : "Select Counter"}
-                </option>
-                <option value="counter1">Counter 1</option>
-                <option value="counter2">Counter 2</option>
-                <option value="counter3">Counter 3</option>
-              </FormSelect>
+              {shiftActive ? (
+                <FormInput
+                  type="text"
+                  value={counterLabel}
+                  readOnly
+                />
+              ) : (
+                <FormSelect
+                  value={formData.cashCounter}
+                  onChange={(e) => handleInputChange("cashCounter", e.target.value)}
+                >
+                  <option value="">Select Counter</option>
+                  <option value="counter1">Counter 1</option>
+                  <option value="counter2">Counter 2</option>
+                  <option value="counter3">Counter 3</option>
+                </FormSelect>
+              )}
             </FormGroup>
 
+            {/* Opening Balance */}
             <FormGroup>
               <FormLabel>Opening Balance</FormLabel>
               <FormInput
-                type="text"
+                type="number"
                 value={formData.openingBalance}
-                onChange={(e) =>
-                  handleInputChange("openingBalance", e.target.value)
-                }
+                onChange={(e) => handleInputChange("openingBalance", e.target.value)}
                 readOnly={shiftActive}
+                placeholder="0.00"
               />
             </FormGroup>
 
+            {/* Shift Status */}
             <FormGroup>
               <FormLabel>Shift Status</FormLabel>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "12px" }}
-              >
-                <FormInput type="text" value={formData.shiftStatus} readOnly />
-                <StatusIndicator status={getStatusType()}>
-                  <StatusDot status={getStatusType()} />
-                  {getStatusType() === "active"
-                    ? "Active"
-                    : getStatusType() === "completed"
-                    ? "Completed"
-                    : "Not Started"}
-                </StatusIndicator>
-              </div>
+              <FormInput
+                type="text"
+                value={formData.shiftStatus}
+                readOnly
+              />
             </FormGroup>
 
+            {/* Closing Balance */}
             <FormGroup>
               <FormLabel>Closing Balance</FormLabel>
               <FormInput
-                type="text"
+                type="number"
                 value={formData.closingBalance}
-                onChange={(e) =>
-                  handleInputChange("closingBalance", e.target.value)
-                }
+                onChange={(e) => handleInputChange("closingBalance", e.target.value)}
                 readOnly={!shiftActive}
-                placeholder="₹ 0.00"
+                placeholder="0.00"
               />
             </FormGroup>
-            <FormGroup>
-              <FormLabel>Cashier ID</FormLabel>
-              <FormInput
-                type="text"
-                placeholder="Enter cashier ID"
-                value={formData.cashierID}
-                onChange={(e) => handleInputChange("cashierID", e.target.value)}
-                disabled={shiftActive}
-              />
-            </FormGroup>
+
+            {/* Cashier Name */}
             <FormGroup>
               <FormLabel>Cashier Name</FormLabel>
               <FormInput
                 type="text"
-                placeholder="Enter cashier name"
                 value={formData.cashierName}
-                onChange={(e) =>
-                  handleInputChange("cashierName", e.target.value)
-                }
-                disabled={shiftActive}
+                readOnly
               />
             </FormGroup>
 
+            {/* Starting Time */}
             <FormGroup>
               <FormLabel>Starting Time</FormLabel>
               <FormInput
                 type="text"
                 value={formData.startingTime}
-                placeholder="Will be set automatically when shift starts"
                 readOnly
+                placeholder="—"
               />
             </FormGroup>
+
           </FormGrid>
 
+          {/* Action Buttons */}
           <ButtonGroup>
             <ActionButton
               variant="start"
               onClick={handleStartCounter}
-              disabled={loading || shiftActive || counterCheckLoading}
+              disabled={loading || shiftActive}
             >
               {loading && !shiftActive ? <LoadingSpinner /> : "⏰"}
               Start Counter
@@ -693,7 +509,7 @@ export default function ShiftDetails({ isOpen, onClose }) {
 
             <ActionButton
               variant="stop"
-              onClick={handleCloseCounter}
+              onClick={handleStopCounter}
               disabled={loading || !shiftActive}
             >
               {loading && shiftActive ? <LoadingSpinner /> : "⏹"}
@@ -701,6 +517,7 @@ export default function ShiftDetails({ isOpen, onClose }) {
             </ActionButton>
           </ButtonGroup>
         </ModalBody>
+
       </ModalContent>
     </ModalOverlay>
   );

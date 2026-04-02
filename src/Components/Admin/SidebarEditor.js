@@ -513,25 +513,7 @@ const SidebarEditor = () => {
                     </ButtonGroup>
                 </HeaderContainer>
 
-                {/* ── Unmapped routes warning ── */}
-                {unmapped.length > 0 && (
-                    <WarningCard>
-                        <WarningTitle>
-                            <FiAlertTriangle /> {unmapped.length} Route{unmapped.length > 1 ? 's' : ''} Not in Sidebar
-                        </WarningTitle>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '12px' }}>
-                            These routes exist in <code>FrontendPageMapping</code> but aren't assigned to any group.
-                        </p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            {unmapped.map(route => (
-                                <RouteTag key={route}>
-                                    <strong>{route}</strong>
-                                    <RoutePerm>{PAGE_PERMISSIONS[route]}</RoutePerm>
-                                </RouteTag>
-                            ))}
-                        </div>
-                    </WarningCard>
-                )}
+
 
                 {/* ── Drag & Drop Groups ── */}
                 <DragDropContext onDragEnd={onDragEnd}>
