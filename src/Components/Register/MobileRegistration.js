@@ -495,7 +495,7 @@ const MobileRegistration = () => {
 
     try {
       await axios.post(`${Hmsbaseurl}submit-qr-registration/`, {
-        session_id: sessionId,
+        session_id: sessionId || "static",
         data: formData
       });
       setSubmitted(true);
@@ -508,21 +508,7 @@ const MobileRegistration = () => {
     }
   };
 
-  if (!sessionId) {
-    return (
-      <PageWrapper>
-        <GlobalStyle />
-        <Card>
-          <ErrorBanner>
-            <AlertCircle size={24} />
-            <div>
-              Invalid Session ID. Please scan the QR code located at the hospital reception again.
-            </div>
-          </ErrorBanner>
-        </Card>
-      </PageWrapper>
-    );
-  }
+  // If no session ID is found in the URL, the backend will generate a new registration entry
 
   if (submitted) {
     return (

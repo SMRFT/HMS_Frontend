@@ -624,7 +624,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
       {/* ── Left: Branding ── */}
       <BrandingSection>
-        {/* <img src={Favilogo} alt="Logo" /> */}
+        <img src={Favilogo} alt="Logo" style={{ height: "30px", width: "auto", objectFit: "contain", borderRadius: "4px" }} />
 
         <BrandTextGroup>
           <HospitalName>

@@ -344,19 +344,6 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   const itemsPerPage = 10;
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Generate session on open
-  React.useEffect(() => {
-    if (isOpen) {
-      generateSession();
-    }
-    return () => {
-      setSessionId(null);
-      setPendingList([]);
-      setSearchTerm("");
-      setCurrentPage(1);
-    };
-  }, [isOpen]);
-
   // Poll for pending registrations
   React.useEffect(() => {
     let interval;
@@ -377,17 +364,7 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
     }
   };
 
-  const generateSession = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(`${Hmsbaseurl}generate-qr-session/`);
-      setSessionId(response.data.session_id);
-    } catch (error) {
-      console.error("Error generating QR session", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleConvert = async (patient) => {
     try {
@@ -444,7 +421,7 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
 
   if (!isOpen) return null;
 
-  const registrationUrl = sessionId ? `${window.location.origin}/HMS/MobileRegistration?session_id=${sessionId}` : "";
+  const registrationUrl = `${window.location.origin}/HMS/MobileRegistration`;
 
   return (
     <Overlay>
@@ -458,16 +435,10 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
             <Subtitle>Step 1: Ask patient to scan this QR code</Subtitle>
           </div>
 
-          {loading ? (
-            <div>Loading QR...</div>
-          ) : sessionId ? (
-            <QRCard>
-              <QRCodeCanvas value={registrationUrl} size={180} />
-              <QRLabel>Scan with Phone Camera</QRLabel>
-            </QRCard>
-          ) : (
-            <div style={{ color: '#ef4444' }}>Error loading session</div>
-          )}
+          <QRCard>
+            <QRCodeCanvas value={registrationUrl} size={180} />
+            <QRLabel>Scan with Phone Camera</QRLabel>
+          </QRCard>
 
           <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
             <p>Detailed form will open on their phone.</p>
