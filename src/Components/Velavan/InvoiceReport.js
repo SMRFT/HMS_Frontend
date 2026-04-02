@@ -404,7 +404,7 @@ const InvoiceReport = () => {
           item.vendor?.toLowerCase().includes(s) ||
           item.vendor_id?.toLowerCase().includes(s) ||
           item.patient_name?.toLowerCase().includes(s) ||
-          item.surgeon_name?.toLowerCase().includes(s) ||
+          item.surgeon_id?.toLowerCase().includes(s) ||
           item.ip_number?.toLowerCase().includes(s),
       ),
     );
@@ -504,7 +504,7 @@ const InvoiceReport = () => {
     `;
 
     const hasPatient =
-      record.ip_number || record.patient_name || record.surgeon_name;
+      record.ip_number || record.patient_name || record.surgeon_id;
 
     const itemsHtml =
       items.length > 0
@@ -611,7 +611,7 @@ const InvoiceReport = () => {
             ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
             ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
             ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} -  ${record.company_name}</div>` : ""}
-            ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+            ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_id}</div>` : ""}
           </div>
         </div>`
             : ""
@@ -658,18 +658,31 @@ const InvoiceReport = () => {
     const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
         sum +
-        parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
+        parseFloat(item.sellingUnitCost || 0) * parseFloat(item.quantity || 0),
       0,
     );
+
     const sellingCgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
       0,
     );
+
     const sellingSgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
       0,
     );
-    const sellingTotal = sellingNonTaxableAmt + sellingCgst + sellingSgst;
+
+    const sellingTotal =
+      items.reduce(
+        (sum, item) =>
+          sum +
+          parseFloat(item.unitSellingCost || 0) *
+            parseFloat(item.quantity || 0),
+        0,
+      ) +
+      sellingCgst +
+      sellingSgst;
+
     const hasPatient =
       record.ip_number || record.patient_name || record.surgeon_name;
 
@@ -716,8 +729,10 @@ const InvoiceReport = () => {
             <th rowspan="2">Batch No</th>
             <th rowspan="2">Expiry</th>
             <th rowspan="2">Qty</th>
-            <th rowspan="2">Unit Price</th><th rowspan="2">Disc. %</th>
-            <th rowspan="2">Disc. Amt</th><th rowspan="2">Non-Taxable Amt</th>
+            <th rowspan="2">Unit Price</th>
+            <th rowspan="2">Disc. %</th>
+            <th rowspan="2">Disc. Amt</th>
+            <th rowspan="2">Non-Taxable Amt</th>
             <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
@@ -731,12 +746,12 @@ const InvoiceReport = () => {
           ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
-              const unitSelling = parseFloat(item.unitSellingCost || 0);
-              const taxableAmt = unitSelling * qty;
+              const unitSelling = parseFloat(item.sellingUnitCost || 0);
+              const nonTaxableAmt = unitSelling * qty;
               const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
               const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
               const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              const lineTotal = taxableAmt + cgstAmt + sgstAmt;
+              const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
               return `<tr>
               <td>${i + 1}</td>
               <td class="l">${item.name || "N/A"}</td>
@@ -747,7 +762,7 @@ const InvoiceReport = () => {
               <td class="r">₹${unitSelling.toFixed(2)}</td>
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
-              <td class="r">₹${taxableAmt.toFixed(2)}</td>
+              <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
               <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
@@ -763,7 +778,7 @@ const InvoiceReport = () => {
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${sellingTotal.toFixed(2)}</b></td>
+            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -801,8 +816,8 @@ const InvoiceReport = () => {
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
               ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} - ${record.company_name}</div>` : ""}
               ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type}${record.company_name ? ` - ${record.company_name}` : ""}</div>` : ""}
             </td>`
                 : ""
             }
@@ -843,18 +858,31 @@ const InvoiceReport = () => {
     const sellingNonTaxableAmt = items.reduce(
       (sum, item) =>
         sum +
-        parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
+        parseFloat(item.sellingUnitCost || 0) * parseFloat(item.quantity || 0),
       0,
     );
+
     const sellingCgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
       0,
     );
+
     const sellingSgst = items.reduce(
       (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
       0,
     );
-    const sellingTotal = sellingNonTaxableAmt + sellingCgst + sellingSgst;
+
+    const sellingTotal =
+      items.reduce(
+        (sum, item) =>
+          sum +
+          parseFloat(item.unitSellingCost || 0) *
+            parseFloat(item.quantity || 0),
+        0,
+      ) +
+      sellingCgst +
+      sellingSgst;
+
     const hasPatient =
       record.ip_number || record.patient_name || record.surgeon_name;
 
@@ -902,8 +930,10 @@ const InvoiceReport = () => {
             <th rowspan="2">Batch No</th>
             <th rowspan="2">Expiry</th>
             <th rowspan="2">Qty</th>
-            <th rowspan="2">Unit Price</th><th rowspan="2">Disc. %</th>
-            <th rowspan="2">Disc. Amt</th><th rowspan="2">Non-Taxable Amt</th>
+            <th rowspan="2">Unit Price</th>
+            <th rowspan="2">Disc. %</th>
+            <th rowspan="2">Disc. Amt</th>
+            <th rowspan="2">Non-Taxable Amt</th>
             <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
@@ -917,12 +947,12 @@ const InvoiceReport = () => {
           ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
-              const unitSelling = parseFloat(item.unitSellingCost || 0);
-              const taxableAmt = unitSelling * qty;
+              const unitSelling = parseFloat(item.sellingUnitCost || 0);
+              const nonTaxableAmt = unitSelling * qty;
               const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
               const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
               const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              const lineTotal = taxableAmt + cgstAmt + sgstAmt;
+              const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
               return `<tr>
               <td>${i + 1}</td>
               <td class="l">${item.name || "N/A"}</td>
@@ -933,7 +963,7 @@ const InvoiceReport = () => {
               <td class="r">₹${unitSelling.toFixed(2)}</td>
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
-              <td class="r">₹${taxableAmt.toFixed(2)}</td>
+              <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
               <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
@@ -949,7 +979,7 @@ const InvoiceReport = () => {
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${sellingTotal.toFixed(2)}</b></td>
+            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -961,7 +991,7 @@ const InvoiceReport = () => {
       <div class="sub">State: 33 - Tamil Nadu &nbsp;|&nbsp; Mobile: 8248456660</div>
       <div class="sub">DL No.: TN/SLE/20B/0028 &nbsp;&amp;&nbsp; TN/SLE/21B/0028 &nbsp;|&nbsp; GSTIN No.: 33AAICV7109G1ZC</div>
       <div class="divider"></div>
-      <div class="doctype">SALES INVOICE — ${record.grn_number}</div>
+      <div class="doctype">TAX INVOICE — ${record.grn_number}</div>
 
       <table class="grid">
         <thead>
@@ -990,8 +1020,8 @@ const InvoiceReport = () => {
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
               ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} - ${record.company_name}</div>` : ""}
               ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type}${record.company_name ? ` - ${record.company_name}` : ""}</div>` : ""}
             </td>`
                 : ""
             }
@@ -1241,7 +1271,7 @@ const InvoiceReport = () => {
           `"${row.vendor || row.vendor_id || "N/A"}"`,
           row.invoice_no,
           `"${row.patient_name || "N/A"}"`,
-          `"${row.surgeon_name || "N/A"}"`,
+          `"${row.surgeon_id || "N/A"}"`,
           row.ip_number || "N/A",
           parseFloat(row.net_invoice_amount || 0).toFixed(2),
         ].join(","),
@@ -1424,7 +1454,7 @@ const InvoiceReport = () => {
     // Normalize items to always be an array inside the modal
     const r = { ...selectedRecord, items: parseItems(selectedRecord.items) };
     const vendorDisplay = r.vendor || r.vendor_id || "N/A";
-    const hasPatient = r.ip_number || r.patient_name || r.surgeon_name;
+    const hasPatient = r.ip_number || r.patient_name || r.surgeon_id;
     const InfoRow = ({ label, value }) => (
       <div style={detailItem}>
         <span style={detailLabel}>{label}</span>
@@ -1488,8 +1518,8 @@ const InvoiceReport = () => {
                   {r.patient_name && (
                     <InfoRow label="Patient Name" value={r.patient_name} />
                   )}
-                  {r.surgeon_name && (
-                    <InfoRow label="Surgeon" value={r.surgeon_name} />
+                  {r.surgeon_id && (
+                    <InfoRow label="Surgeon" value={r.surgeon_id} />
                   )}
                 </div>
               </>
@@ -1895,7 +1925,7 @@ const InvoiceReport = () => {
                     </Td>
                     <Td>{row.invoice_no || "N/A"}</Td>
                     <Td style={{ minWidth: 100 }}>{row.patient_name || "—"}</Td>
-                    <Td style={{ minWidth: 100 }}>{row.surgeon_name || "—"}</Td>
+                    <Td style={{ minWidth: 100 }}>{row.surgeon_id || "—"}</Td>
                     <Td>{row.ip_number || "—"}</Td>
                     <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
