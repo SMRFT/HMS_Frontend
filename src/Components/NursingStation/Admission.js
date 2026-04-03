@@ -58,16 +58,6 @@ const FPHead = styled.div`
 `;
 const FPTitle = styled.div`font-size:.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
 const CloseFP = styled.button`width:26px;height:26px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
-// Add these styled components near the room modal section
-const TooltipWrap = styled.div`position:relative;display:contents;&:hover > .tip{display:block;}`;
-const Tip = styled.div`
-  display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
-  background:#1e293b;color:#fff;font-size:.65rem;font-weight:500;border-radius:5px;
-  padding:5px 9px;white-space:nowrap;z-index:10000;pointer-events:none;line-height:1.5;
-  box-shadow:0 4px 14px rgba(0,0,0,.28);
-  &::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
-    border:5px solid transparent;border-top-color:#1e293b;}
-`;
 // ─── Form internals ────────────────────────────────────────────────────────────
 const FGrid  = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:14px 20px;`;
 const Field  = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
@@ -136,28 +126,48 @@ const FG2  = styled.div`padding:10px 12px;`;
 const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
 const rC = {
-  available:            { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
-  "available-not-cleaned": { bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
-  occupied:             { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
-  maintenance:          { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
-  partial:              { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
+  available:     { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7", dot:"#22c55e" },
+  "available-not-cleaned": { bg:"#fefce8", br:"#fde047", hd:"#fef9c3", dot:"#eab308" },
+  occupied:      { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2", dot:"#ef4444" },
+  maintenance:   { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb", dot:"#9ca3af" },
+  partial:       { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe", dot:"#3b82f6" },
+  reserved:      { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff", dot:"#9333ea" },
 };
-const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(p.s==='occupied'||p.s==='maintenance')?'not-allowed':'pointer'};opacity:${p=>(p.s==='occupied'||p.s==='maintenance')?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(p.s!=='occupied'&&p.s!=='maintenance')&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
+const RC = styled.div`
+  border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;
+  cursor:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?'not-allowed':'pointer'};
+  opacity:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?.72:1};
+  background:${p=>rC[p.s]?.bg||'#fff'};
+  transition:box-shadow .18s,transform .18s;
+  ${p=>(p.s!=='occupied'&&p.s!=='maintenance'&&p.s!=='reserved')&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}
+`;
 const RCT  = styled.div`display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:${p=>rC[p.s]?.hd||'#f1f5f9'};border-bottom:1px solid ${p=>rC[p.s]?.br||'#e5e7eb'};`;
 const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
-const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#f59e0b':'#3b82f6'};color:#fff;text-transform:capitalize;`;
+const RSP = styled.span`
+  font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;
+  background:${p=>
+    p.s==='available'           ? '#22c55e'
+  : p.s==='occupied'            ? '#ef4444'
+  : p.s==='maintenance'         ? '#9ca3af'
+  : p.s==='reserved'            ? '#9333ea'
+  : p.s==='partial'             ? '#3b82f6'
+  : '#eab308'};
+  color:#fff;text-transform:capitalize;
+`;
 const BRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
 const BC = styled.button`
-  flex:1 1 auto;min-width:44px;text-align:center;padding:3px 5px;border-radius:4px;
-  font-size:.67rem;font-weight:600;border:1.5px solid transparent;
+  flex:1 1 auto;min-width:44px;text-align:center;padding:4px 5px;border-radius:5px;
+  font-size:.67rem;font-weight:700;border:none;
   cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;
   background:${p=>
-    p.bs==='Available'           ? '#22c55e'
-  : p.bs==='Occupied'            ? '#ef4444'
-  : p.bs==='Available - Not Cleaned' ? '#eab308'
+    p.bs==='Available'                 ? '#22c55e'
+  : p.bs==='Occupied'                  ? '#ef4444'
+  : p.bs==='Available - Not Cleaned'   ? '#eab308'
+  : p.bs==='Reserved'                  ? '#9333ea'
   : '#9ca3af'};
   opacity:${p=>p.disabled?.55:1};
-  &:hover:not(:disabled){filter:brightness(1.1);}
+  transition:filter .15s,transform .15s,box-shadow .15s;
+  &:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);box-shadow:0 2px 8px rgba(0,0,0,.18);}
 `;
 const RT2  = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
@@ -270,10 +280,12 @@ const EMPTY = {
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
   const s = beds.map(b => b.status);
-  if (s.every(x => x === "Maintenance"))               return "maintenance";
-  if (s.every(x => x === "Occupied"))                  return "occupied";
-  if (s.every(x => x === "Available - Not Cleaned"))   return "available-not-cleaned";
-  if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
+  if (s.every(x => x === "Maintenance"))                    return "maintenance";
+  if (s.every(x => x === "Occupied"))                       return "occupied";
+  if (s.every(x => x === "Reserved"))                       return "reserved";
+  if (s.every(x => x === "Available - Not Cleaned"))        return "available-not-cleaned";
+  if (s.some(x => x === "Occupied") && s.some(x => x !== "Occupied")) return "partial";
+  if (s.some(x => x === "Reserved") && !s.some(x => x === "Occupied")) return "reserved";
   if (s.some(x => x === "Available - Not Cleaned") && !s.some(x => x === "Occupied")) return "available-not-cleaned";
   return "available";
 };
@@ -369,21 +381,27 @@ export default function Admission() {
     } catch { setPackages([]); }
   };
 
-  const fetchAllRooms = async (fo = {}) => {
-    setLoadRooms(true);
-    try {
-      const f = { ...rFilter, ...fo };
-      const p = new URLSearchParams();
-      if (f.room_number) p.append("room_number", f.room_number);
-      if (f.block)       p.append("block",        f.block);
-      if (f.floor)       p.append("floor",        f.floor);
-      const q   = p.toString() ? `?${p.toString()}` : "";
-      const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
-      setAllRooms(Array.isArray(res) ? res : (res.data || []));
-    } catch { setAllRooms([]); }
-    finally { setLoadRooms(false); }
-  };
-
+const fetchAllRooms = async (fo = {}) => {
+  setLoadRooms(true);
+  try {
+    const f = { ...rFilter, ...fo };
+    const p = new URLSearchParams();
+    if (f.room_number) p.append("room_number", f.room_number);
+    if (f.block)       p.append("block",        f.block);
+    if (f.floor)       p.append("floor",        f.floor);
+    const q   = p.toString() ? `?${p.toString()}` : "";
+    const res = await apiRequest(`${HmsBaseUrl}search-rooms/${q}`, "GET");
+    
+    // Robustly extract the array from whatever shape the response has
+    let rooms = [];
+    if (Array.isArray(res))            rooms = res;
+    else if (Array.isArray(res?.data)) rooms = res.data;
+    else if (Array.isArray(res?.data?.data)) rooms = res.data.data;
+    
+    setAllRooms(rooms);
+  } catch { setAllRooms([]); }
+  finally { setLoadRooms(false); }
+};
   const fetchPatientByUHID = async () => {
     const uhid = form.uhid.trim();
     if (!uhid) return toast.warning("Enter UHID");
@@ -612,7 +630,7 @@ export default function Admission() {
   })();
   const handleRoomClick = room => {
     const s = getRoomStatus(room.beds);
-    if (s === "occupied" || s === "maintenance") return;
+    if (s === "occupied" || s === "maintenance" || s === "reserved") return;
     setSelRoom(room); setShowRoom(false); setShowBed(true);
   };
   const handleBedSelect = (bedNo, room) => {
@@ -631,7 +649,9 @@ export default function Admission() {
         {/* Header */}
         <PageHeader>
           <PageTitle>🏥 Admission</PageTitle>
-          <NewAdmBtn onClick={openNewForm}>+ New Admission</NewAdmBtn>
+          <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
+            {formOpen ? "− New Admission" : "+ New Admission"}
+          </NewAdmBtn>
         </PageHeader>
 
         {/* 2 Stats */}
@@ -940,17 +960,18 @@ export default function Admission() {
                 <FBR2 onClick={() => fetchAllRooms()}>Search</FBR2>
                 <FBR2 clear onClick={() => { setRFilter({ room_number:"", block:"", floor:"" }); fetchAllRooms({ room_number:"", block:"", floor:"" }); }}>Clear</FBR2>
               </FBR>
-              <LBar>
-                {[
-                  ["#22c55e","Available"],
-                  ["#eab308","Not Cleaned"],
-                  ["#3b82f6","Partial"],
-                  ["#ef4444","Occupied"],
-                  ["#9ca3af","Maintenance"]
-                ].map(([c,l]) => (
-                  <LI key={l}><LD c={c}/>{l}</LI>
-                ))}
-              </LBar>
+                <LBar>
+                  {[
+                    ["#22c55e","Available"],
+                    ["#eab308","Not Cleaned"],
+                    ["#3b82f6","Partial"],
+                    ["#9333ea","Reserved"],
+                    ["#ef4444","Occupied"],
+                    ["#9ca3af","Maintenance"],
+                  ].map(([c,l]) => (
+                    <LI key={l}><LD c={c}/>{l}</LI>
+                  ))}
+                </LBar>
               {loadRooms ? (
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(148px,1fr))", gap:8 }}>
                   {Array.from({ length:12 }).map((_, i) => <Skel key={i} />)}
@@ -992,19 +1013,24 @@ export default function Admission() {
                                 <RCT s={s}>
                                   <RNum>{room.room_number}</RNum>
                                   <RSP s={s}>
-                                    {s === "partial"                 ? "Partial"
-                                  : s === "available-not-cleaned"   ? "Not Cleaned"
+                                    {s === "partial"               ? "Partial"
+                                  : s === "available-not-cleaned" ? "Not Cleaned"
+                                  : s === "reserved"              ? "Reserved"
                                   : s}
                                   </RSP>
                                 </RCT>
                                 <RT2>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RT2>
                                 <BRow>
                                   {(room.beds || []).map((bed, i) => (
-                                    <BC key={i} bs={bed.status} disabled={bed.status !== "Available"}
+                                    <BC
+                                      key={i}
+                                      bs={bed.status}
+                                      disabled={bed.status !== "Available"}
                                       title={
                                         bed.status === "Available"               ? "✅ Ready to assign"
                                       : bed.status === "Occupied"                ? "🔴 Patient admitted"
                                       : bed.status === "Available - Not Cleaned" ? "🟡 Needs housekeeping"
+                                      : bed.status === "Reserved"                ? "🟣 Reserved for patient"
                                       : "🔧 Maintenance"
                                       }
                                       onClick={e => {
@@ -1012,7 +1038,8 @@ export default function Admission() {
                                           e.stopPropagation();
                                           handleBedSelect(bed.bed_number, room);
                                         }
-                                      }}>
+                                      }}
+                                    >
                                       {bed.bed_number}
                                     </BC>
                                   ))}
@@ -1028,7 +1055,8 @@ export default function Admission() {
                               }}>
                                 <div style={{ fontWeight:700, marginBottom:2 }}>Room {room.room_number}</div>
                                 {tipLines && <div>{tipLines}</div>}
-                                {(s === "occupied" || s === "maintenance") && <div style={{ color:"#fca5a5", marginTop:2 }}>Cannot select</div>}
+                                  {(s === "occupied" || s === "maintenance" || s === "reserved") && 
+                                    <div style={{ color:"#fca5a5", marginTop:2 }}>Cannot select</div>}
                               </div>
                             </div>
                           );

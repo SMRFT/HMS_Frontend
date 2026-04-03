@@ -24,8 +24,7 @@ import {
   ModalHeader,
   ModalTitle,
   CloseButton,
-  ModalBody,
-  NoResults,
+  ModalBody
 } from "../GlobalStyles";
 import apiRequest from "../../Auth/apiRequest";
 
