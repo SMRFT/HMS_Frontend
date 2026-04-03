@@ -97,6 +97,8 @@ import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 
+import CustomerType from "./Components/BillingMaster/CustomerType";
+
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -616,6 +618,7 @@ function App() {
             ) && (
               <>
                 <Route path="/BillType" element={<BillType />} />
+                <Route path="/CustomerType" element={<CustomerType />} />
               </>
             )}
             {/* Reports */}

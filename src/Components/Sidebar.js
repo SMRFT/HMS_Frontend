@@ -19,6 +19,7 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
@@ -79,7 +80,7 @@ const SidebarContainer = styled.div`
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
-  z-index: 1300;
+  z-index: 200;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
   transform: ${({ $isCollapsed }) =>
     $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
@@ -114,7 +115,7 @@ const Overlay = styled.div`
     height: 100vh;
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(2px);
-    z-index: 999;
+    z-index: 199;
   }
 `;
 
@@ -176,6 +177,52 @@ const BrandLogo = styled.img`
   @media (max-width: 768px) {
     height: 40px;
   }
+`;
+
+const SearchContainer = styled.div`
+  padding: 16px 20px 8px 20px;
+  flex-shrink: 0;
+
+  @media (max-width: 1024px) {
+    padding: 16px 12px 8px 12px;
+  }
+`;
+
+const SearchInputWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: 8px;
+  border: 1px solid ${colors.border};
+  background-color: ${colors.background};
+  font-size: 0.85rem;
+  color: ${colors.textMain};
+  outline: none;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: ${colors.primary};
+    background-color: ${colors.surface};
+    box-shadow: 0 0 0 2px ${colors.primaryLight};
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const SearchIcon = styled(Search)`
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  width: 16px;
+  height: 16px;
 `;
 
 const NavMenu = styled.nav`
@@ -420,7 +467,7 @@ const LogoutButton = styled.button`
 const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const [sidebarData, setSidebarData] = useState([]);
-
+  const [searchTerm, setSearchTerm] = useState('');
   const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
@@ -477,20 +524,48 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
             <X size={20} />
           </CloseMobileBtn>
         </BrandSection>
+        
+        <SearchContainer>
+          <SearchInputWrapper>
+            <SearchIcon />
+            <SearchInput
+              type="text"
+              placeholder="Search sections..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </SearchInputWrapper>
+        </SearchContainer>
+
         <NavMenu>
           {sidebarData.map((group, groupIndex) => {
-            // Filter pages based on JWT allowedActions
-            const allowedPages = (group.pages || []).filter((page) =>
-              hasPagePermission(page.route, allowedActions, {
-                [page.route]: page.permissions || [],
-              }),
+            // Use globally configured integer ID array for permission-based rendering
+            const storedHmsPages = (() => {
+               try { return JSON.parse(localStorage.getItem("hms_pages") || "[]"); }
+               catch { return []; }
+            })();
+            
+            const allowedPages = (group.pages || []).filter((page) => {
+              const perms = page.permissions || [];
+              if (perms.length > 0 && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
+                return false;
+              }
+              return true;
+            });
+            
+            const groupNameMatches = group.group && group.group.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const searchFilteredPages = allowedPages.filter((page) =>
+              page.name.toLowerCase().includes(searchTerm.toLowerCase())
             );
 
-            // Hide the entire group if user has no access to any of its pages
-            if (allowedPages.length === 0) return null;
+            // Hide the entire group if user has no access to any of its pages after search
+            const pagesToShow = groupNameMatches ? allowedPages : searchFilteredPages;
 
-            // Defaults to true, so it's open if undefined
-            const isOpen = openGroups[groupIndex] ?? true;
+            if (pagesToShow.length === 0) return null;
+
+            // Open if searching, else use defined state, fallback to true
+            const isOpen = searchTerm ? true : (openGroups[groupIndex] ?? true);
 
             return (
               <React.Fragment key={groupIndex}>
@@ -507,7 +582,7 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
                 <NavGroupContentWrapper $isOpen={isOpen}>
                   <NavGroupContent $isOpen={isOpen}>
-                    {allowedPages.map((page, pageIndex) => {
+                    {pagesToShow.map((page, pageIndex) => {
                       const IconComponent = iconMap[page.icon] || Activity;
 
                       return (
