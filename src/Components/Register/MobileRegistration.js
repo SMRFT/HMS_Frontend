@@ -385,6 +385,7 @@ const SuccessIcon = styled.div`
 const MobileRegistration = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const initialCustomerType = searchParams.get('customerType') || "General";
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -402,7 +403,8 @@ const MobileRegistration = () => {
     city: "",
     zipcode: "",
     state: "",
-    bloodGroup: ""
+    bloodGroup: "",
+    customerType: initialCustomerType
   });
 
   const handleChange = (e) => {
