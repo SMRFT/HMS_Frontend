@@ -58,6 +58,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
@@ -397,6 +398,9 @@ function App() {
               dynamicPermissions,
             ) && (
               <Route path="/DischargeReport" element={<DischargeReport />} />
+            )}
+            {hasPagePermission("/DischargeBilling", allowedActions, dynamicPermissions) && (
+              <Route path="/DischargeBilling" element={<DischargeBilling />} />
             )}
 
             {/* Insurance */}
