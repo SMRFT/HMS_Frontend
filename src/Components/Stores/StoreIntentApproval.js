@@ -117,9 +117,18 @@ const StoresApprovalManager = () => {
 
     const [showModal, setShowModal] = useState(false);
     const [selectedIntent, setSelectedIntent] = useState(null);
+    const [departments, setDepartments] = useState([]);
     const [approvalItems, setApprovalItems] = useState([]);
 
-    useEffect(() => { loadPendingIntents(); }, []);
+    useEffect(() => { 
+        loadPendingIntents(); 
+        fetchDepartments();
+    }, []);
+
+    const fetchDepartments = async () => {
+        const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`, "GET");
+        if (res.success) setDepartments(res.data || []);
+    };
 
     const loadPendingIntents = async () => {
         setLoading(true);
@@ -437,6 +446,24 @@ const StoresApprovalManager = () => {
                                 />
                             </div>
                             <S.Button onClick={loadPendingIntents} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Search</S.Button>
+                            <S.Button 
+                                onClick={async () => {
+                                    setLoading(true);
+                                    const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/`, "POST", {});
+                                    if (res.success) {
+                                        const filtered = (res.data || []).filter(intent => {
+                                            const status = getIntentStatus(intent);
+                                            return status === 'Pending' || status === 'Partially Approved';
+                                        });
+                                        setIntents(filtered);
+                                        toast.info(`Found ${filtered.length} pending/partially approved intents`);
+                                    }
+                                    setLoading(false);
+                                }} 
+                                style={{ background: '#f59e0b', color: 'white', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}
+                            >
+                                ⏳ Pending Actions
+                            </S.Button>
                             <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => loadPendingIntents()}>✕ Clear</S.Button>
                             <S.Button secondary onClick={handleExportExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
                                 📥 Export Excel
@@ -464,7 +491,9 @@ const StoresApprovalManager = () => {
                                         <div style={{ color: S.colors.primary, fontWeight: '800', fontSize: '0.95rem' }}>{item.intent_id}</div>
                                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{new Date(item.date).toLocaleDateString()}</div>
                                     </S.Td>
-                                    <S.Td style={{ fontWeight: '700', color: '#334155' }}>{item.department_name}</S.Td>
+                                    <S.Td style={{ fontWeight: '700', color: '#334155' }}>
+                                        {item.department_name || departments.find(d => d.department_id === item.department)?.department_name || item.department}
+                                    </S.Td>
                                     <S.Td>
                                         <div style={{ fontSize: '0.85rem' }}>
                                             {item.items.map((it, idx) => (

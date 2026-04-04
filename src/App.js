@@ -91,6 +91,9 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
+import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintainance";
+import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
@@ -218,6 +221,9 @@ function App() {
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/AssetsManagement": "Assets Management",
+      "/AssetsMaintainance": "Assets Maintainance",
+      "/RecycleManagement": "Recycle Management",
     };
 
     const path = location.pathname;
@@ -263,9 +269,24 @@ function App() {
     );
   }
 
+  const isNoSidebarRoute = hideSidebarRoutes.includes(location.pathname);
+
   return (
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
+      {!isNoSidebarRoute && <Sidebar role={role} allowedActions={allowedActions} />}
+
+      {isNoSidebarRoute ? (
+        <div style={location.pathname === "/" ? { display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" } : {}}>
+          {location.pathname === "/" ? (
+             <div>Redirecting based on your role...</div>
+          ) : (
+            <Routes>
+               <Route path="/MobileRegistration" element={<MobileRegistration />} />
+               <Route path="/AssetsManagement" element={<AssetsManagement />} />
+            </Routes>
+          )}
+        </div>
       {!hideSidebarRoutes.includes(location.pathname) && (
         <Sidebar
           role={role}
@@ -678,6 +699,29 @@ function App() {
                 element={<VelavanVendorList />}
               />
             )}
+            {hasPagePermission("/Items", allowedActions) && (
+              <Route path="/Items" element={<Items />} />
+            )}
+            {hasPagePermission("/StoresGRNGeneration", allowedActions) && (
+              <Route path="/StoresGRNGeneration" element={<StoresGRNGeneration />} />
+            )}
+            {hasPagePermission("/StoresGRNReport", allowedActions) && (
+              <Route path="/StoresGRNReport" element={<StoresGRNReport />} />
+            )}              
+            {hasPagePermission("/StoresIntent", allowedActions) && (
+              <Route path="/StoresIntent" element={<StoresIntent />} />
+            )}
+            {hasPagePermission("/StoreIntentApproval", allowedActions) && (
+              <Route path="/StoreIntentApproval" element={<StoreIntentApproval />} />
+            )}
+            {hasPagePermission("/AssetsManagement", allowedActions) && (
+              <Route path="/AssetsManagement" element={<AssetsManagement />} />
+            )}
+            {hasPagePermission("/AssetsMaintainance", allowedActions) && (
+              <Route path="/AssetsMaintainance" element={<AssetsMaintainance />} />
+            )}
+            {hasPagePermission("/RecycleManagement", allowedActions) && (
+              <Route path="/RecycleManagement" element={<RecycleManagement />} />
             {hasPagePermission(
               "/items",
               allowedActions,
