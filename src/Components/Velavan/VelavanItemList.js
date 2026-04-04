@@ -208,12 +208,7 @@ const VelavanItemList = () => {
           <thead>
             <tr>
               <Th>Item Name</Th>
-              <Th>Stock</Th>
-              <Th>Group</Th>
-              <Th>Category</Th>
-              <Th>Classification</Th>
               <Th>HSN</Th>
-              <Th>Stock Reorder Level</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
@@ -249,53 +244,7 @@ const VelavanItemList = () => {
                         item.itemName
                       )}
                     </Td>
-                    <Td
-                      style={{
-                        fontWeight: "600",
-                        color:
-                          stock < (item.stockReorderLevel || 0)
-                            ? colors.danger
-                            : colors.success,
-                      }}
-                    >
-                      {stock}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.group || ""}
-                          onChange={(e) =>
-                            handleChange("group", e.target.value)
-                          }
-                        />
-                      ) : (
-                        item.group
-                      )}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.Category || ""}
-                          onChange={(e) =>
-                            handleChange("Category", e.target.value)
-                          }
-                        />
-                      ) : (
-                        item.Category
-                      )}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.classification || ""}
-                          onChange={(e) =>
-                            handleChange("classification", e.target.value)
-                          }
-                        />
-                      ) : (
-                        item.classification
-                      )}
-                    </Td>
+
                     <Td>
                       {isEditing &&
                       (!item.hsn || String(item.hsn).trim() === "") ? (
@@ -306,18 +255,6 @@ const VelavanItemList = () => {
                         />
                       ) : (
                         item.hsn || ""
-                      )}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.stockReorderLevel || ""}
-                          onChange={(e) =>
-                            handleChange("stockReorderLevel", e.target.value)
-                          }
-                        />
-                      ) : (
-                        item.stockReorderLevel
                       )}
                     </Td>
                     <Td>

@@ -19,8 +19,9 @@ function setforlocaldev() {
   console.log("🔧 Development token is empty - will redirect to login");
   const selectedBranch = "SHB001";
   localStorage.setItem("selected_branch", selectedBranch);
+  const selectedOutlet = "OLET001";
+  localStorage.setItem("selected_outlet", selectedOutlet);
   return dev_token;
-
 }
 
 // --- Function to redirect to login ---
@@ -56,13 +57,20 @@ function validate(token) {
 // --- Function to determine user role based on allowed-actions ---
 function getUserRole(allowedActions) {
   if (!allowedActions || !Array.isArray(allowedActions)) {
-    return "Employee"; // Default role
+    return "Receptionist"; // Default role
   }
   console.log("Allowed actions:", allowedActions);
   if (allowedActions.includes("HMS-R-SA")) {
     return "Super Admin";
-  } else {
-    return "Employee"; // Default role if none of the specific roles are found
+  }
+  if (allowedActions.includes("HMS-R-PH")) {
+    return "Pharmacist";
+  }
+  if (allowedActions.includes("HMS-R-NS")) {
+    return "Nursing Station";
+  }
+  else {
+    return "Receptionist"; // Default role if none of the specific roles are found
   }
 }
 
@@ -78,7 +86,7 @@ function getUserRole(allowedActions) {
     // If no token found, try development token
     if (!accessToken) {
       console.log(
-        "❌ No token found in localStorage, trying development token",
+        "❌ No token found in localStorage, trying development token"
       );
       accessToken = setforlocaldev();
     }
@@ -103,6 +111,7 @@ function getUserRole(allowedActions) {
     const employeeId = userPayload.aud; // Using 'aud' field as ID
     const name = userPayload.name;
     const userEmail = userPayload.email;
+
     const userRole = getUserRole(userPayload["allowed-actions"]);
 
     console.log("Employee ID:", employeeId);
@@ -116,7 +125,7 @@ function getUserRole(allowedActions) {
 
     if (!isLoggedIn) {
       throw new Error(
-        "Missing required user data (employeeId or employeeName)",
+        "Missing required user data (employeeId or employeeName)"
       );
     }
 
@@ -125,7 +134,14 @@ function getUserRole(allowedActions) {
     localStorage.setItem("employeeId", employeeId);
     localStorage.setItem("name", name);
     localStorage.setItem("userEmail", userEmail);
+    localStorage.setItem("allowed-outlets", userPayload["allowed-outlets"]);
+    localStorage.setItem("hms_pages", JSON.stringify(userPayload["hms_pages"] || []));
     localStorage.setItem("role", userRole);
+
+    localStorage.setItem(
+      "allowedActions",
+      JSON.stringify(userPayload["allowed-actions"] || []),
+    );
 
     console.log("✅ User payload and extracted data stored in localStorage");
     console.log("Stored data:", {
@@ -141,7 +157,7 @@ function getUserRole(allowedActions) {
     root.render(
       <React.StrictMode>
         <App />
-      </React.StrictMode>,
+      </React.StrictMode>
     );
 
     reportWebVitals();

@@ -467,8 +467,8 @@ const ItemInp = ({ style, ...props }) => (
 
 const EMPTY_FORM = {
   packageName: "",
-  department: "",
-  department_code: "",
+  outlet: "",
+  outlet_code: "",
   totalPrice: "",
   is_active: true,
   items: [
@@ -486,10 +486,10 @@ const Package = () => {
   const [editingNo, setEditingNo] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [viewPkg, setViewPkg] = useState(null);
-  const [filters, setFilters] = useState({ search: "", department: "" });
+  const [filters, setFilters] = useState({ search: "", outlet: "" });
 
-  // Department state
-  const [departments, setDepartments] = useState([]);
+  // Outlet state
+  const [outlets, setOutlets] = useState([]);
 
   // Bill-type picker state
   const [billTypes, setBillTypes] = useState([]);
@@ -512,7 +512,7 @@ const Package = () => {
   const fetchPackages = async (params = {}) => {
     const q = new URLSearchParams();
     if (params.search) q.append("search", params.search);
-    if (params.department) q.append("department", params.department);
+    if (params.outlet) q.append("outlet", params.outlet);
     const url = `${HMSURL}packages_crud/${q.toString() ? "?" + q.toString() : ""}`;
     const result = await apiRequest(url, "GET");
     if (result.success) {
@@ -526,14 +526,14 @@ const Package = () => {
     }
   };
 
-  // Fetch departments from backend
-  const fetchDepartments = async () => {
-    const result = await apiRequest(`${HMSURL}departments/`, "GET");
+  // Fetch outlets from backend
+  const fetchOutlets = async () => {
+    const result = await apiRequest(`${HMSURL}outlets/`, "GET");
     if (result.success) {
       const data = result.data;
-      setDepartments(Array.isArray(data?.departments) ? data.departments : []);
+      setOutlets(Array.isArray(data?.outlets) ? data.outlets : []);
     } else {
-      console.error("Error fetching departments:", result.error);
+      console.error("Error fetching outlets:", result.error);
     }
   };
 
@@ -565,17 +565,17 @@ const Package = () => {
 
   useEffect(() => {
     fetchPackages();
-    fetchDepartments();
+    fetchOutlets();
     fetchBillTypes();
   }, []);
 
-  // When department dropdown changes — auto-fill department_code (read-only)
-  const handleDepartmentChange = (departmentName) => {
-    const found = departments.find((d) => d.department_name === departmentName);
+  // When outlet dropdown changes — auto-fill outlet_code (read-only)
+  const handleOutletChange = (outletName) => {
+    const found = outlets.find((o) => o.outlet_name === outletName);
     setFormData((prev) => ({
       ...prev,
-      department: departmentName,
-      department_code: found ? found.department_code : "",
+      outlet: outletName,
+      outlet_code: found ? found.outlet_code : "",
     }));
   };
 
@@ -667,7 +667,7 @@ const Package = () => {
   };
   const applyFilters = () => fetchPackages(filters);
   const clearFilters = () => {
-    setFilters({ search: "", department: "" });
+    setFilters({ search: "", outlet: "" });
     fetchPackages();
   };
 
@@ -748,8 +748,7 @@ const Package = () => {
   const handleEdit = (pkg) => {
     setFormData({
       packageName: pkg.packageName || "",
-      department: pkg.department || "",
-      department_code: pkg.department_code || "",
+      outlet_code: pkg.outlet_code || "",
       totalPrice: pkg.totalPrice || "",
       is_active: pkg.is_active !== false,
       items:
@@ -855,20 +854,20 @@ const Package = () => {
                   name="search"
                   value={filters.search}
                   onChange={handleFilterChange}
-                  placeholder="Package name or department…"
+                  placeholder="Package name or outlet…"
                   style={{ ...css.input, height: 34, fontSize: 12 }}
                   onKeyDown={(e) => e.key === "Enter" && applyFilters()}
                 />
               </div>
               <div style={css.fieldWrap}>
                 <span style={{ ...css.label, color: tokens.sky }}>
-                  🏥 Department
+                  🏥 Outlet
                 </span>
                 <input
-                  name="department"
-                  value={filters.department}
+                  name="outlet"
+                  value={filters.outlet}
                   onChange={handleFilterChange}
-                  placeholder="Filter by department…"
+                  placeholder="Filter by outlet…"
                   style={{ ...css.input, height: 34, fontSize: 12 }}
                   onKeyDown={(e) => e.key === "Enter" && applyFilters()}
                 />
@@ -930,7 +929,7 @@ const Package = () => {
                     {[
                       "#",
                       "Package Name",
-                      "Department",
+                      "Outlet",
                       "Items",
                       "Total Price",
                       "Status",
@@ -949,7 +948,10 @@ const Package = () => {
                       <Td style={{ fontWeight: 600, color: tokens.navy }}>
                         {pkg.packageName}
                       </Td>
-                      <Td>{pkg.department || "—"}</Td>
+
+                      {/* ── outlet_name resolved by backend ── */}
+                      <Td>{pkg.outlet_name || pkg.outlet || "—"}</Td>
+
                       <Td>
                         <span style={css.countBadge}>
                           {Array.isArray(pkg.items) ? pkg.items.length : 0}{" "}
@@ -1050,32 +1052,29 @@ const Package = () => {
                     />
                   </Field>
 
-                  {/* Department — dropdown from backend */}
-                  <Field label="Department">
+                  {/* Outlet — dropdown from backend */}
+                  <Field label="Outlet">
                     <select
-                      value={formData.department}
-                      onChange={(e) => handleDepartmentChange(e.target.value)}
+                      value={formData.outlet}
+                      onChange={(e) => handleOutletChange(e.target.value)}
                       style={css.select}
                     >
-                      <option value="">— Select Department —</option>
-                      {departments.map((d) => (
-                        <option
-                          key={d.department_code}
-                          value={d.department_name}
-                        >
-                          {d.department_name}
+                      <option value="">— Select Outlet —</option>
+                      {outlets.map((o) => (
+                        <option key={o.outlet_code} value={o.outlet_name}>
+                          {o.outlet_name}
                         </option>
                       ))}
                     </select>
                   </Field>
 
-                  {/* Department Code — auto-filled, read-only */}
-                  <Field label="Department Code">
+                  {/* Outlet Code — auto-filled, read-only */}
+                  <Field label="Outlet Code">
                     <input
-                      value={formData.department_code}
+                      value={formData.outlet_code}
                       readOnly
                       style={css.inputReadonly}
-                      placeholder="Auto-filled from department"
+                      placeholder="Auto-filled from outlet"
                     />
                   </Field>
 
@@ -1343,8 +1342,12 @@ const Package = () => {
               <div style={{ ...css.grid(3), marginBottom: 20 }}>
                 {[
                   { label: "Package No", val: `#${viewPkg.packageNo}` },
-                  { label: "Department", val: viewPkg.department || "—" },
-                  { label: "Dept. Code", val: viewPkg.department_code || "—" },
+                  {
+                    label: "Outlet",
+                    // ── outlet_name resolved by backend, fallback to outlet ──
+                    val: viewPkg.outlet_name || viewPkg.outlet || "—",
+                  },
+                  { label: "Outlet Code", val: viewPkg.outlet_code || "—" },
                 ].map(({ label, val }) => (
                   <div
                     key={label}

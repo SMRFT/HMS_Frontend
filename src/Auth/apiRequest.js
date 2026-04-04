@@ -16,10 +16,14 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
     const branch = localStorage.getItem("selected_branch");
 
     const defaultHeaders = {
-      "Content-Type": "application/json",
       Authorization: token, // Use 'Bearer' if backend expects it
       "Branch-Code": branch,
     };
+
+    // Only set Content-Type to application/json if data is not FormData
+    if (!(data instanceof FormData)) {
+      defaultHeaders["Content-Type"] = "application/json";
+    }
 
     const config = {
       method,
@@ -29,6 +33,25 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
     };
 
     if (data && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      // Inject audit fields into the data
+      const employeeId = localStorage.getItem("employeeId") || "system";
+      const branchCode = localStorage.getItem("selected_branch") || "system";
+      const outletCode = localStorage.getItem("selected_outlet") || "system";
+
+      if (data instanceof FormData) {
+        if (!data.has("auth-user-id")) data.append("auth-user-id", employeeId);
+        if (!data.has("auth-hospital-code")) data.append("auth-hospital-code", branchCode);
+        if (!data.has("auth-branch-code")) data.append("auth-branch-code", branchCode);
+        if (!data.has("auth-outlet-code")) data.append("auth-outlet-code", outletCode);
+      } else if (typeof data === "object") {
+        data = {
+          "auth-user-id": employeeId,
+          "auth-hospital-code": branchCode,
+          "auth-branch-code": branchCode,
+          "auth-outlet-code": outletCode,
+          ...data
+        };
+      }
       config.data = data;
     }
 
@@ -108,13 +131,15 @@ export const fetchUserPermissions = async (employeeId) => {
  * Updates the user-specific allowed pages in the backend.
  * @param {string} employeeId 
  * @param {Array} allowedPages List of allowed page strings
+ * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (employeeId, allowedPages) => {
+export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = []) => {
     try {
         const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
             employeeId,
-            allowed_pages: allowedPages
+            allowed_pages: allowedPages,
+            hms_pages: hmsPages
         });
         return response;
     } catch (error) {
@@ -144,9 +169,13 @@ export const fetchAllEmployees = async () => {
  * Fetches the dynamic sidebar mapping from the backend.
  * @returns {Promise<Array>} List of sidebar groups and pages
  */
-export const fetchSidebarMapping = async () => {
+export const fetchSidebarMapping = async (employeeId = null) => {
     try {
-        const response = await axios.get(`${Hmsbaseurl}get-sidebar-mapping/`);
+        const url = (employeeId && employeeId !== "null" && employeeId !== "undefined")
+            ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
+            : `${Hmsbaseurl}get-sidebar-mapping/`;
+            
+        const response = await axios.get(url);
         if (response.data && Array.isArray(response.data)) {
             return response.data;
         }

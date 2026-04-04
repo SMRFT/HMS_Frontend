@@ -289,7 +289,7 @@ const ModalOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1400; // ← was 1000, now above sidebar (1300)
 `;
 const ModalBox = styled.div`
   background: white;
@@ -399,8 +399,9 @@ const HistOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: 1500; // ← was 1100, now above ModalOverlay
 `;
+
 const HistBox = styled.div`
   background: white;
   border-radius: 10px;
@@ -461,7 +462,7 @@ const HistTable = styled.table`
 
 // ─── Invoice Preview ──────────────────────────────────────────────────────────
 const InvOverlay = styled(ModalOverlay)`
-  z-index: 1050;
+  z-index: 1450; // ← was 1050, now between Modal and History
 `;
 const InvBox = styled.div`
   background: white;
@@ -601,8 +602,9 @@ const EMPTY_FORM = {
   salutation: "",
   firstName: "",
   lastName: "",
+  customerType: "", // ← new
+  companyName: "", // ← new
 };
-
 const EMPTY_SUMMARY = {
   nonTaxableAmount: 0,
   taxableAmount: 0,
@@ -659,6 +661,7 @@ const Invoice = () => {
   const [showAddVendorModal, setShowAddVendorModal] = useState(false);
   const [roundSign, setRoundSign] = useState("+");
   const [doctors, setDoctors] = useState([]);
+  const [roundAmtDisplay, setRoundAmtDisplay] = useState("");
 
   const userId = localStorage.getItem("employeeId");
 
@@ -695,6 +698,8 @@ const Invoice = () => {
         firstName: data.firstName || "",
         lastName: data.lastName || "",
         patientName: fullName,
+        customerType: data.customer_type || "",
+        companyName: data.company_name || "",
       }));
     } else {
       toast.error(result.error || "Patient not found");
@@ -751,6 +756,8 @@ const Invoice = () => {
         ipNumber: record.ip_number || "",
         patientName: record.patient_name || "",
         surgeonName: record.surgeon_name || "",
+        customerType: record.customer_type || "", // ← new
+        companyName: record.company_name || "", // ← new
       });
 
       setItems(record.items || []);
@@ -776,6 +783,9 @@ const Invoice = () => {
           record.courier_transport_charge || 0,
         ),
       });
+      const abs = Math.abs(parseFloat(record.round_amount || 0));
+      setRoundAmtDisplay(abs > 0 ? String(abs) : "");
+      setRoundSign(parseFloat(record.round_amount || 0) < 0 ? "-" : "+");
     }
   }, [record]);
 
@@ -1238,6 +1248,10 @@ const Invoice = () => {
       toast.error("Invoice Number is required");
       return;
     }
+    if (!formData.invoiceDate?.trim()) {
+      toast.error("Invoice Date is required");
+      return;
+    }
     if (!formData.vendor_id) {
       toast.error("Vendor is required");
       return;
@@ -1262,6 +1276,8 @@ const Invoice = () => {
     };
     const payload = {
       ...formData,
+      customer_type: formData.customerType,
+      company_name: formData.companyName,
       invoiceDate: fmt(formData.invoiceDate),
       date: fmt(formData.date || new Date().toISOString().split("T")[0]),
       vendor_id: formData.vendor_id?.trim() || null,
@@ -1316,6 +1332,7 @@ const Invoice = () => {
     setItems([]);
     setSummary(EMPTY_SUMMARY);
     setRoundSign("+");
+    setRoundAmtDisplay(""); // ← add this
     navigate("/InvoiceGeneration", { replace: true, state: {} });
   };
 
@@ -1665,29 +1682,81 @@ const Invoice = () => {
                         </button>
                       </div>
                     </InputWrapper>
+                    {/* ← Patient Name now editable, auto-filled from IP search but also manually typeable */}
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>Patient Name</Lbl>
-                      <ReadOnlyInput
+                      <Input
+                        name="patientName"
                         value={formData.patientName}
-                        readOnly
-                        placeholder="Auto-filled from IP"
+                        onChange={handleFormChange}
+                        placeholder="Auto-fill or type name"
+                        style={{ fontSize: "0.82rem" }}
                       />
                     </InputWrapper>
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>Surgeon Name</Lbl>
-                      <Select
-                        name="surgeonName"
-                        value={formData.surgeonName}
+                      <AutoWrap>
+                        <Input
+                          name="surgeonName"
+                          value={formData.surgeonName}
+                          onChange={(e) => {
+                            handleFormChange(e);
+                          }}
+                          placeholder="Type or select surgeon"
+                          style={{ fontSize: "0.82rem" }}
+                        />
+                        {formData.surgeonName && doctors.length > 0 && (
+                          <DropList>
+                            {doctors
+                              .filter((d) =>
+                                d.employeeName
+                                  .toLowerCase()
+                                  .includes(formData.surgeonName.toLowerCase()),
+                              )
+                              .map((d) => (
+                                <DropItem
+                                  key={d.employeeId}
+                                  onMouseDown={() =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      surgeonName: d.employeeName,
+                                    }))
+                                  }
+                                >
+                                  {d.employeeName}
+                                </DropItem>
+                              ))}
+                          </DropList>
+                        )}
+                      </AutoWrap>
+                    </InputWrapper>
+                  </GridRow>
+
+                  {/* Row 3 — Customer Type + Company Name */}
+                  <GridRow
+                    cols="repeat(6,1fr)"
+                    mb="0"
+                    style={{ marginTop: 10 }}
+                  >
+                    <InputWrapper style={{ margin: 0 }}>
+                      <Lbl>Customer Type</Lbl>
+                      <Input
+                        name="customerType"
+                        value={formData.customerType}
                         onChange={handleFormChange}
+                        placeholder="Auto-fill or type"
                         style={{ fontSize: "0.82rem" }}
-                      >
-                        <option value="">Select surgeon</option>
-                        {doctors.map((d) => (
-                          <option key={d.employeeId} value={d.employeeId}>
-                            {d.employeeName}
-                          </option>
-                        ))}
-                      </Select>
+                      />
+                    </InputWrapper>
+                    <InputWrapper style={{ margin: 0, gridColumn: "span 2" }}>
+                      <Lbl>Company Name</Lbl>
+                      <Input
+                        name="companyName"
+                        value={formData.companyName || ""}
+                        onChange={handleFormChange}
+                        placeholder="Auto-fill or type"
+                        style={{ fontSize: "0.82rem" }}
+                      />
                     </InputWrapper>
                   </GridRow>
                 </CardBody>
@@ -1962,16 +2031,24 @@ const Invoice = () => {
                           <option value="-">−</option>
                         </RoundSignSel>
                         <RoundInput
-                          type="number"
-                          step="0.01"
-                          value={Math.abs(summary.roundAmount || 0) || ""}
+                          type="text"
+                          value={roundAmtDisplay}
                           placeholder="0.00"
                           onChange={(e) => {
-                            const v = parseFloat(e.target.value) || 0;
+                            const raw = e.target.value;
+                            // Allow only digits and a single decimal point
+                            if (!/^(\d*\.?\d*)$/.test(raw)) return;
+                            setRoundAmtDisplay(raw);
+                            const v = parseFloat(raw) || 0;
                             setSummary((prev) => ({
                               ...prev,
                               roundAmount: roundSign === "+" ? v : -v,
                             }));
+                          }}
+                          onBlur={() => {
+                            // Normalize display on blur (e.g. "0." → "0.00")
+                            const v = parseFloat(roundAmtDisplay) || 0;
+                            setRoundAmtDisplay(v === 0 ? "" : String(v));
                           }}
                           style={{ fontSize: "0.82rem" }}
                         />
@@ -2074,7 +2151,7 @@ const Invoice = () => {
             <ModalScroll>
               {/* ── Section 1: Item Details ── */}
               <SectionDivider>Item Details</SectionDivider>
-              <GridRow cols="repeat(4,1fr)">
+              <GridRow cols="repeat(5,1fr)">
                 <InputWrapper style={{ margin: 0, gridColumn: "span 2" }}>
                   <Lbl>
                     Item Name *
@@ -3051,6 +3128,14 @@ const Invoice = () => {
                     {[
                       ["IP Number", formData.ipNumber],
                       ["Patient Name", formData.patientName],
+                      [
+                        "Customer Type",
+                        formData.customerType && formData.companyName
+                          ? `${formData.customerType} - ${formData.companyName}`
+                          : formData.customerType ||
+                            formData.companyName ||
+                            "—",
+                      ],
                       ["Surgeon", formData.surgeonName],
                     ].map(([label, val]) => (
                       <div

@@ -660,7 +660,14 @@ const WardRequest = () => {
                 Lab Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <button onClick={() => setShowLabModal(false)} style={{ color: "#fff" }}><FiX /></button>
+              <CloseButton 
+                onClick={() => setShowLabModal(false)} 
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
             </ModalHeader>
             <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
               <LabWardRequest patient={selectedPatient} onClose={() => setShowLabModal(false)} />
@@ -678,7 +685,14 @@ const WardRequest = () => {
                 Medicine Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <button onClick={() => setShowMedicineModal(false)} style={{ color: "#fff" }}><FiX /></button>
+              <CloseButton 
+                onClick={() => setShowMedicineModal(false)} 
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
             </ModalHeader>
             <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
               <MedicineWardRequest patient={selectedPatient} onClose={() => setShowMedicineModal(false)} />
@@ -696,7 +710,14 @@ const WardRequest = () => {
                 Radiology Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <button onClick={() => setShowRadiologyModal(false)} style={{ color: "#fff" }}><FiX /></button>
+              <CloseButton 
+                onClick={() => setShowRadiologyModal(false)} 
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
             </ModalHeader>
             <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
               <RadiologyWardRequest patient={selectedPatient} onClose={() => setShowRadiologyModal(false)} />
