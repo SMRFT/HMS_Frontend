@@ -479,6 +479,8 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const [modalSearch, setModalSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [qtyErrors, setQtyErrors] = useState({});
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printBillData, setPrintBillData] = useState(null);
   const [showNilStock, setShowNilStock] = useState(false);
   const [modalPage, setModalPage] = useState(1);
   const MODAL_PAGE_SIZE = 9;
@@ -510,6 +512,8 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const [isEditMode, setIsEditMode] = useState(false);
   const [recordId, setRecordId] = useState(null);
   const [editReason, setEditReason] = useState("");
+
+   const branch_code = localStorage.getItem("selected_branch");
 
   const [formData, setFormData] = useState({
     uhid: "",
@@ -608,7 +612,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const fetchAdmissionStatus = async (uhid) => {
     try {
       const res = await apiRequest(
-        `${HmsBaseUrl}uhidadmissionstatus/?uhid=${uhid}`,
+        `${HmsBaseUrl}admissionstatus/?uhid=${uhid}`,
         "GET"
       );
 
@@ -847,7 +851,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     const alreadyInBill = addedMedicines.some((m) => getMedicineKey(m) === key);
     if (alreadyInBill) {
-      toast.warning(`"${medicine.name}" is already added to the bill!`);
+      toast.warning(`"${medicine.name}" is already added to the bill!`, { autoClose: 5000 });
       return;
     }
 
@@ -884,7 +888,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     ) {
       toast.warning(
         `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-        { toastId: `stock-excess-${index}` }
+        { toastId: `stock-excess-${index}`, autoClose: 5000 }
       );
     }
 
@@ -903,7 +907,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         }
       } catch (error) {
         console.error("Error fetching doctor_names:", error.message);
-        toast.error("Error fetching doctor_names");
+        toast.error("Error fetching doctor_names", { autoClose: 5000 });
       }
     };
     fetchdoctor_names();
@@ -950,7 +954,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     if (saving) return;
 
     if (!formData.billType) {
-      toast.error("Bill Type is mandatory!");
+      toast.error("Bill Type is mandatory!", { autoClose: 5000 });
       return;
     }
 
@@ -965,7 +969,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     try {
       if (addedMedicines.length === 0) {
-        toast.error("Please add at least one medicine!");
+        toast.error("Please add at least one medicine!", { autoClose: 5000 });
         setSaving(false);
         return;
       }
@@ -978,7 +982,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       if (Object.keys(errorMap).length > 0) {
         setQtyErrors(errorMap);
         const first = addedMedicines.find((m) => !m.quantity || m.quantity <= 0);
-        toast.error(`Quantity is required for "${first.name}".`);
+        toast.error(`Quantity is required for "${first.name}".`, { autoClose: 5000 });
         setSaving(false);
         return;
       }
@@ -990,7 +994,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       );
 
       if (invalidStock) {
-        toast.error("Quantity exceeds available stock!");
+        toast.error("Quantity exceeds available stock!", { autoClose: 5000 });
         setSaving(false);
         return;
       }
@@ -1041,8 +1045,8 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         net_amount: roundedNet,
         status,
         billing_mode,
-        branch_code: selectedBranch,
-       
+        branch_code: branch_code,
+        outlet_code: "OLET003",
       };
 
       let response;
@@ -1090,34 +1094,43 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       }
 
       if (response.success) {
+        const backendMsg = response.data?.message || response.message;
         if (status === "Estimate") {
-          const estNo = response.data?.estimate_no || loadedEstimateNo || "";
-          setLoadedEstimateNo(estNo);
-          setIsEditMode(true);
-          toast.success(`Estimate saved! #${estNo}`);
-        } else if (loadedEstimateNo) {
-          // Estimate → Bill conversion
-          toast.success(`Estimate converted to Bill! #${response.data?.bill_no || ""}`);
-          resetForm();
-          setTodayBillDate();
-        } else if (hasBillId) {
-          // MedicineChart → Bill (PATCH on existing record) or any direct bill edit
-          toast.success(`Bill saved successfully! #${response.data?.bill_no || ""}`);
+          toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 3000 });
           resetForm();
           setTodayBillDate();
         } else {
-          // Brand-new direct bill (POST)
-          toast.success(`Bill saved successfully! #${response.data?.bill_no || ""}`);
+          toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 3000 });
+          // Capture bill info for print modal before resetting
+          const savedBillNo = response.data?.bill_no || response.bill_no || "";
+          const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
+          const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+          setPrintBillData({
+            billNo: savedBillNo,
+            billDate: formData.billDate,
+            patientName: formData.name,
+            uhid: formData.uhid,
+            doctorName,
+            cashierId: formData.cashier_id || "",
+            medicines: [...addedMedicines],
+            totalAmount,
+            totalItemDiscount,
+            overallDiscountType,
+            overallDiscountValue,
+            netAmount,
+          });
+          setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
         }
       } else {
-        toast.error(response.error || "Save failed.");
+        const backendErr = response.data?.error || response.error;
+        toast.error(backendErr || "Save failed.", { autoClose: 5000 });
       }
 
     } catch (error) {
       console.error("Error saving:", error);
-      toast.error("Failed to save.");
+      toast.error("Failed to save.", { autoClose: 5000 });
     } finally {
       setSaving(false);
     }
@@ -1179,9 +1192,15 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
   const convertEstimate = (estimate) => {
     if (!estimate.Bill_id) {
-      toast.error("Estimate is missing Bill_id — cannot load.");
+      toast.error("Estimate is missing Bill_id — cannot load.", { autoClose: 5000 });
       return;
     }
+
+    const resolvedEstimateBillTypeName =
+      estimate.bill_type_name ||
+      estimate.bill_name ||
+      billTypes.find(bt => String(bt.bill_type) === String(estimate.bill_type))?.bill_name ||
+      "";
 
     setFormData((prev) => ({
       ...prev,
@@ -1191,7 +1210,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       doctor_id: estimate.doctor_id || "",
       roomNo: estimate.room_no || "",
       billType: estimate.bill_type || "",
-      billTypeName: estimate.bill_name || "",
+      billTypeName: resolvedEstimateBillTypeName,
     }));
 
     const rawMeds = parseOrderedDictMeds(estimate.medicine_particulars);
@@ -1338,7 +1357,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     setLoadedEstimateNo(null);
     setBillingType("Direct");
 
-    toast.info(`Ward request loaded for ${wardReq.patient_details?.patient_name || wardReq.uhid}. Review and save as bill.`);
+    toast.info(`Ward request loaded for ${wardReq.patient_details?.patient_name || wardReq.uhid}. Review and save as bill.`, { autoClose: 4000 });
 
     console.log("✅ Ward request loaded for billing | uhid:", wardReq.uhid, "| Bill_id:", existingBillId);
   };
@@ -1352,9 +1371,17 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
   const loadBillForEdit = (bill) => {
     if (!bill.Bill_id) {
-      toast.error("Bill is missing Bill_id — cannot load for edit.");
+      toast.error("Bill is missing Bill_id — cannot load for edit.", { autoClose: 5000 });
       return;
     }
+
+    // Resolve bill type name: prefer bill_type_name from API, then bill_name,
+    // then look up from already-fetched billTypes list by bill_type code.
+    const resolvedBillTypeName =
+      bill.bill_type_name ||
+      bill.bill_name ||
+      billTypes.find(bt => String(bt.bill_type) === String(bill.bill_type))?.bill_name ||
+      "";
 
     setFormData((prev) => ({
       ...prev,
@@ -1364,7 +1391,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       doctor_id:    bill.doctor_id        || "",
       roomNo:       bill.room_no          || "",
       billType:     bill.bill_type        || "",
-      billTypeName: bill.bill_name        || "",
+      billTypeName: resolvedBillTypeName,
       billNo:       bill.bill_no          || bill.bill_number || "",
       billDate: bill.bill_date
         ? bill.bill_date.split("T")[0]
@@ -1641,7 +1668,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
   return (
     <PageWrapper>
-      <StyledToastContainer position="top-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover />
+      <StyledToastContainer position="top-right" autoClose={5000} hideProgressBar={false} closeOnClick pauseOnHover />
       <Card>
 
         {/* ── Top Bar: Title + Last Billed UHID ── */}
@@ -1810,7 +1837,13 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
               <Input
                 type="text"
                 name="billTypeName"
-                value={formData.billTypeName}
+                value={
+                  // Prefer live lookup from billTypes list so it always shows
+                  // correct name even if billTypeName was missing in API response
+                  billTypes.find(bt => String(bt.bill_type) === String(formData.billType))?.bill_name ||
+                  formData.billTypeName ||
+                  ""
+                }
                 disabled
               />
             </InputWrapper>
@@ -1993,7 +2026,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                             ) {
                               toast.warning(
                                 `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-                                { toastId: `stock-excess-${index}` }
+                                { toastId: `stock-excess-${index}`, autoClose: 5000 }
                               );
                             }
 
@@ -2175,9 +2208,6 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
               <FaSave /> {saving ? "Saving..." : loadedEstimateNo ? "Convert to Bill" : "Save Bill"}
             </Button>
 
-            <Button onClick={handlePrint}>
-              <FaPrint /> Print
-            </Button>
           </ButtonContainer>
         </MedicinesTableSection>
 
@@ -2547,6 +2577,240 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                 </>
               )}
             </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ── Print Modal ── */}
+      {showPrintModal && printBillData && (
+        <ModalOverlay onClick={() => setShowPrintModal(false)}>
+          <ModalContainer style={{ maxWidth: 820 }} onClick={e => e.stopPropagation()}>
+            <ModalHeader style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)" }}>
+              <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+                <FaPrint /> Bill Saved — Ready to Print
+              </ModalTitle>
+              <CloseButton onClick={() => setShowPrintModal(false)} style={{ color: "#fff" }}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody style={{ padding: "0" }}>
+              {/* Bill Preview */}
+              <div style={{
+                padding: "20px 28px",
+                fontFamily: "Arial, sans-serif",
+                fontSize: 11,
+                color: "#000",
+                background: "#fff",
+              }}>
+                {/* Hospital Header */}
+                <div style={{ textAlign: "center", borderBottom: "1px solid #000", paddingBottom: 8, marginBottom: 8 }}>
+                  <div style={{ fontSize: 16, fontWeight: "bold" }}>SHANMUGA HOSPITAL LIMITED</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.6 }}>51/24, Saradha College Road, Salem - 636007 &nbsp;|&nbsp; Ph No: 0427 2706666</div>
+                  <div style={{ fontSize: 10 }}>SLS 7788 20,21 3993 20B 3848 21B &nbsp;|&nbsp; CIN: L85110TZ2020PLC033974</div>
+                  <div style={{ fontSize: 10 }}>GST NO: 33ABDCS8326A1ZP &nbsp;&nbsp; No. RM/3G/012</div>
+                  <div style={{
+                    display: "inline-block", margin: "4px 0",
+                    border: "1px solid #000", padding: "2px 14px",
+                    fontWeight: "bold", fontSize: 12
+                  }}>PHARMACY OP GST INVOICE</div>
+                </div>
+
+                {/* Patient & Bill Info */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #ccc", paddingBottom: 6 }}>
+                  <div>
+                    {[
+                      ["Patient", printBillData.patientName || "—"],
+                      ["UHID No", printBillData.uhid || "—"],
+                      ["Doctor", printBillData.doctorName || "—"],
+                    ].map(([lbl, val]) => (
+                      <div key={lbl} style={{ display: "flex", fontSize: 10, marginBottom: 3 }}>
+                        <span style={{ fontWeight: "bold", minWidth: 80 }}>{lbl}</span>
+                        <span>: {val}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {[
+                      ["Bill No", printBillData.billNo || "—"],
+                      ["Date", printBillData.billDate || "—"],
+                    ].map(([lbl, val]) => (
+                      <div key={lbl} style={{ display: "flex", fontSize: 10, marginBottom: 3, justifyContent: "flex-end" }}>
+                        <span style={{ fontWeight: "bold", minWidth: 60 }}>{lbl}</span>
+                        <span style={{ marginLeft: 8 }}>: {val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Medicines Table */}
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 10 }}>
+                  <thead>
+                    <tr>
+                      {["Particulars", "HSN Code", "Batch", "Expiry", "Qty", "Rate", "CGST%", "CGST Amt", "SGST%", "SGST Amt", "Amount"].map(h => (
+                        <th key={h} style={{ border: "1px solid #000", padding: "3px 5px", background: "#f0f0f0", textAlign: "left" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {printBillData.medicines.map((m, i) => (
+                      <tr key={i}>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.name}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.hsn_code || "—"}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.batch_number || "—"}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px" }}>{m.expiry_date || "—"}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "center" }}>{m.quantity}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.mrp || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.cgst_rate || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.cgst_amount || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.sgst_rate || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.sgst_amount || 0).toFixed(2)}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "3px 5px", textAlign: "right" }}>{(m.total || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Totals */}
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                  <table style={{ width: 260, borderCollapse: "collapse" }}>
+                    {[
+                      ["Total :", `₹${printBillData.totalAmount.toFixed(2)}`, false],
+                      ["Discount Amt :", `₹${(printBillData.totalItemDiscount + (
+                        printBillData.overallDiscountType === "amount"
+                          ? parseFloat(printBillData.overallDiscountValue || 0)
+                          : printBillData.totalAmount * (parseFloat(printBillData.overallDiscountValue || 0) / 100)
+                      )).toFixed(2)}`, false],
+                      ["Net Amount (Payable) :", `₹${printBillData.netAmount.toFixed(2)}`, true],
+                      ["Amount Collected :", "0.00", false],
+                    ].map(([lbl, val, isNet]) => (
+                      <tr key={lbl} style={isNet ? { background: "#e8f5e9" } : {}}>
+                        <td style={{ border: "1px solid #ccc", padding: "4px 8px", fontWeight: "bold", textAlign: "right", background: isNet ? "#e8f5e9" : "#f9f9f9", fontSize: isNet ? 12 : 11 }}>{lbl}</td>
+                        <td style={{ border: "1px solid #ccc", padding: "4px 8px", textAlign: "right", fontWeight: isNet ? "bold" : "normal", fontSize: isNet ? 12 : 11 }}>{val}</td>
+                      </tr>
+                    ))}
+                  </table>
+                </div>
+
+                {/* Footer */}
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, borderTop: "1px solid #ccc", paddingTop: 6, fontSize: 10 }}>
+                  <div>
+                    <div>Payment Mode :</div>
+                    {printBillData.cashierId && <div style={{ marginTop: 4 }}>Prepared by : <strong>{printBillData.cashierId}</strong></div>}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ marginTop: 30 }}>_____________________</div>
+                    <div>(Sign-pharmacist)</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "center", fontStyle: "italic", fontSize: 10, color: "#555", marginTop: 8 }}>
+                  "Goods once sold will not be taken back"
+                </div>
+              </div>
+            </ModalBody>
+            {/* Modal Footer Actions */}
+            <ModalFooterBar style={{ justifyContent: "flex-end", gap: 10 }}>
+              <Button secondary onClick={() => setShowPrintModal(false)}>
+                <FaTimes /> Close
+              </Button>
+              <Button
+                onClick={() => {
+                  const d = printBillData;
+                  const overallDiscAmtPrint = d.overallDiscountType === "amount"
+                    ? parseFloat(d.overallDiscountValue || 0)
+                    : d.totalAmount * (parseFloat(d.overallDiscountValue || 0) / 100);
+
+                  const medicineRows = d.medicines.map(m => `
+                    <tr>
+                      <td>${m.name || ""}</td>
+                      <td>${m.hsn_code || "—"}</td>
+                      <td>${m.batch_number || "—"}</td>
+                      <td>${m.expiry_date || "—"}</td>
+                      <td style="text-align:center">${m.quantity}</td>
+                      <td style="text-align:right">${(m.mrp || 0).toFixed(2)}</td>
+                      <td style="text-align:right">${(m.cgst_rate || 0).toFixed(2)}</td>
+                      <td style="text-align:right">${(m.cgst_amount || 0).toFixed(2)}</td>
+                      <td style="text-align:right">${(m.sgst_rate || 0).toFixed(2)}</td>
+                      <td style="text-align:right">${(m.sgst_amount || 0).toFixed(2)}</td>
+                      <td style="text-align:right">${(m.total || 0).toFixed(2)}</td>
+                    </tr>`).join("");
+
+                  const printContent = `<html><head><title>Pharmacy Bill</title>
+                    <style>
+                      *{margin:0;padding:0;box-sizing:border-box}
+                      body{font-family:Arial,sans-serif;color:#000;font-size:11px;padding:12px}
+                      .container{width:100%;max-width:900px;margin:0 auto;border:1px solid #000;padding:10px}
+                      .header{text-align:center;border-bottom:1px solid #000;padding-bottom:8px;margin-bottom:8px}
+                      .header h1{font-size:16px;font-weight:bold;margin-bottom:2px}
+                      .header p{font-size:10px;line-height:1.5}
+                      .badge{font-size:12px;font-weight:bold;margin:4px 0;border:1px solid #000;display:inline-block;padding:2px 10px}
+                      .info-grid{display:flex;justify-content:space-between;margin:8px 0;border-bottom:1px solid #ccc;padding-bottom:6px}
+                      .info-col{flex:1}
+                      .info-row{display:flex;font-size:10px;margin-bottom:3px}
+                      .info-label{font-weight:bold;min-width:90px}
+                      table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10px}
+                      th{border:1px solid #000;padding:4px 5px;background:#f0f0f0;text-align:left;font-size:10px}
+                      td{border:1px solid #ccc;padding:3px 5px;font-size:10px}
+                      .totals-section{margin-top:8px;display:flex;justify-content:flex-end}
+                      .totals-table{width:260px;border-collapse:collapse}
+                      .totals-table td{border:1px solid #ccc;padding:4px 8px;font-size:11px}
+                      .totals-table .label{font-weight:bold;text-align:right;background:#f9f9f9}
+                      .totals-table .value{text-align:right}
+                      .totals-table .net-row td{font-weight:bold;background:#e8f5e9;font-size:12px}
+                      .footer{margin-top:12px;border-top:1px solid #ccc;padding-top:6px;display:flex;justify-content:space-between;font-size:10px}
+                      .notice{font-style:italic;font-size:10px;color:#555;margin-top:8px;text-align:center}
+                      @media print{body{padding:0}}
+                    </style></head><body>
+                    <div class="container">
+                      <div class="header">
+                        <h1>SHANMUGA HOSPITAL LIMITED</h1>
+                        <p>51/24, Saradha College Road, Salem - 636007 &nbsp;|&nbsp; Ph No: 0427 2706666</p>
+                        <p>SLS 7788 20,21 3993 20B 3848 21B &nbsp;|&nbsp; CIN: L85110TZ2020PLC033974</p>
+                        <p>GST NO: 33ABDCS8326A1ZP &nbsp;&nbsp; No. RM/3G/012</p>
+                        <div class="badge">PHARMACY OP GST INVOICE</div>
+                      </div>
+                      <div class="info-grid">
+                        <div class="info-col">
+                          <div class="info-row"><span class="info-label">Patient</span><span>: ${d.patientName || "—"}</span></div>
+                          <div class="info-row"><span class="info-label">UHID No</span><span>: ${d.uhid || "—"}</span></div>
+                          <div class="info-row"><span class="info-label">Doctor</span><span>: ${d.doctorName || "—"}</span></div>
+                        </div>
+                        <div class="info-col" style="text-align:right">
+                          <div class="info-row" style="justify-content:flex-end"><span class="info-label">Bill No</span><span style="margin-left:8px">: ${d.billNo || "—"}</span></div>
+                          <div class="info-row" style="justify-content:flex-end"><span class="info-label">Date</span><span style="margin-left:8px">: ${d.billDate || "—"}</span></div>
+                        </div>
+                      </div>
+                      <table>
+                        <thead><tr>
+                          <th>Particulars</th><th>HSN Code</th><th>Batch</th><th>Expiry</th>
+                          <th>Qty</th><th>Rate</th><th>CGST%</th><th>CGST Amt</th>
+                          <th>SGST%</th><th>SGST Amt</th><th>Amount</th>
+                        </tr></thead>
+                        <tbody>${medicineRows}</tbody>
+                      </table>
+                      <div class="totals-section">
+                        <table class="totals-table">
+                          <tr><td class="label">Total :</td><td class="value">₹${d.totalAmount.toFixed(2)}</td></tr>
+                          <tr><td class="label">Discount Amt :</td><td class="value">₹${(d.totalItemDiscount + overallDiscAmtPrint).toFixed(2)}</td></tr>
+                          <tr class="net-row"><td class="label">Net Amount (Payable) :</td><td class="value">₹${d.netAmount.toFixed(2)}</td></tr>
+                          <tr><td class="label">Amount Collected :</td><td class="value">0.00</td></tr>
+                        </table>
+                      </div>
+                      <div class="footer">
+                        <div><p>Payment Mode :</p>${d.cashierId ? `<p style="margin-top:6px">Prepared by : <strong>${d.cashierId}</strong></p>` : ""}</div>
+                        <div style="text-align:right"><p style="margin-top:30px">_____________________</p><p>(Sign-pharmacist)</p></div>
+                      </div>
+                      <p class="notice">"Goods once sold will not be taken back"</p>
+                    </div></body></html>`;
+
+                  const pw = window.open("", "", "width=960,height=700");
+                  pw.document.write(printContent);
+                  pw.document.close();
+                  pw.print();
+                  pw.close();
+                }}
+                style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)", color: "#fff", border: "none" }}
+              >
+                <FaPrint /> Print Bill
+              </Button>
+            </ModalFooterBar>
           </ModalContainer>
         </ModalOverlay>
       )}

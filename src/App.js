@@ -29,7 +29,7 @@ import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
-import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
+import IPPharmacy from "./Components/IPPharmacy/IPPharmacy";
 import Summary from "./Components/Summary/Summary";
 import EditSummary from "./Components/Summary/EditSummary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
@@ -378,7 +378,7 @@ function App() {
             )}
 
             {/* Pharmacy */}
-            {hasPagePermission("/IPPharmacy", allowedActions, dynamicPermissions) && (
+            {("/IPPharmacy") && (
               <Route path="/IPPharmacy" element={<IPPharmacy />} />
             )}
             {hasPagePermission("/OPPharmacy", allowedActions, dynamicPermissions) && (
