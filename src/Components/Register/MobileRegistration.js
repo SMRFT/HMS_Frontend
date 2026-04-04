@@ -385,6 +385,7 @@ const SuccessIcon = styled.div`
 const MobileRegistration = () => {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const initialCustomerType = searchParams.get('customerType') || "General";
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -402,7 +403,8 @@ const MobileRegistration = () => {
     city: "",
     zipcode: "",
     state: "",
-    bloodGroup: ""
+    bloodGroup: "",
+    customerType: initialCustomerType
   });
 
   const handleChange = (e) => {
@@ -495,7 +497,7 @@ const MobileRegistration = () => {
 
     try {
       await axios.post(`${Hmsbaseurl}submit-qr-registration/`, {
-        session_id: sessionId,
+        session_id: sessionId || "static",
         data: formData
       });
       setSubmitted(true);
@@ -508,21 +510,7 @@ const MobileRegistration = () => {
     }
   };
 
-  if (!sessionId) {
-    return (
-      <PageWrapper>
-        <GlobalStyle />
-        <Card>
-          <ErrorBanner>
-            <AlertCircle size={24} />
-            <div>
-              Invalid Session ID. Please scan the QR code located at the hospital reception again.
-            </div>
-          </ErrorBanner>
-        </Card>
-      </PageWrapper>
-    );
-  }
+  // If no session ID is found in the URL, the backend will generate a new registration entry
 
   if (submitted) {
     return (

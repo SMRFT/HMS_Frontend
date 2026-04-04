@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled, { keyframes, css } from "styled-components";
 import {
-  Maximize, Minimize, LogOut, Clock, MapPin,
-  Activity, ChevronDown, Shield, Bell, User,
-  Settings, HelpCircle, RefreshCw, Menu
+  Maximize,
+  Minimize,
+  LogOut,
+  Clock,
+  MapPin,
+  Activity,
+  ChevronDown,
+  Shield,
+  Bell,
+  User,
+  Settings,
+  HelpCircle,
+  RefreshCw,
+  Menu,
 } from "lucide-react";
 import { colors } from "./GlobalStyles";
-import Favilogo from './Images/smrft_logo.png'
+import Favilogo from "./Images/smrft_logo.png";
 
 // ─── Animations ──────────────────────────────────────────────────────────────
 const fadeSlideDown = keyframes`
@@ -37,7 +48,7 @@ const HeaderContainer = styled.header`
   left: ${({ $isCollapsed }) => ($isCollapsed ? "0" : "260px")};
   right: 0;
   height: 62px;
-  z-index: 1200;
+  z-index: 999;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -86,7 +97,9 @@ const BrandIconWrap = styled.div`
   box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
   flex-shrink: 0;
 
-  svg { color: #fff; }
+  svg {
+    color: #fff;
+  }
 `;
 
 const BrandTextGroup = styled.div`
@@ -110,7 +123,9 @@ const HospitalName = styled.h1`
   letter-spacing: 0.5px;
   white-space: nowrap;
 
-  span { color: ${colors.primary}; }
+  span {
+    color: ${colors.primary};
+  }
 `;
 
 const BrandDivider = styled.div`
@@ -119,7 +134,9 @@ const BrandDivider = styled.div`
   background: ${colors.border};
   margin: 0 12px;
 
-  @media (max-width: 640px) { display: none; }
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const HospitalAddress = styled.div`
@@ -131,9 +148,14 @@ const HospitalAddress = styled.div`
   white-space: nowrap;
   font-weight: 500;
 
-  svg { color: ${colors.primary}; flex-shrink: 0; }
+  svg {
+    color: ${colors.primary};
+    flex-shrink: 0;
+  }
 
-  @media (max-width: 900px) { display: none; }
+  @media (max-width: 900px) {
+    display: none;
+  }
 `;
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
@@ -149,7 +171,9 @@ const ClockSection = styled.div`
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
 
-  @media (max-width: 640px) { display: none; }
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const ClockIconBox = styled.div`
@@ -162,7 +186,9 @@ const ClockIconBox = styled.div`
   justify-content: center;
   flex-shrink: 0;
 
-  svg { color: #fff; }
+  svg {
+    color: #fff;
+  }
 `;
 
 const ClockTexts = styled.div`
@@ -172,7 +198,7 @@ const ClockTexts = styled.div`
 `;
 
 const TimeText = styled.div`
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-family: "JetBrains Mono", "Courier New", monospace;
   font-size: 0.82rem;
   font-weight: 700;
   color: ${colors.textMain};
@@ -204,7 +230,9 @@ const HeaderDivider = styled.div`
   background: ${colors.border};
   margin: 0 4px;
 
-  @media (max-width: 480px) { display: none; }
+  @media (max-width: 480px) {
+    display: none;
+  }
 `;
 
 const IconBtn = styled.button`
@@ -230,7 +258,9 @@ const IconBtn = styled.button`
     box-shadow: 0 4px 10px rgba(13, 148, 136, 0.12);
   }
 
-  &:active { transform: translateY(0); }
+  &:active {
+    transform: translateY(0);
+  }
 
   @media (max-width: 480px) {
     width: 32px;
@@ -302,7 +332,9 @@ const UserMeta = styled.div`
   text-align: left;
   line-height: 1.3;
 
-  @media (max-width: 640px) { display: none; }
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const UserNameText = styled.span`
@@ -327,7 +359,9 @@ const ChevronBox = styled.div`
   transform: ${({ $open }) => ($open ? "rotate(180deg)" : "rotate(0deg)")};
   display: flex;
 
-  @media (max-width: 640px) { display: none; }
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 // ── Dropdown ──────────────────────────────────────────────────────────────────
@@ -412,7 +446,10 @@ const RolePill = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.4px;
 
-  svg { width: 10px; height: 10px; }
+  svg {
+    width: 10px;
+    height: 10px;
+  }
 `;
 
 const DropdownSection = styled.div`
@@ -504,7 +541,9 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
     const timer = setInterval(() => {
       setTime(new Date());
       const diff = Math.floor((Date.now() - sessionStart.getTime()) / 60000);
-      setSessionDuration(diff < 60 ? `${diff}m` : `${Math.floor(diff / 60)}h ${diff % 60}m`);
+      setSessionDuration(
+        diff < 60 ? `${diff}m` : `${Math.floor(diff / 60)}h ${diff % 60}m`,
+      );
     }, 1000);
     return () => clearInterval(timer);
   }, [sessionStart]);
@@ -522,7 +561,9 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
   // ESC key close
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") setDropdownOpen(false); };
+    const handler = (e) => {
+      if (e.key === "Escape") setDropdownOpen(false);
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
@@ -550,16 +591,24 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
   const formatTime = (d) =>
     d.toLocaleTimeString("en-IN", {
-      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
     });
 
   const formatDate = (d) =>
     d.toLocaleDateString("en-IN", {
-      weekday: "short", day: "2-digit", month: "short", year: "numeric",
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
     });
 
   const loginTime = sessionStart.toLocaleTimeString("en-IN", {
-    hour: "2-digit", minute: "2-digit", hour12: true,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
   });
 
   return (
@@ -568,16 +617,14 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
       <IconBtn
         onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        style={{ marginRight: '8px' }}
+        style={{ marginRight: "8px" }}
       >
         <Menu size={20} />
       </IconBtn>
 
       {/* ── Left: Branding ── */}
       <BrandingSection>
-
-        {/* <img src={Favilogo} alt="Logo" /> */}
-
+        <img src={Favilogo} alt="Logo" style={{ height: "30px", width: "auto", objectFit: "contain", borderRadius: "4px" }} />
 
         <BrandTextGroup>
           <HospitalName>
@@ -606,14 +653,16 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
       {/* ── Right: Actions ── */}
       <ActionSection>
-
         {/* Refresh */}
         <IconBtn onClick={handleRefresh} title="Refresh Page">
           <RefreshCw size={17} />
         </IconBtn>
 
         {/* Fullscreen */}
-        <IconBtn onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}>
+        <IconBtn
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+        >
           {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
         </IconBtn>
 
@@ -633,12 +682,12 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
             aria-expanded={dropdownOpen}
             aria-haspopup="true"
           >
-            <UserAvatar>
-              {employeeName.charAt(0).toUpperCase()}
-            </UserAvatar>
+            <UserAvatar>{employeeName.charAt(0).toUpperCase()}</UserAvatar>
             <UserMeta>
               <UserNameText>{employeeName}</UserNameText>
-              <UserRoleText>{userRole} · {employeeId}</UserRoleText>
+              <UserRoleText>
+                {userRole} · {employeeId}
+              </UserRoleText>
             </UserMeta>
             <ChevronBox $open={dropdownOpen}>
               <ChevronDown size={14} />
@@ -648,7 +697,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
           {/* ── Dropdown Panel ── */}
           {dropdownOpen && (
             <DropdownMenu role="menu">
-
               {/* User Card */}
               <DropdownProfileHeader>
                 <DropdownBigAvatar>
@@ -689,15 +737,11 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
                 <SessionText>
                   <Clock size={11} /> Logged in at {loginTime}
                 </SessionText>
-                <SessionStatus>
-                  {sessionDuration}
-                </SessionStatus>
+                <SessionStatus>{sessionDuration}</SessionStatus>
               </SessionInfo>
-
             </DropdownMenu>
           )}
         </UserProfileWrapper>
-
       </ActionSection>
     </HeaderContainer>
   );

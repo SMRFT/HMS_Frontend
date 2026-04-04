@@ -575,7 +575,7 @@ const BillsReport = () => {
         <div class="bill-row"><div class="bill-label">Bill Number</div><div class="bill-value">: ${bill.investBillNo || bill.EstBillNo || ""}</div></div>
         <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
         <div class="bill-row"><div class="bill-label">Bill Date</div><div class="bill-value">: ${fmtDT(bill.investBillDate || bill.EstBillDate)}</div></div>
-        <div class="bill-row"><div class="bill-label">Name</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
+        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.age}Y / ${bill.gender}</div></div>
         <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
       </div>
       <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
@@ -594,7 +594,7 @@ const BillsReport = () => {
         <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
         <div class="total-row net-amount"><div class="total-label">Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
       </div>
-      <div class="signature"><div>${bill.uhid || ""}</div><div>(Signature)</div></div>
+      <div class="signature"><div>${bill.created_by}</div><div>(Signature)</div></div>
       </body></html>`);
     pw.document.close();
     setTimeout(() => pw.print(), 500);
@@ -675,9 +675,7 @@ const BillsReport = () => {
     <PageContainer>
       <HeaderContainer>
         <PageTitle>📄 Bills Report</PageTitle>
-        <BackButton onClick={() => navigate("/InvestigationBilling")}>
-          ← Back to Billing
-        </BackButton>
+        <BackButton onClick={() => navigate(-1)}>← Back to Billing</BackButton>
       </HeaderContainer>
 
       <ContentCard>

@@ -526,6 +526,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     billTypeName: ""
   });
 
+
+
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });

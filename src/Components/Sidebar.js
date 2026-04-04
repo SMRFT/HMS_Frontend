@@ -18,27 +18,42 @@ import {
   Code,
   X,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Search,
 } from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
 import LOGO from "../Components/Images/smrft.png";
 
 const iconMap = {
-  Home, FiHome: Home,
-  UserPlus, FiUserPlus: UserPlus,
-  Repeat, FiRepeat: Repeat,
-  LogOut, FiLogOut: LogOut,
-  Activity, FiActivity: Activity,
-  Package, FiPackage: Package,
-  ShoppingBag, FiShoppingBag: ShoppingBag,
-  Truck, FiTruck: Truck,
-  FileText, FiFileText: FileText,
-  Users, FiUsers: Users,
-  Clipboard, FiClipboard: Clipboard,
-  Layers, FiLayers: Layers,
-  Tag, FiTag: Tag,
-  Code, FiCode: Code
+  Home,
+  FiHome: Home,
+  UserPlus,
+  FiUserPlus: UserPlus,
+  Repeat,
+  FiRepeat: Repeat,
+  LogOut,
+  FiLogOut: LogOut,
+  Activity,
+  FiActivity: Activity,
+  Package,
+  FiPackage: Package,
+  ShoppingBag,
+  FiShoppingBag: ShoppingBag,
+  Truck,
+  FiTruck: Truck,
+  FileText,
+  FiFileText: FileText,
+  Users,
+  FiUsers: Users,
+  Clipboard,
+  FiClipboard: Clipboard,
+  Layers,
+  FiLayers: Layers,
+  Tag,
+  FiTag: Tag,
+  Code,
+  FiCode: Code,
 };
 
 // Use the same theme colors for consistency
@@ -65,15 +80,17 @@ const SidebarContainer = styled.div`
   border-right: 1px solid ${colors.border};
   display: flex;
   flex-direction: column;
-  z-index: 1300;
+  z-index: 200;
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.02);
-  transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+  transform: ${({ $isCollapsed }) =>
+    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 
   @media (max-width: 1024px) {
     width: 260px;
-    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(-100%)" : "translateX(0)")};
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
 
   @media (max-width: 768px) {
@@ -81,7 +98,8 @@ const SidebarContainer = styled.div`
     width: 260px;
     height: 100vh;
     top: 0;
-    transform: ${({ $isCollapsed }) => ($isCollapsed ? "translateX(0)" : "translateX(-100%)")};
+    transform: ${({ $isCollapsed }) =>
+      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
 `;
@@ -97,7 +115,7 @@ const Overlay = styled.div`
     height: 100vh;
     background: rgba(15, 23, 42, 0.4);
     backdrop-filter: blur(2px);
-    z-index: 999;
+    z-index: 199;
   }
 `;
 
@@ -118,7 +136,10 @@ const CloseMobileBtn = styled.button`
   z-index: 1010;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 
-  &:hover { color: #e11d48; border-color: #fecaca; }
+  &:hover {
+    color: #e11d48;
+    border-color: #fecaca;
+  }
 
   @media (max-width: 768px) {
     display: flex;
@@ -158,6 +179,52 @@ const BrandLogo = styled.img`
   }
 `;
 
+const SearchContainer = styled.div`
+  padding: 16px 20px 8px 20px;
+  flex-shrink: 0;
+
+  @media (max-width: 1024px) {
+    padding: 16px 12px 8px 12px;
+  }
+`;
+
+const SearchInputWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 10px 14px 10px 38px;
+  border-radius: 8px;
+  border: 1px solid ${colors.border};
+  background-color: ${colors.background};
+  font-size: 0.85rem;
+  color: ${colors.textMain};
+  outline: none;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: ${colors.primary};
+    background-color: ${colors.surface};
+    box-shadow: 0 0 0 2px ${colors.primaryLight};
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const SearchIcon = styled(Search)`
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  width: 16px;
+  height: 16px;
+`;
+
 const NavMenu = styled.nav`
   flex: 1;
   padding: 10px 14px;
@@ -191,7 +258,7 @@ const NavGroupHeader = styled.div`
   padding: 18px 16px 8px;
   cursor: pointer;
   user-select: none;
-  
+
   span {
     font-size: 0.7rem;
     font-weight: 700;
@@ -201,21 +268,25 @@ const NavGroupHeader = styled.div`
     letter-spacing: 0.1em;
     display: block;
   }
-  
+
   svg {
     color: ${colors.primary};
     transition: transform 0.2s;
     display: block;
   }
 
-  &:hover span, &:hover svg {
+  &:hover span,
+  &:hover svg {
     color: ${colors.primaryDark};
   }
 
   @media (max-width: 768px) {
     justify-content: space-between;
     padding: 18px 16px 8px;
-    span, svg { display: block; }
+    span,
+    svg {
+      display: block;
+    }
   }
 `;
 
@@ -239,7 +310,9 @@ const NavGroupContent = styled.div`
   gap: 4px;
   overflow: hidden;
   opacity: ${({ $isOpen }) => ($isOpen ? "1" : "0")};
-  transition: opacity 0.3s ease-in-out, padding 0.3s ease-in-out;
+  transition:
+    opacity 0.3s ease-in-out,
+    padding 0.3s ease-in-out;
   padding-bottom: ${({ $isOpen }) => ($isOpen ? "8px" : "0")};
 
   @media (max-width: 1024px) {
@@ -276,7 +349,9 @@ const StyledNavLink = styled(NavLink)`
 
   span {
     display: block;
-    @media (max-width: 768px) { display: block; }
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
   &:hover {
@@ -351,7 +426,9 @@ const UserInfo = styled.div`
     text-transform: capitalize;
   }
 
-  @media (max-width: 768px) { display: flex; }
+  @media (max-width: 768px) {
+    display: flex;
+  }
 `;
 
 const LogoutButton = styled.button`
@@ -372,7 +449,9 @@ const LogoutButton = styled.button`
 
   span {
     display: block;
-    @media (max-width: 768px) { display: block; }
+    @media (max-width: 768px) {
+      display: block;
+    }
   }
 
   &:hover {
@@ -388,13 +467,13 @@ const LogoutButton = styled.button`
 const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const [sidebarData, setSidebarData] = useState([]);
-
+  const [searchTerm, setSearchTerm] = useState('');
   const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
     const loadSidebarData = async () => {
-      const employeeId = localStorage.getItem("employeeId");
-      const data = await fetchSidebarMapping(employeeId);
+      // Fetch entire raw menu structure instead of relying on backend logic to filter
+      const data = await fetchSidebarMapping();
       setSidebarData(data);
 
       // Initialize all groups to be OPEN (true) by default
@@ -410,55 +489,100 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   // Ensures if a user navigates to a route that is currently closed, it will open automatically
   useEffect(() => {
     if (sidebarData.length > 0) {
-      const activeGroupIndex = sidebarData.findIndex(group =>
-        (group.pages || []).some(page => location.pathname.startsWith(page.route))
+      const activeGroupIndex = sidebarData.findIndex((group) =>
+        (group.pages || []).some((page) =>
+          location.pathname.startsWith(page.route),
+        ),
       );
       if (activeGroupIndex !== -1 && openGroups[activeGroupIndex] === false) {
-        setOpenGroups(prev => ({ ...prev, [activeGroupIndex]: true }));
+        setOpenGroups((prev) => ({ ...prev, [activeGroupIndex]: true }));
       }
     }
   }, [sidebarData, location.pathname]);
 
   const toggleGroup = (index) => {
-    setOpenGroups(prev => {
+    setOpenGroups((prev) => {
       // Fallback to true if it hasn't been defined yet, so a click will explicitly close it
       const isCurrentlyOpen = prev[index] ?? true;
       return { ...prev, [index]: !isCurrentlyOpen };
     });
   };
 
-  const closeMobileSidebar = () => { if (window.innerWidth <= 768) setIsCollapsed(false); };
+  const closeMobileSidebar = () => {
+    if (window.innerWidth <= 768) setIsCollapsed(false);
+  };
   const toggleDesktopCollapse = () => setIsCollapsed(!isCollapsed);
 
   return (
     <>
       <Overlay $isCollapsed={isCollapsed} onClick={closeMobileSidebar} />
 
-      <SidebarContainer $isCollapsed={isCollapsed} >
+      <SidebarContainer $isCollapsed={isCollapsed}>
         <BrandSection>
           <BrandLogo src={LOGO} alt="Logo" />
           <CloseMobileBtn onClick={closeMobileSidebar}>
             <X size={20} />
           </CloseMobileBtn>
         </BrandSection>
+        
+        <SearchContainer>
+          <SearchInputWrapper>
+            <SearchIcon />
+            <SearchInput
+              type="text"
+              placeholder="Search sections..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </SearchInputWrapper>
+        </SearchContainer>
+
         <NavMenu>
           {sidebarData.map((group, groupIndex) => {
-            const pages = group.pages || [];
-            // Defaults to true, so it's open if undefined
-            const isOpen = openGroups[groupIndex] ?? true;
+            // Use globally configured integer ID array for permission-based rendering
+            const storedHmsPages = (() => {
+               try { return JSON.parse(localStorage.getItem("hms_pages") || "[]"); }
+               catch { return []; }
+            })();
+            
+            const allowedPages = (group.pages || []).filter((page) => {
+              const perms = page.permissions || [];
+              if (perms.length > 0 && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
+                return false;
+              }
+              return true;
+            });
+            
+            const groupNameMatches = group.group && group.group.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const searchFilteredPages = allowedPages.filter((page) =>
+              page.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            // Hide the entire group if user has no access to any of its pages after search
+            const pagesToShow = groupNameMatches ? allowedPages : searchFilteredPages;
+
+            if (pagesToShow.length === 0) return null;
+
+            // Open if searching, else use defined state, fallback to true
+            const isOpen = searchTerm ? true : (openGroups[groupIndex] ?? true);
 
             return (
               <React.Fragment key={groupIndex}>
                 {group.group && (
                   <NavGroupHeader onClick={() => toggleGroup(groupIndex)}>
                     <span>{group.group}</span>
-                    {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {isOpen ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
                   </NavGroupHeader>
                 )}
 
                 <NavGroupContentWrapper $isOpen={isOpen}>
                   <NavGroupContent $isOpen={isOpen}>
-                    {pages.map((page, pageIndex) => {
+                    {pagesToShow.map((page, pageIndex) => {
                       const IconComponent = iconMap[page.icon] || Activity;
 
                       return (

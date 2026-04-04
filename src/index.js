@@ -14,12 +14,14 @@ console.log("REDIRECT_URL:", REDIRECT_URL);
 
 // --- Function to set token for local development ---
 function setforlocaldev() {
-  const dev_token ="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiI1MDg4NiIsImVtYWlsIjoiY2hhbmRyYXNtcmZ0QGdtYWlsLmNvbSIsIm5hbWUiOiJDaGFuZHJhIiwiYWxsb3dlZC1hY3Rpb25zIjpbIkhNUy1QLUNFQi1SVyIsIkhNUy1QLUlCLVIiLCJFUi1QLUVSVVMtUlciLCJFUi1QLUVSR1BSLVJXIiwiSE1TLVAtSFNOLVJXIiwiSE1TLVAtUE9QVUFTLVJXIiwiSE1TLVAtSVBIIiwiSE1TLVAtR1BCVC1SIiwiSE1TLVAtR0xCVC1SIiwiRVItUC1FUlZCLVJXIiwiRkUtUC1GR0YtUiIsIlNISS1QLUVYUC1SVyIsIkhNUy1QLUJMSy1SIiwiU0hJLVAtVFJBSU4tUlciLCJFUi1QLUVSR0FTLVJXIiwiSE1TLVAtUENPUFAtUlciLCJHTC1QLUVBRC1SVyIsIkVSLVAtRVJTRC1SVyIsIkZFLVItRkEtUlciLCJGRS1QLUZHLVJXIiwiU0hJLVAtSU5DIiwiR0wtUC1BTkQtUlciLCJNREMtUC1HQVAtUiIsIkdMLVAtTkRDLVJXIiwiTURDLUFQSS1DR1AtUlciLCJITVMtUC1ETEQtUlciLCJGRS1QLUZTLVJXIiwiSE1TLVAtT1BIIiwiSE1TLVAtUENDU0RfUlciLCJITVMtUC1PUFBCLVIiLCJITVMtUC1XUlEtUlciLCJHTC1QLVJTRS1SVyIsIkdMLVAtRUwtUlciLCJHTC1QLUVELVJXIiwiSE1TLVAtR09QUy1SIiwiSE1TLVAtQURNLVJXIiwiSE1TLVAtUFNPUEItUlciLCJGRS1QLUZVUy1SVyIsIkdMLVAtRVAtUlciLCJITVMtUC1QR0xCVS1SIiwiSE1TLVAtR0xCVS1SIiwiSE1TLVAtUEdTLVIiLCJNREMtQVBJLUFHUC1SVyIsIkhNUy1QLVBPUFBEQi1SVyIsIkdMLVAtUC1SVyIsIkdMLVAtRUJULVJXIiwiSE1TLVAtR0FFLVIiLCJGRS1QLUZGLVJXIiwiRVItUi1FUlAiLCJNREMtUC1QTlBSLVIiLCJITVMtUC1WTC1SVyIsIk1EQy1BUEktQVQtUiIsIkZFLVItRkEiLCJNREMtQVBJLVBEQy1SVyIsIkhNUy1QLUNPUFAtUlciLCJNREMtUC1HU1AtUiIsIkhNUy1QLURSTS1SIiwiSE1TLVAtUkNBVC1SIiwiRkUtUC1GR0wtUiIsIkZFLVAtRlVCLVJXIiwiSE1TLVAtQ1MtUlciLCJNREMtUC1BQVUtUlciLCJITVMtUC1QR1BCVC1SIiwiSE1TLVItUEgiLCJGRS1QLUZTQi1SVyIsIk1EQy1BUEktT0dQLVJXIiwiSE1TLVAtR1dMLVIiLCJGRS1QLUZBTC1SIiwiTURDLVAtR09QLVIiLCJGRS1QLUZSLVJXIiwiSE1TLVAtUEdBUy1SIiwiSE1TLVAtUEdFQi1SIiwiSE1TLVAtR09QQk4tUiIsIkhNUy1QLVNPUEUtUlciLCJFUi1QLUVSUC1SIiwiSE1TLVAtU09QQi1SVyIsIk1EQy1QLUdQUC1SIiwiTURDLVAtR0NQLVIiLCJNREMtQVBJLVBHUC1SVyIsIk1EQy1BUEktU0dQLVJXIiwiTURDLVItUERDIiwiR1AtUC1HQ04tUiJdLCJhbGxvd2VkLWRhdGEiOlsiU0hCMDAxIl0sImhvc3BpdGFsX2NvZGUiOiJTSDAwMSIsImhtc19wYWdlcyI6WzE4LDE5XSwiYWxsb3dlZC1vdXRsZXRzIjpbXSwiaXNzIjoiaHR0cHM6Ly9sYWIuc2hpbm92YS5pbi8iLCJpYXQiOjE3NzUyODU0NzgsImV4cCI6MTc3NTM3MjQ3OH0.Ns0jk6H9IYY9pcNCzOJBnAA2iNN0vrF6W_n3fyaRdtTNz1_VdOYQ0gkFGYPnEAK0AAq_da6Xlc7vRsmiVL1z9MvfDzjIxG1bLiNhLIYXEkz8NRDWygA92fvtyBgiTPyEMRmjSYL-PCYnDXApCzI34wxg_KVi3z-vDgx90SK8anlBKP3tpDswgHfzitvgeNiA4Yg__PAzBZZCocj-zsZEYFtumNzVkFfXD3ucaFfSQk-4SmHiUbXEn7V2WplQPiRXh0BOHjX6bL2ogAhWFsi5C-Jrijw1-Bxm4MNP3HzdUSZonhDeWCLqXOUswWyCv83d4S6xHp3pV7-o-vqA3hMpYA"
+  const dev_token =
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiI1MDg2NyIsImVtYWlsIjoiUGFydGhpcGFuMzEyMTQ2MUBnbWFpbC5jb20iLCJuYW1lIjoiTS5QYXJ0aGliYW4iLCJhbGxvd2VkLWFjdGlvbnMiOlsiU1QtUC1CUkQtUiIsIlNELUFQSS1WQy1SVyIsIlNELVAtTUlTLVIiLCJTRC1QLUxHTFQtUiIsIlNELVAtSE1TVEQtUiIsIlNELUFQSS1DTi1SIiwiU0QtUC1TUy1SVyIsIlNULVAtREVTLVIiLCJTSU4tQVBJLVNGLVIiLCJTRC1QLUhNU1BTLVJXIiwiU1QtUC1OVEYtUiIsIlNISS1QLUYxUy1SVyIsIlNISS1QLUVYUC1SVyIsIlNELVAtUEItUiIsIlNISS1QLU1JQ1VSLVJXIiwiU0hJLVAtU0lDVVItUlciLCJTRC1QLVRELVIiLCJTSEktUC1GMVItUlciLCJTRC1QLVNIRi1SIiwiU0hJLVAtTU9DSy1SVyIsIlNELUFQSS1SQ0wtUlciLCJTRC1QLVBELVIiLCJTSEktUC1NUkQtUlciLCJTRC1QLUxCTi1SIiwiU0hJLVAtT1QtUlciLCJTSEktUC1UUkFJTlItUlciLCJTRC1BUEktR09SLVJXIiwiU0QtUC1CVEQtUlciLCJTRC1BUEktR1ItUlciLCJTRC1QLUJBLVJXIiwiU0QtQVBJLVZQLVJXIiwiU0hJLVAtRElBLVJXIiwiU0QtUC1MU0NMLVIiLCJTRC1QLUhNU0xELVIiLCJTRC1QLVBHLVIiLCJTRC1QLUNIQy1SIiwiU0QtUC1ITVNDUy1SIiwiU0QtQVBJLUdELVIiLCJTSEktUC1GMlNSLVJXIiwiU0QtUC1CQS1SIiwiU0hJLVAtUkVDLVJXIiwiU1QtUC1TTk8tUlciLCJTRC1QLVNTVS1SIiwiU0QtUC1ITVNVQy1SVyIsIlNELVAtSE1TU1MtUiIsIlNELVAtQ0hDLVJXIiwiU0QtUC1MR0xELVIiLCJTSEktUC1DSEVNT1ItUlciLCJTSS1SLUlOREUiLCJTVC1QLUNNVC1SVyIsIlNELUFQSS1NSVMtUlciLCJTSU4tQVBJLU9SUi1SIiwiU0QtUC1TR0FDLVJXIiwiU0QtUC1QQi1SVyIsIlNISS1QLVBIWS1SVyIsIlNELVAtTUJQRC1SIiwiU0QtUC1QT1YtUiIsIlNISS1QLU9QRC1SVyIsIlNISS1QLUYxU1ItUlciLCJTRC1BUEktR0MtUlciLCJTVC1QLVRETC1SIiwiU0QtQVBJLUlWTS1SVyIsIlNELVAtSE1TUEItUiIsIlNELVAtUEYtUiIsIlNELVAtSE1TU1AtUlciLCJTSU4tQVBJLUlGLVIiLCJTRC1QLUhNU1NELVJXIiwiU0QtUC1TUC1SIiwiU0QtUC1MR0QtUlciLCJTRC1QLVNIRi1SVyIsIlNISS1QLUZPUk0tUlciLCJTRC1BUEktTUJURC1SVyIsIlNULUFQSS1DUkQtUlciLCJTSEktUC1BVkFJTC1SVyIsIlNELUFQSS1QUi1SIiwiU0QtUC1TR0FDLVIiLCJTRC1QLVBGLVJXIiwiU0QtUC1URS1SVyIsIlNELVAtTFVTQ0QtUlciLCJTRC1QLVBPVi1SVyIsIlNELUFQSS1SQi1SIiwiU0hJLVAtTEFCLVJXIiwiU0hJLVAtSEFORC1SVyIsIlNELVAtTUJUVi1SIiwiU0hJLVAtRU1SUi1SVyIsIlNELVAtREYtUiIsIlNELVAtTUJERi1SVyIsIlNELVAtREYtUlciLCJTRC1QLVRFLVIiLCJTSEktUC1GM1ItUlciLCJTSEktUC1GMy1SVyIsIlNISS1QLVVQRFJBVy1SVyIsIlNISS1QLUYxLVJXIiwiU0QtQVBJLUdPQy1SVyIsIlNELVAtQlRELVIiLCJTSU4tUi1BQ0MiLCJTRC1BUEktVFYtUiIsIlNELVAtU0MtUiIsIlNELVAtU1MtUiIsIlNISS1QLVNJQ1UtUlciLCJTRC1QLVNWRi1SIiwiU1QtQVBJLUFNQy1SVyIsIlNISS1QLUNIRU1PLVJXIiwiU0hJLVAtRlJOVC1SVyIsIlNELUFQSS1UTS1SIiwiU1QtUC1UREwtUlciLCJTSEktUC1SRUNSLVJXIiwiU0QtUC1QTC1SIiwiU0hJLVAtTklDVS1SVyIsIlNELVAtU0lSLVJXIiwiU1QtUC1OVEYtUlciLCJTRC1QLUdQQi1SVyIsIlNISS1QLUhSLVJXIiwiU0hJLVAtTklDVVItUlciLCJTRC1QLUhNU1NTLVJXIiwiU0QtUC1TVkYtUlciLCJTRC1QLUxTQy1SVyIsIlNELVAtTEdTQy1SIiwiU0QtQVBJLUlWTS1SIiwiU0QtUC1ITVNQQi1SVyIsIlNISS1QLUYyLVJXIiwiU0hJLVAtRU1SLVJXIiwiU0hJLVAtRjJTLVJXIiwiU0QtUC1URC1SVyIsIlNULUFQSS1FTVAtUiIsIlNULUFQSS1CUkQtUlciLCJTRC1QLUhNU1RELVJXIiwiU0hJLVAtVFJBSU4tUlciLCJTRC1QLUxTRC1SVyIsIlNELVAtR1BELVIiLCJHUC1QLUdDTi1SIiwiU1QtUi1BIiwiU0hJLVAtWFJBWS1SVyIsIlNULVAtREVTLVJXIiwiU0QtUC1ITVNHQy1SIiwiU1QtUC1DTVQtUiIsIlNELUFQSS1UTS1SVyIsIlNELVAtSE1TU1AtUiIsIlNELVAtTFJDLVIiLCJTSEktUC1NSUNVLVJXIiwiU0QtUi1BIiwiU0QtUC1CRy1SIiwiU0QtQVBJLVRELVIiLCJTSEktUC1GMlItUlciLCJTRC1QLUdTUC1SIiwiU0hJLVAtQ1QtUlciLCJTRC1QLVNJUi1SIiwiU0hJLVAtSU5DIiwiU0QtUC1VUEItUiIsIlNELVAtU0NVLVJXIiwiU0QtUC1TU1UtUlciLCJTSEktUC1IQU5EUi1SVyIsIlNELVAtUEctUlciLCJTRC1QLVVQQi1SVyIsIlNISS1QLU1SSS1SVyIsIlNISS1QLUdFVFJBVy1SVyIsIlNELVAtTFBJLVIiLCJTSEktUC1QSEFSTS1SVyJdLCJhbGxvd2VkLWRhdGEiOlsiU0hCMDAxIl0sImlzcyI6Imh0dHBzOi8vbGFiLnNoaW5vdmEuaW4vIiwiaWF0IjoxNzc0NTE4NjI3LCJleHAiOjE3NzQ2MDU2MjcsImp0aSI6IjNhOTY3MDU4LTAzZmYtNDVmOS04ZTIwLWRlMmYxMWNkNGE3ZiJ9.Izsimbn4M2GCWm4s_Z8BP94zJeOJVmoSYUtk1PZjS7kJjnBeFsVyn91-7a2TB8I-ExCNZp7aEyjWQBjE79OPebspH8S3mmyfgkyB5AwMZfSP5usb3g1ZQ0kZdppg79MaxTQ91A0dlPlBWI_qgYHgruBrMEpLGQZ9hA9G_NrVtxFj21zQcmDbL6GWfHl80d4gCiuzftmTnPKRAx6GSH9Q2XIha_Tojxf3CUhMaF_l6_n_TFLtIhRqzy1Ini3aTXfT8MzHsXc7sEEkrMh_DTrkY1jYdzj4qT2C6LtjKXBPYGCnQcRS-YqPdHgoYqJHR9sAPzjAzzy9wPs_rbAF1nXEOQ"
   console.log("🔧 Development token is empty - will redirect to login");
   const selectedBranch = "SHB001";
   localStorage.setItem("selected_branch", selectedBranch);
+  const selectedOutlet = "OLET001";
+  localStorage.setItem("selected_outlet", selectedOutlet);
   return dev_token;
-
 }
 
 // --- Function to redirect to login ---
@@ -55,13 +57,20 @@ function validate(token) {
 // --- Function to determine user role based on allowed-actions ---
 function getUserRole(allowedActions) {
   if (!allowedActions || !Array.isArray(allowedActions)) {
-    return "Employee"; // Default role
+    return "Receptionist"; // Default role
   }
   console.log("Allowed actions:", allowedActions);
   if (allowedActions.includes("HMS-R-SA")) {
     return "Super Admin";
-  } else {
-    return "Employee"; // Default role if none of the specific roles are found
+  }
+  if (allowedActions.includes("HMS-R-PH")) {
+    return "Pharmacist";
+  }
+  if (allowedActions.includes("HMS-R-NS")) {
+    return "Nursing Station";
+  }
+  else {
+    return "Receptionist"; // Default role if none of the specific roles are found
   }
 }
 
@@ -77,7 +86,7 @@ function getUserRole(allowedActions) {
     // If no token found, try development token
     if (!accessToken) {
       console.log(
-        "❌ No token found in localStorage, trying development token",
+        "❌ No token found in localStorage, trying development token"
       );
       accessToken = setforlocaldev();
     }
@@ -102,6 +111,7 @@ function getUserRole(allowedActions) {
     const employeeId = userPayload.aud; // Using 'aud' field as ID
     const name = userPayload.name;
     const userEmail = userPayload.email;
+
     const userRole = getUserRole(userPayload["allowed-actions"]);
 
     console.log("Employee ID:", employeeId);
@@ -115,7 +125,7 @@ function getUserRole(allowedActions) {
 
     if (!isLoggedIn) {
       throw new Error(
-        "Missing required user data (employeeId or employeeName)",
+        "Missing required user data (employeeId or employeeName)"
       );
     }
 
@@ -124,7 +134,14 @@ function getUserRole(allowedActions) {
     localStorage.setItem("employeeId", employeeId);
     localStorage.setItem("name", name);
     localStorage.setItem("userEmail", userEmail);
+    localStorage.setItem("allowed-outlets", userPayload["allowed-outlets"]);
+    localStorage.setItem("hms_pages", JSON.stringify(userPayload["hms_pages"] || []));
     localStorage.setItem("role", userRole);
+
+    localStorage.setItem(
+      "allowedActions",
+      JSON.stringify(userPayload["allowed-actions"] || []),
+    );
 
     console.log("✅ User payload and extracted data stored in localStorage");
     console.log("Stored data:", {
@@ -140,7 +157,7 @@ function getUserRole(allowedActions) {
     root.render(
       <React.StrictMode>
         <App />
-      </React.StrictMode>,
+      </React.StrictMode>
     );
 
     reportWebVitals();

@@ -236,7 +236,6 @@ const PatientRegistrationForm = () => {
 
     // Patient state - UPDATED with firstName and lastName
     const [patient, setPatient] = useState({
-        regDate: "",
         salutation: "",
         firstName: "",
         lastName: "",
@@ -285,6 +284,7 @@ const PatientRegistrationForm = () => {
     const [searchDoctorTerm, setSearchDoctorTerm] = useState("") // New state for searching referredBy
     const [lastUhid, setLastUhid] = useState("") // State for last UHID
     const [insuranceProviders, setInsuranceProviders] = useState([]) // New state for insurance
+    const [customerTypes, setCustomerTypes] = useState([]) // Dynamic customer types
 
     // Stats State
     const [stats, setStats] = useState({ new_visit: 0, existing_visit: 0, total_visit: 0 });
@@ -756,7 +756,6 @@ const PatientRegistrationForm = () => {
         const formData = new FormData()
 
         const backendKeys = {
-            regDate: "registration_date",
             salutation: "salutation",
             permanentAddress: "permanent_address",
             homePhone: "home_phone",
@@ -801,7 +800,6 @@ const PatientRegistrationForm = () => {
 
             // Reset form
             setPatient({
-                regDate: "",
                 salutation: "",
                 firstName: "",
                 lastName: "",
@@ -871,7 +869,14 @@ const PatientRegistrationForm = () => {
     // Select patient from search results
     const handleSelectPatient = (selectedPatient) => {
         const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
-        setPatient({ ...selectedPatient, name: fullName })
+        
+        // Map backend registration_date to frontend regDate if it exists
+        const mappedPatient = { 
+            ...selectedPatient, 
+            name: fullName
+        }
+        
+        setPatient(mappedPatient)
         setShowSearchModal(false)
     }
 
@@ -916,11 +921,19 @@ const PatientRegistrationForm = () => {
         }
     };
 
+    const loadCustomerTypes = async () => {
+        const result = await apiRequest(`${Hmsbaseurl}customer-types/`);
+        if (result.success) {
+            setCustomerTypes(result.data.filter(t => t.is_active));
+        }
+    };
+
     // Fetch doctors on component mount
     useEffect(() => {
         loadDoctors();
         loadReferenceDoctors();
         loadInsuranceProviders();
+        loadCustomerTypes();
     }, [])
 
     // Combine lists for Referred By search
@@ -1342,13 +1355,30 @@ const PatientRegistrationForm = () => {
                                             id="customerType"
                                             name="customerType"
                                             value={patient.customerType}
-                                            onChange={handleChange}
+                                            onChange={(e) => {
+                                                const selectedValue = e.target.value;
+                                                const typeObj = customerTypes.find(t => t.type_name === selectedValue);
+                                                const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
+                                                
+                                                setRegistrationFee(fee);
+                                                const total = fee + consultingFee + hospitalFee + bookingFee;
+                                                setTotalFees(total);
+                                                
+                                                setPatient(prev => ({
+                                                    ...prev, 
+                                                    customerType: selectedValue,
+                                                    registrationFee: fee,
+                                                    totalFees: total
+                                                }));
+                                            }}
                                             required
                                         >
-                                            <option value="General">General</option>
-                                            <option value="Insurance">Insurance</option>
-                                            <option value="Corporate">Corporate</option>
-                                            <option value="Employee">Employee</option>
+                                            <option value="">Select Type</option>
+                                            {customerTypes.map(ct => (
+                                                <option key={ct.type_id} value={ct.type_name}>
+                                                    {ct.type_name}
+                                                </option>
+                                            ))}
                                         </Select>
                                     </InputWrapper>
                                     {patient.customerType === "Insurance" && (
