@@ -28,7 +28,7 @@ import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
-import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
+import IPPharmacy from "./Components/IPPharmacy/IPPharmacy";
 import Summary from "./Components/Summary/Summary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master

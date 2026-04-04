@@ -32,7 +32,7 @@ function redirectToLogin() {
   } else {
     console.error("❌ REDIRECT_URL not configured");
     // Even if REDIRECT_URL is not configured, don't show error - just redirect to a fallback
-    window.location.href = "https://shinova.in/login";
+    // window.location.href = "https://shinova.in/login";
   }
 }
 
