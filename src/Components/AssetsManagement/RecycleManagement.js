@@ -132,7 +132,7 @@ const RecycleManagement = () => {
 
         const method = isEditing ? 'PATCH' : 'POST';
         const url = isEditing 
-            ? `${baseurl}recycle_asset/${currentId}/` 
+            ? `${baseurl}recycle_asset/${encodeURIComponent(currentId)}/` 
             : `${baseurl}recycle_asset/`;
         
         setFormLoading(true);
@@ -150,7 +150,7 @@ const RecycleManagement = () => {
 
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure you want to delete this record?")) return;
-        const res = await apiRequest(`${baseurl}recycle_asset/${id}/`, 'PATCH', { is_active: false });
+        const res = await apiRequest(`${baseurl}recycle_asset/${encodeURIComponent(id)}/`, 'PATCH', { is_active: false });
         if (res.success) {
             toast.success("Deleted successfully");
             fetchAssets();

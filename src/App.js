@@ -89,7 +89,7 @@ import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
-import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintainance";
+import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
@@ -220,7 +220,7 @@ function App() {
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
       "/AssetsManagement": "Assets Management",
-      "/AssetsMaintainance": "Assets Maintainance",
+      "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
       "/Oppharmacytabs": "OP Pharmacy Tabs",
