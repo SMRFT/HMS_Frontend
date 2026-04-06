@@ -45,6 +45,7 @@ import {
   ButtonContainer,
   colors
 } from "../GlobalStyles";
+import apiRequest from "../../Auth/apiRequest";
 
 const StatusToggle = styled.div`
   cursor: pointer;
@@ -204,7 +205,8 @@ const AssetsManagement = () => {
       const params = {};
       if (fromDate) params.from_date = fromDate;
       if (toDate) params.to_date = toDate;
-      const resp = await axios.get(`${backendUrl}stores-assets-management/`, { params });
+      const query = new URLSearchParams(params).toString();
+      const resp = await apiRequest(`${backendUrl}stores-assets-management/${query ? `?${query}` : ''}`, 'GET');
       setAssets(resp.data);
     } catch (error) {
       console.error("Error fetching assets:", error);
@@ -213,7 +215,7 @@ const AssetsManagement = () => {
 
   const fetchDepartments = async () => {
     try {
-      const resp = await axios.get(`${backendUrl}department-master/`);
+      const resp = await apiRequest(`${backendUrl}department-master/`,'GET');
       setDepartments(resp.data);
     } catch (error) {
       console.error("Error fetching departments:", error);
@@ -222,7 +224,7 @@ const AssetsManagement = () => {
 
   const fetchItemMasters = async () => {
     try {
-      const resp = await axios.get(`${backendUrl}item-master/`);
+      const resp = await apiRequest(`${backendUrl}item-master/`,'GET');
       setItemMasters(resp.data);
     } catch (error) {
       console.error("Error fetching item masters:", error);
@@ -242,7 +244,7 @@ const AssetsManagement = () => {
 
     setIsLoading(true);
     try {
-      await axios.post(`${backendUrl}stores-assets-management/`, formData);
+      await apiRequest(`${backendUrl}stores-assets-management/`,'POST', formData);
       toast.success("Asset added successfully");
       setFormData({
         asset_name: "",
@@ -389,7 +391,7 @@ const AssetsManagement = () => {
       // If inactive, reactivate immediately
       if (window.confirm(`Are you sure you want to reactivate ${asset.asset_name}?`)) {
         try {
-          await axios.patch(`${backendUrl}stores-assets-management/${asset.asset_id}/`, {
+          await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(asset.asset_id)}/`,'PATCH', {
             is_active: true,
             deactivate_remarks: "" // Clear remarks on reactivation
           });
@@ -409,7 +411,7 @@ const AssetsManagement = () => {
     }
 
     try {
-      await axios.patch(`${backendUrl}stores-assets-management/${assetToDeactivate.asset_id}/`, {
+      await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(assetToDeactivate.asset_id)}/`,'PATCH', {
         is_active: false,
         deactivate_remarks: deactivateReason
       });
