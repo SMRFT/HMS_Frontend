@@ -787,7 +787,7 @@ const StoresGRNReport = () => {
                             📊 Export Excel
                         </Button>
                         <Button
-                            onClick={() => navigate('/StoresGRNGeneration')}
+                            onClick={() => navigate('/StoresGRNGeneration', { state: { fromAnalysis: true } })}
                             style={{ 
                                 background: colors.primary,
                                 color: 'white', 
@@ -1034,7 +1034,7 @@ const StoresGRNReport = () => {
                                                         <Button 
                                                             small 
                                                             secondary 
-                                                            onClick={() => !grn.is_approved && navigate('/StoresGRNGeneration', { state: { editGrn: grn } })} 
+                                                            onClick={() => !grn.is_approved && navigate('/StoresGRNGeneration', { state: { editGrn: grn, fromAnalysis: true } })} 
                                                             title={grn.is_approved ? "Cannot edit verified GRN" : "Edit"}
                                                             disabled={grn.is_approved}
                                                             style={{ opacity: grn.is_approved ? 0.4 : 1, cursor: grn.is_approved ? 'not-allowed' : 'pointer' }}

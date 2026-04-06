@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Select from 'react-select';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { DatePicker, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
@@ -604,7 +604,7 @@ const StoresGRNGeneration = () => {
                 ...formData,
                 items: grnItems,
                 // The totals export contains the true signed round_amount which safely overwrites formData.round_amount
-                ...totals 
+                ...totals ,
             };
             
             // Optional: Delete round_type since the backend doesn't expect it
@@ -754,13 +754,15 @@ const StoresGRNGeneration = () => {
                             {editGrn ? 'Update the Goods Receipt Note details below' : 'Streamline your inventory intake process'}
                         </p>
                     </div>
-                    <Button 
-                        secondary 
-                        style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }} 
-                        onClick={() => navigate('/StoresGRNReport')}
-                    >
-                        ← Back to Report
-                    </Button>
+                    {location.state?.fromAnalysis && (
+                        <Button 
+                            secondary 
+                            style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }} 
+                            onClick={() => navigate('/StoresGRNReport')}
+                        >
+                            ← Back to Report
+                        </Button>
+                    )}
                 </GlassHeader>
 
                 {/* 2. Main Form Content */}

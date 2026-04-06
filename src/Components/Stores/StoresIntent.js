@@ -118,8 +118,8 @@ const StoresIntentManager = () => {
     const fetchMasters = async () => {
         try {
             const [itms, depts] = await Promise.all([
-                axios.get(`${Hmsbaseurl.replace(/\/$/, '')}/item-master/`),
-                axios.get(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`)
+                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/item-master/`),
+                apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`)
             ]);
             setItemsMaster(itms.data || []);
             setDepartments(depts.data || []);
