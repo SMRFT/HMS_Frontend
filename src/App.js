@@ -96,6 +96,7 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
+import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
 
@@ -222,6 +223,7 @@ function App() {
       "/AssetsMaintainance": "Assets Maintainance",
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
+      "/Oppharmacytabs": "OP Pharmacy Tabs",
     };
 
     const path = location.pathname;
@@ -544,6 +546,12 @@ function App() {
                     element={<InvestigationBilling />}
                   />
                 )}
+              {hasPagePermission("/Oppharmacytabs", allowedActions) && (
+                <Route
+                  path="/Oppharmacytabs"
+                  element={<Oppharmacytabs />}
+                />
+              )}
               {hasPagePermission(
                 "/ViewBills",
                 allowedActions,
@@ -728,6 +736,7 @@ function App() {
                   element={<AssetsManagement />}
                 />
               )}
+
               {hasPagePermission("/AssetsMaintainance", allowedActions) && (
                 <Route
                   path="/AssetsMaintainance"
