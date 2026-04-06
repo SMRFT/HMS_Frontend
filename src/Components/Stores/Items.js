@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactSelect from 'react-select';
-import { LineChart } from 'lucide-react';
+import { LineChart, X } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import { Plus, Search, Edit2, Trash2, FilterX } from 'lucide-react';
 import {
