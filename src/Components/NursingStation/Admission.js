@@ -5,14 +5,14 @@ import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
-  ModalHeader, ModalTitle, CloseButton, ModalBody, colors,
+  ModalHeader, ModalTitle, CloseButton, ModalBody,
 } from "../GlobalStyles";
 
 // ─── Animations ────────────────────────────────────────────────────────────────
 const fadeIn   = keyframes`from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}`;
 const pulse    = keyframes`0%,100%{opacity:1}50%{opacity:.45}`;
 const slideUp2 = keyframes`from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}`;
-const openAnim = keyframes`from{max-height:0;opacity:0}to{max-height:2200px;opacity:1}`;
+const openAnim = keyframes`from{max-height:0;opacity:0}to{max-height:2400px;opacity:1}`;
 const popIn    = keyframes`from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}`;
 
 // ─── Page Shell ────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ const NewAdmBtn = styled.button`
   &:hover{background:#ea6c0a;}
 `;
 
-// ─── 2 Stat Cards ──────────────────────────────────────────────────────────────
+// ─── Stat Cards ────────────────────────────────────────────────────────────────
 const StatStrip = styled.div`display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1px solid #e5e7eb;`;
 const StatCard  = styled.div`
   padding:14px 22px;display:flex;align-items:center;gap:14px;
@@ -41,60 +41,97 @@ const SLabel = styled.div`font-size:.68rem;font-weight:600;color:#6b7280;text-tr
 const SValue = styled.div`font-size:1.7rem;font-weight:800;color:#111827;line-height:1.1;`;
 
 // ─── Filter Bar ────────────────────────────────────────────────────────────────
-const FilterBar = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
-const FF  = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 140px'};`;
-const FL  = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
-const FSel= styled.select`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const FInp= styled.input`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const SearchBtn=styled.button`height:32px;padding:0 18px;font-size:.78rem;font-weight:600;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;display:flex;align-items:center;gap:5px;&:hover{background:#0f766e;}`;
+const FilterBar  = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
+const FF         = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 140px'};`;
+const FL         = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
+const FSel       = styled.select`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const FInp       = styled.input`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const SearchBtn  = styled.button`height:32px;padding:0 18px;font-size:.78rem;font-weight:600;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;display:flex;align-items:center;gap:5px;&:hover{background:#0f766e;}`;
 
-// ─── Slide-down Form Panel ──────────────────────────────────────────────────────
+// ─── Form Panel ────────────────────────────────────────────────────────────────
 const FormPanel = styled.div`overflow:hidden;border-bottom:2px solid #0d9488;animation:${openAnim} .4s ease both;`;
-const FPHead = styled.div`display:flex;align-items:center;justify-content:space-between;padding:9px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
-const FPTitle = styled.div`font-size:.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
-const CloseFP = styled.button`width:26px;height:26px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
+const FPHead    = styled.div`display:flex;align-items:center;justify-content:space-between;padding:9px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
+const FPTitle   = styled.div`font-size:.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
+const CloseFP   = styled.button`width:26px;height:26px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
+const FGrid     = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:14px 20px;`;
+const Field     = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
+const Lbl       = styled.label`font-size:.7rem;font-weight:600;color:#374151;&::after{content:${p=>p.req?'" *"':'""'};color:#ef4444;}`;
+const Inp       = styled.input`height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
+const Sel       = styled.select`height:28px;padding:0 4px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
+const Txta      = styled.textarea`padding:4px 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;resize:vertical;min-height:44px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
+const SecDiv    = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:4px 0 2px;padding-top:6px;font-size:.7rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
+const IRow      = styled.div`display:flex;align-items:center;gap:3px;`;
+const IconBtn   = styled.button`height:28px;padding:0 9px;font-size:.72rem;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
+const FActions  = styled.div`display:flex;gap:8px;justify-content:flex-end;padding:10px 20px 16px;border-top:1px solid #e5e7eb;margin-top:4px;`;
+const SmBtn     = styled.button`height:30px;padding:0 18px;font-size:.75rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
 
-const FGrid  = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:14px 20px;`;
-const Field  = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
-const Lbl    = styled.label`font-size:.7rem;font-weight:600;color:#374151;&::after{content:${p=>p.req?'" *"':'""'};color:#ef4444;}`;
-const Inp    = styled.input`height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
-const Sel    = styled.select`height:28px;padding:0 4px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
-const Txta   = styled.textarea`padding:4px 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;resize:vertical;min-height:44px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
-const SecDiv = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:4px 0 2px;padding-top:6px;font-size:.7rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
-const IRow   = styled.div`display:flex;align-items:center;gap:3px;`;
-const IconBtn= styled.button`height:28px;padding:0 9px;font-size:.72rem;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
-const FActions=styled.div`display:flex;gap:8px;justify-content:flex-end;padding:10px 20px 16px;border-top:1px solid #e5e7eb;margin-top:4px;`;
-const SmBtn  = styled.button`height:30px;padding:0 18px;font-size:.75rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
-
-// ─── Room History Timeline ──────────────────────────────────────────────────────
-const TimelineWrap  = styled.div`grid-column:span 6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;margin-top:4px;`;
-const TimelineTitle = styled.div`font-size:.68rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px;`;
-const TLList = styled.div`display:flex;flex-direction:column;gap:0;`;
-const TLItem = styled.div`
+// ─── Room History Timeline (inside form) ─────────────────────────────────────
+const TimelineWrap  = styled.div`grid-column:span 6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin-top:6px;`;
+const TimelineTitle = styled.div`font-size:.72rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px;`;
+const TLList        = styled.div`display:flex;flex-direction:column;`;
+const TLItem        = styled.div`
   display:flex;align-items:flex-start;gap:12px;position:relative;
-  padding-bottom:${p=>p.last?'0':'16px'};
-  &:not(:last-child)::before{content:"";position:absolute;left:10px;top:22px;bottom:0;width:2px;background:${p=>p.active?'#0d9488':'#e5e7eb'};}
+  padding-bottom:${p=>p.last?'0':'18px'};
+  &:not(:last-child)::before{
+    content:"";position:absolute;left:10px;top:24px;bottom:0;width:2px;
+    background:${p=>p.active?'linear-gradient(#0d9488,#e5e7eb)':'#e5e7eb'};
+  }
 `;
-const TLDot  = styled.div`width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;background:${p=>p.active?'#0d9488':'#94a3b8'};border:3px solid ${p=>p.active?'#ccfbf1':'#e5e7eb'};display:flex;align-items:center;justify-content:center;`;
-const TLBody = styled.div`flex:1;`;
-const TLRoom = styled.div`font-size:.78rem;font-weight:700;color:#111827;display:flex;align-items:center;gap:6px;flex-wrap:wrap;`;
-const TLMeta = styled.div`font-size:.67rem;color:#6b7280;margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;`;
-const TLTag  = styled.span`padding:1px 7px;border-radius:10px;font-size:.62rem;font-weight:700;background:${p=>p.active?'#dcfce7':'#f3f4f6'};color:${p=>p.active?'#166534':'#6b7280'};`;
-const TLDays = styled.span`padding:1px 7px;border-radius:10px;font-size:.62rem;font-weight:700;background:#eff6ff;color:#1d4ed8;`;
-const TLShiftTag = styled.span`padding:1px 7px;border-radius:10px;font-size:.62rem;font-weight:700;background:#f3e8ff;color:#7e22ce;`;
+const TLDot    = styled.div`
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  background:${p=>p.active?'#0d9488':p.shift?'#7e22ce':'#94a3b8'};
+  border:3px solid ${p=>p.active?'#ccfbf1':p.shift?'#e9d5ff':'#e5e7eb'};
+`;
+const TLBody   = styled.div`flex:1;min-width:0;`;
+const TLRoomNo = styled.div`font-size:.8rem;font-weight:700;color:#111827;display:flex;align-items:center;gap:6px;flex-wrap:wrap;`;
+const TLMeta   = styled.div`font-size:.67rem;color:#6b7280;margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;`;
+const TLBadge  = styled.span`
+  padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;
+  background:${p=>p.active?'#dcfce7':p.shift?'#f3e8ff':p.cleaned?'#eff6ff':'#f3f4f6'};
+  color:${p=>p.active?'#166534':p.shift?'#7e22ce':p.cleaned?'#1d4ed8':'#6b7280'};
+`;
+const TLDays   = styled.span`padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;background:#fef3c7;color:#92400e;`;
 
-// ─── Already Admitted Alert Modal ──────────────────────────────────────────────
-const AlertMC  = styled(ModalContainer)`max-width:420px;animation:${popIn} .22s ease;`;
-const AlertBody= styled(ModalBody)`padding:24px;text-align:center;`;
-const AlertIcon= styled.div`font-size:3rem;margin-bottom:12px;`;
-const AlertMsg = styled.div`font-size:.88rem;color:#374151;line-height:1.6;margin-bottom:16px;`;
-const AlertIP  = styled.div`display:inline-block;padding:6px 18px;border-radius:20px;background:#fef3c7;border:1px solid #fde68a;font-size:.85rem;font-weight:800;color:#92400e;letter-spacing:.04em;margin-bottom:6px;`;
-const AlertMeta= styled.div`font-size:.72rem;color:#6b7280;margin-bottom:20px;`;
-const AlertBtns= styled.div`display:flex;gap:10px;justify-content:center;`;
-const ABtn     = styled.button`height:34px;padding:0 20px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.primary?'#0d9488':p.warn?'#ef4444':'#e5e7eb'};color:${p=>(p.primary||p.warn)?'#fff':'#374151'};&:hover{opacity:.88;}`;
+// ─── Already Admitted Modal ────────────────────────────────────────────────────
+const AlertMC   = styled(ModalContainer)`max-width:420px;animation:${popIn} .22s ease;`;
+const AlertBody = styled(ModalBody)`padding:24px;text-align:center;`;
+const AlertIcon = styled.div`font-size:3rem;margin-bottom:12px;`;
+const AlertMsg  = styled.div`font-size:.88rem;color:#374151;line-height:1.6;margin-bottom:16px;`;
+const AlertIP   = styled.div`display:inline-block;padding:6px 18px;border-radius:20px;background:#fef3c7;border:1px solid #fde68a;font-size:.85rem;font-weight:800;color:#92400e;letter-spacing:.04em;margin-bottom:6px;`;
+const AlertMeta = styled.div`font-size:.72rem;color:#6b7280;margin-bottom:20px;`;
+const AlertBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
+const ABtn      = styled.button`height:34px;padding:0 20px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.primary?'#0d9488':'#e5e7eb'};color:${p=>p.primary?'#fff':'#374151'};&:hover{opacity:.88;}`;
+
+// ─── Generic Confirm Modal ────────────────────────────────────────────────────
+const ConfirmMC   = styled(ModalContainer)`max-width:440px;animation:${popIn} .22s ease;`;
+const ConfirmBody = styled(ModalBody)`padding:28px 24px 20px;text-align:center;`;
+const ConfirmIcon = styled.div`font-size:2.8rem;margin-bottom:12px;`;
+const ConfirmTitle= styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
+const ConfirmMsg  = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
+const ConfirmBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
+const CBtn        = styled.button`
+  height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;
+  background:${p=>p.danger?'#dc2626':p.primary?'#0d9488':'#e5e7eb'};
+  color:${p=>(p.danger||p.primary)?'#fff':'#374151'};
+  &:hover{opacity:.88;}
+`;
+
+// ─── Generic Info / Alert Modal ───────────────────────────────────────────────
+const InfoMC   = styled(ModalContainer)`max-width:400px;animation:${popIn} .22s ease;`;
+const InfoBody = styled(ModalBody)`padding:28px 24px 20px;text-align:center;`;
+const InfoIcon = styled.div`font-size:2.8rem;margin-bottom:12px;`;
+const InfoTitle= styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
+const InfoMsg  = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
+const InfoBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
+const IBtn     = styled.button`
+  height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;
+  background:${p=>p.primary?'#0d9488':'#e5e7eb'};
+  color:${p=>p.primary?'#fff':'#374151'};
+  &:hover{opacity:.88;}
+`;
 
 // ─── Table ─────────────────────────────────────────────────────────────────────
-const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;`;
+const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;`;
 const TWrap = styled.div`overflow-x:auto;`;
 const Tbl   = styled.table`width:100%;border-collapse:collapse;font-size:.78rem;`;
 const Thead = styled.thead`background:#f9fafb;`;
@@ -106,8 +143,14 @@ const Badge = styled.span`
   background:${p=>p.t==='admitted'?'#dcfce7':p.t==='discharged'?'#dbeafe':'#fee2e2'};
   color:${p=>p.t==='admitted'?'#166534':p.t==='discharged'?'#1d4ed8':'#991b1b'};
 `;
-const RoomHistBtn = styled.button`height:22px;padding:0 8px;font-size:.62rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
+const RoomHistBtn   = styled.button`height:22px;padding:0 9px;font-size:.62rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
+const RoomSourceTag = styled.span`
+  font-size:.55rem;font-weight:700;padding:1px 5px;border-radius:6px;margin-left:4px;vertical-align:middle;
+  background:${p=>p.src==='shifting'?'#f3e8ff':'#f0fdf4'};
+  color:${p=>p.src==='shifting'?'#7e22ce':'#166534'};
+`;
 
+// ─── Dropdown ──────────────────────────────────────────────────────────────────
 const AW   = styled.div`position:relative;display:inline-block;`;
 const DotB = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#6b7280;&:hover{background:#f3f4f6;}`;
 const Drop = styled.div`
@@ -116,7 +159,7 @@ const Drop = styled.div`
   box-shadow:0 8px 28px rgba(0,0,0,.16);z-index:9999;min-width:190px;overflow:hidden;
   animation:${fadeIn} .14s ease;
 `;
-const DI = styled.button`
+const DI   = styled.button`
   width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;
   background:none;border:none;display:flex;align-items:center;gap:8px;
   color:${p=>p.disabled?'#9ca3af':p.danger?'#dc2626':'#374151'};
@@ -125,10 +168,10 @@ const DI = styled.button`
 `;
 
 // ─── Pagination ────────────────────────────────────────────────────────────────
-const Pager = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid #e5e7eb;font-size:.75rem;color:#6b7280;`;
+const Pager = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid #e5e7eb;font-size:.75rem;color:#6b7280;flex-wrap:wrap;gap:6px;`;
 const PB    = styled.button`height:28px;padding:0 13px;font-size:.75rem;border:1px solid #e5e7eb;border-radius:4px;background:${p=>p.active?'#0d9488':'#fff'};color:${p=>p.active?'#fff':'#374151'};cursor:pointer;&:disabled{opacity:.45;cursor:default;}&:hover:not(:disabled){background:${p=>p.active?'#0d9488':'#f3f4f6'};}`;
 
-// ─── Room Picker Modal ──────────────────────────────────────────────────────────
+// ─── Room Picker Modal ─────────────────────────────────────────────────────────
 const RMC  = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
 const RMB  = styled(ModalBody)`background:#f8fafc;padding:14px;`;
 const FBR  = styled.div`display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;`;
@@ -144,15 +187,15 @@ const BH2  = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px so
 const FG2  = styled.div`padding:10px 12px;`;
 const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
-const rC = {
-  available:              { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7", dot:"#22c55e" },
-  "available-not-cleaned":{ bg:"#fefce8", br:"#fde047", hd:"#fef9c3", dot:"#eab308" },
-  occupied:               { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2", dot:"#ef4444" },
-  maintenance:            { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb", dot:"#9ca3af" },
-  partial:                { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe", dot:"#3b82f6" },
-  reserved:               { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff", dot:"#9333ea" },
+const rC   = {
+  available:              { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
+  "available-not-cleaned":{ bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
+  occupied:               { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
+  maintenance:            { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
+  partial:                { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
+  reserved:               { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff" },
 };
-const RC = styled.div`
+const RC   = styled.div`
   border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;
   cursor:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?'not-allowed':'pointer'};
   opacity:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?.72:1};
@@ -163,37 +206,66 @@ const RCT  = styled.div`display:flex;align-items:center;justify-content:space-be
 const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
 const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#9ca3af':p.s==='reserved'?'#9333ea':p.s==='partial'?'#3b82f6':'#eab308'};color:#fff;text-transform:capitalize;`;
 const BRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
-const BC = styled.button`
+const BC   = styled.button`
   flex:1 1 auto;min-width:44px;text-align:center;padding:4px 5px;border-radius:5px;
   font-size:.67rem;font-weight:700;border:none;
   cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;
   background:${p=>p.bs==='Available'?'#22c55e':p.bs==='Occupied'?'#ef4444':p.bs==='Available - Not Cleaned'?'#eab308':p.bs==='Reserved'?'#9333ea':'#9ca3af'};
-  opacity:${p=>p.disabled?.55:1};transition:filter .15s,transform .15s,box-shadow .15s;
-  &:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  opacity:${p=>p.disabled?.55:1};transition:filter .15s,transform .15s;
+  &:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);}
 `;
 const RT2  = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
 const NR   = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
 
-// ─── Room History Detail Modal ──────────────────────────────────────────────────
-const RHModal  = styled(ModalContainer)`max-width:560px;`;
-const RHBody   = styled(ModalBody)`padding:20px;background:#f8fafc;`;
-const RHCard   = styled.div`
-  background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px;
-  margin-bottom:10px;animation:${fadeIn} .2s ease both;animation-delay:${p=>p.i*.06}s;
-  border-left:4px solid ${p=>p.active?'#0d9488':p.shifted?'#7e22ce':'#cbd5e1'};
-`;
-const RHHead   = styled.div`display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px;`;
-const RHRoom   = styled.div`font-size:.88rem;font-weight:700;color:#111827;`;
-const RHSub    = styled.div`font-size:.65rem;color:#9ca3af;margin-top:2px;`;
-const RHStatus = styled.span`padding:2px 10px;border-radius:12px;font-size:.65rem;font-weight:700;background:${p=>p.active?'#dcfce7':p.shifted?'#f3e8ff':'#f3f4f6'};color:${p=>p.active?'#166534':p.shifted?'#7e22ce':'#6b7280'};white-space:nowrap;`;
-const RHMeta   = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:6px;`;
-const RHRow    = styled.div``;
-const RHLbl    = styled.div`font-size:.62rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;`;
-const RHVal    = styled.div`font-size:.75rem;color:#374151;font-weight:500;margin-top:1px;`;
-const RHDays   = styled.div`margin-top:8px;padding:6px 10px;border-radius:6px;background:${p=>p.active?'#f0fdf4':'#f8fafc'};border:1px solid ${p=>p.active?'#bbf7d0':'#e5e7eb'};font-size:.72rem;font-weight:600;color:${p=>p.active?'#166534':'#374151'};display:flex;align-items:center;gap:6px;`;
+// ─── Room History Modal ────────────────────────────────────────────────────────
+const RHModal = styled(ModalContainer)`max-width:620px;max-height:90vh;`;
+const RHBody  = styled(ModalBody)`padding:0;background:#f8fafc;overflow-y:auto;max-height:calc(90vh - 56px);`;
 
-// ─── Print Slip Modal ───────────────────────────────────────────────────────────
+const RHSection = styled.div`
+  padding:10px 20px 6px;
+  font-size:.7rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.08em;
+  background:${p=>p.shift?'linear-gradient(90deg,#7e22ce,#9333ea)':'linear-gradient(90deg,#0d9488,#0f766e)'};
+  display:flex;align-items:center;gap:8px;
+  position:sticky;top:0;z-index:2;
+`;
+const RHSectionCount = styled.span`
+  background:rgba(255,255,255,.25);padding:1px 8px;border-radius:10px;font-size:.65rem;
+`;
+
+const RHCard   = styled.div`
+  margin:10px 16px;background:#fff;border-radius:8px;
+  border:1.5px solid ${p=>p.active?'#0d9488':p.shift?'#c084fc':'#e5e7eb'};
+  overflow:hidden;animation:${fadeIn} .2s ease both;animation-delay:${p=>p.i*.05}s;
+  box-shadow:${p=>p.active?'0 0 0 3px #ccfbf1':'none'};
+`;
+const RHCardHead = styled.div`
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  background:${p=>p.active?'#f0fdf4':p.shift?'#faf5ff':'#f9fafb'};
+  border-bottom:1px solid ${p=>p.active?'#bbf7d0':p.shift?'#e9d5ff':'#f3f4f6'};
+`;
+const RHRoomLabel = styled.div`font-size:.9rem;font-weight:800;color:#111827;`;
+const RHRoomSub   = styled.div`font-size:.64rem;color:#9ca3af;margin-top:1px;`;
+const RHStatusPill= styled.span`
+  padding:3px 10px;border-radius:12px;font-size:.64rem;font-weight:700;white-space:nowrap;
+  background:${p=>p.active?'#dcfce7':p.cleaned?'#dbeafe':p.shift?'#f3e8ff':'#f3f4f6'};
+  color:${p=>p.active?'#166534':p.cleaned?'#1d4ed8':p.shift?'#7e22ce':'#6b7280'};
+`;
+const RHGrid  = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#f3f4f6;`;
+const RHCell  = styled.div`padding:9px 14px;background:#fff;`;
+const RHCLbl  = styled.div`font-size:.6rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;`;
+const RHCVal  = styled.div`font-size:.76rem;color:#111827;font-weight:600;margin-top:2px;`;
+const RHFooter= styled.div`
+  padding:8px 14px;
+  background:${p=>p.active?'#f0fdf4':p.shift?'#faf5ff':'#f8fafc'};
+  border-top:1px solid ${p=>p.active?'#bbf7d0':p.shift?'#e9d5ff':'#f3f4f6'};
+  font-size:.7rem;font-weight:600;
+  color:${p=>p.active?'#166534':p.shift?'#7e22ce':'#374151'};
+  display:flex;align-items:center;gap:8px;
+`;
+
+// Print Slip Modal
 const PMC  = styled(ModalContainer)`max-width:520px;`;
 const PMB  = styled(ModalBody)`padding:0;background:#fff;`;
 const Slip = styled.div`padding:16px;font-family:'Courier New',monospace;font-size:12px;color:#000;border:2px solid #000;margin:16px;`;
@@ -248,9 +320,9 @@ function encodeCode128(text) {
 function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
   if (!value) return null;
   const encoded = encodeCode128(value);
-  const modW    = width / (encoded.length || 1);
-  const barH    = showText ? height - 16 : height;
-  const rects   = [];
+  const modW = width / (encoded.length || 1);
+  const barH = showText ? height - 16 : height;
+  const rects = [];
   let x = 0;
   for (let i = 0; i < encoded.length; i++) {
     if (i % 2 === 0) rects.push({ x, w: modW });
@@ -273,7 +345,10 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
   );
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+
 const EMPTY = {
   uhid:"", ipNumber:"", admittingDoctor:"", consultingDoctor:"",
   roomNo:"", bedNo:"", reasonForAdmission:"", packageName:"", packageNo:"",
@@ -292,119 +367,156 @@ const getRoomStatus = beds => {
   if (s.every(x => x === "Occupied"))                return "occupied";
   if (s.every(x => x === "Reserved"))                return "reserved";
   if (s.every(x => x === "Available - Not Cleaned")) return "available-not-cleaned";
-  if (s.some(x => x === "Occupied") && s.some(x => x !== "Occupied")) return "partial";
-  if (s.some(x => x === "Reserved") && !s.some(x => x === "Occupied")) return "reserved";
-  if (s.some(x => x === "Available - Not Cleaned") && !s.some(x => x === "Occupied")) return "available-not-cleaned";
+  if (s.some(x => x === "Occupied"))                 return "partial";
+  if (s.some(x => x === "Reserved"))                 return "reserved";
+  if (s.some(x => x === "Available - Not Cleaned"))  return "available-not-cleaned";
   return "available";
 };
 
-/**
- * Returns the currently active room/bed.
- * Priority: roomShitingDetails (is_roomActive=true) → room_details (is_roomActive=true) → top-level fields
- */
 const getActiveRoom = adm => {
   const shifts = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [];
-  const activeShift = shifts.find(s => s?.is_roomActive === true);
-  if (activeShift) return { roomNo: activeShift.newRoomNo || "-", bedNo: activeShift.newBedNo || "-", source: "shift" };
-
+  for (const s of shifts) {
+    if (s && s.is_roomActive === true) {
+      return { roomNo: s.newRoomNo || "-", bedNo: s.newBedNo || "-", source: "shifting" };
+    }
+  }
   const rooms = Array.isArray(adm.room_details) ? adm.room_details : [];
-  const activeRoom = rooms.find(r => r?.is_roomActive === true);
-  if (activeRoom) return { roomNo: activeRoom.roomNo || "-", bedNo: activeRoom.bedNo || "-", source: "room" };
-
-  return { roomNo: adm.roomNo || "-", bedNo: adm.bedNo || "-", source: "admission" };
+  for (const r of rooms) {
+    if (r && r.is_roomActive === true) {
+      return { roomNo: r.roomNo || "-", bedNo: r.bedNo || "-", source: "room_details" };
+    }
+  }
+  return { roomNo: adm.roomNo || "-", bedNo: adm.bedNo || "-", source: "fallback" };
 };
 
-/** Admission status — checks both flags carefully */
 const getAdmStatus = adm => {
-  if (adm.is_discharged)                          return "discharged";
+  if (adm.is_discharged)                           return "discharged";
   if (!adm.is_admissionActive && !adm.is_admitted) return "cancelled";
   if (adm.is_admitted && adm.is_admissionActive)   return "admitted";
   return "cancelled";
 };
 
-const fmtDate = d => new Date(d).toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" });
-const fmtTime = d => new Date(d).toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", hour12:true });
-const fmtDateTime = d => {
-  if (!d) return "—";
-  try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; }
-};
+const fmtDate     = d => { try { return new Date(d).toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}); } catch{return "-";} };
+const fmtTime     = d => { try { return new Date(d).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true}); } catch{return "-";} };
+const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch{return "—";} };
 
-function calcDays(start, end) {
+function calcDuration(start, end) {
   if (!start) return null;
-  const s  = new Date(start);
-  const e  = end ? new Date(end) : new Date();
-  const ms = e - s;
+  const ms = (end ? new Date(end) : new Date()) - new Date(start);
   if (ms < 0) return { days:0, hours:0 };
-  return {
-    days:  Math.floor(ms / 86400000),
-    hours: Math.floor((ms % 86400000) / 3600000),
-  };
+  return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
 }
 
 function pName(d) {
   return [d.salutation, d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ") || "-";
 }
 
-/**
- * Merges room_details + roomShitingDetails into a single chronological timeline.
- */
-function buildCombinedTimeline(roomDetails, shiftingDetails) {
-  const rooms    = Array.isArray(roomDetails)    ? roomDetails    : [];
-  const shiftings = Array.isArray(shiftingDetails) ? shiftingDetails : [];
-
-  const combined = [
-    ...rooms.map(r => ({
-      key:      `room-${r.room_entry_id ?? Math.random()}`,
-      roomNo:   r.roomNo,
-      bedNo:    r.bedNo,
-      isActive: Boolean(r.is_roomActive),
-      start:    r.startDateTime,
-      end:      r.endDateTime,
-      label:    "Admission Room",
-      isShift:  false,
-    })),
-    ...shiftings.map(s => ({
-      key:      `shift-${s.shifting_id}`,
-      roomNo:   s.newRoomNo,
-      bedNo:    s.newBedNo,
-      isActive: Boolean(s.is_roomActive),
-      start:    s.startDateTime,
-      end:      s.endDateTime,
-      label:    `Shifted from ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
-      shiftId:  s.shifting_id,
-      isShift:  true,
-    })),
-  ].sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
-
-  return combined;
+// ══════════════════════════════════════════════════════════════════════════════
+// CONFIRM MODAL COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
+function ConfirmModal({ icon="⚠️", title, message, confirmLabel="Confirm", cancelLabel="Cancel", onConfirm, onCancel, danger=false }) {
+  return (
+    <ModalOverlay onClick={onCancel}>
+      <ConfirmMC onClick={e => e.stopPropagation()}>
+        <ConfirmBody>
+          <ConfirmIcon>{icon}</ConfirmIcon>
+          <ConfirmTitle>{title}</ConfirmTitle>
+          <ConfirmMsg>{message}</ConfirmMsg>
+          <ConfirmBtns>
+            <CBtn onClick={onCancel}>{cancelLabel}</CBtn>
+            <CBtn danger={danger} primary={!danger} onClick={onConfirm}>{confirmLabel}</CBtn>
+          </ConfirmBtns>
+        </ConfirmBody>
+      </ConfirmMC>
+    </ModalOverlay>
+  );
 }
 
-// ─── Room History Timeline (inside form) ────────────────────────────────────────
-function RoomTimeline({ roomDetails, shiftingDetails }) {
-  const combined = buildCombinedTimeline(roomDetails, shiftingDetails);
-  if (combined.length === 0) return null;
+// ══════════════════════════════════════════════════════════════════════════════
+// INFO MODAL COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
+function InfoModal({ icon="ℹ️", title, message, onClose, type="info" }) {
+  const iconMap = { warning:"⚠️", error:"❌", success:"✅", info:"ℹ️" };
+  return (
+    <ModalOverlay onClick={onClose}>
+      <InfoMC onClick={e => e.stopPropagation()}>
+        <InfoBody>
+          <InfoIcon>{iconMap[type] || icon}</InfoIcon>
+          <InfoTitle>{title}</InfoTitle>
+          <InfoMsg>{message}</InfoMsg>
+          <InfoBtns>
+            <IBtn primary onClick={onClose}>OK</IBtn>
+          </InfoBtns>
+        </InfoBody>
+      </InfoMC>
+    </ModalOverlay>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ROOM TIMELINE
+// ══════════════════════════════════════════════════════════════════════════════
+function RoomTimeline({ roomDetails = [], shiftingDetails = [] }) {
+  const roomEntries = roomDetails.map(r => ({
+    key:       `rd-${r.room_entry_id ?? Math.random()}`,
+    roomNo:    r.roomNo    || "—",
+    bedNo:     r.bedNo     || "—",
+    isActive:  Boolean(r.is_roomActive),
+    isCleaned: Boolean(r.is_roomCleaned),
+    start:     r.startDateTime,
+    end:       r.endDateTime,
+    label:     `Entry #${r.room_entry_id || "?"}`,
+    isShift:   false,
+  }));
+
+  const shiftEntries = shiftingDetails.map(s => ({
+    key:       `sh-${s.shifting_id}`,
+    roomNo:    s.newRoomNo || "—",
+    bedNo:     s.newBedNo  || "—",
+    isActive:  Boolean(s.is_roomActive),
+    isCleaned: Boolean(s.is_roomCleaned),
+    start:     s.startDateTime,
+    end:       s.endDateTime,
+    label:     `Shifted from ${s.oldRoomNo||"?"}/${s.oldBedNo||"?"}`,
+    shiftId:   s.shifting_id,
+    isShift:   true,
+  }));
+
+  const all = [...roomEntries, ...shiftEntries]
+    .sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
+
+  if (!all.length) return null;
 
   return (
     <TimelineWrap>
-      <TimelineTitle>🏨 Room Stay History ({combined.length} entr{combined.length === 1 ? "y" : "ies"})</TimelineTitle>
+      <TimelineTitle>
+        🏨 Room Stay History
+        <span style={{ fontWeight:400, color:"#6b7280", textTransform:"none", fontSize:".7rem" }}>
+          ({roomEntries.length} room detail{roomEntries.length!==1?"s":""} · {shiftEntries.length} shifting{shiftEntries.length!==1?"s":""})
+        </span>
+      </TimelineTitle>
       <TLList>
-        {combined.map((r, idx) => {
-          const dur = calcDays(r.start, r.end);
+        {all.map((r, idx) => {
+          const dur = calcDuration(r.start, r.end);
           return (
-            <TLItem key={r.key} active={r.isActive} last={idx === combined.length - 1}>
-              <TLDot active={r.isActive} />
+            <TLItem key={r.key} active={r.isActive} last={idx === all.length - 1}>
+              <TLDot active={r.isActive} shift={r.isShift && !r.isActive} />
               <TLBody>
-                <TLRoom>
-                  Room {r.roomNo || "—"} / Bed {r.bedNo || "—"}
-                  <TLTag active={r.isActive}>{r.isActive ? "Current" : "Previous"}</TLTag>
-                  {r.isShift && <TLShiftTag>🔄 {r.shiftId}</TLShiftTag>}
-                  {dur && <TLDays>🕐 {dur.days}d {dur.hours}h</TLDays>}
-                </TLRoom>
+                <TLRoomNo>
+                  Room <strong>{r.roomNo}</strong> / Bed <strong>{r.bedNo}</strong>
+                  {r.isActive  && <TLBadge active>🟢 Current</TLBadge>}
+                  {!r.isActive && r.isCleaned  && <TLBadge cleaned>✅ Cleaned</TLBadge>}
+                  {!r.isActive && !r.isCleaned && <TLBadge>Past</TLBadge>}
+                  {r.isShift   && <TLBadge shift>🔄 Shifted · {r.shiftId}</TLBadge>}
+                  {dur && <TLDays>⏱ {dur.days}d {dur.hours}h</TLDays>}
+                </TLRoomNo>
                 <TLMeta>
-                  <span style={{ color:"#9ca3af" }}>{r.label}</span>
+                  <span>{r.label}</span>
                   <span>In: {fmtDateTime(r.start)}</span>
-                  {r.end && <span>Out: {fmtDateTime(r.end)}</span>}
-                  {!r.end && r.isActive && <span style={{ color:"#0d9488", fontWeight:600 }}>Still occupied</span>}
+                  {r.end
+                    ? <span>Out: {fmtDateTime(r.end)}</span>
+                    : r.isActive && <span style={{color:"#0d9488",fontWeight:600}}>Still occupied</span>
+                  }
                 </TLMeta>
               </TLBody>
             </TLItem>
@@ -415,52 +527,116 @@ function RoomTimeline({ roomDetails, shiftingDetails }) {
   );
 }
 
-// ─── Room History Modal ─────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ROOM HISTORY MODAL
+// ══════════════════════════════════════════════════════════════════════════════
 function RoomHistoryModal({ adm, onClose }) {
-  const combined = buildCombinedTimeline(adm.room_details, adm.roomShitingDetails);
+  const roomDetails  = Array.isArray(adm.room_details)       ? adm.room_details       : [];
+  const shiftDetails = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [];
+  const totalCount = roomDetails.length + shiftDetails.length;
+
+  const renderRoomCard = (r, i) => {
+    const dur = calcDuration(r.start, r.end);
+    return (
+      <RHCard key={r.key} i={i} active={r.isActive} shift={r.isShift}>
+        <RHCardHead active={r.isActive} shift={r.isShift}>
+          <div>
+            <RHRoomLabel>Room {r.roomNo} / Bed {r.bedNo}</RHRoomLabel>
+            <RHRoomSub>{r.label}{r.shiftId ? ` · ID: ${r.shiftId}` : ""}</RHRoomSub>
+          </div>
+          <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift && !r.isActive}>
+            {r.isActive ? "🟢 Currently Active" : r.isCleaned ? "✅ Cleaned" : r.isShift ? "🔄 Shifted" : "⬜ Past"}
+          </RHStatusPill>
+        </RHCardHead>
+        <RHGrid>
+          <RHCell><RHCLbl>Check-In</RHCLbl><RHCVal>{fmtDateTime(r.start)}</RHCVal></RHCell>
+          <RHCell><RHCLbl>Check-Out</RHCLbl><RHCVal>{r.end ? fmtDateTime(r.end) : "—"}</RHCVal></RHCell>
+        </RHGrid>
+        <RHFooter active={r.isActive} shift={r.isShift && !r.isActive}>
+          ⏱ Duration: {dur ? `${dur.days}d ${dur.hours}h` : "—"}
+          {r.isActive && " (ongoing)"}
+          {!r.isActive && !r.end && " · no checkout recorded"}
+        </RHFooter>
+      </RHCard>
+    );
+  };
+
+  const roomEntries = roomDetails.map((r, idx) => ({
+    key:`rd-${r.room_entry_id ?? idx}`, roomNo:r.roomNo||"—", bedNo:r.bedNo||"—",
+    isActive:Boolean(r.is_roomActive), isCleaned:Boolean(r.is_roomCleaned),
+    start:r.startDateTime, end:r.endDateTime,
+    label:`Admission room entry #${r.room_entry_id || idx + 1}`, isShift:false,
+  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
+
+  const shiftEntries = shiftDetails.map((s, idx) => ({
+    key:`sh-${s.shifting_id ?? idx}`, roomNo:s.newRoomNo||"—", bedNo:s.newBedNo||"—",
+    isActive:Boolean(s.is_roomActive), isCleaned:Boolean(s.is_roomCleaned),
+    start:s.startDateTime, end:s.endDateTime,
+    label:`Shifted from Room ${s.oldRoomNo||"?"}/${s.oldBedNo||"?"}`,
+    shiftId:s.shifting_id, isShift:true,
+  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
 
   return (
     <ModalOverlay onClick={onClose}>
       <RHModal onClick={e => e.stopPropagation()}>
-        <ModalHeader>
-          <ModalTitle>🏨 Room History — {adm.ipNumber}</ModalTitle>
+        <ModalHeader style={{ borderBottom:"none", paddingBottom:8 }}>
+          <div>
+            <ModalTitle>🏨 Room History — {adm.ipNumber}</ModalTitle>
+            <div style={{ fontSize:".7rem", color:"#6b7280", marginTop:2 }}>
+              {pName(adm)} &nbsp;·&nbsp; {totalCount} total record{totalCount!==1?"s":""}
+            </div>
+          </div>
           <CloseButton onClick={onClose}>×</CloseButton>
         </ModalHeader>
-        <RHBody>
-          {combined.length === 0 ? (
-            <NR>No room history found.</NR>
-          ) : combined.map((r, i) => {
-            const dur = calcDays(r.start, r.end);
+
+        <div style={{ display:"flex", gap:8, padding:"6px 20px 10px", borderBottom:"1px solid #e5e7eb", flexWrap:"wrap" }}>
+          <span style={{ fontSize:".72rem", padding:"3px 10px", borderRadius:10, background:"#f0fdf4", border:"1px solid #bbf7d0", color:"#166534", fontWeight:600 }}>
+            📋 {roomEntries.length} room detail{roomEntries.length!==1?"s":""}
+          </span>
+          <span style={{ fontSize:".72rem", padding:"3px 10px", borderRadius:10, background:"#f3e8ff", border:"1px solid #e9d5ff", color:"#7e22ce", fontWeight:600 }}>
+            🔄 {shiftEntries.length} shifting{shiftEntries.length!==1?"s":""}
+          </span>
+          {(() => {
+            const { roomNo, bedNo, source } = getActiveRoom(adm);
             return (
-              <RHCard key={r.key} i={i} active={r.isActive} shifted={r.isShift}>
-                <RHHead>
-                  <div>
-                    <RHRoom>Room {r.roomNo || "—"} / Bed {r.bedNo || "—"}</RHRoom>
-                    <RHSub>{r.label}{r.shiftId ? ` · ${r.shiftId}` : ""}</RHSub>
-                  </div>
-                  <RHStatus active={r.isActive} shifted={r.isShift}>
-                    {r.isActive ? "🟢 Current" : r.isShift ? "🔄 Shifted" : "Past"}
-                  </RHStatus>
-                </RHHead>
-                <RHMeta>
-                  <RHRow><RHLbl>Check-in</RHLbl><RHVal>{fmtDateTime(r.start)}</RHVal></RHRow>
-                  <RHRow><RHLbl>Check-out</RHLbl><RHVal>{r.end ? fmtDateTime(r.end) : "—"}</RHVal></RHRow>
-                </RHMeta>
-                <RHDays active={r.isActive}>
-                  🕐 {dur ? `${dur.days}d ${dur.hours}h` : "—"}
-                  {r.isActive && " (still occupied)"}
-                  {!r.isActive && !r.end && " (no checkout recorded)"}
-                </RHDays>
-              </RHCard>
+              <span style={{ fontSize:".72rem", padding:"3px 10px", borderRadius:10, background:"#dcfce7", border:"1px solid #86efac", color:"#166534", fontWeight:700 }}>
+                🟢 Active: Room {roomNo} / Bed {bedNo}
+                {source === "shifting" && " 🔄"}
+              </span>
             );
-          })}
+          })()}
+        </div>
+
+        <RHBody>
+          {totalCount === 0 && <NR>No room history found.</NR>}
+          {roomEntries.length > 0 && (
+            <>
+              <RHSection>
+                📋 Room Details
+                <RHSectionCount>{roomEntries.length} entr{roomEntries.length!==1?"ies":"y"}</RHSectionCount>
+              </RHSection>
+              {roomEntries.map((r, i) => renderRoomCard(r, i))}
+            </>
+          )}
+          {shiftEntries.length > 0 && (
+            <>
+              <RHSection shift>
+                🔄 Room Shiftings
+                <RHSectionCount>{shiftEntries.length} entr{shiftEntries.length!==1?"ies":"y"}</RHSectionCount>
+              </RHSection>
+              {shiftEntries.map((r, i) => renderRoomCard(r, i))}
+            </>
+          )}
+          <div style={{ height:12 }} />
         </RHBody>
       </RHModal>
     </ModalOverlay>
   );
 }
 
-// ─── Already Admitted Modal ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ALREADY ADMITTED MODAL
+// ══════════════════════════════════════════════════════════════════════════════
 function AlreadyAdmittedModal({ info, onClose, onEdit }) {
   return (
     <ModalOverlay onClick={onClose}>
@@ -477,7 +653,7 @@ function AlreadyAdmittedModal({ info, onClose, onEdit }) {
           </AlertMsg>
           <AlertIP>IP: {info.ipNumber}</AlertIP>
           <AlertMeta>
-            {info.admissionDateTime && <>Admitted: {fmtDateTime(info.admissionDateTime)}<br/></>}
+            {info.admissionDateTime && <>{fmtDateTime(info.admissionDateTime)}<br/></>}
             {(info.roomNo || info.bedNo) && <>Room: {info.roomNo} / Bed: {info.bedNo}</>}
           </AlertMeta>
           <AlertBtns>
@@ -494,15 +670,17 @@ function AlreadyAdmittedModal({ info, onClose, onEdit }) {
   );
 }
 
-// ─── Main Component ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════════════════════
 export default function Admission() {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  const [admissions, setAdmissions] = useState([]);
-  const [doctors,    setDoctors]    = useState([]);
-  const [packages,   setPackages]   = useState([]);
-  const [loading,    setLoading]    = useState(false);
-  const [saving,     setSaving]     = useState(false);
+  const [admissions,     setAdmissions]     = useState([]);
+  const [doctors,        setDoctors]        = useState([]);
+  const [packages,       setPackages]       = useState([]);
+  const [loading,        setLoading]        = useState(false);
+  const [saving,         setSaving]         = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
   const [fDoctor, setFDoctor] = useState("ALL");
@@ -528,22 +706,31 @@ export default function Admission() {
   const [historyAdm,     setHistoryAdm]     = useState(null);
   const [alreadyAdmInfo, setAlreadyAdmInfo] = useState(null);
 
+  // ── Modal state (replaces window.confirm / window.alert) ─────────────────
+  const [confirmModal, setConfirmModal] = useState(null);
+  // shape: { icon, title, message, confirmLabel, cancelLabel, danger, onConfirm }
+
+  const [infoModal, setInfoModal] = useState(null);
+  // shape: { icon, title, message, type }
+
   const [openMenu, setOpenMenu] = useState(null);
   const [menuPos,  setMenuPos]  = useState({ top:0, left:0 });
   const menuRef = useRef(null);
 
-  const handleMenuToggle = (ipNumber, e) => {
-    if (openMenu === ipNumber) { setOpenMenu(null); return; }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mw   = 190;
-    let left   = rect.right - mw;
-    let top    = rect.bottom + 4;
-    if (left < 8) left = 8;
-    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    setMenuPos({ top, left });
-    setOpenMenu(ipNumber);
+  // ── Helpers to show modals ────────────────────────────────────────────────
+  const showConfirm = (opts) => new Promise(resolve => {
+    setConfirmModal({
+      ...opts,
+      onConfirm: () => { setConfirmModal(null); resolve(true); },
+      onCancel:  () => { setConfirmModal(null); resolve(false); },
+    });
+  });
+
+  const showInfo = (opts) => {
+    setInfoModal({ ...opts, onClose: () => setInfoModal(null) });
   };
 
+  // Close dropdown on outside click
   useEffect(() => {
     const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null); };
     document.addEventListener("mousedown", h);
@@ -552,7 +739,7 @@ export default function Admission() {
 
   useEffect(() => { fetchDoctors(); fetchAdmissions(); fetchPackages(); }, []);
 
-  // ── API ──────────────────────────────────────────────────────────────────────
+  // ── API calls ────────────────────────────────────────────────────────────────
   const fetchDoctors = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
@@ -572,7 +759,7 @@ export default function Admission() {
       const res = await apiRequest(`${HmsBaseUrl}admission/${q}`, "GET");
       setAdmissions(Array.isArray(res?.data?.data) ? res.data.data : []);
     } catch { setAdmissions([]); }
-    finally { setLoading(false); }
+    finally  { setLoading(false); }
   };
 
   const fetchPackages = async () => {
@@ -599,35 +786,46 @@ export default function Admission() {
       else if (Array.isArray(res?.data?.data)) rooms = res.data.data;
       setAllRooms(rooms);
     } catch { setAllRooms([]); }
-    finally { setLoadRooms(false); }
+    finally  { setLoadRooms(false); }
   };
 
   const fetchPatientByUHID = async () => {
     const uhid = form.uhid.trim();
-    if (!uhid) return toast.warning("Enter UHID");
+    if (!uhid) {
+      showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID before searching." });
+      return;
+    }
     try {
       const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
-      if (!res.success) { toast.error(res.error || "Patient not found"); return; }
+      if (!res.success) {
+        showInfo({ type:"error", title:"Patient Not Found", message: res.error || "No patient found for this UHID." });
+        return;
+      }
       const d = res.data;
       setForm(p => ({
         ...p,
-        salutation: d.salutation || "", firstName: d.firstName || "",
-        middleName: d.middleName || "", lastName: d.lastName || "",
-        age: d.age || "", gender: d.gender || "",
+        salutation: d.salutation||"", firstName: d.firstName||"",
+        middleName: d.middleName||"", lastName:  d.lastName||"",
+        age: d.age||"", gender: d.gender||"",
         mobilePhone: d.mobilePhone || d.phone || "",
-        permanent_address: d.permanent_address || "", area: d.area || "",
-        zipcode: d.zipcode || "", city: d.city || "", state: d.state || "",
+        permanent_address: d.permanent_address||"", area: d.area||"",
+        zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
         customerType: d.customerType || d.customer_type || "",
-        insuranceCompanyName: d.insuranceCompanyName || "",
-        company_code: d.company_code || "",
+        insuranceCompanyName: d.insuranceCompanyName||"",
+        company_code: d.company_code||"",
       }));
       toast.success("Patient loaded");
-    } catch { toast.error("Failed to fetch patient"); }
+    } catch {
+      showInfo({ type:"error", title:"Error", message:"Failed to fetch patient details. Please try again." });
+    }
   };
 
   const fetchAdmissionByIP = async () => {
     const ip = form.ipNumber.trim();
-    if (!ip) return toast.warning("Enter IP Number");
+    if (!ip) {
+      showInfo({ type:"warning", title:"IP Number Required", message:"Please enter an IP Number before searching." });
+      return;
+    }
     try {
       const res = await apiRequest(
         `${HmsBaseUrl}admission/?ip_number=${encodeURIComponent(ip)}`, "GET"
@@ -635,24 +833,28 @@ export default function Admission() {
       if (!res.success) throw new Error(res.error || "Not found");
       const list = Array.isArray(res.data?.data) ? res.data.data
                  : Array.isArray(res.data)        ? res.data : [];
-      if (!list.length) return toast.error("No admission found for this IP Number");
+      if (!list.length) {
+        showInfo({ type:"error", title:"Not Found", message:"No admission found for this IP Number." });
+        return;
+      }
       loadAdmissionIntoForm(list[0]);
       toast.success(`Admission loaded: ${list[0].ipNumber || ip}`);
     } catch (err) {
-      toast.error(err.message || "Admission not found");
+      showInfo({ type:"error", title:"Admission Not Found", message: err.message || "Could not retrieve admission." });
     }
   };
 
   function loadAdmissionIntoForm(adm) {
     setEditingId(adm.ipNumber);
+    const { roomNo, bedNo } = getActiveRoom(adm);
     setForm({
       ...EMPTY,
       uhid:                 adm.uhid                || "",
       ipNumber:             adm.ipNumber            || "",
       admittingDoctor:      adm.admittingDoctor      || "",
       consultingDoctor:     adm.consultingDoctor     || "",
-      roomNo:               adm.roomNo              || "",
-      bedNo:                adm.bedNo               || "",
+      roomNo,
+      bedNo,
       reasonForAdmission:   adm.reasonForAdmission  || "",
       packageName:          adm.packageName         || "",
       packageNo:            adm.packageNo           || "",
@@ -673,29 +875,31 @@ export default function Admission() {
       customerType:         adm.customerType        || "",
       insuranceCompanyName: adm.insuranceCompanyName|| "",
       company_code:         adm.company_code        || "",
-      room_details:         Array.isArray(adm.room_details)        ? adm.room_details        : [],
-      roomShitingDetails:   Array.isArray(adm.roomShitingDetails)  ? adm.roomShitingDetails  : [],
+      room_details:       Array.isArray(adm.room_details)       ? adm.room_details       : [],
+      roomShitingDetails: Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [],
     });
   }
 
-  // ── Stats ────────────────────────────────────────────────────────────────────
+  // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = {
     admitted:   admissions.filter(a => getAdmStatus(a) === "admitted").length,
     discharged: admissions.filter(a => a.is_discharged).length,
   };
 
-  const getDrName = id => doctors.find(d => String(d.employeeId) === String(id))?.employeeName || String(id || "-");
+  const getDrName = id =>
+    doctors.find(d => String(d.employeeId) === String(id))?.employeeName || String(id || "-");
 
   const filtered = admissions.filter(a => {
     if (!tSearch) return true;
     const q = tSearch.toLowerCase();
     const { roomNo, bedNo } = getActiveRoom(a);
-    return `${a.uhid} ${a.ipNumber} ${pName(a)} ${getDrName(a.admittingDoctor)} ${roomNo} ${bedNo}`.toLowerCase().includes(q);
+    return `${a.uhid} ${a.ipNumber} ${pName(a)} ${getDrName(a.admittingDoctor)} ${roomNo} ${bedNo}`
+      .toLowerCase().includes(q);
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const paginated  = filtered.slice((page - 1) * perPage, page * perPage);
 
-  // ── Form helpers ─────────────────────────────────────────────────────────────
+  // ── Form helpers ──────────────────────────────────────────────────────────
   const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setFormOpen(true); };
   const openEditForm = adm => {
     setOpenMenu(null);
@@ -715,12 +919,25 @@ export default function Admission() {
     }
   };
 
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!editingId && !form.uhid) return toast.warning("UHID is required");
-    if (!form.admittingDoctor)    return toast.warning("Admitting Doctor is required");
-    if (!form.roomNo)             return toast.warning("Room is required");
-    if (!form.bedNo)              return toast.warning("Bed is required");
+    if (!editingId && !form.uhid) {
+      showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID to proceed." });
+      return;
+    }
+    if (!form.admittingDoctor) {
+      showInfo({ type:"warning", title:"Doctor Required", message:"Please select an Admitting Doctor." });
+      return;
+    }
+    if (!form.roomNo) {
+      showInfo({ type:"warning", title:"Room Required", message:"Please select a room before saving." });
+      return;
+    }
+    if (!form.bedNo) {
+      showInfo({ type:"warning", title:"Bed Required", message:"Please select a bed before saving." });
+      return;
+    }
+
     setSaving(true);
     const payload = new FormData();
     ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
@@ -738,11 +955,11 @@ export default function Admission() {
       }
 
       if (res.success) {
-        if (res.data?.room_details) {
+        if (res.data) {
           setForm(p => ({
             ...p,
-            room_details:       res.data.room_details,
-            roomShitingDetails: res.data.roomShitingDetails || p.roomShitingDetails,
+            room_details:       Array.isArray(res.data.room_details)       ? res.data.room_details       : p.room_details,
+            roomShitingDetails: Array.isArray(res.data.roomShitingDetails) ? res.data.roomShitingDetails : p.roomShitingDetails,
           }));
         }
         toast.success(editingId ? "Admission updated!" : "Admission saved!");
@@ -756,23 +973,45 @@ export default function Admission() {
           bedNo:             res.bedNo,
         });
       } else {
-        toast.error(res.error || "Failed to save");
+        showInfo({ type:"error", title:"Save Failed", message: res.error || "Failed to save admission. Please try again." });
       }
     } catch {
-      toast.error("Failed to save");
-    } finally {
-      setSaving(false);
+      showInfo({ type:"error", title:"Error", message:"An unexpected error occurred while saving. Please try again." });
     }
+    finally { setSaving(false); }
   };
 
+  // ── Cancel admission ───────────────────────────────────────────────────────
   const handleCancel = async adm => {
     setOpenMenu(null);
-    if (!window.confirm(`Cancel admission for ${pName(adm)}?`)) return;
+    const confirmed = await showConfirm({
+      icon: "🗑️",
+      title: "Cancel Admission?",
+      danger: true,
+      confirmLabel: "Yes, Cancel",
+      cancelLabel: "Keep Admission",
+      message: (
+        <>
+          You are about to cancel the admission for <strong>{pName(adm)}</strong>.<br/><br/>
+          This will deactivate <strong>all rooms</strong> in both room details and shifting records.
+        </>
+      ),
+    });
+    if (!confirmed) return;
+
     try {
-      const res = await apiRequest(`${HmsBaseUrl}admission/${encodeURIComponent(adm.ipNumber)}/`, "DELETE");
-      if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
-      else toast.error(res.error || "Failed");
-    } catch { toast.error("Failed to cancel"); }
+      const res = await apiRequest(
+        `${HmsBaseUrl}admission/${encodeURIComponent(adm.ipNumber)}/`, "DELETE"
+      );
+      if (res.success) {
+        toast.success("Admission cancelled");
+        fetchAdmissions();
+      } else {
+        showInfo({ type:"error", title:"Cancel Failed", message: res.error || "Failed to cancel admission." });
+      }
+    } catch {
+      showInfo({ type:"error", title:"Error", message:"Failed to cancel admission. Please try again." });
+    }
   };
 
   const handlePrint = adm => {
@@ -780,6 +1019,19 @@ export default function Admission() {
     setPrintData({ ...adm, admittingDoctorName: getDrName(adm.admittingDoctor) });
   };
 
+  const handleMenuToggle = (ipNumber, e) => {
+    if (openMenu === ipNumber) { setOpenMenu(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mw   = 190;
+    let left   = rect.right - mw;
+    let top    = rect.bottom + 4;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    setMenuPos({ top, left });
+    setOpenMenu(ipNumber);
+  };
+
+  // ── Print window ──────────────────────────────────────────────────────────
   const doPrint = () => {
     const pd    = printData;
     const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
@@ -822,7 +1074,7 @@ export default function Admission() {
     w.document.close();
   };
 
-  // ── Room modal helpers ───────────────────────────────────────────────────────
+  // ── Room modal helpers ────────────────────────────────────────────────────
   const openRoomModal = () => { setShowRoom(true); fetchAllRooms(); };
   const grouped = (() => {
     const g = {};
@@ -847,12 +1099,12 @@ export default function Admission() {
     toast.success(`Room ${r.room_number} / Bed ${bedNo} selected`);
   };
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
       <Container style={{ padding:0 }}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <PageHeader>
           <PageTitle>🏥 Admission</PageTitle>
           <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
@@ -860,7 +1112,7 @@ export default function Admission() {
           </NewAdmBtn>
         </PageHeader>
 
-        {/* Stats */}
+        {/* ── Stats ── */}
         <StatStrip>
           {[
             { label:"Total Admissions", value:stats.admitted,   icon:"🛏️", bg:"#f0fdf4" },
@@ -873,7 +1125,7 @@ export default function Admission() {
           ))}
         </StatStrip>
 
-        {/* Filters */}
+        {/* ── Filter Bar ── */}
         <FilterBar>
           <FF flex="1 1 180px">
             <FL>Admitting Doctor</FL>
@@ -893,16 +1145,21 @@ export default function Admission() {
           <SearchBtn onClick={fetchAdmissions}>🔍 Search</SearchBtn>
         </FilterBar>
 
-        {/* ══ FORM PANEL ═══════════════════════════════════════════════════════ */}
+        {/* ══ FORM PANEL ══════════════════════════════════════════════════════ */}
         {formOpen && (
           <FormPanel>
             <FPHead>
               <FPTitle>
                 {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
-                {editingId && <span style={{ fontWeight:400, color:"#6b7280", fontSize:".72rem" }}>  IP: {editingId}</span>}
+                {editingId && (
+                  <span style={{ fontWeight:400, color:"#6b7280", fontSize:".72rem" }}>
+                    &nbsp; IP: {editingId}
+                  </span>
+                )}
               </FPTitle>
               <CloseFP onClick={closeForm}>×</CloseFP>
             </FPHead>
+
             <div style={{ background:"linear-gradient(180deg,#f0fdf4 0%,#fff 80px)" }}>
               <FGrid>
 
@@ -934,6 +1191,7 @@ export default function Admission() {
                   <Inp value={`${fmtDate(new Date())}  ${fmtTime(new Date())}`} readOnly style={{ fontFamily:"monospace", background:"#f3f4f6" }} />
                 </Field>
 
+                {/* Patient Details */}
                 <SecDiv>Patient Details (auto-filled from UHID)</SecDiv>
                 <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(form)} readOnly /></Field>
                 <Field><Lbl>Age</Lbl><Inp value={form.age} readOnly /></Field>
@@ -947,6 +1205,7 @@ export default function Admission() {
                 <Field><Lbl>State</Lbl><Inp value={form.state} readOnly /></Field>
                 <Field><Lbl>Zip</Lbl><Inp value={form.zipcode} readOnly /></Field>
 
+                {/* Clinical */}
                 <SecDiv>Clinical</SecDiv>
                 <Field span={3}>
                   <Lbl req>Admitting Doctor</Lbl>
@@ -963,7 +1222,7 @@ export default function Admission() {
                   </Sel>
                 </Field>
 
-                {/* ── Room & Bed ─────────────────────────────────────────── */}
+                {/* Room & Bed */}
                 <SecDiv>Room &amp; Bed</SecDiv>
                 <Field span={2}>
                   <Lbl req>Room No.</Lbl>
@@ -978,7 +1237,6 @@ export default function Admission() {
                 </Field>
                 <Field span={2} />
 
-                {/* ── Room Stay History Timeline (edit mode) ─────────────── */}
                 {editingId && (
                   <RoomTimeline
                     roomDetails={form.room_details}
@@ -986,6 +1244,7 @@ export default function Admission() {
                   />
                 )}
 
+                {/* Package */}
                 <SecDiv>Admission &amp; Package</SecDiv>
                 <Field span={3}>
                   <Lbl>Reason for Admission</Lbl>
@@ -1002,10 +1261,13 @@ export default function Admission() {
                     ))}
                   </Sel>
                   {form.packageName && !form.packageNo && (
-                    <span style={{ fontSize:".68rem", color:"#6b7280", marginTop:2 }}>Current: {form.packageName}</span>
+                    <span style={{ fontSize:".68rem", color:"#6b7280", marginTop:2 }}>
+                      Current: {form.packageName}
+                    </span>
                   )}
                 </Field>
 
+                {/* MLC */}
                 <SecDiv>MLC (if applicable)</SecDiv>
                 <Field span={2}>
                   <Lbl>MLC Type</Lbl>
@@ -1024,6 +1286,7 @@ export default function Admission() {
                 </Field>
 
               </FGrid>
+
               <FActions>
                 <SmBtn secondary onClick={closeForm}>Discard</SmBtn>
                 <SmBtn onClick={handleSubmit} disabled={saving}>
@@ -1034,7 +1297,7 @@ export default function Admission() {
           </FormPanel>
         )}
 
-        {/* Table controls */}
+        {/* ── Table Controls ── */}
         <TTBar>
           <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:".75rem", color:"#6b7280" }}>
             Show&nbsp;
@@ -1046,19 +1309,22 @@ export default function Admission() {
           <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:".75rem", color:"#6b7280" }}>
             Search:&nbsp;
             <input value={tSearch} onChange={e => { setTSearch(e.target.value); setPage(1); }}
-              placeholder="Name / UHID / IP…"
+              placeholder="Name / UHID / IP / Room…"
               style={{ height:28, padding:"0 8px", fontSize:".75rem", border:"1px solid #d1d5db", borderRadius:4, outline:"none" }} />
           </div>
         </TTBar>
 
-        {/* Table */}
+        {/* ── Table ── */}
         <TWrap>
           <Tbl>
             <Thead>
               <tr>
                 <Th>Status</Th><Th>Adm Date</Th><Th>Time</Th>
                 <Th>UHID</Th><Th>IP No.</Th><Th>Name</Th><Th>Age</Th><Th>Gender</Th>
-                <Th>Admitting Dr.</Th><Th>Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
+                <Th>Admitting Dr.</Th>
+                <Th>Active Room / Bed</Th>
+                <Th>Room History</Th>
+                <Th>Actions</Th>
               </tr>
             </Thead>
             <tbody>
@@ -1067,9 +1333,11 @@ export default function Admission() {
               ) : paginated.length === 0 ? (
                 <tr><Td colSpan={12} style={{ textAlign:"center", padding:28, color:"#6b7280" }}>No admissions found</Td></tr>
               ) : paginated.map((adm, idx) => {
-                const t                    = getAdmStatus(adm);
+                const t = getAdmStatus(adm);
                 const { roomNo, bedNo, source } = getActiveRoom(adm);
-                const combinedCount        = (adm.room_details?.length || 0) + (adm.roomShitingDetails?.length || 0);
+                const rdCount    = Array.isArray(adm.room_details)       ? adm.room_details.length       : 0;
+                const shCount    = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
+                const totalCount = rdCount + shCount;
 
                 return (
                   <Tr key={adm.ipNumber || idx} i={idx}>
@@ -1083,18 +1351,33 @@ export default function Admission() {
                     <Td>{adm.gender || "-"}</Td>
                     <Td>{adm.admittingDoctorName || getDrName(adm.admittingDoctor)}</Td>
                     <Td>
-                      <span style={{ fontWeight:600 }}>{roomNo}/{bedNo}</span>
-                      {source === "shift" && (
-                        <span title="Current room from shifting record"
-                          style={{ fontSize:".6rem", color:"#7e22ce", marginLeft:4 }}>🔄</span>
+                      {roomNo !== "-" ? (
+                        <span>
+                          <span style={{ fontWeight:700 }}>{roomNo}</span>
+                          <span style={{ color:"#6b7280" }}>/</span>
+                          <span style={{ fontWeight:700 }}>{bedNo}</span>
+                          {source === "shifting" && (
+                            <RoomSourceTag src="shifting" title="Room from shifting record">🔄</RoomSourceTag>
+                          )}
+                          {source === "room_details" && (
+                            <RoomSourceTag src="room_details" title="Room from admission details">📋</RoomSourceTag>
+                          )}
+                        </span>
+                      ) : (
+                        <span style={{ color:"#9ca3af", fontSize:".72rem" }}>—</span>
                       )}
                     </Td>
                     <Td>
-                      {combinedCount > 0 ? (
+                      {totalCount > 0 ? (
                         <RoomHistBtn onClick={() => setHistoryAdm(adm)}>
-                          🏨 {combinedCount} entr{combinedCount > 1 ? "ies" : "y"}
+                          🏨 {totalCount} entr{totalCount > 1 ? "ies" : "y"}
+                          {shCount > 0 && (
+                            <span style={{ marginLeft:4, opacity:.7 }}>({rdCount}+{shCount})</span>
+                          )}
                         </RoomHistBtn>
-                      ) : <span style={{ color:"#9ca3af", fontSize:".72rem" }}>—</span>}
+                      ) : (
+                        <span style={{ color:"#9ca3af", fontSize:".72rem" }}>—</span>
+                      )}
                     </Td>
                     <Td>
                       <AW>
@@ -1108,28 +1391,27 @@ export default function Admission() {
           </Tbl>
         </TWrap>
 
-        {/* Pagination */}
+        {/* ── Pagination ── */}
         <Pager>
           <span>
             Showing {filtered.length===0?0:(page-1)*perPage+1}–{Math.min(page*perPage,filtered.length)} of {filtered.length} entries
           </span>
           <div style={{ display:"flex", gap:4 }}>
             <PB onClick={() => setPage(p=>Math.max(1,p-1))} disabled={page===1}>Previous</PB>
-            {Array.from({length:totalPages},(_,i)=>i+1).slice(Math.max(0,page-3),page+2)
+            {Array.from({length:totalPages},(_,i)=>i+1)
+              .slice(Math.max(0,page-3),page+2)
               .map(n => <PB key={n} active={n===page} onClick={()=>setPage(n)}>{n}</PB>)}
             <PB onClick={() => setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}>Next</PB>
           </div>
         </Pager>
       </Container>
 
-      {/* ══ ACTION DROPDOWN (fixed position) ════════════════════════════════ */}
+      {/* ══ ACTION DROPDOWN ═════════════════════════════════════════════════ */}
       {openMenu !== null && (() => {
         const adm = paginated.find(a => a.ipNumber === openMenu);
         if (!adm) return null;
         const t          = getAdmStatus(adm);
         const isAdmitted = t === "admitted";
-        // Edit & Cancel only when actively admitted
-        // Print Slip & Room History always available
         return (
           <Drop ref={menuRef} top={menuPos.top} left={menuPos.left}>
             <DI
@@ -1138,17 +1420,11 @@ export default function Admission() {
               title={!isAdmitted ? `Cannot edit — admission is ${t}` : "Edit admission"}
             >
               ✏️ Edit
-              {!isAdmitted && (
-                <span style={{ fontSize:".62rem", color:"#9ca3af", marginLeft:"auto" }}>
-                  ({t})
-                </span>
-              )}
+              {!isAdmitted && <span style={{ fontSize:".62rem", color:"#9ca3af", marginLeft:"auto" }}>({t})</span>}
             </DI>
-
             <DI onClick={() => { setOpenMenu(null); setHistoryAdm(adm); }}>
               🏨 Room History
             </DI>
-
             <DI
               danger
               onClick={() => { if (isAdmitted) handleCancel(adm); }}
@@ -1156,19 +1432,39 @@ export default function Admission() {
               title={!isAdmitted ? `Cannot cancel — admission is ${t}` : "Cancel admission"}
             >
               🗑️ Cancel Admission
-              {!isAdmitted && (
-                <span style={{ fontSize:".62rem", color:"#fca5a5", marginLeft:"auto" }}>
-                  ({t})
-                </span>
-              )}
+              {!isAdmitted && <span style={{ fontSize:".62rem", color:"#fca5a5", marginLeft:"auto" }}>({t})</span>}
             </DI>
-
             <DI onClick={() => handlePrint(adm)}>
               🖨️ Print Slip
             </DI>
           </Drop>
         );
       })()}
+
+      {/* ══ CONFIRM MODAL ════════════════════════════════════════════════════ */}
+      {confirmModal && (
+        <ConfirmModal
+          icon={confirmModal.icon}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          cancelLabel={confirmModal.cancelLabel}
+          danger={confirmModal.danger}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={confirmModal.onCancel}
+        />
+      )}
+
+      {/* ══ INFO MODAL ═══════════════════════════════════════════════════════ */}
+      {infoModal && (
+        <InfoModal
+          icon={infoModal.icon}
+          title={infoModal.title}
+          message={infoModal.message}
+          type={infoModal.type}
+          onClose={infoModal.onClose}
+        />
+      )}
 
       {/* ══ ALREADY ADMITTED MODAL ══════════════════════════════════════════ */}
       {alreadyAdmInfo && (
@@ -1239,7 +1535,8 @@ export default function Admission() {
                               onMouseEnter={e=>{ const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="block"; }}
                               onMouseLeave={e=>{ const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="none"; }}>
                               <RC s={s} onClick={() => handleRoomClick(room)}>
-                                <RCT s={s}><RNum>{room.room_number}</RNum>
+                                <RCT s={s}>
+                                  <RNum>{room.room_number}</RNum>
                                   <RSP s={s}>{s==="partial"?"Partial":s==="available-not-cleaned"?"Not Cleaned":s==="reserved"?"Reserved":s}</RSP>
                                 </RCT>
                                 <RT2>{room.room_type}{room.room_category?` · ${room.room_category}`:""}</RT2>
@@ -1313,7 +1610,7 @@ export default function Admission() {
                 <Slip>
                   <SR>
                     <SL>
-                      <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText={true} />
+                      <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText />
                       <SBold>{pName(printData)}</SBold>
                       <SLn>{printData.age||""} {printData.gender||""}</SLn>
                       <SLn>{printData.permanent_address||""}</SLn>
