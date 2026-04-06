@@ -27,7 +27,7 @@ import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
 import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
-import IPPharmacy from "./Components/Pharmacy/IPPharmacy";
+import IPPharmacy from "./Components/IPPharmacy/IPPharmacy";
 import Summary from "./Components/Summary/Summary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master
@@ -57,7 +57,9 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -219,6 +221,7 @@ function App() {
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
+      "/DischargeBilling": "Discharge Billing",
     };
 
     const path = location.pathname;
@@ -407,6 +410,13 @@ function App() {
                 dynamicPermissions,
               ) && (
                   <Route path="/DischargeReport" element={<DischargeReport />} />
+                )}
+              {hasPagePermission(
+                "/DischargeBilling",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/DischargeBilling" element={<DischargeBilling />} />
                 )}
 
               {/* Insurance */}
