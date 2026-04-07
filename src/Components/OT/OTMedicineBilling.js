@@ -574,7 +574,7 @@ const OTMedicineBilling = () => {
   const [showForm, setShowForm] = useState(false);
 
   // Fixed for OT: always IP pharmacy, backend sets bill_type=18
-  const pharmacyDept = "IP001";
+  const pharmacyDept = "OLET001";
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [doctorName, setDoctorName] = useState("");
@@ -655,7 +655,7 @@ const OTMedicineBilling = () => {
       return;
     }
     const res = await apiRequest(
-      `${HmsBaseUrl}get_oppharmacy_stock/?outlet_code=${pharmacyDept}`,
+      `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}`,
       "GET",
     );
     const list = res.success
