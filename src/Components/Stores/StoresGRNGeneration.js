@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
 import Select from 'react-select';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { DatePicker, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
@@ -115,17 +115,17 @@ const StatsCard = styled.div`
 const NetPayableCard = styled.div`
     background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%);
     color: white;
-    padding: 30px 25px;
+    padding: 15px 20px;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: flex-end;
-    box-shadow: 0 10px 20px rgba(13, 148, 136, 0.2);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.15);
     animation: ${fadeIn} 0.5s ease-out;
 
-    .label { font-size: 0.9rem; opacity: 0.9; margin-bottom: 4px; font-weight: 500; }
-    .value { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; }
+    .label { font-size: 0.8rem; opacity: 0.9; margin-bottom: 2px; font-weight: 500; }
+    .value { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; }
 `;
 
 const SummaryRow = styled.div`
@@ -604,7 +604,7 @@ const StoresGRNGeneration = () => {
                 ...formData,
                 items: grnItems,
                 // The totals export contains the true signed round_amount which safely overwrites formData.round_amount
-                ...totals 
+                ...totals ,
             };
             
             // Optional: Delete round_type since the backend doesn't expect it
@@ -754,13 +754,15 @@ const StoresGRNGeneration = () => {
                             {editGrn ? 'Update the Goods Receipt Note details below' : 'Streamline your inventory intake process'}
                         </p>
                     </div>
-                    <Button 
-                        secondary 
-                        style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }} 
-                        onClick={() => navigate('/StoresGRNReport')}
-                    >
-                        ← Back to Report
-                    </Button>
+                    {location.state?.fromAnalysis && (
+                        <Button 
+                            secondary 
+                            style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)', fontWeight: '600' }} 
+                            onClick={() => navigate('/StoresGRNReport')}
+                        >
+                            ← Back to Report
+                        </Button>
+                    )}
                 </GlassHeader>
 
                 {/* 2. Main Form Content */}
@@ -947,8 +949,8 @@ const StoresGRNGeneration = () => {
                     </FormCard>
 
                     {/* 4. Financial Summary Grid */}
-                    <SummaryGrid>
-                        <StatsCard>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 0.8fr)', gap: '20px', marginBottom: '20px' }}>
+                        <StatsCard style={{ height: '100%' }}>
                             <SectionTitleCard $bg="transparent" style={{ padding: '0 0 10px 0', marginBottom: '8px' }}>
                                 <h3>Total Calculations</h3>
                             </SectionTitleCard>
@@ -964,91 +966,101 @@ const StoresGRNGeneration = () => {
                                 <span className="label">Applied Discount</span>
                                 <span className="value danger">- ₹{totals.total_discount.toFixed(2)}</span>
                             </SummaryRow>
-                        </StatsCard>
-
-                        <StatsCard>
-                            <SectionTitleCard $bg="transparent" style={{ padding: '0 0 10px 0', marginBottom: '8px' }}>
-                                <h3>Tax Component Breakdown</h3>
-                            </SectionTitleCard>
-                            <SummaryRow>
-                                <span className="label">Total CGST (A)</span>
-                                <span className="value">₹{totals.cgst.toFixed(2)}</span>
-                            </SummaryRow>
-                            <SummaryRow>
-                                <span className="label">Total SGST (B)</span>
-                                <span className="value">₹{totals.sgst.toFixed(2)}</span>
-                            </SummaryRow>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '5px' }}>
-                                <div>
-                                    <Label style={{ fontSize: '0.7rem' }}>IGST OFFSET</Label>
-                                    <Input 
-                                        type="number" 
-                                        name="igst" 
-                                        value={formData.igst} 
-                                        onChange={handleInputChange} 
-                                        style={{ padding: '4px 8px', fontSize: '0.85rem' }} 
-                                    />
-                                </div>
-                                <div>
-                                    <Label style={{ fontSize: '0.7rem' }}>CESS / OTHER</Label>
-                                    <Input 
-                                        type="number" 
-                                        name="cess" 
-                                        value={formData.cess} 
-                                        onChange={handleInputChange} 
-                                        style={{ padding: '4px 8px', fontSize: '0.85rem' }} 
-                                    />
-                                </div>
+                            <div style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                                 <SectionTitleCard $bg="transparent" style={{ padding: '10px 0', marginBottom: '8px' }}>
+                                    <h3>Free Items Tax</h3>
+                                </SectionTitleCard>
+                                <SummaryRow>
+                                    <span className="label">Tax on Free Items</span>
+                                    <span className="value">₹{totals.tax_on_free_items.toFixed(2)}</span>
+                                </SummaryRow>
                             </div>
                         </StatsCard>
 
-                        <NetPayableCard>
-                            <span className="label">Final Invoice Value</span>
-                            <span className="value">₹{totals.net_invoice_amount.toFixed(2)}</span>
-                            
-                            {/* UPDATED: Added Dropdown (+/-) to allow manual round off without sign typing */}
-                            <div style={{ marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>MANUAL ROUND OFF:</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            <StatsCard>
+                                <SectionTitleCard $bg="transparent" style={{ padding: '0 0 10px 0', marginBottom: '8px' }}>
+                                    <h3>Tax Component Breakdown</h3>
+                                </SectionTitleCard>
+                                <SummaryRow>
+                                    <span className="label">Total CGST (A)</span>
+                                    <span className="value">₹{totals.cgst.toFixed(2)}</span>
+                                </SummaryRow>
+                                <SummaryRow>
+                                    <span className="label">Total SGST (B)</span>
+                                    <span className="value">₹{totals.sgst.toFixed(2)}</span>
+                                </SummaryRow>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '5px' }}>
+                                    <div>
+                                        <Label style={{ fontSize: '0.7rem' }}>IGST OFFSET</Label>
+                                        <Input 
+                                            type="number" 
+                                            name="igst" 
+                                            value={formData.igst} 
+                                            onChange={handleInputChange} 
+                                            style={{ padding: '4px 8px', fontSize: '0.85rem' }} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label style={{ fontSize: '0.7rem' }}>CESS / OTHER</Label>
+                                        <Input 
+                                            type="number" 
+                                            name="cess" 
+                                            value={formData.cess} 
+                                            onChange={handleInputChange} 
+                                            style={{ padding: '4px 8px', fontSize: '0.85rem' }} 
+                                        />
+                                    </div>
+                                </div>
+                            </StatsCard>
+
+                            <NetPayableCard>
+                                <span className="label">Final Invoice Value</span>
+                                <span className="value">₹{totals.net_invoice_amount.toFixed(2)}</span>
                                 
-                                <select 
-                                    name="round_type" 
-                                    value={formData.round_type} 
-                                    onChange={handleInputChange} 
-                                    disabled={isVerified}
-                                    style={{ 
-                                        padding: '4px', 
-                                        fontSize: '0.85rem', 
-                                        borderRadius: '6px', 
-                                        border: '1px solid white', 
-                                        color: 'black',
-                                        background: 'white',
-                                        cursor: isVerified ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    <option value="add">(+) Add</option>
-                                    <option value="subtract">(-) Subtract</option>
-                                </select>
+                                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>ROUND OFF:</span>
+                                    
+                                    <select 
+                                        name="round_type" 
+                                        value={formData.round_type} 
+                                        onChange={handleInputChange} 
+                                        disabled={isVerified}
+                                        style={{ 
+                                            padding: '2px 4px', 
+                                            fontSize: '0.8rem', 
+                                            borderRadius: '4px', 
+                                            border: '1px solid white', 
+                                            color: 'black',
+                                            background: 'white',
+                                            cursor: isVerified ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        <option value="add">(+) Add</option>
+                                        <option value="subtract">(-) Subtract</option>
+                                    </select>
 
-                                <Input 
-                                    type="number" 
-                                    step="0.01"
-                                    min="0" // Prevent typing negative signs
-                                    name="round_amount" 
-                                    value={formData.round_amount} 
-                                    onChange={handleInputChange} 
-                                    disabled={isVerified}
-                                    style={{ 
-                                        width: '80px', 
-                                        padding: '4px 8px', 
-                                        fontSize: '0.85rem', 
-                                        color: 'black', 
-                                        borderRadius: '6px', 
-                                        border: '1px solid white' 
-                                    }} 
-                                />
-                            </div>
-                        </NetPayableCard>
-                    </SummaryGrid>
+                                    <Input 
+                                        type="number" 
+                                        step="0.01"
+                                        min="0"
+                                        name="round_amount" 
+                                        value={formData.round_amount} 
+                                        onChange={handleInputChange} 
+                                        disabled={isVerified}
+                                        style={{ 
+                                            width: '60px', 
+                                            padding: '2px 6px', 
+                                            fontSize: '0.85rem', 
+                                            color: 'black', 
+                                            borderRadius: '4px', 
+                                            border: '1px solid white' 
+                                        }} 
+                                    />
+                                </div>
+                            </NetPayableCard>
+                        </div>
+                    </div>
 
                     {/* Remarks & Completion */}
                     <FormCard style={{ marginBottom: 0 }}>

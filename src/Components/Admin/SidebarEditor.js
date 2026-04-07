@@ -57,6 +57,13 @@ const HeaderContainer = styled.div`
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 62px;
+  background: rgba(240, 253, 250, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 16px 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(13, 148, 136, 0.1);
 `;
 
 const TitleBlock = styled.div`
@@ -181,6 +188,10 @@ const GroupHeader = styled.div`
   border-bottom: 1.5px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 142px; /* 62px (Main) + ~80px (SidebarEditor Header) */
+  background: var(--surface);
+  z-index: 10;
 `;
 
 const GroupLeft = styled.div`
@@ -344,6 +355,108 @@ const EmptyRow = styled.tr`
   }
 `;
 
+// ─── Tag Input Components ──────────────────────────────────────
+const TagContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fafafa;
+  min-height: 38px;
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+`;
+
+const Tag = styled.span`
+  background: var(--primary-soft, #ccfbf1);
+  color: var(--primary-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const TagClose = styled.span`
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:hover { color: var(--danger); }
+`;
+
+const GhostInput = styled.input`
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 60px;
+  &::placeholder { color: #a8b5c8; }
+`;
+
+const PermissionsCell = styled.div`
+  position: relative;
+`;
+
+const PermissionTagInput = ({ value, onChange }) => {
+    const [inputValue, setInputValue] = useState('');
+    const containerRef = React.useRef(null);
+
+    const tags = Array.isArray(value) ? value : [];
+
+    const addTag = (tag) => {
+        const trimmed = tag.trim();
+        if (trimmed && !tags.includes(trimmed)) {
+            onChange([...tags, trimmed]);
+        }
+        setInputValue('');
+    };
+
+    const removeTag = (index) => {
+        const newTags = [...tags];
+        newTags.splice(index, 1);
+        onChange(newTags);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(inputValue);
+        } else if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
+            removeTag(tags.length - 1);
+        }
+    };
+
+    return (
+        <PermissionsCell ref={containerRef}>
+            <TagContainer onClick={() => containerRef.current?.querySelector('input').focus()}>
+                {tags.map((tag, i) => (
+                    <Tag key={i}>
+                        {tag}
+                        <TagClose onClick={(e) => { e.stopPropagation(); removeTag(i); }}>×</TagClose>
+                    </Tag>
+                ))}
+                <GhostInput
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={tags.length === 0 ? "Add permissions…" : ""}
+                />
+            </TagContainer>
+        </PermissionsCell>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
@@ -355,14 +468,46 @@ const SidebarEditor = () => {
         setLoading(true);
         try {
             const data = await fetchSidebarMapping();
-            const withIds = data.map((g, gi) => ({
-                ...g,
-                id: `group-${gi}-${Date.now()}`,
-                pages: (g.pages || []).map((p, pi) => ({
-                    ...p,
-                    id: `page-${gi}-${pi}-${Date.now()}`
-                }))
-            }));
+            
+            let maxGroupId = 0;
+            let maxPageId = 0;
+
+            // Find existing maximums safely parsing to int
+            data.forEach(g => {
+                const gId = parseInt(g.group_id, 10);
+                if (!isNaN(gId) && gId > maxGroupId) maxGroupId = gId;
+                
+                (g.pages || []).forEach(p => {
+                    const pId = parseInt(p.page_id, 10);
+                    if (!isNaN(pId) && pId > maxPageId) maxPageId = pId;
+                });
+            });
+
+            const withIds = data.map((g) => {
+                let group_id = parseInt(g.group_id, 10);
+                if (isNaN(group_id)) {
+                    maxGroupId += 1;
+                    group_id = maxGroupId;
+                }
+                
+                return {
+                    ...g,
+                    id: `grp_${group_id}`, // required for DND
+                    group_id: group_id,
+                    pages: (g.pages || []).map((p) => {
+                        let page_id = parseInt(p.page_id, 10);
+                        if (isNaN(page_id)) {
+                            maxPageId += 1;
+                            page_id = maxPageId;
+                        }
+                        return {
+                            ...p,
+                            id: `pg_${page_id}`, // required for DND
+                            page_id: page_id
+                        };
+                    })
+                };
+            });
             setMapping(withIds);
         } catch {
             toast.error("Failed to load sidebar configuration.");
@@ -374,12 +519,12 @@ const SidebarEditor = () => {
     const handleSave = async () => {
         try {
             const orderedMapping = mapping.map((group, index) => {
-                const { id, ...groupData } = group;
+                const { id, ...groupData } = group; // remove DND id before saving
                 return {
                     ...groupData,
                     order: index + 1,
                     pages: (groupData.pages || []).map(p => {
-                        const { id, ...pageData } = p;
+                        const { id, ...pageData } = p; // remove DND id
                         return pageData;
                     })
                 };
@@ -401,16 +546,39 @@ const SidebarEditor = () => {
     const handlePageChange = (gi, pi, field, value) => {
         const m = [...mapping];
         if (field === 'permissions') {
-            m[gi].pages[pi][field] = value.split(',').map(s => s.trim()).filter(Boolean);
+            // value is already an array if coming from PermissionTagInput
+            m[gi].pages[pi][field] = Array.isArray(value) ? value : value.split(',').map(s => s.trim()).filter(Boolean);
         } else {
             m[gi].pages[pi][field] = value;
         }
         setMapping(m);
     };
 
+    const getNextGroupId = () => {
+        let maxId = 0;
+        mapping.forEach(g => {
+            const id = parseInt(g.group_id, 10);
+            if (!isNaN(id) && id > maxId) maxId = id;
+        });
+        return maxId + 1;
+    };
+
+    const getNextPageId = () => {
+        let maxId = 0;
+        mapping.forEach(g => {
+            (g.pages || []).forEach(p => {
+                const id = parseInt(p.page_id, 10);
+                if (!isNaN(id) && id > maxId) maxId = id;
+            });
+        });
+        return maxId + 1;
+    };
+
     const addGroup = () => {
+        const group_id = getNextGroupId();
         setMapping([...mapping, {
-            id: `group-${Date.now()}`,
+            id: `grp_${group_id}`,
+            group_id: group_id,
             group: 'New Group',
             order: mapping.length + 1,
             pages: []
@@ -421,8 +589,10 @@ const SidebarEditor = () => {
 
     const addPage = (gi) => {
         const m = [...mapping];
+        const page_id = getNextPageId();
         m[gi].pages.push({
-            id: `page-${Date.now()}`,
+            id: `pg_${page_id}`,
+            page_id: page_id,
             name: 'New Page',
             route: '/NewRoute',
             icon: 'FiActivity',
@@ -543,6 +713,7 @@ const SidebarEditor = () => {
                                                                 placeholder="Group Name"
                                                                 style={{ width: '220px', fontWeight: '700', fontSize: '0.95rem' }}
                                                             />
+                                                            <GroupBadge>Group ID: {group.group_id}</GroupBadge>
                                                             <GroupBadge>{group.pages?.length || 0} page{group.pages?.length !== 1 ? 's' : ''}</GroupBadge>
                                                         </GroupLeft>
 
@@ -561,10 +732,11 @@ const SidebarEditor = () => {
                                                             <thead>
                                                                 <tr>
                                                                     <th style={{ width: '4%' }}></th>
-                                                                    <th style={{ width: '22%' }}>Page Name</th>
-                                                                    <th style={{ width: '22%' }}>Route</th>
-                                                                    <th style={{ width: '18%' }}>Icon (react-icons/fi)</th>
-                                                                    <th style={{ width: '30%' }}>Permissions (comma-separated)</th>
+                                                                    <th style={{ width: '6%' }}>ID</th>
+                                                                    <th style={{ width: '16%' }}>Page Name</th>
+                                                                    <th style={{ width: '16%' }}>Route</th>
+                                                                    <th style={{ width: '12%' }}>Icon</th>
+                                                                    <th style={{ width: '42%' }}>Permissions</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
@@ -586,6 +758,9 @@ const SidebarEditor = () => {
                                                                                             </DragHandle>
                                                                                         </td>
                                                                                         <td>
+                                                                                            <GroupBadge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</GroupBadge>
+                                                                                        </td>
+                                                                                        <td>
                                                                                             <Input
                                                                                                 value={page.name}
                                                                                                 onChange={e => handlePageChange(gi, pi, 'name', e.target.value)}
@@ -605,10 +780,9 @@ const SidebarEditor = () => {
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <Input
-                                                                                                value={page.permissions ? page.permissions.join(', ') : ''}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'permissions', e.target.value)}
-                                                                                                placeholder="HMS-P-REG, HMS-P-REG-R"
+                                                                                            <PermissionTagInput
+                                                                                                value={page.permissions || []}
+                                                                                                onChange={val => handlePageChange(gi, pi, 'permissions', val)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>

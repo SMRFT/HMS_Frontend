@@ -1,35 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import ReactSelect from 'react-select';
+import { LineChart, X } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
-import { Plus, Search, Edit2, Trash2, X, FilterX } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FilterX } from 'lucide-react';
 import {
-  PageWrapper,
-  Container,
-  SectionHeader,
-  ControlsContainer,
-  SearchContainer,
-  Input,
-  Button,
-  TableWrapper,
-  Table,
-  Th,
-  Td,
-  Tr,
-  FormContent,
-  FormRow,
-  InputWrapper,
-  Label,
-  ButtonContainer,
-  TabContainer,
-  Tab,
-  ModalOverlay,
-  ModalContainer,
-  ModalHeader,
-  ModalTitle,
-  ModalBody,
-  CloseButton,
-  colors,
-  Select as StyledSelect
+    PageWrapper,
+    Container,
+    SectionHeader,
+    ControlsContainer,
+    SearchContainer,
+    Input,
+    Button,
+    TableWrapper,
+    Table,
+    Th,
+    Td,
+    Tr,
+    FormContent,
+    FormRow,
+    InputWrapper,
+    Label,
+    ButtonContainer,
+    TabContainer,
+    Tab,
+    ModalOverlay,
+    ModalContainer,
+    ModalHeader,
+    ModalTitle,
+    ModalBody,
+    CloseButton,
+    colors,
+    Select as StyledSelect
 } from '../GlobalStyles';
 
 const tabs = [
@@ -54,6 +55,12 @@ const Items = () => {
     const [filterCategory, setFilterCategory] = useState('');
     const [filterGroup, setFilterGroup] = useState('');
     const [filterLowStock, setFilterLowStock] = useState(false);
+
+    // Price History states
+    const [showPriceModal, setShowPriceModal] = useState(false);
+    const [priceData, setPriceData] = useState(null);
+    const [selectedItemName, setSelectedItemName] = useState('');
+    const [loadingPrices, setLoadingPrices] = useState(false);
 
     // Master list states for mappings
     const [allDepartments, setAllDepartments] = useState([]);
@@ -113,7 +120,7 @@ const Items = () => {
     };
 
     const getIdField = () => {
-        switch(activeTab.id) {
+        switch (activeTab.id) {
             case 'item': return 'item_id';
             case 'department': return 'department_id';
             case 'group': return 'group_id';
@@ -124,7 +131,7 @@ const Items = () => {
     };
 
     const getNameField = () => {
-        switch(activeTab.id) {
+        switch (activeTab.id) {
             case 'item': return 'itemName';
             case 'department': return 'department_name';
             case 'group': return 'group_name';
@@ -146,7 +153,7 @@ const Items = () => {
             } else {
                 response = await apiRequest(API_URL, 'POST', formData);
             }
-            
+
             if (response.success) {
                 fetchItems();
                 resetForm();
@@ -183,6 +190,26 @@ const Items = () => {
         }
     };
 
+    const fetchPriceHistory = async (item, nameField, idField) => {
+        const itemId = item[idField];
+        setSelectedItemName(item[nameField]);
+        setLoadingPrices(true);
+        setShowPriceModal(true);
+        setPriceData(null);
+        try {
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/`);
+            if (response.success) {
+                setPriceData(response.data);
+            } else {
+                setPriceData({ error: response.error });
+            }
+        } catch (error) {
+            setPriceData({ error: 'Failed to fetch price history' });
+        } finally {
+            setLoadingPrices(false);
+        }
+    };
+
     const resetForm = () => {
         setFormData({});
         setIsEditing(false);
@@ -194,23 +221,23 @@ const Items = () => {
         const idField = getIdField();
         const nameField = getNameField();
 
-        const matchesSearch = item[nameField]?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              item[idField]?.toLowerCase().includes(searchTerm.toLowerCase());
-        
+        const matchesSearch = item[nameField]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item[idField]?.toLowerCase().includes(searchTerm.toLowerCase());
+
         if (activeTab.id !== 'item') return matchesSearch;
 
         // Extra filters only for items
-        const matchesDept = filterDepartment ? item.department === filterDepartment : true; 
+        const matchesDept = filterDepartment ? item.department === filterDepartment : true;
         const matchesCat = filterCategory ? item.category === filterCategory : true;
         const matchesGroup = filterGroup ? item.group === filterGroup : true;
-        
+
         // Low Stock Filter
         let matchesLowStock = true;
         if (filterLowStock && activeTab.id === 'item') {
             const availQty = Number(item.total_quantity || 0) - Number(item.approved_quantity || 0);
             matchesLowStock = availQty <= Number(item.stockReorderLevel || 0);
         }
-        
+
         return matchesSearch && matchesDept && matchesCat && matchesGroup && matchesLowStock;
     });
 
@@ -318,11 +345,11 @@ const Items = () => {
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Total Quantity</Label>
-                        <Input name="total_quantity" type="number" value={formData.total_quantity || 0} onChange={handleInputChange} placeholder="Total Quantity" disabled/>
+                        <Input name="total_quantity" type="number" value={formData.total_quantity || 0} onChange={handleInputChange} placeholder="Total Quantity" disabled />
                     </InputWrapper>
                     <InputWrapper>
                         <Label>Approved Quantity</Label>
-                        <Input name="approved_quantity" type="number" value={formData.approved_quantity || 0} onChange={handleInputChange} placeholder="Approved Quantity" disabled/>
+                        <Input name="approved_quantity" type="number" value={formData.approved_quantity || 0} onChange={handleInputChange} placeholder="Approved Quantity" disabled />
                     </InputWrapper>
                 </>
             );
@@ -348,9 +375,9 @@ const Items = () => {
             <Container>
                 <TabContainer>
                     {tabs.map(tab => (
-                        <Tab 
-                            key={tab.id} 
-                            active={activeTab.id === tab.id} 
+                        <Tab
+                            key={tab.id}
+                            active={activeTab.id === tab.id}
                             onClick={() => setActiveTab(tab)}
                         >
                             {tab.label}
@@ -370,22 +397,22 @@ const Items = () => {
                             <Plus size={18} /> Add {activeTab.label.replace(' Master', '')}
                         </Button>
                     </div>
-                    
+
                     <ControlsContainer style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '24px' }}>
                         <SearchContainer style={{ flex: 1, gap: '16px' }}>
                             <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
                                 <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: colors.textMuted }} />
-                                <Input 
-                                    placeholder={`Search by name or ID...`} 
-                                    value={searchTerm} 
+                                <Input
+                                    placeholder={`Search by name or ID...`}
+                                    value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     style={{ paddingLeft: '40px', height: '42px', borderRadius: '8px' }}
                                 />
                             </div>
-                            
+
                             {activeTab.id === 'item' && (
                                 <>
-                                    <div style={{minWidth: '200px'}}>
+                                    <div style={{ minWidth: '200px' }}>
                                         <ReactSelect
                                             value={allDepartments.find(d => d.department_id === filterDepartment) ? { value: filterDepartment, label: allDepartments.find(d => d.department_id === filterDepartment).department_name } : null}
                                             onChange={(option) => setFilterDepartment(option ? option.value : '')}
@@ -396,7 +423,7 @@ const Items = () => {
                                         />
                                     </div>
 
-                                    <div style={{minWidth: '200px'}}>
+                                    <div style={{ minWidth: '200px' }}>
                                         <ReactSelect
                                             value={allCategories.find(c => c.category_id === filterCategory) ? { value: filterCategory, label: allCategories.find(c => c.category_id === filterCategory).category_name } : null}
                                             onChange={(option) => setFilterCategory(option ? option.value : '')}
@@ -407,7 +434,7 @@ const Items = () => {
                                         />
                                     </div>
 
-                                    <div style={{minWidth: '200px'}}>
+                                    <div style={{ minWidth: '200px' }}>
                                         <ReactSelect
                                             value={allGroups.find(g => g.group_id === filterGroup) ? { value: filterGroup, label: allGroups.find(g => g.group_id === filterGroup).group_name } : null}
                                             onChange={(option) => setFilterGroup(option ? option.value : '')}
@@ -419,14 +446,14 @@ const Items = () => {
                                     </div>
 
                                     <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', background: filterLowStock ? '#fee2e2' : 'transparent', borderRadius: '8px', transition: 'all 0.2s', border: filterLowStock ? `1px solid ${colors.danger}` : `1px solid transparent` }}>
-                                        <input 
-                                            type="checkbox" 
-                                            id="lowStockCheckbox" 
-                                            checked={filterLowStock} 
-                                            onChange={(e) => setFilterLowStock(e.target.checked)} 
+                                        <input
+                                            type="checkbox"
+                                            id="lowStockCheckbox"
+                                            checked={filterLowStock}
+                                            onChange={(e) => setFilterLowStock(e.target.checked)}
                                             style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer', accentColor: colors.danger }}
                                         />
-                                        <label htmlFor="lowStockCheckbox" style={{color: filterLowStock ? colors.danger : colors.textMuted, fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', margin: 0}}>
+                                        <label htmlFor="lowStockCheckbox" style={{ color: filterLowStock ? colors.danger : colors.textMuted, fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
                                             Low Stock
                                         </label>
                                     </div>
@@ -512,14 +539,14 @@ const Items = () => {
                                                         )}
                                                         <Td>
                                                             <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <Button 
+                                                                <Button
                                                                     onClick={() => handleEdit(item)}
                                                                     style={{ background: '#f0fdf4', color: '#16a34a', border: '1px solid #dcfce7', padding: '6px 10px' }}
                                                                     title="Edit"
                                                                 >
                                                                     <Edit2 size={16} />
                                                                 </Button>
-                                                                <Button 
+                                                                <Button
                                                                     onClick={() => handleDelete(item[idField])}
                                                                     style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fee2e2', padding: '6px 10px' }}
                                                                     title="Delete"
@@ -544,6 +571,73 @@ const Items = () => {
                     )}
                 </div>
             </Container>
+
+            {/* Price History Modal */}
+            {showPriceModal && (
+                <ModalOverlay>
+                    <ModalContainer style={{ maxWidth: '700px' }}>
+                        <ModalHeader>
+                            <ModalTitle>Price History - {selectedItemName}</ModalTitle>
+                            <CloseButton onClick={() => setShowPriceModal(false)}>
+                                <X size={20} />
+                            </CloseButton>
+                        </ModalHeader>
+                        <ModalBody>
+                            {loadingPrices ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Loading price history...</div>
+                            ) : priceData?.error ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: colors.danger }}>{priceData.error}</div>
+                            ) : priceData?.history?.length > 0 ? (
+                                <div>
+                                    <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
+                                        <div style={{ flex: 1, background: colors.success + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.success, fontWeight: 'bold', marginBottom: '5px' }}>Lowest Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.lowest}</div>
+                                        </div>
+                                        <div style={{ flex: 1, background: colors.primary + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.primary, fontWeight: 'bold', marginBottom: '5px' }}>Average Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.average}</div>
+                                        </div>
+                                        <div style={{ flex: 1, background: colors.danger + '20', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '0.8rem', color: colors.danger, fontWeight: 'bold', marginBottom: '5px' }}>Highest Price</div>
+                                            <div style={{ fontSize: '1.4rem', color: colors.textMain, fontWeight: 'bold' }}>₹{priceData.highest}</div>
+                                        </div>
+                                    </div>
+                                    <h4 style={{ margin: '0 0 10px 0', color: colors.textMain }}>Purchase History</h4>
+                                    <TableWrapper>
+                                        <Table>
+                                            <thead>
+                                                <Tr>
+                                                    <Th>Date</Th>
+                                                    <Th>GRN Number</Th>
+                                                    <Th>Vendor</Th>
+                                                    <Th style={{ textAlign: 'right' }}>Qty</Th>
+                                                    <Th style={{ textAlign: 'right' }}>Unit Rate</Th>
+                                                </Tr>
+                                            </thead>
+                                            <tbody>
+                                                {priceData.history.map((record, idx) => (
+                                                    <Tr key={idx}>
+                                                        <Td>{record.date || '-'}</Td>
+                                                        <Td style={{ fontWeight: '500' }}>{record.grn_number}</Td>
+                                                        <Td>{record.vendor_id || '-'}</Td>
+                                                        <Td style={{ textAlign: 'right' }}>{record.quantity || 0}</Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: 'bold', color: colors.primary }}>₹{record.rate}</Td>
+                                                    </Tr>
+                                                ))}
+                                            </tbody>
+                                        </Table>
+                                    </TableWrapper>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
+                                    No purchase history found for this item.
+                                </div>
+                            )}
+                        </ModalBody>
+                    </ModalContainer>
+                </ModalOverlay>
+            )}
         </PageWrapper>
     );
 };

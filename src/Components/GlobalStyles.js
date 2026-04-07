@@ -156,6 +156,7 @@ export const Input = styled.input`
   }
 `;
 
+
 export const Select = styled.select`
   padding: 5px 28px 5px 8px;
   border: 1px solid ${colors.border};
