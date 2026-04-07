@@ -57,6 +57,13 @@ const HeaderContainer = styled.div`
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 62px;
+  background: rgba(240, 253, 250, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 16px 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(13, 148, 136, 0.1);
 `;
 
 const TitleBlock = styled.div`
@@ -181,6 +188,10 @@ const GroupHeader = styled.div`
   border-bottom: 1.5px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 142px; /* 62px (Main) + ~80px (SidebarEditor Header) */
+  background: var(--surface);
+  z-index: 10;
 `;
 
 const GroupLeft = styled.div`
@@ -344,6 +355,108 @@ const EmptyRow = styled.tr`
   }
 `;
 
+// ─── Tag Input Components ──────────────────────────────────────
+const TagContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fafafa;
+  min-height: 38px;
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+`;
+
+const Tag = styled.span`
+  background: var(--primary-soft, #ccfbf1);
+  color: var(--primary-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const TagClose = styled.span`
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:hover { color: var(--danger); }
+`;
+
+const GhostInput = styled.input`
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 60px;
+  &::placeholder { color: #a8b5c8; }
+`;
+
+const PermissionsCell = styled.div`
+  position: relative;
+`;
+
+const PermissionTagInput = ({ value, onChange }) => {
+    const [inputValue, setInputValue] = useState('');
+    const containerRef = React.useRef(null);
+
+    const tags = Array.isArray(value) ? value : [];
+
+    const addTag = (tag) => {
+        const trimmed = tag.trim();
+        if (trimmed && !tags.includes(trimmed)) {
+            onChange([...tags, trimmed]);
+        }
+        setInputValue('');
+    };
+
+    const removeTag = (index) => {
+        const newTags = [...tags];
+        newTags.splice(index, 1);
+        onChange(newTags);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(inputValue);
+        } else if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
+            removeTag(tags.length - 1);
+        }
+    };
+
+    return (
+        <PermissionsCell ref={containerRef}>
+            <TagContainer onClick={() => containerRef.current?.querySelector('input').focus()}>
+                {tags.map((tag, i) => (
+                    <Tag key={i}>
+                        {tag}
+                        <TagClose onClick={(e) => { e.stopPropagation(); removeTag(i); }}>×</TagClose>
+                    </Tag>
+                ))}
+                <GhostInput
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={tags.length === 0 ? "Add permissions…" : ""}
+                />
+            </TagContainer>
+        </PermissionsCell>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
@@ -433,7 +546,8 @@ const SidebarEditor = () => {
     const handlePageChange = (gi, pi, field, value) => {
         const m = [...mapping];
         if (field === 'permissions') {
-            m[gi].pages[pi][field] = value.split(',').map(s => s.trim()).filter(Boolean);
+            // value is already an array if coming from PermissionTagInput
+            m[gi].pages[pi][field] = Array.isArray(value) ? value : value.split(',').map(s => s.trim()).filter(Boolean);
         } else {
             m[gi].pages[pi][field] = value;
         }
@@ -618,11 +732,11 @@ const SidebarEditor = () => {
                                                             <thead>
                                                                 <tr>
                                                                     <th style={{ width: '4%' }}></th>
-                                                                    <th style={{ width: '8%' }}>ID</th>
-                                                                    <th style={{ width: '20%' }}>Page Name</th>
-                                                                    <th style={{ width: '20%' }}>Route</th>
-                                                                    <th style={{ width: '15%' }}>Icon (react-icons/fi)</th>
-                                                                    <th style={{ width: '29%' }}>Permissions (comma-separated)</th>
+                                                                    <th style={{ width: '6%' }}>ID</th>
+                                                                    <th style={{ width: '16%' }}>Page Name</th>
+                                                                    <th style={{ width: '16%' }}>Route</th>
+                                                                    <th style={{ width: '12%' }}>Icon</th>
+                                                                    <th style={{ width: '42%' }}>Permissions</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
@@ -666,10 +780,9 @@ const SidebarEditor = () => {
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <Input
-                                                                                                value={page.permissions ? page.permissions.join(', ') : ''}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'permissions', e.target.value)}
-                                                                                                placeholder="HMS-P-REG, HMS-P-REG-R"
+                                                                                            <PermissionTagInput
+                                                                                                value={page.permissions || []}
+                                                                                                onChange={val => handlePageChange(gi, pi, 'permissions', val)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
