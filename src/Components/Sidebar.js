@@ -547,7 +547,12 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
             
             const allowedPages = (group.pages || []).filter((page) => {
               const perms = page.permissions || [];
-              if (perms.length > 0 && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
+              // Check if permissions are defined (either as non-empty array or non-empty object)
+              const hasDefinedPermissions = Array.isArray(perms) 
+                ? perms.length > 0 
+                : (perms && typeof perms === 'object' && Object.keys(perms).length > 0);
+
+              if (hasDefinedPermissions && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
                 return false;
               }
               return true;

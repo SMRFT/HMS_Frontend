@@ -27,36 +27,23 @@ const pulseGlow = keyframes`
 const Container = styled.div`
   padding: 32px 40px;
   background: #f8fafc;
-  height: calc(100vh - 64px); /* Fixed height so inner panels handle scrolling */
+  height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Outfit', 'Inter', sans-serif;
   position: relative;
-  z-index: 1;
   overflow: hidden;
 
-  /* Modern Ambient Background Glows */
-  &::before, &::after {
+  &::before {
     content: '';
     position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    z-index: -1;
-    opacity: 0.4;
-  }
-  &::before {
-    top: -10%;
-    left: -5%;
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, rgba(20, 184, 166, 0.2) 0%, transparent 70%);
-  }
-  &::after {
-    bottom: -10%;
-    right: -5%;
+    top: -200px;
+    left: -200px;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(13, 148, 136, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: 0;
   }
 `;
 
@@ -101,14 +88,16 @@ const ContentLayout = styled.div`
 
 const ListPanel = styled.div`
   width: 360px;
-  background: white;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
   border-radius: 24px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 0 3px rgba(0,0,0,0.02);
-  border: 1px solid #f1f5f9;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: ${slideInLeft} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1;
 `;
 
 const SearchContainer = styled.div`
@@ -246,6 +235,18 @@ const EmpInfo = styled.div`
   }
 `;
 
+const GroupBadge = styled.div`
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+`;
+
 // --- Right Panel: Details ---
 
 const DetailPanel = styled.div`
@@ -378,73 +379,123 @@ const PermissionsGrid = styled.div`
 
 const PermissionCard = styled.div`
   background: white;
-  border-radius: 14px;
-  padding: 12px 16px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid ${props => props.active ? '#14b8a6' : '#e2e8f0'};
+  border-radius: 20px;
+  padding: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid ${props => props.active ? '#0d9488' : '#e2e8f0'};
   box-shadow: ${props => props.active
-    ? '0 4px 10px -2px rgba(20, 184, 166, 0.15)'
-    : '0 2px 4px -1px rgba(0,0,0,0.02)'};
-  cursor: pointer;
+    ? '0 10px 15px -3px rgba(13, 148, 136, 0.1), 0 4px 6px -2px rgba(13, 148, 136, 0.05)'
+    : '0 4px 6px -1px rgba(0, 0, 0, 0.02)'};
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 16px;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px -4px rgba(0,0,0,0.06);
-    border-color: ${props => props.active ? '#2dd4bf' : '#cbd5e1'};
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: ${props => props.active ? '#0d9488' : '#cbd5e1'};
   }
 `;
 
-const PermText = styled.div`
+const CardHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  width: 100%;
+`;
+
+const SubPermGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  animation: ${fadeInUp} 0.3s ease-out;
+`;
+
+const SubToggle = styled.div`
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  background: ${props => props.active ? '#0d9488' : '#f8fafc'};
+  color: ${props => props.active ? 'white' : '#64748b'};
+  border: 1px solid ${props => props.active ? '#0d9488' : '#e2e8f0'};
+
+  &:hover {
+    background: ${props => props.active ? '#0f766e' : '#f1f5f9'};
+    transform: scale(1.02);
+  }
+`;
+
+const PermLabel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
   
-  .icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: ${props => props.active ? '#f0fdfa' : '#f8fafc'};
+  .icon-box {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: ${props => props.active ? '#f0fdfa' : '#f1f5f9'};
     color: ${props => props.active ? '#0d9488' : '#94a3b8'};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
-    transition: all 0.2s;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
   }
 
-  strong { 
-    font-size: 0.85rem; 
-    color: ${props => props.active ? '#0f172a' : '#475569'};
-    font-weight: 600;
-    display: block;
+  .text-box {
+    display: flex;
+    flex-direction: column;
+    
+    strong {
+      font-size: 0.95rem;
+      color: ${props => props.active ? '#0f172a' : '#64748b'};
+      font-weight: 700;
+      transition: color 0.3s ease;
+    }
+
+    span {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      font-weight: 500;
+    }
   }
 `;
 
 const Switch = styled.div`
-  width: 36px;
-  height: 20px;
-  background: ${props => props.active ? '#0d9488' : '#e2e8f0'};
+  width: 44px;
+  height: 24px;
+  background: ${props => props.active ? '#0d9488' : '#cbd5e1'};
   border-radius: 20px;
   position: relative;
-  transition: background 0.3s ease;
-  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
   &::after {
     content: '';
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     background: white;
     border-radius: 50%;
     position: absolute;
-    top: 2px;
-    left: 2px;
-    transform: ${props => props.active ? 'translateX(16px)' : 'translateX(0)'};
+    top: 3px;
+    left: 3px;
+    transform: ${props => props.active ? 'translateX(20px)' : 'translateX(0)'};
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+
+  &:hover {
+     box-shadow: 0 0 0 4px ${props => props.active ? 'rgba(13, 148, 136, 0.15)' : 'rgba(203, 213, 225, 0.3)'};
   }
 `;
 
@@ -506,6 +557,8 @@ const UserPermissionManager = () => {
   const [selectedEmpRole, setSelectedEmpRole] = useState("");
 
   const [permissions, setPermissions] = useState([]);
+  const [selectedSubPerms, setSelectedSubPerms] = useState({}); // { pageId: ["READ", "WRITE"] }
+  const [legacyPermissions, setLegacyPermissions] = useState({}); // { key: val } for perms not mapped to sidebar
   const [roles, setRoles] = useState([]);
   const [sidebarData, setSidebarData] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
@@ -551,11 +604,67 @@ const UserPermissionManager = () => {
         const response = await fetchUserPermissions(selectedEmpId);
 
         if (response && response.hms_pages) {
-          // Strictly load direct page IDs from Global DB into UI
           setPermissions(response.hms_pages);
           setRoles(response.roles || []);
+          
+          // Infer sub-permissions and identify legacy strings
+          const sub = {};
+          const managedStrings = new Set();
+          
+          // Normalized mapping of ALL incoming permissions
+          let allIncomingMapping = {};
+          if (response.allowed_pages && !Array.isArray(response.allowed_pages) && typeof response.allowed_pages === 'object') {
+            allIncomingMapping = { ...response.allowed_pages };
+          } else if (Array.isArray(response.allowed_pages)) {
+            // Convert legacy array to identity mapping
+            response.allowed_pages.forEach(s => {
+              allIncomingMapping[String(s).trim()] = String(s).trim();
+            });
+          }
+
+          const allIncomingValues = Object.values(allIncomingMapping).map(v => String(v).trim());
+          const discoveredPageIds = new Set((response.hms_pages || []).map(id => Number(id)));
+
+          sidebarData.forEach(group => {
+            (group.pages || []).forEach(page => {
+              const pMap = page.permissions || {};
+              const pId = Number(page.page_id);
+
+              // Track all values that are "managed" by sidebar mapping
+              Object.values(pMap).forEach(v => managedStrings.add(String(v).trim()));
+              
+              const activeKeys = [];
+              Object.entries(pMap).forEach(([k, v]) => {
+                const normalizedV = String(v).trim();
+                // Check if this specific mapping (or its value) exists in incoming data
+                // We check values because historically that's what was saved
+                if (allIncomingValues.includes(normalizedV)) {
+                  activeKeys.push(k);
+                  discoveredPageIds.add(pId);
+                }
+              });
+
+              if (activeKeys.length > 0) {
+                sub[pId] = activeKeys;
+              }
+            });
+          });
+
+          // Legacy perms are items whose VALUES aren't in ANY sidebar page mapping
+          const legacy = {};
+          Object.entries(allIncomingMapping).forEach(([k, v]) => {
+            if (!managedStrings.has(String(v).trim())) {
+              legacy[k] = v;
+            }
+          });
+          
+          setPermissions(Array.from(discoveredPageIds));
+          setSelectedSubPerms(sub);
+          setLegacyPermissions(legacy);
+
         } else {
-          setPermissions([]); // Empty state
+          setPermissions([]);
+          setSelectedSubPerms({});
           if (response && response.roles) setRoles(response.roles);
         }
       } catch (error) {
@@ -570,10 +679,40 @@ const UserPermissionManager = () => {
     }
   }, [selectedEmpId, sidebarData]);
 
-  const togglePermission = (pageId) => {
+  const togglePermission = (pageId, subKey = null) => {
     if (pageId == null) return;
+    
+    if (subKey) {
+        setSelectedSubPerms(prev => {
+            const current = prev[pageId] || [];
+            const next = current.includes(subKey) 
+                ? current.filter(k => k !== subKey)
+                : [...current, subKey];
+            return { ...prev, [pageId]: next };
+        });
+        return;
+    }
+
     setPermissions(prev => {
-      if (prev.includes(pageId)) return prev.filter(p => p !== pageId);
+      if (prev.includes(pageId)) {
+          // If turning off page, also clear sub-permissions
+          setSelectedSubPerms(s => {
+              const next = { ...s };
+              delete next[pageId];
+              return next;
+          });
+          return prev.filter(p => p !== pageId);
+      }
+      
+      // If turning on page, enable all its defined sub-permissions by default
+      const pageInfo = sidebarData.flatMap(g => g.pages).find(p => p.page_id === pageId);
+      if (pageInfo && pageInfo.permissions && typeof pageInfo.permissions === 'object') {
+          setSelectedSubPerms(s => ({
+              ...s,
+              [pageId]: Object.keys(pageInfo.permissions)
+          }));
+      }
+      
       return [...prev, pageId];
     });
   };
@@ -584,28 +723,41 @@ const UserPermissionManager = () => {
     setIsSaving(true);
 
     const activePageIds = permissions;
-    const allowedPagesStrings = [];
+    // Start with legacy permissions to ensure they are preserved as key:value
+    const allowedPagesObj = { ...legacyPermissions };
+    const hmsOutlets = new Set();
 
     if (sidebarData && sidebarData.length > 0) {
       sidebarData.forEach(group => {
         (group.pages || []).forEach(page => {
           if (page.page_id != null && activePageIds.includes(page.page_id)) {
-            const perms = (page.permissions && Array.isArray(page.permissions) && page.permissions.length > 0)
-              ? page.permissions
-              : [PAGE_PERMISSIONS[page.route] || page.route];
+            // Collect outlet codes for active pages
+            if (page.outlet_code) {
+                hmsOutlets.add(page.outlet_code);
+            }
 
-            perms.forEach(str => {
-              if (!allowedPagesStrings.includes(str)) {
-                allowedPagesStrings.push(str);
-              }
-            });
+            if (page.permissions && typeof page.permissions === 'object' && !Array.isArray(page.permissions)) {
+                // Granular: only add key-value pairs for active keys selected in UI
+                const activeKeys = selectedSubPerms[page.page_id] || [];
+                activeKeys.forEach(k => {
+                    if (page.permissions[k]) {
+                        allowedPagesObj[k] = page.permissions[k];
+                    }
+                });
+            } else {
+                // Legacy Array or Multi-string: add all as value:value (or key:value if possible)
+                const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
+                permsArr.forEach(p => {
+                    allowedPagesObj[String(p)] = p;
+                });
+            }
           }
         });
       });
     }
 
     try {
-      const result = await updateUserPermissions(selectedEmpId, allowedPagesStrings, activePageIds);
+      const result = await updateUserPermissions(selectedEmpId, allowedPagesObj, activePageIds, Array.from(hmsOutlets));
       if (result.success || result.message) {
         toast.success("Permissions saved successfully!");
         if (localStorage.getItem("employeeId") === selectedEmpId) {
@@ -636,7 +788,8 @@ const UserPermissionManager = () => {
             pageName: page.name,
             route: page.route,
             page_id: page.page_id,
-            hasExplicitToken: !!(page.permissions && page.permissions.length > 0)
+            permissions: page.permissions, // Pass down to UI
+            hasExplicitToken: !!(page.permissions && Object.keys(page.permissions).length > 0)
           });
         }
       });
@@ -721,6 +874,12 @@ const UserPermissionManager = () => {
                         Roles: <strong>{roles.join(", ")}</strong>
                       </>
                     )}
+                    {Object.keys(legacyPermissions).length > 0 && (
+                      <>
+                        <div style={{ width: 4, height: 4, background: '#cbd5e1', borderRadius: '50%' }}></div>
+                        Special Access: <strong>{Object.values(legacyPermissions).join(", ")}</strong>
+                      </>
+                    )}
                   </span>
                 </UserHeaderInfo>
                 <SaveButton onClick={handleSave} disabled={isSaving || isLoadingPerms}>
@@ -737,27 +896,58 @@ const UserPermissionManager = () => {
                   </EmptyState>
                 ) : (
                   sortedCategories.map(category => (
-                    <div key={category}>
+                    <div key={category} style={{ marginBottom: '32px' }}>
                       <SectionTitle>{category}</SectionTitle>
                       <PermissionsGrid>
-                        {groupedPermissions[category].map(({ pageName, page_id }) => {
+                        {groupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
                           const isActive = permissions.includes(page_id);
+                          const subPermEntries = Object.keys(permissionsData || {});
+                          
                           return (
                             <PermissionCard
                               key={`${pageName}-${page_id}`}
                               active={isActive}
-                              onClick={() => togglePermission(page_id)}
-                              role="button"
                             >
-                              <PermText active={isActive}>
-                                <div className="icon">
-                                  <FiActivity size={18} />
-                                </div>
-                                <div>
-                                  <strong>{pageName}</strong>
-                                </div>
-                              </PermText>
-                              <Switch active={isActive} />
+                                <CardHeader>
+                                    <PermLabel active={isActive}>
+                                        <div className="icon-box">
+                                            <FiActivity />
+                                        </div>
+                                        <div className="text-box">
+                                            <strong>{pageName}</strong>
+                                            <span>{route}</span>
+                                        </div>
+                                    </PermLabel>
+                                    <Switch 
+                                        active={isActive} 
+                                        onClick={() => togglePermission(page_id)}
+                                    />
+                                </CardHeader>
+
+                                {isActive && subPermEntries.length > 0 && (
+                                    <SubPermGrid>
+                                        {subPermEntries.map(k => {
+                                            const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
+                                            return (
+                                                <SubToggle
+                                                    key={k}
+                                                    active={isSubActive}
+                                                    onClick={() => togglePermission(page_id, k)}
+                                                    title={`Toggle ${k} permission`}
+                                                >
+                                                    {isSubActive && <FiCheck size={10} />}
+                                                    {k}
+                                                </SubToggle>
+                                            );
+                                        })}
+                                    </SubPermGrid>
+                                )}
+                                
+                                {isActive && subPermEntries.length === 0 && (
+                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                                        No granular permissions defined for this page.
+                                    </div>
+                                )}
                             </PermissionCard>
                           );
                         })}

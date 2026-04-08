@@ -15,8 +15,9 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPagePermission } from "./Auth/FrontendPageMapping";
-import { fetchSidebarMapping } from "./Auth/apiRequest";
+import { fetchSidebarMapping, fetchUserPermissions, fetchOutlets } from "./Auth/apiRequest";
 import UserPermissionManager from "./Auth/UserPermissionManager";
+import OutletSelectionModal from "./Components/OutletSelectionModal";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
@@ -132,6 +133,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [dynamicPermissions, setDynamicPermissions] = useState({});
+  const [userOutlets, setUserOutlets] = useState([]);
+  const [showOutletModal, setShowOutletModal] = useState(false);
 
   // On mount: get role from localStorage or API
   useEffect(() => {
@@ -166,6 +169,41 @@ function App() {
       setAllowedActions(actions);
       const userRole = getUserRole(actions);
       setRole(userRole);
+
+      // Handle Outlet Selection
+      if (employeeId) {
+        try {
+          const [userPerms, allOutlets] = await Promise.all([
+            fetchUserPermissions(employeeId),
+            fetchOutlets()
+          ]);
+
+          const assignedOutletCodes = userPerms.hms_outlets || [];
+          
+          if (assignedOutletCodes.length > 0) {
+            // Map codes to full outlet objects
+            const userAssignedOutlets = allOutlets.filter(o => 
+              assignedOutletCodes.includes(o.outlet_code)
+            );
+            
+            setUserOutlets(userAssignedOutlets);
+
+            const storedOutlet = localStorage.getItem("selected_outlet");
+            if (!storedOutlet) {
+              if (userAssignedOutlets.length === 1) {
+                // Auto-select if only one
+                const outlet = userAssignedOutlets[0];
+                localStorage.setItem("selected_outlet", outlet.outlet_code);
+                localStorage.setItem("selected_outlet_name", outlet.outlet_name);
+              } else if (userAssignedOutlets.length > 1) {
+                setShowOutletModal(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error initializing outlets:", error);
+        }
+      }
 
       // Auto-navigate to default route
       if (location.pathname === "/") {
@@ -213,7 +251,6 @@ function App() {
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
-      "/VendorManagement": "Vendor Management",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -275,6 +312,20 @@ function App() {
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
 
+      {showOutletModal && (
+        <OutletSelectionModal 
+          outlets={userOutlets}
+          currentOutletCode={localStorage.getItem("selected_outlet")}
+          onSelect={(outlet) => {
+            localStorage.setItem("selected_outlet", outlet.outlet_code);
+            localStorage.setItem("selected_outlet_name", outlet.outlet_name);
+            setShowOutletModal(false);
+            // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
+            window.location.reload(); 
+          }}
+        />
+      )}
+
       {isNoSidebarRoute ? (
         <div
           style={
@@ -311,6 +362,8 @@ function App() {
             <Header
               isSidebarCollapsed={sidebarCollapsed}
               setIsSidebarCollapsed={setSidebarCollapsed}
+              onSwitchOutlet={() => setShowOutletModal(true)}
+              hasMultipleOutlets={userOutlets.length > 1}
             />
             <Routes>
               {/* Dashboard */}

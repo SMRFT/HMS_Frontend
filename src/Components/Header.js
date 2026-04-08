@@ -214,6 +214,88 @@ const DateText = styled.div`
   letter-spacing: 0.2px;
   line-height: 1.2;
 `;
+// ── Outlet Display ────────────────────────────────────────────────────────────
+const OutletSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(13, 148, 136, 0.05);
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  border-radius: 12px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(13, 148, 136, 0.08);
+    border-color: rgba(13, 148, 136, 0.3);
+  }
+
+  @media (max-width: 1024px) {
+    display: none;
+  }
+`;
+
+const OutletIconBox = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: ${colors.primary};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.2);
+`;
+
+const OutletTextGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+`;
+
+const OutletLabel = styled.span`
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const OutletName = styled.span`
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: ${colors.textMain};
+  white-space: nowrap;
+`;
+
+const SwitchBtn = styled.button`
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  background: white;
+  color: ${colors.primary};
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    background: ${colors.primary};
+    color: white;
+    border-color: ${colors.primary};
+  }
+  
+  svg {
+    width: 10px;
+    height: 10px;
+  }
+`;
 
 // ── Right: Actions ────────────────────────────────────────────────────────────
 
@@ -523,7 +605,7 @@ const SessionStatus = styled.div`
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
+const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, hasMultipleOutlets }) => {
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -640,6 +722,24 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
       <div style={{ flex: 1 }} />
 
+      {/* ── Outlet Info ── */}
+      {localStorage.getItem("selected_outlet") && (
+        <OutletSection>
+          <OutletIconBox>
+            <MapPin size={14} />
+          </OutletIconBox>
+          <OutletTextGroup>
+            <OutletLabel>Active Outlet</OutletLabel>
+            <OutletName>{localStorage.getItem("selected_outlet_name") || localStorage.getItem("selected_outlet")}</OutletName>
+          </OutletTextGroup>
+          {hasMultipleOutlets && (
+            <SwitchBtn onClick={onSwitchOutlet}>
+              <RefreshCw size={10} /> Switch
+            </SwitchBtn>
+          )}
+        </OutletSection>
+      )}
+
       {/* ── Clock ── */}
       <ClockSection>
         <ClockIconBox>
@@ -722,6 +822,11 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
                 <DropdownItem onClick={() => setDropdownOpen(false)}>
                   <HelpCircle /> Help & Support
                 </DropdownItem>
+                {hasMultipleOutlets && (
+                  <DropdownItem onClick={() => { setDropdownOpen(false); onSwitchOutlet(); }}>
+                    <MapPin /> Switch Outlet
+                  </DropdownItem>
+                )}
               </DropdownSection>
 
               <DropdownDivider />
