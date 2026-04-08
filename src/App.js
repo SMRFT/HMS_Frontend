@@ -100,6 +100,9 @@ import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
+import NursingStation from "./Components/Rooms/NursingStation";
+import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
+import RoomKitItems from "./Components/Rooms/RoomKitItems";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -526,6 +529,21 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Block" element={<Block />} />}
+              {hasPagePermission(
+                "/NursingStation",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/NursingStation" element={<NursingStation />} />}              
+              {hasPagePermission(
+                "/RoomKitItems",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/RoomKitItems" element={<RoomKitItems />} />}              
+              {hasPagePermission(
+                "/RoomServiceDescription",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/RoomServiceDescription" element={<RoomServiceDescription />} />}
 
               {/* Inventory */}
               {hasPagePermission(
