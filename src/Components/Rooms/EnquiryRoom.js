@@ -473,8 +473,16 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
   const isReserved   = bed.status === "Reserved";
 
   // Only enable checkbox when bed is actively occupied AND not yet cleaned
-  const canMarkCleaned   = bed.is_roomActive === false && bed.is_roomCleaned === false && !isCleaned;
-  const checkboxDisabled = !canMarkCleaned || cleaning;
+  const canMarkCleaned =
+    bed.status === "Available (Not Cleaned)" &&
+    bed.is_roomCleaned === false &&
+    !isCleaned &&
+    (
+      bed.is_roomActive === true ||
+      bed.is_roomActive === false
+    );
+
+  const checkboxDisabled = cleaning || !canMarkCleaned;
   const showCleaned      = isOccupied || isNotCleaned;
   const isMarkedCleaned  = bed.is_roomCleaned === true || isCleaned;
 
@@ -576,9 +584,9 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
               <CleanedToggleLabel cleaned={isMarkedCleaned} isdisabled={checkboxDisabled ? 1 : 0}>
                 {isMarkedCleaned
                   ? "✅ Room marked as Cleaned"
-                  : checkboxDisabled
-                    ? "🔒 Cannot mark — bed not active or already cleaned"
-                    : "🧹 Mark Room as Cleaned"}
+                  : canMarkCleaned
+                    ? "🧹 Mark Room as Cleaned"
+                    : "🔒 Cannot mark — only 'Not Cleaned' beds can be cleaned"}
               </CleanedToggleLabel>
               <CleanedCheckbox
                 type="checkbox"
