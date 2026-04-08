@@ -16,7 +16,6 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
     const branch = localStorage.getItem("selected_branch");
     const outlet = localStorage.getItem("selected_outlet");
 
-
     const defaultHeaders = {
       Authorization: token, // Use 'Bearer' if backend expects it
       "Branch-Code": branch,
@@ -36,28 +35,8 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
     };
 
     if (data && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-      // Inject audit fields into the data
-      const employeeId = localStorage.getItem("employeeId") || "system";
-      const branchCode = localStorage.getItem("selected_branch") || "system";
-      const outletCode = localStorage.getItem("selected_outlet") || "system";
-
-      if (data instanceof FormData) {
-        if (!data.has("auth-user-id")) data.append("auth-user-id", employeeId);
-        if (!data.has("auth-hospital-code")) data.append("auth-hospital-code", branchCode);
-        if (!data.has("auth-branch-code")) data.append("auth-branch-code", branchCode);
-        if (!data.has("auth-outlet-code")) data.append("auth-outlet-code", outletCode);
-      } else if (typeof data === "object") {
-        data = {
-          "auth-user-id": employeeId,
-          "auth-hospital-code": branchCode,
-          "auth-branch-code": branchCode,
-          "auth-outlet-code": outletCode,
-          ...data
-        };
-      }
       config.data = data;
     }
-
     const response = await axios(config);
 
     // Success status codes (2xx range)
@@ -111,7 +90,7 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
 
 /**
  * Fetches the user-specific allowed pages from the backend table.
- * @param {string} employeeId 
+ * @param {string} employeeId
  * @returns {Promise<Array>} List of allowed pages
  */
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -126,7 +105,7 @@ export const fetchUserPermissions = async (employeeId) => {
 
 /**
  * Updates the user-specific allowed pages in the backend.
- * @param {string} employeeId 
+ * @param {string} employeeId
  * @param {Array} allowedPages List of allowed page strings
  * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
