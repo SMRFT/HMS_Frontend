@@ -131,12 +131,13 @@ export const fetchUserPermissions = async (employeeId) => {
  * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = []) => {
+export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = [], hmsOutlets = []) => {
   try {
     const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
       employeeId,
       allowed_pages: allowedPages,
-      hms_pages: hmsPages
+      hms_pages: hmsPages,
+      hms_outlets: hmsOutlets
     });
     return response;
   } catch (error) {

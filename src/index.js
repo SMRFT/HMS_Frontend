@@ -9,8 +9,8 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 // Access the redirect URL from environment variables
 const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
 
-console.log("=== HMS INDEX.JS DEBUG ===");
-console.log("REDIRECT_URL:", REDIRECT_URL);
+// console.log("=== HMS INDEX.JS DEBUG ===");
+// console.log("REDIRECT_URL:", REDIRECT_URL);
 
 // --- Function to set token for local development ---
 function setforlocaldev() {
@@ -59,7 +59,7 @@ function getUserRole(allowedActions) {
   if (!allowedActions || !Array.isArray(allowedActions)) {
     return "Receptionist"; // Default role
   }
-  console.log("Allowed actions:", allowedActions);
+  // console.log("Allowed actions:", allowedActions);
   if (allowedActions.includes("HMS-R-SA")) {
     return "Super Admin";
   }
@@ -77,11 +77,11 @@ function getUserRole(allowedActions) {
 // --- Main execution ---
 (function main() {
   try {
-    console.log("Starting token validation...");
+    // console.log("Starting token validation...");
 
     // Retrieve token from localStorage
     let accessToken = localStorage.getItem("access_token");
-    console.log("Access token from localStorage exists:", !!accessToken);
+    // console.log("Access token from localStorage exists:", !!accessToken);
 
     // If no token found, try development token
     if (!accessToken) {
@@ -93,7 +93,7 @@ function getUserRole(allowedActions) {
 
     // If still no token (development token is empty), redirect to login
     if (!accessToken || accessToken.trim() === "") {
-      console.log("❌ No valid token available, redirecting to login");
+      // console.log("❌ No valid token available, redirecting to login");
       localStorage.removeItem("access_token"); // Clean up
       redirectToLogin();
       return; // Stop execution here
@@ -101,8 +101,8 @@ function getUserRole(allowedActions) {
 
     // Validate the token
     const userPayload = validate(accessToken);
-    console.log("✅ Token validated successfully");
-    console.log("Decoded token payload:", userPayload);
+    // console.log("✅ Token validated successfully");
+    // console.log("Decoded token payload:", userPayload);
 
     // Store the valid token and user information
     localStorage.setItem("access_token", accessToken);
@@ -114,14 +114,14 @@ function getUserRole(allowedActions) {
 
     const userRole = getUserRole(userPayload["allowed-actions"]);
 
-    console.log("Employee ID:", employeeId);
-    console.log("Name:", name);
-    console.log("Email:", userEmail);
-    console.log("User Role:", userRole);
+    // console.log("Employee ID:", employeeId);
+    // console.log("Name:", name);
+    // console.log("Email:", userEmail);
+    // console.log("User Role:", userRole);
 
     // Check if we have required data
     const isLoggedIn = !!(employeeId && name);
-    console.log("Is logged in:", isLoggedIn);
+    // console.log("Is logged in:", isLoggedIn);
 
     if (!isLoggedIn) {
       throw new Error(
@@ -143,16 +143,16 @@ function getUserRole(allowedActions) {
       JSON.stringify(userPayload["allowed-actions"] || []),
     );
 
-    console.log("✅ User payload and extracted data stored in localStorage");
-    console.log("Stored data:", {
-      employeeId,
-      name,
-      userEmail,
-      role: userRole,
-    });
+    // console.log("✅ User payload and extracted data stored in localStorage");
+    // console.log("Stored data:", {
+    //   employeeId,
+    //   name,
+    //   userEmail,
+    //   role: userRole,
+    // });
 
     // Token is valid, render app
-    console.log("✅ Rendering lab app...");
+    // console.log("✅ Rendering lab app...");
     const root = ReactDOM.createRoot(document.getElementById("root"));
     root.render(
       <React.StrictMode>
