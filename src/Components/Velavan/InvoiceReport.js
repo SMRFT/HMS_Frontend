@@ -695,9 +695,9 @@ const InvoiceReport = () => {
   .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
   .sec{border-right:1px solid #000;vertical-align:top}
   .sec:last-child{border-right:none}
-  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
+  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:13px}
   .cnt{padding:8px;text-align:left;vertical-align:top}
-  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+  .row{margin:4px 0;font-size:13px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
   .row b{white-space:nowrap}
   table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
   table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
@@ -802,7 +802,7 @@ const InvoiceReport = () => {
           <tr>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
+              <div class="row"><b>Invoice Date:</b> ${formatDate(record.invoice_date)}</div>
             </td>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
@@ -896,9 +896,9 @@ const InvoiceReport = () => {
   .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
   .sec{border-right:1px solid #000;vertical-align:top}
   .sec:last-child{border-right:none}
-  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
+  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:13px}
   .cnt{padding:8px;text-align:left;vertical-align:top}
-  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+  .row{margin:4px 0;font-size:13px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
   .row b{white-space:nowrap}
   table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
   table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
@@ -991,7 +991,7 @@ const InvoiceReport = () => {
       <div class="sub">State: 33 - Tamil Nadu &nbsp;|&nbsp; Mobile: 8248456660</div>
       <div class="sub">DL No.: TN/SLE/20B/0028 &nbsp;&amp;&nbsp; TN/SLE/21B/0028 &nbsp;|&nbsp; GSTIN No.: 33AAICV7109G1ZC</div>
       <div class="divider"></div>
-      <div class="doctype">TAX INVOICE — ${record.grn_number}</div>
+      <div class="doctype">SALES INVOICE — ${record.grn_number}</div>
 
       <table class="grid">
         <thead>
@@ -1005,7 +1005,7 @@ const InvoiceReport = () => {
           <tr>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
+              <div class="row"><b>Invoice Date:</b> ${formatDate(record.invoice_date)}</div>
             </td>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
