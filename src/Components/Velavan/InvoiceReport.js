@@ -520,7 +520,7 @@ const InvoiceReport = () => {
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th><th rowspan="2">MRP</th>
             <th rowspan="2">Discount %</th><th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Taxable Amt</th>
+            <th rowspan="2">Non-Taxable Amt</th>
             <th colspan="2" class="col-grp">Purchase Tax (${items[0]?.tax || 0}%)</th>
             <th colspan="2">Selling Tax (${items[0]?.sellingTax || 0}%)</th>
             <th rowspan="2">Unit Cost<br/>(with GST)</th>
@@ -566,12 +566,12 @@ const InvoiceReport = () => {
             .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${parseFloat(record.taxable_amount || 0).toFixed(2)}</td>
+            <td class="r">₹${parseFloat(record.non_taxable_amount || 0).toFixed(2)}</td>
             <td class="r col-grp">₹${parseFloat(record.cgst || 0).toFixed(2)}</td>
             <td class="r">₹${parseFloat(record.sgst || 0).toFixed(2)}</td>
             <td colspan="2"></td><td></td>
             <td class="r col-grp"><b>₹${parseFloat(record.total_amount || 0).toFixed(2)}</b></td>
-            <td colspan="2"></td>
+            <td colspan="2"class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -672,16 +672,12 @@ const InvoiceReport = () => {
       0,
     );
 
-    const sellingTotal =
-      items.reduce(
-        (sum, item) =>
-          sum +
-          parseFloat(item.unitSellingCost || 0) *
-            parseFloat(item.quantity || 0),
-        0,
-      ) +
-      sellingCgst +
-      sellingSgst;
+    const sellingTotal = items.reduce(
+      (sum, item) =>
+        sum +
+        parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
+      0,
+    );
 
     const hasPatient =
       record.ip_number || record.patient_name || record.surgeon_name;
@@ -731,6 +727,7 @@ const InvoiceReport = () => {
             <th rowspan="2">Expiry</th>
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th>
+            <th rowspan="2">MRP</th>
             <th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th>
             <th rowspan="2">Non-Taxable Amt</th>
@@ -761,6 +758,7 @@ const InvoiceReport = () => {
               <td>${item.expiry || "—"}</td>
               <td><b>${item.quantity || 0}</b></td>
               <td class="r">₹${unitSelling.toFixed(2)}</td>
+              <td class="r">₹${item.mrp || 0}</td>
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
               <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
@@ -773,7 +771,7 @@ const InvoiceReport = () => {
             })
             .join("")}
           <tr class="tot">
-            <td colspan="9" class="r"><b>TOTAL</b></td>
+            <td colspan="10" class="r"><b>TOTAL</b></td>
             <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
             <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
