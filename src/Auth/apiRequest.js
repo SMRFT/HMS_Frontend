@@ -96,19 +96,11 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 export const fetchUserPermissions = async (employeeId) => {
-  try {
-    const response = await axios.get(
-      `${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`,
-    );
-    // Return full data object (contains allowed_pages, roles, etc.)
-    if (response.data) {
-      return response.data;
-    }
-    return { allowed_pages: [], roles: [] };
-  } catch (error) {
-    console.error("Error fetching user permissions:", error);
-    return { allowed_pages: [], roles: [] };
+  const response = await apiRequest(`${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`, "GET");
+  if (response.success && response.data) {
+    return response.data;
   }
+  return { allowed_pages: [], roles: [] };
 };
 
 /**
@@ -118,21 +110,14 @@ export const fetchUserPermissions = async (employeeId) => {
  * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (
-  employeeId,
-  allowedPages,
-  hmsPages = [],
-) => {
+export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = [], hmsOutlets = []) => {
   try {
-    const response = await apiRequest(
-      `${Hmsbaseurl}update-user-permissions/`,
-      "POST",
-      {
-        employeeId,
-        allowed_pages: allowedPages,
-        hms_pages: hmsPages,
-      },
-    );
+    const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
+      employeeId,
+      allowed_pages: allowedPages,
+      hms_pages: hmsPages,
+      hms_outlets: hmsOutlets
+    });
     return response;
   } catch (error) {
     console.error("Error updating user permissions:", error);
@@ -145,16 +130,11 @@ export const updateUserPermissions = async (
  * @returns {Promise<Array>} List of employees
  */
 export const fetchAllEmployees = async () => {
-  try {
-    const response = await axios.get(`${Hmsbaseurl}get-all-employees/`);
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return [];
-  } catch (error) {
-    console.error("Error fetching employees:", error);
-    return [];
+  const response = await apiRequest(`${Hmsbaseurl}get-all-employees/`, "GET");
+  if (response.success && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  return [];
 };
 
 /**
@@ -162,21 +142,15 @@ export const fetchAllEmployees = async () => {
  * @returns {Promise<Array>} List of sidebar groups and pages
  */
 export const fetchSidebarMapping = async (employeeId = null) => {
-  try {
-    const url =
-      employeeId && employeeId !== "null" && employeeId !== "undefined"
-        ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
-        : `${Hmsbaseurl}get-sidebar-mapping/`;
+  const url = (employeeId && employeeId !== "null" && employeeId !== "undefined")
+    ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
+    : `${Hmsbaseurl}get-sidebar-mapping/`;
 
-    const response = await axios.get(url);
-    if (response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return [];
-  } catch (error) {
-    console.error("Error fetching sidebar mapping:", error);
-    return [];
+  const response = await apiRequest(url, "GET");
+  if (response.success && response.data && Array.isArray(response.data)) {
+    return response.data;
   }
+  return [];
 };
 
 /**
@@ -185,15 +159,23 @@ export const fetchSidebarMapping = async (employeeId = null) => {
  * @returns {Promise<Object>} Response object indicating success or failure
  */
 export const updateSidebarMapping = async (mapping) => {
-  try {
-    const response = await axios.post(`${Hmsbaseurl}update-sidebar-mapping/`, {
-      mapping,
-    });
+  const response = await apiRequest(`${Hmsbaseurl}update-sidebar-mapping/`, "POST", { mapping });
+  if (response.success) {
     return response.data;
-  } catch (error) {
-    console.error("Error updating sidebar mapping:", error);
-    throw error;
   }
+  throw new Error(response.error || "Failed to update sidebar mapping");
+};
+
+/**
+ * Fetches all available outlets from the backend.
+ * @returns {Promise<Array>} List of outlets
+ */
+export const fetchOutlets = async () => {
+  const response = await apiRequest(`${Hmsbaseurl}get-all-outlets/`, "GET");
+  if (response.success && response.data && Array.isArray(response.data)) {
+    return response.data;
+  }
+  return [];
 };
 
 export default apiRequest;

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, createGlobalStyle } from 'styled-components';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle } from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { fetchSidebarMapping, updateSidebarMapping } from '../../Auth/apiRequest';
+import { fetchSidebarMapping, updateSidebarMapping, fetchOutlets } from '../../Auth/apiRequest';
 import { PAGE_PERMISSIONS } from '../../Auth/FrontendPageMapping';
+import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey } from 'react-icons/fi';
 
 // ─── Global Style ──────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
@@ -57,6 +57,13 @@ const HeaderContainer = styled.div`
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 62px;
+  background: rgba(240, 253, 250, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 16px 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(13, 148, 136, 0.1);
 `;
 
 const TitleBlock = styled.div`
@@ -181,6 +188,10 @@ const GroupHeader = styled.div`
   border-bottom: 1.5px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 142px; /* 62px (Main) + ~80px (SidebarEditor Header) */
+  background: var(--surface);
+  z-index: 10;
 `;
 
 const GroupLeft = styled.div`
@@ -344,12 +355,215 @@ const EmptyRow = styled.tr`
   }
 `;
 
+// ─── Tag Input Components ──────────────────────────────────────
+const TagContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fafafa;
+  min-height: 38px;
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+`;
+
+const Tag = styled.span`
+  background: var(--primary-soft, #ccfbf1);
+  color: var(--primary-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const TagClose = styled.span`
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:hover { color: var(--danger); }
+`;
+
+const GhostInput = styled.input`
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 60px;
+  &::placeholder { color: #a8b5c8; }
+`;
+
+const PermissionsCell = styled.div`
+  position: relative;
+`;
+
+const Badge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+`;
+
+const PermissionKeyValueEditor = ({ value, onChange }) => {
+    // value can be array or object. Normalize to object.
+    const normalize = (val) => {
+        if (Array.isArray(val)) {
+            const obj = {};
+            val.forEach(v => { if (v) obj[v] = v; });
+            return obj;
+        }
+        return (typeof val === 'object' && val !== null) ? val : {};
+    };
+
+    const [newKey, setNewKey] = useState('');
+    const [newCode, setNewCode] = useState('');
+    
+    // Use an internal state for exact row items to prevent re-ordering during key updates
+    const [localRows, setLocalRows] = useState([]);
+    const skipNextSync = useRef(false);
+
+    // Sync from parent IF the value truly Changed from outside (not from our own onChange)
+    useEffect(() => {
+        if (skipNextSync.current) {
+            skipNextSync.current = false;
+            return;
+        }
+
+        const normalized = normalize(value);
+        const entries = Object.entries(normalized);
+        setLocalRows(entries.map(([k, v], i) => ({ k, v, id: `row-${i}` })));
+    }, [value]);
+
+    const updateRow = (idx, field, nextVal) => {
+        const nextRows = [...localRows];
+        nextRows[idx] = { ...nextRows[idx], [field]: nextVal };
+        setLocalRows(nextRows);
+        
+        // Push result to parent - only include valid (non-empty) keys
+        const result = {};
+        nextRows.forEach(row => {
+            if (row.k.trim()) {
+                result[row.k.trim()] = row.v.trim();
+            }
+        });
+        
+        skipNextSync.current = true;
+        onChange(result);
+    };
+
+    const addLocalPermission = () => {
+        if (!newKey.trim() || !newCode.trim()) return;
+        
+        const next = {
+            ...normalize(value),
+            [newKey.trim()]: newCode.trim()
+        };
+        
+        skipNextSync.current = false; // Allow a hard sync here to reset IDs and IDs
+        onChange(next);
+        setNewKey('');
+        setNewCode('');
+    };
+
+    const removeRow = (idx) => {
+        const nextRows = localRows.filter((_, i) => i !== idx);
+        setLocalRows(nextRows); // Update local first for snappy UI
+        
+        const result = {};
+        nextRows.forEach(row => {
+            if (row.k.trim()) result[row.k.trim()] = row.v.trim();
+        });
+        
+        skipNextSync.current = true;
+        onChange(result);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addLocalPermission();
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
+            {localRows.map((row, idx) => (
+                <div key={row.id} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <Input 
+                        value={row.k} 
+                        onChange={e => updateRow(idx, 'k', e.target.value)}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
+                        placeholder="Key"
+                    />
+                    <span style={{ color: 'var(--muted)' }}>:</span>
+                    <Input 
+                        value={row.v} 
+                        onChange={e => updateRow(idx, 'v', e.target.value)}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
+                        placeholder="Code"
+                    />
+                    <IconButton onClick={() => removeRow(idx)} danger style={{ padding: '2px' }}>
+                        <FiTrash2 size={12} />
+                    </IconButton>
+                </div>
+            ))}
+            
+            {/* Add New Row */}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border)', paddingTop: '6px' }}>
+                <Input 
+                    placeholder="New Key" 
+                    value={newKey} 
+                    onChange={e => setNewKey(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
+                />
+                <Input 
+                    placeholder="New Code" 
+                    value={newCode} 
+                    onChange={e => setNewCode(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
+                />
+                <IconButton onClick={addLocalPermission} disabled={!newKey.trim() || !newCode.trim()} style={{ padding: '2px' }}>
+                    <FiPlusCircle size={16} color="var(--primary)" />
+                </IconButton>
+            </div>
+        </div>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
+    const [outlets, setOutlets] = useState([]);
+    const [selectedOutlet, setSelectedOutlet] = useState('');
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => { loadMapping(); }, []);
+    useEffect(() => { 
+        loadMapping();
+        loadOutlets();
+    }, []);
+
+    const loadOutlets = async () => {
+        const data = await fetchOutlets();
+        setOutlets(data);
+    };
 
     const loadMapping = async () => {
         setLoading(true);
@@ -387,10 +601,19 @@ const SidebarEditor = () => {
                             maxPageId += 1;
                             page_id = maxPageId;
                         }
+                        // Robust Permission Normalization
+                        let perms = {};
+                        if (Array.isArray(p.permissions)) {
+                            p.permissions.forEach(v => { if (v) perms[v] = v; });
+                        } else if (typeof p.permissions === 'object' && p.permissions !== null) {
+                            perms = p.permissions;
+                        }
+
                         return {
                             ...p,
                             id: `pg_${page_id}`, // required for DND
-                            page_id: page_id
+                            page_id: page_id,
+                            permissions: perms
                         };
                     })
                 };
@@ -432,11 +655,7 @@ const SidebarEditor = () => {
 
     const handlePageChange = (gi, pi, field, value) => {
         const m = [...mapping];
-        if (field === 'permissions') {
-            m[gi].pages[pi][field] = value.split(',').map(s => s.trim()).filter(Boolean);
-        } else {
-            m[gi].pages[pi][field] = value;
-        }
+        m[gi].pages[pi][field] = value;
         setMapping(m);
     };
 
@@ -560,6 +779,17 @@ const SidebarEditor = () => {
                     </TitleBlock>
 
                     <ButtonGroup>
+                        <Input 
+                            as="select" 
+                            value={selectedOutlet} 
+                            onChange={e => setSelectedOutlet(e.target.value)}
+                            style={{ width: '180px', height: '40px' }}
+                        >
+                            <option value="">All Outlets / Global</option>
+                            {outlets.map(o => (
+                                <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
+                            ))}
+                        </Input>
                         <OutlineButton onClick={addGroup}>
                             <FiPlus /> Add Group
                         </OutlineButton>
@@ -618,11 +848,12 @@ const SidebarEditor = () => {
                                                             <thead>
                                                                 <tr>
                                                                     <th style={{ width: '4%' }}></th>
-                                                                    <th style={{ width: '8%' }}>ID</th>
-                                                                    <th style={{ width: '20%' }}>Page Name</th>
-                                                                    <th style={{ width: '20%' }}>Route</th>
-                                                                    <th style={{ width: '15%' }}>Icon (react-icons/fi)</th>
-                                                                    <th style={{ width: '29%' }}>Permissions (comma-separated)</th>
+                                                                    <th style={{ width: '10%' }}>ID</th>
+                                                                    <th style={{ width: '14%' }}>Page Name</th>
+                                                                    <th style={{ width: '14%' }}>Route</th>
+                                                                    <th style={{ width: '10%' }}>Icon</th>
+                                                                    <th style={{ width: '12%' }}>Outlet</th>
+                                                                    <th style={{ width: '32%' }}>Permissions</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
@@ -644,7 +875,7 @@ const SidebarEditor = () => {
                                                                                             </DragHandle>
                                                                                         </td>
                                                                                         <td>
-                                                                                            <GroupBadge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</GroupBadge>
+                                                                                            <Badge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</Badge>
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
@@ -666,10 +897,22 @@ const SidebarEditor = () => {
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <Input
-                                                                                                value={page.permissions ? page.permissions.join(', ') : ''}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'permissions', e.target.value)}
-                                                                                                placeholder="HMS-P-REG, HMS-P-REG-R"
+                                                                                            <Input 
+                                                                                                as="select" 
+                                                                                                value={page.outlet_code || ''}
+                                                                                                onChange={e => handlePageChange(gi, pi, 'outlet_code', e.target.value)}
+                                                                                                style={{ fontSize: '0.75rem', padding: '4px' }}
+                                                                                            >
+                                                                                                <option value="">Global</option>
+                                                                                                {outlets.map(o => (
+                                                                                                    <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
+                                                                                                ))}
+                                                                                            </Input>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <PermissionKeyValueEditor
+                                                                                                value={page.permissions || {}}
+                                                                                                onChange={val => handlePageChange(gi, pi, 'permissions', val)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
