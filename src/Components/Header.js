@@ -72,7 +72,13 @@ const HeaderContainer = styled.header`
     padding: 0 14px;
     gap: 10px;
   }
+
+  @media (max-width: 480px) {
+    padding: 0 8px;
+    gap: 6px;
+  }
 `;
+
 
 /* Offset helper — add this class to your main layout wrapper */
 /* e.g. <main style={{ paddingTop: "62px" }}> */
@@ -83,7 +89,12 @@ const BrandingSection = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  
+  @media (max-width: 480px) {
+    gap: 8px;
+  }
 `;
 
 const BrandIconWrap = styled.div`
@@ -106,6 +117,7 @@ const BrandTextGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 0;
+  min-width: 0;
 
   @media (max-width: 640px) {
     flex-direction: column;
@@ -122,9 +134,16 @@ const HospitalName = styled.h1`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 
   span {
     color: ${colors.primary};
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.78rem;
+    letter-spacing: 0.2px;
   }
 `;
 
@@ -304,6 +323,10 @@ const ActionSection = styled.div`
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
 `;
 
 const HeaderDivider = styled.div`
@@ -347,6 +370,11 @@ const IconBtn = styled.button`
   @media (max-width: 480px) {
     width: 32px;
     height: 32px;
+    ${({ $hideOnMobile }) =>
+      $hideOnMobile &&
+      css`
+        display: none;
+      `}
   }
 `;
 
@@ -391,6 +419,12 @@ const UserProfileBtn = styled.button`
       border-color: ${colors.primary};
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
     `}
+
+  @media (max-width: 480px) {
+    padding: 4px;
+    gap: 0;
+    border-radius: 9px;
+  }
 `;
 
 const UserAvatar = styled.div`
@@ -754,7 +788,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
       {/* ── Right: Actions ── */}
       <ActionSection>
         {/* Refresh */}
-        <IconBtn onClick={handleRefresh} title="Refresh Page">
+        <IconBtn onClick={handleRefresh} title="Refresh Page" $hideOnMobile>
           <RefreshCw size={17} />
         </IconBtn>
 
@@ -762,6 +796,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
         <IconBtn
           onClick={toggleFullscreen}
           title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          $hideOnMobile
         >
           {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
         </IconBtn>
