@@ -11,6 +11,7 @@ import {
   X,
   History,
   ArrowLeft,
+  CheckCircle, // ← add CheckCircle
 } from "lucide-react";
 
 import {
@@ -436,6 +437,44 @@ const InvoiceReport = () => {
   };
   const handleEdit = (record) =>
     navigate("/InvoiceGeneration", { state: { record } });
+
+  const handleApprove = async (record) => {
+    if (record.is_approved) return;
+    const confirm = window.confirm(
+      `Approve GRN ${record.grn_number}?\nThis cannot be undone.`,
+    );
+    if (!confirm) return;
+
+    try {
+      const response = await apiRequest(
+        `${HMSURL}velavan/invoices/approve/${encodeURIComponent(record.grn_number)}/`,
+        "PATCH",
+      );
+      if (!response.success || response.data?.status !== "success") {
+        throw new Error(response.data?.message || "Approval failed");
+      }
+      toast.success(`${record.grn_number} approved successfully`);
+      // Refresh local state
+      setAllData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number
+            ? {
+                ...r,
+                is_approved: true,
+                approved_by: response.data.data?.approved_by,
+              }
+            : r,
+        ),
+      );
+      setFilteredData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number ? { ...r, is_approved: true } : r,
+        ),
+      );
+    } catch (err) {
+      toast.error(err.message || "Approval failed");
+    }
+  };
 
   // ── Open print window ────────────────────────────────────────────
   const openPrintWindow = (title, css, bodyHtml) => {
@@ -1729,6 +1768,7 @@ const InvoiceReport = () => {
                       {formatCurrency(row.net_invoice_amount)}
                     </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
+                      {/* View */}
                       <button
                         style={actionBtn}
                         title="View"
@@ -1736,13 +1776,45 @@ const InvoiceReport = () => {
                       >
                         <Eye size={14} />
                       </button>
+
+                      {/* Edit — disabled when approved */}
                       <button
-                        style={actionBtn}
-                        title="Edit"
-                        onClick={() => handleEdit(row)}
+                        style={{
+                          ...actionBtn,
+                          opacity: row.is_approved ? 0.35 : 1,
+                          cursor: row.is_approved ? "not-allowed" : "pointer",
+                          color: row.is_approved
+                            ? colors.textMuted
+                            : actionBtn.color,
+                        }}
+                        title={
+                          row.is_approved ? "Approved — editing locked" : "Edit"
+                        }
+                        onClick={() => !row.is_approved && handleEdit(row)}
+                        disabled={row.is_approved}
                       >
                         <Edit3 size={14} />
                       </button>
+
+                      {/* Approve toggle */}
+                      <button
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#16a34a" : "#d97706",
+                          borderColor: row.is_approved ? "#16a34a" : "#d97706",
+                          cursor: row.is_approved ? "default" : "pointer",
+                        }}
+                        title={
+                          row.is_approved
+                            ? `Approved by ${row.approved_by || "—"}`
+                            : "Click to Approve"
+                        }
+                        onClick={() => !row.is_approved && handleApprove(row)}
+                      >
+                        <CheckCircle size={14} />
+                      </button>
+
+                      {/* GRN Print */}
                       <button
                         style={actionBtn}
                         title="GRN Print"
@@ -1750,6 +1822,8 @@ const InvoiceReport = () => {
                       >
                         <Printer size={14} />
                       </button>
+
+                      {/* Velavan Print */}
                       <button
                         style={{ ...actionBtn, color: "#7c3aed" }}
                         title="Velavan Print"
