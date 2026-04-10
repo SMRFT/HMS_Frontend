@@ -730,7 +730,7 @@ const InvoiceReport = () => {
             <th rowspan="2">MRP</th>
             <th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Non-Taxable Amt</th>
+            <th rowspan="2">Taxable Amt</th>
             <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
@@ -838,10 +838,10 @@ const InvoiceReport = () => {
           </div>
         </div>
         <div class="amts">
-          <div class="amt-row"><span>Non-Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
+          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span><b>Net Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
+          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
         </div>
       </div>
       <div class="words"><b>Amount in Words:</b> ${numberToWords(sellingTotal)}</div>
