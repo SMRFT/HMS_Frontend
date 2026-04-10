@@ -3,12 +3,12 @@ import axios from "axios";
 import * as XLSX from "xlsx";
 import { toast } from "react-toastify";
 import JsBarcode from "jsbarcode";
-import { 
-  Package, 
-  Plus, 
-  Search, 
-  Trash2, 
-  Printer, 
+import {
+  Package,
+  Plus,
+  Search,
+  Trash2,
+  Printer,
   X,
   AlertCircle,
   ToggleLeft,
@@ -160,7 +160,7 @@ const AssetsManagement = () => {
   const [selectedAssetForPrint, setSelectedAssetForPrint] = useState(null);
   const printSectionRef = useRef(null);
 
-  const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+  const backendUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => {
     fetchAssets();
@@ -186,17 +186,17 @@ const AssetsManagement = () => {
 
   useEffect(() => {
     if (showPrintModal && selectedAssetForPrint && printSectionRef.current) {
-        const svg = printSectionRef.current.querySelector('svg');
-        if (svg) {
-            JsBarcode(svg, selectedAssetForPrint.asset_id, {
-                format: "CODE128",
-                width: 2,
-                height: 40,
-                displayValue: false,
-                margin: 0,
-                background: "transparent"
-            });
-        }
+      const svg = printSectionRef.current.querySelector('svg');
+      if (svg) {
+        JsBarcode(svg, selectedAssetForPrint.asset_id, {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: false,
+          margin: 0,
+          background: "transparent"
+        });
+      }
     }
   }, [showPrintModal, selectedAssetForPrint]);
 
@@ -215,7 +215,7 @@ const AssetsManagement = () => {
 
   const fetchDepartments = async () => {
     try {
-      const resp = await apiRequest(`${backendUrl}department-master/`,'GET');
+      const resp = await apiRequest(`${backendUrl}department-master/`, 'GET');
       setDepartments(resp.data);
     } catch (error) {
       console.error("Error fetching departments:", error);
@@ -224,7 +224,7 @@ const AssetsManagement = () => {
 
   const fetchItemMasters = async () => {
     try {
-      const resp = await apiRequest(`${backendUrl}item-master/`,'GET');
+      const resp = await apiRequest(`${backendUrl}item-master/`, 'GET');
       setItemMasters(resp.data);
     } catch (error) {
       console.error("Error fetching item masters:", error);
@@ -244,7 +244,7 @@ const AssetsManagement = () => {
 
     setIsLoading(true);
     try {
-      await apiRequest(`${backendUrl}stores-assets-management/`,'POST', formData);
+      await apiRequest(`${backendUrl}stores-assets-management/`, 'POST', formData);
       toast.success("Asset added successfully");
       setFormData({
         asset_name: "",
@@ -362,13 +362,13 @@ const AssetsManagement = () => {
     doc.close();
 
     iframe.contentWindow.onload = () => {
-        iframe.contentWindow.print();
-        setTimeout(() => {
-            document.body.removeChild(iframe);
-            setIsPrinting(false);
-            handleCloseModal();
-            toast.success("Barcodes sent to printer");
-        }, 1000);
+      iframe.contentWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        setIsPrinting(false);
+        handleCloseModal();
+        toast.success("Barcodes sent to printer");
+      }, 1000);
     };
   };
 
@@ -391,7 +391,7 @@ const AssetsManagement = () => {
       // If inactive, reactivate immediately
       if (window.confirm(`Are you sure you want to reactivate ${asset.asset_name}?`)) {
         try {
-          await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(asset.asset_id)}/`,'PATCH', {
+          await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(asset.asset_id)}/`, 'PATCH', {
             is_active: true,
             deactivate_remarks: "" // Clear remarks on reactivation
           });
@@ -411,7 +411,7 @@ const AssetsManagement = () => {
     }
 
     try {
-      await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(assetToDeactivate.asset_id)}/`,'PATCH', {
+      await apiRequest(`${backendUrl}stores-assets-management/${encodeURIComponent(assetToDeactivate.asset_id)}/`, 'PATCH', {
         is_active: false,
         deactivate_remarks: deactivateReason
       });
@@ -450,9 +450,9 @@ const AssetsManagement = () => {
 
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          asset.asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          asset.department?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      asset.asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.department?.toLowerCase().includes(searchTerm.toLowerCase());
+
     if (statusFilter === "active") return matchesSearch && asset.is_active !== false;
     if (statusFilter === "inactive") return matchesSearch && asset.is_active === false;
     return matchesSearch;
@@ -475,7 +475,7 @@ const AssetsManagement = () => {
               <h3 style={{ fontSize: "0.85rem" }}>Add New Asset</h3>
             </div>
           </SectionHeader>
-          
+
           <form onSubmit={handleSubmit}>
             <FormRow>
               <InputWrapper>
@@ -521,10 +521,10 @@ const AssetsManagement = () => {
                       {itemMasters.filter(item =>
                         item.itemName?.toLowerCase().includes(itemSearch.toLowerCase())
                       ).length === 0 && (
-                        <ItemDropdownItem style={{ color: colors.textMuted, cursor: "default" }}>
-                          No items found
-                        </ItemDropdownItem>
-                      )}
+                          <ItemDropdownItem style={{ color: colors.textMuted, cursor: "default" }}>
+                            No items found
+                          </ItemDropdownItem>
+                        )}
                     </ItemDropdownList>
                   )}
                 </ItemDropdownWrapper>
@@ -533,14 +533,14 @@ const AssetsManagement = () => {
                   type="text"
                   required
                   value={formData.asset_name}
-                  onChange={() => {}}
+                  onChange={() => { }}
                   style={{ display: "none" }}
                 />
               </InputWrapper>
-              
+
               <InputWrapper>
                 <Label required>Department</Label>
-                <Select 
+                <Select
                   name="department"
                   value={formData.department}
                   onChange={handleInputChange}
@@ -554,10 +554,10 @@ const AssetsManagement = () => {
                   ))}
                 </Select>
               </InputWrapper>
-              
+
               <InputWrapper>
                 <Label required>Date</Label>
-                <Input 
+                <Input
                   type="date"
                   name="date"
                   value={formData.date}
@@ -577,27 +577,27 @@ const AssetsManagement = () => {
         <div style={{ padding: "0 16px 16px" }}>
           <ControlsContainer style={{ borderTop: `1px solid ${colors.border}`, paddingTop: "16px", flexWrap: "wrap", gap: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "20px", flexWrap: "wrap" }}>
-                <h3 style={{ margin: 0, fontSize: "1rem", color: colors.textMain }}>Registered Assets</h3>
-                <div style={{ display: "flex", gap: "10px" }}>
-                    <Button 
-                        style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'all' ? colors.primary : colors.tabBg, color: statusFilter === 'all' ? 'white' : colors.textMain }}
-                        onClick={() => setStatusFilter("all")}
-                    >
-                        All
-                    </Button>
-                    <Button 
-                        style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'active' ? colors.success : colors.tabBg, color: statusFilter === 'active' ? 'white' : colors.textMain }}
-                        onClick={() => setStatusFilter("active")}
-                    >
-                        Active
-                    </Button>
-                    <Button 
-                        style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'inactive' ? colors.danger : colors.tabBg, color: statusFilter === 'inactive' ? 'white' : colors.textMain }}
-                        onClick={() => setStatusFilter("inactive")}
-                    >
-                        Inactive
-                    </Button>
-                </div>
+              <h3 style={{ margin: 0, fontSize: "1rem", color: colors.textMain }}>Registered Assets</h3>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <Button
+                  style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'all' ? colors.primary : colors.tabBg, color: statusFilter === 'all' ? 'white' : colors.textMain }}
+                  onClick={() => setStatusFilter("all")}
+                >
+                  All
+                </Button>
+                <Button
+                  style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'active' ? colors.success : colors.tabBg, color: statusFilter === 'active' ? 'white' : colors.textMain }}
+                  onClick={() => setStatusFilter("active")}
+                >
+                  Active
+                </Button>
+                <Button
+                  style={{ padding: "4px 10px", fontSize: "0.75rem", background: statusFilter === 'inactive' ? colors.danger : colors.tabBg, color: statusFilter === 'inactive' ? 'white' : colors.textMain }}
+                  onClick={() => setStatusFilter("inactive")}
+                >
+                  Inactive
+                </Button>
+              </div>
             </div>
 
             {/* Date Filter */}
@@ -621,9 +621,9 @@ const AssetsManagement = () => {
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginLeft: "auto" }}>
               <SearchContainer style={{ position: "relative" }}>
-                <Input 
-                  type="text" 
-                  placeholder="Search assets..." 
+                <Input
+                  type="text"
+                  placeholder="Search assets..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ width: "220px", paddingRight: "35px" }}
@@ -664,7 +664,7 @@ const AssetsManagement = () => {
                           <div style={{ fontSize: "0.7rem", color: colors.danger, marginTop: "4px", fontStyle: "italic" }}>
                             {asset.deactivated_date && (
                               <div style={{ fontWeight: "600", marginBottom: "2px" }}>
-                                Deactivated: {new Date(asset.deactivated_date).toLocaleDateString()} {new Date(asset.deactivated_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                Deactivated: {new Date(asset.deactivated_date).toLocaleDateString()} {new Date(asset.deactivated_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </div>
                             )}
                             {asset.deactivate_remarks && (
@@ -674,10 +674,10 @@ const AssetsManagement = () => {
                         )}
                       </Td>
                       <Td>
-                        <span style={{ 
-                          padding: "3px 8px", 
-                          background: colors.tabBg, 
-                          borderRadius: "4px", 
+                        <span style={{
+                          padding: "3px 8px",
+                          background: colors.tabBg,
+                          borderRadius: "4px",
                           fontSize: "0.75rem",
                           fontWeight: "600",
                           color: colors.primaryDark
@@ -690,31 +690,31 @@ const AssetsManagement = () => {
                         <BarcodeDisplay value={asset.asset_id} />
                       </Td>
                       <Td>
-                         <div style={{ display: "flex", justifyContent: "center" }}>
-                            <StatusToggle 
-                              active={asset.is_active !== false} 
-                              onClick={() => handleStatusToggle(asset)}
-                              title={asset.is_active !== false ? "Click to Deactivate" : "Click to Reactivate"}
-                            >
-                              {asset.is_active !== false ? (
-                                <>
-                                  <ToggleRight size={24} />
-                                  Active
-                                </>
-                              ) : (
-                                <>
-                                  <ToggleLeft size={24} />
-                                  Deactive
-                                </>
-                              )}
-                            </StatusToggle>
-                         </div>
+                        <div style={{ display: "flex", justifyContent: "center" }}>
+                          <StatusToggle
+                            active={asset.is_active !== false}
+                            onClick={() => handleStatusToggle(asset)}
+                            title={asset.is_active !== false ? "Click to Deactivate" : "Click to Reactivate"}
+                          >
+                            {asset.is_active !== false ? (
+                              <>
+                                <ToggleRight size={24} />
+                                Active
+                              </>
+                            ) : (
+                              <>
+                                <ToggleLeft size={24} />
+                                Deactive
+                              </>
+                            )}
+                          </StatusToggle>
+                        </div>
                       </Td>
                       <Td style={{ textAlign: "right" }}>
                         <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-                          <Button 
-                            secondary 
-                            style={{ padding: "6px" }} 
+                          <Button
+                            secondary
+                            style={{ padding: "6px" }}
                             onClick={() => initiatePrint(asset)}
                             title="Print Barcode"
                           >
@@ -756,8 +756,8 @@ const AssetsManagement = () => {
               </p>
               <InputWrapper>
                 <Label required>Reason for Deactivation</Label>
-                <TextArea 
-                  placeholder="Enter reason..." 
+                <TextArea
+                  placeholder="Enter reason..."
                   value={deactivateReason}
                   onChange={(e) => setDeactivateReason(e.target.value)}
                   style={{ minHeight: "100px" }}
@@ -787,11 +787,11 @@ const AssetsManagement = () => {
               </CloseButton>
             </ModalHeader>
             <ModalBody>
-              <div 
-                ref={printSectionRef} 
-                style={{ 
-                  border: `1px dashed ${colors.border}`, 
-                  padding: "15px", 
+              <div
+                ref={printSectionRef}
+                style={{
+                  border: `1px dashed ${colors.border}`,
+                  padding: "15px",
                   marginBottom: "20px",
                   background: "#fff",
                   display: "flex",
@@ -802,7 +802,7 @@ const AssetsManagement = () => {
                   <div className="barcode-text">Shanmuga Hospital</div>
                   <div className="barcode-date">{selectedAssetForPrint.date}</div>
                   <div className="barcode-container">
-                      <svg></svg>
+                    <svg></svg>
                   </div>
                   <div className="barcode-number">{selectedAssetForPrint.asset_id}</div>
                   <div className="container-name">{selectedAssetForPrint.asset_name}</div>

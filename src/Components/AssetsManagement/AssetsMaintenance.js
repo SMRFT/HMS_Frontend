@@ -9,7 +9,7 @@ import apiRequest from '../../Auth/apiRequest';
 import { PageWrapper, Container, ModalHeader, ModalTitle, Button, FormContent, ControlsContainer, InputWrapper, Input, SearchContainer, TableWrapper, Table, Tr, Th, Td, ModalOverlay, ModalBody, FormRow, Label, CloseButton, ButtonContainer } from '../GlobalStyles';
 import * as S from '../GlobalStyles';
 
-const baseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
+const baseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const Badge = styled.span`
   padding: 4px 10px;

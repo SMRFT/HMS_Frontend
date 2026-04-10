@@ -319,6 +319,7 @@ function App() {
         <OutletSelectionModal 
           outlets={userOutlets}
           currentOutletCode={localStorage.getItem("selected_outlet")}
+          onClose={localStorage.getItem("selected_outlet") ? () => setShowOutletModal(false) : undefined}
           onSelect={(outlet) => {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
