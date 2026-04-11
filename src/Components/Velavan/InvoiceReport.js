@@ -1825,9 +1825,24 @@ const InvoiceReport = () => {
 
                       {/* Velavan Print */}
                       <button
-                        style={{ ...actionBtn, color: "#7c3aed" }}
-                        title="Velavan Print"
-                        onClick={() => handleVelavanPrint(row)}
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#7c3aed" : colors.textMuted,
+                          borderColor: row.is_approved
+                            ? "#7c3aed"
+                            : colors.border,
+                          opacity: row.is_approved ? 1 : 0.35,
+                          cursor: row.is_approved ? "pointer" : "not-allowed",
+                        }}
+                        title={
+                          row.is_approved
+                            ? "Velavan Print"
+                            : "Approve invoice to enable Velavan Print"
+                        }
+                        onClick={() =>
+                          row.is_approved && handleVelavanPrint(row)
+                        }
+                        disabled={!row.is_approved}
                       >
                         <Printer size={14} />
                         <span
