@@ -11,6 +11,7 @@ import {
   X,
   History,
   ArrowLeft,
+  CheckCircle, // ← add CheckCircle
 } from "lucide-react";
 
 import {
@@ -437,6 +438,44 @@ const InvoiceReport = () => {
   const handleEdit = (record) =>
     navigate("/InvoiceGeneration", { state: { record } });
 
+  const handleApprove = async (record) => {
+    if (record.is_approved) return;
+    const confirm = window.confirm(
+      `Approve GRN ${record.grn_number}?\nThis cannot be undone.`,
+    );
+    if (!confirm) return;
+
+    try {
+      const response = await apiRequest(
+        `${HMSURL}velavan/invoices/approve/${encodeURIComponent(record.grn_number)}/`,
+        "PATCH",
+      );
+      if (!response.success || response.data?.status !== "success") {
+        throw new Error(response.data?.message || "Approval failed");
+      }
+      toast.success(`${record.grn_number} approved successfully`);
+      // Refresh local state
+      setAllData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number
+            ? {
+                ...r,
+                is_approved: true,
+                approved_by: response.data.data?.approved_by,
+              }
+            : r,
+        ),
+      );
+      setFilteredData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number ? { ...r, is_approved: true } : r,
+        ),
+      );
+    } catch (err) {
+      toast.error(err.message || "Approval failed");
+    }
+  };
+
   // ── Open print window ────────────────────────────────────────────
   const openPrintWindow = (title, css, bodyHtml) => {
     const pw = window.open("", "", "width=1000,height=750");
@@ -730,7 +769,7 @@ const InvoiceReport = () => {
             <th rowspan="2">MRP</th>
             <th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Non-Taxable Amt</th>
+            <th rowspan="2">Taxable Amt</th>
             <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
@@ -838,10 +877,10 @@ const InvoiceReport = () => {
           </div>
         </div>
         <div class="amts">
-          <div class="amt-row"><span>Non-Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
+          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span><b>Net Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
+          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
         </div>
       </div>
       <div class="words"><b>Amount in Words:</b> ${numberToWords(sellingTotal)}</div>
@@ -1729,6 +1768,7 @@ const InvoiceReport = () => {
                       {formatCurrency(row.net_invoice_amount)}
                     </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
+                      {/* View */}
                       <button
                         style={actionBtn}
                         title="View"
@@ -1736,13 +1776,45 @@ const InvoiceReport = () => {
                       >
                         <Eye size={14} />
                       </button>
+
+                      {/* Edit — disabled when approved */}
                       <button
-                        style={actionBtn}
-                        title="Edit"
-                        onClick={() => handleEdit(row)}
+                        style={{
+                          ...actionBtn,
+                          opacity: row.is_approved ? 0.35 : 1,
+                          cursor: row.is_approved ? "not-allowed" : "pointer",
+                          color: row.is_approved
+                            ? colors.textMuted
+                            : actionBtn.color,
+                        }}
+                        title={
+                          row.is_approved ? "Approved — editing locked" : "Edit"
+                        }
+                        onClick={() => !row.is_approved && handleEdit(row)}
+                        disabled={row.is_approved}
                       >
                         <Edit3 size={14} />
                       </button>
+
+                      {/* Approve toggle */}
+                      <button
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#16a34a" : "#d97706",
+                          borderColor: row.is_approved ? "#16a34a" : "#d97706",
+                          cursor: row.is_approved ? "default" : "pointer",
+                        }}
+                        title={
+                          row.is_approved
+                            ? `Approved by ${row.approved_by || "—"}`
+                            : "Click to Approve"
+                        }
+                        onClick={() => !row.is_approved && handleApprove(row)}
+                      >
+                        <CheckCircle size={14} />
+                      </button>
+
+                      {/* GRN Print */}
                       <button
                         style={actionBtn}
                         title="GRN Print"
@@ -1750,10 +1822,27 @@ const InvoiceReport = () => {
                       >
                         <Printer size={14} />
                       </button>
+
+                      {/* Velavan Print */}
                       <button
-                        style={{ ...actionBtn, color: "#7c3aed" }}
-                        title="Velavan Print"
-                        onClick={() => handleVelavanPrint(row)}
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#7c3aed" : colors.textMuted,
+                          borderColor: row.is_approved
+                            ? "#7c3aed"
+                            : colors.border,
+                          opacity: row.is_approved ? 1 : 0.35,
+                          cursor: row.is_approved ? "pointer" : "not-allowed",
+                        }}
+                        title={
+                          row.is_approved
+                            ? "Velavan Print"
+                            : "Approve invoice to enable Velavan Print"
+                        }
+                        onClick={() =>
+                          row.is_approved && handleVelavanPrint(row)
+                        }
+                        disabled={!row.is_approved}
                       >
                         <Printer size={14} />
                         <span
