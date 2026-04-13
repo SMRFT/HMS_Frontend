@@ -528,19 +528,33 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   const [selRoom,  setSelRoom]  = useState(null);
   const [filter,   setFilter]   = useState({ room_number: "", block: "", floor: "" });
 
-  const fetchRooms = async (fo = {}) => {
-    setLoading(true);
-    try {
-      const f = { ...filter, ...fo };
-      const p = new URLSearchParams();
-      if (f.room_number) p.append("room_number", f.room_number);
-      if (f.block)       p.append("block",       f.block);
-      if (f.floor)       p.append("floor",       f.floor);
-      const res = await apiRequest(`${baseUrl}search-rooms/${p.toString() ? `?${p}` : ""}`, "GET");
-      setAllRooms(Array.isArray(res) ? res : res.data || []);
-    } catch { setAllRooms([]); }
-    finally { setLoading(false); }
-  };
+const fetchRooms = async (fo = {}) => {
+  setLoading(true);
+  try {
+    const f = { ...filter, ...fo };
+    const p = new URLSearchParams();
+    if (f.room_number) p.append("room_number", f.room_number);
+    if (f.block)       p.append("block",       f.block);
+    if (f.floor)       p.append("floor",       f.floor);
+    const res = await apiRequest(
+      `${baseUrl}admission-room-search/${p.toString() ? `?${p}` : ""}`,
+      "GET"
+    );
+    const rooms = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data?.data)
+      ? res.data.data
+      : Array.isArray(res?.data)
+      ? res.data
+      : [];
+    setAllRooms(rooms);
+  } catch (err) {
+    console.error("fetchRooms error:", err);
+    setAllRooms([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { fetchRooms(); }, []);
 

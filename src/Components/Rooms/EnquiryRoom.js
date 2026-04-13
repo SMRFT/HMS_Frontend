@@ -252,7 +252,8 @@ const BedChip = styled.div`
   flex: 1 1 auto; min-width: 44px;
   text-align: center; padding: 5px 4px;
   border-radius: 5px; font-size: 0.72rem; font-weight: 700;
-  color: #fff; cursor: pointer;
+  color: #fff; 
+  cursor: ${(p) => (p.status === "Maintenance" ? "not-allowed" : "pointer")};
   transition: filter 0.15s, transform 0.15s, box-shadow 0.15s;
   background: ${(p) => BED_COLORS[p.status] || "#9ca3af"};
   opacity: ${(p) => (p.status === "Maintenance" ? 0.6 : 1)};
@@ -467,24 +468,21 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
   const [bookIp,      setBookIp]      = useState("");
   const [booking,     setBooking]     = useState(false);
 
-  const isOccupied   = bed.status === "Occupied";
-  const isNotCleaned = bed.status === "Available (Not Cleaned)";
-  const isAvailable  = bed.status === "Available";
-  const isReserved   = bed.status === "Reserved";
+// ── Derive state from the three-rule system ──────────────────────────────
+const isOccupied   = bed.status === "Occupied";
+const isNotCleaned = bed.status === "Available (Not Cleaned)";
+const isAvailable  = bed.status === "Available";
+const isReserved   = bed.status === "Reserved";
+const isMaintenance = bed.status === "Maintenance";
 
-  // Only enable checkbox when bed is actively occupied AND not yet cleaned
-  const canMarkCleaned =
-    bed.status === "Available (Not Cleaned)" &&
-    bed.is_roomCleaned === false &&
-    !isCleaned &&
-    (
-      bed.is_roomActive === true ||
-      bed.is_roomActive === false
-    );
-
-  const checkboxDisabled = cleaning || !canMarkCleaned;
-  const showCleaned      = isOccupied || isNotCleaned;
-  const isMarkedCleaned  = bed.is_roomCleaned === true || isCleaned;
+// Cleaning checkbox:
+//   ONLY enabled when status is "Available (Not Cleaned)"
+//   (i.e. is_roomActive=false AND is_roomCleaned=false)
+//   Disabled when Occupied (patient still inside) or already cleaned
+const canMarkCleaned   = isNotCleaned && !isCleaned;
+const checkboxDisabled = cleaning || !canMarkCleaned;
+const showCleaned      = isNotCleaned || isOccupied;   // show toggle row for both, but disabled for Occupied
+const isMarkedCleaned  = bed.is_roomCleaned === true || isCleaned;
 
   const handleClean = async () => {
     if (checkboxDisabled) return;
@@ -584,9 +582,11 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
               <CleanedToggleLabel cleaned={isMarkedCleaned} isdisabled={checkboxDisabled ? 1 : 0}>
                 {isMarkedCleaned
                   ? "✅ Room marked as Cleaned"
-                  : canMarkCleaned
-                    ? "🧹 Mark Room as Cleaned"
-                    : "🔒 Cannot mark — only 'Not Cleaned' beds can be cleaned"}
+                  : isOccupied
+                    ? "🔒 Cannot clean — room is currently Occupied"
+                    : canMarkCleaned
+                      ? "🧹 Mark Room as Cleaned"
+                      : "🔒 Already cleaned"}
               </CleanedToggleLabel>
               <CleanedCheckbox
                 type="checkbox"
@@ -824,16 +824,27 @@ const EnquiryRoom = () => {
                                   {!room.beds || room.beds.length === 0 ? (
                                     <NoBeds>No Beds</NoBeds>
                                   ) : (
-                                    room.beds.map((bed, i) => (
-                                      <BedChip
-                                        key={i}
-                                        status={bed.status}
-                                        title={`Bed ${bed.bed_number} — ${statusLabel(bed.status)}`}
-                                        onClick={() => setSelectedBed({ bed, room })}
-                                      >
-                                        {bed.bed_number}
-                                      </BedChip>
-                                    ))
+                                    room.beds.map((bed, i) => {
+                                      const titleMap = {
+                                        "Available":               `Bed ${bed.bed_number} — Available`,
+                                        "Occupied":                `Bed ${bed.bed_number} — Occupied`,
+                                        "Available (Not Cleaned)": `Bed ${bed.bed_number} — Needs Cleaning`,
+                                        "Maintenance":             `Bed ${bed.bed_number} — Under Maintenance`,
+                                        "Reserved":                `Bed ${bed.bed_number} — Reserved`,
+                                      };
+                                      return (
+                                        <BedChip
+                                          key={i}
+                                          status={bed.status}
+                                          title={titleMap[bed.status] || `Bed ${bed.bed_number}`}
+                                          onClick={() =>
+                                            bed.status !== "Maintenance" && setSelectedBed({ bed, room })
+                                          }
+                                        >
+                                          {bed.bed_number}
+                                        </BedChip>
+                                      );
+                                    })
                                   )}
                                 </BedGrid>
                               </RoomCard>
