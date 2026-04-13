@@ -126,10 +126,11 @@ const OPPharmacyTabs = () => {
   };
 
   // ── Called from MedicineChart when user clicks "Convert to Bill" ──────────
-  // patient = full API record with medicine_items array already populated.
-  // FIX: was (patient, item) — item was always undefined because MedicineChart
-  //      calls onConvertToBill(patient) with ONE argument, causing the crash.
-  //      Now we map ALL medicine_items from patient directly.
+  // patient = enriched record from MedicineChart with:
+  //   • patient_details  { patient_name, address, mobile }  (nested, from fetchPatientDetails)
+  //   • patient_name / address / mobile                     (flat, also from fetchPatientDetails)
+  //   • inpatient_number / ward_name / room_no              (from fetchAdmissionDetails)
+  //   • medicine_items []
   const handleConvertMedicineChart = (patient) => {
     // Safety guard — ensure medicine_items is a non-empty array
     const items = Array.isArray(patient?.medicine_items)
@@ -139,33 +140,59 @@ const OPPharmacyTabs = () => {
     if (items.length === 0) {
       alert(
         `No medicine items found for patient ${
-          patient?.patient_details?.patient_name || patient?.uhid || ""
+          patient?.patient_details?.patient_name || patient?.patient_name || patient?.uhid || ""
         }. Cannot convert to bill.`
       );
       return;
     }
 
+    // Resolve patient name, address, mobile from BOTH nested and flat fields
+    // (MedicineChart enriches both; take whichever is populated)
+    const resolvedName   = patient.patient_details?.patient_name || patient.patient_name   || "";
+    const resolvedAddr   = patient.patient_details?.address      || patient.address         || "";
+    const resolvedMobile = patient.patient_details?.mobile       || patient.mobile          || "";
+    const resolvedRoom   = patient.ward_name || patient.room_no  || "";
+    const resolvedIP     = patient.inpatient_number || patient.ip_number || patient.ipNumber || "";
+    const resolvedDoctor = patient.doctor_id || patient.admittingDoctor || patient.consultingDoctor || "";
+
     // Build the wardRequest payload.
-    // OPPharmacy.convertWardRequest() reads all these fields — no changes needed there.
+    // All patient fields are provided in BOTH flat and nested forms so
+    // OPPharmacy.convertWardRequest() can find them regardless of how it reads them.
     const wardPayload = {
-      // ── Header ──
+      // ── Identifiers ──
       Bill_id:          patient.Bill_id          || patient.bill_id   || null,
       uhid:             patient.uhid              || "",
-      inpatient_number: patient.inpatient_number  || patient.ip_number || "",
+      inpatient_number: resolvedIP,
+      ip_number:        resolvedIP,                // alias — some code reads ip_number
+
+      // ── Billing meta ──
       bill_date:        patient.bill_date         || null,
       bill_type:        patient.bill_type         || "",
       bill_name:        patient.bill_name         || "",
-      doctor_id:        patient.doctor_id         || "",
-      room_no:          patient.ward_name         || patient.room_no   || "",
+      bill_type_name:   patient.bill_type_name    || patient.bill_name || "",
+
+      // ── Doctor / ward ──
+      doctor_id:        resolvedDoctor,
+      room_no:          resolvedRoom,
+      ward_name:        resolvedRoom,              // alias
+
+      // ── Discount ──
       overall_discount_type:  patient.overall_discount_type  || "percent",
       overall_discount_value: patient.overall_discount_value ?? 0,
+
+      // ── Patient fields — FLAT (used by many forms that read top-level keys) ──
+      patient_name: resolvedName,
+      address:      resolvedAddr,
+      mobile:       resolvedMobile,
+
+      // ── Patient fields — NESTED (used by components that read patient_details.*) ──
       patient_details: {
-        patient_name: patient.patient_details?.patient_name || patient.patient_name || "",
-        address:      patient.patient_details?.address      || "",
-        mobile:       patient.patient_details?.mobile       || "",
+        patient_name: resolvedName,
+        address:      resolvedAddr,
+        mobile:       resolvedMobile,
       },
 
-      // ── Medicine items — map ALL fields from the API response ──
+      // ── Medicine items — map ALL fields from the enriched API response ──
       medicine_items: items.map((item) => ({
         item_id:         item.item_id,
         item_name:       item.item_name       || item.medicine_name || "",
