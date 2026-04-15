@@ -1,11 +1,7 @@
 import { useState, useEffect } from "react";
-import styled, { createGlobalStyle } from "styled-components";
+import styled, { createGlobalStyle, keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
-} from "recharts";
 import apiRequest from "../../Auth/apiRequest";
 
 const GlobalStyle = createGlobalStyle`
@@ -27,7 +23,17 @@ const T = {
   muted:     "#64748b",
   label:     "#334155",
   readBg:    "#f8fafc",
+  green:     "#10b981",
+  greenLight:"#d1fae5",
+  red:       "#ef4444",
+  redLight:  "#fee2e2",
+  tealGhost: "#f0fdfb",
 };
+
+const rowIn = keyframes`
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+`;
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 const Page = styled.div`
@@ -87,12 +93,6 @@ const CardBody = styled.div`
   padding: 12px 14px;
 `;
 
-const TwoCol = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-`;
-
 // ── Form primitives ───────────────────────────────────────────────────────────
 const Grid = styled.div`
   display: grid;
@@ -135,26 +135,7 @@ const Inp = styled.input`
   background: ${({ readOnly }) => readOnly ? T.readBg : T.white};
   color: ${({ readOnly }) => readOnly ? T.muted : T.text};
   &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px ${T.tealLight}; }
-`;
-
-const Sel = styled.select`
-  ${inputBase}
-  background: ${T.white};
-  cursor: pointer;
-  &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px ${T.tealLight}; }
-`;
-
-const Txta = styled.textarea`
-  padding: 5px 7px;
-  font-size: 0.75rem;
-  border: 1px solid ${T.border};
-  border-radius: 5px;
-  resize: vertical;
-  min-height: 52px;
-  width: 100%;
-  outline: none;
-  font-family: inherit;
-  &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px ${T.tealLight}; }
+  &:disabled { background: ${T.readBg}; color: ${T.muted}; cursor: not-allowed; }
 `;
 
 const RowFlex = styled.div`
@@ -168,8 +149,7 @@ const IconBtn = styled.button`
   padding: 0 9px;
   font-size: 0.7rem;
   font-weight: 600;
-  background: ${({ c }) =>
-    c === "blue" ? T.blue : c === "violet" ? T.violet : T.teal};
+  background: ${({ c }) => c === "blue" ? T.blue : c === "violet" ? T.violet : T.teal};
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -185,6 +165,7 @@ const ActionBar = styled.div`
   padding: 9px 14px;
   border-top: 1px solid ${T.border};
   background: #fafafa;
+  align-items: center;
 `;
 
 const Btn = styled.button`
@@ -198,14 +179,14 @@ const Btn = styled.button`
   transition: opacity .14s, transform .1s;
   background: ${({ v, c }) =>
     v === "reset" ? "#e2e8f0" :
-    c === "blue"  ? T.blue :
+    c === "blue"  ? T.blue   :
     c === "violet"? T.violet : T.teal};
   color: ${({ v }) => v === "reset" ? T.label : "#fff"};
   &:hover { opacity: .88; }
   &:active { transform: scale(.97); }
+  &:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 `;
 
-// thin label strip between groups
 const GroupLabel = styled.div`
   grid-column: 1 / -1;
   font-size: 0.63rem;
@@ -219,38 +200,58 @@ const GroupLabel = styled.div`
   margin-top: 6px;
 `;
 
-// ── Records section ───────────────────────────────────────────────────────────
-const SearchBar = styled.div`
+// ── Split section ─────────────────────────────────────────────────────────────
+const SplitBox = styled.div`
+  grid-column: 1 / -1;
+  background: #f8fafc;
+  border: 1.5px dashed ${T.tealLight};
+  border-radius: 7px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+const SplitHeader = styled.div`
+  font-size: 0.63rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: ${T.teal};
+`;
+
+const SplitGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1fr auto;
-  gap: 7px 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
   align-items: end;
-  padding: 12px 14px 8px;
 `;
 
-const ChipRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 7px 14px;
-  border-bottom: 1px solid ${T.border};
-`;
-
-const Chip = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 4px;
+const SplitNote = styled.div`
   font-size: 0.67rem;
   font-weight: 700;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: 20px;
-  border: 1.5px solid ${({ color }) => color || T.border};
-  color: ${({ color }) => color || T.label};
-  background: ${({ color, active }) => active ? color + "22" : "#fff"};
-  user-select: none;
+  color: ${({ ok }) => ok ? T.green : T.red};
+  transition: color .15s;
 `;
 
+const BigInp = styled.input`
+  height: 36px;
+  padding: 0 10px;
+  font-size: 1rem;
+  font-weight: 700;
+  border: 2px solid ${T.border};
+  border-radius: 6px;
+  color: ${T.tealDark};
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+  background: ${T.tealGhost};
+  transition: border-color .14s, box-shadow .14s;
+  &:focus { border-color: ${T.teal}; box-shadow: 0 0 0 3px ${T.tealLight}; }
+  &::placeholder { color: #94a3b8; font-weight: 400; font-size: 0.78rem; }
+`;
+
+// ── Records table ─────────────────────────────────────────────────────────────
 const TblWrap = styled.div`
   overflow-x: auto;
   padding: 0 14px 14px;
@@ -265,7 +266,7 @@ const Tbl = styled.table`
 const Th = styled.th`
   background: #f1f5f9;
   padding: 6px 8px;
-  text-align: left;
+  text-align: ${({ right }) => right ? "right" : "left"};
   font-weight: 700;
   border-bottom: 2px solid ${T.border};
   white-space: nowrap;
@@ -275,52 +276,47 @@ const Th = styled.th`
   color: ${T.muted};
 `;
 
+const Tr = styled.tr`
+  animation: ${rowIn} 0.2s ease;
+  background: ${({ even }) => even ? "#f8fafc" : "#fff"};
+  &:hover { background: ${T.tealGhost}; }
+`;
+
 const Td = styled.td`
   padding: 5px 8px;
   border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
+  text-align: ${({ right }) => right ? "right" : "left"};
 `;
 
-const STATUS_COLORS = {
-  "Not Paid":            "#f59e0b",
-  "Cash":                "#10b981",
-  "Multi Payment":       "#6366f1",
-  "Credit/Debit Card":   "#8b5cf6",
-  "Cheque":              "#ec4899",
-  "Neft & Others":       "#14b8a6",
-  "Refunded":            "#ef4444",
-  "Partially Refunded":  "#f97316",
-  "Not Adjusted":        "#6b7280",
-  "Advance Settled":     "#22c55e",
-  "Cancelled":           "#dc2626",
-};
-
-const Badge = styled.span`
-  padding: 2px 7px;
+const StatusBadge = styled.span`
+  padding: 2px 8px;
   border-radius: 20px;
   font-size: 0.64rem;
   font-weight: 700;
-  background: ${({ s }) => (STATUS_COLORS[s] || "#e2e8f0") + "22"};
-  color: ${({ s }) => STATUS_COLORS[s] || T.label};
-  border: 1px solid ${({ s }) => STATUS_COLORS[s] || T.border};
+  background: ${({ active }) => active ? T.greenLight : T.redLight};
+  color: ${({ active }) => active ? T.green : T.red};
+  border: 1px solid ${({ active }) => active ? "#bbf7d0" : "#fecaca"};
 `;
 
-const MiniBtn = styled.button`
+const CancelBtn = styled.button`
   height: 21px;
-  padding: 0 7px;
-  font-size: 0.64rem;
-  font-weight: 600;
+  padding: 0 8px;
+  font-size: 0.63rem;
+  font-weight: 700;
   border-radius: 4px;
-  border: none;
+  border: 1.5px solid ${T.red};
+  background: ${T.redLight};
+  color: ${T.red};
   cursor: pointer;
-  background: ${T.teal};
-  color: #fff;
-  &:hover { opacity: .85; }
+  transition: all .13s;
+  &:hover { background: ${T.red}; color: #fff; }
+  &:disabled { opacity: .4; cursor: not-allowed; }
 `;
 
 const StatRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(4,1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid ${T.border};
@@ -333,27 +329,10 @@ const Stat = styled.div`
   padding: 7px 11px;
 `;
 
-const StatL = styled.div`
-  font-size: 0.62rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  color: ${({ c }) => c};
-`;
+const StatL = styled.div`font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: ${({ c }) => c};`;
+const StatV = styled.div`font-size: .95rem; font-weight: 800; margin-top: 2px; color: ${({ c }) => c};`;
 
-const StatV = styled.div`
-  font-size: .95rem; font-weight: 800; margin-top: 2px;
-  color: ${({ c }) => c};
-`;
-
-// drug row in pharmacy
-const DrugRow = styled.div`
-  display: grid;
-  grid-template-columns: 2fr 52px 74px 74px 26px;
-  gap: 5px;
-  align-items: center;
-  margin-bottom: 5px;
-`;
-
-// ── Empty states ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 const EMPTY_COMMON = {
   uhid: "", ipNumber: "",
   name: "", age: "", gender: "",
@@ -364,277 +343,225 @@ const EMPTY_COMMON = {
   creditLimit: "", outBalance: "", totalAdvance: "",
 };
 
-const EMPTY_ADV = {
-  date: new Date().toISOString().split("T")[0],
-  amount: "", advanceType: "advance", advanceRemarks: "",
-};
+const today = () => new Date().toISOString().split("T")[0];
 
-const EMPTY_PHARM = {
-  date: new Date().toISOString().split("T")[0],
-  prescribingDoctor: "", paymentMode: "Cash",
-  discount: "0", totalAmount: "", remarks: "",
-};
-
-const EMPTY_ITEM = { drug: "", qty: "1", rate: "", amount: "" };
-
-// ─────────────────────────────────────────────────────────────────────────────
 export default function IPAdvance() {
-  const [common, setCommon]         = useState(EMPTY_COMMON);
-  const [admissionId, setAdmId]     = useState(null);
-
-  const [adv, setAdv]               = useState(EMPTY_ADV);
-  const [lastBill, setLastBill]     = useState(null);
-
-  const [pharm, setPharm]           = useState(EMPTY_PHARM);
-  const [pharmItems, setPharmItems] = useState([{ ...EMPTY_ITEM }]);
-  const [pharmBill, setPharmBill]   = useState(null);
-
-  const [tableRows, setTableRows]   = useState([]);
-  const [chartData, setChartData]   = useState([]);
-  const [activeStatuses, setActiveStatuses] = useState(new Set());
-  const [filters, setFilters]       = useState({
-    fromDate: new Date().toISOString().split("T")[0],
-    toDate:   new Date().toISOString().split("T")[0],
-    uhid: "", ipNumber: "",
-  });
-
   const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => { fetchTable(); }, []);
+  const [common,     setCommon]     = useState(EMPTY_COMMON);
+  const [admissionId,setAdmId]      = useState(null);
+  const [payments,   setPayments]   = useState([]);
 
-  useEffect(() => {
-    const grouped = {};
-    tableRows.forEach((r) => {
-      const d = r.bill_date || "Unknown";
-      grouped[d] = (grouped[d] || 0) + parseFloat(r.advance_amount || 0);
-    });
-    setChartData(
-      Object.entries(grouped)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, Collection]) => ({ date, Collection }))
-    );
-  }, [tableRows]);
+  const [date,       setDate]       = useState(today());
+  const [amount,     setAmount]     = useState("");
+  const [ipAdv,      setIpAdv]      = useState("");
+  const [billAdv,    setBillAdv]    = useState("");
+  const [saving,     setSaving]     = useState(false);
+  const [cancelling, setCancelling] = useState(null);
 
-  const fetchTable = async () => {
-    try {
-      const p = new URLSearchParams();
-      if (filters.fromDate) p.append("from_date", filters.fromDate);
-      if (filters.toDate)   p.append("to_date",   filters.toDate);
-      if (filters.uhid)     p.append("uhid",       filters.uhid);
-      if (filters.ipNumber) p.append("ip_number",  filters.ipNumber);
-      const res = await apiRequest(`${BASE}advances/?${p}`, "GET");
-      if (res.success) setTableRows(res.data || []);
-    } catch { }
-  };
+  const total       = parseFloat(amount)  || 0;
+  const splitIP     = parseFloat(ipAdv)   || 0;
+  const splitBill   = parseFloat(billAdv) || 0;
+  const splitTouched = ipAdv !== "" || billAdv !== "";
+  const splitOk     = total > 0 && Math.abs(splitIP + splitBill - total) < 0.01;
+
+  const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 
   // ── Patient / admission load ──────────────────────────────────────────────
-  const searchByUHID = async () => {
-    if (!common.uhid.trim()) return toast.warning("Enter UHID");
+  // Uses get_active_admission/ (same as RoomShifting) — returns admission
+  // with patient fields already embedded, so no separate patient fetch needed.
+  const loadActiveAdmission = async (params) => {
     try {
-      const res = await apiRequest(
-        `${BASE}op-patient/${encodeURIComponent(common.uhid)}/`, "GET"
-      );
-      if (!res.success) throw new Error();
-      const d = res.data;
-      setCommon((p) => ({
-        ...p,
-        name:          [d.salutation, d.firstName, d.middleName, d.lastName].filter(Boolean).join(" "),
-        age:           d.age || "",
-        gender:        d.gender || "",
-        address:       d.permanent_address || "",
-        customer_type: d.customer_type || "",
-        company:       d.insuranceCompany || "",
-      }));
-      loadAdmByQuery(`uhid=${encodeURIComponent(common.uhid)}`);
-    } catch { toast.error("Patient not found"); }
-  };
+      const qs  = new URLSearchParams(params).toString();
+      const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
+      const adm = res?.data?.data ?? res?.data ?? res;
 
-  const searchByIP = () => {
-    if (!common.ipNumber.trim()) return toast.warning("Enter IP Number");
-    loadAdmByQuery(`ip_number=${encodeURIComponent(common.ipNumber)}`);
-  };
+      if (!adm?.ipNumber && !adm?.uhid) return toast.error("No active admission found");
 
-  const loadAdmByQuery = async (query) => {
-    try {
-      const res = await apiRequest(`${BASE}admission/?${query}`, "GET");
-      if (!res.success || !(res.data || []).length) return toast.error("Admission not found");
-      const adm = res.data[0];
+      const patient = adm.patient || {};
+      const doctor  = adm.admittingDoctorName || adm.admittingDoctor || "";
+
+      // Room: prefer top-level roomNo/bedNo; fall back to active room_details entry
+      let roomNo = adm.roomNo || "";
+      let bedNo  = adm.bedNo  || "";
+      if (!roomNo && Array.isArray(adm.room_details)) {
+        const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
+        roomNo = active?.roomNo || "";
+        bedNo  = active?.bedNo  || "";
+      }
+
+      // Patient name: prefer top-level fields, then patient sub-object
+      const nameParts = [
+        adm.salutation   || patient.salutation,
+        adm.firstName    || patient.firstName || patient.patientname,
+        adm.middleName   || patient.middleName,
+        adm.lastName     || patient.lastName,
+      ].filter(Boolean);
+
+      const advancePayments = Array.isArray(adm.advance_payments) ? adm.advance_payments : [];
+      const totalAdvance = advancePayments
+        .filter(p => p.is_advanceActive)
+        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
+
       setAdmId(adm.ipNumber);
-      const doctor = adm.admittingDoctorName || adm.admittingDoctor || "";
       setCommon((p) => ({
         ...p,
-        uhid:            adm.uhid            || p.uhid,
-        ipNumber:        adm.ipNumber,
-        name:            adm.firstName
-          ? [adm.salutation, adm.firstName, adm.middleName, adm.lastName].filter(Boolean).join(" ")
-          : p.name,
-        age:             adm.age             || p.age,
-        gender:          adm.gender          || p.gender,
-        address:         adm.permanent_address || p.address,
-        customer_type:   adm.customer_type   || p.customer_type,
-        company:         adm.insuranceCompany || p.company,
-        roomNo:          adm.roomNo          || "",
-        bedNo:           adm.bedNo           || "",
+        uhid:            adm.uhid          || p.uhid,
+        ipNumber:        adm.ipNumber      || p.ipNumber,
+        name:            nameParts.join(" ") || p.name,
+        age:             adm.age           || patient.age    || p.age,
+        gender:          adm.gender        || patient.gender || p.gender,
+        address:         adm.permanent_address || patient.permanent_address
+                         || [patient.area, patient.city, patient.state, patient.zipcode]
+                            .filter(Boolean).join(", ") || p.address,
+        customer_type:   adm.customerType  || adm.customer_type
+                         || patient.customerType || p.customer_type,
+        company:         adm.insuranceCompanyName || patient.insuranceCompanyName
+                         || adm.insuranceCompany  || p.company,
+        roomNo,
+        bedNo,
         admittingDate:   adm.admissionDateTime
           ? new Date(adm.admissionDateTime).toLocaleDateString("en-IN") : "",
         admittingDoctor: doctor,
-        creditLimit:     adm.creditLimit     != null ? adm.creditLimit   : "",
-        totalAdvance:    adm.total_advance   != null ? adm.total_advance : "",
-        outBalance:      adm.creditLimit != null && adm.total_advance != null
-          ? Math.max(0, parseFloat(adm.creditLimit) - parseFloat(adm.total_advance)) : "",
+        creditLimit:     adm.creditLimit   != null ? adm.creditLimit   : "",
+        totalAdvance:    totalAdvance,
+        outBalance:      adm.creditLimit   != null
+          ? Math.max(0, parseFloat(adm.creditLimit) - totalAdvance) : "",
       }));
-      setPharm((p) => ({ ...p, prescribingDoctor: p.prescribingDoctor || doctor }));
-    } catch { toast.error("Error loading admission"); }
+
+      setPayments(advancePayments);
+      toast.success(`Admission loaded: ${adm.ipNumber}`);
+    } catch (err) {
+      toast.error(err?.message || "No active admission found for this patient");
+    }
+  };
+
+  const searchByUHID = () => {
+    const u = common.uhid.trim();
+    if (!u) return toast.warning("Enter UHID");
+    loadActiveAdmission({ uhid: u });
+  };
+
+  const searchByIP = () => {
+    const ip = common.ipNumber.trim();
+    if (!ip) return toast.warning("Enter IP Number");
+    loadActiveAdmission({ ip_number: ip });
+  };
+
+  const handleAmountChange = (val) => {
+    setAmount(val);
+    setIpAdv("");
+    setBillAdv("");
+  };
+
+  const handleIpAdvChange = (val) => {
+    setIpAdv(val);
+    const ip  = parseFloat(val) || 0;
+    const rem = total - ip;
+    setBillAdv(rem >= 0 ? rem.toFixed(2) : "");
   };
 
   // ── Save advance ──────────────────────────────────────────────────────────
-  const handleAdvSave = async () => {
-    if (!admissionId)                                return toast.warning("Load an admission first");
-    if (!adv.amount || parseFloat(adv.amount) <= 0)  return toast.warning("Enter a valid amount");
-    const payload = new FormData();
-    payload.append("amount",  adv.amount);
-    payload.append("remarks", adv.advanceRemarks);
-    payload.append("type",    adv.advanceType);
+  const handleSave = async () => {
+    if (!admissionId) return toast.warning("Load an admission first");
+    if (total <= 0)   return toast.warning("Enter a valid advance amount");
+    if (splitTouched && !splitOk)
+      return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
+
+    setSaving(true);
     try {
+      const newEntry = {
+        date,
+        advance_amount:   total,
+        ip_advance:       splitIP,
+        billing_advance:  splitBill,
+        is_advanceActive: true,
+        status:           "Active",
+        created_at:       new Date().toISOString(),
+      };
+      const updatedPayments = [...payments, newEntry];
+
       const res = await apiRequest(
-        `${BASE}admission/${encodeURIComponent(admissionId)}/advance/`, "POST", payload
+        `${BASE}admission-detail/${encodeURIComponent(admissionId)}/`,
+        "PUT",
+        { advance_payments: updatedPayments }
       );
-      if (!res.success) throw new Error(res.error);
+      if (!res.success) throw new Error(res.error || "Save failed");
+
       toast.success("Advance saved!");
-      const data = res.data?.data || res.data;
-      if (data) {
-        setCommon((p) => ({
-          ...p,
-          totalAdvance: data.total_advance ?? p.totalAdvance,
-          creditLimit:  data.creditLimit   ?? p.creditLimit,
-          outBalance:   data.creditLimit != null && data.total_advance != null
-            ? Math.max(0, parseFloat(data.creditLimit) - parseFloat(data.total_advance))
-            : p.outBalance,
-        }));
-      }
-      setAdv((p) => ({ ...p, amount: "", advanceRemarks: "" }));
-      if (res.data?.bill) setLastBill(res.data.bill);
-      fetchTable();
-    } catch { toast.error("Failed to save advance"); }
+      setPayments(updatedPayments);
+
+      const newTotal = updatedPayments
+        .filter((p) => p.is_advanceActive)
+        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
+      setCommon((p) => ({ ...p, totalAdvance: newTotal }));
+
+      setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today());
+    } catch (e) {
+      toast.error(e.message || "Failed to save advance");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // ── Pharmacy helpers ──────────────────────────────────────────────────────
-  const updateItem = (i, field, value) => {
-    setPharmItems((prev) => {
-      const next = prev.map((it, idx) => idx === i ? { ...it, [field]: value } : it);
-      if (field === "qty" || field === "rate") {
-        const qty  = parseFloat(field === "qty"  ? value : prev[i].qty)  || 0;
-        const rate = parseFloat(field === "rate" ? value : prev[i].rate) || 0;
-        next[i].amount = (qty * rate).toFixed(2);
-      }
-      const total = next.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
-      const disc  = parseFloat(pharm.discount) || 0;
-      setPharm((p) => ({ ...p, totalAmount: Math.max(0, total - disc).toFixed(2) }));
-      return next;
-    });
-  };
-
-  const addItem    = () => setPharmItems((p) => [...p, { ...EMPTY_ITEM }]);
-  const removeItem = (i) => setPharmItems((p) => p.filter((_, idx) => idx !== i));
-
-  const handlePharmSave = async () => {
-    if (!admissionId)                               return toast.warning("Load an admission first");
-    if (pharmItems.every((it) => !it.drug.trim()))  return toast.warning("Add at least one drug");
+  // ── Cancel advance ────────────────────────────────────────────────────────
+  const handleCancel = async (idx) => {
+    if (!window.confirm("Cancel this advance entry?")) return;
+    setCancelling(idx);
     try {
-      const res = await apiRequest(`${BASE}ip-pharmacy/`, "POST", {
-        ip_number:    admissionId,
-        date:         pharm.date,
-        doctor:       pharm.prescribingDoctor,
-        payment_mode: pharm.paymentMode,
-        remarks:      pharm.remarks,
-        discount:     pharm.discount,
-        items:        pharmItems.filter((it) => it.drug.trim()),
-      });
-      if (!res.success) throw new Error();
-      toast.success("Pharmacy entry saved!");
-      if (res.data?.bill) setPharmBill(res.data.bill);
-    } catch { toast.error("Failed to save pharmacy entry"); }
+      const updatedPayments = payments.map((p, i) =>
+        i === idx ? { ...p, is_advanceActive: false, status: "Cancelled" } : p
+      );
+
+      const res = await apiRequest(
+        `${BASE}admission-detail/${encodeURIComponent(admissionId)}/`,
+        "PUT",
+        { advance_payments: updatedPayments }
+      );
+      if (!res.success) throw new Error(res.error || "Cancel failed");
+
+      toast.success("Advance cancelled");
+      setPayments(updatedPayments);
+
+      const newTotal = updatedPayments
+        .filter((p) => p.is_advanceActive)
+        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
+      setCommon((p) => ({ ...p, totalAdvance: newTotal }));
+    } catch (e) {
+      toast.error(e.message || "Failed to cancel");
+    } finally {
+      setCancelling(null);
+    }
   };
-
-  // ── Print ─────────────────────────────────────────────────────────────────
-  const printBill = (bill) => {
-    if (!bill) return;
-    const win = window.open("", "_blank", "width=520,height=460");
-    win.document.write(`<!DOCTYPE html><html><head><title>Advance Slip</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
-.center{text-align:center}.bold{font-weight:bold}.big{font-size:15px}
-.row{display:flex;justify-content:space-between;margin:3px 0}
-.line{border-top:1px solid #000;margin:8px 0}
-table{width:100%;border-collapse:collapse;margin-top:8px}
-th,td{border:1px solid #000;padding:4px 6px;font-size:11px}th{background:#f3f4f6;font-weight:700}
-.sig{margin-top:30px;text-align:right;font-size:11px}</style></head><body>
-<div class="center bold big">SHANMUGA HOSPITAL LIMITED</div>
-<div class="center" style="font-size:10px">51/24, Saradha College Road, Salem - 636007</div>
-<div class="center" style="font-size:10px">04272706666</div>
-<div class="center bold" style="margin-top:6px;font-size:13px">Advance Slip</div>
-<div class="line"></div>
-<div class="row"><span>IP No</span><span class="bold">: ${bill.ip_number||""}</span></div>
-<div class="row"><span>Op Number</span><span>: ${bill.uhid||""}</span></div>
-<div class="row"><span>Name</span><span>: ${bill.patient_name||""}</span></div>
-<div class="row"><span>Room</span><span>: ${bill.room_no||""}</span></div>
-<div class="row"><span>Bill Date</span><span>: ${bill.bill_date||""}</span></div>
-<div class="row"><span>Bill No</span><span>: ${bill.bill_number||""}</span></div>
-<div class="row"><span>GST No</span><span>: 33ABDCS8326A1ZP</span></div>
-<div class="line"></div>
-<table><thead><tr><th>Slno</th><th>Description</th><th>Amount</th></tr></thead>
-<tbody><tr><td>1</td>
-<td>Advance${bill.type==="ip_advance"?" (IP)":""} — ${bill.payment_mode||""}</td>
-<td style="text-align:right">${parseFloat(bill.amount||0).toFixed(2)}</td></tr></tbody>
-<tfoot><tr><td colspan="2" style="text-align:right;font-weight:700">Total</td>
-<td style="text-align:right;font-weight:700">${parseFloat(bill.amount||0).toFixed(2)}</td></tr></tfoot>
-</table>
-<div class="sig">Signature Of Cashier<br/>User : ${bill.created_by||""}</div>
-<script>window.onload=function(){window.print();window.close();}</script>
-</body></html>`);
-    win.document.close();
-  };
-
-  const toggleStatus = (s) =>
-    setActiveStatuses((prev) => {
-      const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
-      return next;
-    });
-
-  const visibleRows = tableRows.filter((r) =>
-    activeStatuses.size === 0 ||
-    activeStatuses.has(r.advance_status) ||
-    activeStatuses.has(r.payment_mode)
-  );
-
-  const totalAmt   = visibleRows.reduce((s, r) => s + parseFloat(r.advance_amount || 0), 0);
-  const settledCnt = visibleRows.filter((r) => r.advance_status === "Advance Settled").length;
-  const refundAmt  = visibleRows
-    .filter((r) => ["Refunded","Partially Refunded"].includes(r.advance_status))
-    .reduce((s, r) => s + parseFloat(r.advance_amount || 0), 0);
 
   const handleReset = () => {
-    setCommon(EMPTY_COMMON); setAdmId(null);
-    setAdv(EMPTY_ADV); setLastBill(null);
-    setPharm(EMPTY_PHARM); setPharmItems([{ ...EMPTY_ITEM }]); setPharmBill(null);
+    setCommon(EMPTY_COMMON);
+    setAdmId(null);
+    setPayments([]);
+    setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today());
   };
+
+  // Stats
+  const activePayments = payments.filter((p) => p.is_advanceActive);
+  const totalActive    = activePayments.reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
+  const totalIPSum     = activePayments.reduce((s, p) => s + (parseFloat(p.ip_advance)      || 0), 0);
+  const totalBillSum   = activePayments.reduce((s, p) => s + (parseFloat(p.billing_advance) || 0), 0);
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <>
       <GlobalStyle />
       <Page>
-        <PageTitle>IP Advance &amp; Pharmacy Collection</PageTitle>
+        <PageTitle>💳 IP Advance Entry</PageTitle>
 
         {/* ═══════════════════════════════════════════════════
-            TOP — COMMON: Patient Search + Info + Admission
+            PATIENT & ADMISSION DETAILS  — identical to original
         ═══════════════════════════════════════════════════ */}
         <Card>
           <CardHead color="teal">🏥 Patient &amp; Admission Details</CardHead>
           <CardBody>
             <Grid cols={6}>
 
-              {/* ── Search row ── */}
               <GroupLabel c="teal">Search</GroupLabel>
 
               <F span={2}>
@@ -663,10 +590,8 @@ th,td{border:1px solid #000;padding:4px 6px;font-size:11px}th{background:#f3f4f6
                 </RowFlex>
               </F>
 
-              {/* spacer */}
               <F span={2} />
 
-              {/* ── Patient info ── */}
               <GroupLabel c="teal">Patient Info</GroupLabel>
 
               <F span={3}>
@@ -695,7 +620,6 @@ th,td{border:1px solid #000;padding:4px 6px;font-size:11px}th{background:#f3f4f6
                 <Inp value={common.company} readOnly />
               </F>
 
-              {/* ── Admission details ── */}
               <GroupLabel c="teal">Admission Details</GroupLabel>
 
               <F>
@@ -737,366 +661,169 @@ th,td{border:1px solid #000;padding:4px 6px;font-size:11px}th{background:#f3f4f6
         </Card>
 
         {/* ═══════════════════════════════════════════════════
-            MIDDLE — 2 COLUMNS: Advance  |  IP Pharmacy
-        ═══════════════════════════════════════════════════ */}
-        <TwoCol>
-
-          {/* ── LEFT: ADVANCE INPUT ── */}
-          <Card>
-            <CardHead color="teal">💳 Advance Input</CardHead>
-            <CardBody>
-              <Grid cols={2}>
-
-                <GroupLabel c="teal">Payment Details</GroupLabel>
-
-                <F>
-                  <Lbl>Date</Lbl>
-                  <Inp
-                    type="date"
-                    value={adv.date}
-                    onChange={(e) => setAdv((p) => ({ ...p, date: e.target.value }))}
-                  />
-                </F>
-                <F>
-                  <Lbl>Advance Type</Lbl>
-                  <Sel
-                    value={adv.advanceType}
-                    onChange={(e) => setAdv((p) => ({ ...p, advanceType: e.target.value }))}
-                  >
-                    <option value="advance">Advance</option>
-                    <option value="ip_advance">IP Advance</option>
-                  </Sel>
-                </F>
-
-                <F span={2}>
-                  <Lbl>Amount (₹)</Lbl>
-                  <Inp
-                    type="number"
-                    min="0"
-                    value={adv.amount}
-                    placeholder="0.00"
-                    onChange={(e) => setAdv((p) => ({ ...p, amount: e.target.value }))}
-                  />
-                </F>
-
-                <F span={2}>
-                  <Lbl>Advance Remarks</Lbl>
-                  <Txta
-                    rows={4}
-                    value={adv.advanceRemarks}
-                    onChange={(e) => setAdv((p) => ({ ...p, advanceRemarks: e.target.value }))}
-                  />
-                </F>
-
-              </Grid>
-            </CardBody>
-            <ActionBar>
-              {lastBill && <Btn onClick={() => printBill(lastBill)}>🖨️ Print Bill</Btn>}
-              <Btn v="reset" onClick={() => { setAdv(EMPTY_ADV); setLastBill(null); }}>↺ Reset</Btn>
-              <Btn onClick={handleAdvSave}>💾 Save Advance</Btn>
-            </ActionBar>
-          </Card>
-
-          {/* ── RIGHT: IP PHARMACY INPUT ── */}
-          <Card>
-            <CardHead color="blue">💊 IP Pharmacy Input</CardHead>
-            <CardBody>
-              <Grid cols={2}>
-
-                <GroupLabel c="blue">Pharmacy Details</GroupLabel>
-
-                <F>
-                  <Lbl>Date</Lbl>
-                  <Inp
-                    type="date"
-                    value={pharm.date}
-                    onChange={(e) => setPharm((p) => ({ ...p, date: e.target.value }))}
-                  />
-                </F>
-                <F>
-                  <Lbl>Payment Mode</Lbl>
-                  <Sel
-                    value={pharm.paymentMode}
-                    onChange={(e) => setPharm((p) => ({ ...p, paymentMode: e.target.value }))}
-                  >
-                    <option>Cash</option>
-                    <option>Credit/Debit Card</option>
-                    <option>Neft &amp; Others</option>
-                    <option>Cheque</option>
-                    <option>Multi Payment</option>
-                    <option>Not Paid</option>
-                  </Sel>
-                </F>
-
-                <F span={2}>
-                  <Lbl>Prescribing Doctor</Lbl>
-                  <Inp
-                    value={pharm.prescribingDoctor}
-                    onChange={(e) => setPharm((p) => ({ ...p, prescribingDoctor: e.target.value }))}
-                  />
-                </F>
-
-                <F>
-                  <Lbl>Discount (₹)</Lbl>
-                  <Inp
-                    type="number"
-                    min="0"
-                    value={pharm.discount}
-                    onChange={(e) => {
-                      const disc  = parseFloat(e.target.value) || 0;
-                      const total = pharmItems.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
-                      setPharm((p) => ({
-                        ...p,
-                        discount: e.target.value,
-                        totalAmount: Math.max(0, total - disc).toFixed(2),
-                      }));
-                    }}
-                  />
-                </F>
-                <F>
-                  <Lbl>Total Amount (₹)</Lbl>
-                  <Inp value={pharm.totalAmount} readOnly />
-                </F>
-
-                <F span={2}>
-                  <Lbl>Remarks</Lbl>
-                  <Txta
-                    rows={2}
-                    value={pharm.remarks}
-                    onChange={(e) => setPharm((p) => ({ ...p, remarks: e.target.value }))}
-                  />
-                </F>
-
-                {/* Drug items */}
-                <GroupLabel c="blue">Drug / Item Entries</GroupLabel>
-
-                <F span={2}>
-                  {/* column headers */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "2fr 52px 74px 74px 26px",
-                    gap: 5,
-                    marginBottom: 4,
-                  }}>
-                    {["Drug / Item", "Qty", "Rate ₹", "Amt ₹", ""].map((h, i) => (
-                      <div key={i} style={{
-                        fontSize: "0.61rem", fontWeight: 700,
-                        textTransform: "uppercase", letterSpacing: "0.04em",
-                        color: T.muted,
-                      }}>{h}</div>
-                    ))}
-                  </div>
-
-                  {pharmItems.map((item, i) => (
-                    <DrugRow key={i}>
-                      <Inp
-                        value={item.drug}
-                        placeholder="Drug name"
-                        onChange={(e) => updateItem(i, "drug", e.target.value)}
-                      />
-                      <Inp
-                        type="number" min="1"
-                        value={item.qty}
-                        onChange={(e) => updateItem(i, "qty", e.target.value)}
-                      />
-                      <Inp
-                        type="number" min="0"
-                        value={item.rate}
-                        placeholder="0.00"
-                        onChange={(e) => updateItem(i, "rate", e.target.value)}
-                      />
-                      <Inp value={item.amount} readOnly placeholder="0.00" />
-                      <button
-                        onClick={() => removeItem(i)}
-                        disabled={pharmItems.length === 1}
-                        style={{
-                          height: 26, width: 26, border: "none", borderRadius: 4,
-                          background: pharmItems.length === 1 ? "#e2e8f0" : "#fee2e2",
-                          color: pharmItems.length === 1 ? T.muted : "#ef4444",
-                          cursor: pharmItems.length === 1 ? "default" : "pointer",
-                          fontWeight: 700, fontSize: "1rem",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}
-                      >×</button>
-                    </DrugRow>
-                  ))}
-
-                  <IconBtn
-                    type="button" c="blue"
-                    style={{ marginTop: 6, width: "fit-content" }}
-                    onClick={addItem}
-                  >+ Add Item</IconBtn>
-                </F>
-
-              </Grid>
-            </CardBody>
-            <ActionBar>
-              {pharmBill && <Btn c="blue" onClick={() => printBill(pharmBill)}>🖨️ Print Bill</Btn>}
-              <Btn v="reset" onClick={() => {
-                setPharm(EMPTY_PHARM);
-                setPharmItems([{ ...EMPTY_ITEM }]);
-                setPharmBill(null);
-              }}>↺ Reset</Btn>
-              <Btn c="blue" onClick={handlePharmSave}>💾 Save Pharmacy</Btn>
-            </ActionBar>
-          </Card>
-
-        </TwoCol>
-
-        {/* ═══════════════════════════════════════════════════
-            BOTTOM — ADVANCE ENTRY RECORDS (full width)
+            ADVANCE INPUT — simplified with split
         ═══════════════════════════════════════════════════ */}
         <Card>
-          <CardHead color="violet">📋 Advance Entry Records</CardHead>
+          <CardHead color="teal">💵 Advance Input</CardHead>
+          <CardBody>
+            <Grid cols={6}>
 
-          {/* Filter bar */}
-          <SearchBar>
-            <F>
-              <Lbl>From Date</Lbl>
-              <Inp
-                type="date" value={filters.fromDate}
-                onChange={(e) => setFilters((p) => ({ ...p, fromDate: e.target.value }))}
-              />
-            </F>
-            <F>
-              <Lbl>To Date</Lbl>
-              <Inp
-                type="date" value={filters.toDate}
-                onChange={(e) => setFilters((p) => ({ ...p, toDate: e.target.value }))}
-              />
-            </F>
-            <F>
-              <Lbl>UHID</Lbl>
-              <Inp
-                value={filters.uhid} placeholder="UHID"
-                onChange={(e) => setFilters((p) => ({ ...p, uhid: e.target.value }))}
-              />
-            </F>
-            <F>
-              <Lbl>IP Number</Lbl>
-              <Inp
-                value={filters.ipNumber} placeholder="IP Number"
-                onChange={(e) => setFilters((p) => ({ ...p, ipNumber: e.target.value }))}
-              />
-            </F>
-            <IconBtn type="button" c="violet" onClick={fetchTable} style={{ alignSelf: "flex-end" }}>
-              🔍 Search
-            </IconBtn>
-          </SearchBar>
+              <GroupLabel c="teal">Payment Details</GroupLabel>
 
-          {/* Summary stats */}
-          <StatRow>
-            <Stat bg="#f0fdf4" bd="#bbf7d0">
-              <StatL c="#16a34a">Total Collected</StatL>
-              <StatV c="#15803d">₹{totalAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</StatV>
-            </Stat>
-            <Stat bg="#eff6ff" bd="#bfdbfe">
-              <StatL c="#2563eb">Records</StatL>
-              <StatV c="#1d4ed8">{visibleRows.length}</StatV>
-            </Stat>
-            <Stat bg="#f5f3ff" bd="#ddd6fe">
-              <StatL c="#7c3aed">Settled</StatL>
-              <StatV c="#6d28d9">{settledCnt}</StatV>
-            </Stat>
-            <Stat bg="#fff7ed" bd="#fed7aa">
-              <StatL c="#ea580c">Refunded</StatL>
-              <StatV c="#c2410c">₹{refundAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</StatV>
-            </Stat>
-          </StatRow>
+              <F span={1}>
+                <Lbl>Date</Lbl>
+                <Inp
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </F>
 
-          {/* Payment mode chips */}
-          <ChipRow>
-            {["Not Paid","Cash","Multi Payment","Credit/Debit Card","Cheque","Neft & Others"].map((s) => (
-              <Chip key={s} color={STATUS_COLORS[s]} active={activeStatuses.has(s)} onClick={() => toggleStatus(s)}>
-                <input type="checkbox" checked={activeStatuses.has(s)} onChange={() => toggleStatus(s)} style={{ cursor: "pointer" }} />
-                {s}
-              </Chip>
-            ))}
-          </ChipRow>
-          {/* Status chips */}
-          <ChipRow style={{ borderBottom: "none" }}>
-            {["Refunded","Partially Refunded","Not Adjusted","Advance Settled","Cancelled"].map((s) => (
-              <Chip key={s} color={STATUS_COLORS[s]} active={activeStatuses.has(s)} onClick={() => toggleStatus(s)}>
-                <input type="checkbox" checked={activeStatuses.has(s)} onChange={() => toggleStatus(s)} style={{ cursor: "pointer" }} />
-                {s}
-              </Chip>
-            ))}
-          </ChipRow>
+              <F span={3}>
+                <Lbl>Advance Amount (₹)</Lbl>
+                <BigInp
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amount}
+                  placeholder="Enter total advance amount"
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                />
+              </F>
 
-          {/* Chart */}
-          {chartData.length > 0 && (
-            <div style={{ padding: "0 14px 12px" }}>
-              <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={chartData} margin={{ top: 4, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v) => `₹${v.toLocaleString("en-IN")}`} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="Collection" stroke={T.teal} strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+              <F span={2} />
 
-          {/* Table */}
-          <TblWrap>
-            <Tbl>
-              <thead>
-                <tr>
-                  {["Bill Date","Bill Number","Payment Mode","Advance Reference",
-                    "Advance Status","UHID","Patient","Description",
-                    "Advance Amount","Balance Amount","Actions"].map((h) => (
-                    <Th key={h}>{h}</Th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.length === 0 ? (
+              {/* Split sub-fields */}
+              <SplitBox>
+                <SplitHeader>↳ Split Advance</SplitHeader>
+                <SplitGrid>
+                  <F>
+                    <Lbl>IP Advance (₹)</Lbl>
+                    <Inp
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={ipAdv}
+                      placeholder="0.00"
+                      disabled={total <= 0}
+                      onChange={(e) => handleIpAdvChange(e.target.value)}
+                    />
+                  </F>
+                  <F>
+                    <Lbl>Billing Advance (₹)</Lbl>
+                    <Inp
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={billAdv}
+                      placeholder="0.00"
+                      disabled={total <= 0}
+                      onChange={(e) => setBillAdv(e.target.value)}
+                    />
+                  </F>
+                </SplitGrid>
+                {total > 0 && (
+                  <SplitNote ok={!splitTouched || splitOk}>
+                    {!splitTouched
+                      ? `Total to split: ₹${fmt(total)}`
+                      : splitOk
+                        ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
+                        : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
+                  </SplitNote>
+                )}
+              </SplitBox>
+
+            </Grid>
+          </CardBody>
+          <ActionBar>
+            <Btn
+              v="reset"
+              onClick={() => { setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); }}
+            >↺ Reset</Btn>
+            <Btn
+              onClick={handleSave}
+              disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}
+            >
+              {saving ? "Saving…" : "💾 Save Advance"}
+            </Btn>
+          </ActionBar>
+        </Card>
+
+        {/* ═══════════════════════════════════════════════════
+            ADVANCE PAYMENT RECORDS TABLE
+        ═══════════════════════════════════════════════════ */}
+        {admissionId && (
+          <Card>
+            <CardHead color="violet">📋 Advance Payment Records</CardHead>
+
+            <StatRow>
+              <Stat bg="#f0fdf4" bd="#bbf7d0">
+                <StatL c="#16a34a">Total Active Advance</StatL>
+                <StatV c="#15803d">₹{fmt(totalActive)}</StatV>
+              </Stat>
+              <Stat bg="#f0fdfb" bd={T.tealLight}>
+                <StatL c={T.tealDark}>IP Advance</StatL>
+                <StatV c={T.teal}>₹{fmt(totalIPSum)}</StatV>
+              </Stat>
+              <Stat bg="#eff6ff" bd="#bfdbfe">
+                <StatL c="#2563eb">Billing Advance</StatL>
+                <StatV c="#1d4ed8">₹{fmt(totalBillSum)}</StatV>
+              </Stat>
+            </StatRow>
+
+            <TblWrap>
+              <Tbl>
+                <thead>
                   <tr>
-                    <Td colSpan={11} style={{ textAlign: "center", padding: 22, color: T.muted }}>
-                      No records found
-                    </Td>
+                    <Th>#</Th>
+                    <Th>Date</Th>
+                    <Th right>Advance Amount</Th>
+                    <Th right>IP Advance</Th>
+                    <Th right>Billing Advance</Th>
+                    <Th>Status</Th>
+                    <Th>Action</Th>
                   </tr>
-                ) : (
-                  visibleRows.map((r, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
-                      <Td>{r.bill_date}</Td>
-                      <Td style={{ fontWeight: 700 }}>{r.bill_number}</Td>
-                      <Td><Badge s={r.payment_mode}>{r.payment_mode}</Badge></Td>
-                      <Td>{r.advance_reference}</Td>
-                      <Td><Badge s={r.advance_status}>{r.advance_status}</Badge></Td>
-                      <Td>{r.uhid}</Td>
-                      <Td>{r.patient}</Td>
-                      <Td style={{ textTransform: "capitalize" }}>{r.description}</Td>
-                      <Td style={{ textAlign: "right", fontWeight: 700 }}>
-                        ₹{parseFloat(r.advance_amount||0).toLocaleString("en-IN",{minimumFractionDigits:2})}
-                      </Td>
-                      <Td style={{ textAlign: "right" }}>
-                        ₹{parseFloat(r.balance_amount||0).toLocaleString("en-IN",{minimumFractionDigits:2})}
-                      </Td>
-                      <Td>
-                        <MiniBtn onClick={() => printBill({
-                          ip_number:    r.ip_number,
-                          uhid:         r.uhid,
-                          patient_name: r.patient,
-                          room_no:      r.room_no,
-                          bill_date:    r.bill_date,
-                          bill_number:  r.bill_number,
-                          amount:       r.advance_amount,
-                          payment_mode: r.payment_mode,
-                          remarks:      r.advance_reference,
-                          type:         r.description,
-                          created_by:   "",
-                        })}>🖨️</MiniBtn>
+                </thead>
+                <tbody>
+                  {payments.length === 0 ? (
+                    <tr>
+                      <Td colSpan={7} style={{ textAlign: "center", padding: 24, color: T.muted }}>
+                        No advance entries yet
                       </Td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </Tbl>
-          </TblWrap>
-        </Card>
+                  ) : (
+                    payments.map((p, i) => (
+                      <Tr key={i} even={i % 2 === 0}>
+                        <Td style={{ fontWeight: 700, color: T.muted }}>{i + 1}</Td>
+                        <Td>{p.date || "—"}</Td>
+                        <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
+                        <Td right>₹{fmt(p.ip_advance)}</Td>
+                        <Td right>₹{fmt(p.billing_advance)}</Td>
+                        <Td>
+                          <StatusBadge active={p.is_advanceActive}>
+                            {p.status || (p.is_advanceActive ? "Active" : "Cancelled")}
+                          </StatusBadge>
+                        </Td>
+                        <Td>
+                          {p.is_advanceActive ? (
+                            <CancelBtn
+                              onClick={() => handleCancel(i)}
+                              disabled={cancelling !== null}
+                            >
+                              {cancelling === i ? "…" : "✕ Cancel"}
+                            </CancelBtn>
+                          ) : (
+                            <span style={{ color: T.muted, fontSize: "0.64rem" }}>—</span>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </tbody>
+              </Tbl>
+            </TblWrap>
+          </Card>
+        )}
 
       </Page>
     </>

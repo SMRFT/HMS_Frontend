@@ -103,6 +103,7 @@ import CustomerType from "./Components/BillingMaster/CustomerType";
 import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
+import IPAdvance from "./Components/NursingStation/IPAdvance";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -423,6 +424,13 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Admission" element={<Admission />} />}
+
+              {hasPagePermission(
+                "/IPAdvance",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/IPAdvance" element={<IPAdvance />} />}
+
               {hasPagePermission(
                 "/PatientRegistrationForm",
                 allowedActions,
