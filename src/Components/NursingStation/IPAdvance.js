@@ -476,13 +476,13 @@ export default function IPAdvance() {
         ip_advance:       splitIP,
         billing_advance:  splitBill,
         is_advanceActive: true,
-        status:           "Active",
+        status:           "Pending",
         created_at:       new Date().toISOString(),
       };
       const updatedPayments = [...payments, newEntry];
 
       const res = await apiRequest(
-        `${BASE}admission-detail/${encodeURIComponent(admissionId)}/`,
+        `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
         "PUT",
         { advance_payments: updatedPayments }
       );
@@ -514,7 +514,7 @@ export default function IPAdvance() {
       );
 
       const res = await apiRequest(
-        `${BASE}admission-detail/${encodeURIComponent(admissionId)}/`,
+        `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
         "PUT",
         { advance_payments: updatedPayments }
       );
