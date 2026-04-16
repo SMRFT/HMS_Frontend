@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import LabWardRequest from "./LabWardRequest";
-import MedicineWardRequest from "./MedicineWardRequest";
+import MedicineWardRequest from "./WardRequestPage";
 import RadiologyWardRequest from "./RadiologyWardRequest";
+import DietOrderModal from "./DietOrderModal";
 import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody } from "../GlobalStyles";
 
 // Modern Icons
@@ -18,7 +19,7 @@ import {
   FiClock,
   FiFilter
 } from "react-icons/fi";
-import { MdOutlineScience, MdOutlineMedication } from "react-icons/md";
+import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant } from "react-icons/md";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -288,6 +289,7 @@ const WardRequest = () => {
   const [showLabModal, setShowLabModal] = useState(false);
   const [showMedicineModal, setShowMedicineModal] = useState(false);
   const [showRadiologyModal, setShowRadiologyModal] = useState(false);
+  const [showDietModal, setShowDietModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
 
   const menuRef = useRef(null);
@@ -374,9 +376,9 @@ const WardRequest = () => {
     if (!matchesSearch) return false;
 
     const isDischarged = getField(item, "is_discharged");
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "admitted" && (isDischarged === false || isDischarged === null)) ||
-                         (statusFilter === "discharged" && isDischarged === true);
+    const matchesStatus = statusFilter === "all" ||
+      (statusFilter === "admitted" && (isDischarged === false || isDischarged === null)) ||
+      (statusFilter === "discharged" && isDischarged === true);
     if (!matchesStatus) return false;
 
     const matchesStation = nursingStation === "ALL" || String(getField(item, "nursing_station_id")) === nursingStation;
@@ -571,7 +573,7 @@ const WardRequest = () => {
                           </StatusBadge>
                         </Td>
                         <Td style={{ textAlign: "center" }}>
-                          <Button 
+                          <Button
                             style={{ margin: "0 auto", padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
                             onClick={() => {
                               setSelectedPatient(item);
@@ -600,10 +602,10 @@ const WardRequest = () => {
               <ModalTitle style={{ fontSize: "1.4rem" }}>Select Request Type</ModalTitle>
               <CloseButton onClick={() => setShowActionModal(false)}><FiX /></CloseButton>
             </ModalHeader>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px" }}>
-              <div 
-                style={{ 
-                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s" 
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "15px" }}>
+              <div
+                style={{
+                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s"
                 }}
                 className="action-card"
                 onClick={() => { setShowLabModal(true); setShowActionModal(false); }}
@@ -613,9 +615,9 @@ const WardRequest = () => {
                 <MdOutlineScience size={40} color={colors.primary} style={{ marginBottom: "12px" }} />
                 <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Lab Request</div>
               </div>
-              <div 
-                style={{ 
-                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s" 
+              <div
+                style={{
+                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s"
                 }}
                 className="action-card"
                 onClick={() => { setShowMedicineModal(true); setShowActionModal(false); }}
@@ -625,9 +627,9 @@ const WardRequest = () => {
                 <MdOutlineMedication size={40} color={colors.primary} style={{ marginBottom: "12px" }} />
                 <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Medicine Request</div>
               </div>
-              <div 
-                style={{ 
-                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s" 
+              <div
+                style={{
+                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s"
                 }}
                 className="action-card"
                 onClick={() => { setShowRadiologyModal(true); setShowActionModal(false); }}
@@ -636,6 +638,18 @@ const WardRequest = () => {
               >
                 <FiFileText size={40} color={colors.primary} style={{ marginBottom: "12px" }} />
                 <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Radiology Request</div>
+              </div>
+              <div
+                style={{
+                  padding: "24px 16px", background: colors.background, borderRadius: "12px", border: `1px solid ${colors.border}`, textAlign: "center", cursor: "pointer", transition: "all 0.2s"
+                }}
+                className="action-card"
+                onClick={() => { setShowDietModal(true); setShowActionModal(false); }}
+                onMouseOver={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.transform = "translateY(-4px)"; }}
+                onMouseOut={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.transform = "translateY(0)"; }}
+              >
+                <MdOutlineRestaurant size={40} color={colors.primary} style={{ marginBottom: "12px" }} />
+                <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Diet Request</div>
               </div>
             </div>
             <div style={{ marginTop: "25px", padding: "15px", borderRadius: "8px", background: colors.primary + "10", display: "flex", gap: "12px", alignItems: "center" }}>
@@ -660,8 +674,8 @@ const WardRequest = () => {
                 Lab Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <CloseButton 
-                onClick={() => setShowLabModal(false)} 
+              <CloseButton
+                onClick={() => setShowLabModal(false)}
                 style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
@@ -685,8 +699,8 @@ const WardRequest = () => {
                 Medicine Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <CloseButton 
-                onClick={() => setShowMedicineModal(false)} 
+              <CloseButton
+                onClick={() => setShowMedicineModal(false)}
                 style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
@@ -710,8 +724,8 @@ const WardRequest = () => {
                 Radiology Ward Request
                 <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)" }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
               </h3>
-              <CloseButton 
-                onClick={() => setShowRadiologyModal(false)} 
+              <CloseButton
+                onClick={() => setShowRadiologyModal(false)}
                 style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
@@ -724,6 +738,17 @@ const WardRequest = () => {
             </div>
           </ModalContainer>
         </ModalOverlay>
+      )}
+      {showDietModal && selectedPatient && (
+        <DietOrderModal
+          patient={selectedPatient}
+          HmsBaseUrl={HmsBaseUrl}
+          onClose={() => setShowDietModal(false)}
+          onSaved={() => {
+            setShowDietModal(false);
+            // Optionally refresh a list if needed
+          }}
+        />
       )}
     </PageWrapper>
   );
