@@ -370,72 +370,60 @@ export default function IPAdvance() {
   // ── Patient / admission load ──────────────────────────────────────────────
   // Uses get_active_admission/ (same as RoomShifting) — returns admission
   // with patient fields already embedded, so no separate patient fetch needed.
-  const loadActiveAdmission = async (params) => {
-    try {
-      const qs  = new URLSearchParams(params).toString();
-      const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
-      const adm = res?.data?.data ?? res?.data ?? res;
+// ── Load admission → also GET advances fresh from backend ────────────────
+const loadActiveAdmission = async (params) => {
+  try {
+    const qs  = new URLSearchParams(params).toString();
+    const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
+    const adm = res?.data?.data ?? res?.data ?? res;
 
-      if (!adm?.ipNumber && !adm?.uhid) return toast.error("No active admission found");
+    if (!adm?.ipNumber && !adm?.uhid) return toast.error("No active admission found");
 
-      const patient = adm.patient || {};
-      const doctor  = adm.admittingDoctorName || adm.admittingDoctor || "";
+    const patient = adm.patient || {};
+    const doctor  = adm.admittingDoctorName || adm.admittingDoctor || "";
 
-      // Room: prefer top-level roomNo/bedNo; fall back to active room_details entry
-      let roomNo = adm.roomNo || "";
-      let bedNo  = adm.bedNo  || "";
-      if (!roomNo && Array.isArray(adm.room_details)) {
-        const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
-        roomNo = active?.roomNo || "";
-        bedNo  = active?.bedNo  || "";
-      }
-
-      // Patient name: prefer top-level fields, then patient sub-object
-      const nameParts = [
-        adm.salutation   || patient.salutation,
-        adm.firstName    || patient.firstName || patient.patientname,
-        adm.middleName   || patient.middleName,
-        adm.lastName     || patient.lastName,
-      ].filter(Boolean);
-
-      const advancePayments = Array.isArray(adm.advance_payments) ? adm.advance_payments : [];
-      const totalAdvance = advancePayments
-        .filter(p => p.is_advanceActive)
-        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
-
-      setAdmId(adm.ipNumber);
-      setCommon((p) => ({
-        ...p,
-        uhid:            adm.uhid          || p.uhid,
-        ipNumber:        adm.ipNumber      || p.ipNumber,
-        name:            nameParts.join(" ") || p.name,
-        age:             adm.age           || patient.age    || p.age,
-        gender:          adm.gender        || patient.gender || p.gender,
-        address:         adm.permanent_address || patient.permanent_address
-                         || [patient.area, patient.city, patient.state, patient.zipcode]
-                            .filter(Boolean).join(", ") || p.address,
-        customer_type:   adm.customerType  || adm.customer_type
-                         || patient.customerType || p.customer_type,
-        company:         adm.insuranceCompanyName || patient.insuranceCompanyName
-                         || adm.insuranceCompany  || p.company,
-        roomNo,
-        bedNo,
-        admittingDate:   adm.admissionDateTime
-          ? new Date(adm.admissionDateTime).toLocaleDateString("en-IN") : "",
-        admittingDoctor: doctor,
-        creditLimit:     adm.creditLimit   != null ? adm.creditLimit   : "",
-        totalAdvance:    totalAdvance,
-        outBalance:      adm.creditLimit   != null
-          ? Math.max(0, parseFloat(adm.creditLimit) - totalAdvance) : "",
-      }));
-
-      setPayments(advancePayments);
-      toast.success(`Admission loaded: ${adm.ipNumber}`);
-    } catch (err) {
-      toast.error(err?.message || "No active admission found for this patient");
+    let roomNo = adm.roomNo || "";
+    let bedNo  = adm.bedNo  || "";
+    if (!roomNo && Array.isArray(adm.room_details)) {
+      const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
+      roomNo = active?.roomNo || "";
+      bedNo  = active?.bedNo  || "";
     }
-  };
 
+    const nameParts = [
+      adm.salutation   || patient.salutation,
+      adm.firstName    || patient.firstName || patient.patientname,
+      adm.middleName   || patient.middleName,
+      adm.lastName     || patient.lastName,
+    ].filter(Boolean);
+
+    setAdmId(adm.ipNumber);
+    setCommon((p) => ({
+      ...p,
+      uhid:            adm.uhid          || p.uhid,
+      ipNumber:        adm.ipNumber      || p.ipNumber,
+      name:            nameParts.join(" ") || p.name,
+      age:             adm.age           || patient.age    || p.age,
+      gender:          adm.gender        || patient.gender || p.gender,
+      address:         adm.permanent_address || patient.permanent_address
+                       || [patient.area, patient.city, patient.state, patient.zipcode]
+                          .filter(Boolean).join(", ") || p.address,
+      customer_type:   adm.customerType  || adm.customer_type || patient.customerType || p.customer_type,
+      company:         adm.insuranceCompanyName || patient.insuranceCompanyName || adm.insuranceCompany || p.company,
+      roomNo, bedNo,
+      admittingDate:   adm.admissionDateTime
+        ? new Date(adm.admissionDateTime).toLocaleDateString("en-IN") : "",
+      admittingDoctor: doctor,
+      creditLimit:     adm.creditLimit != null ? adm.creditLimit : "",
+    }));
+
+    // ✅ GET advances separately (fresh from backend)
+    await fetchAdvances(adm.ipNumber);
+    toast.success(`Admission loaded: ${adm.ipNumber}`);
+  } catch (err) {
+    toast.error(err?.message || "No active admission found for this patient");
+  }
+};
   const searchByUHID = () => {
     const u = common.uhid.trim();
     if (!u) return toast.warning("Enter UHID");
@@ -461,78 +449,88 @@ export default function IPAdvance() {
     setBillAdv(rem >= 0 ? rem.toFixed(2) : "");
   };
 
+  // ── GET: fetch advance_payments list ─────────────────────────────────────
+const fetchAdvances = async (ipNum) => {
+  try {
+    const res = await apiRequest(
+      `${BASE}admission-advance/?ip_number=${encodeURIComponent(ipNum)}`,
+      "GET"
+    );
+    if (!res.success) throw new Error(res.error || "Failed to fetch advances");
+
+    const list = Array.isArray(res.data) ? res.data : [];
+    setPayments(list);
+
+    const newTotal = list
+      .filter((p) => p.is_advanceActive)
+      .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
+    setCommon((p) => ({
+      ...p,
+      totalAdvance: newTotal,
+      outBalance: p.creditLimit != null
+        ? Math.max(0, parseFloat(p.creditLimit) - newTotal) : "",
+    }));
+  } catch (e) {
+    toast.error(e.message || "Failed to load advances");
+  }
+};
+
   // ── Save advance ──────────────────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!admissionId) return toast.warning("Load an admission first");
-    if (total <= 0)   return toast.warning("Enter a valid advance amount");
-    if (splitTouched && !splitOk)
-      return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
+// ── POST: save new advance ────────────────────────────────────────────────
+const handleSave = async () => {
+  if (!admissionId) return toast.warning("Load an admission first");
+  if (total <= 0)   return toast.warning("Enter a valid advance amount");
+  if (splitTouched && !splitOk)
+    return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
 
-    setSaving(true);
-    try {
-      const newEntry = {
+  setSaving(true);
+  try {
+    const res = await apiRequest(
+      `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
+      "POST",
+      {
         date,
-        advance_amount:   total,
-        ip_advance:       splitIP,
-        billing_advance:  splitBill,
-        is_advanceActive: true,
-        status:           "Pending",
-        created_at:       new Date().toISOString(),
-      };
-      const updatedPayments = [...payments, newEntry];
+        advance_amount:  total,
+        ip_advance:      splitIP,
+        billing_advance: splitBill,
+      }
+    );
+    if (!res.success) throw new Error(res.error || "Save failed");
 
-      const res = await apiRequest(
-        `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
-        "PUT",
-        { advance_payments: updatedPayments }
-      );
-      if (!res.success) throw new Error(res.error || "Save failed");
-
-      toast.success("Advance saved!");
-      setPayments(updatedPayments);
-
-      const newTotal = updatedPayments
-        .filter((p) => p.is_advanceActive)
-        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
-      setCommon((p) => ({ ...p, totalAdvance: newTotal }));
-
-      setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today());
-    } catch (e) {
-      toast.error(e.message || "Failed to save advance");
-    } finally {
-      setSaving(false);
-    }
-  };
+    toast.success("Advance saved!");
+    await fetchAdvances(admissionId);          // ✅ re-fetch to sync with backend
+    setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today());
+  } catch (e) {
+    toast.error(e.message || "Failed to save advance");
+  } finally {
+    setSaving(false);
+  }
+};
 
   // ── Cancel advance ────────────────────────────────────────────────────────
-  const handleCancel = async (idx) => {
-    if (!window.confirm("Cancel this advance entry?")) return;
-    setCancelling(idx);
-    try {
-      const updatedPayments = payments.map((p, i) =>
-        i === idx ? { ...p, is_advanceActive: false, status: "Cancelled" } : p
-      );
+// ── PATCH: cancel advance ─────────────────────────────────────────────────
+const handleCancel = async (idx) => {
+  if (!window.confirm("Cancel this advance entry?")) return;
+  const entry = payments[idx];
+  if (!entry?.advance_id) return toast.error("Missing advance_id");
 
-      const res = await apiRequest(
-        `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
-        "PUT",
-        { advance_payments: updatedPayments }
-      );
-      if (!res.success) throw new Error(res.error || "Cancel failed");
+  setCancelling(idx);
+  try {
+    const res = await apiRequest(
+      `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
+      "PATCH",
+      { advance_id: entry.advance_id }
+    );
+    if (!res.success) throw new Error(res.error || "Cancel failed");
 
-      toast.success("Advance cancelled");
-      setPayments(updatedPayments);
-
-      const newTotal = updatedPayments
-        .filter((p) => p.is_advanceActive)
-        .reduce((s, p) => s + (parseFloat(p.advance_amount) || 0), 0);
-      setCommon((p) => ({ ...p, totalAdvance: newTotal }));
-    } catch (e) {
-      toast.error(e.message || "Failed to cancel");
-    } finally {
-      setCancelling(null);
-    }
-  };
+    toast.success("Advance cancelled");
+    await fetchAdvances(admissionId);          // ✅ re-fetch to sync with backend
+  } catch (e) {
+    toast.error(e.message || "Failed to cancel");
+  } finally {
+    setCancelling(null);
+  }
+};
 
   const handleReset = () => {
     setCommon(EMPTY_COMMON);
