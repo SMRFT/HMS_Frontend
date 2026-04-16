@@ -717,6 +717,16 @@ const InvoiceReport = () => {
         parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
       0,
     );
+    // ── Round-off logic ──────────────────────────────────────────
+    const decimal = sellingTotal - Math.floor(sellingTotal);
+    let roundOff = 0;
+    if (decimal >= 0.5) {
+      roundOff = 1 - decimal; // add to reach next whole number
+    } else {
+      roundOff = -decimal; // subtract to reach previous whole number
+    }
+    const roundedTotal = sellingTotal + roundOff;
+    // ─────────────────────────────────────────────────────────────
 
     const hasPatient =
       record.ip_number || record.patient_name || record.surgeon_name;
@@ -880,10 +890,14 @@ const InvoiceReport = () => {
           <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
+          <div class="amt-row">
+            <span>Round Off</span>
+            <span>${roundOff >= 0 ? "+" : ""}₹${roundOff.toFixed(2)}</span>
+          </div>
+          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${roundedTotal.toFixed(2)}</b></span></div>
         </div>
       </div>
-      <div class="words"><b>Amount in Words:</b> ${numberToWords(sellingTotal)}</div>
+      <div class="words"><b>Amount in Words:</b> ${numberToWords(roundedTotal)}</div>
       <div class="footer">
         <div><b>Prepared By:</b> ${record.created_by || "N/A"}</div>
         <div style="text-align:center"><b>Authorized Signatory</b><br/><br/>________________________</div>

@@ -586,7 +586,7 @@ const InvestigationPrice = () => {
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <div style={css.dateBadge}>📅 {currentDate}</div>
             <button style={css.btn("primary")} onClick={openCreate}>
-              + New Bill Type
+              + New Item
             </button>
           </div>
         </div>
@@ -809,11 +809,11 @@ const InvestigationPrice = () => {
             <div style={css.modalBody}>
               <div style={css.card}>
                 <div style={css.cardTitle}>
-                  <div style={css.sectionLine} /> Bill Type Details
+                  <div style={css.sectionLine} /> Item Details
                 </div>
 
                 <div style={{ ...css.grid3, marginBottom: 0 }}>
-                  <Field label="Bill Type *">
+                  <Field label="Item Name *">
                     <Inp
                       value={formData.BillType}
                       onChange={(e) =>

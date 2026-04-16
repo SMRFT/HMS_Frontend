@@ -96,7 +96,10 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 export const fetchUserPermissions = async (employeeId) => {
-  const response = await apiRequest(`${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`, "GET");
+  const response = await apiRequest(
+    `${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`,
+    "GET",
+  );
   if (response.success && response.data) {
     return response.data;
   }
@@ -110,14 +113,23 @@ export const fetchUserPermissions = async (employeeId) => {
  * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = [], hmsOutlets = []) => {
+export const updateUserPermissions = async (
+  employeeId,
+  allowedPages,
+  hmsPages = [],
+  hmsOutlets = [],
+) => {
   try {
-    const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
-      employeeId,
-      allowed_pages: allowedPages,
-      hms_pages: hmsPages,
-      hms_outlets: hmsOutlets
-    });
+    const response = await apiRequest(
+      `${Hmsbaseurl}update-user-permissions/`,
+      "POST",
+      {
+        employeeId,
+        allowed_pages: allowedPages,
+        hms_pages: hmsPages,
+        hms_outlets: hmsOutlets,
+      },
+    );
     return response;
   } catch (error) {
     console.error("Error updating user permissions:", error);
@@ -142,9 +154,10 @@ export const fetchAllEmployees = async () => {
  * @returns {Promise<Array>} List of sidebar groups and pages
  */
 export const fetchSidebarMapping = async (employeeId = null) => {
-  const url = (employeeId && employeeId !== "null" && employeeId !== "undefined")
-    ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
-    : `${Hmsbaseurl}get-sidebar-mapping/`;
+  const url =
+    employeeId && employeeId !== "null" && employeeId !== "undefined"
+      ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
+      : `${Hmsbaseurl}get-sidebar-mapping/`;
 
   const response = await apiRequest(url, "GET");
   if (response.success && response.data && Array.isArray(response.data)) {
@@ -159,7 +172,11 @@ export const fetchSidebarMapping = async (employeeId = null) => {
  * @returns {Promise<Object>} Response object indicating success or failure
  */
 export const updateSidebarMapping = async (mapping) => {
-  const response = await apiRequest(`${Hmsbaseurl}update-sidebar-mapping/`, "POST", { mapping });
+  const response = await apiRequest(
+    `${Hmsbaseurl}update-sidebar-mapping/`,
+    "POST",
+    { mapping },
+  );
   if (response.success) {
     return response.data;
   }

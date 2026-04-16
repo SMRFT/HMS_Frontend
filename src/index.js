@@ -14,8 +14,7 @@ const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
 
 // --- Function to set token for local development ---
 function setforlocaldev() {
-  const dev_token =
-    "";
+  const dev_token = "";
   console.log("🔧 Development token is empty - will redirect to login");
   const selectedBranch = "SHB001";
   localStorage.setItem("selected_branch", selectedBranch);
@@ -38,11 +37,7 @@ function redirectToLogin() {
 
 // --- Validate JWT Token Locally ---
 function validate(token) {
-  if (
-    !token ||
-    token.trim() ===
-    ""
-  ) {
+  if (!token || token.trim() === "") {
     throw new Error("Token is empty");
   }
 
