@@ -803,6 +803,7 @@ const BillsReport = () => {
                   <Th>Billed By</Th>
                   <Th>Edited By</Th>
                   <RemarksTh>Remarks</RemarksTh>
+                  <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
@@ -849,6 +850,7 @@ const BillsReport = () => {
                     <Td>{bill.created_by}</Td>
                     <Td>{bill.lastmodified_by}</Td>
                     <RemarksTd>{bill.editRemarks}</RemarksTd>
+                    <Td>{bill.paymentStatus}</Td>
                     <Td>
                       <ActionGroup>
                         <PrintIcon
