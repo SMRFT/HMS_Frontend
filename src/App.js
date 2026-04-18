@@ -97,6 +97,12 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
+
+import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
+
+import CustomerType from "./Components/BillingMaster/CustomerType";
+import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
+
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
@@ -105,6 +111,7 @@ import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
+
 
 
 // Layout wrapper
@@ -621,12 +628,6 @@ function App() {
                     element={<InvestigationBilling />}
                   />
                 )}
-              {hasPagePermission("/Oppharmacytabs", allowedActions) && (
-                <Route
-                  path="/Oppharmacytabs"
-                  element={<Oppharmacytabs />}
-                />
-              )}
               {hasPagePermission(
                 "/ViewBills",
                 allowedActions,
@@ -870,6 +871,22 @@ function App() {
               ) && (
                   <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
                 )}
+
+                  <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
+
+
+                   {hasPagePermission(
+                "/CentralCashCounter",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/CentralCashCounter"
+                    element={<CentralCashCounter />}
+                  />
+                )}
+      
+                
             </Routes>
           </ContentWrapper>
         </>

@@ -86,19 +86,7 @@ const FormInput = styled.input`
   padding: 12px;
   font-size: 14px;
   background-color: ${(props) => (props.readOnly ? "#f3f4f6" : "white")};
-  &:focus {
-    outline: none;
-    border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13,148,136,0.1);
-  }
-`;
-
-const FormSelect = styled.select`
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 12px;
-  font-size: 14px;
-  background-color: white;
+  cursor: ${(props) => (props.readOnly ? "not-allowed" : "text")};
   &:focus {
     outline: none;
     border-color: #0d9488;
@@ -169,6 +157,7 @@ const getInitialFormData = () => ({
   shiftNo:        "",
   branchCode:     "",
   cashCounter:    "",
+  cashCounterName: "",        // ← outlet_name from cashcounter_outlet API
   openingBalance: "0.00",
   shiftStatus:    "Shift Not Started",
   closingBalance: "0.00",
@@ -186,12 +175,6 @@ const formatDateTime = (isoString) => {
   } catch {
     return "";
   }
-};
-
-const formatCounterLabel = (counter) => {
-  if (!counter) return "";
-  // "counter2" → "Counter 2"
-  return counter.replace(/counter(\d+)/i, (_, n) => `Counter ${n}`);
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -219,6 +202,25 @@ export default function ShiftDetails({ isOpen, onClose }) {
     setCurrentShiftId(null);
   }, []);
 
+  const fetchCashCounterName = useCallback(async () => {
+  try {
+    const res = await apiRequest(
+      `${HmsBaseUrl}cashcounter_outlet/`,
+      "GET"
+    );
+
+    if (res?.status === true && res?.outlet_name) {
+      setFormData((prev) => ({
+        ...prev,
+        cashCounterName: res.outlet_name,
+        cashCounter: localStorage.getItem("outlet_code"),
+      }));
+    }
+  } catch (err) {
+    console.error("Fetch cash counter outlet error:", err);
+  }
+}, []);
+
   // ── Populate form from API response ──────────────────────────────────────
   const loadShiftData = useCallback((shiftData) => {
     const isActive = shiftData.ShiftStatus === "active";
@@ -226,7 +228,8 @@ export default function ShiftDetails({ isOpen, onClose }) {
     setCurrentShiftId(shiftData.shiftno || null);
     setShiftActive(isActive);
 
-    setFormData({
+    setFormData((prev) => ({
+      ...prev,
       shiftNo:        shiftData.shiftno        || "",
       branchCode:     shiftData.branch_code    || "",
       cashCounter:    shiftData.CashCounter    || "",
@@ -238,15 +241,18 @@ export default function ShiftDetails({ isOpen, onClose }) {
       startingTime:   formatDateTime(shiftData.StartingTime),
       closingTime:    formatDateTime(shiftData.closingTime),
       isActive:       shiftData.is_active ?? false,
-    });
+    }));
   }, []);
 
-  // ── Fetch active shift whenever modal opens ───────────────────────────────
+  // ── Fetch active shift + outlet name whenever modal opens ─────────────────
   useEffect(() => {
     if (!isOpen) return;
 
     const employeeId  = localStorage.getItem("employeeId");
     const branch_code = localStorage.getItem("selected_branch");
+
+    // Always fetch outlet name on open
+    fetchCashCounterName();
 
     if (!employeeId || !branch_code) {
       resetForm();
@@ -262,18 +268,21 @@ export default function ShiftDetails({ isOpen, onClose }) {
 
         if (res?.success && res?.data) {
           loadShiftData(res.data.data);
-          console.log("hhhh",res.data.data)
+          console.log("hhhh", res.data.data);
         } else {
           resetForm();
+          // Re-fetch outlet name since resetForm clears it
+          fetchCashCounterName();
         }
       } catch (err) {
         console.error("Fetch shift error:", err);
         resetForm();
+        fetchCashCounterName();
       }
     };
 
     fetchActiveShift();
-  }, [isOpen, loadShiftData, resetForm]);
+  }, [isOpen, loadShiftData, resetForm, fetchCashCounterName]);
 
   // ── Input change handler ──────────────────────────────────────────────────
   const handleInputChange = (field, value) => {
@@ -286,7 +295,7 @@ export default function ShiftDetails({ isOpen, onClose }) {
     const employeeId = localStorage.getItem("employeeId");
 
     if (!formData.cashCounter) {
-      setError("Please select a cash counter.");
+      setError("Cash counter not loaded. Please try reopening this dialog.");
       return false;
     }
     if (!employeeId) {
@@ -398,8 +407,6 @@ export default function ShiftDetails({ isOpen, onClose }) {
   // ── Render ────────────────────────────────────────────────────────────────
   if (!isOpen) return null;
 
-  const counterLabel = formatCounterLabel(formData.cashCounter);
-
   return (
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
@@ -417,26 +424,15 @@ export default function ShiftDetails({ isOpen, onClose }) {
 
           <FormGrid>
 
-            {/* Cash Counter */}
+            {/* Cash Counter — non-editable, displays outlet_name from API */}
             <FormGroup>
               <FormLabel>Cash Counter</FormLabel>
-              {shiftActive ? (
-                <FormInput
-                  type="text"
-                  value={counterLabel}
-                  readOnly
-                />
-              ) : (
-                <FormSelect
-                  value={formData.cashCounter}
-                  onChange={(e) => handleInputChange("cashCounter", e.target.value)}
-                >
-                  <option value="">Select Counter</option>
-                  <option value="counter1">Counter 1</option>
-                  <option value="counter2">Counter 2</option>
-                  <option value="counter3">Counter 3</option>
-                </FormSelect>
-              )}
+              <FormInput
+                type="text"
+                value={formData.cashCounterName}
+                readOnly
+                placeholder="Fetching cash counter..."
+              />
             </FormGroup>
 
             {/* Opening Balance */}
