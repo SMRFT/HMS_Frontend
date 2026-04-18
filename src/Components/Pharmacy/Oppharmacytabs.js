@@ -6,6 +6,7 @@ import OPPharmacyViewBills from "../Pharmacy/OPPharmacyViewBills";
 import OPPharmacy from "../Pharmacy/OPPharmacy";
 import ViewEstimate from "../Pharmacy/Viewestimate";
 import MedicineChart from "./Medicinechart";
+import apiRequest from "../../Auth/apiRequest";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
@@ -96,6 +97,7 @@ const OPPharmacyTabs = () => {
 
   // ── Ward request state (used for MedicineChart → Convert to Bill flow) ──
   const [wardRequestToLoad, setWardRequestToLoad] = useState(null);
+  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const handleConvertEstimate = (estimate) => {
     setEstimateToLoad(estimate);

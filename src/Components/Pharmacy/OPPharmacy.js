@@ -858,6 +858,10 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
           look_alike: item.look_alike === true,
           sound_alike: item.sound_alike === true,
 
+          chemical_composition: item.chemical_composition || "—",
+          shelf_no: item.shelf_no || "—",
+          rack_no: item.rack_no || "—",
+
           quantity: 0,
           total: 0,
         }));
@@ -1110,6 +1114,64 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     setSaving(true);
 
     try {
+      // ── Ward Request → Convert to Bill ────────────────────────────────────
+      // When the bill originates from MedicineChart ("Convert to Bill"), the
+      // record already exists in the DB with its own Bill_id.
+      // We skip save_oppharmacy_bill entirely and call finalize_bill directly.
+      // finalize_bill handles: bill_no generation, stock update (blocked_quantity),
+      // and setting billing_status → "Billed".
+      if (isWardRequest && intentStatus !== "Estimate") {
+        const hasBillId = recordId !== undefined && recordId !== null && recordId !== "" && recordId !== 0;
+
+        if (!hasBillId) {
+          toast.error("Cannot finalize: Bill_id is missing for this ward request.", { autoClose: 3000 });
+          setSaving(false);
+          return;
+        }
+
+        console.log("🏥 Ward request → calling finalize_bill directly | Bill_id:", recordId);
+
+        const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
+          Bill_id: parseInt(recordId),
+        });
+
+        console.log("finalize_bill RESPONSE:", finalizeRes);
+
+        if (finalizeRes.success) {
+          const savedBillNo = finalizeRes.data?.bill_no || finalizeRes.bill_no || "";
+          const backendMsg  = finalizeRes.data?.message || finalizeRes.message;
+          toast.success(backendMsg || `Bill finalized successfully! #${savedBillNo}`, { autoClose: 2000 });
+
+          const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
+          const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+
+          setPrintBillData({
+            billNo: savedBillNo,
+            billDate: formData.billDate,
+            patientName: formData.name,
+            uhid: formData.uhid,
+            doctorName,
+            cashierId: formData.cashier_id || "",
+            medicines: [...addedMedicines],
+            totalAmount,
+            totalItemDiscount,
+            overallDiscountType,
+            overallDiscountValue,
+            netAmount,
+            paymentMode,
+          });
+          setShowPrintModal(true);
+          resetForm();
+          setTodayBillDate();
+        } else {
+          const backendErr = finalizeRes.data?.error || finalizeRes.error;
+          toast.error(backendErr || "Finalize bill failed.", { autoClose: 2000 });
+        }
+
+        return; // ← done; skip the normal save_oppharmacy_bill path below
+      }
+
+      // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
       const finalItems = addedMedicines.map((m) => ({
         item_id: Number(m.item_id),
         batch_number: String(m.batch_number),
@@ -1134,18 +1196,17 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         billing_mode = "ESTIMATE";
       } else {
         status = "Billed";
-        if (isWardRequest) {
-          billing_mode = "WARD_REQUEST";
-        } else if (loadedEstimateNo) {
+        if (loadedEstimateNo) {
           billing_mode = "ESTIMATE";
         } else {
           billing_mode = "DIRECT";
         }
       }
 
-     const paymentFields = {
-      payment_mode: paymentMode === "cash" ? "Cash" : paymentMode === "credit" ? "Credit" : null
-    };
+      const paymentFields = {
+        payment_mode: paymentMode === "cash" ? "Cash" : paymentMode === "credit" ? "Credit" : null
+      };
+
       const basePayload = {
         bill_date: formData.billDate,
         bill_type: formData.billType,
@@ -2620,6 +2681,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                         <Th>Avail. Stock</Th>
                         <Th>HSN Code</Th>
                         <Th>Classification</Th>
+                        <Th>Chemical Composition</Th>
+                        <Th>Shelf No</Th>
+                        <Th>Rack No</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2700,6 +2764,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                             </Td>
                             <Td>{medicine.hsn_code || "—"}</Td>
                             <Td>{medicine.classification || "PHARMACY"}</Td>
+                            <Td>{medicine.chemical_composition || "—"}</Td>
+                            <Td>{medicine.shelf_no || "—"}</Td>
+                            <Td>{medicine.rack_no || "—"}</Td>
                           </Tr>
                         );
                       })}

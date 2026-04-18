@@ -358,22 +358,25 @@ const BillingStatusBadge = styled.span`
   letter-spacing: 0.03em;
   white-space: nowrap;
   background: ${({ $status }) =>
-    $status === "Pending"   ? "#fef3c7" :
-    $status === "Approved"  ? "#dcfce7" :
-    $status === "Cancelled" ? "#fee2e2" :
-    $status === "Billed"    ? "#dbeafe" :
+    $status === "Pending"    ? "#fef3c7" :
+    $status === "Processing" ? "#ede9fe" :
+    $status === "Approved"   ? "#dcfce7" :
+    $status === "Cancelled"  ? "#fee2e2" :
+    $status === "Billed"     ? "#dbeafe" :
     "#f1f5f9"};
   color: ${({ $status }) =>
-    $status === "Pending"   ? "#b45309" :
-    $status === "Approved"  ? "#16a34a" :
-    $status === "Cancelled" ? "#dc2626" :
-    $status === "Billed"    ? "#1d4ed8" :
+    $status === "Pending"    ? "#b45309" :
+    $status === "Processing" ? "#7c3aed" :
+    $status === "Approved"   ? "#16a34a" :
+    $status === "Cancelled"  ? "#dc2626" :
+    $status === "Billed"     ? "#1d4ed8" :
     "#64748b"};
   border: 1px solid ${({ $status }) =>
-    $status === "Pending"   ? "#fcd34d" :
-    $status === "Approved"  ? "#86efac" :
-    $status === "Cancelled" ? "#fca5a5" :
-    $status === "Billed"    ? "#93c5fd" :
+    $status === "Pending"    ? "#fcd34d" :
+    $status === "Processing" ? "#c4b5fd" :
+    $status === "Approved"   ? "#86efac" :
+    $status === "Cancelled"  ? "#fca5a5" :
+    $status === "Billed"     ? "#93c5fd" :
     "#e2e8f0"};
 `;
 
@@ -651,6 +654,181 @@ const PrintIconBtn = styled.button`
   &:hover { background: #e6faf8; }
 `;
 
+// ─── Substitute Modal Styled Components ──────────────────────────────────────
+const SubstOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const SubstModalBox = styled.div`
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  width: 520px;
+  max-width: 96vw;
+  animation: ${fadeIn} 0.2s ease;
+  overflow: hidden;
+`;
+
+const SubstModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+`;
+
+const SubstModalTitle = styled.span`
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+`;
+
+const SubstCloseX = styled.button`
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.85;
+  &:hover { opacity: 1; }
+`;
+
+const SubstBody = styled.div`
+  padding: 22px 24px 18px;
+`;
+
+const SubstFieldLabel = styled.label`
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+`;
+
+const SubstInputWrapper = styled.div`
+  position: relative;
+`;
+
+const SubstInput = styled.input`
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #fff;
+  box-sizing: border-box;
+  outline: none;
+  &:focus { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,0.1); }
+`;
+
+const SubstDropList = styled.ul`
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 7px;
+  box-shadow: 0 6px 24px rgba(15,118,110,0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+`;
+
+const SubstDropItem = styled.li`
+  padding: 9px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #1e293b;
+  font-weight: 500;
+  transition: background 0.12s;
+  &:hover, &.highlighted {
+    background: #0f766e;
+    color: #fff;
+  }
+`;
+
+const SubstSelectedTag = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: #e6faf8;
+  border: 1.5px solid #99f6e4;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f766e;
+`;
+
+const SubstTagClose = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #0f766e;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  &:hover { color: #dc2626; }
+`;
+
+const SubstFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+`;
+
+const SubstCloseBtn = styled.button`
+  padding: 8px 20px;
+  background: #374151;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { background: #1e293b; }
+`;
+
+const SubstConfirmBtn = styled.button`
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { opacity: 0.88; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+
 // ─── Portal Dropdown — renders into document.body to escape overflow:hidden ────
 const PortalDropdown = ({ menuKey, openActionMenu, pos, children }) => {
   if (openActionMenu !== menuKey || !pos) return null;
@@ -674,6 +852,14 @@ const MedicineChart = ({ onConvertToBill }) => {
   const [fromDate, setFromDate]         = useState(todayStr);
   const [toDate, setToDate]             = useState(todayStr);
   const [printPatient, setPrintPatient] = useState(null); // patient to print
+
+  // ─── Substitute Modal State ───────────────────────────────────────────────
+  const [substituteModal, setSubstituteModal] = useState(null); // { patientIdx, itemIdx }
+  const [substSearch, setSubstSearch]         = useState("");
+  const [substSelected, setSubstSelected]     = useState(null); // chosen medicine object
+  const [substDropOpen, setSubstDropOpen]     = useState(false);
+  const [medicines, setMedicines]             = useState([]);   // from get_oppharmacy_stock
+  const HmsBaseUrl = Hmsbaseurl;
 
   // ─── Helper: fetch patient_details for a single UHID ─────────────────────
   const fetchPatientDetails = async (uhid) => {
@@ -863,15 +1049,12 @@ const MedicineChart = ({ onConvertToBill }) => {
     setOpenActionMenu(null);
   };
 
-  // ✅ FIX: Safe Convert to Bill handler
-  // Validates medicine_items before passing to parent,
-  // so parent never receives a patient with undefined/empty items.
-  const handleConvertToBillSafe = useCallback((patient) => {
+  // ✅ Convert to Bill — calls convert_to_bill API (sets billing_status = "Processing")
+  // finalize_bill (blocked_quantity update) is called by OPPharmacy AFTER successful PATCH save
+  const handleConvertToBillSafe = useCallback(async (patient) => {
     if (typeof onConvertToBill !== "function") return;
 
-    // Safely resolve medicine_items — never undefined
     const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
-
     if (items.length === 0) {
       alert(
         `No medicine items found for patient ${
@@ -881,9 +1064,149 @@ const MedicineChart = ({ onConvertToBill }) => {
       return;
     }
 
-    // Pass full patient record — OPPharmacy's convertWardRequest handles the mapping
+    const billId = patient.Bill_id ?? patient.bill_id ?? null;
+
+    // Step 1 — set billing_status = "Processing" in DB
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}convert_to_bill/`, "POST", { Bill_id: billId });
+      if (!res.success) {
+        console.error("convert_to_bill API error:", res.error);
+      }
+    } catch (err) {
+      console.error("convert_to_bill API failed:", err);
+    }
+
+    // Step 2 — optimistic UI: reflect "Processing" status in the list
+    setMedicineData(prev =>
+      prev.map(p =>
+        (p.Bill_id ?? p.bill_id) === billId
+          ? { ...p, billing_status: "Processing" }
+          : p
+      )
+    );
+
+    // Step 3 — hand off to parent (switches to pharmacy bill tab)
     onConvertToBill({ ...patient, medicine_items: items });
-  }, [onConvertToBill]);
+  }, [onConvertToBill, HmsBaseUrl]);
+
+  // ─── Fetch pharmacy stock for substitute dropdown ─────────────────────────
+  useEffect(() => {
+    if (!HmsBaseUrl) return;
+    const fetchMedicines = async () => {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "POST");
+        const medicineArray = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        if (response.success) {
+          const formatted = medicineArray.map((item) => ({
+            name: item.item_name || "",
+            item_id: item.item_id,
+            batch_number: item.batch_number || "N/A",
+            expiry_date: item.expiry_date || "N/A",
+            mrp: parseFloat(item.mrp || 0),
+            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
+            category: item.category || "",
+          }));
+          // Deduplicate by item_id — keep unique names
+          const seen = new Set();
+          const unique = formatted.filter(m => {
+            if (seen.has(m.item_id)) return false;
+            seen.add(m.item_id);
+            return true;
+          });
+          setMedicines(unique);
+        }
+      } catch (err) {
+        console.error("Error fetching medicines for substitute:", err);
+      }
+    };
+    fetchMedicines();
+  }, [HmsBaseUrl]);
+
+  // ─── Open substitute modal ────────────────────────────────────────────────
+  const openSubstituteModal = (patientIdx, itemIdx) => {
+    setSubstituteModal({ patientIdx, itemIdx });
+    setSubstSearch("");
+    setSubstSelected(null);
+    setSubstDropOpen(false);
+  };
+
+  // ─── Confirm substitution — replaces item in medicineData + persists via API ─
+  const handleSubstituteConfirm = async () => {
+    if (!substSelected || !substituteModal) return;
+
+    const { patientIdx, itemIdx } = substituteModal;
+
+    // Capture original patient + item BEFORE state update
+    const selectedPatient = medicineData[patientIdx];
+    const selectedItem    = selectedPatient?.medicine_items?.[itemIdx];
+
+    if (!selectedPatient || !selectedItem) {
+      console.error("Substitute: could not resolve patient/item at", patientIdx, itemIdx);
+      setSubstituteModal(null);
+      return;
+    }
+
+    // Build the substitute_item payload the API expects (mirrors medicine_particulars shape)
+    const substituteItemPayload = {
+      item_id:         substSelected.item_id,
+      item_name:       substSelected.name,
+      batch_number:    substSelected.batch_number || selectedItem.batch_number || "",
+      qty:             selectedItem.qty      ?? selectedItem.quantity ?? 0,
+      quantity:        selectedItem.qty      ?? selectedItem.quantity ?? 0,
+      noOfDays:        selectedItem.noOfDays  || "",
+      dosage:          selectedItem.dosage    || "",
+      dose:            selectedItem.dose      || "",
+      doseUnit:        selectedItem.doseUnit  || "",
+      route:           selectedItem.route     || "",
+      remark:          selectedItem.remark    || "",
+      is_substitute:   true,
+      substituted:     true,
+      // carry stock/price fields so Convert-to-Bill still works
+      available_stock: substSelected.available_stock ?? 9999,
+      mrp:             substSelected.mrp ?? selectedItem.mrp ?? 0,
+      price:           substSelected.mrp ?? selectedItem.price ?? 0,
+      CGST_Percentage: selectedItem.CGST_Percentage ?? 0,
+      SGST_Percentage: selectedItem.SGST_Percentage ?? 0,
+      CGST_Amt:        selectedItem.CGST_Amt ?? 0,
+      SGST_Amt:        selectedItem.SGST_Amt ?? 0,
+    };
+
+    // Optimistic UI update
+    setMedicineData(prev =>
+      prev.map((patient, pIdx) => {
+        if (pIdx !== patientIdx) return patient;
+        const updatedItems = (patient.medicine_items || []).map((item, iIdx) =>
+          iIdx === itemIdx ? substituteItemPayload : item
+        );
+        return { ...patient, medicine_items: updatedItems };
+      })
+    );
+
+    // Persist to backend — POST substitute_medicine
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}substitute_medicine/`, "POST", {
+        Bill_id:          selectedPatient.Bill_id ?? selectedPatient.bill_id ?? null,
+        item_id:          selectedItem.item_id,
+        batch_number:     selectedItem.batch_number || "",
+        substitute_item:  substituteItemPayload,
+      });
+      if (!res.success) {
+        console.error("Substitute API error:", res.error);
+      }
+    } catch (err) {
+      console.error("Substitute API failed:", err);
+    }
+
+    setSubstituteModal(null);
+  };
+  // ─── Filtered suggestions (min 2 chars typed) ────────────────────────────
+  const substSuggestions = substSearch.length >= 2
+    ? medicines.filter(m => m.name.toLowerCase().includes(substSearch.toLowerCase()))
+    : [];
 
   return (
     <>
@@ -1060,6 +1383,11 @@ const MedicineChart = ({ onConvertToBill }) => {
 
                                       const menuKey = `${patientKey}-${i}`;
 
+                                      // Find the real index of this patient in medicineData
+                                      const patientDataIdx = medicineData.findIndex(
+                                        (p, pIdx) => `${p.uhid || "row"}-${pIdx}` === patientKey
+                                      );
+
                                       return (
                                         <ItemRow key={`${item.item_id ?? i}-${i}`}>
                                          
@@ -1092,6 +1420,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     setOpenActionMenu(null);
+                                                    openSubstituteModal(patientDataIdx, i);
                                                   }}
                                                 >
                                                   🔄 Substitute
@@ -1167,6 +1496,80 @@ const MedicineChart = ({ onConvertToBill }) => {
         </Legend>
 
       </Wrapper>
+
+      {/* ── Substitute Modal ── */}
+      {substituteModal && createPortal(
+        <SubstOverlay onClick={() => setSubstituteModal(null)}>
+          <SubstModalBox onClick={e => e.stopPropagation()}>
+            <SubstModalHeader>
+              <SubstModalTitle>Substituted Item</SubstModalTitle>
+              <SubstCloseX onClick={() => setSubstituteModal(null)}>✕</SubstCloseX>
+            </SubstModalHeader>
+            <SubstBody>
+              <SubstFieldLabel>Item Name</SubstFieldLabel>
+              <SubstInputWrapper>
+                <SubstInput
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Type at least 2 letters to search..."
+                  value={substSearch}
+                  onChange={e => {
+                    setSubstSearch(e.target.value);
+                    setSubstDropOpen(true);
+                    if (!e.target.value) setSubstSelected(null);
+                  }}
+                  onFocus={() => substSearch.length >= 2 && setSubstDropOpen(true)}
+                />
+                {substDropOpen && substSuggestions.length > 0 && (
+                  <SubstDropList>
+                    {substSuggestions.map((med, idx) => (
+                      <SubstDropItem
+                        key={`${med.item_id}-${idx}`}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setSubstSelected(med);
+                          setSubstSearch(med.name);
+                          setSubstDropOpen(false);
+                        }}
+                      >
+                        {med.name}
+                      </SubstDropItem>
+                    ))}
+                  </SubstDropList>
+                )}
+              </SubstInputWrapper>
+
+              {/* Selected item tag with delete */}
+              {substSelected && (
+                <SubstSelectedTag>
+                  💊 {substSelected.name}
+                  <SubstTagClose
+                    title="Remove selection"
+                    onClick={() => {
+                      setSubstSelected(null);
+                      setSubstSearch("");
+                    }}
+                  >
+                    ✕
+                  </SubstTagClose>
+                </SubstSelectedTag>
+              )}
+            </SubstBody>
+            <SubstFooter>
+              <SubstCloseBtn onClick={() => setSubstituteModal(null)}>
+                ✕ Close
+              </SubstCloseBtn>
+              <SubstConfirmBtn
+                disabled={!substSelected}
+                onClick={handleSubstituteConfirm}
+              >
+                🔄 Substitute
+              </SubstConfirmBtn>
+            </SubstFooter>
+          </SubstModalBox>
+        </SubstOverlay>,
+        document.body
+      )}
 
       {/* ── Print Modal ── */}
       {printPatient && (() => {
