@@ -167,6 +167,11 @@ const AnesNameMaster = () => {
   const [editItem, setEditItem] = useState(null); // null = add mode
   const [formData, setFormData] = useState(emptyForm);
   const [errorMsg, setErrorMsg] = useState("");
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-AME-RW");
+  const canDelete = allowedActions.includes("HMS-P-AMD-RW");
 
   // ── Fetch list ──────────────────────────────────────────────────────────────
   const fetchAnes = useCallback(async () => {
@@ -390,12 +395,16 @@ const AnesNameMaster = () => {
                       </Td>
                       <Td>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <EditButton onClick={() => openEdit(anes)}>
-                            <Pencil size={13} /> Edit
-                          </EditButton>
-                          <DangerButton onClick={() => handleDelete(anes)}>
-                            <Trash2 size={13} /> Delete
-                          </DangerButton>
+                          {canEdit && (
+                            <EditButton onClick={() => openEdit(anes)}>
+                              <Pencil size={13} /> Edit
+                            </EditButton>
+                          )}
+                          {canDelete && (
+                            <DangerButton onClick={() => handleDelete(anes)}>
+                              <Trash2 size={13} /> Delete
+                            </DangerButton>
+                          )}
                         </div>
                       </Td>
                     </Tr>

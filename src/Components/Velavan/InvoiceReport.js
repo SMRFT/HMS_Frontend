@@ -303,6 +303,11 @@ const InvoiceReport = () => {
   const [historyData, setHistoryData] = useState([]);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-VINE-RW");
+  const canApprove = allowedActions.includes("HMS-P-VINA-RW");
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -1821,41 +1826,49 @@ const InvoiceReport = () => {
                       </button>
 
                       {/* Edit — disabled when approved */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          opacity: row.is_approved ? 0.35 : 1,
-                          cursor: row.is_approved ? "not-allowed" : "pointer",
-                          color: row.is_approved
-                            ? colors.textMuted
-                            : actionBtn.color,
-                        }}
-                        title={
-                          row.is_approved ? "Approved — editing locked" : "Edit"
-                        }
-                        onClick={() => !row.is_approved && handleEdit(row)}
-                        disabled={row.is_approved}
-                      >
-                        <Edit3 size={14} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          style={{
+                            ...actionBtn,
+                            opacity: row.is_approved ? 0.35 : 1,
+                            cursor: row.is_approved ? "not-allowed" : "pointer",
+                            color: row.is_approved
+                              ? colors.textMuted
+                              : actionBtn.color,
+                          }}
+                          title={
+                            row.is_approved
+                              ? "Approved — editing locked"
+                              : "Edit"
+                          }
+                          onClick={() => !row.is_approved && handleEdit(row)}
+                          disabled={row.is_approved}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      )}
 
                       {/* Approve toggle */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          color: row.is_approved ? "#16a34a" : "#d97706",
-                          borderColor: row.is_approved ? "#16a34a" : "#d97706",
-                          cursor: row.is_approved ? "default" : "pointer",
-                        }}
-                        title={
-                          row.is_approved
-                            ? `Approved by ${row.approved_by || "—"}`
-                            : "Click to Approve"
-                        }
-                        onClick={() => !row.is_approved && handleApprove(row)}
-                      >
-                        <CheckCircle size={14} />
-                      </button>
+                      {canApprove && (
+                        <button
+                          style={{
+                            ...actionBtn,
+                            color: row.is_approved ? "#16a34a" : "#d97706",
+                            borderColor: row.is_approved
+                              ? "#16a34a"
+                              : "#d97706",
+                            cursor: row.is_approved ? "default" : "pointer",
+                          }}
+                          title={
+                            row.is_approved
+                              ? `Approved by ${row.approved_by || "—"}`
+                              : "Click to Approve"
+                          }
+                          onClick={() => !row.is_approved && handleApprove(row)}
+                        >
+                          <CheckCircle size={14} />
+                        </button>
+                      )}
 
                       {/* GRN Print */}
                       <button
