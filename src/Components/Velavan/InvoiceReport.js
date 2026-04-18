@@ -11,6 +11,7 @@ import {
   X,
   History,
   ArrowLeft,
+  CheckCircle, // ← add CheckCircle
 } from "lucide-react";
 
 import {
@@ -437,6 +438,44 @@ const InvoiceReport = () => {
   const handleEdit = (record) =>
     navigate("/InvoiceGeneration", { state: { record } });
 
+  const handleApprove = async (record) => {
+    if (record.is_approved) return;
+    const confirm = window.confirm(
+      `Approve GRN ${record.grn_number}?\nThis cannot be undone.`,
+    );
+    if (!confirm) return;
+
+    try {
+      const response = await apiRequest(
+        `${HMSURL}velavan/invoices/approve/${encodeURIComponent(record.grn_number)}/`,
+        "PATCH",
+      );
+      if (!response.success || response.data?.status !== "success") {
+        throw new Error(response.data?.message || "Approval failed");
+      }
+      toast.success(`${record.grn_number} approved successfully`);
+      // Refresh local state
+      setAllData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number
+            ? {
+                ...r,
+                is_approved: true,
+                approved_by: response.data.data?.approved_by,
+              }
+            : r,
+        ),
+      );
+      setFilteredData((prev) =>
+        prev.map((r) =>
+          r.grn_number === record.grn_number ? { ...r, is_approved: true } : r,
+        ),
+      );
+    } catch (err) {
+      toast.error(err.message || "Approval failed");
+    }
+  };
+
   // ── Open print window ────────────────────────────────────────────
   const openPrintWindow = (title, css, bodyHtml) => {
     const pw = window.open("", "", "width=1000,height=750");
@@ -520,7 +559,7 @@ const InvoiceReport = () => {
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th><th rowspan="2">MRP</th>
             <th rowspan="2">Discount %</th><th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Taxable Amt</th>
+            <th rowspan="2">Non-Taxable Amt</th>
             <th colspan="2" class="col-grp">Purchase Tax (${items[0]?.tax || 0}%)</th>
             <th colspan="2">Selling Tax (${items[0]?.sellingTax || 0}%)</th>
             <th rowspan="2">Unit Cost<br/>(with GST)</th>
@@ -566,12 +605,12 @@ const InvoiceReport = () => {
             .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${parseFloat(record.taxable_amount || 0).toFixed(2)}</td>
+            <td class="r">₹${parseFloat(record.non_taxable_amount || 0).toFixed(2)}</td>
             <td class="r col-grp">₹${parseFloat(record.cgst || 0).toFixed(2)}</td>
             <td class="r">₹${parseFloat(record.sgst || 0).toFixed(2)}</td>
             <td colspan="2"></td><td></td>
             <td class="r col-grp"><b>₹${parseFloat(record.total_amount || 0).toFixed(2)}</b></td>
-            <td colspan="2"></td>
+            <td colspan="2"class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -651,206 +690,6 @@ const InvoiceReport = () => {
     openPrintWindow(`GRN Invoice - ${record.grn_number}`, css, body);
   };
 
-  // ── Sales Print ──────────────────────────────────────────────────
-  const handleSalesPrint = (record) => {
-    const items = parseItems(record.items);
-
-    const sellingNonTaxableAmt = items.reduce(
-      (sum, item) =>
-        sum +
-        parseFloat(item.sellingUnitCost || 0) * parseFloat(item.quantity || 0),
-      0,
-    );
-
-    const sellingCgst = items.reduce(
-      (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
-      0,
-    );
-
-    const sellingSgst = items.reduce(
-      (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
-      0,
-    );
-
-    const sellingTotal =
-      items.reduce(
-        (sum, item) =>
-          sum +
-          parseFloat(item.unitSellingCost || 0) *
-            parseFloat(item.quantity || 0),
-        0,
-      ) +
-      sellingCgst +
-      sellingSgst;
-
-    const hasPatient =
-      record.ip_number || record.patient_name || record.surgeon_name;
-
-    const css = `
-  body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
-  h1{font-size:18px;font-weight:bold;color:#000;text-align:center;margin:0 0 3px}
-  .sub{text-align:center;font-size:11px;margin:2px 0;color:#000}
-  .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
-    background:#fff;border:2px solid #000;color:#000;text-align:center}
-  .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
-  .sec{border-right:1px solid #000;vertical-align:top}
-  .sec:last-child{border-right:none}
-  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
-  .cnt{padding:8px;text-align:left;vertical-align:top}
-  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
-  .row b{white-space:nowrap}
-  table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
-  table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
-  table.items th{background:#fff;font-weight:bold;color:#000;font-size:9.5px;white-space:nowrap}
-  .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
-  .tot{background:#fff;font-weight:bold}
-  .summary{display:flex;gap:10px;margin-top:14px}
-  .gst{flex:1;border:2px solid #000;background:#fff;padding:10px}
-  .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#000;border-bottom:1px solid #000;padding-bottom:4px}
-  .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#000}
-  .amts{min-width:240px;border:2px solid #000}
-  .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #000;font-size:11px;padding:6px 12px;font-weight:bold;color:#000}
-  .amt-row:last-child{border-bottom:none;background:#fff;color:#000}
-  .words{margin:12px 0;padding:10px;background:#fff;border:2px solid #000;font-size:11px}
-  .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #000}
-`;
-
-    const colWidth = hasPatient ? "33%" : "50%";
-
-    const itemsHtml =
-      items.length > 0
-        ? `
-      <table class="items">
-        <thead>
-          <tr>
-            <th rowspan="2">Sl.</th>
-            <th rowspan="2" class="l" style="min-width:130px">Product</th>
-            <th rowspan="2">HSN</th>
-            <th rowspan="2">Batch No</th>
-            <th rowspan="2">Expiry</th>
-            <th rowspan="2">Qty</th>
-            <th rowspan="2">Unit Price</th>
-            <th rowspan="2">Disc. %</th>
-            <th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Non-Taxable Amt</th>
-            <th colspan="2" style="border-left:2px solid #000">CGST</th>
-            <th colspan="2">SGST</th>
-            <th rowspan="2">Total Amt</th>
-          </tr>
-          <tr>
-            <th style="border-left:2px solid #000">Rate %</th><th>Amt (₹)</th>
-            <th>Rate %</th><th>Amt (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items
-            .map((item, i) => {
-              const qty = parseFloat(item.quantity || 0);
-              const unitSelling = parseFloat(item.sellingUnitCost || 0);
-              const nonTaxableAmt = unitSelling * qty;
-              const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
-              const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
-              const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
-              return `<tr>
-              <td>${i + 1}</td>
-              <td class="l">${item.name || "N/A"}</td>
-              <td>${item.hsn || "N/A"}</td>
-              <td>${item.batch_no || "—"}</td>
-              <td>${item.expiry || "—"}</td>
-              <td><b>${item.quantity || 0}</b></td>
-              <td class="r">₹${unitSelling.toFixed(2)}</td>
-              <td class="r">${item.sellingDiscountPercent || "0"}%</td>
-              <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
-              <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
-              <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
-              <td class="r">₹${cgstAmt.toFixed(2)}</td>
-              <td>${item.sellingsgstPercent || 0}%</td>
-              <td class="r">₹${sgstAmt.toFixed(2)}</td>
-              <td class="r"><b>₹${lineTotal.toFixed(2)}</b></td>
-            </tr>`;
-            })
-            .join("")}
-          <tr class="tot">
-            <td colspan="9" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
-            <td style="border-left:2px solid #000"></td>
-            <td class="r">₹${sellingCgst.toFixed(2)}</td>
-            <td></td>
-            <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
-          </tr>
-        </tbody>
-      </table>`
-        : "<p style='text-align:center;color:#888'>No items</p>";
-
-    const body = `
-      <h1>${record.vendor || ""}</h1>
-      <div class="sub">${cleanAddress(record.address)}</div>
-      <div class="sub">Phone: ${record.phone || ""} | GSTIN: ${record.gstin || ""}</div>
-      <div class="doctype">SALES INVOICE — ${record.grn_number}</div>
-
-      <table class="grid">
-        <thead>
-          <tr>
-            <td class="sec hdr" style="width:${colWidth}">Invoice Details</td>
-            <td class="sec hdr" style="width:${colWidth}">Billed To</td>
-            ${hasPatient ? `<td class="sec hdr" style="width:34%">Patient Details</td>` : ""}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
-            </td>
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
-              <div class="row"><b>Address:</b><br/>51/24, Saradha College Road,<br/>Salem - 636007</div>
-              <div class="row"><b>Phone:</b> 04272706666</div>
-              <div class="row"><b>GSTIN:</b> 33ABDCS8326A1ZP</div>
-            </td>
-            ${
-              hasPatient
-                ? `
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
-              ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-              ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
-              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type}${record.company_name ? ` - ${record.company_name}` : ""}</div>` : ""}
-            </td>`
-                : ""
-            }
-          </tr>
-        </tbody>
-      </table>
-
-      ${itemsHtml}
-      <div class="summary">
-        <div class="gst">
-          <div class="gst-title">GST Summary</div>
-          <div class="gst-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
-          <div class="gst-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="gst-row" style="border-top:1px solid #000;padding-top:4px;margin-top:6px">
-            <span>Total GST</span><span>₹${(sellingCgst + sellingSgst).toFixed(2)}</span>
-          </div>
-        </div>
-        <div class="amts">
-          <div class="amt-row"><span>Non-Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
-          <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span><b>Net Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
-        </div>
-      </div>
-      <div class="words"><b>Amount in Words:</b> ${numberToWords(sellingTotal)}</div>
-      <div class="footer">
-        <div><b>Prepared By:</b> ${record.created_by || "N/A"}</div>
-        <div style="text-align:center"><b>Authorized Signatory</b><br/><br/>________________________</div>
-      </div>`;
-
-    openPrintWindow(`Sales Invoice - ${record.grn_number}`, css, body);
-  };
-
   // ── Velavan Print ────────────────────────────────────────────────
   const handleVelavanPrint = (record) => {
     const items = parseItems(record.items);
@@ -872,16 +711,22 @@ const InvoiceReport = () => {
       0,
     );
 
-    const sellingTotal =
-      items.reduce(
-        (sum, item) =>
-          sum +
-          parseFloat(item.unitSellingCost || 0) *
-            parseFloat(item.quantity || 0),
-        0,
-      ) +
-      sellingCgst +
-      sellingSgst;
+    const sellingTotal = items.reduce(
+      (sum, item) =>
+        sum +
+        parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
+      0,
+    );
+    // ── Round-off logic ──────────────────────────────────────────
+    const decimal = sellingTotal - Math.floor(sellingTotal);
+    let roundOff = 0;
+    if (decimal >= 0.5) {
+      roundOff = 1 - decimal; // add to reach next whole number
+    } else {
+      roundOff = -decimal; // subtract to reach previous whole number
+    }
+    const roundedTotal = sellingTotal + roundOff;
+    // ─────────────────────────────────────────────────────────────
 
     const hasPatient =
       record.ip_number || record.patient_name || record.surgeon_name;
@@ -896,9 +741,9 @@ const InvoiceReport = () => {
   .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
   .sec{border-right:1px solid #000;vertical-align:top}
   .sec:last-child{border-right:none}
-  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:11px}
+  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:13px}
   .cnt{padding:8px;text-align:left;vertical-align:top}
-  .row{margin:4px 0;font-size:11px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
+  .row{margin:4px 0;font-size:13px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
   .row b{white-space:nowrap}
   table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
   table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
@@ -931,9 +776,10 @@ const InvoiceReport = () => {
             <th rowspan="2">Expiry</th>
             <th rowspan="2">Qty</th>
             <th rowspan="2">Unit Price</th>
+            <th rowspan="2">MRP</th>
             <th rowspan="2">Disc. %</th>
             <th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Non-Taxable Amt</th>
+            <th rowspan="2">Taxable Amt</th>
             <th colspan="2" style="border-left:2px solid #000">CGST</th>
             <th colspan="2">SGST</th>
             <th rowspan="2">Total Amt</th>
@@ -961,6 +807,7 @@ const InvoiceReport = () => {
               <td>${item.expiry || "—"}</td>
               <td><b>${item.quantity || 0}</b></td>
               <td class="r">₹${unitSelling.toFixed(2)}</td>
+              <td class="r">₹${item.mrp || 0}</td>
               <td class="r">${item.sellingDiscountPercent || "0"}%</td>
               <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
               <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
@@ -973,7 +820,7 @@ const InvoiceReport = () => {
             })
             .join("")}
           <tr class="tot">
-            <td colspan="9" class="r"><b>TOTAL</b></td>
+            <td colspan="10" class="r"><b>TOTAL</b></td>
             <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
             <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
@@ -1005,7 +852,7 @@ const InvoiceReport = () => {
           <tr>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-              <div class="row"><b>Invoice Date:</b> ${formatDate(record.date)}</div>
+              <div class="row"><b>Invoice Date:</b> ${formatDate(record.invoice_date)}</div>
             </td>
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
@@ -1040,13 +887,17 @@ const InvoiceReport = () => {
           </div>
         </div>
         <div class="amts">
-          <div class="amt-row"><span>Non-Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
+          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span><b>Net Amount</b></span><span><b>₹${sellingTotal.toFixed(2)}</b></span></div>
+          <div class="amt-row">
+            <span>Round Off</span>
+            <span>${roundOff >= 0 ? "+" : ""}₹${roundOff.toFixed(2)}</span>
+          </div>
+          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${roundedTotal.toFixed(2)}</b></span></div>
         </div>
       </div>
-      <div class="words"><b>Amount in Words:</b> ${numberToWords(sellingTotal)}</div>
+      <div class="words"><b>Amount in Words:</b> ${numberToWords(roundedTotal)}</div>
       <div class="footer">
         <div><b>Prepared By:</b> ${record.created_by || "N/A"}</div>
         <div style="text-align:center"><b>Authorized Signatory</b><br/><br/>________________________</div>
@@ -1931,6 +1782,7 @@ const InvoiceReport = () => {
                       {formatCurrency(row.net_invoice_amount)}
                     </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
+                      {/* View */}
                       <button
                         style={actionBtn}
                         title="View"
@@ -1938,13 +1790,45 @@ const InvoiceReport = () => {
                       >
                         <Eye size={14} />
                       </button>
+
+                      {/* Edit — disabled when approved */}
                       <button
-                        style={actionBtn}
-                        title="Edit"
-                        onClick={() => handleEdit(row)}
+                        style={{
+                          ...actionBtn,
+                          opacity: row.is_approved ? 0.35 : 1,
+                          cursor: row.is_approved ? "not-allowed" : "pointer",
+                          color: row.is_approved
+                            ? colors.textMuted
+                            : actionBtn.color,
+                        }}
+                        title={
+                          row.is_approved ? "Approved — editing locked" : "Edit"
+                        }
+                        onClick={() => !row.is_approved && handleEdit(row)}
+                        disabled={row.is_approved}
                       >
                         <Edit3 size={14} />
                       </button>
+
+                      {/* Approve toggle */}
+                      <button
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#16a34a" : "#d97706",
+                          borderColor: row.is_approved ? "#16a34a" : "#d97706",
+                          cursor: row.is_approved ? "default" : "pointer",
+                        }}
+                        title={
+                          row.is_approved
+                            ? `Approved by ${row.approved_by || "—"}`
+                            : "Click to Approve"
+                        }
+                        onClick={() => !row.is_approved && handleApprove(row)}
+                      >
+                        <CheckCircle size={14} />
+                      </button>
+
+                      {/* GRN Print */}
                       <button
                         style={actionBtn}
                         title="GRN Print"
@@ -1952,26 +1836,27 @@ const InvoiceReport = () => {
                       >
                         <Printer size={14} />
                       </button>
+
+                      {/* Velavan Print */}
                       <button
-                        style={{ ...actionBtn, color: "#0369a1" }}
-                        title="Sales Print"
-                        onClick={() => handleSalesPrint(row)}
-                      >
-                        <Printer size={14} />
-                        <span
-                          style={{
-                            fontSize: "0.65rem",
-                            marginLeft: 2,
-                            fontWeight: 600,
-                          }}
-                        >
-                          S
-                        </span>
-                      </button>
-                      <button
-                        style={{ ...actionBtn, color: "#7c3aed" }}
-                        title="Velavan Print"
-                        onClick={() => handleVelavanPrint(row)}
+                        style={{
+                          ...actionBtn,
+                          color: row.is_approved ? "#7c3aed" : colors.textMuted,
+                          borderColor: row.is_approved
+                            ? "#7c3aed"
+                            : colors.border,
+                          opacity: row.is_approved ? 1 : 0.35,
+                          cursor: row.is_approved ? "pointer" : "not-allowed",
+                        }}
+                        title={
+                          row.is_approved
+                            ? "Velavan Print"
+                            : "Approve invoice to enable Velavan Print"
+                        }
+                        onClick={() =>
+                          row.is_approved && handleVelavanPrint(row)
+                        }
+                        disabled={!row.is_approved}
                       >
                         <Printer size={14} />
                         <span

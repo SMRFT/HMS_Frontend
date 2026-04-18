@@ -545,11 +545,26 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
                catch { return []; }
             })();
             
+            const currentOutlet = localStorage.getItem("selected_outlet");
             const allowedPages = (group.pages || []).filter((page) => {
               const perms = page.permissions || [];
-              if (perms.length > 0 && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
+              // Check if permissions are defined (either as non-empty array or non-empty object)
+              const hasDefinedPermissions = Array.isArray(perms) 
+                ? perms.length > 0 
+                : (perms && typeof perms === 'object' && Object.keys(perms).length > 0);
+
+              if (hasDefinedPermissions && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
                 return false;
               }
+
+              // Check if the page is bound to a specific outlet
+              if (page.outlet_code && page.outlet_code.trim() !== '') {
+                // If it is bound, only show if it matches the current active outlet
+                if (page.outlet_code !== currentOutlet) {
+                  return false;
+                }
+              }
+
               return true;
             });
             

@@ -6,6 +6,24 @@ import {
   InputWrapper, Label, Input, Button, ButtonContainer,
   TableWrapper, Table, Th, Td, Tr, SectionHeader,
 } from "../GlobalStyles";
+import styled from "styled-components";
+
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  padding: 11px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 16px;
+`;
+const PageTitle = styled.h2`
+  font-size: .92rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: .04em;
+`;
 
 const RoomCategory = () => {
   const [categories, setCategories] = useState([]);
@@ -93,7 +111,9 @@ const RoomCategory = () => {
   return (
     <PageWrapper>
       <Container>
-        <SectionHeader><h3>Room Category Management</h3></SectionHeader>
+        <PageHeader>
+          <PageTitle>🏥 Room Category Management</PageTitle>
+        </PageHeader>
 
         <FormContent>
           <form onSubmit={handleSubmit}>

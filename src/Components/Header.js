@@ -72,7 +72,13 @@ const HeaderContainer = styled.header`
     padding: 0 14px;
     gap: 10px;
   }
+
+  @media (max-width: 480px) {
+    padding: 0 8px;
+    gap: 6px;
+  }
 `;
+
 
 /* Offset helper — add this class to your main layout wrapper */
 /* e.g. <main style={{ paddingTop: "62px" }}> */
@@ -83,7 +89,12 @@ const BrandingSection = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  
+  @media (max-width: 480px) {
+    gap: 8px;
+  }
 `;
 
 const BrandIconWrap = styled.div`
@@ -106,6 +117,7 @@ const BrandTextGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 0;
+  min-width: 0;
 
   @media (max-width: 640px) {
     flex-direction: column;
@@ -122,9 +134,16 @@ const HospitalName = styled.h1`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 
   span {
     color: ${colors.primary};
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.78rem;
+    letter-spacing: 0.2px;
   }
 `;
 
@@ -214,6 +233,88 @@ const DateText = styled.div`
   letter-spacing: 0.2px;
   line-height: 1.2;
 `;
+// ── Outlet Display ────────────────────────────────────────────────────────────
+const OutletSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: rgba(13, 148, 136, 0.05);
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  border-radius: 12px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(13, 148, 136, 0.08);
+    border-color: rgba(13, 148, 136, 0.3);
+  }
+
+  @media (max-width: 1024px) {
+    display: none;
+  }
+`;
+
+const OutletIconBox = styled.div`
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: ${colors.primary};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.2);
+`;
+
+const OutletTextGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+`;
+
+const OutletLabel = styled.span`
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const OutletName = styled.span`
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: ${colors.textMain};
+  white-space: nowrap;
+`;
+
+const SwitchBtn = styled.button`
+  margin-left: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(13, 148, 136, 0.2);
+  background: white;
+  color: ${colors.primary};
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  &:hover {
+    background: ${colors.primary};
+    color: white;
+    border-color: ${colors.primary};
+  }
+  
+  svg {
+    width: 10px;
+    height: 10px;
+  }
+`;
 
 // ── Right: Actions ────────────────────────────────────────────────────────────
 
@@ -222,6 +323,10 @@ const ActionSection = styled.div`
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
 `;
 
 const HeaderDivider = styled.div`
@@ -265,6 +370,11 @@ const IconBtn = styled.button`
   @media (max-width: 480px) {
     width: 32px;
     height: 32px;
+    ${({ $hideOnMobile }) =>
+      $hideOnMobile &&
+      css`
+        display: none;
+      `}
   }
 `;
 
@@ -309,6 +419,12 @@ const UserProfileBtn = styled.button`
       border-color: ${colors.primary};
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
     `}
+
+  @media (max-width: 480px) {
+    padding: 4px;
+    gap: 0;
+    border-radius: 9px;
+  }
 `;
 
 const UserAvatar = styled.div`
@@ -523,7 +639,7 @@ const SessionStatus = styled.div`
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
+const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, hasMultipleOutlets }) => {
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -640,6 +756,24 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
 
       <div style={{ flex: 1 }} />
 
+      {/* ── Outlet Info ── */}
+      {localStorage.getItem("selected_outlet") && (
+        <OutletSection>
+          <OutletIconBox>
+            <MapPin size={14} />
+          </OutletIconBox>
+          <OutletTextGroup>
+            <OutletLabel>Active Outlet</OutletLabel>
+            <OutletName>{localStorage.getItem("selected_outlet_name") || localStorage.getItem("selected_outlet")}</OutletName>
+          </OutletTextGroup>
+          {hasMultipleOutlets && (
+            <SwitchBtn onClick={onSwitchOutlet}>
+              <RefreshCw size={10} /> Switch
+            </SwitchBtn>
+          )}
+        </OutletSection>
+      )}
+
       {/* ── Clock ── */}
       <ClockSection>
         <ClockIconBox>
@@ -654,7 +788,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
       {/* ── Right: Actions ── */}
       <ActionSection>
         {/* Refresh */}
-        <IconBtn onClick={handleRefresh} title="Refresh Page">
+        <IconBtn onClick={handleRefresh} title="Refresh Page" $hideOnMobile>
           <RefreshCw size={17} />
         </IconBtn>
 
@@ -662,6 +796,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
         <IconBtn
           onClick={toggleFullscreen}
           title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+          $hideOnMobile
         >
           {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
         </IconBtn>
@@ -722,6 +857,11 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
                 <DropdownItem onClick={() => setDropdownOpen(false)}>
                   <HelpCircle /> Help & Support
                 </DropdownItem>
+                {hasMultipleOutlets && (
+                  <DropdownItem onClick={() => { setDropdownOpen(false); onSwitchOutlet(); }}>
+                    <MapPin /> Switch Outlet
+                  </DropdownItem>
+                )}
               </DropdownSection>
 
               <DropdownDivider />

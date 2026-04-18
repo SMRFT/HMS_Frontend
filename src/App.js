@@ -15,8 +15,9 @@ import "./App.css";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { hasPagePermission } from "./Auth/FrontendPageMapping";
-import { fetchSidebarMapping } from "./Auth/apiRequest";
+import { fetchSidebarMapping, fetchUserPermissions, fetchOutlets } from "./Auth/apiRequest";
 import UserPermissionManager from "./Auth/UserPermissionManager";
+import OutletSelectionModal from "./Components/OutletSelectionModal";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
@@ -57,7 +58,9 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
+import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -87,17 +90,29 @@ import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
-import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintainance";
+import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
+
 import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
+
+import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
+
+import CustomerType from "./Components/BillingMaster/CustomerType";
+import NursingStation from "./Components/Rooms/NursingStation";
+import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
+import RoomKitItems from "./Components/Rooms/RoomKitItems";
+import DietOrderReport from "./Components/NursingStation/DietOrderReport";
+import DietOrder from "./Components/NursingStation/DietMaster";
+
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -131,6 +146,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [dynamicPermissions, setDynamicPermissions] = useState({});
+  const [userOutlets, setUserOutlets] = useState([]);
+  const [showOutletModal, setShowOutletModal] = useState(false);
 
   // On mount: get role from localStorage or API
   useEffect(() => {
@@ -165,6 +182,41 @@ function App() {
       setAllowedActions(actions);
       const userRole = getUserRole(actions);
       setRole(userRole);
+
+      // Handle Outlet Selection
+      if (employeeId) {
+        try {
+          const [userPerms, allOutlets] = await Promise.all([
+            fetchUserPermissions(employeeId),
+            fetchOutlets()
+          ]);
+
+          const assignedOutletCodes = userPerms.hms_outlets || [];
+
+          if (assignedOutletCodes.length > 0) {
+            // Map codes to full outlet objects
+            const userAssignedOutlets = allOutlets.filter(o =>
+              assignedOutletCodes.includes(o.outlet_code)
+            );
+
+            setUserOutlets(userAssignedOutlets);
+
+            const storedOutlet = localStorage.getItem("selected_outlet");
+            if (!storedOutlet) {
+              if (userAssignedOutlets.length === 1) {
+                // Auto-select if only one
+                const outlet = userAssignedOutlets[0];
+                localStorage.setItem("selected_outlet", outlet.outlet_code);
+                localStorage.setItem("selected_outlet_name", outlet.outlet_name);
+              } else if (userAssignedOutlets.length > 1) {
+                setShowOutletModal(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error initializing outlets:", error);
+        }
+      }
 
       // Auto-navigate to default route
       if (location.pathname === "/") {
@@ -212,15 +264,16 @@ function App() {
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
-      "/VendorManagement": "Vendor Management",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
       "/AssetsManagement": "Assets Management",
-      "/AssetsMaintainance": "Assets Maintainance",
+      "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
+      "/DischargeBilling": "Discharge Billing",
+      "/Oppharmacytabs": "OP Pharmacy Tabs",
     };
 
     const path = location.pathname;
@@ -272,6 +325,21 @@ function App() {
     <div>
       <ToastContainer position="top-right" autoClose={3000} />
 
+      {showOutletModal && (
+        <OutletSelectionModal
+          outlets={userOutlets}
+          currentOutletCode={localStorage.getItem("selected_outlet")}
+          onClose={localStorage.getItem("selected_outlet") ? () => setShowOutletModal(false) : undefined}
+          onSelect={(outlet) => {
+            localStorage.setItem("selected_outlet", outlet.outlet_code);
+            localStorage.setItem("selected_outlet_name", outlet.outlet_name);
+            setShowOutletModal(false);
+            // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
+            window.location.reload();
+          }}
+        />
+      )}
+
       {isNoSidebarRoute ? (
         <div
           style={
@@ -308,6 +376,8 @@ function App() {
             <Header
               isSidebarCollapsed={sidebarCollapsed}
               setIsSidebarCollapsed={setSidebarCollapsed}
+              onSwitchOutlet={() => setShowOutletModal(true)}
+              hasMultipleOutlets={userOutlets.length > 1}
             />
             <Routes>
               {/* Dashboard */}
@@ -410,6 +480,13 @@ function App() {
               ) && (
                   <Route path="/DischargeReport" element={<DischargeReport />} />
                 )}
+              {hasPagePermission(
+                "/DischargeBilling",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/DischargeBilling" element={<DischargeBilling />} />
+                )}
 
               {/* Insurance */}
               {hasPagePermission(
@@ -463,6 +540,21 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Block" element={<Block />} />}
+              {hasPagePermission(
+                "/NursingStation",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/NursingStation" element={<NursingStation />} />}
+              {hasPagePermission(
+                "/RoomKitItems",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/RoomKitItems" element={<RoomKitItems />} />}
+              {hasPagePermission(
+                "/RoomServiceDescription",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/RoomServiceDescription" element={<RoomServiceDescription />} />}
 
               {/* Inventory */}
               {hasPagePermission(
@@ -720,10 +812,23 @@ function App() {
                   element={<AssetsManagement />}
                 />
               )}
+
               {hasPagePermission("/AssetsMaintainance", allowedActions) && (
                 <Route
                   path="/AssetsMaintainance"
                   element={<AssetsMaintainance />}
+                />
+              )}
+              {hasPagePermission("/DietOrder", allowedActions) && (
+                <Route
+                  path="/DietOrder"
+                  element={<DietOrder />}
+                />
+              )}
+              {hasPagePermission("/DietOrderReport", allowedActions) && (
+                <Route
+                  path="/DietOrderReport"
+                  element={<DietOrderReport />}
                 />
               )}
               {hasPagePermission("/RecycleManagement", allowedActions) && (

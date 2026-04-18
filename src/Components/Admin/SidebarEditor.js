@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, createGlobalStyle } from 'styled-components';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle } from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { fetchSidebarMapping, updateSidebarMapping } from '../../Auth/apiRequest';
+import { fetchSidebarMapping, updateSidebarMapping, fetchOutlets } from '../../Auth/apiRequest';
 import { PAGE_PERMISSIONS } from '../../Auth/FrontendPageMapping';
+import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey, FiSearch } from 'react-icons/fi';
 
 // ─── Global Style ──────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
@@ -57,6 +57,13 @@ const HeaderContainer = styled.div`
   margin-bottom: 28px;
   gap: 16px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 62px;
+  background: rgba(240, 253, 250, 0.9);
+  backdrop-filter: blur(8px);
+  padding: 16px 0;
+  z-index: 1000;
+  border-bottom: 1px solid rgba(13, 148, 136, 0.1);
 `;
 
 const TitleBlock = styled.div`
@@ -139,6 +146,39 @@ const OutlineButton = styled(PrimaryButton)`
   }
 `;
 
+const SearchInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  
+  svg {
+    position: absolute;
+    left: 14px;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    pointer-events: none;
+  }
+
+  input {
+    padding: 10px 14px 10px 38px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+    color: var(--text);
+    background: white;
+    width: 200px;
+    transition: all 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+    }
+
+    &::placeholder { color: #a8b5c8; }
+  }
+`;
+
 const IconButton = styled.button`
   background: none;
   border: none;
@@ -181,6 +221,10 @@ const GroupHeader = styled.div`
   border-bottom: 1.5px solid var(--border);
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 142px; /* 62px (Main) + ~80px (SidebarEditor Header) */
+  background: var(--surface);
+  z-index: 10;
 `;
 
 const GroupLeft = styled.div`
@@ -344,12 +388,248 @@ const EmptyRow = styled.tr`
   }
 `;
 
+// ─── Tag Input Components ──────────────────────────────────────
+const TagContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fafafa;
+  min-height: 38px;
+  cursor: text;
+
+  &:focus-within {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+  }
+`;
+
+const Tag = styled.span`
+  background: var(--primary-soft, #ccfbf1);
+  color: var(--primary-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const TagClose = styled.span`
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  &:hover { color: var(--danger); }
+`;
+
+const GhostInput = styled.input`
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--text);
+  flex: 1;
+  min-width: 60px;
+  &::placeholder { color: #a8b5c8; }
+`;
+
+const PermissionsCell = styled.div`
+  position: relative;
+`;
+
+const Badge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+`;
+
+const PermissionKeyValueEditor = ({ value, onChange }) => {
+    // value can be array or object. Normalize to object.
+    const normalize = (val) => {
+        if (Array.isArray(val)) {
+            const obj = {};
+            val.forEach(v => { if (v) obj[v] = v; });
+            return obj;
+        }
+        return (typeof val === 'object' && val !== null) ? val : {};
+    };
+
+    const [newKey, setNewKey] = useState('');
+    const [newCode, setNewCode] = useState('');
+    
+    // Use an internal state for exact row items to prevent re-ordering during key updates
+    const [localRows, setLocalRows] = useState([]);
+    const skipNextSync = useRef(false);
+
+    // Sync from parent IF the value truly Changed from outside (not from our own onChange)
+    useEffect(() => {
+        if (skipNextSync.current) {
+            skipNextSync.current = false;
+            return;
+        }
+
+        const normalized = normalize(value);
+        const entries = Object.entries(normalized);
+        setLocalRows(entries.map(([k, v], i) => ({ k, v, id: `row-${i}` })));
+    }, [value]);
+
+    const updateRow = (idx, field, nextVal) => {
+        const nextRows = [...localRows];
+        nextRows[idx] = { ...nextRows[idx], [field]: nextVal };
+        setLocalRows(nextRows);
+        
+        // Push result to parent - only include valid (non-empty) keys
+        const result = {};
+        nextRows.forEach(row => {
+            if (row.k.trim()) {
+                result[row.k.trim()] = row.v.trim();
+            }
+        });
+        
+        skipNextSync.current = true;
+        onChange(result);
+    };
+
+    const addLocalPermission = () => {
+        if (!newKey.trim() || !newCode.trim()) return;
+        
+        const next = {
+            ...normalize(value),
+            [newKey.trim()]: newCode.trim()
+        };
+        
+        skipNextSync.current = false; // Allow a hard sync here to reset IDs and IDs
+        onChange(next);
+        setNewKey('');
+        setNewCode('');
+    };
+
+    const removeRow = (idx) => {
+        const nextRows = localRows.filter((_, i) => i !== idx);
+        setLocalRows(nextRows); // Update local first for snappy UI
+        
+        const result = {};
+        nextRows.forEach(row => {
+            if (row.k.trim()) result[row.k.trim()] = row.v.trim();
+        });
+        
+        skipNextSync.current = true;
+        onChange(result);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addLocalPermission();
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
+            {localRows.map((row, idx) => (
+                <div key={row.id} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <Input 
+                        value={row.k} 
+                        onChange={e => updateRow(idx, 'k', e.target.value)}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
+                        placeholder="Key"
+                    />
+                    <span style={{ color: 'var(--muted)' }}>:</span>
+                    <Input 
+                        value={row.v} 
+                        onChange={e => updateRow(idx, 'v', e.target.value)}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
+                        placeholder="Code"
+                    />
+                    <IconButton onClick={() => removeRow(idx)} danger style={{ padding: '2px' }}>
+                        <FiTrash2 size={12} />
+                    </IconButton>
+                </div>
+            ))}
+            
+            {/* Add New Row */}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border)', paddingTop: '6px' }}>
+                <Input 
+                    placeholder="New Key" 
+                    value={newKey} 
+                    onChange={e => setNewKey(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
+                />
+                <Input 
+                    placeholder="New Code" 
+                    value={newCode} 
+                    onChange={e => setNewCode(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
+                />
+                <IconButton onClick={addLocalPermission} disabled={!newKey.trim() || !newCode.trim()} style={{ padding: '2px' }}>
+                    <FiPlusCircle size={16} color="var(--primary)" />
+                </IconButton>
+            </div>
+        </div>
+    );
+};
+
 // ─── Component ─────────────────────────────────────────────────
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
+    const [outlets, setOutlets] = useState([]);
+    const [selectedOutlet, setSelectedOutlet] = useState('ALL');
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => { loadMapping(); }, []);
+    const isFiltering = !!(searchTerm.trim() || selectedOutlet !== 'ALL');
+
+    const filteredMapping = React.useMemo(() => {
+        return mapping.map(g => {
+            let pages = g.pages || [];
+            
+            if (selectedOutlet !== 'ALL') {
+                if (selectedOutlet === 'GLOBAL') {
+                    pages = pages.filter(p => !p.outlet_code || p.outlet_code === '');
+                } else {
+                    pages = pages.filter(p => p.outlet_code === selectedOutlet);
+                }
+            }
+            
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase();
+                const groupMatch = (g.group || '').toLowerCase().includes(term);
+                if (!groupMatch) {
+                    pages = pages.filter(p => 
+                        (p.name || '').toLowerCase().includes(term) ||
+                        (p.route || '').toLowerCase().includes(term)
+                    );
+                }
+            }
+            
+            return { ...g, pages };
+        }).filter(g => {
+            if (!searchTerm.trim() && selectedOutlet === 'ALL') return true;
+            return g.pages.length > 0 || (searchTerm.trim() && (g.group || '').toLowerCase().includes(searchTerm.toLowerCase()));
+        });
+    }, [mapping, selectedOutlet, searchTerm]);
+
+    useEffect(() => { 
+        loadMapping();
+        loadOutlets();
+    }, []);
+
+    const loadOutlets = async () => {
+        const data = await fetchOutlets();
+        setOutlets(data);
+    };
 
     const loadMapping = async () => {
         setLoading(true);
@@ -387,10 +667,19 @@ const SidebarEditor = () => {
                             maxPageId += 1;
                             page_id = maxPageId;
                         }
+                        // Robust Permission Normalization
+                        let perms = {};
+                        if (Array.isArray(p.permissions)) {
+                            p.permissions.forEach(v => { if (v) perms[v] = v; });
+                        } else if (typeof p.permissions === 'object' && p.permissions !== null) {
+                            perms = p.permissions;
+                        }
+
                         return {
                             ...p,
                             id: `pg_${page_id}`, // required for DND
-                            page_id: page_id
+                            page_id: page_id,
+                            permissions: perms
                         };
                     })
                 };
@@ -424,20 +713,25 @@ const SidebarEditor = () => {
         }
     };
 
-    const handleGroupChange = (gi, field, value) => {
+    const handleGroupChange = (gId, field, value) => {
         const m = [...mapping];
-        m[gi][field] = value;
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            m[gi][field] = value;
+            setMapping(m);
+        }
     };
 
-    const handlePageChange = (gi, pi, field, value) => {
+    const handlePageChange = (gId, pId, field, value) => {
         const m = [...mapping];
-        if (field === 'permissions') {
-            m[gi].pages[pi][field] = value.split(',').map(s => s.trim()).filter(Boolean);
-        } else {
-            m[gi].pages[pi][field] = value;
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            const pi = m[gi].pages.findIndex(p => p.id === pId);
+            if (pi > -1) {
+                m[gi].pages[pi][field] = value;
+                setMapping(m);
+            }
         }
-        setMapping(m);
     };
 
     const getNextGroupId = () => {
@@ -471,26 +765,33 @@ const SidebarEditor = () => {
         }]);
     };
 
-    const deleteGroup = (gi) => setMapping(mapping.filter((_, i) => i !== gi));
+    const deleteGroup = (gId) => setMapping(mapping.filter(g => g.id !== gId));
 
-    const addPage = (gi) => {
+    const addPage = (gId) => {
         const m = [...mapping];
-        const page_id = getNextPageId();
-        m[gi].pages.push({
-            id: `pg_${page_id}`,
-            page_id: page_id,
-            name: 'New Page',
-            route: '/NewRoute',
-            icon: 'FiActivity',
-            permissions: []
-        });
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            const page_id = getNextPageId();
+            m[gi].pages.push({
+                id: `pg_${page_id}`,
+                page_id: page_id,
+                name: 'New Page',
+                route: '/NewRoute',
+                icon: 'FiActivity',
+                outlet_code: (selectedOutlet === 'ALL' || selectedOutlet === 'GLOBAL') ? '' : selectedOutlet,
+                permissions: []
+            });
+            setMapping(m);
+        }
     };
 
-    const deletePage = (gi, pi) => {
+    const deletePage = (gId, pId) => {
         const m = [...mapping];
-        m[gi].pages = m[gi].pages.filter((_, i) => i !== pi);
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            m[gi].pages = m[gi].pages.filter(p => p.id !== pId);
+            setMapping(m);
+        }
     };
 
     const onDragEnd = ({ source, destination, type }) => {
@@ -538,8 +839,6 @@ const SidebarEditor = () => {
         </>
     );
 
-    const unmapped = getUnmappedRoutes();
-
     return (
         <>
             <GlobalStyle />
@@ -560,6 +859,28 @@ const SidebarEditor = () => {
                     </TitleBlock>
 
                     <ButtonGroup>
+                        <SearchInputWrapper>
+                            <FiSearch />
+                            <input
+                                placeholder="Search pages..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </SearchInputWrapper>
+                        <Input 
+                            as="select" 
+                            value={selectedOutlet} 
+                            onChange={e => setSelectedOutlet(e.target.value)}
+                            style={{ width: '200px', height: '40px', borderRadius: 'var(--radius-md)' }}
+                        >
+                            <option value="ALL">All Pages & Global</option>
+                            <option value="GLOBAL">Global Pages Only</option>
+                            <optgroup label="Specific Outlets">
+                                {outlets.map(o => (
+                                    <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
+                                ))}
+                            </optgroup>
+                        </Input>
                         <OutlineButton onClick={addGroup}>
                             <FiPlus /> Add Group
                         </OutlineButton>
@@ -573,11 +894,11 @@ const SidebarEditor = () => {
 
                 {/* ── Drag & Drop Groups ── */}
                 <DragDropContext onDragEnd={onDragEnd}>
-                    <Droppable droppableId="groups" type="GROUP">
+                    <Droppable droppableId="groups" type="GROUP" isDropDisabled={isFiltering}>
                         {(provided) => (
                             <div {...provided.droppableProps} ref={provided.innerRef}>
-                                {mapping.map((group, gi) => (
-                                    <Draggable key={group.id} draggableId={group.id} index={gi}>
+                                {filteredMapping.map((group, gi) => (
+                                    <Draggable key={group.id} draggableId={group.id} index={gi} isDragDisabled={isFiltering}>
                                         {(provided, snapshot) => (
                                             <div
                                                 ref={provided.innerRef}
@@ -590,12 +911,12 @@ const SidebarEditor = () => {
                                                 <GroupCard dragging={snapshot.isDragging}>
                                                     <GroupHeader>
                                                         <GroupLeft>
-                                                            <DragHandle {...provided.dragHandleProps}>
+                                                            <DragHandle {...provided.dragHandleProps} style={{ opacity: isFiltering ? 0.3 : 1, cursor: isFiltering ? 'not-allowed' : 'grab' }}>
                                                                 <FiMove size={17} />
                                                             </DragHandle>
                                                             <Input
                                                                 value={group.group || ''}
-                                                                onChange={e => handleGroupChange(gi, 'group', e.target.value)}
+                                                                onChange={e => handleGroupChange(group.id, 'group', e.target.value)}
                                                                 placeholder="Group Name"
                                                                 style={{ width: '220px', fontWeight: '700', fontSize: '0.95rem' }}
                                                             />
@@ -604,10 +925,10 @@ const SidebarEditor = () => {
                                                         </GroupLeft>
 
                                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                            <PrimaryButton onClick={() => addPage(gi)} style={{ padding: '8px 14px', fontSize: '0.83rem' }}>
+                                                            <PrimaryButton onClick={() => addPage(group.id)} style={{ padding: '8px 14px', fontSize: '0.83rem' }}>
                                                                 <FiPlus /> Add Page
                                                             </PrimaryButton>
-                                                            <IconButton danger onClick={() => deleteGroup(gi)}>
+                                                            <IconButton danger onClick={() => deleteGroup(group.id)}>
                                                                 <FiTrash2 size={17} />
                                                             </IconButton>
                                                         </div>
@@ -618,19 +939,20 @@ const SidebarEditor = () => {
                                                             <thead>
                                                                 <tr>
                                                                     <th style={{ width: '4%' }}></th>
-                                                                    <th style={{ width: '8%' }}>ID</th>
-                                                                    <th style={{ width: '20%' }}>Page Name</th>
-                                                                    <th style={{ width: '20%' }}>Route</th>
-                                                                    <th style={{ width: '15%' }}>Icon (react-icons/fi)</th>
-                                                                    <th style={{ width: '29%' }}>Permissions (comma-separated)</th>
+                                                                    <th style={{ width: '10%' }}>ID</th>
+                                                                    <th style={{ width: '14%' }}>Page Name</th>
+                                                                    <th style={{ width: '14%' }}>Route</th>
+                                                                    <th style={{ width: '10%' }}>Icon</th>
+                                                                    <th style={{ width: '12%' }}>Outlet</th>
+                                                                    <th style={{ width: '32%' }}>Permissions</th>
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
-                                                            <Droppable droppableId={group.id} type="PAGE">
+                                                            <Droppable droppableId={group.id} type="PAGE" isDropDisabled={isFiltering}>
                                                                 {(provided) => (
                                                                     <tbody {...provided.droppableProps} ref={provided.innerRef}>
                                                                         {group.pages.map((page, pi) => (
-                                                                            <Draggable key={page.id} draggableId={page.id} index={pi}>
+                                                                            <Draggable key={page.id} draggableId={page.id} index={pi} isDragDisabled={isFiltering}>
                                                                                 {(provided, snapshot) => (
                                                                                     <DraggingRow
                                                                                         ref={provided.innerRef}
@@ -639,41 +961,53 @@ const SidebarEditor = () => {
                                                                                         style={{ ...provided.draggableProps.style }}
                                                                                     >
                                                                                         <td>
-                                                                                            <DragHandle {...provided.dragHandleProps}>
+                                                                                            <DragHandle {...provided.dragHandleProps} style={{ opacity: isFiltering ? 0.3 : 1, cursor: isFiltering ? 'not-allowed' : 'grab' }}>
                                                                                                 <FiMove size={14} />
                                                                                             </DragHandle>
                                                                                         </td>
                                                                                         <td>
-                                                                                            <GroupBadge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</GroupBadge>
+                                                                                            <Badge style={{ fontSize: '0.7rem' }}>PG-{page.page_id}</Badge>
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.name}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'name', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'name', e.target.value)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.route}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'route', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'route', e.target.value)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.icon}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'icon', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'icon', e.target.value)}
                                                                                                 placeholder="e.g. FiHome"
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <Input
-                                                                                                value={page.permissions ? page.permissions.join(', ') : ''}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'permissions', e.target.value)}
-                                                                                                placeholder="HMS-P-REG, HMS-P-REG-R"
+                                                                                            <Input 
+                                                                                                as="select" 
+                                                                                                value={page.outlet_code || ''}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'outlet_code', e.target.value)}
+                                                                                                style={{ fontSize: '0.75rem', padding: '4px' }}
+                                                                                            >
+                                                                                                <option value="">Global</option>
+                                                                                                {outlets.map(o => (
+                                                                                                    <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
+                                                                                                ))}
+                                                                                            </Input>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <PermissionKeyValueEditor
+                                                                                                value={page.permissions || {}}
+                                                                                                onChange={val => handlePageChange(group.id, page.id, 'permissions', val)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <IconButton danger onClick={() => deletePage(gi, pi)}>
+                                                                                            <IconButton danger onClick={() => deletePage(group.id, page.id)}>
                                                                                                 <FiTrash2 size={15} />
                                                                                             </IconButton>
                                                                                         </td>

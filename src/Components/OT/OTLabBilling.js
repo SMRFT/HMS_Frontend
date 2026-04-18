@@ -454,11 +454,13 @@ const OTLabBilling = () => {
   // ── Product list ───────────────────────────────────────────────────────────
   const addProduct = () => {
     if (!selectedItem || !selectedPrice) return;
+    const obj = items.find((item) => item.itemName === selectedItem);
     const newProduct = {
       itemName: selectedItem,
       price: selectedPrice,
       quantity,
       billTypeNo: LAB_BILL_TYPE_NO,
+      ...(obj?.test_id && { test_id: obj.test_id }),
     };
     const updated = [...productList, newProduct];
     setProductList(updated);

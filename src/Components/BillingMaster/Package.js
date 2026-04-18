@@ -686,14 +686,14 @@ const Package = () => {
       return { ...prev, items };
     });
   };
-  const addItem = () =>
-    setFormData((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
-      ],
-    }));
+  // const addItem = () =>
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     items: [
+  //       ...prev.items,
+  //       { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
+  //     ],
+  //   }));
   const removeItem = (index) => {
     if (formData.items.length === 1) {
       alert("At least one item is required.");
@@ -1284,12 +1284,12 @@ const Package = () => {
                     ))}
                   </tbody>
                 </table>
-                <button
+                {/* <button
                   style={{ ...css.addRowBtn, marginTop: 12 }}
                   onClick={addItem}
                 >
                   + Add Item Manually
-                </button>
+                </button> */}
                 <div style={css.totalRow}>
                   <span style={{ color: tokens.muted, fontWeight: 500 }}>
                     Total Price:

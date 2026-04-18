@@ -574,7 +574,7 @@ const OTMedicineBilling = () => {
   const [showForm, setShowForm] = useState(false);
 
   // Fixed for OT: always IP pharmacy, backend sets bill_type=18
-  const pharmacyDept = "IP001";
+  const pharmacyDept = "OLET001";
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [doctorName, setDoctorName] = useState("");
@@ -655,7 +655,7 @@ const OTMedicineBilling = () => {
       return;
     }
     const res = await apiRequest(
-      `${HmsBaseUrl}get_oppharmacy_stock/?outlet_code=${pharmacyDept}`,
+      `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}`,
       "GET",
     );
     const list = res.success
@@ -700,6 +700,7 @@ const OTMedicineBilling = () => {
     const newMed = {
       item_id: selectedDrug.item_id,
       itemName: selectedDrug.name,
+      batch_number: selectedDrug.batch_number,
       qty: Number(qty),
       quantity: Number(qty),
       price: selectedDrug.price,
@@ -731,7 +732,9 @@ const OTMedicineBilling = () => {
       ipNumber: resolvedPatient.ipNo,
       patient_name: resolvedPatient.name,
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
-      medicine_particulars: selectedMedicines, // includes remark per item
+      medicine_particulars: selectedMedicines.map(
+        ({ itemName, ...rest }) => rest,
+      ), // includes remark per item
       total_amount: selectedMedicines.reduce(
         (a, m) => a + (m.price || 0) * m.quantity,
         0,

@@ -25,22 +25,21 @@ const PageTitle = styled.h2`
   letter-spacing: .04em;
 `;
 
-
-const Block = () => {
-  const [blocks, setBlocks]     = useState([]);
-  const [formData, setFormData] = useState({ block_name: "" });
-  const [editingId, setEditingId] = useState(null);   // holds block_id (integer)
+const RoomKitItems = () => {
+  const [kitItems, setKitItems] = useState([]);
+  const [formData, setFormData] = useState({ kit_name: "" });
+  const [editingId, setEditingId] = useState(null);
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => { fetchBlocks(); }, []);
+  useEffect(() => { fetchKitItems(); }, []);
 
-  const fetchBlocks = async () => {
+  const fetchKitItems = async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}block/`, "GET");
-      setBlocks(response && !response.error && Array.isArray(response.data)
+      const response = await apiRequest(`${HmsBaseUrl}room-kititems/`, "GET");
+      setKitItems(response && !response.error && Array.isArray(response.data)
         ? response.data : []);
     } catch {
-      toast.error("Failed to fetch blocks");
+      toast.error("Failed to fetch room kit items");
     }
   };
 
@@ -49,63 +48,56 @@ const Block = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleEdit = (block) => {
-    // block_id is now the PK (integer: 1, 2, 3 …)
-    setEditingId(block.block_id);
-    setFormData({ block_name: block.block_name });
+  const handleEdit = (item) => {
+    setEditingId(item.kit_id);
+    setFormData({ kit_name: item.kit_name });
     window.scrollTo(0, 0);
   };
 
-  const handleDelete = async (block) => {
-    if (!window.confirm("Are you sure you want to delete this block?")) return;
+  const handleDelete = async (item) => {
+    if (!window.confirm("Are you sure you want to delete this kit item?")) return;
     try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}block/${block.block_id}/`, "DELETE"
-      );
+      const response = await apiRequest(`${HmsBaseUrl}room-kititems/${item.kit_id}/`, "DELETE");
       if (response && !response.error) {
-        toast.success("Block deleted successfully");
-        fetchBlocks();
+        toast.success("Kit item deleted successfully");
+        fetchKitItems();
       } else {
-        toast.error(response?.error || "Failed to delete block");
+        toast.error(response?.error || "Failed to delete kit item");
       }
     } catch {
-      toast.error("Failed to delete block");
+      toast.error("Failed to delete kit item");
     }
   };
 
   const handleReset = () => {
     setEditingId(null);
-    setFormData({ block_name: "" });
+    setFormData({ kit_name: "" });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingId) {
-        const response = await apiRequest(
-          `${HmsBaseUrl}block/${editingId}/`, "PUT", formData
-        );
+        const response = await apiRequest(`${HmsBaseUrl}room-kititems/${editingId}/`, "PUT", formData);
         if (response && !response.error) {
-          toast.success("Block updated successfully");
+          toast.success("Kit item updated successfully");
           handleReset();
-          fetchBlocks();
+          fetchKitItems();
         } else {
           toast.error(response?.error || "Update failed");
         }
       } else {
-        const response = await apiRequest(
-          `${HmsBaseUrl}block/`, "POST", formData
-        );
+        const response = await apiRequest(`${HmsBaseUrl}room-kititems/`, "POST", formData);
         if (response && !response.error) {
-          toast.success("Block added successfully");
+          toast.success("Kit item added successfully");
           handleReset();
-          fetchBlocks();
+          fetchKitItems();
         } else {
           toast.error(response?.error || "Create failed");
         }
       }
     } catch {
-      toast.error("Failed to save block");
+      toast.error("Failed to save kit item");
     }
   };
 
@@ -113,21 +105,21 @@ const Block = () => {
     <PageWrapper>
       <Container>
         <PageHeader>
-          <PageTitle>🏥 Block</PageTitle>
+          <PageTitle>🏥 Room Kit Items Management</PageTitle>
         </PageHeader>
 
         <FormContent>
           <form onSubmit={handleSubmit}>
             <FormRow columns="1fr">
               <InputWrapper>
-                <Label required>Block Name</Label>
+                <Label required>Kit Name</Label>
                 <Input
                   type="text"
-                  name="block_name"
-                  value={formData.block_name}
+                  name="kit_name"
+                  value={formData.kit_name}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter Block Name"
+                  placeholder="Enter Kit Name"
                 />
               </InputWrapper>
             </FormRow>
@@ -135,46 +127,37 @@ const Block = () => {
             <ButtonContainer>
               <Button secondary type="button" onClick={handleReset}>Reset</Button>
               <Button type="submit">
-                {editingId ? "Update Block" : "Add Block"}
+                {editingId ? "Update Kit Item" : "Add Kit Item"}
               </Button>
             </ButtonContainer>
           </form>
         </FormContent>
 
         <div style={{ padding: "0 24px 24px" }}>
-          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Block List</h4>
+          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>Room Kit Items List</h4>
           <TableWrapper>
             <Table>
               <thead>
                 <tr>
-                  <Th>Block ID</Th>
-                  <Th>Block Name</Th>
+                  <Th>Kit ID</Th>
+                  <Th>Kit Name</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
-                {blocks.length === 0 ? (
+                {kitItems.length === 0 ? (
                   <Tr>
-                    <Td colSpan="4" style={{ textAlign: "center" }}>
-                      No blocks found
-                    </Td>
+                    <Td colSpan="3" style={{ textAlign: "center" }}>No kit items found</Td>
                   </Tr>
                 ) : (
-                  blocks.map((block) => (
-                    <Tr key={block.block_id}>
-                      <Td>{block.block_id}</Td>
-                      <Td>{block.block_name}</Td>
+                  kitItems.map((item) => (
+                    <Tr key={item.kit_id}>
+                      <Td>{item.kit_id}</Td>
+                      <Td>{item.kit_name}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
-                          <Button
-                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleEdit(block)}
-                          >Edit</Button>
-                          <Button
-                            danger
-                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(block)}
-                          >Delete</Button>
+                          <Button style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleEdit(item)}>Edit</Button>
+                          <Button danger style={{ padding: "6px 12px", fontSize: "0.8rem" }} onClick={() => handleDelete(item)}>Delete</Button>
                         </div>
                       </Td>
                     </Tr>
@@ -189,4 +172,4 @@ const Block = () => {
   );
 };
 
-export default Block;
+export default RoomKitItems;

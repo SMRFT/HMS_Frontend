@@ -20,10 +20,25 @@ import {
   colors,
 } from "../GlobalStyles";
 import styled from "styled-components";
-import { useNavigate } from "react-router-dom";
-
 
 // ─── Local Styled Components ──────────────────────────────────────────────────
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  padding: 11px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 16px;
+`;
+
+const PageTitle = styled.h2`
+  font-size: .92rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: .04em;
+`;
 
 const TabContainer = styled.div`
   display: flex;
@@ -33,7 +48,7 @@ const TabContainer = styled.div`
 `;
 
 const TabButton = styled.button`
-  padding: 10px 16px;
+  padding: 8px 14px;
   background: ${(p) => (p.active ? "#fff" : colors.background)};
   border: 1px solid ${(p) => (p.active ? colors.border : "transparent")};
   border-bottom: ${(p) => (p.active ? "2px solid #fff" : `1px solid ${colors.border}`)};
@@ -41,7 +56,7 @@ const TabButton = styled.button`
   cursor: pointer;
   font-weight: ${(p) => (p.active ? "600" : "400")};
   color: ${(p) => (p.active ? colors.primary : colors.textMuted)};
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   outline: none;
   transition: all 0.2s;
   white-space: nowrap;
@@ -51,73 +66,16 @@ const TabButton = styled.button`
 const TabPanel = styled.div`
   border: 1px solid ${colors.border};
   border-top: none;
-  padding: 16px;
+  padding: 12px;
   background: #fff;
   border-radius: 0 0 8px 8px;
-  min-height: 320px;
-`;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  padding: 16px;
-`;
-
-const ModalContent = styled.div`
-  background: #fff;
-  padding: 28px;
-  border-radius: 10px;
-  width: 100%;
-  max-width: 440px;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-`;
-
-const InlineAddBtn = styled.button`
-  margin-left: 6px;
-  background: ${colors.primary};
-  color: #fff;
-  border: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  cursor: pointer;
-  font-size: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.2s;
-  &:hover { background: ${colors.primaryDark}; }
-`;
-
-const CheckboxLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.83rem;
-  color: ${colors.textMain};
-  cursor: pointer;
-  user-select: none;
-  input {
-    width: 14px;
-    height: 14px;
-    accent-color: ${colors.primary};
-    cursor: pointer;
-    flex-shrink: 0;
-  }
+  min-height: 260px;
 `;
 
 const ToggleSwitch = styled.button`
-  width: 42px;
-  height: 22px;
-  border-radius: 11px;
+  width: 38px;
+  height: 20px;
+  border-radius: 10px;
   border: none;
   cursor: pointer;
   background: ${(p) => (p.on ? colors.danger : "#d1d5db")};
@@ -128,9 +86,9 @@ const ToggleSwitch = styled.button`
     content: "";
     position: absolute;
     top: 2px;
-    left: ${(p) => (p.on ? "22px" : "2px")};
-    width: 18px;
-    height: 18px;
+    left: ${(p) => (p.on ? "20px" : "2px")};
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #fff;
     transition: left 0.3s;
@@ -138,31 +96,28 @@ const ToggleSwitch = styled.button`
   }
 `;
 
-/* ── Main layout: Left (3fr) | Right (2fr) ── */
+/* ── Main layout ── */
 const PageLayout = styled.div`
   display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 24px;
+  grid-template-columns: 1fr 420px;
+  gap: 20px;
   align-items: flex-start;
 
-  @media (max-width: 1100px) {
-    grid-template-columns: 3fr 2fr;
-  }
-  @media (max-width: 860px) {
+  @media (max-width: 960px) {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 `;
 
 const LeftPane = styled.div`
   border-right: 1px solid ${colors.border};
-  padding-right: 24px;
+  padding-right: 20px;
 
-  @media (max-width: 860px) {
+  @media (max-width: 960px) {
     border-right: none;
     padding-right: 0;
     border-bottom: 1px solid ${colors.border};
-    padding-bottom: 20px;
+    padding-bottom: 16px;
   }
 `;
 
@@ -170,92 +125,67 @@ const RightPane = styled.div`
   min-width: 0;
 `;
 
-/* 3-column grid for room fields */
+/* Compact 3-column grid */
 const FieldGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px 14px;
-  margin-bottom: 12px;
+  gap: 8px 12px;
+  margin-bottom: 8px;
 
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  @media (max-width: 500px) {
-    grid-template-columns: 1fr;
-  }
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 500px) { grid-template-columns: 1fr; }
 `;
 
 /* 2-column grid */
 const TwoCol = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px 14px;
-  margin-bottom: 12px;
+  gap: 8px 12px;
+  margin-bottom: 8px;
 
-  @media (max-width: 500px) {
-    grid-template-columns: 1fr;
-  }
+  @media (max-width: 500px) { grid-template-columns: 1fr; }
 `;
 
-const FullRow = styled.div`margin-bottom: 12px;`;
-
-/* Sub-grid for beds/kits forms */
+/* Sub-grid for kits form */
 const SubFormGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
   align-items: end;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr 1fr;
-  }
-  @media (max-width: 360px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const CheckboxRow = styled.div`
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
+  @media (max-width: 560px) { grid-template-columns: 1fr 1fr; }
 `;
 
 const PanelTitle = styled.h4`
   color: ${colors.primary};
-  margin: 0 0 12px;
-  font-size: 0.93rem;
+  margin: 0 0 10px;
+  font-size: 0.9rem;
   font-weight: 600;
 `;
 
 const StatusBadge = styled.span`
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: ${(p) => p.color || colors.textMain};
 `;
 
 const ActionCell = styled.div`
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
 `;
 
 const SmallBtn = styled(Button)`
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 3px 9px;
+  font-size: 0.78rem;
 `;
 
-const ReadOnlyInput = styled(Input)`
-  background: #f1f5f9 !important;
-  color: ${colors.textMuted};
-  cursor: not-allowed;
-`;
-
-const Divider = styled.div`
-  border-top: 1px dashed ${colors.border};
-  margin: 12px 0;
-`;
+/* Compact overrides */
+const CInputWrapper = styled(InputWrapper)`margin-bottom: 0;`;
+const CLabel = styled(Label)`font-size: 0.78rem; margin-bottom: 3px;`;
+const CInput = styled(Input)`padding: 6px 9px; font-size: 0.85rem; height: 32px;`;
+const CSelect = styled(Select)`padding: 6px 9px; font-size: 0.85rem; height: 32px;`;
 
 // ─── Searchable Dropdown ──────────────────────────────────────────────────────
 
@@ -267,6 +197,7 @@ const DropBox = styled.div`
   border: 1px solid ${colors.border};
   border-radius: 6px;
   background: #fff;
+  height: 32px;
   overflow: hidden;
   &:focus-within {
     border-color: ${colors.primary};
@@ -281,16 +212,16 @@ const DropList = styled.div`
   border: 1px solid ${colors.border};
   border-top: none;
   border-radius: 0 0 6px 6px;
-  max-height: 190px;
+  max-height: 180px;
   overflow-y: auto;
   z-index: 999;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 `;
 
 const DropItem = styled.div`
-  padding: 8px 12px;
+  padding: 7px 10px;
   cursor: pointer;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   background: ${(p) => (p.selected ? "#f0fdf4" : "#fff")};
   color: ${(p) => (p.selected ? colors.primary : colors.textMain)};
   border-bottom: 1px solid #f3f4f6;
@@ -320,21 +251,29 @@ const SearchableDropdown = ({
 
   useEffect(() => {
     if (!value) { setDisplayLabel(""); setQuery(""); return; }
-    const c = options.find((o) => o[valueField] === value);
-    if (c) { setDisplayLabel(c[labelField]); return; }
-    apiRequest(`${HmsBaseUrl}${apiEndpoint}`, "GET").then((res) => {
-      const all = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-      const f = all.find((o) => o[valueField] === value);
-      if (f) setDisplayLabel(f[labelField]);
-    }).catch(() => {});
-  }, [value, options, apiEndpoint, labelField, valueField, HmsBaseUrl]);
+    const cached = options.find((o) => String(o[valueField]) === String(value));
+    if (cached) { setDisplayLabel(cached[labelField]); return; }
+    apiRequest(`${HmsBaseUrl}${apiEndpoint}`, "GET")
+      .then((res) => {
+        const all = Array.isArray(res) ? res
+          : Array.isArray(res?.data) ? res.data
+          : Array.isArray(res?.results) ? res.results : [];
+        const found = all.find((o) => String(o[valueField]) === String(value));
+        if (found) setDisplayLabel(found[labelField]);
+      }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
-  const fetch = async (search = "") => {
+  const fetchOptions = async (search = "") => {
     setLoading(true);
     try {
-      const url = search ? `${HmsBaseUrl}${apiEndpoint}?search=${encodeURIComponent(search)}` : `${HmsBaseUrl}${apiEndpoint}`;
+      const url = search
+        ? `${HmsBaseUrl}${apiEndpoint}?search=${encodeURIComponent(search)}`
+        : `${HmsBaseUrl}${apiEndpoint}`;
       const res = await apiRequest(url, "GET");
-      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const list = Array.isArray(res) ? res
+        : Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.results) ? res.results : [];
       setOptions(list.filter((o) => o.is_active !== false));
     } catch { setOptions([]); }
     finally { setLoading(false); }
@@ -349,17 +288,17 @@ const SearchableDropdown = ({
           onChange={(e) => {
             setQuery(e.target.value); setOpen(true);
             clearTimeout(debRef.current);
-            debRef.current = setTimeout(() => fetch(e.target.value), 300);
+            debRef.current = setTimeout(() => fetchOptions(e.target.value), 300);
           }}
-          onFocus={() => { setOpen(true); if (!options.length) fetch(""); }}
+          onFocus={() => { setOpen(true); if (!options.length) fetchOptions(""); }}
           placeholder={placeholder}
-          style={{ flex: 1, padding: "9px 10px", border: "none", outline: "none", fontSize: "0.88rem", minWidth: 0 }}
+          style={{ flex: 1, padding: "0 9px", border: "none", outline: "none", fontSize: "0.85rem", minWidth: 0, background: "transparent", height: "100%" }}
         />
-        <span onClick={() => { setOpen((p) => !p); if (!open) fetch(query); }}
-          style={{ padding: "0 9px", cursor: "pointer", color: colors.textMuted, fontSize: "0.68rem", userSelect: "none", flexShrink: 0 }}>▼</span>
+        <span onClick={() => { setOpen((p) => !p); if (!open) fetchOptions(query); }}
+          style={{ padding: "0 8px", cursor: "pointer", color: colors.textMuted, fontSize: "0.65rem", userSelect: "none", flexShrink: 0 }}>▼</span>
         {(displayLabel || value) && (
           <span onClick={(e) => { e.stopPropagation(); setDisplayLabel(""); setQuery(""); setOpen(false); onChange(""); }}
-            style={{ padding: "0 8px", cursor: "pointer", color: "#9ca3af", fontSize: "0.85rem", userSelect: "none", flexShrink: 0 }}>✕</span>
+            style={{ padding: "0 7px", cursor: "pointer", color: "#9ca3af", fontSize: "0.82rem", userSelect: "none", flexShrink: 0 }}>✕</span>
         )}
       </DropBox>
       {open && (
@@ -369,7 +308,8 @@ const SearchableDropdown = ({
             : options.length === 0
               ? <DropItem style={{ color: "#9ca3af", cursor: "default" }}>No results</DropItem>
               : options.map((opt, i) => (
-                <DropItem key={opt[valueField] || i} selected={opt[valueField] === value}
+                <DropItem key={opt[valueField] ?? i}
+                  selected={String(opt[valueField]) === String(value)}
                   onMouseDown={() => { setDisplayLabel(opt[labelField]); setQuery(""); setOpen(false); onChange(opt[valueField]); }}>
                   {opt[labelField]}
                 </DropItem>
@@ -380,56 +320,52 @@ const SearchableDropdown = ({
   );
 };
 
+// ─── Bed helpers ──────────────────────────────────────────────────────────────
+const makeBed = (index) => ({ bed_number: String(index + 1), blocked: false, blocked_reason: "" });
+
+const generateBeds = (capacity, existingBeds = []) => {
+  const count = parseInt(capacity, 10);
+  if (!count || count < 1) return [];
+  return Array.from({ length: count }, (_, i) =>
+    existingBeds[i] ? { ...existingBeds[i] } : makeBed(i)
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
-
 const Room = () => {
-  const navigate = useNavigate();
-
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const [rooms, setRooms] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [serviceTaxes, setServiceTaxes] = useState([]);
+  const [nursingStations, setNursingStations] = useState([]);
   const [activeTab, setActiveTab] = useState("services");
   const [editingId, setEditingId] = useState(null);
 
   const defaultRoomForm = {
     room_number: "", description: "", room_category: "", block: "",
-    floor: "", phone_extension: "", nursing_station: "", capacity: "1",
-    admission_fee: "", room_advance: "", room_type: "WARD",
-    room_blocked: false, blocked_reason: "",
-    include_in_final_bill: true, enable_luxury_tax: false,
+    phone_extension: "", nursing_station: "", capacity: "1", room_status: "Available",
   };
   const [roomForm, setRoomForm] = useState(defaultRoomForm);
 
-  const defaultService = {
-    description: "", priority: "", amount: "", service_tax: "",
-    tax_inclusive: false, chargeable_for_bystander: false,
-    chargeable_for_booking: false, enable_this_service: true, doctors_fee: false,
-  };
+  // Services — start EMPTY
+  const defaultService = { description: "", priority: "", amount: "" };
   const [serviceForm, setServiceForm] = useState(defaultService);
   const [roomServices, setRoomServices] = useState([]);
   const [editingServiceIdx, setEditingServiceIdx] = useState(null);
 
-  const defaultBed = { bed_number: "", bed_status: "Available", blocked: false, blocked_reason: "" };
-  const [bedForm, setBedForm] = useState(defaultBed);
-  const [roomBeds, setRoomBeds] = useState([]);
-  const [editingBedIdx, setEditingBedIdx] = useState(null);
+  // Beds — 1 bed to match default capacity of 1
+  const [roomBeds, setRoomBeds] = useState([makeBed(0)]);
 
-  const defaultKit = { kit_item: "", priority: "", amount: "", enable_item: true };
+  // Kits — start EMPTY
+  const defaultKit = { kit_item: "", priority: "", amount: "" };
   const [kitForm, setKitForm] = useState(defaultKit);
   const [roomKits, setRoomKits] = useState([]);
   const [editingKitIdx, setEditingKitIdx] = useState(null);
 
-  const [newBlockName, setNewBlockName] = useState("");
-  const [newCategoryName, setNewCategoryName] = useState("");
-
-  // Computed fields
-  const computedOccupancy = roomBeds.filter((b) => b.bed_status === "Occupied").length;
-  const computedStatus = roomForm.room_blocked ? "Blocked" : roomBeds.some((b) => b.bed_status === "Occupied") ? "Occupied" : "Available";
-
-  useEffect(() => { fetchRooms(); fetchBlocks(); fetchCategories(); fetchServiceTaxes(); }, []);
+  useEffect(() => {
+    fetchRooms(); fetchBlocks(); fetchCategories(); fetchNursingStations();
+  }, []);
 
   const fetchRooms = async () => {
     try {
@@ -438,6 +374,7 @@ const Room = () => {
       setRooms(list.filter((r) => r.is_active !== false));
     } catch { toast.error("Failed to fetch rooms"); }
   };
+
   const fetchBlocks = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}block/`, "GET");
@@ -445,6 +382,7 @@ const Room = () => {
       setBlocks(list.filter((b) => b.is_active !== false));
     } catch { toast.error("Failed to fetch blocks"); }
   };
+
   const fetchCategories = async () => {
     try {
       const res = await apiRequest(`${HmsBaseUrl}room-category/`, "GET");
@@ -452,40 +390,56 @@ const Room = () => {
       setCategories(list.filter((c) => c.is_active !== false));
     } catch { toast.error("Failed to fetch categories"); }
   };
-  const fetchServiceTaxes = async () => {
+
+  const fetchNursingStations = async () => {
     try {
-      const res = await apiRequest(`${HmsBaseUrl}service-tax/`, "GET");
-      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-      setServiceTaxes(list.filter((t) => t.is_active !== false));
+      const res = await apiRequest(`${HmsBaseUrl}nursingstation/`, "GET");
+      const list = Array.isArray(res) ? res
+        : Array.isArray(res?.data) ? res.data
+        : Array.isArray(res?.results) ? res.results : [];
+      setNursingStations(list.filter((n) => n.is_active !== false));
     } catch { /* optional */ }
   };
 
   const handleRoomChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setRoomForm((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
+    const { name, value } = e.target;
+    if (name === "capacity") {
+      const clamped = Math.max(1, parseInt(value, 10) || 1);
+      setRoomBeds(generateBeds(clamped, roomBeds));
+      setRoomForm((p) => ({ ...p, [name]: String(clamped) }));
+      return;
+    }
+    setRoomForm((p) => ({ ...p, [name]: value }));
   };
 
   const handleReset = () => {
-    setEditingId(null); setRoomForm(defaultRoomForm);
-    setRoomServices([]); setRoomBeds([]); setRoomKits([]);
+    setEditingId(null);
+    setRoomForm(defaultRoomForm);
+    setRoomServices([]);
+    setRoomBeds([makeBed(0)]);
+    setRoomKits([]);
     setActiveTab("services");
   };
 
   const handleEdit = (room) => {
     setEditingId(room.room_number);
     setRoomForm({
-      room_number: room.room_number || "", description: room.description || "",
-      room_category: room.room_category || "", block: room.block || "",
-      floor: room.floor || "", phone_extension: room.phone_extension || "",
-      nursing_station: room.nursing_station || "", capacity: room.capacity || "1",
-      admission_fee: room.admission_fee || "", room_advance: room.room_advance || "",
-      room_type: room.room_type || "WARD", room_blocked: room.room_blocked || false,
-      blocked_reason: room.blocked_reason || "",
-      include_in_final_bill: room.include_in_final_bill ?? true,
-      enable_luxury_tax: room.enable_luxury_tax || false,
+      room_number: room.room_number || "",
+      description: room.description || "",
+      room_category: room.room_category || "",
+      block: room.block || "",
+      phone_extension: room.phone_extension || "",
+      nursing_station: room.nursing_station || "",
+      capacity: String(room.capacity || 1),
+      room_status: room.room_status || "Available",
     });
+    const existing = (room.beds || []).map((b) => ({
+      bed_number: b.bed_number || "",
+      blocked: b.blocked || false,
+      blocked_reason: b.blocked_reason || "",
+    }));
+    setRoomBeds(generateBeds(parseInt(room.capacity || 1, 10), existing));
     setRoomServices(room.services || []);
-    setRoomBeds(room.beds || []);
     setRoomKits(room.room_kits || []);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -504,10 +458,11 @@ const Room = () => {
     if (!roomForm.room_number.trim()) return toast.warning("Room number is required");
     if (!roomForm.block) return toast.warning("Please select a block");
     if (!roomForm.room_category) return toast.warning("Please select a room category");
-    if (!roomForm.floor) return toast.warning("Floor is required");
-    if (roomForm.room_blocked && !roomForm.blocked_reason.trim()) return toast.warning("Blocking reason required");
 
-    const payload = { ...roomForm, occupancy: computedOccupancy, room_status: computedStatus, services: roomServices, beds: roomBeds, room_kits: roomKits };
+    const bedsPayload = roomBeds.map((b) => ({ ...b, bed_status: b.blocked ? "Blocked" : "Available" }));
+    const occupancy = bedsPayload.filter((b) => b.bed_status === "Available").length;
+    const payload = { ...roomForm, occupancy, services: roomServices, beds: bedsPayload, room_kits: roomKits };
+
     try {
       if (editingId) {
         const res = await apiRequest(`${HmsBaseUrl}room/${editingId}/`, "PUT", payload);
@@ -528,29 +483,36 @@ const Room = () => {
     if (editingServiceIdx !== null) {
       const u = [...roomServices]; u[editingServiceIdx] = { ...serviceForm };
       setRoomServices(u); setEditingServiceIdx(null); toast.success("Service updated");
-    } else { setRoomServices([...roomServices, { ...serviceForm }]); toast.success("Service added"); }
+    } else {
+      setRoomServices([...roomServices, { ...serviceForm }]); toast.success("Service added");
+    }
     setServiceForm(defaultService);
   };
   const editService = (i) => { setServiceForm({ ...roomServices[i] }); setEditingServiceIdx(i); };
   const removeService = (i) => {
     if (!window.confirm("Remove service?")) return;
-    setRoomServices(roomServices.filter((_, idx) => idx !== i)); toast.info("Removed");
+    setRoomServices(roomServices.filter((_, idx) => idx !== i));
+    if (editingServiceIdx === i) { setEditingServiceIdx(null); setServiceForm(defaultService); }
+    toast.info("Removed");
   };
 
   // Beds
-  const addBed = () => {
-    if (!bedForm.bed_number.trim()) return toast.warning("Bed number required");
-    if (bedForm.blocked && !bedForm.blocked_reason.trim()) return toast.warning("Blocking reason required");
-    if (editingBedIdx !== null) {
-      const u = [...roomBeds]; u[editingBedIdx] = { ...bedForm };
-      setRoomBeds(u); setEditingBedIdx(null); toast.success("Bed updated");
-    } else { setRoomBeds([...roomBeds, { ...bedForm }]); toast.success("Bed added"); }
-    setBedForm(defaultBed);
+  const updateBed = (idx, field, val) => {
+    setRoomBeds((prev) => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: val };
+      if (field === "blocked" && !val) updated[idx].blocked_reason = "";
+      return updated;
+    });
   };
-  const editBed = (i) => { setEditingBedIdx(i); setBedForm({ ...roomBeds[i] }); };
-  const removeBed = (i) => {
-    if (!window.confirm("Remove bed?")) return;
-    setRoomBeds(roomBeds.filter((_, idx) => idx !== i)); toast.info("Removed");
+  const removeBed = (idx) => {
+    if (!window.confirm("Remove this bed?")) return;
+    setRoomBeds((prev) => {
+      const updated = prev.filter((_, i) => i !== idx);
+      const newCap = Math.max(1, updated.length);
+      setRoomForm((f) => ({ ...f, capacity: String(newCap) }));
+      return updated.length ? updated : [makeBed(0)];
+    });
   };
 
   // Kits
@@ -560,195 +522,131 @@ const Room = () => {
     if (editingKitIdx !== null) {
       const u = [...roomKits]; u[editingKitIdx] = { ...kitForm };
       setRoomKits(u); setEditingKitIdx(null); toast.success("Kit updated");
-    } else { setRoomKits([...roomKits, { ...kitForm }]); toast.success("Kit added"); }
+    } else {
+      setRoomKits([...roomKits, { ...kitForm }]); toast.success("Kit added");
+    }
     setKitForm(defaultKit);
   };
   const editKit = (i) => { setEditingKitIdx(i); setKitForm({ ...roomKits[i] }); };
   const removeKit = (i) => {
     if (!window.confirm("Remove kit?")) return;
-    setRoomKits(roomKits.filter((_, idx) => idx !== i)); toast.info("Removed");
+    setRoomKits(roomKits.filter((_, idx) => idx !== i));
+    if (editingKitIdx === i) { setEditingKitIdx(null); setKitForm(defaultKit); }
+    toast.info("Removed");
   };
+  const getKitLabel = (k) =>
+    typeof k.kit_item === "object" && k.kit_item?.name ? k.kit_item.name : k.kit_item || "—";
 
-  const getKitLabel = (k) => typeof k.kit_item === "object" && k.kit_item?.name ? k.kit_item.name : k.kit_item || "—";
-
+  // ─── Render ──────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
       <Container>
-        <SectionHeader style={{ padding: "0 24px", marginTop: 20 }}>
-          <h3>Room Management</h3>
-        </SectionHeader>
+        <PageHeader>
+          <PageTitle>🏥 Room Management</PageTitle>
+        </PageHeader>
 
-        <FormContent style={{ paddingTop: 16 }}>
+        <FormContent style={{ paddingTop: 12 }}>
           <form onSubmit={handleSubmit}>
             <PageLayout>
 
-              {/* ════════════════ LEFT PANE — 3 columns ════════════════ */}
+              {/* ════ LEFT PANE ════ */}
               <LeftPane>
                 <PanelTitle>Room Details</PanelTitle>
 
-                {/* Row 1: Room Number | Description | Room Category */}
                 <FieldGrid>
-                  <InputWrapper>
-                    <Label required>Room Number</Label>
-                    <Input type="text" name="room_number" value={roomForm.room_number}
+                  <CInputWrapper>
+                    <CLabel required>Room Number</CLabel>
+                    <CInput type="text" name="room_number" value={roomForm.room_number}
                       onChange={handleRoomChange} placeholder="e.g. R-101" required />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label required>Description</Label>
-                    <Input type="text" name="description" value={roomForm.description}
+                  </CInputWrapper>
+
+                  <CInputWrapper>
+                    <CLabel>Description</CLabel>
+                    <CInput type="text" name="description" value={roomForm.description}
                       onChange={handleRoomChange} placeholder="Room description" />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label required style={{ display: "flex", alignItems: "center" }}>
-                      Room Category
-                      <InlineAddBtn
-                        type="button"
-                        onClick={() => navigate("/RoomCategory")}
-                      >
-                        +
-                      </InlineAddBtn>
-                    </Label>
-                    <Select name="room_category" value={roomForm.room_category} onChange={handleRoomChange} required>
+                  </CInputWrapper>
+
+                  <CInputWrapper>
+                    <CLabel required>Room Category</CLabel>
+                    <CSelect name="room_category" value={roomForm.room_category}
+                      onChange={handleRoomChange} required>
                       <option value="">--Select--</option>
-                      {categories.map((c) => <option key={c.room_category_id} value={c.name}>{c.name}</option>)}
-                    </Select>
-                  </InputWrapper>
+                      {categories.map((c) => (
+                        <option key={c.room_category_id} value={c.name}>{c.name}</option>
+                      ))}
+                    </CSelect>
+                  </CInputWrapper>
                 </FieldGrid>
 
-                {/* Row 2: Block | Floor | Phone Extension */}
                 <FieldGrid>
-                  <InputWrapper>
-                    <Label required style={{ display: "flex", alignItems: "center" }}>
-                      Block
-                      <InlineAddBtn
-                        type="button"
-                        onClick={() => navigate("/Block")}
-                      >
-                        +
-                      </InlineAddBtn>
-                    </Label>
-                    <Select name="block" value={roomForm.block} onChange={handleRoomChange} required>
+                  <CInputWrapper>
+                    <CLabel required>Block</CLabel>
+                    <CSelect name="block" value={roomForm.block}
+                      onChange={handleRoomChange} required>
                       <option value="">--Select--</option>
-                      {blocks.map((b) => <option key={b.block_id} value={b.block_name}>{b.block_name}</option>)}
-                    </Select>
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label required>Floor</Label>
-                    <Input type="number" name="floor" value={roomForm.floor}
-                      onChange={handleRoomChange} placeholder="e.g. 1" required />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label>Phone Extension</Label>
-                    <Input type="text" name="phone_extension" value={roomForm.phone_extension}
+                      {blocks.map((b) => (
+                        <option key={b.block_id} value={b.block_name}>{b.block_name}</option>
+                      ))}
+                    </CSelect>
+                  </CInputWrapper>
+
+                  <CInputWrapper>
+                    <CLabel>Phone Extension</CLabel>
+                    <CInput type="text" name="phone_extension" value={roomForm.phone_extension}
                       onChange={handleRoomChange} placeholder="e.g. 1234" />
-                  </InputWrapper>
-                </FieldGrid>
+                  </CInputWrapper>
 
-                {/* Row 3: Nursing Station | Capacity | Occupancy */}
-                <FieldGrid>
-                  <InputWrapper>
-                    <Label required>Nursing Station</Label>
-                    <Select name="nursing_station" value={roomForm.nursing_station} onChange={handleRoomChange}>
+                  <CInputWrapper>
+                    <CLabel>Nursing Station</CLabel>
+                    <CSelect name="nursing_station" value={roomForm.nursing_station}
+                      onChange={handleRoomChange}>
                       <option value="">--Select--</option>
-                      <option value="MICU">MICU</option>
-                      <option value="SICU">SICU</option>
-                    </Select>
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label required>Capacity</Label>
-                    <Input type="number" name="capacity" value={roomForm.capacity}
-                      onChange={handleRoomChange} min="1" />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label>Occupancy</Label>
-                    <ReadOnlyInput type="text" value={computedOccupancy} readOnly
-                      title="Auto-calculated from occupied beds" />
-                  </InputWrapper>
+                      {nursingStations.map((b) => (
+                        <option key={b.ward_id} value={b.ward_name}>{b.ward_name}</option>
+                      ))}
+                    </CSelect>
+                  </CInputWrapper>
                 </FieldGrid>
 
-                {/* Row 4: Admission Fee | Room Advance | Room Blocked */}
-                <FieldGrid>
-                  <InputWrapper>
-                    <Label>Admission Fee</Label>
-                    <Input type="number" name="admission_fee" value={roomForm.admission_fee}
-                      onChange={handleRoomChange} step="0.01" placeholder="0.00" />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label>Room Advance</Label>
-                    <Input type="number" name="room_advance" value={roomForm.room_advance}
-                      onChange={handleRoomChange} step="0.01" placeholder="0.00" />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label>Room Blocked</Label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                      <ToggleSwitch type="button" on={roomForm.room_blocked}
-                        onClick={() => setRoomForm((p) => ({
-                          ...p, room_blocked: !p.room_blocked,
-                          blocked_reason: !p.room_blocked ? p.blocked_reason : "",
-                        }))} />
-                      <StatusBadge color={roomForm.room_blocked ? colors.danger : colors.textMuted}>
-                        {roomForm.room_blocked ? "Blocked" : "No"}
-                      </StatusBadge>
-                    </div>
-                  </InputWrapper>
-                </FieldGrid>
-
-                {/* Blocking Reason */}
-                {roomForm.room_blocked && (
-                  <FullRow>
-                    <InputWrapper>
-                      <Label required>Blocking Reason</Label>
-                      <Input type="text" name="blocked_reason" value={roomForm.blocked_reason}
-                        onChange={handleRoomChange} placeholder="Reason for blocking" required />
-                    </InputWrapper>
-                  </FullRow>
-                )}
-
-                <Divider />
-
-                {/* Row 5: Room Status (read-only) | Room Type */}
                 <TwoCol>
-                  <InputWrapper>
-                    <Label>Room Status</Label>
-                    <ReadOnlyInput type="text" value={computedStatus} readOnly />
-                  </InputWrapper>
-                  <InputWrapper>
-                    <Label>Room Type</Label>
-                    <Select name="room_type" value={roomForm.room_type} onChange={handleRoomChange}>
-                      <option value="ICU">ICU</option>
-                      <option value="CCU">CCU</option>
-                      <option value="ICCU">ICCU</option>
-                      <option value="NICU">NICU</option>
-                      <option value="CASUALTY">CASUALTY</option>
-                      <option value="OTHERS">OTHERS</option>
-                    </Select>
-                  </InputWrapper>
+                  <CInputWrapper>
+                    <CLabel required>Capacity</CLabel>
+                    <CInput type="number" name="capacity" value={roomForm.capacity}
+                      onChange={handleRoomChange} min="1" />
+                  </CInputWrapper>
+
+                  <CInputWrapper>
+                    <CLabel>Room Status</CLabel>
+                    <CSelect name="room_status" value={roomForm.room_status} onChange={handleRoomChange}>
+                      <option value="Available">Available</option>
+                      <option value="Maintenance">Maintenance</option>
+                      <option value="Blocked">Blocked</option>
+                    </CSelect>
+                  </CInputWrapper>
                 </TwoCol>
 
-                {/* Checkboxes */}
-                <CheckboxRow>
-                  <CheckboxLabel>
-                    <input type="checkbox" name="include_in_final_bill"
-                      checked={roomForm.include_in_final_bill} onChange={handleRoomChange} />
-                    Include in Final Bill
-                  </CheckboxLabel>
-                  <CheckboxLabel>
-                    <input type="checkbox" name="enable_luxury_tax"
-                      checked={roomForm.enable_luxury_tax} onChange={handleRoomChange} />
-                    Enable Luxury Tax
-                  </CheckboxLabel>
-                </CheckboxRow>
+                {/* Actions placed right below the form fields */}
+                <div style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${colors.border}` }}>
+                  <Button secondary type="button" onClick={handleReset}
+                    style={{ padding: "6px 16px", fontSize: "0.82rem" }}>
+                    ✕ Cancel
+                  </Button>
+                  <Button type="submit" style={{ padding: "6px 16px", fontSize: "0.82rem" }}>
+                    {editingId ? "💾 Update Room" : "💾 Save"}
+                  </Button>
+                </div>
               </LeftPane>
 
-              {/* ════════════════ RIGHT PANE — Tabs ════════════════ */}
+              {/* ════ RIGHT PANE ════ */}
               <RightPane>
                 <TabContainer>
                   {[
                     { key: "services", label: "Services", count: roomServices.length },
-                    { key: "beds", label: "Bed", count: roomBeds.length },
-                    { key: "kits", label: "Room Kit Items", count: roomKits.length },
+                    { key: "beds",     label: "Bed",      count: roomBeds.length },
+                    { key: "kits",     label: "Room Kit Items", count: roomKits.length },
                   ].map(({ key, label, count }) => (
-                    <TabButton key={key} type="button" active={activeTab === key} onClick={() => setActiveTab(key)}>
+                    <TabButton key={key} type="button" active={activeTab === key}
+                      onClick={() => setActiveTab(key)}>
                       {label} ({count})
                     </TabButton>
                   ))}
@@ -757,87 +655,69 @@ const Room = () => {
                 {/* Services Tab */}
                 {activeTab === "services" && (
                   <TabPanel>
-                    <InputWrapper style={{ marginBottom: 10 }}>
-                      <Label required>Description</Label>
+                    <CInputWrapper style={{ marginBottom: 8 }}>
+                      <CLabel required>Description</CLabel>
                       <SearchableDropdown
                         apiEndpoint="roomservice-description/"
                         value={serviceForm.description}
                         onChange={(val) => setServiceForm((p) => ({ ...p, description: val }))}
-                        placeholder="Search service…"
-                        labelField="description" valueField="description"
+                        placeholder="Search description…"
+                        labelField="description_name"
+                        valueField="description_name"
                       />
-                    </InputWrapper>
+                    </CInputWrapper>
 
-                    <CheckboxRow>
-                      <CheckboxLabel>
-                        <input type="checkbox" checked={serviceForm.chargeable_for_bystander}
-                          onChange={(e) => setServiceForm((p) => ({ ...p, chargeable_for_bystander: e.target.checked }))} />
-                        Chargeable For Bystander
-                      </CheckboxLabel>
-                      <CheckboxLabel>
-                        <input type="checkbox" checked={serviceForm.chargeable_for_booking}
-                          onChange={(e) => setServiceForm((p) => ({ ...p, chargeable_for_booking: e.target.checked }))} />
-                        Chargeable For Booking
-                      </CheckboxLabel>
-                      <CheckboxLabel>
-                        <input type="checkbox" checked={serviceForm.enable_this_service}
-                          onChange={(e) => setServiceForm((p) => ({ ...p, enable_this_service: e.target.checked }))} />
-                        Enable This Service
-                      </CheckboxLabel>
-                      <CheckboxLabel>
-                        <input type="checkbox" checked={serviceForm.doctors_fee}
-                          onChange={(e) => setServiceForm((p) => ({ ...p, doctors_fee: e.target.checked }))} />
-                        Doctor's Fee
-                      </CheckboxLabel>
-                    </CheckboxRow>
-
-                    <TwoCol style={{ marginBottom: 10 }}>
-                      <InputWrapper>
-                        <Label>Priority</Label>
-                        <Input type="number" value={serviceForm.priority}
+                    <TwoCol style={{ marginBottom: 8 }}>
+                      <CInputWrapper>
+                        <CLabel>Priority</CLabel>
+                        <CInput type="number" value={serviceForm.priority}
                           onChange={(e) => setServiceForm((p) => ({ ...p, priority: e.target.value }))}
                           placeholder="Priority" />
-                      </InputWrapper>
-                      <InputWrapper>
-                        <Label>Amount</Label>
-                        <Input type="number" value={serviceForm.amount}
+                      </CInputWrapper>
+                      <CInputWrapper>
+                        <CLabel>Amount</CLabel>
+                        <CInput type="number" value={serviceForm.amount}
                           onChange={(e) => setServiceForm((p) => ({ ...p, amount: e.target.value }))}
                           placeholder="0.00" step="0.01" />
-                      </InputWrapper>
+                      </CInputWrapper>
                     </TwoCol>
 
-                    <ButtonContainer style={{ justifyContent: "flex-end", marginTop: 0, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6,
+                      paddingTop: 8, borderTop: `1px solid ${colors.border}`, marginBottom: 10 }}>
                       {editingServiceIdx !== null && (
-                        <SmallBtn secondary type="button" onClick={() => { setEditingServiceIdx(null); setServiceForm(defaultService); }}>
+                        <SmallBtn secondary type="button"
+                          onClick={() => { setEditingServiceIdx(null); setServiceForm(defaultService); }}>
                           ✕ Cancel
                         </SmallBtn>
                       )}
                       <SmallBtn type="button" onClick={addService}>
                         {editingServiceIdx !== null ? "✓ Update" : "+ Add"}
                       </SmallBtn>
-                    </ButtonContainer>
+                    </div>
 
-                    <TableWrapper style={{ marginTop: 10 }}>
+                    <TableWrapper>
                       <Table>
                         <thead>
-                          <Tr><Th>Description</Th><Th>Charge</Th><Th>Priority</Th><Th>Action</Th></Tr>
+                          <Tr><Th>Description</Th><Th>Amount</Th><Th>Priority</Th><Th>Action</Th></Tr>
                         </thead>
                         <tbody>
-                          {roomServices.length === 0
-                            ? <Tr><Td colSpan="4" style={{ textAlign: "center", color: "#9ca3af" }}>No data available in table</Td></Tr>
-                            : roomServices.map((svc, i) => (
-                              <Tr key={i} style={{ background: editingServiceIdx === i ? "#f0fdf4" : "" }}>
-                                <Td>{svc.description}</Td>
-                                <Td>{svc.amount}</Td>
-                                <Td>{svc.priority || "—"}</Td>
-                                <Td>
-                                  <ActionCell>
-                                    <SmallBtn type="button" onClick={() => editService(i)}>Edit</SmallBtn>
-                                    <SmallBtn danger type="button" onClick={() => removeService(i)}>Delete</SmallBtn>
-                                  </ActionCell>
-                                </Td>
-                              </Tr>
-                            ))}
+                          {roomServices.length === 0 ? (
+                            <Tr><Td colSpan="4" style={{ textAlign: "center", color: "#9ca3af", padding: "20px 0", fontSize: "0.82rem" }}>
+                              No services added yet
+                            </Td></Tr>
+                          ) : roomServices.map((svc, i) => (
+                            <Tr key={i} style={{ background: editingServiceIdx === i ? "#f0fdf4" : "" }}>
+                              <Td style={{ fontSize: "0.82rem" }}>{svc.description || "—"}</Td>
+                              <Td style={{ fontSize: "0.82rem" }}>{svc.amount || "—"}</Td>
+                              <Td style={{ fontSize: "0.82rem" }}>{svc.priority || "—"}</Td>
+                              <Td>
+                                <ActionCell>
+                                  <SmallBtn type="button" onClick={() => editService(i)}>Edit</SmallBtn>
+                                  <SmallBtn danger type="button" onClick={() => removeService(i)}>Delete</SmallBtn>
+                                </ActionCell>
+                              </Td>
+                            </Tr>
+                          ))}
                         </tbody>
                       </Table>
                     </TableWrapper>
@@ -847,77 +727,53 @@ const Room = () => {
                 {/* Beds Tab */}
                 {activeTab === "beds" && (
                   <TabPanel>
-                    <SubFormGrid>
-                      <InputWrapper>
-                        <Label>Bed Number</Label>
-                        <Input value={bedForm.bed_number}
-                          onChange={(e) => setBedForm((p) => ({ ...p, bed_number: e.target.value }))}
-                          placeholder="e.g. B-101" />
-                      </InputWrapper>
-                      <InputWrapper>
-                        <Label>Status</Label>
-                        <Select value={bedForm.bed_status}
-                          onChange={(e) => setBedForm((p) => ({ ...p, bed_status: e.target.value }))}>
-                          <option value="Available">Available</option>
-                          <option value="Occupied">Occupied</option>
-                          <option value="Maintenance">Maintenance</option>
-                        </Select>
-                      </InputWrapper>
-                    </SubFormGrid>
-
-                    <SubFormGrid>
-                    <InputWrapper>
-                        <Label>Blocked</Label>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                          <ToggleSwitch type="button" on={bedForm.blocked}
-                            onClick={() => setBedForm((p) => ({ ...p, blocked: !p.blocked, blocked_reason: !p.blocked ? p.blocked_reason : "" }))} />
-                          <StatusBadge color={bedForm.blocked ? colors.danger : colors.textMuted}>
-                            {bedForm.blocked ? "Yes" : "No"}
-                          </StatusBadge>
-                        </div>
-                      </InputWrapper>
-                      {bedForm.blocked && (
-                        <InputWrapper>
-                          <Label required>Blocking Reason</Label>
-                          <Input value={bedForm.blocked_reason}
-                            onChange={(e) => setBedForm((p) => ({ ...p, blocked_reason: e.target.value }))}
-                            placeholder="Reason" />
-                        </InputWrapper>
-                      )}
-                      </SubFormGrid>
-
-                    <ButtonContainer style={{ justifyContent: "flex-end", marginTop: 0, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
-                      {editingBedIdx !== null && (
-                        <SmallBtn secondary type="button" onClick={() => { setEditingBedIdx(null); setBedForm(defaultBed); }}>✕ Cancel</SmallBtn>
-                      )}
-                      <SmallBtn type="button" onClick={addBed}>{editingBedIdx !== null ? "✓ Update" : "+ Add"}</SmallBtn>
-                    </ButtonContainer>
-
-                    <TableWrapper style={{ marginTop: 10 }}>
+                    <TableWrapper>
                       <Table>
                         <thead>
-                          <Tr><Th>Bed No</Th><Th>Status</Th><Th>Blocked</Th><Th>Action</Th></Tr>
+                          <Tr>
+                            <Th style={{ width: 30 }}>#</Th>
+                            <Th>Bed No.</Th>
+                            <Th style={{ width: 90 }}>Blocked</Th>
+                            <Th>Reason</Th>
+                            <Th style={{ width: 44 }}>Del</Th>
+                          </Tr>
                         </thead>
                         <tbody>
-                          {roomBeds.length === 0
-                            ? <Tr><Td colSpan="4" style={{ textAlign: "center", color: "#9ca3af" }}>No data available</Td></Tr>
-                            : roomBeds.map((b, i) => (
-                              <Tr key={i} style={{ background: editingBedIdx === i ? "#f0fdf4" : "" }}>
-                                <Td>{b.bed_number}</Td>
-                                <Td>
-                                  <StatusBadge color={b.bed_status === "Available" ? colors.success : b.bed_status === "Occupied" ? colors.danger : colors.secondary}>
-                                    {b.bed_status}
+                          {roomBeds.map((bed, i) => (
+                            <Tr key={i}>
+                              <Td style={{ color: colors.textMuted, fontSize: "0.78rem" }}>{i + 1}</Td>
+                              <Td>
+                                <CInput value={bed.bed_number}
+                                  onChange={(e) => updateBed(i, "bed_number", e.target.value)}
+                                  placeholder={`B-${String(i + 1).padStart(2, "0")}`}
+                                  style={{ width: "100%", padding: "4px 7px", fontSize: "0.82rem", height: 28 }} />
+                              </Td>
+                              <Td>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                  <ToggleSwitch type="button" on={bed.blocked}
+                                    onClick={() => updateBed(i, "blocked", !bed.blocked)} />
+                                  <StatusBadge color={bed.blocked ? colors.danger : colors.textMuted}
+                                    style={{ fontSize: "0.76rem" }}>
+                                    {bed.blocked ? "Yes" : "No"}
                                   </StatusBadge>
-                                </Td>
-                                <Td><StatusBadge color={b.blocked ? colors.danger : colors.success}>{b.blocked ? "Yes" : "No"}</StatusBadge></Td>
-                                <Td>
-                                  <ActionCell>
-                                    <SmallBtn type="button" onClick={() => editBed(i)}>Edit</SmallBtn>
-                                    <SmallBtn danger type="button" onClick={() => removeBed(i)}>Delete</SmallBtn>
-                                  </ActionCell>
-                                </Td>
-                              </Tr>
-                            ))}
+                                </div>
+                              </Td>
+                              <Td>
+                                {bed.blocked ? (
+                                  <CInput value={bed.blocked_reason}
+                                    onChange={(e) => updateBed(i, "blocked_reason", e.target.value)}
+                                    placeholder="Reason…"
+                                    style={{ width: "100%", padding: "4px 7px", fontSize: "0.82rem", height: 28 }} />
+                                ) : (
+                                  <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                                )}
+                              </Td>
+                              <Td>
+                                <SmallBtn danger type="button" onClick={() => removeBed(i)}
+                                  style={{ padding: "2px 7px", fontSize: "0.75rem" }}>✕</SmallBtn>
+                              </Td>
+                            </Tr>
+                          ))}
                         </tbody>
                       </Table>
                     </TableWrapper>
@@ -928,55 +784,67 @@ const Room = () => {
                 {activeTab === "kits" && (
                   <TabPanel>
                     <SubFormGrid>
-                      <InputWrapper>
-                        <Label>Kit Item</Label>
+                      <CInputWrapper>
+                        <CLabel>Kit Item</CLabel>
                         <SearchableDropdown
-                          apiEndpoint="room-kit-description/"
+                          apiEndpoint="room-kititems/"
                           value={kitForm.kit_item}
                           onChange={(val) => setKitForm((p) => ({ ...p, kit_item: val }))}
-                          placeholder="Search kit item…" labelField="name" />
-                      </InputWrapper>
-                      <InputWrapper>
-                        <Label>Priority</Label>
-                        <Input type="number" value={kitForm.priority}
-                          onChange={(e) => setKitForm((p) => ({ ...p, priority: e.target.value }))} placeholder="Priority" />
-                      </InputWrapper>
+                          placeholder="Search kit…"
+                          labelField="kit_name"
+                          valueField="kit_name"
+                        />
+                      </CInputWrapper>
+                      <CInputWrapper>
+                        <CLabel>Priority</CLabel>
+                        <CInput type="number" value={kitForm.priority}
+                          onChange={(e) => setKitForm((p) => ({ ...p, priority: e.target.value }))}
+                          placeholder="Priority" />
+                      </CInputWrapper>
+                      <CInputWrapper>
+                        <CLabel>Amount</CLabel>
+                        <CInput type="number" value={kitForm.amount}
+                          onChange={(e) => setKitForm((p) => ({ ...p, amount: e.target.value }))}
+                          placeholder="0.00" step="0.01" />
+                      </CInputWrapper>
                     </SubFormGrid>
-                      <InputWrapper>
-                        <Label>Amount</Label>
-                        <Input type="number" value={kitForm.amount}
-                          onChange={(e) => setKitForm((p) => ({ ...p, amount: e.target.value }))} placeholder="0.00" step="0.01" />
-                      </InputWrapper>
 
-                    <ButtonContainer style={{ justifyContent: "flex-end", marginTop: 0, paddingTop: 10, borderTop: `1px solid ${colors.border}` }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6,
+                      paddingTop: 8, borderTop: `1px solid ${colors.border}`, marginBottom: 10 }}>
                       {editingKitIdx !== null && (
-                        <SmallBtn secondary type="button" onClick={() => { setEditingKitIdx(null); setKitForm(defaultKit); }}>✕ Cancel</SmallBtn>
+                        <SmallBtn secondary type="button"
+                          onClick={() => { setEditingKitIdx(null); setKitForm(defaultKit); }}>
+                          ✕ Cancel
+                        </SmallBtn>
                       )}
-                      <SmallBtn type="button" onClick={addKit}>{editingKitIdx !== null ? "✓ Update" : "+ Add"}</SmallBtn>
-                    </ButtonContainer>
+                      <SmallBtn type="button" onClick={addKit}>
+                        {editingKitIdx !== null ? "✓ Update" : "+ Add"}
+                      </SmallBtn>
+                    </div>
 
-                    <TableWrapper style={{ marginTop: 10 }}>
+                    <TableWrapper>
                       <Table>
                         <thead>
-                          <Tr><Th>Kit Item</Th><Th>Priority</Th><Th>Amount</Th><Th>Enabled</Th><Th>Action</Th></Tr>
+                          <Tr><Th>Kit Item</Th><Th>Priority</Th><Th>Amount</Th><Th>Action</Th></Tr>
                         </thead>
                         <tbody>
-                          {roomKits.length === 0
-                            ? <Tr><Td colSpan="5" style={{ textAlign: "center", color: "#9ca3af" }}>No data available</Td></Tr>
-                            : roomKits.map((k, i) => (
-                              <Tr key={i} style={{ background: editingKitIdx === i ? "#f0fdf4" : "" }}>
-                                <Td>{getKitLabel(k)}</Td>
-                                <Td>{k.priority || "—"}</Td>
-                                <Td>{k.amount || "—"}</Td>
-                                <Td><StatusBadge color={k.enable_item ? colors.success : "#9ca3af"}>{k.enable_item ? "✓" : "✗"}</StatusBadge></Td>
-                                <Td>
-                                  <ActionCell>
-                                    <SmallBtn type="button" onClick={() => editKit(i)}>Edit</SmallBtn>
-                                    <SmallBtn danger type="button" onClick={() => removeKit(i)}>Delete</SmallBtn>
-                                  </ActionCell>
-                                </Td>
-                              </Tr>
-                            ))}
+                          {roomKits.length === 0 ? (
+                            <Tr><Td colSpan="4" style={{ textAlign: "center", color: "#9ca3af", padding: "20px 0", fontSize: "0.82rem" }}>
+                              No kit items added yet
+                            </Td></Tr>
+                          ) : roomKits.map((k, i) => (
+                            <Tr key={i} style={{ background: editingKitIdx === i ? "#f0fdf4" : "" }}>
+                              <Td style={{ fontSize: "0.82rem" }}>{getKitLabel(k) || "—"}</Td>
+                              <Td style={{ fontSize: "0.82rem" }}>{k.priority || "—"}</Td>
+                              <Td style={{ fontSize: "0.82rem" }}>{k.amount || "—"}</Td>
+                              <Td>
+                                <ActionCell>
+                                  <SmallBtn type="button" onClick={() => editKit(i)}>Edit</SmallBtn>
+                                  <SmallBtn danger type="button" onClick={() => removeKit(i)}>Delete</SmallBtn>
+                                </ActionCell>
+                              </Td>
+                            </Tr>
+                          ))}
                         </tbody>
                       </Table>
                     </TableWrapper>
@@ -984,54 +852,50 @@ const Room = () => {
                 )}
               </RightPane>
             </PageLayout>
-
-            {/* Form Actions */}
-            <ButtonContainer style={{ marginTop: 20 }}>
-              <Button secondary type="button" onClick={handleReset}>✕ Cancel</Button>
-              <Button type="submit">{editingId ? "💾 Update Room" : "💾 Save"}</Button>
-            </ButtonContainer>
           </form>
         </FormContent>
 
-        {/* Room List */}
-        <div style={{ padding: "0 24px 32px" }}>
-          <SectionHeader style={{ padding: 0, marginTop: 0, marginBottom: 14 }}>
-            <h3>Room List</h3>
+        {/* ── Room List ── */}
+        <div style={{ padding: "0 20px 28px" }}>
+          <SectionHeader style={{ padding: 0, marginTop: 4, marginBottom: 12 }}>
+            <h3 style={{ fontSize: "0.95rem" }}>Room List</h3>
           </SectionHeader>
           <TableWrapper>
             <Table>
               <thead>
                 <Tr>
                   <Th>Room No</Th><Th>Description</Th><Th>Block</Th><Th>Category</Th>
-                  <Th>Type</Th><Th>Floor</Th><Th>Capacity</Th><Th>Occupancy</Th><Th>Status</Th><Th>Actions</Th>
+                  <Th>Nursing Station</Th><Th>Capacity</Th><Th>Status</Th><Th>Actions</Th>
                 </Tr>
               </thead>
               <tbody>
-                {rooms.length === 0
-                  ? <Tr><Td colSpan="10" style={{ textAlign: "center", color: "#9ca3af" }}>No rooms found</Td></Tr>
-                  : rooms.map((r) => (
-                    <Tr key={r.id || r.room_number}>
-                      <Td style={{ fontWeight: 600 }}>{r.room_number}</Td>
-                      <Td>{r.description || "—"}</Td>
-                      <Td>{r.block}</Td>
-                      <Td>{r.room_category}</Td>
-                      <Td>{r.room_type}</Td>
-                      <Td>{r.floor}</Td>
-                      <Td>{r.capacity}</Td>
-                      <Td>{r.occupancy ?? 0}</Td>
-                      <Td>
-                        <StatusBadge color={r.room_blocked ? colors.danger : colors.success}>
-                          {r.room_blocked ? "Blocked" : "Active"}
-                        </StatusBadge>
-                      </Td>
-                      <Td>
-                        <ActionCell>
-                          <SmallBtn type="button" onClick={() => handleEdit(r)}>Edit</SmallBtn>
-                          <SmallBtn danger type="button" onClick={() => handleDelete(r.room_number)}>Delete</SmallBtn>
-                        </ActionCell>
-                      </Td>
-                    </Tr>
-                  ))}
+                {rooms.length === 0 ? (
+                  <Tr><Td colSpan="8" style={{ textAlign: "center", color: "#9ca3af" }}>No rooms found</Td></Tr>
+                ) : rooms.map((r) => (
+                  <Tr key={r.id || r.room_number}>
+                    <Td style={{ fontWeight: 600, fontSize: "0.82rem" }}>{r.room_number}</Td>
+                    <Td style={{ fontSize: "0.82rem" }}>{r.description || "—"}</Td>
+                    <Td style={{ fontSize: "0.82rem" }}>{r.block}</Td>
+                    <Td style={{ fontSize: "0.82rem" }}>{r.room_category}</Td>
+                    <Td style={{ fontSize: "0.82rem" }}>{r.nursing_station || "—"}</Td>
+                    <Td style={{ fontSize: "0.82rem" }}>{r.capacity}</Td>
+                    <Td>
+                      <StatusBadge color={
+                        r.room_status === "Available" ? colors.success
+                          : r.room_status === "Blocked" ? colors.danger
+                          : colors.secondary
+                      }>
+                        {r.room_status || "Available"}
+                      </StatusBadge>
+                    </Td>
+                    <Td>
+                      <ActionCell>
+                        <SmallBtn type="button" onClick={() => handleEdit(r)}>Edit</SmallBtn>
+                        <SmallBtn danger type="button" onClick={() => handleDelete(r.room_number)}>Delete</SmallBtn>
+                      </ActionCell>
+                    </Td>
+                  </Tr>
+                ))}
               </tbody>
             </Table>
           </TableWrapper>

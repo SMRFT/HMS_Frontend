@@ -23,11 +23,22 @@ export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}
     if (permissions.length === 0) return false;
 
     // 1. Check dynamic permissions (prioritized)
-    if (dynamicPermissions && dynamicPermissions[route] && dynamicPermissions[route].length > 0) {
+    if (dynamicPermissions && dynamicPermissions[route]) {
         const requiredPermissions = dynamicPermissions[route];
-        return requiredPermissions.some(reqPerm =>
-            permissions.some(action => action.startsWith(reqPerm))
-        );
+        const hasReqPerms = Array.isArray(requiredPermissions) 
+            ? requiredPermissions.length > 0 
+            : (requiredPermissions && typeof requiredPermissions === 'object' && Object.keys(requiredPermissions).length > 0);
+
+        if (hasReqPerms) {
+            // Normalize requiredPermissions to array for comparison
+            const reqArray = Array.isArray(requiredPermissions) 
+                ? requiredPermissions 
+                : Object.values(requiredPermissions);
+
+            return reqArray.some(reqPerm =>
+                permissions.some(action => action.startsWith(reqPerm))
+            );
+        }
     }
 
     // 2. Fallback check for missing routes
