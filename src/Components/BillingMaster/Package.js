@@ -487,15 +487,16 @@ const Package = () => {
   const [showModal, setShowModal] = useState(false);
   const [viewPkg, setViewPkg] = useState(null);
   const [filters, setFilters] = useState({ search: "", outlet: "" });
-
-  // Outlet state
   const [outlets, setOutlets] = useState([]);
-
-  // Bill-type picker state
   const [billTypes, setBillTypes] = useState([]);
   const [selectedBillType, setSelectedBillType] = useState("");
   const [pickerItems, setPickerItems] = useState([]);
   const [selectedPickerItem, setSelectedPickerItem] = useState("");
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-IPKGE-RW");
+  const canDelete = allowedActions.includes("HMS-P-IPKGD-RW");
 
   // Auto-calculate totalPrice
   useEffect(() => {
@@ -981,18 +982,22 @@ const Package = () => {
                           >
                             View
                           </button>
-                          <button
-                            style={css.smallBtn("ghost")}
-                            onClick={() => handleEdit(pkg)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            style={css.smallBtn("danger")}
-                            onClick={() => handleDelete(pkg.packageNo)}
-                          >
-                            Delete
-                          </button>
+                          {canEdit && (
+                            <button
+                              style={css.smallBtn("ghost")}
+                              onClick={() => handleEdit(pkg)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              style={css.smallBtn("danger")}
+                              onClick={() => handleDelete(pkg.packageNo)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </Td>
                     </Tr>
