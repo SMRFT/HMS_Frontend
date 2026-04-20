@@ -545,6 +545,7 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
                catch { return []; }
             })();
             
+            const currentOutlet = localStorage.getItem("selected_outlet");
             const allowedPages = (group.pages || []).filter((page) => {
               const perms = page.permissions || [];
               // Check if permissions are defined (either as non-empty array or non-empty object)
@@ -555,6 +556,15 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
               if (hasDefinedPermissions && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
                 return false;
               }
+
+              // Check if the page is bound to a specific outlet
+              if (page.outlet_code && page.outlet_code.trim() !== '') {
+                // If it is bound, only show if it matches the current active outlet
+                if (page.outlet_code !== currentOutlet) {
+                  return false;
+                }
+              }
+
               return true;
             });
             
