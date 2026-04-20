@@ -125,28 +125,14 @@ const SectionHeader = styled.h3`
   &::before { content: ''; width: 4px; height: 16px; background: ${C.primary}; border-radius: 2px; }
 `;
 
-const Grid = styled.div`
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px;
-`;
-
-const SelectCard = styled.div`
-  background: ${({ active }) => (active ? C.primaryLight : "white")};
-  border: 2px solid ${({ active }) => (active ? C.primary : "transparent")};
-  padding: 16px; border-radius: 16px; cursor: pointer;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-align: center;
-  position: relative; overflow: hidden;
-
-  &:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.1); }
-  
-  ${({ active }) => active && css`
-    &::after {
-      content: ''; position: absolute; inset: 0;
-      border: 4px solid ${C.primary}30; border-radius: 16px;
-      animation: ${ripple} 1.5s infinite;
-    }
-  `}
+const StyledSelect = styled.select`
+  width: 100%;
+  background: white; border: 1px solid ${C.border};
+  padding: 12px 16px; border-radius: 12px;
+  font-size: 0.95rem; font-weight: 700; color: ${C.textMain};
+  outline: none; cursor: pointer;
+  transition: all 0.2s;
+  &:focus { border-color: ${C.primary}; box-shadow: 0 0 0 3px ${C.primary}20; }
 `;
 
 const MenuBox = styled.div`
@@ -393,21 +379,24 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
           {/* Diet Type */}
           <section>
             <SectionHeader>Diet Type Selection</SectionHeader>
-            <Grid>
+            <StyledSelect 
+              value={selectedDiet} 
+              onChange={e => setSelectedDiet(e.target.value)}
+            >
+              <option value="">-- Choose Diet Category --</option>
               {dietMasters.map(d => (
-                <SelectCard key={d.diet_id} active={selectedDiet === d.diet_name} onClick={() => setSelectedDiet(d.diet_name)}>
-                  <div style={{ fontSize: "1.5rem", marginBottom: "8px" }}>🥗</div>
-                  <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>{d.diet_name}</div>
-                </SelectCard>
+                <option key={d.diet_id} value={d.diet_name}>
+                  {d.diet_name}
+                </option>
               ))}
-            </Grid>
+            </StyledSelect>
 
             {currentDietData && (
               <MenuBox>
                 <Label style={{ display: "block", marginBottom: "8px" }}>Menu Preview for {selectedDiet}</Label>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                   {[
-                    { n: "Morning", i: "🌅", v: currentDietData.morning_items },
+                    { n: "Breakfast", i: "🌅", v: currentDietData.morning_items },
                     { n: "Lunch", i: "🍱", v: currentDietData.afternoon_items },
                     { n: "Snacks", i: "☕", v: currentDietData.evening_items },
                     { n: "Dinner", i: "🌙", v: currentDietData.dinner_items },

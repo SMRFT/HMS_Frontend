@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import LabWardRequest from "./LabWardRequest";
@@ -252,9 +252,29 @@ const DropdownMenu = styled.div`
   }
 `;
 
-// const ModalOverlay = styled.div`...`
-// const ModalContainer = styled.div`...`
 // const ModalHeader = styled.div`...`
+const SummaryGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+`;
+
+const SummaryCard = styled.div`
+  background: white;
+  border: 1px solid ${colors.border};
+  border-left: 4px solid ${colors.primary};
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  .title { font-size: 0.7rem; font-weight: 800; color: ${colors.textMuted}; text-transform: uppercase; letter-spacing: 0.5px; }
+  .details { display: flex; justify-content: space-between; align-items: baseline; }
+  .name { font-size: 0.9rem; font-weight: 700; color: ${colors.dark}; }
+  .count { font-size: 1.1rem; font-weight: 900; color: ${colors.primary}; }
+`;
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
 const getField = (item, field) => {
@@ -278,9 +298,11 @@ const WardRequest = () => {
   const [nursingStation, setNursingStation] = useState("ALL");
   const [roomCategory, setRoomCategory] = useState("ALL");
   const [block, setBlock] = useState("ALL");
+  const [roomNo, setRoomNo] = useState("ALL");
   const [wards, setWards] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [roomCategories, setRoomCategories] = useState([]);
+  const [locationMapping, setLocationMapping] = useState([]); // Master map
   const [statusFilter, setStatusFilter] = useState("all");
   const [showUpTo, setShowUpTo] = useState(15);
   const [loading, setLoading] = useState(false);
@@ -326,6 +348,13 @@ const WardRequest = () => {
     } catch (err) { console.error("Room category fetch failed", err); }
   };
 
+  const fetchLocationMapping = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}location-mapping/`, "GET");
+      if (res.success) setLocationMapping(res.data || []);
+    } catch (err) { console.error("Location mapping fetch failed", err); }
+  };
+
   const fetchAdmissions = async () => {
     try {
       setLoading(true);
@@ -343,10 +372,114 @@ const WardRequest = () => {
 
   useEffect(() => {
     fetchAdmissions();
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
     fetchWards();
     fetchBlocks();
     fetchRoomCategories();
+    fetchLocationMapping();
   }, []);
+
+  // availableWards depends on selected Block, RoomCategory and RoomNo
+  const availableWards = useMemo(() => {
+    if (block === "ALL" && roomCategory === "ALL" && roomNo === "ALL") return wards;
+
+    let base = locationMapping;
+    if (block !== "ALL") base = base.filter(m => String(m.block_id) === block);
+    if (roomCategory !== "ALL") base = base.filter(m => String(m.room_category_id) === roomCategory);
+    if (roomNo !== "ALL") base = base.filter(m => String(m.room_no) === roomNo);
+    
+    const validWardIds = new Set(base.map(m => String(m.nursing_station_id)).filter(Boolean));
+    const filtered = wards.filter(w => validWardIds.has(String(w.id)));
+    return filtered.length > 0 ? filtered : wards;
+  }, [block, roomCategory, roomNo, wards, locationMapping]);
+
+  // availableBlocks depends on selected NursingStation, RoomCategory and RoomNo
+  const availableBlocks = useMemo(() => {
+    if (nursingStation === "ALL" && roomCategory === "ALL" && roomNo === "ALL") return blocks;
+
+    let base = locationMapping;
+    if (nursingStation !== "ALL") base = base.filter(m => String(m.nursing_station_id) === nursingStation);
+    if (roomCategory !== "ALL") base = base.filter(m => String(m.room_category_id) === roomCategory);
+    if (roomNo !== "ALL") base = base.filter(m => String(m.room_no) === roomNo);
+    
+    const validBlockIds = new Set(base.map(m => String(m.block_id)).filter(Boolean));
+    const filtered = blocks.filter(b => {
+        const id = b.id || b.block_id;
+        return validBlockIds.has(String(id));
+    });
+    return filtered.length > 0 ? filtered : blocks;
+  }, [nursingStation, roomCategory, roomNo, blocks, locationMapping]);
+
+  // availableRoomCategories depends on selected NursingStation, Block and RoomNo
+  const availableRoomCategories = useMemo(() => {
+    if (nursingStation === "ALL" && block === "ALL" && roomNo === "ALL") return roomCategories;
+
+    let base = locationMapping;
+    if (nursingStation !== "ALL") base = base.filter(m => String(m.nursing_station_id) === nursingStation);
+    if (block !== "ALL") base = base.filter(m => String(m.block_id) === block);
+    if (roomNo !== "ALL") base = base.filter(m => String(m.room_no) === roomNo);
+    
+    const validCatIds = new Set(base.map(m => String(m.room_category_id)).filter(Boolean));
+    const filtered = roomCategories.filter(c => {
+        const id = c.id || c.room_category_id || c._id;
+        return validCatIds.has(String(id));
+    });
+    return filtered.length > 0 ? filtered : roomCategories;
+  }, [nursingStation, block, roomNo, roomCategories, locationMapping]);
+
+  const availableRoomNumbers = useMemo(() => {
+    let base = locationMapping;
+    if (nursingStation !== "ALL") base = base.filter(m => String(m.nursing_station_id) === nursingStation);
+    if (block !== "ALL") base = base.filter(m => String(m.block_id) === block);
+    if (roomCategory !== "ALL") base = base.filter(m => String(m.room_category_id) === roomCategory);
+    
+    if (base.length === 0 && locationMapping.length > 0) return Array.from(new Set(locationMapping.map(m => m.room_no))).filter(Boolean).sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+
+    const rooms = Array.from(new Set(base.map(m => m.room_no))).filter(Boolean);
+    return rooms.sort((a,b) => String(a).localeCompare(String(b), undefined, {numeric: true}));
+  }, [nursingStation, block, roomCategory, locationMapping]);
+
+  const locationSummary = useMemo(() => {
+    const targetAdmissions = admissions.filter(a => nursingStation === "ALL" || String(getField(a, "nursing_station_id")) === nursingStation);
+    const summary = {};
+    targetAdmissions.forEach(a => {
+      const b = getField(a, "block") || "Other";
+      const c = getField(a, "room_category") || "Other";
+      const key = `${b}|${c}`;
+      summary[key] = (summary[key] || 0) + 1;
+    });
+    return Object.entries(summary).map(([key, count]) => {
+      const [block, category] = key.split("|");
+      return { block, category, count };
+    }).sort((a, b) => b.count - a.count);
+  }, [admissions, nursingStation]);
+
+  // --- Auto-Reset Dependent Filters ---
+  useEffect(() => {
+    if (nursingStation !== "ALL" && !availableWards.some(w => String(w.id) === nursingStation)) {
+      setNursingStation("ALL");
+    }
+  }, [availableWards, nursingStation]);
+
+  useEffect(() => {
+    if (block !== "ALL" && !availableBlocks.some(b => String(b.id || b.block_id) === block)) {
+      setBlock("ALL");
+    }
+  }, [availableBlocks, block]);
+
+  useEffect(() => {
+    if (roomCategory !== "ALL" && !availableRoomCategories.some(c => String(c.id || c.room_category_id || c._id) === roomCategory)) {
+      setRoomCategory("ALL");
+    }
+  }, [availableRoomCategories, roomCategory]);
+
+  useEffect(() => {
+    if (roomNo !== "ALL" && !availableRoomNumbers.includes(roomNo)) {
+      setRoomNo("ALL");
+    }
+  }, [availableRoomNumbers, roomNo]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -381,14 +514,21 @@ const WardRequest = () => {
       (statusFilter === "discharged" && isDischarged === true);
     if (!matchesStatus) return false;
 
-    const matchesStation = nursingStation === "ALL" || String(getField(item, "nursing_station_id")) === nursingStation;
+    const stationId = getField(item, "nursing_station_id") || item.nursing_station_id;
+    const matchesStation = nursingStation === "ALL" || String(stationId) === String(nursingStation);
     if (!matchesStation) return false;
 
-    const matchesCategory = roomCategory === "ALL" || String(getField(item, "room_category_id")) === roomCategory;
+    const catId = getField(item, "room_category_id") || item.room_category_id;
+    const matchesCategory = roomCategory === "ALL" || String(catId) === String(roomCategory);
     if (!matchesCategory) return false;
 
-    const matchesBlock = block === "ALL" || String(getField(item, "block_id")) === block;
+    const blkId = getField(item, "block_id") || item.block_id;
+    const matchesBlock = block === "ALL" || String(blkId) === String(block);
     if (!matchesBlock) return false;
+
+    const currentRoomNo = getField(item, "roomNo");
+    const matchesRoom = roomNo === "ALL" || String(currentRoomNo) === String(roomNo);
+    if (!matchesRoom) return false;
 
     return true;
   });
@@ -418,26 +558,43 @@ const WardRequest = () => {
           <Card>
             <FilterGrid>
               <FormGroup>
-                <label>Nursing Station</label>
-                <Select value={nursingStation} onChange={(e) => setNursingStation(e.target.value)}>
-                  <option value="ALL">All Stations</option>
-                  {wards.map((ward, i) => <option key={i} value={ward.id}>{ward.ward_name}</option>)}
+                <label>Block</label>
+                <Select value={block} onChange={(e) => setBlock(e.target.value)}>
+                  <option value="ALL">All Blocks</option>
+                  {availableBlocks.map((blk, i) => {
+                    const id = blk.id || blk.block_id;
+                    return <option key={i} value={id}>{blk.block_name}</option>;
+                  })}
                 </Select>
               </FormGroup>
 
               <FormGroup>
                 <label>Room Category</label>
                 <Select value={roomCategory} onChange={(e) => setRoomCategory(e.target.value)}>
-                  <option value="ALL">All Categories</option>
-                  {roomCategories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                  <option value="ALL">{block === "ALL" ? "All Categories" : "Block Categories"}</option>
+                  {availableRoomCategories.map((cat) => {
+                    const id = cat.id || cat.room_category_id || cat._id;
+                    const name = cat.name || cat.category_name || cat.room_category_name;
+                    return <option key={id} value={id}>{name}</option>;
+                  })}
                 </Select>
               </FormGroup>
 
               <FormGroup>
-                <label>Block</label>
-                <Select value={block} onChange={(e) => setBlock(e.target.value)}>
-                  <option value="ALL">All Blocks</option>
-                  {blocks.map((blk, i) => <option key={i} value={blk.id}>{blk.block_name}</option>)}
+                <label>Room No</label>
+                <Select value={roomNo} onChange={(e) => setRoomNo(e.target.value)}>
+                  <option value="ALL">All Rooms</option>
+                  {availableRoomNumbers.map((no) => (
+                    <option key={no} value={no}>{no}</option>
+                  ))}
+                </Select>
+              </FormGroup>
+
+              <FormGroup>
+                <label>Nursing Station</label>
+                <Select value={nursingStation} onChange={(e) => setNursingStation(e.target.value)}>
+                  <option value="ALL">{(block === "ALL" && roomCategory === "ALL") ? "All Stations" : "Filtered Stations"}</option>
+                  {availableWards.map((ward, i) => <option key={i} value={ward.id}>{ward.ward_name}</option>)}
                 </Select>
               </FormGroup>
 
