@@ -35,6 +35,8 @@ const T = {
   tealGhost: "#f0fdfb",
   amber:     "#f59e0b",
   amberLight:"#fef3c7",
+  orange:    "#ea580c",
+  orangeLight:"#ffedd5",
 };
 
 const rowIn = keyframes`
@@ -45,6 +47,11 @@ const rowIn = keyframes`
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
+`;
+
+const pulse = keyframes`
+  0%,100% { box-shadow: 0 0 0 0 rgba(13,148,136,0.3); }
+  50%      { box-shadow: 0 0 0 6px rgba(13,148,136,0); }
 `;
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -79,16 +86,21 @@ const PageTitle = styled.div`
 
 const Card = styled.div`
   background: ${T.white};
-  border: 1px solid ${T.border};
+  border: 1px solid ${({ editing }) => editing ? T.teal : T.border};
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  box-shadow: ${({ editing }) => editing
+    ? `0 0 0 3px ${T.tealLight}`
+    : "0 1px 4px rgba(0,0,0,0.05)"};
+  animation: ${({ editing }) => editing ? pulse : "none"} 1.5s ease infinite;
+  transition: border-color .2s, box-shadow .2s;
 `;
 
 const CardHead = styled.div`
   background: ${({ color }) =>
     color === "blue"   ? "linear-gradient(135deg,#1d4ed8,#2563eb)" :
     color === "violet" ? "linear-gradient(135deg,#6d28d9,#7c3aed)" :
+    color === "orange" ? "linear-gradient(135deg,#c2410c,#ea580c)" :
                          "linear-gradient(135deg,#0f766e,#0d9488)"};
   color: #fff;
   font-size: 0.75rem;
@@ -98,7 +110,20 @@ const CardHead = styled.div`
   text-transform: uppercase;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 7px;
+`;
+
+const EditBanner = styled.div`
+  background: ${T.amberLight};
+  border-bottom: 1px solid #fcd34d;
+  padding: 6px 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 
 const CardBody = styled.div`
@@ -172,9 +197,11 @@ const Btn = styled.button`
   cursor: pointer;
   transition: opacity .14s, transform .1s;
   background: ${({ v, c }) =>
-    v === "reset" ? "#e2e8f0" :
-    c === "blue"  ? T.blue   :
-    c === "violet"? T.violet : T.teal};
+    v === "reset"  ? "#e2e8f0" :
+    v === "cancel" ? T.red     :
+    c === "blue"   ? T.blue    :
+    c === "orange" ? T.orange  :
+    c === "violet" ? T.violet  : T.teal};
   color: ${({ v }) => v === "reset" ? T.label : "#fff"};
   &:hover { opacity: .88; }
   &:active { transform: scale(.97); }
@@ -194,6 +221,53 @@ const GroupLabel = styled.div`
   margin-top: 6px;
 `;
 
+// ── Kebab Menu ────────────────────────────────────────────────────────────────
+const KebabWrap = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const KebabBtn = styled.button`
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid ${T.border};
+  background: ${T.white};
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; font-weight: 900; line-height: 1;
+  color: ${T.muted};
+  transition: background .12s, color .12s;
+  letter-spacing: -1px;
+  &:hover { background: ${T.bg}; color: ${T.text}; }
+`;
+
+const DropMenu = styled.div`
+  position: absolute; right: 0; top: 34px; z-index: 9999;
+  background: ${T.white};
+  border: 1px solid ${T.border};
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+  min-width: 178px; overflow: hidden;
+  display: ${({ open }) => open ? "block" : "none"};
+`;
+
+const DropItem = styled.button`
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 14px; font-size: 0.74rem; font-weight: 600;
+  color: ${({ danger }) => danger ? T.red : T.text};
+  background: none; border: none; width: 100%; text-align: left;
+  cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
+  opacity: ${({ disabled }) => disabled ? 0.38 : 1};
+  font-family: inherit;
+  transition: background .1s;
+  &:hover:not([disabled]) {
+    background: ${({ danger }) => danger ? T.redLight : T.bg};
+  }
+`;
+
+const DropDivider = styled.div`height: 1px; background: ${T.border}; margin: 2px 0;`;
+
+// ── Split Box ─────────────────────────────────────────────────────────────────
 const SplitBox = styled.div`
   grid-column: 1 / -1;
   background: #f8fafc;
@@ -255,16 +329,9 @@ const ActionBar = styled.div`
 `;
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-const TblWrap = styled.div`
-  overflow-x: auto;
-  padding: 0 14px 14px;
-`;
+const TblWrap = styled.div`overflow-x: auto; padding: 0 14px 14px;`;
 
-const Tbl = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.71rem;
-`;
+const Tbl = styled.table`width: 100%; border-collapse: collapse; font-size: 0.71rem;`;
 
 const Th = styled.th`
   background: #f1f5f9;
@@ -298,69 +365,22 @@ const StatusBadge = styled.span`
   font-size: 0.64rem;
   font-weight: 700;
   background: ${({ status }) =>
-    status === "Paid"      ? T.greenLight :
-    status === "Cancelled" ? T.redLight   : T.amberLight};
+    status === "Paid"      ? T.greenLight  :
+    status === "Cancelled" ? T.redLight    :
+    status === "Edited"    ? T.orangeLight : T.amberLight};
   color: ${({ status }) =>
-    status === "Paid"      ? T.green :
-    status === "Cancelled" ? T.red   : T.amber};
+    status === "Paid"      ? T.green  :
+    status === "Cancelled" ? T.red    :
+    status === "Edited"    ? T.orange : T.amber};
   border: 1px solid ${({ status }) =>
     status === "Paid"      ? "#bbf7d0" :
-    status === "Cancelled" ? "#fecaca" : "#fed7aa"};
+    status === "Cancelled" ? "#fecaca" :
+    status === "Edited"    ? "#fed7aa" : "#fde68a"};
 `;
 
-const ActionBtnGroup = styled.div`
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-`;
-
-const ActionBtn = styled.button`
-  height: 21px;
-  padding: 0 8px;
-  font-size: 0.63rem;
-  font-weight: 700;
-  border-radius: 4px;
-  border: 1.5px solid ${({ type }) => type === "cancel" ? T.red : T.blue};
-  background: ${({ type }) => type === "cancel" ? T.redLight : T.blueLight};
-  color: ${({ type }) => type === "cancel" ? T.red : T.blue};
-  cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
-  transition: all .13s;
-  &:hover:not(:disabled) {
-    background: ${({ type }) => type === "cancel" ? T.red : T.blue};
-    color: #fff;
-  }
-  &:disabled { opacity: .4; cursor: not-allowed; }
-`;
-
-const StatRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid ${T.border};
-`;
-
-const Stat = styled.div`
-  background: ${({ bg }) => bg};
-  border: 1px solid ${({ bd }) => bd};
-  border-radius: 7px;
-  padding: 7px 11px;
-`;
-
-const StatL = styled.div`
-  font-size: 0.62rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  color: ${({ c }) => c};
-`;
-const StatV = styled.div`
-  font-size: .95rem; font-weight: 800; margin-top: 2px;
-  color: ${({ c }) => c};
-`;
-
-// ── Modal ─────────────────────────────────────────────────────────────────────
+// ── Modal (Print only) ────────────────────────────────────────────────────────
 const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
   z-index: 9999;
@@ -407,24 +427,13 @@ const BillSlipContainer = styled.div`
   padding: 16px; border: 2px solid ${T.text};
   font-family: 'Courier New', monospace; background: ${T.white};
 `;
-
-const BillHeader = styled.div`
-  text-align: center;
-  border-bottom: 1px solid ${T.text};
-  padding-bottom: 8px; margin-bottom: 12px;
-`;
-
-const BillTitle    = styled.div`font-size: 14px; font-weight: bold; margin-bottom: 2px;`;
-const BillSubtitle = styled.div`font-size: 11px; color: ${T.muted}; margin-bottom: 4px;`;
-const BillSection  = styled.div`margin-bottom: 10px; font-size: 12px;`;
-
-const BillRow = styled.div`
-  display: flex; justify-content: space-between; padding: 3px 0;
-  border-bottom: ${({ divider }) => divider ? `1px dotted ${T.border}` : "none"};
-`;
-
-const BillLabel = styled.span`font-weight: bold;`;
-const BillValue = styled.span`text-align: right;`;
+const BillHeader   = styled.div`text-align:center; border-bottom:1px solid ${T.text}; padding-bottom:8px; margin-bottom:12px;`;
+const BillTitle    = styled.div`font-size:14px; font-weight:bold; margin-bottom:2px;`;
+const BillSubtitle = styled.div`font-size:11px; color:${T.muted}; margin-bottom:4px;`;
+const BillSection  = styled.div`margin-bottom:10px; font-size:12px;`;
+const BillRow      = styled.div`display:flex; justify-content:space-between; padding:3px 0; border-bottom:${({ divider }) => divider ? `1px dotted ${T.border}` : "none"};`;
+const BillLabel    = styled.span`font-weight:bold;`;
+const BillValue    = styled.span`text-align:right;`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 const EMPTY_COMMON = {
@@ -436,64 +445,83 @@ const EMPTY_COMMON = {
 
 const today = () => new Date().toISOString().split("T")[0];
 
+// Status rules
+// Pending  → Edit ✓  Cancel ✓  Print ✓
+// Paid     → Edit ✗  Cancel ✓  Print ✓
+// Cancelled→ Edit ✗  Cancel ✗  Print ✓
+// (Edited entries are never shown in the table)
+
 export default function IPAdvance() {
   const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // ── Admission (for Save form only) ───────────────────────────────────────
-  const [common, setCommon]       = useState(EMPTY_COMMON);
-  const [admissionId, setAdmId]   = useState(null);
+  // ── Admission ─────────────────────────────────────────────────────────────
+  const [common, setCommon]     = useState(EMPTY_COMMON);
+  const [admissionId, setAdmId] = useState(null);
 
   // ── Entry form ────────────────────────────────────────────────────────────
-  const [date, setDate]             = useState(today());
-  const [amount, setAmount]         = useState("");
-  const [ipAdv, setIpAdv]           = useState("");
-  const [billAdv, setBillAdv]       = useState("");
+  const [date, setDate]               = useState(today());
+  const [amount, setAmount]           = useState("");
+  const [ipAdv, setIpAdv]             = useState("");
+  const [billAdv, setBillAdv]         = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
-  const [saving, setSaving]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+
+  // ── Edit state ────────────────────────────────────────────────────────────
+  // When editing, we store the original record so we can mark it Edited on save
+  const [editingRecord, setEditingRecord] = useState(null); // original advance record
+  const advanceFormRef = useRef(null);
 
   // ── Records ───────────────────────────────────────────────────────────────
-  const [payments, setPayments]               = useState([]);
+  const [payments, setPayments]                 = useState([]);
   const [filteredPayments, setFilteredPayments] = useState([]);
-  const [loading, setLoading]                 = useState(false);
+  const [loading, setLoading]                   = useState(false);
 
-  // ── Filters (default = today) ─────────────────────────────────────────────
-  const [filterFromDate, setFilterFromDate]     = useState(today());
-  const [filterToDate, setFilterToDate]         = useState(today());
+  // ── Filters ───────────────────────────────────────────────────────────────
+  const [filterFromDate, setFilterFromDate]       = useState(today());
+  const [filterToDate, setFilterToDate]           = useState(today());
   const [filterPaymentMode, setFilterPaymentMode] = useState("");
-  const [filterStatus, setFilterStatus]         = useState("");
+  const [filterStatus, setFilterStatus]           = useState("");
 
   // ── Print ─────────────────────────────────────────────────────────────────
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [printRecord, setPrintRecord]       = useState(null);
   const printRef = useRef(null);
 
+  // ── Kebab menu ────────────────────────────────────────────────────────────
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  const toggleMenu = (id) => setOpenMenuId(prev => prev === id ? null : id);
+
+  useEffect(() => {
+    const close = () => setOpenMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+
   // ── Derived ───────────────────────────────────────────────────────────────
   const total        = parseFloat(amount) || 0;
   const splitIP      = parseFloat(ipAdv)  || 0;
-  const splitBill    = parseFloat(billAdv)|| 0;
+  const splitBill    = parseFloat(billAdv) || 0;
   const splitTouched = ipAdv !== "" || billAdv !== "";
   const splitOk      = total > 0 && Math.abs(splitIP + splitBill - total) < 0.01;
   const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 
-  // ── Load today's data on mount ────────────────────────────────────────────
+  // ── Load today on mount ───────────────────────────────────────────────────
   useEffect(() => {
     fetchAdvancesByDate(today(), today());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch all advances by date range (no ip_number needed) ───────────────
+  // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchAdvancesByDate = async (fromDate, toDate) => {
     setLoading(true);
     try {
       const paramObj = {};
       if (fromDate) paramObj.from_date = fromDate;
       if (toDate)   paramObj.to_date   = toDate;
-
       const qs  = new URLSearchParams(paramObj).toString();
       const res = await apiRequest(`${BASE}admission-advance/?${qs}`, "GET");
-
       if (!res.success) throw new Error(res.error || "Failed to fetch advances");
-
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setPayments(list);
       applyClientFilters(list, filterPaymentMode, filterStatus);
@@ -504,9 +532,10 @@ export default function IPAdvance() {
     }
   };
 
-  // ── Client-side: filter by payment mode & status ──────────────────────────
+  // ── Client filters — EXCLUDE "Edited" entries from display ─────────────────
   const applyClientFilters = (data, mode, status) => {
-    let filtered = [...data];
+    // Only show Pending, Paid, Cancelled — never Edited (those are history)
+    let filtered = data.filter(p => p.status !== "Edited");
     if (mode)   filtered = filtered.filter(p => p.payment_mode === mode);
     if (status) filtered = filtered.filter(p => p.status === status);
     setFilteredPayments(filtered);
@@ -517,39 +546,44 @@ export default function IPAdvance() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterPaymentMode, filterStatus, payments]);
 
-  // ── Search ────────────────────────────────────────────────────────────────
-  const handleSearchFilters = () => {
-    fetchAdvancesByDate(filterFromDate, filterToDate);
-  };
+  const handleSearchFilters = () => fetchAdvancesByDate(filterFromDate, filterToDate);
 
   const handleResetFilters = () => {
-    setFilterFromDate(today());
-    setFilterToDate(today());
-    setFilterPaymentMode("");
-    setFilterStatus("");
+    setFilterFromDate(today()); setFilterToDate(today());
+    setFilterPaymentMode(""); setFilterStatus("");
     fetchAdvancesByDate(today(), today());
   };
 
-  // ── Load admission (for Save form) ────────────────────────────────────────
+  // ── Load admission ─────────────────────────────────────────────────────────
   const loadActiveAdmission = async (params) => {
     try {
       const qs  = new URLSearchParams(params).toString();
       const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
       const adm = res?.data?.data ?? res?.data ?? res;
 
-      if (!adm?.ipNumber && !adm?.uhid) return toast.error("No active admission found");
+      if (!adm?.ipNumber && !adm?.uhid) {
+        return toast.error("No active admission found");
+      }
 
       const patient = adm.patient || {};
-      const doctor  = adm.admittingDoctorName || adm.admittingDoctor || "";
 
+      // ✅ Doctor Name (priority: name → id fallback)
+      const doctor = adm.admittingDoctorName || adm.admittingDoctor || "";
+
+      // ✅ Room + Bed
       let roomNo = adm.roomNo || "";
-      let bedNo  = adm.bedNo  || "";
+      let bedNo  = adm.bedNo || "";
+
       if (!roomNo && Array.isArray(adm.room_details)) {
-        const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
+        const active = [...adm.room_details]
+          .reverse()
+          .find(r => r?.is_roomActive);
+
         roomNo = active?.roomNo || "";
         bedNo  = active?.bedNo  || "";
       }
 
+      // ✅ Patient Name Build
       const nameParts = [
         adm.salutation  || patient.salutation,
         adm.firstName   || patient.firstName || patient.patientname,
@@ -557,28 +591,77 @@ export default function IPAdvance() {
         adm.lastName    || patient.lastName,
       ].filter(Boolean);
 
+      // ✅ Admission Date + Time Formatting
+      let formattedDateTime = "";
+
+      // 🔹 1. Prefer backend formatted value
+      if (adm.admissionDateTime) {
+        formattedDateTime = adm.admissionDateTime;
+      }
+      // 🔹 2. Fallback (combine date + time)
+      else if (adm.admissionDate && adm.admissionTime) {
+        const raw = `${adm.admissionDate} ${adm.admissionTime}`;
+        const dt = new Date(raw);
+
+        if (!isNaN(dt)) {
+          formattedDateTime = dt.toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          });
+        } else {
+          formattedDateTime = `${adm.admissionDate} ${adm.admissionTime}`;
+        }
+      }
+
+      // ✅ Set State
       setAdmId(adm.ipNumber);
-      setCommon(p => ({
-        ...p,
-        uhid:            adm.uhid || p.uhid,
-        ipNumber:        adm.ipNumber || p.ipNumber,
-        name:            nameParts.join(" ") || p.name,
-        age:             adm.age || patient.age || p.age,
-        gender:          adm.gender || patient.gender || p.gender,
-        address:         adm.permanent_address || patient.permanent_address
-                           || [patient.area, patient.city, patient.state, patient.zipcode]
-                               .filter(Boolean).join(", ") || p.address,
-        customer_type:   adm.customerType || adm.customer_type || patient.customerType || p.customer_type,
-        company:         adm.insuranceCompanyName || patient.insuranceCompanyName || adm.insuranceCompany || p.company,
-        roomNo, bedNo,
-        admittingDate:   adm.admissionDateTime
-                           ? new Date(adm.admissionDateTime).toLocaleDateString("en-IN") : "",
+
+      setCommon((prev) => ({
+        ...prev,
+        uhid:            adm.uhid || prev.uhid,
+        ipNumber:        adm.ipNumber || prev.ipNumber,
+        name:            nameParts.join(" ") || prev.name,
+        age:             adm.age || patient.age || prev.age,
+        gender:          adm.gender || patient.gender || prev.gender,
+        address:
+          adm.permanent_address ||
+          patient.permanent_address ||
+          [patient.area, patient.city, patient.state, patient.zipcode]
+            .filter(Boolean)
+            .join(", ") ||
+          prev.address,
+
+        customer_type:
+          adm.customerType ||
+          adm.customer_type ||
+          patient.customerType ||
+          prev.customer_type,
+
+        company:
+          adm.insuranceCompanyName ||
+          patient.insuranceCompanyName ||
+          adm.insuranceCompany ||
+          prev.company,
+
+        roomNo,
+        bedNo,
+
+        // ✅ FINAL OUTPUT
+        admittingDate:   formattedDateTime,
         admittingDoctor: doctor,
-        creditLimit:     adm.creditLimit != null ? adm.creditLimit : "",
+
+        creditLimit:
+          adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
       }));
 
       toast.success(`Admission loaded: ${adm.ipNumber}`);
+
     } catch (err) {
+      console.error(err);
       toast.error(err?.message || "No active admission found");
     }
   };
@@ -595,22 +678,42 @@ export default function IPAdvance() {
     loadActiveAdmission({ ip_number: ip });
   };
 
-  // ── Save advance ──────────────────────────────────────────────────────────
+  // ── Save (new or edited) ──────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!admissionId)            return toast.warning("Load an admission first");
-    if (total <= 0)              return toast.warning("Enter a valid advance amount");
+    if (!admissionId)             return toast.warning("Load an admission first");
+    if (total <= 0)               return toast.warning("Enter a valid advance amount");
     if (splitTouched && !splitOk)
       return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
 
     setSaving(true);
     try {
-      const res = await apiRequest(
-        `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
-        "POST",
-        { date, advance_amount: total, ip_advance: splitIP, billing_advance: splitBill, payment_mode: paymentMode }
-      );
-      if (!res.success) throw new Error(res.error || "Save failed");
-      toast.success("Advance saved!");
+      if (editingRecord) {
+        // PUT = mark old as Edited + create new entry in one call
+        const res = await apiRequest(
+          `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
+          "PUT",
+          {
+            advance_id:      editingRecord.advance_id,   // old entry to mark Edited
+            date,
+            advance_amount:  total,
+            ip_advance:      splitIP,
+            billing_advance: splitBill,
+            payment_mode:    paymentMode,
+          }
+        );
+        if (!res.success) throw new Error(res.error || "Edit failed");
+        toast.success("Advance updated!");
+        cancelEditMode();
+      } else {
+        // POST = fresh entry
+        const res = await apiRequest(
+          `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
+          "POST",
+          { date, advance_amount: total, ip_advance: splitIP, billing_advance: splitBill, payment_mode: paymentMode }
+        );
+        if (!res.success) throw new Error(res.error || "Save failed");
+        toast.success("Advance saved!");
+      }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
       fetchAdvancesByDate(filterFromDate, filterToDate);
     } catch (e) {
@@ -618,6 +721,36 @@ export default function IPAdvance() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // ── Trigger Edit (fill form in-place) ─────────────────────────────────────
+  const handleEdit = (record) => {
+    // Load the IP admission first so admissionId is set
+    const ipNo = record.ip_number || record.ipNumber;
+    if (!ipNo || ipNo === "—") return toast.error("Cannot determine IP number for this record");
+
+    // Set form fields from the record
+    setDate(record.date || today());
+    setAmount(String(record.advance_amount || ""));
+    setIpAdv(String(record.ip_advance || ""));
+    setBillAdv(String(record.billing_advance || ""));
+    setPaymentMode(record.payment_mode || "Cash");
+    setEditingRecord(record);
+
+    // Load admission details into the patient card
+    loadActiveAdmission({ ip_number: ipNo });
+
+    // Scroll to the advance input form
+    setTimeout(() => {
+      advanceFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 200);
+
+    toast.info(`Editing advance ${record.advance_id} — modify and click Update`);
+  };
+
+  const cancelEditMode = () => {
+    setEditingRecord(null);
+    setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
   };
 
   // ── Cancel advance ────────────────────────────────────────────────────────
@@ -642,17 +775,114 @@ export default function IPAdvance() {
   const closePrintModal = ()       => { setPrintModalOpen(false); setPrintRecord(null); };
 
   const handlePrint = () => {
-    if (!printRef.current) return;
-    const w = window.open("", "", "height=600,width=700");
-    w.document.write(printRef.current.innerHTML);
+    if (!printRecord) return;
+
+    const billDate = printRecord.bill_date
+      ? new Date(printRecord.bill_date).toLocaleDateString("en-IN") + " " +
+        new Date(printRecord.bill_date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+      : "—";
+
+    const w = window.open("", "", "height=600,width=750");
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Advance Slip</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              font-family: 'Courier New', monospace;
+              background: #fff;
+              display: flex;
+              justify-content: center;
+              padding: 20px;
+            }
+            .slip {
+              width: 100%;
+              max-width: 400px;
+              padding: 16px;
+              border: 2px solid #0f172a;
+              background: #fff;
+            }
+            .bill-header {
+              text-align: center;
+              border-bottom: 1px solid #0f172a;
+              padding-bottom: 8px;
+              margin-bottom: 12px;
+            }
+            .bill-title    { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+            .bill-subtitle { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+            .bill-adv      { font-weight: bold; margin-top: 4px; font-size: 13px; }
+            .section       { margin-bottom: 10px; font-size: 12px; }
+            .row {
+              display: flex;
+              justify-content: space-between;
+              padding: 3px 0;
+            }
+            .row.divider   { border-bottom: 1px dotted #e2e8f0; }
+            .row.bold      { font-weight: bold; }
+            .lbl           { font-weight: bold; }
+            .val           { text-align: right; }
+            .val.bold      { font-weight: bold; }
+            .signature {
+              text-align: center;
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px solid #0f172a;
+              font-size: 11px;
+              margin-bottom: 20px;
+            }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="slip">
+
+            <div class="bill-header">
+              <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
+              <div class="bill-subtitle">Sh2/1-1, Sardar Patel Road, Salem - 636007</div>
+              <div class="bill-subtitle">Ph: 04272706666</div>
+              <div class="bill-adv">Advance Slip</div>
+            </div>
+
+            <div class="section">
+              <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || printRecord.ipNumber || "—"}</span></div>
+              <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || printRecord.name || "—"}</span></div>
+              <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
+              <div class="row"><span class="lbl">Bill No</span><span class="val bold">${printRecord.bill_no || "—"}</span></div>
+              <div class="row"><span class="lbl">Payment Mode</span><span class="val">${printRecord.payment_mode || "—"}</span></div>
+            </div>
+
+            <div class="section">
+              <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
+              <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
+              <div class="row"><span>2. Billing Advance</span><span class="val bold">₹${fmt(printRecord.billing_advance)}</span></div>
+            </div>
+
+            <div class="section">
+              <div class="row divider bold">
+                <span class="lbl">User: ${printRecord.created_by || "—"}</span>
+                <span class="val">Total ₹${fmt(printRecord.advance_amount)}</span>
+              </div>
+            </div>
+
+            <div class="signature">Signature Of Cashier</div>
+
+          </div>
+        </body>
+      </html>
+    `);
     w.document.close();
-    w.print();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 300);
   };
 
   const handleResetForm = () => {
     setCommon(EMPTY_COMMON);
     setAdmId(null);
-    setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
+    cancelEditMode();
   };
 
   const handleAmountChange = (val) => { setAmount(val); setIpAdv(""); setBillAdv(""); };
@@ -668,220 +898,172 @@ export default function IPAdvance() {
   const totalIPSum   = activeAll.reduce((s, p) => s + (parseFloat(p.ip_advance)       || 0), 0);
   const totalBillSum = activeAll.reduce((s, p) => s + (parseFloat(p.billing_advance)  || 0), 0);
 
+  // ── Per-row action permissions ────────────────────────────────────────────
+  const canEdit   = (p) => p.status === "Pending";                         // only Pending
+  const canCancel = (p) => p.status === "Pending" || p.status === "Paid";  // Pending or Paid
+  const canPrint  = ()  => true;                                            // always
+
   return (
     <>
       <GlobalStyle />
       <Page className="no-print">
         <PageTitle>💳 IP Advance Entry & Management</PageTitle>
 
-        {/* ════════════════════════════════════════════════
-            PATIENT & ADMISSION (for Save entry only)
-        ════════════════════════════════════════════════ */}
+        {/* ── PATIENT & ADMISSION ── */}
         <Card>
-          <CardHead color="teal">🏥 Patient & Admission Details</CardHead>
+          <CardHead color="teal">
+            <span>🏥 Patient &amp; Admission Details</span>
+          </CardHead>
           <CardBody>
             <Grid cols={6}>
               <GroupLabel c="teal">Search Admission</GroupLabel>
-
               <F span={2}>
                 <Lbl>UHID</Lbl>
-                <Inp
-                  value={common.uhid}
-                  placeholder="Enter UHID"
+                <Inp value={common.uhid} placeholder="Enter UHID"
                   onChange={e => setCommon(p => ({ ...p, uhid: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && searchByUHID()}
-                />
+                  onKeyDown={e => e.key === "Enter" && searchByUHID()} />
               </F>
-
               <F span={2}>
                 <Lbl>IP No</Lbl>
-                <Inp
-                  value={common.ipNumber}
-                  placeholder="Enter IP No"
+                <Inp value={common.ipNumber} placeholder="Enter IP No"
                   onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && searchByIP()}
-                />
+                  onKeyDown={e => e.key === "Enter" && searchByIP()} />
               </F>
-
-              <F span={1}>
-                <Lbl>&nbsp;</Lbl>
-                <Btn onClick={searchByUHID}>🔍 Search</Btn>
-              </F>
-
-              <F span={1}>
-                <Lbl>&nbsp;</Lbl>
-                <Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn>
-              </F>
+              <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={searchByUHID}>🔍 Search</Btn></F>
+              <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
 
               <GroupLabel c="teal">Patient Info</GroupLabel>
-
-              <F span={3}>
-                <Lbl>Patient Name</Lbl>
-                <Inp value={common.name} readOnly />
-              </F>
-              <F>
-                <Lbl>Age</Lbl>
-                <Inp value={common.age} readOnly />
-              </F>
-              <F>
-                <Lbl>Gender</Lbl>
-                <Inp value={common.gender} readOnly />
-              </F>
-              <F>
-                <Lbl>Customer Type</Lbl>
-                <Inp value={common.customer_type} readOnly />
-              </F>
-
-              <F span={4}>
-                <Lbl>Address</Lbl>
-                <Inp value={common.address} readOnly />
-              </F>
-              <F span={2}>
-                <Lbl>Company</Lbl>
-                <Inp value={common.company} readOnly />
-              </F>
+              <F span={3}><Lbl>Patient Name</Lbl><Inp value={common.name} readOnly /></F>
+              <F><Lbl>Age</Lbl><Inp value={common.age} readOnly /></F>
+              <F><Lbl>Gender</Lbl><Inp value={common.gender} readOnly /></F>
+              <F><Lbl>Customer Type</Lbl><Inp value={common.customer_type} readOnly /></F>
+              <F span={4}><Lbl>Address</Lbl><Inp value={common.address} readOnly /></F>
+              <F span={2}><Lbl>Company</Lbl><Inp value={common.company} readOnly /></F>
 
               <GroupLabel c="teal">Admission Details</GroupLabel>
-
-              <F>
-                <Lbl>Room No</Lbl>
-                <Inp value={common.roomNo} readOnly />
-              </F>
-              <F>
-                <Lbl>Bed No</Lbl>
-                <Inp value={common.bedNo} readOnly />
-              </F>
-              <F span={2}>
-                <Lbl>Admitting Date</Lbl>
-                <Inp value={common.admittingDate} readOnly />
-              </F>
-              <F span={2}>
-                <Lbl>Admitting Doctor</Lbl>
-                <Inp value={common.admittingDoctor} readOnly />
-              </F>
-
-              <F>
-                <Lbl>Credit Limit (₹)</Lbl>
-                <Inp value={common.creditLimit} readOnly />
-              </F>
-              <F>
-                <Lbl>Outstanding Balance (₹)</Lbl>
-                <Inp value={common.outBalance} readOnly />
-              </F>
-              <F span={2}>
-                <Lbl>Total Advance (₹)</Lbl>
-                <Inp value={common.totalAdvance} readOnly />
-              </F>
+              <F><Lbl>Room No</Lbl><Inp value={common.roomNo} readOnly /></F>
+              <F><Lbl>Bed No</Lbl><Inp value={common.bedNo} readOnly /></F>
+              <F span={2}><Lbl>Admitting Date</Lbl><Inp value={common.admittingDate} readOnly /></F>
+              <F span={2}><Lbl>Admitting Doctor</Lbl><Inp value={common.admittingDoctor} readOnly /></F>
+              <F><Lbl>Outstanding Balance (₹)</Lbl><Inp value={common.outBalance} readOnly /></F>
+              <F span={2}><Lbl>Total Advance (₹)</Lbl><Inp value={common.totalAdvance} readOnly /></F>
               <F span={2} />
             </Grid>
           </CardBody>
         </Card>
 
-        {/* ════════════════════════════════════════════════
-            ADVANCE INPUT FORM
-        ════════════════════════════════════════════════ */}
+        {/* ── ADVANCE INPUT FORM ── */}
+        <div ref={advanceFormRef}>
+          <Card editing={!!editingRecord}>
+            <CardHead color={editingRecord ? "orange" : "teal"}>
+              <span>{editingRecord ? "✏️ Edit Advance" : "💵 Advance Input"}</span>
+              {editingRecord && (
+                <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
+                  Editing: {editingRecord.advance_id} | Bill: {editingRecord.bill_no}
+                </span>
+              )}
+            </CardHead>
+
+            {editingRecord && (
+              <EditBanner>
+                ⚠️ You are editing an existing advance. The original entry will be marked as
+                <strong style={{ marginLeft: 4 }}>Edited</strong> and a new entry will be created.
+              </EditBanner>
+            )}
+
+            <CardBody>
+              <Grid cols={6}>
+                <GroupLabel c="teal">Payment Details</GroupLabel>
+                <F span={1}>
+                  <Lbl>Date</Lbl>
+                  <Inp type="date" value={date} onChange={e => setDate(e.target.value)} />
+                </F>
+                <F span={2}>
+                  <Lbl>Advance Amount (₹)</Lbl>
+                  <BigInp type="number" min="0" step="0.01"
+                    value={amount} placeholder="Enter total advance amount"
+                    onChange={e => handleAmountChange(e.target.value)} />
+                </F>
+                <F span={1}>
+                  <Lbl>Payment Mode</Lbl>
+                  <Select value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
+                    <option value="Cash">Cash</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Debit Card">Debit Card</option>
+                    <option value="Multi Payment">Multi Payment</option>
+                  </Select>
+                </F>
+                <F span={2} />
+
+                <SplitBox>
+                  <SplitHeader>↳ Split Advance</SplitHeader>
+                  <SplitGrid>
+                    <F>
+                      <Lbl>IP Advance (₹)</Lbl>
+                      <Inp type="number" min="0" step="0.01"
+                        value={ipAdv} placeholder="0.00"
+                        disabled={total <= 0}
+                        onChange={e => handleIpAdvChange(e.target.value)} />
+                    </F>
+                    <F>
+                      <Lbl>Billing Advance (₹)</Lbl>
+                      <Inp type="number" min="0" step="0.01"
+                        value={billAdv} placeholder="0.00"
+                        disabled={total <= 0}
+                        onChange={e => setBillAdv(e.target.value)} />
+                    </F>
+                  </SplitGrid>
+                  {total > 0 && (
+                    <SplitNote ok={!splitTouched || splitOk}>
+                      {!splitTouched
+                        ? `Total to split: ₹${fmt(total)}`
+                        : splitOk
+                          ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
+                          : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
+                    </SplitNote>
+                  )}
+                </SplitBox>
+              </Grid>
+            </CardBody>
+
+            <ActionBar>
+              {editingRecord ? (
+                <>
+                  <Btn v="reset" onClick={cancelEditMode}>✕ Cancel Edit</Btn>
+                  <Btn c="orange"
+                    onClick={handleSave}
+                    disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}>
+                    {saving ? "Updating…" : "✏️ Update Advance"}
+                  </Btn>
+                </>
+              ) : (
+                <>
+                  <Btn v="reset" onClick={() => { setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); }}>
+                    ↺ Reset Form
+                  </Btn>
+                  <Btn onClick={handleSave}
+                    disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}>
+                    {saving ? "Saving…" : "💾 Save Advance"}
+                  </Btn>
+                </>
+              )}
+            </ActionBar>
+          </Card>
+        </div>
+
+        {/* ── FILTERS ── */}
         <Card>
-          <CardHead color="teal">💵 Advance Input</CardHead>
-          <CardBody>
-            <Grid cols={6}>
-              <GroupLabel c="teal">Payment Details</GroupLabel>
-
-              <F span={1}>
-                <Lbl>Date</Lbl>
-                <Inp type="date" value={date} onChange={e => setDate(e.target.value)} />
-              </F>
-
-              <F span={2}>
-                <Lbl>Advance Amount (₹)</Lbl>
-                <BigInp
-                  type="number" min="0" step="0.01"
-                  value={amount} placeholder="Enter total advance amount"
-                  onChange={e => handleAmountChange(e.target.value)}
-                />
-              </F>
-
-              <F span={1}>
-                <Lbl>Payment Mode</Lbl>
-                <Select value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
-                  <option value="Cash">Cash</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Debit Card">Debit Card</option>
-                  <option value="Multi Payment">Multi Payment</option>
-                </Select>
-              </F>
-
-              <F span={2} />
-
-              <SplitBox>
-                <SplitHeader>↳ Split Advance</SplitHeader>
-                <SplitGrid>
-                  <F>
-                    <Lbl>IP Advance (₹)</Lbl>
-                    <Inp
-                      type="number" min="0" step="0.01"
-                      value={ipAdv} placeholder="0.00"
-                      disabled={total <= 0}
-                      onChange={e => handleIpAdvChange(e.target.value)}
-                    />
-                  </F>
-                  <F>
-                    <Lbl>Billing Advance (₹)</Lbl>
-                    <Inp
-                      type="number" min="0" step="0.01"
-                      value={billAdv} placeholder="0.00"
-                      disabled={total <= 0}
-                      onChange={e => setBillAdv(e.target.value)}
-                    />
-                  </F>
-                </SplitGrid>
-                {total > 0 && (
-                  <SplitNote ok={!splitTouched || splitOk}>
-                    {!splitTouched
-                      ? `Total to split: ₹${fmt(total)}`
-                      : splitOk
-                        ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
-                        : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
-                  </SplitNote>
-                )}
-              </SplitBox>
-            </Grid>
-          </CardBody>
-          <ActionBar>
-            <Btn v="reset" onClick={() => { setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); }}>
-              ↺ Reset Form
-            </Btn>
-            <Btn
-              onClick={handleSave}
-              disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}
-            >
-              {saving ? "Saving…" : "💾 Save Advance"}
-            </Btn>
-          </ActionBar>
-        </Card>
-
-        {/* ════════════════════════════════════════════════
-            FILTERS — date range fetches from backend
-        ════════════════════════════════════════════════ */}
-        <Card>
-          <CardHead color="blue">🔎 Filters & Search</CardHead>
+          <CardHead color="blue">🔎 Filters &amp; Search</CardHead>
           <CardBody>
             <Grid cols={6}>
               <F span={2}>
                 <Lbl>From Date</Lbl>
-                <Inp
-                  type="date" value={filterFromDate}
-                  onChange={e => setFilterFromDate(e.target.value)}
-                />
+                <Inp type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} />
               </F>
-
               <F span={2}>
                 <Lbl>To Date</Lbl>
-                <Inp
-                  type="date" value={filterToDate}
-                  onChange={e => setFilterToDate(e.target.value)}
-                />
+                <Inp type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} />
               </F>
-
               <F span={2}>
                 <Lbl>Payment Mode</Lbl>
                 <Select value={filterPaymentMode} onChange={e => setFilterPaymentMode(e.target.value)}>
@@ -892,7 +1074,6 @@ export default function IPAdvance() {
                   <option value="Multi Payment">Multi Payment</option>
                 </Select>
               </F>
-
               <F span={2}>
                 <Lbl>Status</Lbl>
                 <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
@@ -902,25 +1083,19 @@ export default function IPAdvance() {
                   <option value="Cancelled">Cancelled</option>
                 </Select>
               </F>
-
-              <F span={1}>
-                <Lbl>&nbsp;</Lbl>
+              <F span={1}><Lbl>&nbsp;</Lbl>
                 <Btn onClick={handleSearchFilters} disabled={loading}>
                   {loading ? "Loading…" : "🔍 Search"}
                 </Btn>
               </F>
-
-              <F span={1}>
-                <Lbl>&nbsp;</Lbl>
+              <F span={1}><Lbl>&nbsp;</Lbl>
                 <Btn v="reset" onClick={handleResetFilters}>Reset Filters</Btn>
               </F>
             </Grid>
           </CardBody>
         </Card>
 
-        {/* ════════════════════════════════════════════════
-            RECORDS TABLE — all advances for date range
-        ════════════════════════════════════════════════ */}
+        {/* ── RECORDS TABLE ── */}
         <Card>
           <CardHead color="violet">📋 Advance Payment Records</CardHead>
           <TblWrap>
@@ -955,14 +1130,18 @@ export default function IPAdvance() {
                   </tr>
                 ) : (
                   filteredPayments.map((p, i) => {
-                    const isCancelled = p.status === "Cancelled" || !p.is_advanceActive;
+                    const status      = p.status || "Pending";
                     const billDate    = p.bill_date
                       ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
                     const patientName = p.patient_name || p.name || p.patientName || "—";
                     const ipNo        = p.ip_number    || p.ipNumber || "—";
+                    const menuId      = p.advance_id || `row-${i}`;
+
+                    const allowEdit   = canEdit(p);
+                    const allowCancel = canCancel(p);
 
                     return (
-                      <Tr key={p.advance_id || i} even={i % 2 === 0}>
+                      <Tr key={menuId} even={i % 2 === 0}>
                         <Td style={{ fontWeight: 700, color: T.muted }}>{i + 1}</Td>
                         <Td>{billDate}</Td>
                         <Td style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700 }}>
@@ -977,23 +1156,63 @@ export default function IPAdvance() {
                         <Td right>₹{fmt(p.ip_advance)}</Td>
                         <Td right>₹{fmt(p.billing_advance)}</Td>
                         <Td>
-                          <StatusBadge status={p.status || "Pending"}>
-                            {p.status || "Pending"}
-                          </StatusBadge>
+                          <StatusBadge status={status}>{status}</StatusBadge>
                         </Td>
                         <Td>
-                          <ActionBtnGroup>
-                            <ActionBtn type="print" onClick={() => openPrintModal(p)}>
-                              🖨️ Print
-                            </ActionBtn>
-                            {!isCancelled ? (
-                              <ActionBtn type="cancel" onClick={() => handleCancel(p.advance_id, ipNo)}>
-                                ✕ Cancel
-                              </ActionBtn>
-                            ) : (
-                              <ActionBtn type="cancel" disabled>✕ Cancelled</ActionBtn>
-                            )}
-                          </ActionBtnGroup>
+                          <KebabWrap onClick={e => e.stopPropagation()}>
+                            <KebabBtn onClick={() => toggleMenu(menuId)} title="Actions">
+                              ⋮
+                            </KebabBtn>
+                            <DropMenu open={openMenuId === menuId}>
+
+                              {/* EDIT */}
+                              <DropItem
+                                disabled={!allowEdit}
+                                title={!allowEdit ? `Cannot edit — status is ${status}` : "Edit this advance"}
+                                onClick={() => {
+                                  if (!allowEdit) return;
+                                  setOpenMenuId(null);
+                                  handleEdit(p);
+                                }}
+                              >
+                                ✏️ Edit
+                                {!allowEdit && (
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>
+                                    {status}
+                                  </span>
+                                )}
+                              </DropItem>
+
+                              {/* PRINT */}
+                              <DropItem
+                                onClick={() => { setOpenMenuId(null); openPrintModal(p); }}
+                              >
+                                🖨️ Print Slip
+                              </DropItem>
+
+                              <DropDivider />
+
+                              {/* CANCEL */}
+                              <DropItem
+                                danger
+                                disabled={!allowCancel}
+                                title={!allowCancel ? `Cannot cancel — status is ${status}` : "Cancel this advance"}
+                                onClick={() => {
+                                  if (!allowCancel) return;
+                                  setOpenMenuId(null);
+                                  handleCancel(p.advance_id, ipNo);
+                                }}
+                              >
+                                {status === "Cancelled" ? "✕ Cancelled" : "✕ Cancel Advance"}
+                                {!allowCancel && (
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>
+                                    {status}
+                                  </span>
+                                )}
+                              </DropItem>
+
+                            </DropMenu>
+                          </KebabWrap>
                         </Td>
                       </Tr>
                     );
@@ -1003,17 +1222,16 @@ export default function IPAdvance() {
             </Tbl>
           </TblWrap>
 
-          <CardBody style={{ background: "#f9fafb", padding: "12px 14px", fontSize: "0.75rem", color: T.muted }}>
+          <CardBody style={{ background: "#f9fafb", padding: "10px 14px", fontSize: "0.72rem", color: T.muted }}>
             Showing <strong>{filteredPayments.length}</strong> records &nbsp;|&nbsp;
-            Active: <strong>{activeAll.length}</strong> &nbsp;|&nbsp;
-            Cancelled: <strong>{payments.filter(p => p.status === "Cancelled").length}</strong>
+            Pending: <strong>{filteredPayments.filter(p => p.status === "Pending").length}</strong> &nbsp;|&nbsp;
+            Paid: <strong>{filteredPayments.filter(p => p.status === "Paid").length}</strong> &nbsp;|&nbsp;
+            Cancelled: <strong>{filteredPayments.filter(p => p.status === "Cancelled").length}</strong>
           </CardBody>
         </Card>
       </Page>
 
-      {/* ════════════════════════════════════════════════
-          PRINT SLIP MODAL
-      ════════════════════════════════════════════════ */}
+      {/* ── PRINT MODAL ── */}
       {printModalOpen && printRecord && (
         <ModalOverlay onClick={closePrintModal}>
           <ModalBox onClick={e => e.stopPropagation()}>
@@ -1029,16 +1247,9 @@ export default function IPAdvance() {
                   <BillSubtitle>Ph: 04272706666</BillSubtitle>
                   <div style={{ fontWeight: "bold", marginTop: "4px" }}>Advance Slip</div>
                 </BillHeader>
-
                 <BillSection>
-                  <BillRow>
-                    <BillLabel>IP Number</BillLabel>
-                    <BillValue>{printRecord.ip_number || printRecord.ipNumber || "—"}</BillValue>
-                  </BillRow>
-                  <BillRow>
-                    <BillLabel>Name</BillLabel>
-                    <BillValue>{printRecord.patient_name || printRecord.name || "—"}</BillValue>
-                  </BillRow>
+                  <BillRow><BillLabel>IP Number</BillLabel><BillValue>{printRecord.ip_number || printRecord.ipNumber || "—"}</BillValue></BillRow>
+                  <BillRow><BillLabel>Name</BillLabel><BillValue>{printRecord.patient_name || printRecord.name || "—"}</BillValue></BillRow>
                   <BillRow>
                     <BillLabel>Bill Date</BillLabel>
                     <BillValue>
@@ -1048,46 +1259,24 @@ export default function IPAdvance() {
                         : "—"}
                     </BillValue>
                   </BillRow>
-                  <BillRow>
-                    <BillLabel>Bill No</BillLabel>
-                    <BillValue style={{ fontWeight: "bold" }}>{printRecord.bill_no || "—"}</BillValue>
-                  </BillRow>
-                  <BillRow>
-                    <BillLabel>Payment Mode</BillLabel>
-                    <BillValue>{printRecord.payment_mode || "—"}</BillValue>
-                  </BillRow>
+                  <BillRow><BillLabel>Bill No</BillLabel><BillValue style={{ fontWeight: "bold" }}>{printRecord.bill_no || "—"}</BillValue></BillRow>
+                  <BillRow><BillLabel>Payment Mode</BillLabel><BillValue>{printRecord.payment_mode || "—"}</BillValue></BillRow>
                 </BillSection>
-
                 <BillSection>
-                  <BillRow divider>
-                    <BillLabel>Description</BillLabel>
-                    <BillValue>Amount</BillValue>
-                  </BillRow>
-                  <BillRow>
-                    <span>1. IP Advance</span>
-                    <BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.ip_advance)}</BillValue>
-                  </BillRow>
-                  <BillRow>
-                    <span>2. Billing Advance</span>
-                    <BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.billing_advance)}</BillValue>
-                  </BillRow>
+                  <BillRow divider><BillLabel>Description</BillLabel><BillValue>Amount</BillValue></BillRow>
+                  <BillRow><span>1. IP Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.ip_advance)}</BillValue></BillRow>
+                  <BillRow><span>2. Billing Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.billing_advance)}</BillValue></BillRow>
                 </BillSection>
-
                 <BillSection>
                   <BillRow divider style={{ fontWeight: "bold" }}>
                     <BillLabel>User: {printRecord.created_by || "—"}</BillLabel>
                     <BillValue>Total ₹{fmt(printRecord.advance_amount)}</BillValue>
                   </BillRow>
                 </BillSection>
-
-                <BillSection style={{
-                  textAlign: "center", marginTop: "20px",
-                  paddingTop: "10px", borderTop: "1px solid " + T.text
-                }}>
+                <BillSection style={{ textAlign: "center", marginTop: "20px", paddingTop: "10px", borderTop: "1px solid " + T.text }}>
                   <div style={{ fontSize: "11px", marginBottom: "20px" }}>Signature Of Cashier</div>
                 </BillSection>
               </BillSlipContainer>
-
               <ModalActions>
                 <Btn v="reset" onClick={closePrintModal}>Close</Btn>
                 <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
