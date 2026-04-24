@@ -329,9 +329,18 @@ const ActionBar = styled.div`
 `;
 
 // ── Table ─────────────────────────────────────────────────────────────────────
-const TblWrap = styled.div`overflow-x: auto; padding: 0 14px 14px;`;
+const TblWrap = styled.div`
+  overflow-x: auto;
+  overflow-y: visible;   /* ← add this */
+  padding: 0 14px 14px;
+`;
 
-const Tbl = styled.table`width: 100%; border-collapse: collapse; font-size: 0.71rem;`;
+const Tbl = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.71rem;
+  overflow: visible;     /* ← add this */
+`;
 
 const Th = styled.th`
   background: #f1f5f9;
@@ -490,7 +499,10 @@ export default function IPAdvance() {
   // ── Kebab menu ────────────────────────────────────────────────────────────
   const [openMenuId, setOpenMenuId] = useState(null);
 
-  const toggleMenu = (id) => setOpenMenuId(prev => prev === id ? null : id);
+  const toggleMenu = (id, e) => {
+    e.stopPropagation();
+    setOpenMenuId(prev => prev === id ? null : id);
+  };
 
   useEffect(() => {
     const close = () => setOpenMenuId(null);
@@ -774,110 +786,131 @@ export default function IPAdvance() {
   const openPrintModal  = (record) => { setPrintRecord(record); setPrintModalOpen(true); };
   const closePrintModal = ()       => { setPrintModalOpen(false); setPrintRecord(null); };
 
-  const handlePrint = () => {
-    if (!printRecord) return;
+const handlePrint = () => {
+  if (!printRecord) return;
 
-    const billDate = printRecord.bill_date
-      ? new Date(printRecord.bill_date).toLocaleDateString("en-IN") + " " +
-        new Date(printRecord.bill_date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-      : "—";
+  const paymentMode =
+    printRecord.payment_mode ||
+    printRecord.payment_details?.method ||
+    "—";
 
-    const w = window.open("", "", "height=600,width=750");
-    w.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Advance Slip</title>
-          <style>
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body {
-              font-family: 'Courier New', monospace;
-              background: #fff;
-              display: flex;
-              justify-content: center;
-              padding: 20px;
-            }
-            .slip {
-              width: 100%;
-              max-width: 400px;
-              padding: 16px;
-              border: 2px solid #0f172a;
-              background: #fff;
-            }
-            .bill-header {
-              text-align: center;
-              border-bottom: 1px solid #0f172a;
-              padding-bottom: 8px;
-              margin-bottom: 12px;
-            }
-            .bill-title    { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
-            .bill-subtitle { font-size: 11px; color: #64748b; margin-bottom: 4px; }
-            .bill-adv      { font-weight: bold; margin-top: 4px; font-size: 13px; }
-            .section       { margin-bottom: 10px; font-size: 12px; }
-            .row {
-              display: flex;
-              justify-content: space-between;
-              padding: 3px 0;
-            }
-            .row.divider   { border-bottom: 1px dotted #e2e8f0; }
-            .row.bold      { font-weight: bold; }
-            .lbl           { font-weight: bold; }
-            .val           { text-align: right; }
-            .val.bold      { font-weight: bold; }
-            .signature {
-              text-align: center;
-              margin-top: 20px;
-              padding-top: 10px;
-              border-top: 1px solid #0f172a;
-              font-size: 11px;
-              margin-bottom: 20px;
-            }
-            @media print {
-              body { padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="slip">
+  const paidDateRaw =
+    printRecord.paid_date || printRecord.paid_datetime;
 
-            <div class="bill-header">
-              <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
-              <div class="bill-subtitle">Sh2/1-1, Sardar Patel Road, Salem - 636007</div>
-              <div class="bill-subtitle">Ph: 04272706666</div>
-              <div class="bill-adv">Advance Slip</div>
-            </div>
+  const paidDate = paidDateRaw
+    ? new Date(paidDateRaw).toLocaleString("en-IN")
+    : "—";
 
-            <div class="section">
-              <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || printRecord.ipNumber || "—"}</span></div>
-              <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || printRecord.name || "—"}</span></div>
-              <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
-              <div class="row"><span class="lbl">Bill No</span><span class="val bold">${printRecord.bill_no || "—"}</span></div>
-              <div class="row"><span class="lbl">Payment Mode</span><span class="val">${printRecord.payment_mode || "—"}</span></div>
-            </div>
+  const billDate = printRecord.bill_date
+    ? new Date(printRecord.bill_date).toLocaleString("en-IN")
+    : "—";
 
-            <div class="section">
-              <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
-              <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
-              <div class="row"><span>2. Billing Advance</span><span class="val bold">₹${fmt(printRecord.billing_advance)}</span></div>
-            </div>
+  const w = window.open("", "", "height=600,width=750");
 
-            <div class="section">
-              <div class="row divider bold">
-                <span class="lbl">User: ${printRecord.created_by || "—"}</span>
-                <span class="val">Total ₹${fmt(printRecord.advance_amount)}</span>
-              </div>
-            </div>
+  w.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Advance Slip</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: 'Courier New', monospace;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+          }
+          .slip {
+            width: 100%;
+            max-width: 400px;
+            padding: 16px;
+            border: 2px solid #0f172a;
+            background: #fff;
+          }
+          .bill-header {
+            text-align: center;
+            border-bottom: 1px solid #0f172a;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+          }
+          .bill-title { font-size: 14px; font-weight: bold; }
+          .bill-subtitle { font-size: 11px; color: #64748b; }
+          .bill-adv { font-weight: bold; margin-top: 4px; }
 
-            <div class="signature">Signature Of Cashier</div>
+          .section { margin-bottom: 10px; font-size: 12px; }
+          .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+          }
+          .row.divider { border-bottom: 1px dotted #e2e8f0; }
+          .row.bold { font-weight: bold; }
+          .lbl { font-weight: bold; }
+          .val { text-align: right; }
+          .val.bold { font-weight: bold; }
 
+          .signature {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #0f172a;
+            font-size: 11px;
+            margin-bottom: 20px;
+          }
+        </style>
+      </head>
+
+      <body>
+        <div class="slip">
+
+          <div class="bill-header">
+            <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
+            <div class="bill-subtitle">Sh2/1-1, Sardar Patel Road, Salem - 636007</div>
+            <div class="bill-subtitle">Ph: 04272706666</div>
+            <div class="bill-adv">Advance Slip</div>
           </div>
-        </body>
-      </html>
-    `);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 300);
-  };
+
+          <div class="section">
+            <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || printRecord.ipNumber || "—"}</span></div>
+            <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || printRecord.name || "—"}</span></div>
+            <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
+            <div class="row"><span class="lbl">Bill No</span><span class="val bold">${printRecord.bill_no || "—"}</span></div>
+
+            <!-- ✅ Payment Mode -->
+            <div class="row"><span class="lbl">Payment Mode</span><span class="val">${paymentMode}</span></div>
+
+            <!-- ✅ Paid Date -->
+            <div class="row"><span class="lbl">Paid Date</span><span class="val">${paidDate}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
+            <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
+            <div class="row"><span>2. Billing Advance</span><span class="val bold">₹${fmt(printRecord.billing_advance)}</span></div>
+          </div>
+
+          <div class="section">
+            <div class="row divider bold">
+              <span class="lbl">User: ${printRecord.created_by || "—"}</span>
+              <span class="val">Total ₹${fmt(printRecord.advance_amount)}</span>
+            </div>
+          </div>
+
+          <div class="signature">Signature Of Cashier</div>
+
+        </div>
+      </body>
+    </html>
+  `);
+
+  w.document.close();
+  w.focus();
+  setTimeout(() => {
+    w.print();
+    w.close();
+  }, 300);
+};
 
   const handleResetForm = () => {
     setCommon(EMPTY_COMMON);
@@ -945,8 +978,6 @@ export default function IPAdvance() {
               <F><Lbl>Bed No</Lbl><Inp value={common.bedNo} readOnly /></F>
               <F span={2}><Lbl>Admitting Date</Lbl><Inp value={common.admittingDate} readOnly /></F>
               <F span={2}><Lbl>Admitting Doctor</Lbl><Inp value={common.admittingDoctor} readOnly /></F>
-              <F><Lbl>Outstanding Balance (₹)</Lbl><Inp value={common.outBalance} readOnly /></F>
-              <F span={2}><Lbl>Total Advance (₹)</Lbl><Inp value={common.totalAdvance} readOnly /></F>
               <F span={2} />
             </Grid>
           </CardBody>
@@ -983,15 +1014,6 @@ export default function IPAdvance() {
                   <BigInp type="number" min="0" step="0.01"
                     value={amount} placeholder="Enter total advance amount"
                     onChange={e => handleAmountChange(e.target.value)} />
-                </F>
-                <F span={1}>
-                  <Lbl>Payment Mode</Lbl>
-                  <Select value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
-                    <option value="Cash">Cash</option>
-                    <option value="Credit Card">Credit Card</option>
-                    <option value="Debit Card">Debit Card</option>
-                    <option value="Multi Payment">Multi Payment</option>
-                  </Select>
                 </F>
                 <F span={2} />
 
@@ -1065,16 +1087,6 @@ export default function IPAdvance() {
                 <Inp type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} />
               </F>
               <F span={2}>
-                <Lbl>Payment Mode</Lbl>
-                <Select value={filterPaymentMode} onChange={e => setFilterPaymentMode(e.target.value)}>
-                  <option value="">All Modes</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Debit Card">Debit Card</option>
-                  <option value="Multi Payment">Multi Payment</option>
-                </Select>
-              </F>
-              <F span={2}>
                 <Lbl>Status</Lbl>
                 <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                   <option value="">All Status</option>
@@ -1108,6 +1120,7 @@ export default function IPAdvance() {
                   <Th>IP No</Th>
                   <Th>Patient Name</Th>
                   <Th>Payment Mode</Th>
+                  <Th>Paid Date</Th>
                   <Th right>Advance Amount</Th>
                   <Th right>IP Advance</Th>
                   <Th right>Billing Advance</Th>
@@ -1151,16 +1164,21 @@ export default function IPAdvance() {
                         <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
                           {patientName}
                         </Td>
-                        <Td>{p.payment_mode || "—"}</Td>
+                        <Td>{p.payment_mode || "-"}</Td>
+                        <Td>
+                          {p.paid_date
+                            ? new Date(p.paid_date).toLocaleString("en-IN")
+                            : "-"}
+                        </Td>
                         <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
                         <Td right>₹{fmt(p.ip_advance)}</Td>
                         <Td right>₹{fmt(p.billing_advance)}</Td>
                         <Td>
                           <StatusBadge status={status}>{status}</StatusBadge>
                         </Td>
-                        <Td>
-                          <KebabWrap onClick={e => e.stopPropagation()}>
-                            <KebabBtn onClick={() => toggleMenu(menuId)} title="Actions">
+                        <Td style={{ position: "relative", overflow: "visible" }}>
+                          <KebabWrap>
+                            <KebabBtn onClick={(e) => toggleMenu(menuId, e)} title="Actions">
                               ⋮
                             </KebabBtn>
                             <DropMenu open={openMenuId === menuId}>
@@ -1233,57 +1251,135 @@ export default function IPAdvance() {
 
       {/* ── PRINT MODAL ── */}
       {printModalOpen && printRecord && (
-        <ModalOverlay onClick={closePrintModal}>
-          <ModalBox onClick={e => e.stopPropagation()}>
-            <ModalHeader>
-              <ModalTitle>Advance Payment Slip</ModalTitle>
-              <CloseBtn onClick={closePrintModal}>×</CloseBtn>
-            </ModalHeader>
-            <ModalBody>
-              <BillSlipContainer ref={printRef} className="print-container">
-                <BillHeader>
-                  <BillTitle>SHANMUGA HOSPITAL LIMITED</BillTitle>
-                  <BillSubtitle>Sh2/1-1, Sardar Patel Road, Salem - 636007</BillSubtitle>
-                  <BillSubtitle>Ph: 04272706666</BillSubtitle>
-                  <div style={{ fontWeight: "bold", marginTop: "4px" }}>Advance Slip</div>
-                </BillHeader>
-                <BillSection>
-                  <BillRow><BillLabel>IP Number</BillLabel><BillValue>{printRecord.ip_number || printRecord.ipNumber || "—"}</BillValue></BillRow>
-                  <BillRow><BillLabel>Name</BillLabel><BillValue>{printRecord.patient_name || printRecord.name || "—"}</BillValue></BillRow>
-                  <BillRow>
-                    <BillLabel>Bill Date</BillLabel>
-                    <BillValue>
-                      {printRecord.bill_date
-                        ? new Date(printRecord.bill_date).toLocaleDateString("en-IN") + " " +
-                          new Date(printRecord.bill_date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
-                        : "—"}
-                    </BillValue>
-                  </BillRow>
-                  <BillRow><BillLabel>Bill No</BillLabel><BillValue style={{ fontWeight: "bold" }}>{printRecord.bill_no || "—"}</BillValue></BillRow>
-                  <BillRow><BillLabel>Payment Mode</BillLabel><BillValue>{printRecord.payment_mode || "—"}</BillValue></BillRow>
-                </BillSection>
-                <BillSection>
-                  <BillRow divider><BillLabel>Description</BillLabel><BillValue>Amount</BillValue></BillRow>
-                  <BillRow><span>1. IP Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.ip_advance)}</BillValue></BillRow>
-                  <BillRow><span>2. Billing Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.billing_advance)}</BillValue></BillRow>
-                </BillSection>
-                <BillSection>
-                  <BillRow divider style={{ fontWeight: "bold" }}>
-                    <BillLabel>User: {printRecord.created_by || "—"}</BillLabel>
-                    <BillValue>Total ₹{fmt(printRecord.advance_amount)}</BillValue>
-                  </BillRow>
-                </BillSection>
-                <BillSection style={{ textAlign: "center", marginTop: "20px", paddingTop: "10px", borderTop: "1px solid " + T.text }}>
-                  <div style={{ fontSize: "11px", marginBottom: "20px" }}>Signature Of Cashier</div>
-                </BillSection>
-              </BillSlipContainer>
-              <ModalActions>
-                <Btn v="reset" onClick={closePrintModal}>Close</Btn>
-                <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
-              </ModalActions>
-            </ModalBody>
-          </ModalBox>
-        </ModalOverlay>
+      <ModalOverlay onClick={closePrintModal}>
+        <ModalBox onClick={e => e.stopPropagation()}>
+          <ModalHeader>
+            <ModalTitle>Advance Payment Slip</ModalTitle>
+            <CloseBtn onClick={closePrintModal}>×</CloseBtn>
+          </ModalHeader>
+
+          <ModalBody>
+            <BillSlipContainer ref={printRef} className="print-container">
+
+              <BillHeader>
+                <BillTitle>SHANMUGA HOSPITAL LIMITED</BillTitle>
+                <BillSubtitle>Sh2/1-1, Sardar Patel Road, Salem - 636007</BillSubtitle>
+                <BillSubtitle>Ph: 04272706666</BillSubtitle>
+                <div style={{ fontWeight: "bold", marginTop: "4px" }}>
+                  Advance Slip
+                </div>
+              </BillHeader>
+
+              {/* 🔹 Extract values safely */}
+              {(() => {
+                const paymentMode =
+                  printRecord.payment_mode ||
+                  printRecord.payment_details?.method ||
+                  "—";
+
+                const paidDate = printRecord.paid_date || printRecord.paid_datetime;
+
+                return (
+                  <>
+                    <BillSection>
+                      <BillRow>
+                        <BillLabel>IP Number</BillLabel>
+                        <BillValue>{printRecord.ip_number || printRecord.ipNumber || "—"}</BillValue>
+                      </BillRow>
+
+                      <BillRow>
+                        <BillLabel>Name</BillLabel>
+                        <BillValue>{printRecord.patient_name || printRecord.name || "—"}</BillValue>
+                      </BillRow>
+
+                      <BillRow>
+                        <BillLabel>Bill Date</BillLabel>
+                        <BillValue>
+                          {printRecord.bill_date
+                            ? new Date(printRecord.bill_date).toLocaleString("en-IN")
+                            : "—"}
+                        </BillValue>
+                      </BillRow>
+
+                      <BillRow>
+                        <BillLabel>Bill No</BillLabel>
+                        <BillValue style={{ fontWeight: "bold" }}>
+                          {printRecord.bill_no || "—"}
+                        </BillValue>
+                      </BillRow>
+
+                      {/* ✅ Payment Mode */}
+                      <BillRow>
+                        <BillLabel>Payment Mode</BillLabel>
+                        <BillValue>{paymentMode}</BillValue>
+                      </BillRow>
+
+                      {/* ✅ Paid Date */}
+                      <BillRow>
+                        <BillLabel>Paid Date</BillLabel>
+                        <BillValue>
+                          {paidDate
+                            ? new Date(paidDate).toLocaleString("en-IN")
+                            : "—"}
+                        </BillValue>
+                      </BillRow>
+                    </BillSection>
+
+                    <BillSection>
+                      <BillRow divider>
+                        <BillLabel>Description</BillLabel>
+                        <BillValue>Amount</BillValue>
+                      </BillRow>
+
+                      <BillRow>
+                        <span>1. IP Advance</span>
+                        <BillValue style={{ fontWeight: "bold" }}>
+                          ₹{fmt(printRecord.ip_advance)}
+                        </BillValue>
+                      </BillRow>
+
+                      <BillRow>
+                        <span>2. Billing Advance</span>
+                        <BillValue style={{ fontWeight: "bold" }}>
+                          ₹{fmt(printRecord.billing_advance)}
+                        </BillValue>
+                      </BillRow>
+                    </BillSection>
+
+                    <BillSection>
+                      <BillRow divider style={{ fontWeight: "bold" }}>
+                        <BillLabel>User: {printRecord.created_by || "—"}</BillLabel>
+                        <BillValue>
+                          Total ₹{fmt(printRecord.advance_amount)}
+                        </BillValue>
+                      </BillRow>
+                    </BillSection>
+
+                    <BillSection
+                      style={{
+                        textAlign: "center",
+                        marginTop: "20px",
+                        paddingTop: "10px",
+                        borderTop: "1px solid " + T.text
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", marginBottom: "20px" }}>
+                        Signature Of Cashier
+                      </div>
+                    </BillSection>
+                  </>
+                );
+              })()}
+
+            </BillSlipContainer>
+
+            <ModalActions>
+              <Btn v="reset" onClick={closePrintModal}>Close</Btn>
+              <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
+            </ModalActions>
+          </ModalBody>
+        </ModalBox>
+      </ModalOverlay>
       )}
     </>
   );

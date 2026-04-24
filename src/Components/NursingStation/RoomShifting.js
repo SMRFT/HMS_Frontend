@@ -412,8 +412,8 @@ const RC = styled.div`
   border: 1.5px solid ${p => rC[p.s]?.br || T.gray200};
   border-radius: 7px;
   overflow: hidden;
-  cursor: ${p => ['occupied','booked','reserved','not cleaned'].includes(p.s) ? 'not-allowed' : 'pointer'};
-  opacity: ${p => ['occupied','booked','reserved','not cleaned'].includes(p.s) ? 0.7 : 1};
+  cursor: ${p => ['occupied','booked','reserved','not cleaned','maintenance'].includes(p.s) ? 'not-allowed' : 'pointer'};
+  opacity: ${p => ['occupied','booked','reserved','not cleaned','maintenance'].includes(p.s) ? 0.7 : 1};
   background: ${p => rC[p.s]?.bg || T.white};
   transition: box-shadow .15s, transform .15s;
   &:hover:not([style*="not-allowed"]) { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
@@ -463,13 +463,16 @@ const NR = styled.div`text-align: center; padding: 30px; color: ${T.gray400}; fo
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
-  const s = beds.map(b => (b.status || "").toLowerCase());
-  if (s.every(x => x === "maintenance")) return "maintenance";
-  if (s.every(x => x === "occupied")) return "occupied";
-  if (s.every(x => x === "reserved" || x === "booked")) return "booked";
-  if (s.every(x => x === "occupied" || x === "reserved" || x === "booked")) return "occupied";
-  if (s.some(x => x === "occupied" || x === "reserved" || x === "booked") && s.some(x => x === "available" || x === "available - not cleaned")) return "partial";
-  if (s.every(x => x === "available - not cleaned")) return "not cleaned";
+  const s = beds.map(b => (b.status || ""));
+  if (s.every(x => x === "Maintenance"))             return "maintenance";
+  if (s.every(x => x === "Occupied"))                return "occupied";
+  if (s.every(x => x === "Reserved"))                return "reserved";
+  if (s.every(x => x === "Available - Not Cleaned")) return "not cleaned";
+  // mixed occupied + available/not-cleaned → partial
+  if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
+  if (s.some(x => x === "Occupied"))                 return "partial";
+  if (s.some(x => x === "Reserved"))                 return "reserved";
+  if (s.some(x => x === "Available - Not Cleaned"))  return "not cleaned";
   return "available";
 };
 

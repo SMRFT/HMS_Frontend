@@ -148,19 +148,19 @@ const FG2  = styled.div`padding:10px 12px;`;
 const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
 const rC   = {
-  available:              { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
-  "available-not-cleaned":{ bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
-  occupied:               { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
-  maintenance:            { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
-  partial:                { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
-  reserved:               { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff" },
+  available:     { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
+  "not-cleaned": { bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
+  occupied:      { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
+  maintenance:   { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
+  partial:       { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
+  reserved:      { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff" },
 };
-const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?'not-allowed':'pointer'};opacity:${p=>(p.s==='occupied'||p.s==='maintenance'||p.s==='reserved')?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(p.s!=='occupied'&&p.s!=='maintenance'&&p.s!=='reserved')&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
+const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(['occupied','maintenance','reserved','not-cleaned'].includes(p.s))?'not-allowed':'pointer'};opacity:${p=>(['occupied','maintenance','reserved','not-cleaned'].includes(p.s))?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(!['occupied','maintenance','reserved','not-cleaned'].includes(p.s))&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
 const RCT  = styled.div`display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:${p=>rC[p.s]?.hd||'#f1f5f9'};border-bottom:1px solid ${p=>rC[p.s]?.br||'#e5e7eb'};`;
 const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
-const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#9ca3af':p.s==='reserved'?'#9333ea':p.s==='partial'?'#3b82f6':'#eab308'};color:#fff;text-transform:capitalize;`;
+const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#9ca3af':p.s==='reserved'?'#9333ea':p.s==='partial'?'#3b82f6':p.s==='not-cleaned'?'#eab308':'#eab308'};color:#fff;text-transform:capitalize;`;
 const BRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
-const BC   = styled.button`flex:1 1 auto;min-width:44px;text-align:center;padding:4px 5px;border-radius:5px;font-size:.67rem;font-weight:700;border:none;cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;background:${p=>p.bs==='Available'?'#22c55e':p.bs==='Occupied'?'#ef4444':p.bs==='Available - Not Cleaned'?'#eab308':p.bs==='Reserved'?'#9333ea':'#9ca3af'};opacity:${p=>p.disabled?.55:1};transition:filter .15s,transform .15s;&:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);}`;
+const BC   = styled.button`flex:1 1 auto;min-width:44px;text-align:center;padding:4px 5px;border-radius:5px;font-size:.67rem;font-weight:700;border:none;cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;background:${p=>p.bs==='Available'?'#22c55e':p.bs==='Occupied'?'#ef4444':p.bs==='Available - Not Cleaned'?'#eab308':p.bs==='Reserved'?'#9333ea':p.bs==='Maintenance'?'#9ca3af':'#9ca3af'};opacity:${p=>p.disabled?.55:1};transition:filter .15s,transform .15s;&:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);}`;
 const RT2  = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
 const NR   = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
@@ -298,10 +298,12 @@ const getRoomStatus = beds => {
   if (s.every(x => x === "Maintenance"))             return "maintenance";
   if (s.every(x => x === "Occupied"))                return "occupied";
   if (s.every(x => x === "Reserved"))                return "reserved";
-  if (s.every(x => x === "Available - Not Cleaned")) return "available-not-cleaned";
+  if (s.every(x => x === "Available - Not Cleaned")) return "not-cleaned";
+  // mixed occupied + others → partial
+  if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
   if (s.some(x => x === "Occupied"))                 return "partial";
   if (s.some(x => x === "Reserved"))                 return "reserved";
-  if (s.some(x => x === "Available - Not Cleaned"))  return "available-not-cleaned";
+  if (s.some(x => x === "Available - Not Cleaned"))  return "not-cleaned";
   return "available";
 };
 
@@ -866,7 +868,7 @@ export default function Admission() {
   })();
   const handleRoomClick = room => {
     const s = getRoomStatus(room.beds);
-    if (s==="occupied"||s==="maintenance"||s==="reserved") return;
+    if (["occupied","maintenance","reserved","not-cleaned"].includes(s)) return;
     setSelRoom(room); setShowRoom(false); setShowBed(true);
   };
   const handleBedSelect = (bedNo, room) => {
@@ -1227,12 +1229,12 @@ export default function Admission() {
                               onMouseEnter={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="block";}}
                               onMouseLeave={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="none";}}>
                               <RC s={s} onClick={()=>handleRoomClick(room)}>
-                                <RCT s={s}><RNum>{room.room_number}</RNum><RSP s={s}>{s==="partial"?"Partial":s==="available-not-cleaned"?"Not Cleaned":s==="reserved"?"Reserved":s}</RSP></RCT>
+                                <RCT s={s}><RNum>{room.room_number}</RNum><RSP s={s}>{s==="partial"?"Partial":s==="not-cleaned"?"Not Cleaned":s==="reserved"?"Reserved":s==="maintenance"?"Maintenance":s==="occupied"?"Occupied":"Available"}</RSP></RCT>
                                 <RT2>{room.room_type}{room.room_category?` · ${room.room_category}`:""}</RT2>
                                 <BRow>
                                   {(room.beds||[]).map((bed,i)=>(
                                     <BC key={i} bs={bed.status} disabled={bed.status!=="Available"}
-                                      title={bed.status==="Available"?"✅ Ready":bed.status==="Occupied"?"🔴 Occupied":bed.status==="Available - Not Cleaned"?"🟡 Needs cleaning":bed.status==="Reserved"?"🟣 Reserved":"🔧 Maintenance"}
+                                      title={bed.status==="Available"?"✅ Ready":bed.status==="Occupied"?"🔴 Occupied":bed.status==="Available - Not Cleaned"?"🟡 Needs cleaning":bed.status==="Reserved"?"🟣 Reserved":bed.status==="Maintenance"?"🔧 Maintenance":"❓ Unknown"}
                                       onClick={e=>{if(bed.status==="Available"){e.stopPropagation();handleBedSelect(bed.bed_number,room);}}}>
                                       {bed.bed_number}
                                     </BC>
@@ -1242,7 +1244,7 @@ export default function Admission() {
                               <div className="room-tip" style={{display:"none",position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"#1e293b",color:"#fff",fontSize:".65rem",fontWeight:500,borderRadius:5,padding:"5px 10px",whiteSpace:"nowrap",zIndex:10000,pointerEvents:"none",lineHeight:1.6,boxShadow:"0 4px 14px rgba(0,0,0,.28)"}}>
                                 <div style={{fontWeight:700,marginBottom:2}}>Room {room.room_number}</div>
                                 {tipLines&&<div>{tipLines}</div>}
-                                {(s==="occupied"||s==="maintenance"||s==="reserved")&&<div style={{color:"#fca5a5",marginTop:2}}>Cannot select</div>}
+                                {(s==="occupied"||s==="maintenance"||s==="reserved"||s==="not-cleaned")&&<div style={{color:"#fca5a5",marginTop:2}}>Cannot select</div>}
                               </div>
                             </div>
                           );
