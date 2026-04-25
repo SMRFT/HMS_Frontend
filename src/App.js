@@ -104,6 +104,8 @@ import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
+import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
+import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -564,6 +566,27 @@ function App() {
                     element={<VendorManagement />}
                   />
                 )}
+                {hasPagePermission(
+                "/ChemicalComposition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/ChemicalComposition"
+                    element={<ChemicalComposition />}
+                  />
+                )}
+                {hasPagePermission(
+                "/PharmacyCategory",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PharmacyCategory"
+                    element={<PharmacyCategory />}
+                  />
+                )}
+
               {hasPagePermission(
                 "/GRNGeneration",
                 allowedActions,

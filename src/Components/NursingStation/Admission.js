@@ -155,7 +155,7 @@ const rC   = {
   partial:       { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
   reserved:      { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff" },
 };
-const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(['occupied','maintenance','reserved','not-cleaned'].includes(p.s))?'not-allowed':'pointer'};opacity:${p=>(['occupied','maintenance','reserved','not-cleaned'].includes(p.s))?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(!['occupied','maintenance','reserved','not-cleaned'].includes(p.s))&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
+const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(p.s==='maintenance'||p.noavail)?'not-allowed':'pointer'};opacity:${p=>(p.s==='maintenance'||p.noavail)?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(p.s!=='maintenance'&&!p.noavail)&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
 const RCT  = styled.div`display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:${p=>rC[p.s]?.hd||'#f1f5f9'};border-bottom:1px solid ${p=>rC[p.s]?.br||'#e5e7eb'};`;
 const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
 const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#9ca3af':p.s==='reserved'?'#9333ea':p.s==='partial'?'#3b82f6':p.s==='not-cleaned'?'#eab308':'#eab308'};color:#fff;text-transform:capitalize;`;
@@ -867,8 +867,11 @@ export default function Admission() {
     return g;
   })();
   const handleRoomClick = room => {
-    const s = getRoomStatus(room.beds);
-    if (["occupied","maintenance","reserved","not-cleaned"].includes(s)) return;
+    // Only block if truly no Available bed — a room can be "partial" or
+    // "not-cleaned" at room level but still have individual Available beds
+    if (getRoomStatus(room.beds) === "maintenance") return;
+    const hasAvail = (room.beds||[]).some(b => b.status === "Available");
+    if (!hasAvail) return;
     setSelRoom(room); setShowRoom(false); setShowBed(true);
   };
   const handleBedSelect = (bedNo, room) => {
@@ -1228,7 +1231,7 @@ export default function Admission() {
                             <div key={room.room_number} style={{position:"relative"}}
                               onMouseEnter={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="block";}}
                               onMouseLeave={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="none";}}>
-                              <RC s={s} onClick={()=>handleRoomClick(room)}>
+                              <RC s={s} noavail={!(room.beds||[]).some(b=>b.status==="Available")?1:0} onClick={()=>handleRoomClick(room)}>
                                 <RCT s={s}><RNum>{room.room_number}</RNum><RSP s={s}>{s==="partial"?"Partial":s==="not-cleaned"?"Not Cleaned":s==="reserved"?"Reserved":s==="maintenance"?"Maintenance":s==="occupied"?"Occupied":"Available"}</RSP></RCT>
                                 <RT2>{room.room_type}{room.room_category?` · ${room.room_category}`:""}</RT2>
                                 <BRow>
@@ -1244,7 +1247,7 @@ export default function Admission() {
                               <div className="room-tip" style={{display:"none",position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"#1e293b",color:"#fff",fontSize:".65rem",fontWeight:500,borderRadius:5,padding:"5px 10px",whiteSpace:"nowrap",zIndex:10000,pointerEvents:"none",lineHeight:1.6,boxShadow:"0 4px 14px rgba(0,0,0,.28)"}}>
                                 <div style={{fontWeight:700,marginBottom:2}}>Room {room.room_number}</div>
                                 {tipLines&&<div>{tipLines}</div>}
-                                {(s==="occupied"||s==="maintenance"||s==="reserved"||s==="not-cleaned")&&<div style={{color:"#fca5a5",marginTop:2}}>Cannot select</div>}
+                                {!(room.beds||[]).some(b=>b.status==="Available")&&<div style={{color:"#fca5a5",marginTop:2}}>No available beds</div>}
                               </div>
                             </div>
                           );

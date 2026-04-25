@@ -412,8 +412,8 @@ const RC = styled.div`
   border: 1.5px solid ${p => rC[p.s]?.br || T.gray200};
   border-radius: 7px;
   overflow: hidden;
-  cursor: ${p => ['occupied','booked','reserved','not cleaned','maintenance'].includes(p.s) ? 'not-allowed' : 'pointer'};
-  opacity: ${p => ['occupied','booked','reserved','not cleaned','maintenance'].includes(p.s) ? 0.7 : 1};
+  cursor: ${p => (p.s === 'maintenance' || p.noavail) ? 'not-allowed' : 'pointer'};
+  opacity: ${p => (p.s === 'maintenance' || p.noavail) ? 0.7 : 1};
   background: ${p => rC[p.s]?.bg || T.white};
   transition: box-shadow .15s, transform .15s;
   &:hover:not([style*="not-allowed"]) { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
@@ -573,7 +573,9 @@ const fetchRooms = async (fo = {}) => {
   })();
 
   const handleRoomClick = room => {
-    if (["occupied","maintenance","booked","not cleaned","reserved"].includes(getRoomStatus(room.beds))) return;
+    if (getRoomStatus(room.beds) === "maintenance") return;
+    const hasAvail = (room.beds||[]).some(b => b.status === "Available");
+    if (!hasAvail) return;
     setSelRoom(room); setShowBed(true);
   };
 
@@ -633,7 +635,7 @@ const fetchRooms = async (fo = {}) => {
                       {rooms.map(room => {
                         const s = getRoomStatus(room.beds);
                         return (
-                          <RC key={room.room_number} s={s} onClick={() => handleRoomClick(room)}>
+                          <RC key={room.room_number} s={s} noavail={!(room.beds||[]).some(b=>b.status==="Available")?1:0} onClick={() => handleRoomClick(room)}>
                             <RCT s={s}>
                               <RNum>{room.room_number}</RNum>
                               <RSP s={s}>{s === "partial" ? "Partial" : s === "not cleaned" ? "Not Cleaned" : s.charAt(0).toUpperCase() + s.slice(1)}</RSP>
