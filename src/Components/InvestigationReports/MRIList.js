@@ -877,19 +877,21 @@ const MRIList = ({
   const [editingRow, setEditingRow] = useState(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
   const [slotRow, setSlotRow] = useState(null);
-
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-
   const [fromDate, setFromDate] = useState(getToday);
   const [toDate, setToDate] = useState(getToday);
-
-  // ── Column search state ────────────────────────────────────────────────────
   const [searchBillNo, setSearchBillNo] = useState("");
   const [searchUhid, setSearchUhid] = useState("");
   const [searchIpNumber, setSearchIpNumber] = useState("");
   const [searchPatient, setSearchPatient] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-MRIE-RW");
+  const canApprove = allowedActions.includes("HMS-P-MRIA-RW");
+  const canDelete = allowedActions.includes("HMS-P-MRID-RW");
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -1360,37 +1362,48 @@ const MRIList = ({
                           >
                             👁
                           </IconBtn>
+                          {canApprove && (
+                            <IconBtn
+                              bg="linear-gradient(135deg,#66bb6a,#43a047)"
+                              onClick={() => handleApprove(row)}
+                              disabled={
+                                !row.hasReport || row.report?.is_approved
+                              }
+                              data-tip={
+                                row.report?.is_approved
+                                  ? "Already Approved"
+                                  : "Approve Report"
+                              }
+                            >
+                              ✅
+                            </IconBtn>
+                          )}
 
-                          <IconBtn
-                            bg="linear-gradient(135deg,#66bb6a,#43a047)"
-                            onClick={() => handleApprove(row)}
-                            disabled={!row.hasReport || row.report?.is_approved}
-                            data-tip={
-                              row.report?.is_approved
-                                ? "Already Approved"
-                                : "Approve Report"
-                            }
-                          >
-                            ✅
-                          </IconBtn>
+                          {canEdit && (
+                            <IconBtn
+                              bg="linear-gradient(135deg,#42a5f5,#1e88e5)"
+                              onClick={() => handleEdit(row)}
+                              disabled={
+                                !row.hasReport || row.report?.is_approved
+                              }
+                              data-tip="Edit Impression"
+                            >
+                              ✏️
+                            </IconBtn>
+                          )}
 
-                          <IconBtn
-                            bg="linear-gradient(135deg,#42a5f5,#1e88e5)"
-                            onClick={() => handleEdit(row)}
-                            disabled={!row.hasReport || row.report?.is_approved}
-                            data-tip="Edit Impression"
-                          >
-                            ✏️
-                          </IconBtn>
-
-                          <IconBtn
-                            bg="linear-gradient(135deg,#ef5350,#e53935)"
-                            onClick={() => handleDelete(row)}
-                            disabled={!row.hasReport || row.report?.is_approved}
-                            data-tip="Delete Report"
-                          >
-                            🗑️
-                          </IconBtn>
+                          {canDelete && (
+                            <IconBtn
+                              bg="linear-gradient(135deg,#ef5350,#e53935)"
+                              onClick={() => handleDelete(row)}
+                              disabled={
+                                !row.hasReport || row.report?.is_approved
+                              }
+                              data-tip="Delete Report"
+                            >
+                              🗑️
+                            </IconBtn>
+                          )}
                         </ActionRow>
                       </Td>
                     </Tr>

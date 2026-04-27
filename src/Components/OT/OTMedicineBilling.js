@@ -20,7 +20,7 @@ import {
   NoResults,
 } from "../GlobalStyles";
 
-// ─── Color palette (matches MedicineWardRequest) ──────────────────────────────
+// ─── Color palette ────────────────────────────────────────────────────────────
 const colors = {
   primary: "#136A63",
   primaryDark: "#0B4C47",
@@ -42,9 +42,10 @@ const colors = {
   legInsurance: "#007BFF",
   legDischarge: "#48D1CC",
   legRegular: "#136A63",
+  legProcessed: "#8b5edd",
 };
 
-// ─── Page wrapper ─────────────────────────────────────────────────────────────
+// ─── Styled Components ────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   width: 100%;
   min-height: 100vh;
@@ -120,7 +121,6 @@ const EmergencyChip = styled.span`
   }
 `;
 
-// ─── Styled Components (verbatim from MedicineWardRequest) ────────────────────
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -240,6 +240,20 @@ const RequestBtn = styled.button`
   }
 `;
 
+const EditModeBanner = styled.div`
+  background: #fffbeb;
+  border: 1.5px solid #f59e0b;
+  border-radius: 8px;
+  padding: 10px 18px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #92400e;
+`;
+
 const RequestFormWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr 360px;
@@ -326,16 +340,6 @@ const StyledSelect = styled.select`
   }
 `;
 
-const CheckboxGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: ${colors.textMain};
-  cursor: pointer;
-  user-select: none;
-`;
 const ActionButtons = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -573,7 +577,11 @@ const OTMedicineBilling = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  // Fixed for OT: always IP pharmacy, backend sets bill_type=18
+  // ── Edit mode state ───────────────────────────────────────────────────────
+  const [editMode, setEditMode] = useState(false);
+  const [editingRequestId, setEditingRequestId] = useState(null);
+
+  // Fixed for OT: always IP pharmacy
   const pharmacyDept = "OLET001";
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
@@ -655,7 +663,7 @@ const OTMedicineBilling = () => {
       return;
     }
     const res = await apiRequest(
-      `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}`,
+      `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}&search=${val}`,
       "GET",
     );
     const list = res.success
@@ -701,7 +709,6 @@ const OTMedicineBilling = () => {
       item_id: selectedDrug.item_id,
       itemName: selectedDrug.name,
       qty: Number(qty),
-      quantity: Number(qty),
       price: selectedDrug.price,
       noOfDays,
       dosage,
@@ -711,45 +718,135 @@ const OTMedicineBilling = () => {
       remark,
     };
     setSelectedMedicines((p) => [...p, newMed]);
-    resetForm();
+    resetDrugFields();
   };
 
-  const resetForm = () => {
+  // Reset only the drug-input fields, not doctor or edit state
+  const resetDrugFields = () => {
     setSelectedDrug(null);
     setNoOfDays("");
     setQty("");
     setDose("");
+    setDoseUnit("");
     setRoute("");
     setRemark("");
+    setDosage("");
     setSearchQuery("");
   };
 
+  // Full reset including edit state — used when closing the form
+  const resetForm = () => {
+    resetDrugFields();
+    setEditMode(false);
+    setEditingRequestId(null);
+    setSelectedMedicines([]);
+  };
+
+  // ── Open Edit: pre-fill form with existing request data ──────────────────
+  const openEditModal = (req) => {
+    // Pre-fill doctor
+    const match = doctors.find(
+      (d) =>
+        d.employeeId === req.doctor_id ||
+        d.employeeName === (req.doctorName || req.doctor),
+    );
+    setDoctor(match ? match.employeeId : req.doctor_id || "");
+    setDoctorName(
+      match ? match.employeeName : req.doctorName || req.doctor || "",
+    );
+
+    // Pre-fill medicines into selectedMedicines
+    const prefilled = (req.medicines || []).map((m) => ({
+      item_id: m.item_id,
+      itemName: m.itemName || m.name,
+      qty: m.qty,
+      price: m.price || 0,
+      noOfDays: m.noOfDays || "",
+      dosage: m.dosage || "",
+      dose: m.dose || "",
+      doseUnit: m.doseUnit || "",
+      route: m.route || "",
+      remark: m.remark || "",
+    }));
+
+    setSelectedMedicines(prefilled);
+    setEditMode(true);
+    setEditingRequestId(req.bill_id || req.bill_id);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleDelete = async (req) => {
+    if (!window.confirm("Are you sure you want to delete this ward request?"))
+      return;
+
+    const res = await apiRequest(
+      `${HmsBaseUrl}delete_ot_medicine_ward_request/`,
+      "PUT",
+      { bill_id: req.bill_id || req.Bill_id },
+    );
+
+    if (res.success) {
+      alert("Ward request deleted successfully");
+      fetchRequests();
+    } else {
+      alert(res.error || res.message || "Delete failed");
+    }
+  };
+
+  // ── Confirm: create new OR update existing ────────────────────────────────
   const handleConfirm = async () => {
     if (!selectedMedicines.length) return alert("No medicines added.");
-    const payload = {
-      uhid: resolvedPatient.uhid,
-      ipNumber: resolvedPatient.ipNo,
-      patient_name: resolvedPatient.name,
-      wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
-      medicine_particulars: selectedMedicines, // includes remark per item
-      total_amount: selectedMedicines.reduce(
-        (a, m) => a + (m.price || 0) * m.quantity,
-        0,
-      ),
-      doctor_id: doctor,
-      // Fields below are set by backend — not sent from frontend
-      // bill_type=18, billing_status, billing_mode, is_ward_request handled server-side
-      surgeryRef: resolvedPatient.surgeryRef,
-    };
-    const res = await apiRequest(
-      `${HmsBaseUrl}save_ot_medicine_ward_request/`,
-      "POST",
-      payload,
+
+    const total = selectedMedicines.reduce(
+      (a, m) => a + (Number(m.price) || 0) * (Number(m.qty) || 0),
+      0,
     );
-    if (res.success) {
-      alert("Ward Request saved successfully");
-      setSelectedMedicines([]);
-      fetchRequests();
+
+    if (editMode) {
+      // UPDATE existing request
+      const payload = {
+        bill_id: editingRequestId,
+        medicine_particulars: selectedMedicines,
+        total_amount: total,
+        doctor_id: doctor,
+      };
+      const res = await apiRequest(
+        `${HmsBaseUrl}update_ot_medicine_ward_request/`,
+        "PUT",
+        payload,
+      );
+      if (res.success) {
+        alert("Request updated successfully");
+        resetForm();
+        setShowForm(false);
+        fetchRequests();
+      } else {
+        alert(res.error || "Update failed");
+      }
+    } else {
+      // CREATE new request
+      const payload = {
+        uhid: resolvedPatient.uhid,
+        ipNumber: resolvedPatient.ipNo,
+        patient_name: resolvedPatient.name,
+        wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
+        medicine_particulars: selectedMedicines,
+        total_amount: total,
+        doctor_id: doctor,
+        surgeryRef: resolvedPatient.surgeryRef,
+      };
+      const res = await apiRequest(
+        `${HmsBaseUrl}save_ot_medicine_ward_request/`,
+        "POST",
+        payload,
+      );
+      if (res.success) {
+        alert("Ward Request saved successfully");
+        resetForm();
+        setShowForm(false);
+        fetchRequests();
+      }
     }
   };
 
@@ -758,12 +855,24 @@ const OTMedicineBilling = () => {
 
   const getStatusColor = (status) => {
     if (status === "Pending") return colors.legPending;
+    if (status === "Processed") return colors.legProcessed;
     if (status === "Cancelled") return colors.legCancelled;
     if (status === "Billed") return colors.legBilled;
     return colors.legRegular;
   };
 
-  // ── JSX ───────────────────────────────────────────────────────────────────
+  // ── Handle toggle form button ─────────────────────────────────────────────
+  const handleToggleForm = () => {
+    if (showForm) {
+      setShowForm(false);
+      resetForm();
+    } else {
+      setEditMode(false);
+      setShowForm(true);
+    }
+  };
+
+  // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
@@ -823,268 +932,314 @@ const OTMedicineBilling = () => {
           </PatientGrid>
         </PatientPanel>
 
-        {/* ── New Request toggle ────────────────────────────────────────── */}
+        {/* ── New / Edit Request toggle ─────────────────────────────────── */}
         <TopActionBar>
-          <RequestBtn onClick={() => setShowForm(!showForm)}>
-            {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
+          <RequestBtn onClick={handleToggleForm}>
+            {showForm
+              ? "✕ Close Form"
+              : editMode
+                ? "✏️ Edit Medicine Request"
+                : "＋ New Medicine Request"}
           </RequestBtn>
         </TopActionBar>
 
         {/* ── Request Form ──────────────────────────────────────────────── */}
         {showForm && (
-          <RequestFormWrapper>
-            <FormPanel>
-              <FormGrid>
-                {/* Bill Type — fixed, read-only */}
-                <FormItem>
-                  <FormLabel>Medicine Bill Type</FormLabel>
-                  <StyledInput
-                    value="PHARMACY IP BILL"
-                    readOnly
-                    style={{
-                      background: "#f1f5f7",
-                      color: colors.primary,
-                      fontWeight: 700,
-                    }}
-                  />
-                </FormItem>
+          <>
+            {/* Edit mode banner */}
+            {editMode && (
+              <EditModeBanner>
+                ✏️ You are editing an existing request. Modify the medicines in
+                the panel on the right, then click{" "}
+                <strong>Update Request</strong> to save.
+              </EditModeBanner>
+            )}
 
-                {/* Medicine Name search */}
-                <FormItem style={{ gridColumn: "span 2" }}>
-                  <FormLabel>Medicine Name</FormLabel>
-                  <div style={{ display: "flex", gap: "8px" }}>
+            <RequestFormWrapper>
+              <FormPanel>
+                <FormGrid>
+                  {/* Bill Type — fixed, read-only */}
+                  <FormItem>
+                    <FormLabel>Medicine Bill Type</FormLabel>
                     <StyledInput
-                      style={{ flex: 1 }}
-                      placeholder="Search medicine (min 3 chars)..."
-                      value={selectedDrug ? selectedDrug.name : searchQuery}
-                      onChange={(e) => {
-                        if (selectedDrug) setSelectedDrug(null);
-                        setSearchQuery(e.target.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && searchQuery.length > 2) {
-                          setIsSearchModalOpen(true);
-                          handleMedicineSearch(searchQuery);
-                        }
+                      value="IP Pharmacy (Credit)"
+                      readOnly
+                      style={{
+                        background: "#f1f5f7",
+                        color: colors.primary,
+                        fontWeight: 700,
                       }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (searchQuery.length > 2) {
-                          setIsSearchModalOpen(true);
-                          handleMedicineSearch(searchQuery);
-                        } else alert("Enter at least 3 characters.");
-                      }}
-                      style={{
-                        background: colors.primary,
-                        color: "white",
-                        padding: "0 16px",
-                        borderRadius: "4px",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      <Search size={16} /> Search
-                    </button>
-                  </div>
-                </FormItem>
+                  </FormItem>
 
-                {/* Doctor */}
-                <FormItem>
-                  <FormLabel>Doctor</FormLabel>
-                  <SearchableDropdown
-                    value={doctor}
-                    onChange={(val) => {
-                      setDoctor(val);
-                      const d = doctors.find((x) => x.employeeId === val);
-                      if (d) setDoctorName(d.employeeName);
-                    }}
-                    options={doctors.map((d) => ({
-                      id: d.employeeId,
-                      name: d.employeeName,
-                    }))}
-                  />
-                </FormItem>
-
-                {/* Dosage */}
-                <FormItem>
-                  <FormLabel>Dosage</FormLabel>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <StyledSelect
-                      value={dosage}
-                      onChange={(e) => setDosage(e.target.value)}
-                      style={{ flex: 1 }}
-                    >
-                      <option value="">Select Dosage</option>
-                      <option value="1-0-0">1-0-0 (Morning)</option>
-                      <option value="0-1-0">0-1-0 (Noon)</option>
-                      <option value="0-0-1">0-0-1 (Night)</option>
-                      <option value="1-0-1">1-0-1 (Morn-Night)</option>
-                      <option value="1-1-1">1-1-1 (Thrice)</option>
-                      {dosageOptions.map((o, i) => (
-                        <option key={i} value={o.dosage_name}>
-                          {o.dosage_name}
-                        </option>
-                      ))}
-                    </StyledSelect>
-                    <button
-                      type="button"
-                      onClick={() => setShowDosageModal(true)}
-                      style={{
-                        background: colors.primary,
-                        color: "white",
-                        width: "38px",
-                        height: "38px",
-                        borderRadius: "4px",
-                        border: "none",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-                </FormItem>
-
-                <FormItem>
-                  <FormLabel>No. of Days</FormLabel>
-                  <StyledInput
-                    type="number"
-                    value={noOfDays}
-                    onChange={(e) => setNoOfDays(e.target.value)}
-                  />
-                </FormItem>
-                <FormItem>
-                  <FormLabel>Quantity</FormLabel>
-                  <StyledInput
-                    type="number"
-                    value={qty}
-                    onChange={(e) => setQty(e.target.value)}
-                  />
-                </FormItem>
-                <FormItem>
-                  <FormLabel>Dose</FormLabel>
-                  <StyledInput
-                    value={dose}
-                    onChange={(e) => setDose(e.target.value)}
-                  />
-                </FormItem>
-                <FormItem>
-                  <FormLabel>Dose Unit</FormLabel>
-                  <StyledSelect
-                    value={doseUnit}
-                    onChange={(e) => setDoseUnit(e.target.value)}
-                  >
-                    <option value="">Select Unit</option>
-                    <option value="mg">mg</option>
-                    <option value="ml">ml</option>
-                    <option value="tab">Tablet</option>
-                    <option value="cap">Capsule</option>
-                  </StyledSelect>
-                </FormItem>
-                <FormItem>
-                  <FormLabel>Route</FormLabel>
-                  <StyledInput
-                    value={route}
-                    onChange={(e) => setRoute(e.target.value)}
-                  />
-                </FormItem>
-              </FormGrid>
-
-              <FormItem style={{ marginBottom: "20px" }}>
-                <FormLabel>Remark</FormLabel>
-                <StyledInput
-                  value={remark}
-                  onChange={(e) => setRemark(e.target.value)}
-                />
-              </FormItem>
-
-              <ActionButtons>
-                <CancelBtn onClick={resetForm}>✕ Reset</CancelBtn>
-                <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
-              </ActionButtons>
-            </FormPanel>
-
-            {/* Side panel */}
-            <SidePanel>
-              <SidePanelHeader>
-                Selected Items ({selectedMedicines.length})
-              </SidePanelHeader>
-              <SidePanelContent>
-                {selectedMedicines.length === 0 ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      color: colors.textMuted,
-                      marginTop: "40px",
-                      fontSize: "0.85rem",
-                    }}
-                  >
-                    No medicines added yet.
-                  </div>
-                ) : (
-                  selectedMedicines.map((m, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: "12px 0",
-                        borderBottom: "1px solid #F0F0F0",
-                        position: "relative",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontWeight: "600",
-                          fontSize: "0.85rem",
-                          color: colors.primary,
+                  {/* Medicine Name search */}
+                  <FormItem style={{ gridColumn: "span 2" }}>
+                    <FormLabel>
+                      Medicine Name{" "}
+                      {editMode && (
+                        <span
+                          style={{
+                            color: colors.orange,
+                            fontStyle: "italic",
+                            fontWeight: 400,
+                          }}
+                        >
+                          (search to add more medicines)
+                        </span>
+                      )}
+                    </FormLabel>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <StyledInput
+                        style={{ flex: 1 }}
+                        placeholder="Search medicine (min 3 chars)..."
+                        value={selectedDrug ? selectedDrug.name : searchQuery}
+                        onChange={(e) => {
+                          if (selectedDrug) setSelectedDrug(null);
+                          setSearchQuery(e.target.value);
                         }}
-                      >
-                        {m.itemName}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: colors.textMuted,
-                          marginTop: "4px",
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && searchQuery.length > 2) {
+                            setIsSearchModalOpen(true);
+                            handleMedicineSearch(searchQuery);
+                          }
                         }}
-                      >
-                        {m.dosage} | {m.noOfDays} Days | Qty: {m.quantity}
-                      </div>
+                      />
                       <button
-                        onClick={() => removeSelectedMed(i)}
+                        type="button"
+                        onClick={() => {
+                          if (searchQuery.length > 2) {
+                            setIsSearchModalOpen(true);
+                            handleMedicineSearch(searchQuery);
+                          } else alert("Enter at least 3 characters.");
+                        }}
                         style={{
-                          position: "absolute",
-                          right: "0",
-                          top: "12px",
-                          background: "none",
+                          background: colors.primary,
+                          color: "white",
+                          padding: "0 16px",
+                          borderRadius: "4px",
                           border: "none",
-                          color: "#e53935",
                           cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontSize: "14px",
                         }}
                       >
-                        ✕
+                        <Search size={16} /> Search
                       </button>
                     </div>
-                  ))
-                )}
-              </SidePanelContent>
-              <SidePanelFooter>
-                <AddBtn
-                  style={{ width: "100%", padding: "12px" }}
-                  onClick={handleConfirm}
-                >
-                  Confirm Request
-                </AddBtn>
-              </SidePanelFooter>
-            </SidePanel>
-          </RequestFormWrapper>
+                  </FormItem>
+
+                  {/* Doctor */}
+                  <FormItem>
+                    <FormLabel>Doctor</FormLabel>
+                    <SearchableDropdown
+                      value={doctor}
+                      onChange={(val) => {
+                        setDoctor(val);
+                        const d = doctors.find((x) => x.employeeId === val);
+                        if (d) setDoctorName(d.employeeName);
+                      }}
+                      options={doctors.map((d) => ({
+                        id: d.employeeId,
+                        name: d.employeeName,
+                      }))}
+                    />
+                  </FormItem>
+
+                  {/* Dosage */}
+                  <FormItem>
+                    <FormLabel>Dosage</FormLabel>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <StyledSelect
+                        value={dosage}
+                        onChange={(e) => setDosage(e.target.value)}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="">Select Dosage</option>
+                        <option value="1-0-0">1-0-0 (Morning)</option>
+                        <option value="0-1-0">0-1-0 (Noon)</option>
+                        <option value="0-0-1">0-0-1 (Night)</option>
+                        <option value="1-0-1">1-0-1 (Morn-Night)</option>
+                        <option value="1-1-1">1-1-1 (Thrice)</option>
+                        {dosageOptions.map((o, i) => (
+                          <option key={i} value={o.dosage_name}>
+                            {o.dosage_name}
+                          </option>
+                        ))}
+                      </StyledSelect>
+                      <button
+                        type="button"
+                        onClick={() => setShowDosageModal(true)}
+                        style={{
+                          background: colors.primary,
+                          color: "white",
+                          width: "38px",
+                          height: "38px",
+                          borderRadius: "4px",
+                          border: "none",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </div>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>No. of Days</FormLabel>
+                    <StyledInput
+                      type="number"
+                      value={noOfDays}
+                      onChange={(e) => setNoOfDays(e.target.value)}
+                    />
+                  </FormItem>
+                  <FormItem>
+                    <FormLabel>Quantity</FormLabel>
+                    <StyledInput
+                      type="number"
+                      value={qty}
+                      onChange={(e) => setQty(e.target.value)}
+                    />
+                  </FormItem>
+                  <FormItem>
+                    <FormLabel>Dose</FormLabel>
+                    <StyledInput
+                      value={dose}
+                      onChange={(e) => setDose(e.target.value)}
+                    />
+                  </FormItem>
+                  <FormItem>
+                    <FormLabel>Dose Unit</FormLabel>
+                    <StyledSelect
+                      value={doseUnit}
+                      onChange={(e) => setDoseUnit(e.target.value)}
+                    >
+                      <option value="">Select Unit</option>
+                      <option value="mg">mg</option>
+                      <option value="ml">ml</option>
+                      <option value="tab">Tablet</option>
+                      <option value="cap">Capsule</option>
+                    </StyledSelect>
+                  </FormItem>
+                  <FormItem>
+                    <FormLabel>Route</FormLabel>
+                    <StyledInput
+                      value={route}
+                      onChange={(e) => setRoute(e.target.value)}
+                    />
+                  </FormItem>
+                </FormGrid>
+
+                <FormItem style={{ marginBottom: "20px" }}>
+                  <FormLabel>Remark</FormLabel>
+                  <StyledInput
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                  />
+                </FormItem>
+
+                <ActionButtons>
+                  <CancelBtn onClick={resetDrugFields}>✕ Reset</CancelBtn>
+                  <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
+                </ActionButtons>
+              </FormPanel>
+
+              {/* ── Side panel ──────────────────────────────────────────── */}
+              <SidePanel>
+                <SidePanelHeader>
+                  {editMode ? "✏️ Editing Medicines" : "Selected Items"} (
+                  {selectedMedicines.length})
+                </SidePanelHeader>
+                <SidePanelContent>
+                  {selectedMedicines.length === 0 ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        color: colors.textMuted,
+                        marginTop: "40px",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      {editMode
+                        ? "All medicines removed. Add new ones using the form."
+                        : "No medicines added yet."}
+                    </div>
+                  ) : (
+                    selectedMedicines.map((m, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          padding: "12px 0",
+                          borderBottom: "1px solid #F0F0F0",
+                          position: "relative",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            color: colors.primary,
+                            paddingRight: "24px",
+                          }}
+                        >
+                          {m.itemName}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: colors.textMuted,
+                            marginTop: "4px",
+                          }}
+                        >
+                          {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
+                          {m.route && ` | ${m.route}`}
+                        </div>
+                        {m.remark && (
+                          <div
+                            style={{
+                              fontSize: "0.72rem",
+                              color: colors.orange,
+                              marginTop: "2px",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Remark: {m.remark}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => removeSelectedMed(i)}
+                          style={{
+                            position: "absolute",
+                            right: "0",
+                            top: "12px",
+                            background: "none",
+                            border: "none",
+                            color: "#e53935",
+                            cursor: "pointer",
+                            fontSize: "1rem",
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </SidePanelContent>
+                <SidePanelFooter>
+                  <AddBtn
+                    style={{ width: "100%", padding: "12px" }}
+                    onClick={handleConfirm}
+                  >
+                    {editMode ? "💾 Update Request" : "✅ Confirm Request"}
+                  </AddBtn>
+                </SidePanelFooter>
+              </SidePanel>
+            </RequestFormWrapper>
+          </>
         )}
 
         {/* ── Request History ───────────────────────────────────────────── */}
@@ -1104,13 +1259,14 @@ const OTMedicineBilling = () => {
               <th>Doctor</th>
               <th>Bill Name</th>
               <th>Status</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
             {requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="9"
+                  colSpan="10"
                   style={{
                     textAlign: "center",
                     padding: "30px",
@@ -1186,7 +1342,7 @@ const OTMedicineBilling = () => {
                           padding: "4px 0",
                         }}
                       >
-                        {m.quantity}
+                        {m.qty}
                       </div>
                     ))}
                   </td>
@@ -1209,9 +1365,71 @@ const OTMedicineBilling = () => {
                   <td>{req.doctorName || req.doctor}</td>
                   <td>{req.billName}</td>
                   <td>
-                    <LegendItem color={getStatusColor(req.status || "Pending")}>
-                      {req.status || "Pending"}
+                    <LegendItem
+                      color={getStatusColor(req.billingStatus || "Pending")}
+                    >
+                      {req.billingStatus || "Pending"}
                     </LegendItem>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button
+                        disabled={
+                          (req.billingStatus || "Pending") !== "Pending"
+                        }
+                        onClick={() => openEditModal(req)}
+                        style={{
+                          background:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? colors.primary
+                              : "#cbd5e1",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          padding: "5px 12px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? "pointer"
+                              : "not-allowed",
+                          opacity:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? 1
+                              : 0.5,
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        disabled={
+                          (req.billingStatus || "Pending") !== "Pending"
+                        }
+                        onClick={() => handleDelete(req)}
+                        style={{
+                          background:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? "#e53935"
+                              : "#cbd5e1",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          padding: "5px 12px",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          cursor:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? "pointer"
+                              : "not-allowed",
+                          opacity:
+                            (req.billingStatus || "Pending") === "Pending"
+                              ? 1
+                              : 0.5,
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -1229,6 +1447,7 @@ const OTMedicineBilling = () => {
           <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
           <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
           <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+          <LegendItem color={colors.legProcessed}>Processed</LegendItem>
         </LegendContainer>
       </div>
 
@@ -1434,6 +1653,7 @@ const OTMedicineBilling = () => {
                   padding: "8px",
                   borderRadius: "4px",
                   border: "1px solid #ccc",
+                  boxSizing: "border-box",
                 }}
               />
             </div>

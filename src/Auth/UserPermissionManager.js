@@ -45,6 +45,13 @@ const Container = styled.div`
     border-radius: 50%;
     z-index: 0;
   }
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: auto;
+  }
 `;
 
 const HeaderContainer = styled.div`
@@ -61,6 +68,10 @@ const HeaderContainer = styled.div`
     font-weight: 800;
     margin: 0;
     letter-spacing: -0.5px;
+    
+    @media (max-width: 768px) {
+      font-size: 1.5rem;
+    }
   }
 
   .icon-wrapper {
@@ -74,6 +85,12 @@ const HeaderContainer = styled.div`
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     border: 1px solid #e2e8f0;
     color: #0d9488;
+
+    @media (max-width: 768px) {
+      width: 40px;
+      height: 40px;
+      svg { width: 20px; height: 20px; }
+    }
   }
 `;
 
@@ -82,6 +99,11 @@ const ContentLayout = styled.div`
   gap: 24px;
   flex: 1;
   min-height: 0; /* Extremely important flexbox fix for inner scrolling containers */
+
+  @media (max-width: 850px) {
+    flex-direction: column;
+    min-height: auto;
+  }
 `;
 
 // --- Left Panel: User List ---
@@ -98,6 +120,13 @@ const ListPanel = styled.div`
   overflow: hidden;
   animation: ${slideInLeft} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
+
+  @media (max-width: 850px) {
+    width: 100%;
+    min-height: 300px;
+    max-height: 400px;
+    flex-shrink: 0;
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -259,6 +288,12 @@ const DetailPanel = styled.div`
   flex-direction: column;
   overflow: hidden;
   animation: ${fadeInUp} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 850px) {
+    width: 100%;
+    min-height: 500px;
+    flex: none;
+  }
 `;
 
 const DetailHeader = styled.div`
@@ -272,6 +307,13 @@ const DetailHeader = styled.div`
   position: sticky;
   top: 0;
   z-index: 10;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px 20px;
+  }
 `;
 
 const UserHeaderInfo = styled.div`
@@ -299,6 +341,12 @@ const UserHeaderInfo = styled.div`
       padding: 4px 10px;
       border-radius: 6px;
       color: #334155;
+    }
+  }
+
+  @media (max-width: 768px) {
+    h3 {
+      font-size: 1.2rem;
     }
   }
 `;
@@ -347,6 +395,10 @@ const PermissionsContent = styled.div`
     background: #cbd5e1; 
     border-radius: 10px; 
     border: 1px solid #fafafa;
+  }
+
+  @media (max-width: 768px) {
+    padding: 16px 20px;
   }
 `;
 
@@ -536,6 +588,63 @@ const EmptyState = styled.div`
   }
 `;
 
+const HeaderTools = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  flex: 1;
+  margin: 0 24px;
+  
+  .compact-search {
+    max-width: 250px;
+    width: 100%;
+    
+    input {
+      padding: 10px 16px 10px 40px;
+      font-size: 0.9rem;
+      border-radius: 12px;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    flex-direction: column;
+    align-items: stretch;
+    margin: 12px 0 0 0;
+    width: 100%;
+    gap: 10px;
+    .compact-search {
+      max-width: 100%;
+    }
+  }
+`;
+
+const FilterGroup = styled.div`
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+`;
+
+const FilterBtn = styled.button`
+  padding: 8px 16px;
+  border: none;
+  background: ${props => props.active ? 'white' : 'transparent'};
+  color: ${props => props.active ? '#0f172a' : '#64748b'};
+  font-weight: ${props => props.active ? '700' : '500'};
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: ${props => props.active ? '0 2px 6px rgba(0,0,0,0.05)' : 'none'};
+  flex: 1;
+  text-align: center;
+  
+  &:hover {
+    color: #0f172a;
+  }
+`;
+
 // --- Loader ---
 const Spinner = styled.div`
   width: 24px;
@@ -560,6 +669,8 @@ const UserPermissionManager = () => {
   const [selectedSubPerms, setSelectedSubPerms] = useState({}); // { pageId: ["READ", "WRITE"] }
   const [legacyPermissions, setLegacyPermissions] = useState({}); // { key: val } for perms not mapped to sidebar
   const [roles, setRoles] = useState([]);
+  const [pageSearchTerm, setPageSearchTerm] = useState("");
+  const [pageStatusFilter, setPageStatusFilter] = useState("all");
   const [sidebarData, setSidebarData] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingPerms, setIsLoadingPerms] = useState(false);
@@ -797,7 +908,29 @@ const UserPermissionManager = () => {
     return groups;
   }, [sidebarData]);
 
-  const sortedCategories = Object.keys(groupedPermissions).sort();
+  const filteredGroupedPermissions = useMemo(() => {
+    const term = pageSearchTerm.toLowerCase();
+    const groups = {};
+    Object.entries(groupedPermissions).forEach(([category, pages]) => {
+      const filteredPages = pages.filter(page => {
+        const matchesSearch = page.pageName.toLowerCase().includes(term) || (page.route || '').toLowerCase().includes(term);
+        if (!matchesSearch) return false;
+
+        const isEnabled = permissions.includes(page.page_id);
+        if (pageStatusFilter === 'enabled' && !isEnabled) return false;
+        if (pageStatusFilter === 'disabled' && isEnabled) return false;
+
+        return true;
+      });
+
+      if (filteredPages.length > 0) {
+        groups[category] = filteredPages;
+      }
+    });
+    return groups;
+  }, [groupedPermissions, pageSearchTerm, pageStatusFilter, permissions]);
+
+  const sortedCategories = Object.keys(filteredGroupedPermissions).sort();
 
   return (
     <Container>
@@ -864,25 +997,32 @@ const UserPermissionManager = () => {
           {selectedEmpId ? (
             <>
               <DetailHeader>
-                <UserHeaderInfo>
+                <UserHeaderInfo style={{ flexShrink: 0 }}>
                   <h3>{selectedEmpName}</h3>
                   <span>
                     ID: <strong>{selectedEmpId}</strong>
-                    {roles.length > 0 && (
-                      <>
-                        <div style={{ width: 4, height: 4, background: '#cbd5e1', borderRadius: '50%' }}></div>
-                        Roles: <strong>{roles.join(", ")}</strong>
-                      </>
-                    )}
-                    {Object.keys(legacyPermissions).length > 0 && (
-                      <>
-                        <div style={{ width: 4, height: 4, background: '#cbd5e1', borderRadius: '50%' }}></div>
-                        Special Access: <strong>{Object.values(legacyPermissions).join(", ")}</strong>
-                      </>
-                    )}
                   </span>
                 </UserHeaderInfo>
-                <SaveButton onClick={handleSave} disabled={isSaving || isLoadingPerms}>
+
+                {!isLoadingPerms && (
+                  <HeaderTools>
+                    <SearchInputWrapper className="compact-search">
+                        <FiSearch />
+                        <input
+                            placeholder="Find pages or routes..."
+                            value={pageSearchTerm}
+                            onChange={(e) => setPageSearchTerm(e.target.value)}
+                        />
+                    </SearchInputWrapper>
+                    <FilterGroup>
+                        <FilterBtn active={pageStatusFilter === 'all'} onClick={() => setPageStatusFilter('all')}>All</FilterBtn>
+                        <FilterBtn active={pageStatusFilter === 'enabled'} onClick={() => setPageStatusFilter('enabled')}>Enabled</FilterBtn>
+                        <FilterBtn active={pageStatusFilter === 'disabled'} onClick={() => setPageStatusFilter('disabled')}>Disabled</FilterBtn>
+                    </FilterGroup>
+                  </HeaderTools>
+                )}
+
+                <SaveButton onClick={handleSave} disabled={isSaving || isLoadingPerms} style={{ flexShrink: 0 }}>
                   {isSaving ? <Spinner style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }} /> : <FiSave size={18} />}
                   {isSaving ? "Saving..." : "Save Changes"}
                 </SaveButton>
@@ -895,65 +1035,75 @@ const UserPermissionManager = () => {
                     <p>Fetching assigned policies...</p>
                   </EmptyState>
                 ) : (
-                  sortedCategories.map(category => (
-                    <div key={category} style={{ marginBottom: '32px' }}>
-                      <SectionTitle>{category}</SectionTitle>
-                      <PermissionsGrid>
-                        {groupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
-                          const isActive = permissions.includes(page_id);
-                          const subPermEntries = Object.keys(permissionsData || {});
-                          
-                          return (
-                            <PermissionCard
-                              key={`${pageName}-${page_id}`}
-                              active={isActive}
-                            >
-                                <CardHeader>
-                                    <PermLabel active={isActive}>
-                                        <div className="icon-box">
-                                            <FiActivity />
-                                        </div>
-                                        <div className="text-box">
-                                            <strong>{pageName}</strong>
-                                            <span>{route}</span>
-                                        </div>
-                                    </PermLabel>
-                                    <Switch 
-                                        active={isActive} 
-                                        onClick={() => togglePermission(page_id)}
-                                    />
-                                </CardHeader>
+                  <>
 
-                                {isActive && subPermEntries.length > 0 && (
-                                    <SubPermGrid>
-                                        {subPermEntries.map(k => {
-                                            const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
-                                            return (
-                                                <SubToggle
-                                                    key={k}
-                                                    active={isSubActive}
-                                                    onClick={() => togglePermission(page_id, k)}
-                                                    title={`Toggle ${k} permission`}
-                                                >
-                                                    {isSubActive && <FiCheck size={10} />}
-                                                    {k}
-                                                </SubToggle>
-                                            );
-                                        })}
-                                    </SubPermGrid>
-                                )}
-                                
-                                {isActive && subPermEntries.length === 0 && (
-                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                                        No granular permissions defined for this page.
-                                    </div>
-                                )}
-                            </PermissionCard>
-                          );
-                        })}
-                      </PermissionsGrid>
-                    </div>
-                  ))
+                    {sortedCategories.length === 0 ? (
+                        <EmptyState>
+                            <div className="icon-wrapper" style={{ background: 'transparent', height: 40 }}><FiSearch /></div>
+                            <h4>No pages found</h4>
+                        </EmptyState>
+                    ) : (
+                        sortedCategories.map(category => (
+                            <div key={category} style={{ marginBottom: '32px' }}>
+                              <SectionTitle>{category}</SectionTitle>
+                              <PermissionsGrid>
+                                {filteredGroupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
+                                  const isActive = permissions.includes(page_id);
+                                  const subPermEntries = Object.keys(permissionsData || {});
+                                  
+                                  return (
+                                    <PermissionCard
+                                      key={`${pageName}-${page_id}`}
+                                      active={isActive}
+                                    >
+                                        <CardHeader>
+                                            <PermLabel active={isActive}>
+                                                <div className="icon-box">
+                                                    <FiActivity />
+                                                </div>
+                                                <div className="text-box">
+                                                    <strong>{pageName}</strong>
+                                                    <span>{route}</span>
+                                                </div>
+                                            </PermLabel>
+                                            <Switch 
+                                                active={isActive} 
+                                                onClick={() => togglePermission(page_id)}
+                                            />
+                                        </CardHeader>
+        
+                                        {isActive && subPermEntries.length > 0 && (
+                                            <SubPermGrid>
+                                                {subPermEntries.map(k => {
+                                                    const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
+                                                    return (
+                                                        <SubToggle
+                                                            key={k}
+                                                            active={isSubActive}
+                                                            onClick={() => togglePermission(page_id, k)}
+                                                            title={`Toggle ${k} permission`}
+                                                        >
+                                                            {isSubActive && <FiCheck size={10} />}
+                                                            {k}
+                                                        </SubToggle>
+                                                    );
+                                                })}
+                                            </SubPermGrid>
+                                        )}
+                                        
+                                        {isActive && subPermEntries.length === 0 && (
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                                                No granular permissions defined for this page.
+                                            </div>
+                                        )}
+                                    </PermissionCard>
+                                  );
+                                })}
+                              </PermissionsGrid>
+                            </div>
+                        ))
+                    )}
+                  </>
                 )}
               </PermissionsContent>
             </>

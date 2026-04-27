@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { fetchSidebarMapping, updateSidebarMapping, fetchOutlets } from '../../Auth/apiRequest';
 import { PAGE_PERMISSIONS } from '../../Auth/FrontendPageMapping';
-import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey } from 'react-icons/fi';
+import { FiSave, FiPlus, FiTrash2, FiMove, FiSettings, FiAlertTriangle, FiPlusCircle, FiKey, FiSearch } from 'react-icons/fi';
 
 // ─── Global Style ──────────────────────────────────────────────
 const GlobalStyle = createGlobalStyle`
@@ -143,6 +143,39 @@ const OutlineButton = styled(PrimaryButton)`
   &:hover {
     background: #f0fdfa;
     box-shadow: 0 2px 10px rgba(13,148,136,0.15);
+  }
+`;
+
+const SearchInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  
+  svg {
+    position: absolute;
+    left: 14px;
+    color: #94a3b8;
+    font-size: 1.1rem;
+    pointer-events: none;
+  }
+
+  input {
+    padding: 10px 14px 10px 38px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+    color: var(--text);
+    background: white;
+    width: 200px;
+    transition: all 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+    }
+
+    &::placeholder { color: #a8b5c8; }
   }
 `;
 
@@ -552,8 +585,41 @@ const PermissionKeyValueEditor = ({ value, onChange }) => {
 const SidebarEditor = () => {
     const [mapping, setMapping] = useState([]);
     const [outlets, setOutlets] = useState([]);
-    const [selectedOutlet, setSelectedOutlet] = useState('');
+    const [selectedOutlet, setSelectedOutlet] = useState('ALL');
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+
+    const isFiltering = !!(searchTerm.trim() || selectedOutlet !== 'ALL');
+
+    const filteredMapping = React.useMemo(() => {
+        return mapping.map(g => {
+            let pages = g.pages || [];
+            
+            if (selectedOutlet !== 'ALL') {
+                if (selectedOutlet === 'GLOBAL') {
+                    pages = pages.filter(p => !p.outlet_code || p.outlet_code === '');
+                } else {
+                    pages = pages.filter(p => p.outlet_code === selectedOutlet);
+                }
+            }
+            
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase();
+                const groupMatch = (g.group || '').toLowerCase().includes(term);
+                if (!groupMatch) {
+                    pages = pages.filter(p => 
+                        (p.name || '').toLowerCase().includes(term) ||
+                        (p.route || '').toLowerCase().includes(term)
+                    );
+                }
+            }
+            
+            return { ...g, pages };
+        }).filter(g => {
+            if (!searchTerm.trim() && selectedOutlet === 'ALL') return true;
+            return g.pages.length > 0 || (searchTerm.trim() && (g.group || '').toLowerCase().includes(searchTerm.toLowerCase()));
+        });
+    }, [mapping, selectedOutlet, searchTerm]);
 
     useEffect(() => { 
         loadMapping();
@@ -647,16 +713,25 @@ const SidebarEditor = () => {
         }
     };
 
-    const handleGroupChange = (gi, field, value) => {
+    const handleGroupChange = (gId, field, value) => {
         const m = [...mapping];
-        m[gi][field] = value;
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            m[gi][field] = value;
+            setMapping(m);
+        }
     };
 
-    const handlePageChange = (gi, pi, field, value) => {
+    const handlePageChange = (gId, pId, field, value) => {
         const m = [...mapping];
-        m[gi].pages[pi][field] = value;
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            const pi = m[gi].pages.findIndex(p => p.id === pId);
+            if (pi > -1) {
+                m[gi].pages[pi][field] = value;
+                setMapping(m);
+            }
+        }
     };
 
     const getNextGroupId = () => {
@@ -690,26 +765,33 @@ const SidebarEditor = () => {
         }]);
     };
 
-    const deleteGroup = (gi) => setMapping(mapping.filter((_, i) => i !== gi));
+    const deleteGroup = (gId) => setMapping(mapping.filter(g => g.id !== gId));
 
-    const addPage = (gi) => {
+    const addPage = (gId) => {
         const m = [...mapping];
-        const page_id = getNextPageId();
-        m[gi].pages.push({
-            id: `pg_${page_id}`,
-            page_id: page_id,
-            name: 'New Page',
-            route: '/NewRoute',
-            icon: 'FiActivity',
-            permissions: []
-        });
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            const page_id = getNextPageId();
+            m[gi].pages.push({
+                id: `pg_${page_id}`,
+                page_id: page_id,
+                name: 'New Page',
+                route: '/NewRoute',
+                icon: 'FiActivity',
+                outlet_code: (selectedOutlet === 'ALL' || selectedOutlet === 'GLOBAL') ? '' : selectedOutlet,
+                permissions: []
+            });
+            setMapping(m);
+        }
     };
 
-    const deletePage = (gi, pi) => {
+    const deletePage = (gId, pId) => {
         const m = [...mapping];
-        m[gi].pages = m[gi].pages.filter((_, i) => i !== pi);
-        setMapping(m);
+        const gi = m.findIndex(g => g.id === gId);
+        if (gi > -1) {
+            m[gi].pages = m[gi].pages.filter(p => p.id !== pId);
+            setMapping(m);
+        }
     };
 
     const onDragEnd = ({ source, destination, type }) => {
@@ -757,8 +839,6 @@ const SidebarEditor = () => {
         </>
     );
 
-    const unmapped = getUnmappedRoutes();
-
     return (
         <>
             <GlobalStyle />
@@ -779,16 +859,27 @@ const SidebarEditor = () => {
                     </TitleBlock>
 
                     <ButtonGroup>
+                        <SearchInputWrapper>
+                            <FiSearch />
+                            <input
+                                placeholder="Search pages..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </SearchInputWrapper>
                         <Input 
                             as="select" 
                             value={selectedOutlet} 
                             onChange={e => setSelectedOutlet(e.target.value)}
-                            style={{ width: '180px', height: '40px' }}
+                            style={{ width: '200px', height: '40px', borderRadius: 'var(--radius-md)' }}
                         >
-                            <option value="">All Outlets / Global</option>
-                            {outlets.map(o => (
-                                <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
-                            ))}
+                            <option value="ALL">All Pages & Global</option>
+                            <option value="GLOBAL">Global Pages Only</option>
+                            <optgroup label="Specific Outlets">
+                                {outlets.map(o => (
+                                    <option key={o.outlet_code} value={o.outlet_code}>{o.outlet_name}</option>
+                                ))}
+                            </optgroup>
                         </Input>
                         <OutlineButton onClick={addGroup}>
                             <FiPlus /> Add Group
@@ -803,11 +894,11 @@ const SidebarEditor = () => {
 
                 {/* ── Drag & Drop Groups ── */}
                 <DragDropContext onDragEnd={onDragEnd}>
-                    <Droppable droppableId="groups" type="GROUP">
+                    <Droppable droppableId="groups" type="GROUP" isDropDisabled={isFiltering}>
                         {(provided) => (
                             <div {...provided.droppableProps} ref={provided.innerRef}>
-                                {mapping.map((group, gi) => (
-                                    <Draggable key={group.id} draggableId={group.id} index={gi}>
+                                {filteredMapping.map((group, gi) => (
+                                    <Draggable key={group.id} draggableId={group.id} index={gi} isDragDisabled={isFiltering}>
                                         {(provided, snapshot) => (
                                             <div
                                                 ref={provided.innerRef}
@@ -820,12 +911,12 @@ const SidebarEditor = () => {
                                                 <GroupCard dragging={snapshot.isDragging}>
                                                     <GroupHeader>
                                                         <GroupLeft>
-                                                            <DragHandle {...provided.dragHandleProps}>
+                                                            <DragHandle {...provided.dragHandleProps} style={{ opacity: isFiltering ? 0.3 : 1, cursor: isFiltering ? 'not-allowed' : 'grab' }}>
                                                                 <FiMove size={17} />
                                                             </DragHandle>
                                                             <Input
                                                                 value={group.group || ''}
-                                                                onChange={e => handleGroupChange(gi, 'group', e.target.value)}
+                                                                onChange={e => handleGroupChange(group.id, 'group', e.target.value)}
                                                                 placeholder="Group Name"
                                                                 style={{ width: '220px', fontWeight: '700', fontSize: '0.95rem' }}
                                                             />
@@ -834,10 +925,10 @@ const SidebarEditor = () => {
                                                         </GroupLeft>
 
                                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                            <PrimaryButton onClick={() => addPage(gi)} style={{ padding: '8px 14px', fontSize: '0.83rem' }}>
+                                                            <PrimaryButton onClick={() => addPage(group.id)} style={{ padding: '8px 14px', fontSize: '0.83rem' }}>
                                                                 <FiPlus /> Add Page
                                                             </PrimaryButton>
-                                                            <IconButton danger onClick={() => deleteGroup(gi)}>
+                                                            <IconButton danger onClick={() => deleteGroup(group.id)}>
                                                                 <FiTrash2 size={17} />
                                                             </IconButton>
                                                         </div>
@@ -857,11 +948,11 @@ const SidebarEditor = () => {
                                                                     <th style={{ width: '4%' }}></th>
                                                                 </tr>
                                                             </thead>
-                                                            <Droppable droppableId={group.id} type="PAGE">
+                                                            <Droppable droppableId={group.id} type="PAGE" isDropDisabled={isFiltering}>
                                                                 {(provided) => (
                                                                     <tbody {...provided.droppableProps} ref={provided.innerRef}>
                                                                         {group.pages.map((page, pi) => (
-                                                                            <Draggable key={page.id} draggableId={page.id} index={pi}>
+                                                                            <Draggable key={page.id} draggableId={page.id} index={pi} isDragDisabled={isFiltering}>
                                                                                 {(provided, snapshot) => (
                                                                                     <DraggingRow
                                                                                         ref={provided.innerRef}
@@ -870,7 +961,7 @@ const SidebarEditor = () => {
                                                                                         style={{ ...provided.draggableProps.style }}
                                                                                     >
                                                                                         <td>
-                                                                                            <DragHandle {...provided.dragHandleProps}>
+                                                                                            <DragHandle {...provided.dragHandleProps} style={{ opacity: isFiltering ? 0.3 : 1, cursor: isFiltering ? 'not-allowed' : 'grab' }}>
                                                                                                 <FiMove size={14} />
                                                                                             </DragHandle>
                                                                                         </td>
@@ -880,19 +971,19 @@ const SidebarEditor = () => {
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.name}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'name', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'name', e.target.value)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.route}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'route', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'route', e.target.value)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
                                                                                             <Input
                                                                                                 value={page.icon}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'icon', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'icon', e.target.value)}
                                                                                                 placeholder="e.g. FiHome"
                                                                                             />
                                                                                         </td>
@@ -900,7 +991,7 @@ const SidebarEditor = () => {
                                                                                             <Input 
                                                                                                 as="select" 
                                                                                                 value={page.outlet_code || ''}
-                                                                                                onChange={e => handlePageChange(gi, pi, 'outlet_code', e.target.value)}
+                                                                                                onChange={e => handlePageChange(group.id, page.id, 'outlet_code', e.target.value)}
                                                                                                 style={{ fontSize: '0.75rem', padding: '4px' }}
                                                                                             >
                                                                                                 <option value="">Global</option>
@@ -912,11 +1003,11 @@ const SidebarEditor = () => {
                                                                                         <td>
                                                                                             <PermissionKeyValueEditor
                                                                                                 value={page.permissions || {}}
-                                                                                                onChange={val => handlePageChange(gi, pi, 'permissions', val)}
+                                                                                                onChange={val => handlePageChange(group.id, page.id, 'permissions', val)}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
-                                                                                            <IconButton danger onClick={() => deletePage(gi, pi)}>
+                                                                                            <IconButton danger onClick={() => deletePage(group.id, page.id)}>
                                                                                                 <FiTrash2 size={15} />
                                                                                             </IconButton>
                                                                                         </td>

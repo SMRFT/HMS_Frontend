@@ -66,6 +66,11 @@ const VelavanVendorList = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingVendor, setEditingVendor] = useState(null);
   const [form, setForm] = useState({});
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-VVE-RW");
+  const canDelete = allowedActions.includes("HMS-P-VVD-RW");
 
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -363,18 +368,22 @@ const VelavanVendorList = () => {
                         </>
                       ) : (
                         <>
-                          <ActionButton
-                            color="blue"
-                            onClick={() => handleEdit(vendor)}
-                          >
-                            <FiEdit />
-                          </ActionButton>
-                          <ActionButton
-                            color="red"
-                            onClick={() => handleDelete(id)}
-                          >
-                            <FiTrash2 />
-                          </ActionButton>
+                          {canEdit && (
+                            <ActionButton
+                              color="blue"
+                              onClick={() => handleEdit(vendor)}
+                            >
+                              <FiEdit />
+                            </ActionButton>
+                          )}
+                          {canDelete && (
+                            <ActionButton
+                              color="red"
+                              onClick={() => handleDelete(id)}
+                            >
+                              <FiTrash2 />
+                            </ActionButton>
+                          )}
                         </>
                       )}
                     </Td>

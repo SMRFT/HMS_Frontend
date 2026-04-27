@@ -700,6 +700,43 @@ export default function CentralCashCounter() {
 };
 
 
+// ✅ IP Advance formatter — flattens each pending_payment into its own table row
+const formatIpAdvanceData = (admissionsArray) => {
+  const rows = [];
+  admissionsArray.forEach((admission) => {
+    const payments = admission.advance_payments || [];
+    // Only show admissions that have pending advance payments
+    const pendingPayments = payments.filter(
+      (p) => p.is_advanceActive && String(p.status).toLowerCase() === "pending"
+    );
+    if (pendingPayments.length === 0) return;
+
+    pendingPayments.forEach((payment) => {
+      const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
+      rows.push({
+        id: `${admission.ipNumber}-${payment.advance_id}`,
+        // display fields
+        bill_date: billDateObj
+          ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "-",
+        bill_no: payment.bill_no || "-",
+        uhid_no: admission.uhid || "-",
+        patient: admission.patient_name || "-",
+        advance_amount: payment.advance_amount || 0,
+        ipNumber: admission.ipNumber || "-",
+        ipserial_number: admission.ipserial_number || "-",
+        advance_id: payment.advance_id,
+        status: payment.status || "-",
+        // for payment modal
+        total: payment.advance_amount || 0,
+        source: "IP",
+        bill_type: "IP Advance",
+      });
+    });
+  });
+  return rows;
+};
+
 const netAmount = selectedBill?.total || 0;
 
 const paidAmount =
@@ -766,6 +803,31 @@ const submitPayment = async () => {
     payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
   }
 
+  // ✅ IP Advance: send ipNumber + payment_details
+  if (activeMenuItem === "IP Advance") {
+    const payload = {
+      ipNumber: selectedBill.ipNumber,
+      payment_details,
+    };
+
+    const res = await apiRequest(
+      `${HmsBaseUrl}ipadvance_bills/`,
+      "POST",
+      payload
+    );
+
+    if (res?.status === "success") {
+      setSuccess("IP Advance payment collected successfully!");
+      setShowPaymentModal(false);
+      fetchIpAdvancePendingBills();
+      setTimeout(() => setSuccess(""), 3000);
+    } else {
+      setError(res?.message || "Payment failed");
+    }
+    return;
+  }
+
+  // ✅ OP / Pending Bills flow (unchanged)
   const payload = {
     Bill_id: selectedBill.Bill_id,
     uhid: selectedBill.uhid_no,
@@ -807,46 +869,66 @@ const submitPayment = async () => {
     setLoading(false);
   };
 
-  // ✅ FIXED: IP Advance pending bills
   const fetchIpAdvancePendingBills = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await apiRequest(`${HmsBaseUrl}ip-advance/pending/`, "GET");
-      
-      const billsArray = Array.isArray(response?.data) 
-        ? response.data 
-        : response?.data?.results || [];
+  setLoading(true);
+  setError("");
 
-      const formatted = formatBillData(billsArray);
-      setIpAdvancePendingBills(formatted);
-    } catch (err) {
-      console.error("IP Advance error:", err);
-      setError("Failed to load IP Advance data");
-    } finally {
-      setLoading(false);
+  try {
+    const response = await apiRequest(
+      `${HmsBaseUrl}ipadvance_bills/`,
+      "GET"
+    );
+
+    console.log("IP Advance raw response:", JSON.stringify(response));
+
+    // apiRequest wraps the actual response under response.data
+    // so the real array is at response.data.data
+    const billsArray = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : [];
+
+    if (!billsArray.length && response?.data?.error) {
+      setError("IP Advance API error: " + response.data.error);
+      return;
     }
-  };
 
-  const fetchIpAdvanceReceivedBills = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch("http://127.0.0.1:8000/ip-advance/received/");
-      const data = await response.json();
+    const formatted = formatIpAdvanceData(billsArray);
+    setIpAdvancePendingBills(formatted);
 
-      if (data.success) {
-        const formatted = formatBillData(data.data || []);
-        setIpAdvanceReceivedBills(formatted);
-      } else {
-        setError(data.message || "Failed to fetch IP Advance received bills");
-      }
-    } catch (err) {
-      setError("Error connecting to server");
-      console.error("Error fetching IP Advance received bills:", err);
-    }
+  } catch (err) {
+    console.error("IP Advance fetch error:", err?.message || err);
+    setError("Failed to load IP Advance data: " + (err?.message || "Unknown error"));
+  } finally {
     setLoading(false);
-  };
+  }
+};
+
+
+  const payIpAdvance = async (ipNumber, amount) => {
+  try {
+    const payload = {
+      ipNumber: ipNumber,
+      payment_details: {
+        method: "cash",
+        Paid_amount: amount,
+      },
+    };
+
+    const response = await apiRequest(
+      `${HmsBaseUrl}ipadvance_bills/`,
+      "POST",
+      payload
+    );
+
+    if (response?.status === "success") {
+      fetchIpAdvancePendingBills();
+    }
+
+  } catch (error) {
+    console.error("Payment error:", error);
+    setError("Payment failed");
+  }
+};
 
   // Filter bills based on search term and bill type
   const filterBills = () => {
@@ -1238,18 +1320,37 @@ const submitPayment = async () => {
               <Table>
                 <thead>
                   <tr>
-                    <TableHeader>Date</TableHeader>
-                    <TableHeader>Time</TableHeader>
-                    <TableHeader>Bill No</TableHeader>
-                    <TableHeader>Bill Type</TableHeader>
-                    <TableHeader>UHID No</TableHeader>
-                    <TableHeader>Patient</TableHeader>
-                    <TableHeader>Status</TableHeader>
-                    {activeMenuItem === "IP Advance" && selectedType === "received" && (
+                    {activeMenuItem !== "IP Advance" && (
                       <>
-                        <TableHeader>Doctor</TableHeader>
-                        <TableHeader>Total</TableHeader>
-                        <TableHeader>Payment Method</TableHeader>
+                        <TableHeader>Date</TableHeader>
+                        <TableHeader>Time</TableHeader>
+                      </>
+                    )}
+                    {activeMenuItem === "IP Advance" ? (
+                      <>
+                        <TableHeader>Bill Date</TableHeader>
+                        <TableHeader>Advance Bill No</TableHeader>
+                        <TableHeader>UHID No</TableHeader>
+                        <TableHeader>Patient Name</TableHeader>
+                        <TableHeader>Amount (₹)</TableHeader>
+                        <TableHeader>IP Number</TableHeader>
+                        <TableHeader>IP Serial</TableHeader>
+                        <TableHeader>Status</TableHeader>
+                      </>
+                    ) : (
+                      <>
+                        <TableHeader>Bill No</TableHeader>
+                        <TableHeader>Bill Type</TableHeader>
+                        <TableHeader>UHID No</TableHeader>
+                        <TableHeader>Patient</TableHeader>
+                        <TableHeader>Status</TableHeader>
+                        {selectedType === "received" && (
+                          <>
+                            <TableHeader>Doctor</TableHeader>
+                            <TableHeader>Total</TableHeader>
+                            <TableHeader>Payment Method</TableHeader>
+                          </>
+                        )}
                       </>
                     )}
                     <TableHeader>Action</TableHeader>
@@ -1265,19 +1366,49 @@ const submitPayment = async () => {
                   ) : filteredBills.length > 0 ? (
                     filteredBills.slice(0, parseInt(showEntries)).map((bill) => (
                       <tr key={bill.id}>
-                        <TableCell>{bill.date}</TableCell>
-                        <TableCell>{bill.time}</TableCell>
-                        <TableCell>{bill.bill_no}</TableCell>
-                        <TableCell>{bill.bill_type}</TableCell>
-                        <TableCell>{bill.uhid_no}</TableCell>
-                        <TableCell>{bill.patient}</TableCell>
-                        <TableCell>{bill.investigation}</TableCell>
-
-                        {selectedType === "received" && (
+                        {activeMenuItem !== "IP Advance" && (
                           <>
-                            <TableCell>{bill.doctor}</TableCell>
-                            <TableCell>₹{bill.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
-                            <TableCell>{bill.payment_method}</TableCell>
+                            <TableCell>{bill.date}</TableCell>
+                            <TableCell>{bill.time}</TableCell>
+                          </>
+                        )}
+
+                        {activeMenuItem === "IP Advance" ? (
+                          <>
+                            <TableCell>{bill.bill_date}</TableCell>
+                            <TableCell>{bill.bill_no}</TableCell>
+                            <TableCell>{bill.uhid_no}</TableCell>
+                            <TableCell>{bill.patient}</TableCell>
+                            <TableCell>₹{(bill.advance_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell>{bill.ipNumber}</TableCell>
+                            <TableCell>{bill.ipserial_number}</TableCell>
+                            <TableCell>
+                              <span style={{
+                                padding: "2px 10px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                background: bill.status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
+                                color: bill.status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                              }}>
+                                {bill.status}
+                              </span>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell>{bill.bill_no}</TableCell>
+                            <TableCell>{bill.bill_type}</TableCell>
+                            <TableCell>{bill.uhid_no}</TableCell>
+                            <TableCell>{bill.patient}</TableCell>
+                            <TableCell>{bill.investigation}</TableCell>
+                            {selectedType === "received" && (
+                              <>
+                                <TableCell>{bill.doctor}</TableCell>
+                                <TableCell>₹{bill.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>{bill.payment_method}</TableCell>
+                              </>
+                            )}
                           </>
                         )}
 
@@ -1352,18 +1483,41 @@ const submitPayment = async () => {
 
       <ModalBody>
         <BillInfoCard>
-          <BillInfoItem>
-            <BillInfoLabel>Bill No</BillInfoLabel>
-            <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
-          </BillInfoItem>
-          <BillInfoItem>
-            <BillInfoLabel>Patient</BillInfoLabel>
-            <BillInfoValue>{selectedBill.patient}</BillInfoValue>
-          </BillInfoItem>
-          <BillInfoItem>
-            <BillInfoLabel>Bill Type</BillInfoLabel>
-            <BillInfoValue>{selectedBill.bill_type}</BillInfoValue>
-          </BillInfoItem>
+          {activeMenuItem === "IP Advance" ? (
+            <>
+              <BillInfoItem>
+                <BillInfoLabel>Patient</BillInfoLabel>
+                <BillInfoValue>{selectedBill.patient}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>IP Number</BillInfoLabel>
+                <BillInfoValue>{selectedBill.ipNumber}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Bill No</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>UHID</BillInfoLabel>
+                <BillInfoValue>{selectedBill.uhid_no}</BillInfoValue>
+              </BillInfoItem>
+            </>
+          ) : (
+            <>
+              <BillInfoItem>
+                <BillInfoLabel>Bill No</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Patient</BillInfoLabel>
+                <BillInfoValue>{selectedBill.patient}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Bill Type</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_type}</BillInfoValue>
+              </BillInfoItem>
+            </>
+          )}
         </BillInfoCard>
 
         <NetAmountBanner>

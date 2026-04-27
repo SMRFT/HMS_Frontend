@@ -2,14 +2,14 @@ import axios from "axios";
 import { toast } from "react-toastify";
 
 /**
- * Reusable API request helper with token authentication
- * @param {string} url - The API endpoint URL
- * @param {string} method - HTTP method (GET, POST, PUT, PATCH, DELETE)
- * @param {Object|null} data - Request body data for POST/PUT/PATCH/DELETE
- * @param {Object} headers - Additional headers to merge with defaults
- * @param {Object} config - Additional axios configuration (like params)
- * @returns {Promise<Object>} - Returns { success: boolean, data?: any, error?: string, status?: number }
- */
+ * Reusable API request helper with token authentication
+ * @param {string} url - The API endpoint URL
+ * @param {string} method - HTTP method (GET, POST, PUT, PATCH, DELETE)
+ * @param {Object|null} data - Request body data for POST/PUT/PATCH/DELETE
+ * @param {Object} headers - Additional headers to merge with defaults
+ * @param {Object} config - Additional axios configuration (like params)
+ * @returns {Promise<Object>} - Returns { success: boolean, data?: any, error?: string, status?: number }
+ */
 const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
   try {
     const token = localStorage.getItem("access_token");
@@ -22,17 +22,17 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
       "Outlet-Code": outlet,
     };
 
-    // Only set Content-Type to application/json if data is not FormData
-    if (!(data instanceof FormData)) {
-      defaultHeaders["Content-Type"] = "application/json";
-    }
+    // Only set Content-Type to application/json if data is not FormData
+    if (!(data instanceof FormData)) {
+      defaultHeaders["Content-Type"] = "application/json";
+    }
 
-    const config = {
-      method,
-      url,
-      headers: { ...defaultHeaders, ...headers },
-      validateStatus: () => true, // Don't throw errors for any status code
-    };
+    const config = {
+      method,
+      url,
+      headers: { ...defaultHeaders, ...headers },
+      validateStatus: () => true, // Don't throw errors for any status code
+    };
 
     if (data && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
       config.data = data;
@@ -96,7 +96,10 @@ const apiRequest = async (url, method = "GET", data = null, headers = {}) => {
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 export const fetchUserPermissions = async (employeeId) => {
-  const response = await apiRequest(`${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`, "GET");
+  const response = await apiRequest(
+    `${Hmsbaseurl}user-permissions/?employeeId=${employeeId}`,
+    "GET",
+  );
   if (response.success && response.data) {
     return response.data;
   }
@@ -110,14 +113,23 @@ export const fetchUserPermissions = async (employeeId) => {
  * @param {Array} hmsPages List of allowed integer page IDs
  * @returns {Promise<Object>} Response data
  */
-export const updateUserPermissions = async (employeeId, allowedPages, hmsPages = [], hmsOutlets = []) => {
+export const updateUserPermissions = async (
+  employeeId,
+  allowedPages,
+  hmsPages = [],
+  hmsOutlets = [],
+) => {
   try {
-    const response = await apiRequest(`${Hmsbaseurl}update-user-permissions/`, "POST", {
-      employeeId,
-      allowed_pages: allowedPages,
-      hms_pages: hmsPages,
-      hms_outlets: hmsOutlets
-    });
+    const response = await apiRequest(
+      `${Hmsbaseurl}update-user-permissions/`,
+      "POST",
+      {
+        employeeId,
+        allowed_pages: allowedPages,
+        hms_pages: hmsPages,
+        hms_outlets: hmsOutlets,
+      },
+    );
     return response;
   } catch (error) {
     console.error("Error updating user permissions:", error);
@@ -126,9 +138,9 @@ export const updateUserPermissions = async (employeeId, allowedPages, hmsPages =
 };
 
 /**
- * Fetches all employees from the backend.
- * @returns {Promise<Array>} List of employees
- */
+ * Fetches all employees from the backend.
+ * @returns {Promise<Array>} List of employees
+ */
 export const fetchAllEmployees = async () => {
   const response = await apiRequest(`${Hmsbaseurl}get-all-employees/`, "GET");
   if (response.success && response.data && Array.isArray(response.data)) {
@@ -138,13 +150,14 @@ export const fetchAllEmployees = async () => {
 };
 
 /**
- * Fetches the dynamic sidebar mapping from the backend.
- * @returns {Promise<Array>} List of sidebar groups and pages
- */
+ * Fetches the dynamic sidebar mapping from the backend.
+ * @returns {Promise<Array>} List of sidebar groups and pages
+ */
 export const fetchSidebarMapping = async (employeeId = null) => {
-  const url = (employeeId && employeeId !== "null" && employeeId !== "undefined")
-    ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
-    : `${Hmsbaseurl}get-sidebar-mapping/`;
+  const url =
+    employeeId && employeeId !== "null" && employeeId !== "undefined"
+      ? `${Hmsbaseurl}get-sidebar-mapping/?employeeId=${employeeId}`
+      : `${Hmsbaseurl}get-sidebar-mapping/`;
 
   const response = await apiRequest(url, "GET");
   if (response.success && response.data && Array.isArray(response.data)) {
@@ -154,12 +167,16 @@ export const fetchSidebarMapping = async (employeeId = null) => {
 };
 
 /**
- * Updates the dynamic sidebar mapping in the backend.
- * @param {Array} mapping List of sidebar groups and pages
- * @returns {Promise<Object>} Response object indicating success or failure
- */
+ * Updates the dynamic sidebar mapping in the backend.
+ * @param {Array} mapping List of sidebar groups and pages
+ * @returns {Promise<Object>} Response object indicating success or failure
+ */
 export const updateSidebarMapping = async (mapping) => {
-  const response = await apiRequest(`${Hmsbaseurl}update-sidebar-mapping/`, "POST", { mapping });
+  const response = await apiRequest(
+    `${Hmsbaseurl}update-sidebar-mapping/`,
+    "POST",
+    { mapping },
+  );
   if (response.success) {
     return response.data;
   }

@@ -97,6 +97,12 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
+
+import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
+
+import CustomerType from "./Components/BillingMaster/CustomerType";
+import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
+
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
@@ -106,6 +112,10 @@ import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
+import DietOrderReport from "./Components/NursingStation/DietOrderReport";
+import DietOrder from "./Components/NursingStation/DietMaster";
+
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -185,13 +195,13 @@ function App() {
           ]);
 
           const assignedOutletCodes = userPerms.hms_outlets || [];
-          
+
           if (assignedOutletCodes.length > 0) {
             // Map codes to full outlet objects
-            const userAssignedOutlets = allOutlets.filter(o => 
+            const userAssignedOutlets = allOutlets.filter(o =>
               assignedOutletCodes.includes(o.outlet_code)
             );
-            
+
             setUserOutlets(userAssignedOutlets);
 
             const storedOutlet = localStorage.getItem("selected_outlet");
@@ -319,15 +329,16 @@ function App() {
       <ToastContainer position="top-right" autoClose={3000} />
 
       {showOutletModal && (
-        <OutletSelectionModal 
+        <OutletSelectionModal
           outlets={userOutlets}
           currentOutletCode={localStorage.getItem("selected_outlet")}
+          onClose={localStorage.getItem("selected_outlet") ? () => setShowOutletModal(false) : undefined}
           onSelect={(outlet) => {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
             setShowOutletModal(false);
             // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
-            window.location.reload(); 
+            window.location.reload();
           }}
         />
       )}
@@ -543,12 +554,12 @@ function App() {
                 "/NursingStation",
                 allowedActions,
                 dynamicPermissions,
-              ) && <Route path="/NursingStation" element={<NursingStation />} />}              
+              ) && <Route path="/NursingStation" element={<NursingStation />} />}
               {hasPagePermission(
                 "/RoomKitItems",
                 allowedActions,
                 dynamicPermissions,
-              ) && <Route path="/RoomKitItems" element={<RoomKitItems />} />}              
+              ) && <Route path="/RoomKitItems" element={<RoomKitItems />} />}
               {hasPagePermission(
                 "/RoomServiceDescription",
                 allowedActions,
@@ -648,12 +659,6 @@ function App() {
                     element={<InvestigationBilling />}
                   />
                 )}
-              {hasPagePermission("/Oppharmacytabs", allowedActions) && (
-                <Route
-                  path="/Oppharmacytabs"
-                  element={<Oppharmacytabs />}
-                />
-              )}
               {hasPagePermission(
                 "/ViewBills",
                 allowedActions,
@@ -845,6 +850,18 @@ function App() {
                   element={<AssetsMaintainance />}
                 />
               )}
+              {hasPagePermission("/DietOrder", allowedActions) && (
+                <Route
+                  path="/DietOrder"
+                  element={<DietOrder />}
+                />
+              )}
+              {hasPagePermission("/DietOrderReport", allowedActions) && (
+                <Route
+                  path="/DietOrderReport"
+                  element={<DietOrderReport />}
+                />
+              )}
               {hasPagePermission("/RecycleManagement", allowedActions) && (
                 <Route
                   path="/RecycleManagement"
@@ -885,6 +902,22 @@ function App() {
               ) && (
                   <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
                 )}
+
+                  <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
+
+
+                   {hasPagePermission(
+                "/CentralCashCounter",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/CentralCashCounter"
+                    element={<CentralCashCounter />}
+                  />
+                )}
+      
+                
             </Routes>
           </ContentWrapper>
         </>
