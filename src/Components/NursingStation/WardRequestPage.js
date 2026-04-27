@@ -93,20 +93,78 @@ const ContentBody = styled.div`
 `;
 
 const PatientPanel = styled.div`
-  background: ${colors.white};
+  background: ${colors.white}80;
+  backdrop-filter: blur(8px);
   border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 15px 25px;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: ${colors.primary};
+  }
+`;
+
+const PatientHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  padding-bottom: 16px;
+  border-bottom: 1px dashed ${colors.border};
+`;
+
+const PatientAvatar = styled.div`
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${colors.primary};
+  font-size: 1.4rem;
+  font-weight: 800;
+  border: 1px solid ${colors.primary}30;
+`;
+
+const PatientIdentity = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: ${colors.textMain};
+  }
+
+  .sub-text {
+    font-size: 0.85rem;
+    color: ${colors.textMuted};
+    font-weight: 500;
+  }
 `;
 
 const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 12px 16px;
-  @media (max-width: 1300px) {
-    grid-template-columns: repeat(4, 2fr);
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 24px;
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
 
@@ -117,24 +175,17 @@ const FieldBox = styled.div`
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: ${colors.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.8px;
 `;
 
 const FieldValue = styled.div`
-  background: #f1f5f7;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: ${colors.textMain};
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
 `;
 
 const TopActionBar = styled.div`
@@ -311,24 +362,28 @@ const CancelBtn = styled.button`
 
 const TabsBar = styled.div`
   display: flex;
-  gap: 15px;
-  margin: 30px 0 15px 0;
-  border-bottom: 2px solid ${colors.border};
-  padding-bottom: 0;
+  gap: 8px;
+  margin: 30px 0 20px 0;
+  padding: 6px;
+  background: ${colors.border}30;
+  border-radius: 12px;
+  width: fit-content;
 `;
 
 const Tab = styled.div`
-  padding: 8px 25px;
-  font-size: 0.9rem;
+  padding: 10px 24px;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
-  border-bottom: 3px solid
-    ${(props) => (props.active ? colors.primary : "transparent")};
-  margin-bottom: -2px;
-  transition: all 0.2s;
+  background: ${(props) => (props.active ? "white" : "transparent")};
+  border-radius: 8px;
+  box-shadow: ${(props) => (props.active ? "0 4px 12px rgba(0,0,0,0.05)" : "none")};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
   &:hover {
     color: ${colors.primary};
+    background: ${(props) => (props.active ? "white" : "white")};
   }
 `;
 
@@ -655,7 +710,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${resolvedPatient.uhid}&ipNumber=${resolvedPatient.ipNo}`,
         "GET",
       );
-      if (res.success) setRequests(res.data?.data || []);
+      if (res.success) {
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRequests(list);
+      }
     } catch (e) {
       console.error("Error fetching requests:", e);
     }
@@ -931,47 +989,38 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     <>
       <div style={{ padding: "20px" }}>
         <PatientPanel>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "15px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "10px" }}>
-            <div>
-              <FieldLabel>Patient Name</FieldLabel>
-              <h3 style={{ margin: 0, color: colors.primary, fontSize: "1.5rem", fontWeight: 700 }}>{resolvedPatient.name}</h3>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <FieldLabel>Registration Type</FieldLabel>
-              <div style={{ fontWeight: 600, color: colors.textMain }}>{resolvedPatient.customerType}</div>
-            </div>
-          </div>
-
+          <PatientHeader>
+            <PatientAvatar>
+              {resolvedPatient.name ? resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "P"}
+            </PatientAvatar>
+            <PatientIdentity>
+              <h3>{resolvedPatient.name || "Unknown Patient"}</h3>
+              <div className="sub-text">
+                UHID: {resolvedPatient.uhid || "-"} | IP No: {resolvedPatient.ipNo || "-"} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
+              </div>
+            </PatientIdentity>
+          </PatientHeader>
+          
           <PatientGrid>
             <FieldBox>
-              <FieldLabel>IP Number</FieldLabel>
-              <FieldValue style={{ background: colors.primary + "08", borderColor: colors.primary + "40", color: colors.primary, fontWeight: "bold" }}>
-                {resolvedPatient.ipNo} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
-              </FieldValue>
+              <FieldLabel>Admitting Dr</FieldLabel>
+              <FieldValue>{resolvedPatient.admittingDr || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
-              <FieldLabel>Patient Room | Bed</FieldLabel>
-              <FieldValue style={{ fontWeight: "bold" }}>{resolvedPatient.roomBed}</FieldValue>
+              <FieldLabel>Room | Bed</FieldLabel>
+              <FieldValue>{resolvedPatient.roomBed || "-"}</FieldValue>
+            </FieldBox>
+            <FieldBox>
+              <FieldLabel>Customer Type</FieldLabel>
+              <FieldValue>{resolvedPatient.customerType || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Admitting Date</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDate}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Admitting Time</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingTime}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Admitting Doctor</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>UHID</FieldLabel>
-              <FieldValue>{resolvedPatient.uhid}</FieldValue>
+              <FieldValue>{resolvedPatient.admittingDate} {resolvedPatient.admittingTime}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Company Name</FieldLabel>
-              <FieldValue>{resolvedPatient.companyName}</FieldValue>
+              <FieldValue>{resolvedPatient.companyName || "-"}</FieldValue>
             </FieldBox>
           </PatientGrid>
         </PatientPanel>
@@ -1354,7 +1403,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 </td>
               </tr>
             ) : (
-              requests.map((req, i) => (
+              Array.isArray(requests) && requests.map((req, i) => (
                 <tr key={i}>
                   <td>
                     {req.reqDate} {req.reqTime}
@@ -1576,7 +1625,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {searchResults.map((item, idx) => (
+                      {Array.isArray(searchResults) && searchResults.map((item, idx) => (
                         <tr
                           key={idx}
                           style={{ borderBottom: `1px solid ${colors.border}` }}

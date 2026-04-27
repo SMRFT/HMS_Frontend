@@ -303,6 +303,11 @@ const InvoiceReport = () => {
   const [historyData, setHistoryData] = useState([]);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-VINE-RW");
+  const canApprove = allowedActions.includes("HMS-P-VINA-RW");
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -1004,9 +1009,15 @@ const InvoiceReport = () => {
         return sum + base + cgst + sgst;
       }, 0);
 
-      vendorGroups[vendor].total += sellingAmt;
-      grandTotal += sellingAmt;
-      row._sellingTotal = sellingAmt;
+      // ── Round-off logic ──────────────────────────────────────────
+      const decimal = sellingAmt - Math.floor(sellingAmt);
+      const roundOff = decimal >= 0.5 ? 1 - decimal : -decimal;
+      const roundedSellingAmt = sellingAmt + roundOff;
+      // ─────────────────────────────────────────────────────────────
+
+      vendorGroups[vendor].total += roundedSellingAmt;
+      grandTotal += roundedSellingAmt;
+      row._sellingTotal = roundedSellingAmt;
     });
 
     let tableRows = "";
@@ -1018,7 +1029,6 @@ const InvoiceReport = () => {
         (a.grn_number || "").localeCompare(b.grn_number || ""),
       );
 
-      // ── Vendor header row: name spans 5 cols, total in last col ──
       tableRows += `
       <tr style="background:#e0f2fe">
         <td colspan="5" style="font-weight:bold;padding:8px;color:#1e40af;font-size:14px">
@@ -1029,7 +1039,6 @@ const InvoiceReport = () => {
         </td>
       </tr>`;
 
-      // ── Data rows: selling amount in col 5, vendor total col 6 is empty ──
       rows.forEach((row) => {
         tableRows += `
         <tr>
@@ -1037,7 +1046,7 @@ const InvoiceReport = () => {
           <td style="text-align:center">${formatDate(row.date)}</td>
           <td style="text-align:center">${row.grn_number || "N/A"}</td>
           <td style="text-align:center">${formatDate(row.invoice_date)}</td>
-          <td style="text-align:right">${formatCurrency(row._sellingTotal || 0)}</td>
+          <td style="text-align:right">${formatCurrency(row._sellingTotal)}</td>
           <td></td>
         </tr>`;
       });
@@ -1053,7 +1062,6 @@ const InvoiceReport = () => {
     td { font-size: 13px; }
     .grand-row td { background: #d4edda; font-weight: bold; }
 
-    /* Column widths */
     col.sl   { width: 5%;  }
     col.date { width: 13%; }
     col.inv  { width: 18%; }
@@ -1736,7 +1744,8 @@ const InvoiceReport = () => {
                   "Patient",
                   "Surgeon",
                   "IP Number",
-                  "Total Amount",
+                  "Purchase Amount", // ← renamed from "Total Amount"
+                  "Selling Amount", // ← new column
                   "Actions",
                 ].map((h) => (
                   <Th key={h} style={{ whiteSpace: "nowrap" }}>
@@ -1749,7 +1758,7 @@ const InvoiceReport = () => {
               {currentData.length === 0 ? (
                 <Tr>
                   <Td
-                    colSpan="10"
+                    colSpan="11"
                     style={{
                       textAlign: "center",
                       padding: 30,
@@ -1781,6 +1790,31 @@ const InvoiceReport = () => {
                     <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
                     </Td>
+
+                    {/* Selling Amount with round-off */}
+                    <Td
+                      style={{
+                        textAlign: "right",
+                        fontWeight: 600,
+                        color: "#7c3aed",
+                      }}
+                    >
+                      {(() => {
+                        const rowItems = parseItems(row.items);
+                        const sellingAmt = rowItems.reduce((sum, item) => {
+                          const base =
+                            parseFloat(item.unitSellingCost || 0) *
+                            parseFloat(item.quantity || 0);
+                          const cgst = parseFloat(item.sellingCgstAmt || 0);
+                          const sgst = parseFloat(item.sellingSgstAmt || 0);
+                          return sum + base + cgst + sgst;
+                        }, 0);
+                        const decimal = sellingAmt - Math.floor(sellingAmt);
+                        const roundOff =
+                          decimal >= 0.5 ? 1 - decimal : -decimal;
+                        return formatCurrency(sellingAmt + roundOff);
+                      })()}
+                    </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
                       {/* View */}
                       <button
@@ -1792,41 +1826,49 @@ const InvoiceReport = () => {
                       </button>
 
                       {/* Edit — disabled when approved */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          opacity: row.is_approved ? 0.35 : 1,
-                          cursor: row.is_approved ? "not-allowed" : "pointer",
-                          color: row.is_approved
-                            ? colors.textMuted
-                            : actionBtn.color,
-                        }}
-                        title={
-                          row.is_approved ? "Approved — editing locked" : "Edit"
-                        }
-                        onClick={() => !row.is_approved && handleEdit(row)}
-                        disabled={row.is_approved}
-                      >
-                        <Edit3 size={14} />
-                      </button>
+                      {canEdit && (
+                        <button
+                          style={{
+                            ...actionBtn,
+                            opacity: row.is_approved ? 0.35 : 1,
+                            cursor: row.is_approved ? "not-allowed" : "pointer",
+                            color: row.is_approved
+                              ? colors.textMuted
+                              : actionBtn.color,
+                          }}
+                          title={
+                            row.is_approved
+                              ? "Approved — editing locked"
+                              : "Edit"
+                          }
+                          onClick={() => !row.is_approved && handleEdit(row)}
+                          disabled={row.is_approved}
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                      )}
 
                       {/* Approve toggle */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          color: row.is_approved ? "#16a34a" : "#d97706",
-                          borderColor: row.is_approved ? "#16a34a" : "#d97706",
-                          cursor: row.is_approved ? "default" : "pointer",
-                        }}
-                        title={
-                          row.is_approved
-                            ? `Approved by ${row.approved_by || "—"}`
-                            : "Click to Approve"
-                        }
-                        onClick={() => !row.is_approved && handleApprove(row)}
-                      >
-                        <CheckCircle size={14} />
-                      </button>
+                      {canApprove && (
+                        <button
+                          style={{
+                            ...actionBtn,
+                            color: row.is_approved ? "#16a34a" : "#d97706",
+                            borderColor: row.is_approved
+                              ? "#16a34a"
+                              : "#d97706",
+                            cursor: row.is_approved ? "default" : "pointer",
+                          }}
+                          title={
+                            row.is_approved
+                              ? `Approved by ${row.approved_by || "—"}`
+                              : "Click to Approve"
+                          }
+                          onClick={() => !row.is_approved && handleApprove(row)}
+                        >
+                          <CheckCircle size={14} />
+                        </button>
+                      )}
 
                       {/* GRN Print */}
                       <button

@@ -90,7 +90,7 @@ const SidebarContainer = styled.div`
   @media (max-width: 1024px) {
     width: 260px;
     transform: ${({ $isCollapsed }) =>
-      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
+    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
 
   @media (max-width: 768px) {
@@ -99,7 +99,7 @@ const SidebarContainer = styled.div`
     height: 100vh;
     top: 0;
     transform: ${({ $isCollapsed }) =>
-      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
+    $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
 `;
@@ -524,7 +524,7 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
             <X size={20} />
           </CloseMobileBtn>
         </BrandSection>
-        
+
         <SearchContainer>
           <SearchInputWrapper>
             <SearchIcon />
@@ -541,16 +541,16 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
           {sidebarData.map((group, groupIndex) => {
             // Use globally configured integer ID array for permission-based rendering
             const storedHmsPages = (() => {
-               try { return JSON.parse(localStorage.getItem("hms_pages") || "[]"); }
-               catch { return []; }
+              try { return JSON.parse(localStorage.getItem("hms_pages") || "[]"); }
+              catch { return []; }
             })();
-            
+
             const currentOutlet = localStorage.getItem("selected_outlet");
             const allowedPages = (group.pages || []).filter((page) => {
               const perms = page.permissions || [];
               // Check if permissions are defined (either as non-empty array or non-empty object)
-              const hasDefinedPermissions = Array.isArray(perms) 
-                ? perms.length > 0 
+              const hasDefinedPermissions = Array.isArray(perms)
+                ? perms.length > 0
                 : (perms && typeof perms === 'object' && Object.keys(perms).length > 0);
 
               if (hasDefinedPermissions && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
@@ -567,9 +567,9 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
 
               return true;
             });
-            
+
             const groupNameMatches = group.group && group.group.toLowerCase().includes(searchTerm.toLowerCase());
-            
+
             const searchFilteredPages = allowedPages.filter((page) =>
               page.name.toLowerCase().includes(searchTerm.toLowerCase())
             );

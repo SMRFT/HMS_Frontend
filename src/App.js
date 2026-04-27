@@ -109,6 +109,9 @@ import CustomerType from "./Components/BillingMaster/CustomerType";
 import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
+import IPAdvance from "./Components/NursingStation/IPAdvance";
+import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
+import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
 
@@ -434,6 +437,13 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Admission" element={<Admission />} />}
+
+              {hasPagePermission(
+                "/IPAdvance",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/IPAdvance" element={<IPAdvance />} />}
+
               {hasPagePermission(
                 "/PatientRegistrationForm",
                 allowedActions,
@@ -567,6 +577,27 @@ function App() {
                     element={<VendorManagement />}
                   />
                 )}
+                {hasPagePermission(
+                "/ChemicalComposition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/ChemicalComposition"
+                    element={<ChemicalComposition />}
+                  />
+                )}
+                {hasPagePermission(
+                "/PharmacyCategory",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PharmacyCategory"
+                    element={<PharmacyCategory />}
+                  />
+                )}
+
               {hasPagePermission(
                 "/GRNGeneration",
                 allowedActions,
