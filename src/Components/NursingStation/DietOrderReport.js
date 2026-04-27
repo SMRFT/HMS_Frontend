@@ -208,6 +208,7 @@ const DietOrderReport = () => {
             "Meal Session": o.meal_time,
             "Diet Type": o.diet_type,
             "Food Items": o.food_items,
+            "Extras": (o.extra_items || []).map(e => `${e.item_name} (x${e.qty})`).join(", "),
             "Attenders": o.attender_count,
             "Status": o.status
         }));
@@ -226,7 +227,14 @@ const DietOrderReport = () => {
                 <div class="row"><strong>UHID:</strong> ${o.uhid} | <strong>IP No:</strong> ${o.inpatient_number}</div>
                 <div class="row"><strong>Location:</strong> ${o.ward_name} / ${o.room_no}</div>
                 <div class="row"><strong>Session:</strong> ${o.meal_time} | <strong>Diet:</strong> ${o.diet_type}</div>
-                <div class="items"><strong>Configuration:</strong><br/> ${o.food_items || "-"}</div>
+                <div class="items">
+                    <strong>Configuration:</strong><br/> ${o.food_items || "-"}
+                    ${o.extra_items && o.extra_items.length > 0 ? `
+                        <div style="margin-top: 5px; border-top: 1px solid #ddd; padding-top: 5px;">
+                            <strong>Extras:</strong> ${o.extra_items.map(e => `${e.item_name} x${e.qty}`).join(", ")}
+                        </div>
+                    ` : ""}
+                </div>
                 <div class="footer">Generated: ${new Date().toLocaleTimeString()}</div>
             </div>
             <div class="page-break"></div>
@@ -276,7 +284,14 @@ const DietOrderReport = () => {
                     <hr/>
                     <div class="row">MEAL: ${o.meal_time}</div>
                     <div class="row">DIET: ${o.diet_type}</div>
-                    <div style="background:#eee; padding:10px; font-size:13px; margin-top:10px;">${o.food_items || "Normal Diet"}</div>
+                    <div style="background:#eee; padding:10px; font-size:13px; margin-top:10px;">
+                        <div><strong>Base:</strong> ${o.food_items || "Normal Diet"}</div>
+                        ${o.extra_items && o.extra_items.length > 0 ? `
+                            <div style="margin-top: 5px; border-top: 1px solid #ccc; padding-top: 5px;">
+                                <strong>Extras:</strong> ${o.extra_items.map(e => `${e.item_name} x${e.qty}`).join(", ")}
+                            </div>
+                        ` : ""}
+                    </div>
                     <hr/>
                     <div style="text-align:center; font-size:10px; margin-top:10px;">Printed: ${new Date().toLocaleString()}</div>
                     <script>window.onload = () => { window.print(); window.close(); };</script>
@@ -394,6 +409,15 @@ const DietOrderReport = () => {
                                             <div style={{ fontSize: "0.75rem", color: "#64748b", background: "#f8fafc", padding: "6px", borderRadius: "8px", marginTop: "4px", border: "1px solid #f1f5f9" }}>
                                                 {o.food_items || "Default Configuration"}
                                             </div>
+                                            {Array.isArray(o.extra_items) && o.extra_items.length > 0 && (
+                                                <div style={{ marginTop: "6px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                                    {o.extra_items.map((ex, idx) => (
+                                                        <span key={idx} style={{ fontSize: "0.65rem", background: "#ecfdf5", color: "#065f46", padding: "2px 6px", borderRadius: "4px", border: "1px solid #d1fae5", fontWeight: 700 }}>
+                                                            {ex.item_name} x{ex.qty}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </Td>
                                         <Td>
                                             <StatusBadge status={o.status}>{o.status}</StatusBadge>

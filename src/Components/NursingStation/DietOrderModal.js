@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled, { keyframes, createGlobalStyle, css } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { FiX, FiSearch, FiChevronDown } from "react-icons/fi";
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -212,6 +213,63 @@ const SecondaryBtn = styled(Button)`
   &:hover { background: #e2e8f0; }
 `;
 
+const SearchDropdown = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const SearchInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 12px 16px 12px 40px;
+  border: 1px solid ${C.border};
+  border-radius: 12px;
+  font-size: 0.9rem;
+  background: white;
+  transition: all 0.2s;
+  outline: none;
+  &:focus {
+    border-color: ${C.primary};
+    box-shadow: 0 0 0 4px ${C.primary}15;
+  }
+`;
+
+const DropdownList = styled.div`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: white;
+  border: 1px solid ${C.border};
+  border-radius: 12px;
+  margin-top: 8px;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  max-height: 300px;
+  overflow-y: auto;
+  animation: ${slideUp} 0.2s ease-out;
+`;
+
+const DropdownItem = styled.div`
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+  border-bottom: 1px solid #f8fafc;
+  &:hover {
+    background: ${C.primaryLight};
+    color: ${C.primaryDark};
+  }
+  &:last-child { border-bottom: none; border-radius: 0 0 12px 12px; }
+`;
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 const MEAL_SESSIONS = [
   { id: "Breakfast", icon: "☀️", label: "Breakfast" },
@@ -220,16 +278,12 @@ const MEAL_SESSIONS = [
   { id: "Dinner", icon: "🌙", label: "Dinner" },
 ];
 
-const EXTRA_ITEMS = [
-  { key: "soup", label: "Health Soup", icon: "🍲" },
-  { key: "juice", label: "Fresh Juice", icon: "🧃" },
-  { key: "canteen", label: "Canteen Add-on", icon: "🍽️" },
-  { key: "attender", label: "Attender Plate", icon: "👤" },
-];
+// ─── Component ────────────────────────────────────────────────────────────────
 
 // ─── Component ────────────────────────────────────────────────────────────────
 const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const [dietMasters, setDietMasters] = useState([]);
+  const [extraMasters, setExtraMasters] = useState([]);
   const [selectedDiet, setSelectedDiet] = useState("");
   const [mealSession, setMealSession] = useState("Lunch");
   const [specialNote, setSpecialNote] = useState("");
@@ -237,6 +291,19 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const [instructions, setInstructions] = useState("");
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState([]);
+  const [dietSearch, setDietSearch] = useState("");
+  const [extraSearch, setExtraSearch] = useState("");
+  const [showDietDropdown, setShowDietDropdown] = useState(false);
+  const [showExtraDropdown, setShowExtraDropdown] = useState(false);
+
+  useEffect(() => {
+    const closeDropdowns = () => {
+      setShowDietDropdown(false);
+      setShowExtraDropdown(false);
+    };
+    window.addEventListener("click", closeDropdowns);
+    return () => window.removeEventListener("click", closeDropdowns);
+  }, []);
 
   // Resolve patient data properly
   const pd = patient?.patient_details || {};
@@ -257,9 +324,19 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   useEffect(() => {
     document.body.classList.add("diet-modal-open");
     fetchMasters();
+    fetchExtraMasters();
     fetchHistory();
     return () => document.body.classList.remove("diet-modal-open");
   }, [patient]);
+
+  const fetchExtraMasters = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}get_diet_extra_master/`, "GET");
+      if (res.success && res.data) {
+        setExtraMasters(Array.isArray(res.data) ? res.data : (res.data.data || []));
+      }
+    } catch (e) { console.error(e); }
+  };
 
   const fetchMasters = async () => {
     try {
@@ -292,9 +369,18 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
         mealSession === "Snacks"    ? currentDietData?.evening_items :
         mealSession === "Dinner"    ? currentDietData?.dinner_items : "";
 
-      const extraItems = EXTRA_ITEMS
-        .filter(e => extras[e.key]?.checked)
-        .map(e => ({ item: e.label, qty: extras[e.key]?.qty || 1 }));
+      const dietPrice = currentDietData?.price || 0;
+      
+      const extraItems = extraMasters
+        .filter(e => extras[e.extra_id]?.checked)
+        .map(e => ({ 
+          item: e.item_name, 
+          qty: extras[e.extra_id]?.qty || 1,
+          price: e.price
+        }));
+
+      const extraItemsPrice = extraItems.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
+      const totalPrice = dietPrice + extraItemsPrice;
 
       const payload = {
         uhid: rp.uhid,
@@ -307,8 +393,11 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
         meal_time: mealSession,
         extra_items: extraItems,
         special_diet_note: specialNote,
-        attender_count: extras.attender?.checked ? (extras.attender.qty || 1) : 0,
+        attender_count: 0, // Simplified for now or logic from extras if needed
         special_instructions: instructions,
+        diet_price: dietPrice,
+        extra_items_price: extraItemsPrice,
+        total_price: totalPrice,
       };
 
       const res = await apiRequest(`${HmsBaseUrl}save_diet_order/`, "POST", payload);
@@ -379,17 +468,45 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
           {/* Diet Type */}
           <section>
             <SectionHeader>Diet Type Selection</SectionHeader>
-            <StyledSelect 
-              value={selectedDiet} 
-              onChange={e => setSelectedDiet(e.target.value)}
-            >
-              <option value="">-- Choose Diet Category --</option>
-              {dietMasters.map(d => (
-                <option key={d.diet_id} value={d.diet_name}>
-                  {d.diet_name}
-                </option>
-              ))}
-            </StyledSelect>
+            <SearchDropdown onClick={(e) => e.stopPropagation()}>
+              <SearchInputWrapper>
+                <div style={{ position: "absolute", left: "14px", color: C.textMuted, display: "flex" }}>
+                  <FiSearch size={18} />
+                </div>
+                <SearchInput 
+                  placeholder="Search and select diet..."
+                  value={showDietDropdown ? dietSearch : selectedDiet}
+                  onChange={(e) => { setDietSearch(e.target.value); setShowDietDropdown(true); }}
+                  onFocus={() => { setDietSearch(""); setShowDietDropdown(true); }}
+                />
+                <div style={{ position: "absolute", right: "14px", color: C.textMuted, cursor: "pointer" }}>
+                  <FiChevronDown />
+                </div>
+              </SearchInputWrapper>
+
+              {showDietDropdown && (
+                <DropdownList>
+                  {(Array.isArray(dietMasters) ? dietMasters : [])
+                    .filter(d => d.diet_name.toLowerCase().includes(dietSearch.toLowerCase()))
+                    .map(d => (
+                      <DropdownItem key={d.diet_id} onClick={() => {
+                        setSelectedDiet(d.diet_name);
+                        setShowDietDropdown(false);
+                        setDietSearch("");
+                      }}>
+                        <span style={{ fontWeight: 600 }}>{d.diet_name}</span>
+                        <span style={{ fontSize: "0.8rem", color: C.primary, fontWeight: 700 }}>
+                          {d.price > 0 ? `₹${d.price}` : "Free"}
+                        </span>
+                      </DropdownItem>
+                    ))
+                  }
+                  {Array.isArray(dietMasters) && dietMasters.filter(d => d.diet_name.toLowerCase().includes(dietSearch.toLowerCase())).length === 0 && (
+                    <div style={{ padding: "16px", textAlign: "center", color: C.textMuted }}>No matching diets found</div>
+                  )}
+                </DropdownList>
+              )}
+            </SearchDropdown>
 
             {currentDietData && (
               <MenuBox>
@@ -417,19 +534,63 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
           {/* Extras */}
           <section>
             <SectionHeader>A la Carte / Extras</SectionHeader>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-              {EXTRA_ITEMS.map(e => (
-                <ExtraCard key={e.key} active={!!extras[e.key]?.checked} onClick={() => setExtras(p => ({
+            
+            <SearchDropdown onClick={(e) => e.stopPropagation()} style={{ marginBottom: "16px" }}>
+              <SearchInputWrapper>
+                <div style={{ position: "absolute", left: "14px", color: C.textMuted, display: "flex" }}>
+                  <FiSearch size={18} />
+                </div>
+                <SearchInput 
+                  placeholder="Quick add extras..."
+                  value={extraSearch}
+                  onChange={(e) => { setExtraSearch(e.target.value); setShowExtraDropdown(true); }}
+                  onFocus={() => setShowExtraDropdown(true)}
+                />
+              </SearchInputWrapper>
+
+              {showExtraDropdown && extraSearch && (
+                <DropdownList>
+                  {(Array.isArray(extraMasters) ? extraMasters : [])
+                    .filter(e => e.item_name.toLowerCase().includes(extraSearch.toLowerCase()))
+                    .map(e => (
+                      <DropdownItem key={e.extra_id} onClick={() => {
+                        setExtras(p => ({
+                          ...p,
+                          [e.extra_id]: { checked: true, qty: p[e.extra_id]?.qty || 1 }
+                        }));
+                        setExtraSearch("");
+                        setShowExtraDropdown(false);
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "1.1rem" }}>✨</span>
+                          <span style={{ fontWeight: 600 }}>{e.item_name}</span>
+                        </div>
+                        <span style={{ fontSize: "0.8rem", color: C.primary, fontWeight: 700 }}>₹{e.price}</span>
+                      </DropdownItem>
+                    ))
+                  }
+                </DropdownList>
+              )}
+            </SearchDropdown>
+
+             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              {Array.isArray(extraMasters) && extraMasters
+                .filter(e => (extras[e.extra_id]?.checked || e.item_name.toLowerCase().includes(extraSearch.toLowerCase())))
+                .map(e => (
+                <ExtraCard key={e.extra_id} active={!!extras[e.extra_id]?.checked} onClick={() => setExtras(p => ({
                   ...p,
-                  [e.key]: { checked: !p[e.key]?.checked, qty: p[e.key]?.qty || 1 }
+                  [e.extra_id]: { checked: !p[e.extra_id]?.checked, qty: p[e.extra_id]?.qty || 1 }
                 }))}>
-                  <div style={{ fontSize: "1.3rem" }}>{e.icon}</div>
-                  <div style={{ flex: 1, fontWeight: 700 }}>{e.label}</div>
-                  {extras[e.key]?.checked && (
+                  <div style={{ fontSize: "1.3rem" }}>✨</div>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontWeight: 700 }}>{e.item_name}</span>
+                    <span style={{ fontSize: "0.75rem", color: C.textMuted }}>₹{e.price}</span>
+                  </div>
+                  {extras[e.extra_id]?.checked && (
                     <input 
-                      type="number" min="1" value={extras[e.key].qty} 
+                      type="number" min="1" value={extras[e.extra_id].qty} 
                       onClick={ev => ev.stopPropagation()}
-                      onChange={ev => setExtras(p => ({ ...p, [e.key]: { ...p[e.key], qty: parseInt(ev.target.value) } }))}
+                      onChange={ev => setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: parseInt(ev.target.value) || 1 } }))}
                       style={{ width: "45px", padding: "4px", border: "none", borderRadius: "6px", textAlign: "center", fontWeight: 800 }}
                     />
                   )}
@@ -477,6 +638,26 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                     </tbody>
                   </table>
                 </div>
+            </section>
+          )}
+           {/* Order Summary */}
+          {selectedDiet && (
+            <section style={{ background: "#f0fdf4", padding: "20px", borderRadius: "20px", border: `1px dashed ${C.primary}` }}>
+              <SectionHeader style={{ marginBottom: "12px" }}>Order Summary</SectionHeader>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "0.9rem" }}>
+                <span>Base Diet ({selectedDiet})</span>
+                <span style={{ fontWeight: 700 }}>₹{currentDietData?.price || 0}</span>
+              </div>
+              {extraMasters.filter(e => extras[e.extra_id]?.checked).map(e => (
+                <div key={e.extra_id} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "0.9rem" }}>
+                  <span>{e.item_name} (x{extras[e.extra_id].qty})</span>
+                  <span style={{ fontWeight: 700 }}>₹{e.price * extras[e.extra_id].qty}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${C.primary}30`, display: "flex", justifyContent: "space-between", fontSize: "1.1rem", fontWeight: 900, color: C.primaryDark }}>
+                <span>Grand Total</span>
+                <span>₹{(currentDietData?.price || 0) + extraMasters.filter(e => extras[e.extra_id]?.checked).reduce((acc, curr) => acc + (curr.price * extras[curr.extra_id].qty), 0)}</span>
+              </div>
             </section>
           )}
         </Body>
