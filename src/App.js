@@ -100,7 +100,7 @@ import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 
 import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
 
-import CustomerType from "./Components/BillingMaster/CustomerType";
+// import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
 
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
