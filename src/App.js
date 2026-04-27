@@ -100,7 +100,7 @@ import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
 
 import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
 
-import CustomerType from "./Components/BillingMaster/CustomerType";
+// import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
 
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
@@ -577,7 +577,7 @@ function App() {
                     element={<VendorManagement />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/ChemicalComposition",
                 allowedActions,
                 dynamicPermissions,
@@ -587,7 +587,7 @@ function App() {
                     element={<ChemicalComposition />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/PharmacyCategory",
                 allowedActions,
                 dynamicPermissions,
@@ -903,10 +903,10 @@ function App() {
                   <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
                 )}
 
-                  <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
+              <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
 
 
-                   {hasPagePermission(
+              {hasPagePermission(
                 "/CentralCashCounter",
                 allowedActions,
                 dynamicPermissions,
@@ -916,8 +916,8 @@ function App() {
                     element={<CentralCashCounter />}
                   />
                 )}
-      
-                
+
+
             </Routes>
           </ContentWrapper>
         </>
