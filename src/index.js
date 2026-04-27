@@ -132,7 +132,7 @@ function getUserRole(allowedActions) {
     localStorage.setItem("employeeId", employeeId);
     localStorage.setItem("name", name);
     localStorage.setItem("userEmail", userEmail);
-    localStorage.setItem("allowed-outlets", userPayload["hms_outlets"]);
+    localStorage.setItem("allowed-outlets", userPayload["allowed-outlets"]);
     localStorage.setItem(
       "hms_pages",
       JSON.stringify(userPayload["hms_pages"] || []),
