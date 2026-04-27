@@ -106,6 +106,7 @@ import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
+import StockTransfer from "./Components/InventoryMaster/StockTransfer";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -597,6 +598,18 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/GRNAnalysis" element={<GRNAnalysis />} />}
+
+              {hasPagePermission(
+                "/StockTransfer",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StockTransfer"
+                    element={<StockTransfer />}
+                  />
+                )}
+
               {hasPagePermission(
                 "/PharmacyItemMaster",
                 allowedActions,
