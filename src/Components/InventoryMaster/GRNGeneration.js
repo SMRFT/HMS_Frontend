@@ -19,62 +19,37 @@ const PageHeader = styled.div`
 const PageTitle    = styled.h1`margin: 0; font-size: 1.1rem; font-weight: 700;`
 const PageSubtitle = styled.p`margin: 2px 0 0; font-size: 0.75rem; opacity: 0.8;`
 const Card = styled.div`
-  background: white;
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  margin-bottom: 12px;
-  overflow: visible;
-  width: 100%;
-  box-sizing: border-box;
+  background: white; border: 1px solid ${colors.border}; border-radius: 8px;
+  margin-bottom: 12px; overflow: visible; width: 100%; box-sizing: border-box;
 `
 const CardHeader = styled.div`
   background: ${colors.tabBg}; padding: 8px 14px; border-bottom: 1px solid ${colors.border};
   font-weight: 600; font-size: 0.8rem; color: ${colors.primary};
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 `
-const CardBody = styled.div`
-  padding: 12px 14px;
-  box-sizing: border-box;
-  width: 100%;
-`
+const CardBody = styled.div`padding: 12px 14px; box-sizing: border-box; width: 100%;`
 const GridRow = styled.div`
   display: grid;
   grid-template-columns: ${p => p.cols || "repeat(3,1fr)"};
-  gap: 8px;
-  align-items: flex-end;
-  margin-bottom: 8px;
-  width: 100%;
-  box-sizing: border-box;
-
-  @media(max-width: 900px){
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  @media(max-width: 560px){
-    grid-template-columns: 1fr !important;
-  }
+  gap: 8px; align-items: flex-end; margin-bottom: 8px; width: 100%; box-sizing: border-box;
+  @media(max-width: 900px){ grid-template-columns: repeat(2, 1fr) !important; }
+  @media(max-width: 560px){ grid-template-columns: 1fr !important; }
 `
 const ReadOnlyInput = styled(Input)`
-  background: #f1f5f9 !important; cursor: default;
-  color: ${colors.textMuted}; font-size: 0.8rem;
+  background: #f1f5f9 !important; cursor: default; color: ${colors.textMuted}; font-size: 0.8rem;
 `
 const CalcInput = styled(Input)`
-  background: #f1f5f9 !important; color: ${colors.textMuted};
-  cursor: default; font-size: 0.8rem;
+  background: #f1f5f9 !important; color: ${colors.textMuted}; cursor: default; font-size: 0.8rem;
 `
 const Lbl = styled(Label)`font-size: 0.72rem; margin-bottom: 2px; display: block;`
 const ItemPanel = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  width: 100%;
-  box-sizing: border-box;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  width: 100%; box-sizing: border-box;
   @media(max-width: 960px){ grid-template-columns: 1fr; }
 `
 const Panel = styled.div`
   border: 1px solid ${colors.border}; border-radius: 6px;
-  padding: 10px; background: #fafafa;
-  box-sizing: border-box;
-  min-width: 0;
+  padding: 10px; background: #fafafa; box-sizing: border-box; min-width: 0;
 `
 const PanelTitle = styled.div`
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
@@ -89,14 +64,9 @@ const CostBar  = styled.div`
   display: flex; justify-content: space-between; align-items: center;
 `
 const SummaryStrip = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  background: #f8fafc;
-  border: 1px solid ${colors.border};
-  border-radius: 6px;
-  padding: 12px;
-  box-sizing: border-box;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  background: #f8fafc; border: 1px solid ${colors.border}; border-radius: 6px;
+  padding: 12px; box-sizing: border-box;
   @media(max-width: 900px){ grid-template-columns: repeat(3, 1fr); }
   @media(max-width: 600px){ grid-template-columns: repeat(2, 1fr); }
 `
@@ -122,8 +92,7 @@ const StatusBadge = styled.span`
 const VerifiedBanner = styled.div`
   display: flex; align-items: center; gap: 8px;
   background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
-  padding: 10px 14px; margin-bottom: 10px; font-size: 0.82rem;
-  color: #166534; font-weight: 600;
+  padding: 10px 14px; margin-bottom: 10px; font-size: 0.82rem; color: #166534; font-weight: 600;
 `
 const AutoWrap = styled.div`position: relative;`
 const DropList = styled.ul`
@@ -139,43 +108,43 @@ const DropItem = styled.li`
   &:last-child { border-bottom: none; }
 `
 const ScrollTable = styled.div`
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  box-sizing: border-box;
-
-  & table {
-    table-layout: auto;
-    min-width: 900px;
-    width: 100%;
-  }
+  width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box;
+  & table { table-layout: auto; min-width: 900px; width: 100%; }
 `
-const DisabledOverlay = styled.div`
-  opacity: 0.5;
-  pointer-events: none;
-  user-select: none;
-`
+const DisabledOverlay = styled.div`opacity: 0.5; pointer-events: none; user-select: none;`
 const DisabledNotice = styled.div`
-  background: #fef9c3;
-  border: 1px solid #fde68a;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.78rem;
-  color: #92400e;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  background: #fef9c3; border: 1px solid #fde68a; border-radius: 6px;
+  padding: 8px 12px; font-size: 0.78rem; color: #92400e; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
 `
+const LastHint = styled.div`
+  font-size: 0.67rem; color: ${colors.primary}; margin-top: 3px;
+  font-weight: 600; min-height: 14px;
+`
+const ExpiryWarn = styled.div`
+  font-size: 0.67rem; color: #dc2626; margin-top: 3px; font-weight: 600;
+`
+const CheckRow = styled.label`
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.72rem; color: ${colors.textMuted}; cursor: pointer; margin-top: 4px;
+  font-weight: 600;
+  & input { cursor: pointer; }
+`
+/* MRP info strip at top of right panel */
+const MrpStrip = styled.div`
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;
+`
+const MrpCard = styled.div`
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 5px;
+  padding: 6px 10px;
+`
+const MrpLabel = styled.div`font-size: 0.62rem; color: ${colors.textMuted}; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;`
+const MrpValue = styled.div`font-size: 0.88rem; font-weight: 700; color: ${colors.textMain};`
+const LastLine  = styled.div`font-size: 0.62rem; color: ${colors.primary}; font-weight: 600; margin-top: 2px;`
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
-const PURCHASE_CATEGORIES = [
-  { value: "MEDICINE_PURCHASE",    label: "Medicine Purchase (OP)" },
-  { value: "MEDICINE_PURCHASE_IP", label: "Medicine Purchase (IP)" },
-  { value: "OPENING_STOCK_DRUG",   label: "Opening Stock (Drug)"   },
-]
 const PAYMENT_MODES = ["CHEQUE","CASH","DD"]
 const TAX_RATES = [
   { label: "EXEMPTED GST", rate: 0  },
@@ -185,18 +154,12 @@ const TAX_RATES = [
   { label: "RATE OF 28%",  rate: 28 },
 ]
 const MONTHS = [
-  { value: "01", label: "01 - Jan" },
-  { value: "02", label: "02 - Feb" },
-  { value: "03", label: "03 - Mar" },
-  { value: "04", label: "04 - Apr" },
-  { value: "05", label: "05 - May" },
-  { value: "06", label: "06 - Jun" },
-  { value: "07", label: "07 - Jul" },
-  { value: "08", label: "08 - Aug" },
-  { value: "09", label: "09 - Sep" },
-  { value: "10", label: "10 - Oct" },
-  { value: "11", label: "11 - Nov" },
-  { value: "12", label: "12 - Dec" },
+  { value: "01", label: "01 - Jan" }, { value: "02", label: "02 - Feb" },
+  { value: "03", label: "03 - Mar" }, { value: "04", label: "04 - Apr" },
+  { value: "05", label: "05 - May" }, { value: "06", label: "06 - Jun" },
+  { value: "07", label: "07 - Jul" }, { value: "08", label: "08 - Aug" },
+  { value: "09", label: "09 - Sep" }, { value: "10", label: "10 - Oct" },
+  { value: "11", label: "11 - Nov" }, { value: "12", label: "12 - Dec" },
 ]
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
@@ -216,46 +179,128 @@ const EMPTY_ITEM = {
   expiry_month:"",expiry_year:"",expiry:"",
   packing:"",unit:"",quantity:"0",free:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",
+  // Purchase tax
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
   cgst_amt:"0.00",sgst_amt:"0.00",
   purchase_discount:"0",purchase_discount_amt:"0.00",
-  purchase_cost:"0.00",mrp:"",
+  deduct_discount_for_tax: true,           // ← "Deduct discount for tax calc" checkbox
+  purchase_cost:"0.00",
+  // MRP / selling
+  mrp:"",
+  max_packing_mrp:"0.00",                  // ← Max Packing MRP
+  selling_discount:"0",                    // ← Selling Discount %
+  selling_price:"0.00",                    // ← Price (MRP / (1+tax) when tax-inclusive)
+  ip_price:"0.00",                         // ← IP Price
+  tax_inclusive: true,                     // ← Tax Inclusive checkbox (selling)
   selling_tax_label:"RATE OF 5%",selling_tax_rate:"5",
-  selling_cgst:"0.00",selling_sgst:"0.00",
+  selling_cgst_percent:"2.50",selling_sgst_percent:"2.50",
+  selling_cgst_amt:"0.00",selling_sgst_amt:"0.00",
 }
 
-/* ─── Recalc helper ──────────────────────────────────────────────────────── */
+/* ─── Recalc helper ──────────────────────────────────────────────────────
+  Screenshot logic confirmed (Packing=1, Unit=3, Qty=3, PackingPrice=402.25,
+  Discount=4%, Tax=5%, MRP=527.95):
+
+  PURCHASE SIDE:
+  ─ item_value       = packing × unit × packing_price  = 3 × 402.25 = 1206.75
+  ─ disc_amt         = item_value × disc%              = 1206.75 × 4% = 48.27
+  ─ taxable_base     = item_value − disc_amt (when deduct_discount_for_tax=true)
+                     = 1206.75 − 48.27 = 1158.48
+  ─ cgst_pct         = tax_rate / 2                   = 2.5%
+  ─ cgst_amt (total) = taxable_base × cgst_pct        = 1158.48 × 2.5% = 28.962
+  ─ DISPLAY per-pack = total / qty                    = 28.962 / 3 = 9.654 ✓
+  ─ purchase_cost (total) = taxable_base + cgst + sgst= 1158.48 + 28.962 + 28.962 = 1216.404
+  ─ purchase_cost per-pack shown in CostBar = 1216.404 / 3 = 405.468 ✓
+
+  SELLING SIDE (screenshot: MRP=527.95, Tax Inclusive checked):
+  ─ selling_price    = MRP / (1 + tax_rate/100)       = 527.95 / 1.05 = 502.81 ✓
+  ─ selling_cgst_amt = selling_price × cgst_pct       = 502.81 × 2.5% = 12.5703 ✓
+  ─ ip_price is user-editable (shown as 522.12 in screenshot)
+────────────────────────────────────────────────────────────────────────── */
 function recalcItem(item) {
   const packing      = parseFloat(item.packing)          || 0
-  const unit         = parseFloat(item.unit)              || 0
-  const packingPrice = parseFloat(item.packing_price)     || 0
-  const taxRate      = parseFloat(item.purchase_tax_rate) || 0
-  const discount     = parseFloat(item.purchase_discount) || 0
-  const quantity     = packing * unit
-  const item_value   = quantity * packingPrice
-  const unit_price   = packing > 0 ? packingPrice / packing : 0
-  const cgst_pct     = taxRate / 2
-  const cgst_amt     = item_value * (cgst_pct / 100)
-  const sgst_amt     = item_value * (cgst_pct / 100)
+  const unit         = parseFloat(item.unit)             || 0
+  const packingPrice = parseFloat(item.packing_price)    || 0
+  const taxRate      = parseFloat(item.purchase_tax_rate)|| 0
+  const discount     = parseFloat(item.purchase_discount)|| 0
+  const deductDisc   = item.deduct_discount_for_tax !== false  // default true
+
+  // ── PURCHASE ──
+  const quantity   = packing * unit
+  const item_value = quantity * packingPrice
+  const unit_price = quantity > 0 ? item_value / quantity : 0
+
   const disc_amt     = item_value * (discount / 100)
-  const purchase_cost = item_value + cgst_amt + sgst_amt - disc_amt
+  const taxable_base = deductDisc ? (item_value - disc_amt) : item_value
+
+  const cgst_pct       = taxRate / 2
+  const cgst_amt_total = taxable_base * (cgst_pct / 100)   // total across all qty
+  const sgst_amt_total = taxable_base * (cgst_pct / 100)
+
+  // Per-pack values shown in the tax box (matching screenshot display)
+  const cgst_amt_display = quantity > 0 ? cgst_amt_total / quantity : cgst_amt_total
+  const sgst_amt_display = quantity > 0 ? sgst_amt_total / quantity : sgst_amt_total
+
+  // Purchase cost shown per-pack (total / qty)
+  const purchase_cost_total   = taxable_base + cgst_amt_total + sgst_amt_total
+  const purchase_cost_display = quantity > 0 ? purchase_cost_total / quantity : purchase_cost_total
+
+  // ── SELLING ──
+  const sellingTaxRate  = parseFloat(item.selling_tax_rate) || 0
+  const sellingCgstPct  = sellingTaxRate / 2
+  const mrp             = parseFloat(item.mrp) || 0
+  const taxInclusive    = item.tax_inclusive !== false  // default true
+  const sellingDisc     = parseFloat(item.selling_discount) || 0
+
+  // Price = base price before selling discount
+  // If tax-inclusive: selling_price = MRP / (1 + tax_rate/100)
+  // If not:           selling_price = MRP
+  let selling_price = taxInclusive && sellingTaxRate > 0
+    ? mrp / (1 + sellingTaxRate / 100)
+    : mrp
+
+  // Apply selling discount
+  selling_price = selling_price * (1 - sellingDisc / 100)
+
+  // Selling CGST/SGST calculated on selling_price (base price)
+  const selling_cgst_amt = selling_price * (sellingCgstPct / 100)
+  const selling_sgst_amt = selling_price * (sellingCgstPct / 100)
+
   return {
     ...item,
     quantity:              String(quantity),
-    item_value:            item_value.toFixed(2),
+    item_value:            item_value.toFixed(4),
     unit_price:            unit_price.toFixed(4),
     cgst_percent:          cgst_pct.toFixed(2),
     sgst_percent:          cgst_pct.toFixed(2),
-    cgst_amt:              cgst_amt.toFixed(2),
-    sgst_amt:              sgst_amt.toFixed(2),
+    // Store totals for GRN-level aggregation (used in PharmacyStock too)
+    cgst_amt:              cgst_amt_total.toFixed(2),
+    sgst_amt:              sgst_amt_total.toFixed(2),
+    // Display per-pack in the tax box
+    cgst_amt_display:      cgst_amt_display.toFixed(3),
+    sgst_amt_display:      sgst_amt_display.toFixed(3),
     purchase_discount_amt: disc_amt.toFixed(2),
-    purchase_cost:         purchase_cost.toFixed(2),
-    selling_tax_label:     item.purchase_tax_label,
-    selling_tax_rate:      item.purchase_tax_rate,
-    selling_cgst:          cgst_amt.toFixed(2),
-    selling_sgst:          sgst_amt.toFixed(2),
+    purchase_cost:         purchase_cost_total.toFixed(3),
+    purchase_cost_display: purchase_cost_display.toFixed(3),
+    // Selling
+    selling_tax_label:     item.selling_tax_label || item.purchase_tax_label,
+    selling_tax_rate:      item.selling_tax_rate  || item.purchase_tax_rate,
+    selling_cgst_percent:  sellingCgstPct.toFixed(2),
+    selling_sgst_percent:  sellingCgstPct.toFixed(2),
+    selling_price:         selling_price.toFixed(2),
+    selling_cgst_amt:      selling_cgst_amt.toFixed(4),
+    selling_sgst_amt:      selling_sgst_amt.toFixed(4),
   }
+}
+
+/* ─── Expiry validation: block if within 6 months ───────────────────────── */
+function isExpiryTooShort(month, year) {
+  if (!month || !year) return false
+  const expDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+  const sixMonthsLater = new Date()
+  sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6)
+  return expDate <= sixMonthsLater
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
@@ -263,10 +308,12 @@ const GRNGeneration = () => {
   const [vendors,     setVendors]     = useState([])
   const [medicines,   setMedicines]   = useState([])
   const [grnList,     setGrnList]     = useState([])
+  const [outlets,     setOutlets]     = useState([])
   const [grnData,     setGrnData]     = useState(EMPTY_GRN)
   const [vendorInfo,  setVendorInfo]  = useState(null)
   const [items,       setItems]       = useState([])
   const [curItem,     setCurItem]     = useState(EMPTY_ITEM)
+  const [lastStock,   setLastStock]   = useState(null)
   const [medSearch,   setMedSearch]   = useState("")
   const [showDrop,    setShowDrop]    = useState(false)
   const [activeTab,   setActiveTab]   = useState("create")
@@ -285,7 +332,37 @@ const GRNGeneration = () => {
   const fetchGRNList   = useCallback(async () => {
     try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data)?r.data:[]) } catch {}
   },[])
-  useEffect(()=>{ fetchVendors(); fetchMedicines(); fetchGRNList() },[fetchVendors,fetchMedicines,fetchGRNList])
+
+  const fetchOutlets = useCallback(async () => {
+    try {
+      const r = await apiRequest(`${baseUrl}get_active_outlets/`, "GET")
+      if (r?.success && Array.isArray(r?.data?.data)) {
+        setOutlets([...r.data.data])
+        setGrnData(prev => ({ ...prev, purchase_category: "" }))
+      } else {
+        setOutlets([])
+      }
+    } catch (error) {
+      console.error("Outlet fetch error:", error)
+      setOutlets([])
+    }
+  }, [])
+
+  useEffect(()=>{ fetchVendors(); fetchMedicines(); fetchGRNList(); fetchOutlets() },
+    [fetchVendors, fetchMedicines, fetchGRNList, fetchOutlets])
+
+  /* ── Fetch last stock record for selected item ── */
+  const fetchLastStock = useCallback(async (item_id) => {
+    if (!item_id) { setLastStock(null); return }
+    try {
+      const r = await apiRequest(`${baseUrl}pharmacy_stock_history/?item_id=${item_id}`, "GET")
+      const list = Array.isArray(r?.data?.data) ? r.data.data
+                 : Array.isArray(r?.data)        ? r.data : []
+      setLastStock(list.length > 0 ? list[0] : null)
+    } catch {
+      setLastStock(null)
+    }
+  }, [])
 
   /* ── Derived ── */
   const isEdit           = !!editDraftNo
@@ -293,7 +370,9 @@ const GRNGeneration = () => {
   const isItemEntryEnabled =
     !!grnData.invoice_no?.trim() &&
     !!grnData.purchase_category?.trim() &&
-    !!grnData.vendor_id;
+    !!grnData.vendor_id
+
+  const expiryTooShort = isExpiryTooShort(curItem.expiry_month, curItem.expiry_year)
 
   /* ── GRN totals recalc ── */
   useEffect(()=>{
@@ -304,7 +383,7 @@ const GRNGeneration = () => {
     }
     const t = items.reduce((a,i)=>{
       a.tax  += parseFloat(i.item_value)||0
-      a.cgst += parseFloat(i.cgst_amt)||0
+      a.cgst += parseFloat(i.cgst_amt)||0      // use stored totals
       a.sgst += parseFloat(i.sgst_amt)||0
       a.disc += parseFloat(i.purchase_discount_amt)||0
       a.tot  += parseFloat(i.purchase_cost)||0
@@ -336,7 +415,6 @@ const GRNGeneration = () => {
   const handleVendorChange = (e) => {
     if(isVerified) return
     const raw = e.target.value
-    // Find vendor by vendor_id (string comparison)
     const v = vendors.find(x => String(x.vendor_id) === String(raw)) || null
     setVendorInfo(v)
     setGrnData(p => ({ ...p, vendor_id: raw }))
@@ -351,34 +429,42 @@ const GRNGeneration = () => {
   const filteredMeds = medicines.filter(m =>
     `${m.item_name} ${m.item_last_name||""}`.toLowerCase().includes(medSearch.toLowerCase())
   )
+
   const selectMedicine = (med) => {
     if(isVerified) return
     const fullName = `${med.item_name} ${med.item_last_name||""}`.trim()
     setMedSearch(fullName); setShowDrop(false)
     setCurItem(p => recalcItem({...p, name:fullName, item_id:med.item_id, hsn:med.hsn||""}))
+    fetchLastStock(med.item_id)
   }
 
   const handleItemChange = (e) => {
     if(isVerified) return
-    const {name,value} = e.target
-    let u = {...curItem,[name]:value}
-    if(name==="purchase_tax_label"){ const f=TAX_RATES.find(t=>t.label===value); u.purchase_tax_rate=f?String(f.rate):"0" }
-
-    // Auto-update combined expiry string when month or year changes
+    const {name, value, type, checked} = e.target
+    let u = {...curItem, [name]: type === "checkbox" ? checked : value}
+    if(name==="purchase_tax_label"){
+      const f = TAX_RATES.find(t=>t.label===value)
+      u.purchase_tax_rate = f ? String(f.rate) : "0"
+    }
+    if(name==="selling_tax_label"){
+      const f = TAX_RATES.find(t=>t.label===value)
+      u.selling_tax_rate = f ? String(f.rate) : "0"
+    }
     if(name==="expiry_month"){ u.expiry = value && u.expiry_year ? `${value}/${u.expiry_year}` : "" }
-    if(name==="expiry_year"){ u.expiry = u.expiry_month && value ? `${u.expiry_month}/${value}` : "" }
-
+    if(name==="expiry_year"){  u.expiry = u.expiry_month && value ? `${u.expiry_month}/${value}` : "" }
     setCurItem(recalcItem(u))
   }
 
   const addItem = () => {
     if(isVerified) return
     if(!curItem.name){ toast.error("Select a medicine"); return }
+    if(!curItem.batch?.trim()){ toast.error("Batch number is required"); return }
+    if(expiryTooShort){ toast.error("Expiry is too short — items expiring within 6 months cannot be added"); return }
     if(!curItem.packing_price||parseFloat(curItem.packing_price)<=0){ toast.error("Enter packing price"); return }
-    // expiry is already stored as "MM/YYYY" in curItem.expiry
     setItems(p=>[...p,{...curItem,id:Date.now()}])
-    setCurItem(EMPTY_ITEM); setMedSearch("")
+    setCurItem(EMPTY_ITEM); setMedSearch(""); setLastStock(null)
   }
+
   const removeItem = (id) => { if(isVerified) return; setItems(p=>p.filter(i=>i.id!==id)) }
 
   /* ── Save / Update Draft ── */
@@ -416,15 +502,11 @@ const GRNGeneration = () => {
       if(r.success){
         const draftNo = r.data?.draft_number || ""
         toast.success(isEdit ? `GRN updated (${draftNo})` : `Draft saved: ${draftNo}`)
-
         if(!isEdit){
           setEditDraftNo(r.data?.draft_number || "")
           setEditStatus(r.data?.status || "Draft")
-          if(r.data?.grn_number !== undefined){
-            setGrnData(p=>({...p, grn_number: r.data.grn_number}))
-          }
+          if(r.data?.grn_number !== undefined) setGrnData(p=>({...p, grn_number: r.data.grn_number}))
         }
-
         fetchGRNList()
       } else {
         toast.error(r.error || "Failed to save GRN")
@@ -465,7 +547,7 @@ const GRNGeneration = () => {
 
   const resetForm = () => {
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
-    setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null)
+    setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
   }
 
   /* ── Helpers ── */
@@ -480,14 +562,22 @@ const GRNGeneration = () => {
            getVendorName(g.vendor_id)?.toLowerCase().includes(q) ||
            g.invoice_no?.toLowerCase().includes(q)
   })
-
-  // Build vendor address string from individual fields
   const getVendorAddress = (v) => {
     if (!v) return ""
-    return [v.address_line1, v.address_line2, v.city, v.state, v.pincode]
-      .filter(Boolean)
-      .join(", ")
+    return [v.address_line1, v.address_line2, v.city, v.state, v.pincode].filter(Boolean).join(", ")
   }
+
+  /* ── Last stock display values ── */
+  const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  const lastPurchaseCost  = lastStock
+    ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.mrp||0)).toFixed(2)}`
+    : "—"
+  // Last MRP = mrp stored in stock
+  const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
+  // Last Selling Price = selling_price field if present, else fall back to mrp
+  const lastSellingPrice  = lastStock
+    ? `₹ ${parseFloat(lastStock.selling_price || lastStock.mrp || 0).toFixed(2)}`
+    : "—"
 
   /* ─────────────────────────────────────────────────────── RENDER ── */
   return (
@@ -513,7 +603,6 @@ const GRNGeneration = () => {
         <FormContent style={{padding:"10px 0", width:"100%", boxSizing:"border-box"}}>
           {activeTab==="create" && (
             <>
-              {/* ── Verified lock banner ── */}
               {isVerified && (
                 <VerifiedBanner>
                   <Lock size={15}/>
@@ -538,26 +627,38 @@ const GRNGeneration = () => {
                   <GridRow cols="repeat(3,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Purchase Category *</Lbl>
-                      <Select name="purchase_category" value={grnData.purchase_category} onChange={handleGrnChange} disabled={isVerified} style={{fontSize:"0.8rem"}}>
-                        <option value="">-- Select --</option>
-                        {PURCHASE_CATEGORIES.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
+                      <Select
+                        name="purchase_category"
+                        value={grnData.purchase_category}
+                        onChange={handleGrnChange}
+                        disabled={isVerified}
+                        style={{fontSize:"0.8rem"}}
+                      >
+                        <option value="">-- Select Outlet --</option>
+                        {outlets.length === 0 ? (
+                          <option disabled>No outlets available</option>
+                        ) : (
+                          outlets.map((o, i) => (
+                            <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
+                              {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
+                            </option>
+                          ))
+                        )}
                       </Select>
                     </InputWrapper>
-                    {/* Date: current date, disabled */}
+
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Date</Lbl>
                       <ReadOnlyInput
-                        type="date"
-                        name="date"
-                        value={grnData.date}
-                        readOnly
-                        disabled
-                        style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                        type="date" name="date" value={grnData.date}
+                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
                       />
                     </InputWrapper>
+
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Vendor *</Lbl>
-                      <Select name="vendor_id" value={grnData.vendor_id} onChange={handleVendorChange} disabled={isVerified} style={{fontSize:"0.8rem"}}>
+                      <Select name="vendor_id" value={grnData.vendor_id} onChange={handleVendorChange}
+                        disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         <option value="">-- Select Vendor --</option>
                         {vendors.map(v=><option key={v.vendor_id} value={String(v.vendor_id)}>{v.name}</option>)}
                       </Select>
@@ -567,30 +668,15 @@ const GRNGeneration = () => {
                   <GridRow cols="repeat(3,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Supplier Address</Lbl>
-                      <ReadOnlyInput
-                        value={getVendorAddress(vendorInfo)}
-                        readOnly
-                        placeholder="Auto-filled from vendor"
-                        style={{fontSize:"0.8rem"}}
-                      />
+                      <ReadOnlyInput value={getVendorAddress(vendorInfo)} readOnly placeholder="Auto-filled from vendor" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Contact Person</Lbl>
-                      <ReadOnlyInput
-                        value={vendorInfo?.contact_person || ""}
-                        readOnly
-                        placeholder="Auto-filled"
-                        style={{fontSize:"0.8rem"}}
-                      />
+                      <ReadOnlyInput value={vendorInfo?.contact_person || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Phone</Lbl>
-                      <ReadOnlyInput
-                        value={vendorInfo?.phone || ""}
-                        readOnly
-                        placeholder="Auto-filled"
-                        style={{fontSize:"0.8rem"}}
-                      />
+                      <ReadOnlyInput value={vendorInfo?.phone || ""} readOnly placeholder="Auto-filled" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                   </GridRow>
 
@@ -601,31 +687,18 @@ const GRNGeneration = () => {
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Invoice No *</Lbl>
-                      <Input
-                        name="invoice_no"
-                        value={grnData.invoice_no}
-                        onChange={handleGrnChange}
-                        disabled={isVerified}
-                        placeholder="e.g. INV-52412"
-                        style={{fontSize:"0.8rem"}}
-                      />
+                      <Input name="invoice_no" value={grnData.invoice_no} onChange={handleGrnChange}
+                        disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Invoice Date</Lbl>
-                      {/* max=today prevents selection of future dates */}
-                      <Input
-                        type="date"
-                        name="invoice_date"
-                        value={grnData.invoice_date}
-                        onChange={handleGrnChange}
-                        disabled={isVerified}
-                        max={todayStr()}
-                        style={{fontSize:"0.8rem"}}
-                      />
+                      <Input type="date" name="invoice_date" value={grnData.invoice_date}
+                        onChange={handleGrnChange} disabled={isVerified} max={todayStr()} style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Payment Mode</Lbl>
-                      <Select name="payment_mode" value={grnData.payment_mode} onChange={handleGrnChange} disabled={isVerified} style={{fontSize:"0.8rem"}}>
+                      <Select name="payment_mode" value={grnData.payment_mode} onChange={handleGrnChange}
+                        disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         {PAYMENT_MODES.map(m=><option key={m} value={m}>{m}</option>)}
                       </Select>
                     </InputWrapper>
@@ -640,8 +713,11 @@ const GRNGeneration = () => {
                   <CardBody>
                     {isItemEntryEnabled ? (
                       <ItemPanel>
+                        {/* ── LEFT: Item & Cost ── */}
                         <Panel>
                           <PanelTitle>Item &amp; Cost Details</PanelTitle>
+
+                          {/* Medicine search */}
                           <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Medicine Name *</Lbl>
@@ -671,43 +747,59 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
+                          {/* Batch + Expiry */}
                           <GridRow cols="1fr 1fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
-                              <Lbl>Batch No.</Lbl>
-                              <Input name="batch" value={curItem.batch} onChange={handleItemChange} placeholder="Batch" style={{fontSize:"0.8rem"}} />
+                              <Lbl>Batch No. *</Lbl>
+                              <Input
+                                name="batch" value={curItem.batch} onChange={handleItemChange}
+                                placeholder="Required" style={{fontSize:"0.8rem", borderColor: curItem.name && !curItem.batch ? "#dc2626" : undefined}}
+                              />
+                              {curItem.name && !curItem.batch && (
+                                <ExpiryWarn>Batch is required</ExpiryWarn>
+                              )}
                             </InputWrapper>
-                            {/* Combined Expiry: Month + Year in one row, stored as MM/YYYY */}
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Exp Month</Lbl>
-                              <Select name="expiry_month" value={curItem.expiry_month} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                              <Select name="expiry_month" value={curItem.expiry_month}
+                                onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
                                 <option value="">MM</option>
                                 {MONTHS.map(m=><option key={m.value} value={m.value}>{m.label}</option>)}
                               </Select>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Exp Year</Lbl>
-                              <Select name="expiry_year" value={curItem.expiry_year} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                              <Select name="expiry_year" value={curItem.expiry_year}
+                                onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
                                 <option value="">YYYY</option>
                                 {getYears().map(y=><option key={y} value={y}>{y}</option>)}
                               </Select>
                             </InputWrapper>
                           </GridRow>
 
-                          {/* Show combined expiry preview */}
+                          {/* Expiry preview + warning */}
                           {(curItem.expiry_month || curItem.expiry_year) && (
-                            <div style={{fontSize:"0.72rem",color:colors.primary,marginBottom:6,marginTop:-4}}>
-                              Expiry stored as: <strong>{curItem.expiry_month||"MM"}/{curItem.expiry_year||"YYYY"}</strong>
+                            <div style={{marginBottom:6,marginTop:-4}}>
+                              <div style={{fontSize:"0.72rem",color:colors.primary}}>
+                                Expiry: <strong>{curItem.expiry_month||"MM"}/{curItem.expiry_year||"YYYY"}</strong>
+                              </div>
+                              {expiryTooShort && (
+                                <ExpiryWarn>⚠️ Expiry is too short (within 6 months) — cannot add this item</ExpiryWarn>
+                              )}
                             </div>
                           )}
 
+                          {/* Packing / Unit / Qty / Free */}
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing</Lbl>
-                              <Input type="number" name="packing" value={curItem.packing} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input type="number" name="packing" value={curItem.packing}
+                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>No. of Units</Lbl>
-                              <Input type="number" name="unit" value={curItem.unit} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input type="number" name="unit" value={curItem.unit}
+                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Qty (auto)</Lbl>
@@ -715,95 +807,187 @@ const GRNGeneration = () => {
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Free</Lbl>
-                              <Input type="number" name="free" value={curItem.free} onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input type="number" name="free" value={curItem.free}
+                                onChange={handleItemChange} placeholder="0" min="0" style={{fontSize:"0.8rem"}} />
                             </InputWrapper>
                           </GridRow>
 
+                          {/* Packing Price / Item Value / Unit Price / MRP */}
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing Price ₹</Lbl>
-                              <Input type="number" name="packing_price" value={curItem.packing_price} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input type="number" name="packing_price" value={curItem.packing_price}
+                                onChange={handleItemChange} placeholder="0.0000" min="0" style={{fontSize:"0.8rem"}} />
+                              <LastHint>Last Purchase: {lastPurchasePrice}</LastHint>
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Item Value (auto)</Lbl>
-                              <CalcInput value={`₹ ${curItem.item_value}`} readOnly />
+                              <CalcInput value={`₹ ${parseFloat(curItem.item_value).toFixed(4)}`} readOnly />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Unit Price (auto)</Lbl>
-                              <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(2)}`} readOnly />
+                              <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(4)}`} readOnly />
                             </InputWrapper>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>MRP ₹</Lbl>
-                              <Input type="number" name="mrp" value={curItem.mrp} onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                              <Input type="number" name="mrp" value={curItem.mrp}
+                                onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                              <LastHint>Last MRP: {lastMRP}</LastHint>
                             </InputWrapper>
                           </GridRow>
                         </Panel>
 
+                        {/* ── RIGHT: Tax Details ── */}
                         <Panel>
                           <PanelTitle>Tax Details</PanelTitle>
+
+                          {/* Max Retail Price / Max Packing MRP */}
+                          <MrpStrip>
+                            <MrpCard>
+                              <MrpLabel>Max Retail Price</MrpLabel>
+                              <MrpValue>₹ {parseFloat(curItem.mrp||0).toFixed(2)}</MrpValue>
+                            </MrpCard>
+                            <MrpCard>
+                              <MrpLabel>Max Packing MRP</MrpLabel>
+                              <Input
+                                type="number" name="max_packing_mrp"
+                                value={curItem.max_packing_mrp}
+                                onChange={handleItemChange}
+                                placeholder="0.00" min="0"
+                                style={{fontSize:"0.8rem", marginTop:2}}
+                              />
+                            </MrpCard>
+                          </MrpStrip>
+
+                          {/* Purchase Tax */}
                           <TaxBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#0369a1",marginBottom:7}}>PURCHASE TAX</div>
                             <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:7}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Tax Rate</Lbl>
-                                <Select name="purchase_tax_label" value={curItem.purchase_tax_label} onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                                <Select name="purchase_tax_label" value={curItem.purchase_tax_label}
+                                  onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
                                   {TAX_RATES.map(t=><option key={t.label} value={t.label}>{t.label}</option>)}
                                 </Select>
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
+                                {/* Display per-pack value matching screenshot */}
                                 <Lbl>CGST ({curItem.cgst_percent}%)</Lbl>
-                                <CalcInput value={`₹ ${curItem.cgst_amt}`} readOnly />
+                                <CalcInput value={`₹ ${curItem.cgst_amt_display || curItem.cgst_amt}`} readOnly />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>SGST ({curItem.sgst_percent}%)</Lbl>
-                                <CalcInput value={`₹ ${curItem.sgst_amt}`} readOnly />
+                                <CalcInput value={`₹ ${curItem.sgst_amt_display || curItem.sgst_amt}`} readOnly />
                               </InputWrapper>
                             </GridRow>
-                            <GridRow cols="1fr 1fr" style={{marginBottom:0}}>
+                            <GridRow cols="1fr 1fr" style={{marginBottom:4}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Purchase Discount (%)</Lbl>
-                                <Input type="number" name="purchase_discount" value={curItem.purchase_discount} onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
+                                <Input type="number" name="purchase_discount" value={curItem.purchase_discount}
+                                  onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Discount Amt (auto)</Lbl>
                                 <CalcInput value={`₹ ${curItem.purchase_discount_amt}`} readOnly />
                               </InputWrapper>
                             </GridRow>
+                            {/* Deduct discount for tax calc checkbox */}
+                            <CheckRow>
+                              <input
+                                type="checkbox"
+                                name="deduct_discount_for_tax"
+                                checked={curItem.deduct_discount_for_tax !== false}
+                                onChange={handleItemChange}
+                              />
+                              Deduct discount for tax calc
+                            </CheckRow>
+                            {/* Purchase Cost shown per-pack */}
                             <CostBar>
                               <span>Purchase Cost</span>
-                              <strong style={{fontSize:"0.9rem"}}>₹ {curItem.purchase_cost}</strong>
+                              <strong style={{fontSize:"0.9rem"}}>
+                                ₹ {curItem.purchase_cost_display || curItem.purchase_cost}
+                              </strong>
                             </CostBar>
+                            <LastHint style={{marginTop:4}}>Last Purchase Cost: {lastPurchaseCost}</LastHint>
                           </TaxBox>
 
+                          {/* Selling Tax */}
                           <GreenBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
-                              SELLING TAX <span style={{fontWeight:400}}>(auto from purchase)</span>
+                              SELLING TAX
                             </div>
-                            <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:0}}>
+                            <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:4}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Tax Rate</Lbl>
-                                <ReadOnlyInput value={curItem.selling_tax_label} readOnly />
+                                <Select name="selling_tax_label" value={curItem.selling_tax_label}
+                                  onChange={handleItemChange} style={{fontSize:"0.8rem"}}>
+                                  {TAX_RATES.map(t=><option key={t.label} value={t.label}>{t.label}</option>)}
+                                </Select>
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
-                                <Lbl>CGST</Lbl>
-                                <CalcInput value={`₹ ${curItem.selling_cgst}`} readOnly />
+                                {/* Selling CGST is on selling_price (Price), matching screenshot */}
+                                <Lbl>CGST ({curItem.selling_cgst_percent||"2.50"}%)</Lbl>
+                                <CalcInput value={`₹ ${parseFloat(curItem.selling_cgst_amt||0).toFixed(4)}`} readOnly />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
-                                <Lbl>SGST</Lbl>
-                                <CalcInput value={`₹ ${curItem.selling_sgst}`} readOnly />
+                                <Lbl>SGST ({curItem.selling_sgst_percent||"2.50"}%)</Lbl>
+                                <CalcInput value={`₹ ${parseFloat(curItem.selling_sgst_amt||0).toFixed(4)}`} readOnly />
+                              </InputWrapper>
+                            </GridRow>
+                            {/* Tax Inclusive checkbox */}
+                            <CheckRow style={{marginBottom:6}}>
+                              <input
+                                type="checkbox"
+                                name="tax_inclusive"
+                                checked={curItem.tax_inclusive !== false}
+                                onChange={handleItemChange}
+                              />
+                              Tax Inclusive
+                            </CheckRow>
+                            {/* Selling Discount / Price / IP Price */}
+                            <GridRow cols="1fr 1fr 1fr" style={{marginBottom:0}}>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>Selling Discount (%)</Lbl>
+                                <Input type="number" name="selling_discount" value={curItem.selling_discount}
+                                  onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                {/* Price = MRP / (1+tax%) when inclusive, after selling discount */}
+                                <Lbl>Price (auto)</Lbl>
+                                <CalcInput value={`₹ ${curItem.selling_price}`} readOnly />
+                                <LastHint>Last Selling Price: {lastSellingPrice}</LastHint>
+                              </InputWrapper>
+                              <InputWrapper style={{margin:0}}>
+                                <Lbl>IP Price ₹</Lbl>
+                                <Input type="number" name="ip_price" value={curItem.ip_price}
+                                  onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                             </GridRow>
                           </GreenBox>
 
                           <div style={{marginTop:12}}>
-                            <Button onClick={addItem} style={{width:"100%",fontSize:"0.82rem",padding:"8px"}}>
+                            <Button
+                              onClick={addItem}
+                              disabled={expiryTooShort}
+                              style={{width:"100%",fontSize:"0.82rem",padding:"8px",
+                                opacity: expiryTooShort ? 0.5 : 1,
+                                cursor: expiryTooShort ? "not-allowed" : "pointer"}}
+                            >
                               <Plus size={13}/> &nbsp; Add Item to GRN
                             </Button>
+                            {expiryTooShort && (
+                              <ExpiryWarn style={{textAlign:"center",marginTop:4}}>
+                                ⚠️ Cannot add — expiry within 6 months
+                              </ExpiryWarn>
+                            )}
                           </div>
                         </Panel>
                       </ItemPanel>
                     ) : (
                       <DisabledOverlay>
+                        <DisabledNotice>
+                          ⚠️ Fill Invoice No, Purchase Category and Vendor above to enable item entry.
+                        </DisabledNotice>
                         <ItemPanel>
                           <Panel>
                             <PanelTitle>Item &amp; Cost Details</PanelTitle>
@@ -818,7 +1002,7 @@ const GRNGeneration = () => {
                               </InputWrapper>
                             </GridRow>
                             <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
-                              {["Batch No.","Exp Month","Exp Year","Free"].map(l=>(
+                              {["Batch No. *","Exp Month","Exp Year","Free"].map(l=>(
                                 <InputWrapper key={l} style={{margin:0}}><Lbl>{l}</Lbl><Input disabled placeholder="—" style={{fontSize:"0.8rem"}} /></InputWrapper>
                               ))}
                             </GridRow>
@@ -859,8 +1043,10 @@ const GRNGeneration = () => {
                           <Th style={{fontSize:"0.72rem"}}>CGST</Th>
                           <Th style={{fontSize:"0.72rem"}}>SGST</Th>
                           <Th style={{fontSize:"0.72rem"}}>Disc%</Th>
-                          <Th style={{fontSize:"0.72rem"}}>Cost</Th>
+                          <Th style={{fontSize:"0.72rem"}}>Cost/Pack</Th>
                           <Th style={{fontSize:"0.72rem"}}>MRP</Th>
+                          <Th style={{fontSize:"0.72rem"}}>Price</Th>
+                          <Th style={{fontSize:"0.72rem"}}>IP Price</Th>
                           {!isVerified && <Th style={{fontSize:"0.72rem"}}></Th>}
                         </tr></thead>
                         <tbody>
@@ -870,20 +1056,28 @@ const GRNGeneration = () => {
                               <Td style={{fontWeight:600,minWidth:100,fontSize:"0.75rem"}}>{it.name}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.hsn||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.batch||"—"}</Td>
-                              {/* Display combined expiry MM/YYYY */}
                               <Td style={{fontSize:"0.75rem"}}>{it.expiry||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.packing||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.unit||"—"}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
                               <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.packing_price||0).toFixed(2)}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>₹{it.item_value}</Td>
+                              <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.purchase_tax_rate}%</Td>
+                              {/* Table shows total CGST/SGST (not per-pack) */}
                               <Td style={{fontSize:"0.75rem"}}>₹{it.cgst_amt}</Td>
                               <Td style={{fontSize:"0.75rem"}}>₹{it.sgst_amt}</Td>
                               <Td style={{fontSize:"0.75rem"}}>{it.purchase_discount}%</Td>
-                              <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>₹{it.purchase_cost}</Td>
+                              <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>
+                                ₹{it.purchase_cost_display || it.purchase_cost}
+                              </Td>
                               <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.mrp||0).toFixed(2)}</Td>
+                              <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
+                                ₹{parseFloat(it.selling_price||0).toFixed(2)}
+                              </Td>
+                              <Td style={{fontSize:"0.75rem"}}>
+                                ₹{parseFloat(it.ip_price||0).toFixed(2)}
+                              </Td>
                               {!isVerified && (
                                 <Td>
                                   <Trash2 size={13} color={colors.danger} style={{cursor:"pointer"}} onClick={()=>removeItem(it.id)} />
@@ -917,7 +1111,8 @@ const GRNGeneration = () => {
                       <SumCard>
                         <SumLabel>Round Off</SumLabel>
                         <SumValue>₹ {grnData.round_amount}</SumValue>
-                        <Input type="number" name="round_amount" value={grnData.round_amount} onChange={handleGrnChange} style={{height:30,fontSize:"0.82rem",width:"100%"}} />
+                        <Input type="number" name="round_amount" value={grnData.round_amount}
+                          onChange={handleGrnChange} style={{height:30,fontSize:"0.82rem",width:"100%"}} />
                       </SumCard>
                       <SumCard>
                         <SumLabel>Net Invoice Amount</SumLabel>
@@ -927,7 +1122,8 @@ const GRNGeneration = () => {
                     {!isVerified && (
                       <div style={{marginTop:10}}>
                         <Lbl>Remarks</Lbl>
-                        <TextArea name="remarks" value={grnData.remarks} onChange={handleGrnChange} placeholder="Any remarks…" style={{marginTop:3,fontSize:"0.8rem"}} />
+                        <TextArea name="remarks" value={grnData.remarks} onChange={handleGrnChange}
+                          placeholder="Any remarks…" style={{marginTop:3,fontSize:"0.8rem"}} />
                       </div>
                     )}
                     {isVerified && grnData.remarks && (
@@ -963,12 +1159,9 @@ const GRNGeneration = () => {
                 <SearchContainer>
                   <InputWrapper>
                     <Label>Search</Label>
-                    <Input
-                      style={{minWidth:220,fontSize:"0.82rem"}}
+                    <Input style={{minWidth:220,fontSize:"0.82rem"}}
                       placeholder="Draft No, GRN No, Vendor, Invoice…"
-                      value={search}
-                      onChange={e=>setSearch(e.target.value)}
-                    />
+                      value={search} onChange={e=>setSearch(e.target.value)} />
                   </InputWrapper>
                 </SearchContainer>
                 <div style={{color:colors.textMuted,fontSize:"0.8rem",alignSelf:"flex-end"}}>
@@ -983,7 +1176,7 @@ const GRNGeneration = () => {
                     <Th style={{fontSize:"0.72rem"}}>GRN No</Th>
                     <Th style={{fontSize:"0.72rem"}}>Date</Th>
                     <Th style={{fontSize:"0.72rem"}}>Vendor</Th>
-                    <Th style={{fontSize:"0.72rem"}}>Category</Th>
+                    <Th style={{fontSize:"0.72rem"}}>Outlet / Category</Th>
                     <Th style={{fontSize:"0.72rem"}}>Invoice No</Th>
                     <Th style={{fontSize:"0.72rem"}}>Invoice Date</Th>
                     <Th style={{fontSize:"0.72rem"}}>Payment</Th>
@@ -1011,7 +1204,7 @@ const GRNGeneration = () => {
                         </Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.date?.split("T")[0]}</Td>
                         <Td style={{fontWeight:600,fontSize:"0.75rem"}}>{getVendorName(grn.vendor_id)}</Td>
-                        <Td style={{fontSize:"0.72rem"}}>{PURCHASE_CATEGORIES.find(c=>c.value===grn.purchase_category)?.label||grn.purchase_category}</Td>
+                        <Td style={{fontSize:"0.72rem"}}>{grn.purchase_category}</Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.invoice_no}</Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.invoice_date?.split("T")[0]}</Td>
                         <Td style={{fontSize:"0.75rem"}}>{grn.payment_mode}</Td>

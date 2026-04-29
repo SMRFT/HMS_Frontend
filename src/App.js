@@ -107,6 +107,7 @@ import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
 import StockTransfer from "./Components/InventoryMaster/StockTransfer";
+import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -433,6 +434,17 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/IPAdvance" element={<IPAdvance />} />}
+
+              {hasPagePermission(
+                "/IPAdvanceReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/IPAdvanceReport"
+                    element={<IPAdvanceReport />}
+                  />
+                )}
 
               {hasPagePermission(
                 "/PatientRegistrationForm",
