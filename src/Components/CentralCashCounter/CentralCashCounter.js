@@ -341,6 +341,51 @@ const SuccessMessage = styled.div`
   border: 1px solid #a7f3d0;
 `;
 
+const ToastWrapper = styled.div`
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+`;
+
+const ToastBox = styled.div`
+  min-width: 320px;
+  max-width: 460px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  animation: slideIn 0.3s ease;
+  pointer-events: all;
+  background: ${({ type }) => type === "success" ? "#ecfdf5" : "#fef2f2"};
+  color: ${({ type }) => type === "success" ? "#065f46" : "#991b1b"};
+  border-left: 4px solid ${({ type }) => type === "success" ? "#10b981" : "#ef4444"};
+
+  @keyframes slideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+`;
+
+const ToastIcon = styled.span`
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+`;
+
+const ToastText = styled.span`
+  flex: 1;
+  line-height: 1.5;
+`;
+
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
@@ -634,9 +679,16 @@ export default function CentralCashCounter() {
   const [receivedBills, setReceivedBills] = useState([]);
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
+  const [opPharmacyBills, setOpPharmacyBills] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [toast, setToast] = useState({ visible: false, type: "", message: "" });
+
+  const showToast = (type, message) => {
+    setToast({ visible: true, type, message });
+    setTimeout(() => setToast({ visible: false, type: "", message: "" }), 4000);
+  };
   const [filteredBills, setFilteredBills] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
@@ -751,7 +803,7 @@ export default function CentralCashCounter() {
     try {
       const res = await apiRequest(`${HmsBaseUrl}post_receipt_payments/`, "POST", payload);
       if (res?.success || res?.id || res?._id || res?.voucher_no) {
-        rpShowAlert("success", res?.message || "Saved successfully.");
+        rpShowAlert("success", "Payment collected successfully!");
 
         // ── Optimistic update: prepend the new record immediately ──────────────
         const newRecord = {
@@ -784,11 +836,11 @@ export default function CentralCashCounter() {
         // Background sync to get the authoritative server record (replaces optimistic row)
         rpFetchRecords();
       } else {
-        rpShowAlert("error", res?.message || "Failed to save. Please try again.");
+        rpShowAlert("error", res?.message || "Payment failed. Please try again.");
       }
     } catch (err) {
       console.error("Save error:", err);
-      rpShowAlert("error", "Server error. Please check your connection.");
+      rpShowAlert("error", "Payment failed. Please check your connection.");
     } finally {
       setRpSaving(false);
     }
@@ -860,11 +912,7 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
-  // Auth context values — used to match shift ownership for hide/show of Start button
-  const currentOutletCode   = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
-  const currentHospitalCode = localStorage.getItem("hospital_code") || "";
-  const currentBranchCode   = localStorage.getItem("selected_branch") || localStorage.getItem("branch_code") || "";
-
+  
   // Called by ShiftDetails when shift starts (passes data) or stops (passes null)
   // After every POST/PATCH in ShiftDetails, do an immediate GET to refresh top section
   const handleShiftChange = async (shiftData) => {
@@ -880,7 +928,6 @@ export default function CentralCashCounter() {
   const sidebarItems = [
     { label: "Pending Bills", id: "pending-bills" },
     { label: "IP Advance", id: "ip-advance" },
-    { label: "Patient Debit", id: "patient-debit" },
     { label: "Sales Returns", id: "sales-returns" },
     { label: "Receipt / Payment", id: "receipt-payment" },
    
@@ -1022,40 +1069,147 @@ const paidAmount =
   (selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0) +
   (selectedMethods.card ? parseFloat(payments.card) || 0 : 0);
 
-const balance = Math.max(netAmount - paidAmount, 0);
+const balance = netAmount - paidAmount; // can be positive (pending) or 0 (fully paid)
 
 
 const openPaymentModal = (bill) => {
   setSelectedBill(bill);
-  setSelectedMethods({ cash: false, card: false, cheque: false });
-  setPayments({ cash: "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+  // Default: cash selected with full amount pre-filled
+  const totalAmt = parseFloat(bill?.total || 0);
+  setSelectedMethods({ cash: true, card: false, cheque: false });
+  setPayments({ cash: totalAmt > 0 ? String(totalAmt) : "", cheque: "", chequeNo: "", card: "", cardNo: "" });
   setShowPaymentModal(true);
 };
-  // ✅ FIXED: Updated fetchPendingBills to handle your actual data structure
+  // Fetch pending bills from get_maniblock_pedingbills API
 const fetchPendingBills = async () => {
   setLoading(true);
   setError("");
 
   try {
     const response = await apiRequest(
-      `${HmsBaseUrl}OPPharmacy_pending_bills/`,
+      `${HmsBaseUrl}get_maniblock_pedingbills/`,
       "GET"
     );
 
-    const billsArray = Array.isArray(response?.data)
+    const billsArray = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
       ? response.data
       : [];
 
-    console.log("Raw pending bills data:", response.data);
+    console.log("Raw maniblock pending bills:", billsArray);
 
-    const formatted = formatBillData(billsArray);
+    const formatted = billsArray.map((item, index) => {
+      const dateObj = item.date ? new Date(item.date) : null;
+      const billDate = dateObj
+        ? dateObj.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+      const billTime = dateObj
+        ? dateObj.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+
+      return {
+        id: `${item.type}-${item.bill_no}-${index}`,
+        date: billDate,
+        time: billTime,
+        bill_no: item.bill_no || "-",
+        raw_bill_no: item.bill_no || null,   // original value — used in API payload
+        bill_type: item.type || "-",
+        raw_bill_type: item.type || null,    // original type — used for status field logic
+        uhid_no: item.uhid || "-",
+        patient: item.patient_name || "-",
+        amount: parseFloat(item.amount || 0),
+        status: item.status || "-",
+        raw: item.raw || {},
+        // kept for payment modal compatibility
+        Bill_id: item.raw?.patient_id || null,
+        uhid: item.uhid || "-",
+        total: parseFloat(item.amount || 0),
+        source: item.type === "Discharge" ? "IP" : "OP",
+      };
+    });
+
     setPendingBills(formatted);
 
   } catch (err) {
     console.error("Pending bills error:", err);
-    setError("Unable to connect to HMS server");
+    showToast("error", "Unable to connect to HMS server. Please try again.");
   } finally {
     setLoading(false);
+  }
+};
+
+
+const fetchOpPharmacyPendingBills = async () => {
+  try {
+    const response = await apiRequest(
+      `${HmsBaseUrl}OPPharmacy_pending_bills/`,
+      "GET"
+    );
+
+    const billsArray = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response)
+      ? response
+      : [];
+
+    console.log("Raw OP Pharmacy pending bills:", billsArray);
+
+    const formatted = billsArray
+      .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
+      .map((item, index) => {
+        const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+        const billDate = billDateObj
+          ? billDateObj.toLocaleDateString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              timeZone: "Asia/Kolkata",
+            })
+          : "-";
+        const billTime = billDateObj
+          ? billDateObj.toLocaleTimeString("en-IN", {
+              hour: "2-digit", minute: "2-digit",
+              hour12: true, timeZone: "Asia/Kolkata",
+            })
+          : "-";
+
+        return {
+          id: `pharmacy-${item.Bill_id}-${index}`,
+          date: billDate,
+          time: billTime,
+          Bill_id: item.Bill_id,
+          uhid: item.uhid || "-",
+          bill_no: item.bill_no || "-",
+          bill_type: "OP Pharmacy",
+          raw_bill_type: "OPPharmacy",
+          uhid_no: item.uhid || "-",
+          patient: item.patient_name || "-",
+          amount: parseFloat(item.net_amount || 0),
+          total: parseFloat(item.net_amount || 0),
+          status: item.billing_status || "-",
+          doctor: item.doctor_name || "-",
+          payment_method: "-",
+          source: "OPPharmacy",
+          raw_bill_no: item.bill_no || null,
+          raw: item,
+        };
+      });
+
+    setOpPharmacyBills(formatted);
+  } catch (err) {
+    console.error("OP Pharmacy bills fetch error:", err);
+    showToast("error", "Unable to load OP Pharmacy bills.");
   }
 };
 
@@ -1073,6 +1227,11 @@ const submitPayment = async () => {
     activeMethods.push({ method: "cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
   }
 
+  if (activeMethods.length === 0) {
+    showToast("error", "Please enter at least one payment amount.");
+    return;
+  }
+
   // Determine payment_details: single object if one method, method="multiple" if more
   let payment_details;
   if (activeMethods.length === 1) {
@@ -1081,12 +1240,14 @@ const submitPayment = async () => {
     payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
   }
 
+  const pendingAmount = Math.max(netAmount - paidAmount, 0);
+
   // ✅ IP Advance: send ipNumber + payment_details
   if (activeMenuItem === "IP Advance") {
     const payload = {
       ipNumber: selectedBill.ipNumber,
       payment_details,
-      shiftno: activeShift?.shiftno || "", 
+      shiftno: activeShift?.shiftno || "",
     };
 
     const res = await apiRequest(
@@ -1095,37 +1256,93 @@ const submitPayment = async () => {
       payload
     );
 
-    if (res?.status === "success") {
-      setSuccess("IP Advance payment collected successfully!");
+    const ipRes = res?.data || res;
+    if (ipRes?.status === "success") {
       setShowPaymentModal(false);
       fetchIpAdvancePendingBills();
-      setTimeout(() => setSuccess(""), 3000);
+      showToast("success", "Payment collected successfully!");
     } else {
-      setError(res?.message || "Payment failed");
+      showToast("error", ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
     }
     return;
   }
 
-  // ✅ OP / Pending Bills flow (unchanged)
+  // ✅ OP Pharmacy: call collect_oppharmacy_payment
+  if (selectedBill.source === "OPPharmacy") {
+    const payload = {
+      Bill_id: selectedBill.Bill_id,
+      uhid: selectedBill.uhid,
+      payment_details,
+      shiftno: activeShift?.shiftno || "",
+    };
+
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}collect_oppharmacy_payment/`,
+        "POST",
+        payload
+      );
+      const result = res?.data || res;
+      if (result?.success) {
+        setShowPaymentModal(false);
+        fetchOpPharmacyPendingBills();
+        fetchPendingBills();
+        showToast("success", "Pharmacy payment collected successfully!");
+      } else {
+        showToast("error", result?.error || "Payment failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("OPPharmacy submitPayment error:", err);
+      showToast("error", "Payment failed. Please check your connection.");
+    }
+    return;
+  }
+
+  // ✅ Pending Bills: update_maniblock_pedingbills with type-specific status fields
+  const billType = selectedBill.raw_bill_type || selectedBill.bill_type || "";
+
+  // Build the status update fields based on bill type
+  let statusFields = {};
+  if (billType === "Discharge") {
+    // status: "Billed" → "Paid"
+    statusFields = { status: "Paid" };
+  } else if (billType === "Investigation") {
+    // paymentStatus: "Pending" → "Paid"
+    statusFields = { paymentStatus: "Paid" };
+  } else if (billType === "Billing") {
+    // payment_status: "Pending" → "Paid"
+    statusFields = { payment_status: "Paid" };
+  } else {
+    // Generic fallback
+    statusFields = { payment_status: "Paid" };
+  }
+
   const payload = {
-    Bill_id: selectedBill.Bill_id,
-    uhid: selectedBill.uhid_no,
-    bill_no: selectedBill.bill_no,
-    bill_date: selectedBill.raw_bill_date?.slice(0, 10),
+    bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
+    ...statusFields,
     payment_details,
     shiftno: activeShift?.shiftno || "",
+    ...(pendingAmount > 0 ? { pendingAmount } : {}),
   };
 
-  const res = await apiRequest(
-    `${HmsBaseUrl}collect_oppharmacy_payment/`,
-    "POST",
-    payload
-  );
+  try {
+    const res = await apiRequest(
+      `${HmsBaseUrl}update_maniblock_pedingbills/`,
+      "POST",
+      payload
+    );
 
-  if (res.success) {
-    setSuccess("Payment collected successfully!");
-    setShowPaymentModal(false);
-    fetchPendingBills();
+    const billRes = res?.data || res;
+    if (billRes?.success || billRes?.status === "success") {
+      setShowPaymentModal(false);
+      fetchPendingBills();
+      showToast("success", "Payment collected successfully!");
+    } else {
+      showToast("error", billRes?.message || billRes?.error || "Payment failed. Please try again.");
+    }
+  } catch (err) {
+    console.error("submitPayment error:", err);
+    showToast("error", "Payment failed. Please check your connection.");
   }
 };
   
@@ -1149,7 +1366,7 @@ const submitPayment = async () => {
       : [];
 
     if (!billsArray.length && response?.data?.error) {
-      setError("IP Advance API error: " + response.data.error);
+      showToast("error", "IP Advance API error: " + response.data.error);
       return;
     }
 
@@ -1158,7 +1375,7 @@ const submitPayment = async () => {
 
   } catch (err) {
     console.error("IP Advance fetch error:", err?.message || err);
-    setError("Failed to load IP Advance data: " + (err?.message || "Unknown error"));
+    showToast("error", "Failed to load IP Advance data. Please try again.");
   } finally {
     setLoading(false);
   }
@@ -1182,13 +1399,17 @@ const submitPayment = async () => {
       payload
     );
 
-    if (response?.status === "success") {
+    const quickRes = response?.data || response;
+    if (quickRes?.status === "success") {
       fetchIpAdvancePendingBills();
+      showToast("success", "Payment collected successfully!");
+    } else {
+      showToast("error", quickRes?.message || quickRes?.error || "Payment failed. Please try again.");
     }
 
   } catch (error) {
     console.error("Payment error:", error);
-    setError("Payment failed");
+    showToast("error", "Payment failed. Please try again.");
   }
 };
 
@@ -1197,14 +1418,8 @@ const submitPayment = async () => {
     let bills = [];
 
     if (activeMenuItem === "Pending Bills") {
-      // Both tabs use the same OPPharmacy_pending_bills API data
-      // Pending Bills tab → show billing_status === "Billed"
-      // Received Bills tab → show billing_status === "Paid"
-      bills = pendingBills.filter((bill) =>
-        selectedType === "pending"
-          ? bill.investigation === "Billed"
-          : bill.investigation === "Paid"
-      );
+      // New API returns all pending bills; show all for pending tab, none for received tab
+      bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : [];
     } else if (activeMenuItem === "IP Advance") {
       bills = selectedType === "pending" ? ipAdvancePendingBills : ipAdvanceReceivedBills;
     }
@@ -1229,85 +1444,7 @@ const submitPayment = async () => {
     setFilteredBills(filtered);
   };
 
-  // Mark bill as received
-  const markBillReceived = async (billId, source) => {
-    try {
-      let endpoint = "";
-      if (activeMenuItem === "Pending Bills") {
-        endpoint = "http://127.0.0.1:8000/mark-bill-received/";
-      } else if (activeMenuItem === "IP Advance") {
-        endpoint = "http://127.0.0.1:8000/ip-advance/mark-received/";
-      }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: billId,
-          source: source,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess(`Bill marked as received successfully`);
-        // Refresh data
-        if (activeMenuItem === "Pending Bills") {
-          fetchPendingBills();
-        } else if (activeMenuItem === "IP Advance") {
-          fetchIpAdvancePendingBills();
-        }
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(data.message || "Failed to update bill");
-      }
-    } catch (err) {
-      setError("Error updating bill");
-      console.error("Error marking bill as received:", err);
-    }
-  };
-
-  const markBillUnreceived = async (billId, source) => {
-    try {
-      let endpoint = "";
-      if (activeMenuItem === "Pending Bills") {
-        endpoint = "http://127.0.0.1:8000/mark-bill-unreceived/";
-      } else if (activeMenuItem === "IP Advance") {
-        endpoint = "http://127.0.0.1:8000/ip-advance/mark-unreceived/";
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: billId,
-          source: source,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setSuccess(`Bill marked as unreceived successfully`);
-        if (activeMenuItem === "Pending Bills") {
-          fetchReceivedBills();
-        } else if (activeMenuItem === "IP Advance") {
-          fetchIpAdvanceReceivedBills();
-        }
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(data.message || "Failed to update bill");
-      }
-    } catch (err) {
-      setError("Error updating bill");
-      console.error("Error marking bill as unreceived:", err);
-    }
-  };
 
   const handleMenuItemClick = (itemLabel) => {
     setActiveMenuItem(itemLabel);
@@ -1316,6 +1453,7 @@ const submitPayment = async () => {
 
     if (itemLabel === "Pending Bills") {
       fetchPendingBills();
+      fetchOpPharmacyPendingBills();
     } else if (itemLabel === "IP Advance") {
       fetchIpAdvancePendingBills();
     } else if (itemLabel === "Receipt / Payment") {
@@ -1328,6 +1466,7 @@ const submitPayment = async () => {
     if (activeMenuItem === "Pending Bills") {
       if (selectedType === "pending") {
         fetchPendingBills();
+        fetchOpPharmacyPendingBills();
       } else {
         fetchReceivedBills();
       }
@@ -1347,6 +1486,7 @@ const submitPayment = async () => {
     if (activeMenuItem === "Pending Bills") {
       if (type === "pending") {
         fetchPendingBills();
+        fetchOpPharmacyPendingBills();
       } else {
         fetchReceivedBills();
       }
@@ -1368,6 +1508,7 @@ const submitPayment = async () => {
     if (activeMenuItem === "Pending Bills") {
       if (selectedType === "pending") {
         fetchPendingBills();
+        fetchOpPharmacyPendingBills();
       } else {
         fetchReceivedBills();
       }
@@ -1382,7 +1523,7 @@ const submitPayment = async () => {
 
   useEffect(() => {
     filterBills();
-  }, [billType, searchTerm, selectedType, pendingBills, receivedBills, ipAdvancePendingBills, ipAdvanceReceivedBills, activeMenuItem]);
+  }, [billType, searchTerm, selectedType, pendingBills, receivedBills, ipAdvancePendingBills, ipAdvanceReceivedBills, opPharmacyBills, activeMenuItem]);
 
   const getTableColumns = () => {
     const baseColumns = [
@@ -2133,8 +2274,7 @@ const submitPayment = async () => {
                 </SearchWrapper>
               </TableControls>
 
-              {error && <ErrorMessage>{error}</ErrorMessage>}
-              {success && <SuccessMessage>{success}</SuccessMessage>}
+              {/* inline error/success replaced by Toast — see ToastWrapper below */}
 
               <Table>
                 <thead>
@@ -2162,6 +2302,7 @@ const submitPayment = async () => {
                         <TableHeader>Bill Type</TableHeader>
                         <TableHeader>UHID No</TableHeader>
                         <TableHeader>Patient</TableHeader>
+                        <TableHeader>Amount (₹)</TableHeader>
                         <TableHeader>Status</TableHeader>
                         {selectedType === "received" && (
                           <>
@@ -2220,11 +2361,27 @@ const submitPayment = async () => {
                             <TableCell>{bill.bill_type}</TableCell>
                             <TableCell>{bill.uhid_no}</TableCell>
                             <TableCell>{bill.patient}</TableCell>
-                            <TableCell>{bill.investigation}</TableCell>
+                            <TableCell>₹{(bill.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell>
+                              <span style={{
+                                padding: "2px 10px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                background: bill.status?.toLowerCase() === "pending" ? "#fef3c7"
+                                  : bill.status?.toLowerCase() === "billed" ? "#dbeafe"
+                                  : "#d1fae5",
+                                color: bill.status?.toLowerCase() === "pending" ? "#b45309"
+                                  : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
+                                  : "#065f46",
+                              }}>
+                                {bill.status}
+                              </span>
+                            </TableCell>
                             {selectedType === "received" && (
                               <>
                                 <TableCell>{bill.doctor}</TableCell>
-                                <TableCell>₹{bill.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>₹{(bill.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
                                 <TableCell>{bill.payment_method}</TableCell>
                               </>
                             )}
@@ -2477,8 +2634,8 @@ const submitPayment = async () => {
             <span>₹ {paidAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
           </SummaryRow>
           <SummaryRow bold separator highlight={balance === 0} danger={balance > 0}>
-            <span>Balance</span>
-            <span>₹ {balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+            <span>{balance > 0 ? "Pending Amount" : "Balance"}</span>
+            <span>₹ {Math.max(balance, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
           </SummaryRow>
         </SummaryCard>
       </ModalBody>
@@ -2486,10 +2643,10 @@ const submitPayment = async () => {
       <ModalFooterBar>
         <CancelButton onClick={() => setShowPaymentModal(false)}>Cancel</CancelButton>
         <SaveButton
-          disabled={paidAmount === 0 || paidAmount !== netAmount}
+          disabled={paidAmount === 0}
           onClick={submitPayment}
         >
-          Save Payment
+          {balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment"}
         </SaveButton>
       </ModalFooterBar>
     </ModalContainer>
@@ -2674,6 +2831,16 @@ const submitPayment = async () => {
         );
       })()}
       {/* ══════════════ END PRINT MODAL ══════════════ */}
+
+      {/* ── Global Toast Notification ───────────────────── */}
+      {toast.visible && (
+        <ToastWrapper>
+          <ToastBox type={toast.type}>
+            <ToastIcon>{toast.type === "success" ? "✅" : "❌"}</ToastIcon>
+            <ToastText>{toast.message}</ToastText>
+          </ToastBox>
+        </ToastWrapper>
+      )}
 
     </Container>
   );

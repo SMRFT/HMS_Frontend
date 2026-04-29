@@ -111,6 +111,7 @@ import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
+import SalesReturn from "./Components/Pharmacy/SalesReturn";
 
 
 
@@ -859,6 +860,19 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
+                
+
+
+
+
+
+              {hasPagePermission(
+                "/SalesReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/SalesReturn" element={<SalesReturn />} />}
+
+                
               {hasPagePermission(
                 "/OTMaster",
                 allowedActions,
