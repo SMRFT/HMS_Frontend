@@ -115,6 +115,7 @@ import ChemicalComposition from "./Components/InventoryMaster/ChemicalCompositio
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Accounts/ShiftBasisReport";
+import SalesReturn from "./Components/Pharmacy/SalesReturn";
 
 
 
@@ -893,6 +894,19 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
+                
+
+
+
+
+
+              {hasPagePermission(
+                "/SalesReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/SalesReturn" element={<SalesReturn />} />}
+
+                
               {hasPagePermission(
                 "/OTMaster",
                 allowedActions,
