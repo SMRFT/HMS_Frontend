@@ -10,6 +10,7 @@ const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const T = {
     primary: "#10b981",    // Emerald
     primaryDark: "#059669",
+    primaryLight: "#ecfdf5",
     secondary: "#6366f1",  // Indigo
     accent: "#f59e0b",     // Amber
     bgGlass: "rgba(255, 255, 255, 0.75)",
@@ -160,22 +161,47 @@ const Input = styled.input`
     &:focus { border-color: ${T.primary}; }
 `;
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const TabContainer = styled.div`
+    display: flex; gap: 20px; margin-bottom: 30px; border-bottom: 1px solid #e2e8f0;
+`;
+
+const Tab = styled.button`
+    padding: 12px 20px; background: none; border: none; font-weight: 800; font-size: 0.9rem;
+    color: ${props => props.active ? T.primary : "#64748b"};
+    border-bottom: 3px solid ${props => props.active ? T.primary : "transparent"};
+    cursor: pointer; transition: all 0.2s;
+    &:hover { color: ${T.primary}; }
+`;
 const DietMaster = () => {
     const [diets, setDiets] = useState([]);
+    const [extras, setExtras] = useState([]);
+    const [activeTab, setActiveTab] = useState("categories");
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [showExtraModal, setShowExtraModal] = useState(false);
     const [editingDiet, setEditingDiet] = useState(null);
+    const [editingExtra, setEditingExtra] = useState(null);
+    
     const [formData, setFormData] = useState({ 
         diet_name: "", 
         morning_items: "", 
         afternoon_items: "", 
         evening_items: "", 
         dinner_items: "",
+        price: 0,
         is_active: true 
     });
 
-    useEffect(() => { fetchDiets(); }, []);
+    const [extraFormData, setExtraFormData] = useState({
+        item_name: "",
+        price: 0,
+        is_active: true
+    });
+
+    useEffect(() => { 
+        fetchDiets(); 
+        fetchExtras();
+    }, []);
 
     const fetchDiets = async () => {
         setLoading(true);
@@ -186,6 +212,16 @@ const DietMaster = () => {
                 setDiets(dataArray);
             }
         } catch (e) { console.error(e); } finally { setLoading(false); }
+    };
+
+    const fetchExtras = async () => {
+        try {
+            const res = await apiRequest(`${HmsBaseUrl}get_diet_extra_master/?active_only=false`, "GET");
+            if (res.success && res.data) {
+                const dataArray = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                setExtras(dataArray);
+            }
+        } catch (e) { console.error(e); }
     };
 
     const handleSave = async () => {
@@ -200,6 +236,18 @@ const DietMaster = () => {
         } catch (e) { console.error(e); }
     };
 
+    const handleSaveExtra = async () => {
+        if (!extraFormData.item_name) return alert("Item name is required.");
+        try {
+            const res = await apiRequest(`${HmsBaseUrl}save_diet_extra_master/`, "POST", {
+                ...extraFormData,
+                extra_id: editingExtra?.extra_id || null
+            });
+            if (res.success) { setShowExtraModal(false); fetchExtras(); }
+            else { alert(res.error || "Save failed"); }
+        } catch (e) { console.error(e); }
+    };
+
     const openModal = (diet = null) => {
         setEditingDiet(diet);
         setFormData({ 
@@ -208,61 +256,96 @@ const DietMaster = () => {
             afternoon_items: diet?.afternoon_items || "", 
             evening_items: diet?.evening_items || "", 
             dinner_items: diet?.dinner_items || "",
+            price: diet?.price || 0,
             is_active: diet ? diet.is_active : true 
         });
         setShowModal(true);
+    };
+
+    const openExtraModal = (extra = null) => {
+        setEditingExtra(extra);
+        setExtraFormData({
+            item_name: extra?.item_name || "",
+            price: extra?.price || 0,
+            is_active: extra ? extra.is_active : true
+        });
+        setShowExtraModal(true);
     };
 
     return (
         <PageWrapper style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #eef2ff 100%)", minHeight: "100vh" }}>
             <GlassContainer>
                 <HeaderSection>
-                    <Title>🥗 Daily Menu Configuration</Title>
-                    <NewBtn onClick={() => openModal()}>
-                        <FiPlus size={20} /> New Diet Category
+                    <Title>🥗 Diet Configuration & Pricing</Title>
+                    <NewBtn onClick={() => activeTab === "categories" ? openModal() : openExtraModal()}>
+                        <FiPlus size={20} /> New {activeTab === "categories" ? "Diet Category" : "Extra Item"}
                     </NewBtn>
                 </HeaderSection>
+                <TabContainer>
+                    <Tab active={activeTab === "categories"} onClick={() => setActiveTab("categories")}>Diet Categories</Tab>
+                    <Tab active={activeTab === "extras"} onClick={() => setActiveTab("extras")}>Extra Food Items</Tab>
+                </TabContainer>
 
                 <TableWrapper>
                     <SmartTable>
                         <thead>
                             <tr>
-                                <Th>Diet Category</Th>
-                                <Th>Breakfast</Th>
-                                <Th>Afternoon</Th>
-                                <Th>Dinner</Th>
+                                <Th>{activeTab === "categories" ? "Diet Type" : "Item Name"}</Th>
+                                {activeTab === "categories" && (
+                                    <>
+                                        <Th>Morning</Th>
+                                        <Th>Afternoon</Th>
+                                        <Th>Evening</Th>
+                                        <Th>Dinner</Th>
+                                    </>
+                                )}
+                                <Th>Price (₹)</Th>
                                 <Th>Status</Th>
-                                <Th style={{ textAlign: "right" }}>Actions</Th>
+                                <Th>Actions</Th>
                             </tr>
                         </thead>
                         <tbody>
-                            {loading ? (
-                                <tr><Td colSpan="6" style={{ textAlign: "center", padding: "80px", color: T.textMuted }}>Loading configurations...</Td></tr>
-                            ) : diets.length === 0 ? (
-                                <tr><Td colSpan="6" style={{ textAlign: "center", padding: "80px", color: T.textMuted }}>No diet categories defined.</Td></tr>
-                            ) : (
-                                diets.map((d) => (
-                                    <Tr key={d.diet_id}>
-                                        <Td><DietName>{d.diet_name}</DietName></Td>
-                                        <Td><MenuText>{d.morning_items || "—"}</MenuText></Td>
-                                        <Td><MenuText>{d.afternoon_items || "—"}</MenuText></Td>
-                                        <Td><MenuText>{d.dinner_items || "—"}</MenuText></Td>
+                            {activeTab === "categories" ? (
+                                Array.isArray(diets) && diets.map((diet, i) => (
+                                    <Tr key={i}>
+                                        <Td><DietName>{diet.diet_name}</DietName></Td>
+                                        <Td><MenuText title={diet.morning_items}>{diet.morning_items || "—"}</MenuText></Td>
+                                        <Td><MenuText title={diet.afternoon_items}>{diet.afternoon_items || "—"}</MenuText></Td>
+                                        <Td><MenuText title={diet.evening_items}>{diet.evening_items || "—"}</MenuText></Td>
+                                        <Td><MenuText title={diet.dinner_items}>{diet.dinner_items || "—"}</MenuText></Td>
+                                        <Td><div style={{ fontWeight: 800, color: T.secondary }}>{diet.price.toFixed(2)}</div></Td>
                                         <Td>
-                                            <span style={{ 
-                                                padding: "6px 14px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 800,
-                                                background: d.is_active ? "#dcfce7" : "#fee2e2",
-                                                color: d.is_active ? "#166534" : "#991b1b"
-                                            }}>
-                                                {d.is_active ? "Active" : "Inactive"}
-                                            </span>
-                                        </Td>
-                                        <Td style={{ textAlign: "right" }}>
-                                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
-                                                <ActionBtn onClick={() => openModal(d)}><FiEdit2 /></ActionBtn>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: diet.is_active ? T.primary : "#94a3b8", fontWeight: 800, fontSize: "0.8rem" }}>
+                                                {diet.is_active ? <FiCheck /> : <FiX />} {diet.is_active ? "ACTIVE" : "INACTIVE"}
                                             </div>
+                                        </Td>
+                                        <Td>
+                                            <ActionBtn onClick={() => openModal(diet)}><FiEdit2 /></ActionBtn>
                                         </Td>
                                     </Tr>
                                 ))
+                            ) : (
+                                Array.isArray(extras) && extras.map((item, i) => (
+                                    <Tr key={i}>
+                                        <Td><DietName>{item.item_name}</DietName></Td>
+                                        <Td><div style={{ fontWeight: 800, color: T.secondary }}>{item.price.toFixed(2)}</div></Td>
+                                        <Td>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: item.is_active ? T.primary : "#94a3b8", fontWeight: 800, fontSize: "0.8rem" }}>
+                                                {item.is_active ? <FiCheck /> : <FiX />} {item.is_active ? "ACTIVE" : "INACTIVE"}
+                                            </div>
+                                        </Td>
+                                        <Td>
+                                            <ActionBtn onClick={() => openExtraModal(item)}><FiEdit2 /></ActionBtn>
+                                        </Td>
+                                    </Tr>
+                                ))
+                            )}
+                            {((activeTab === "categories" && diets.length === 0) || (activeTab === "extras" && extras.length === 0)) && !loading && (
+                                <Tr>
+                                    <Td colSpan={activeTab === "categories" ? 8 : 4} style={{ textAlign: "center", padding: "40px", color: "#64748b", fontWeight: 600 }}>
+                                        No items found. Click 'New' to add one.
+                                    </Td>
+                                </Tr>
                             )}
                         </tbody>
                     </SmartTable>
@@ -282,6 +365,11 @@ const DietMaster = () => {
                             <div>
                                 <SessionLabel style={{ marginBottom: "8px" }}>Dietary Category Name</SessionLabel>
                                 <Input placeholder="e.g. Therapeutic Diabetics" value={formData.diet_name} onChange={e => setFormData({...formData, diet_name: e.target.value})} />
+                            </div>
+
+                            <div>
+                                <SessionLabel style={{ marginBottom: "8px" }}>Base Price (₹)</SessionLabel>
+                                <Input type="number" placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
                             </div>
 
                             <SessionGrid>
@@ -310,6 +398,36 @@ const DietMaster = () => {
 
                             <NewBtn onClick={handleSave} style={{ width: "100%", justifyContent: "center", padding: "16px" }}>
                                 {editingDiet ? "🚀 Update Configuration" : "✨ Save Master Settings"}
+                            </NewBtn>
+                        </MBody>
+                    </Modal>
+                </Overlay>
+            )}
+
+            {showExtraModal && (
+                <Overlay onClick={() => setShowExtraModal(false)}>
+                    <Modal style={{ width: "450px" }} onClick={e => e.stopPropagation()}>
+                        <MHeader>
+                            <h3 style={{ margin: 0, fontWeight: 900, color: "#1e293b", display: "flex", alignItems: "center", gap: "10px" }}>
+                                <FiActivity color={T.primary} /> {editingExtra ? "Edit Extra Item" : "New Extra Food Item"}
+                            </h3>
+                            <ActionBtn style={{ background: "#f1f5f9", color: "#64748b" }} onClick={() => setShowExtraModal(false)}><FiX /></ActionBtn>
+                        </MHeader>
+                        <MBody>
+                            <div>
+                                <SessionLabel style={{ marginBottom: "8px" }}>Item Name</SessionLabel>
+                                <Input placeholder="e.g. Health Soup" value={extraFormData.item_name} onChange={e => setExtraFormData({...extraFormData, item_name: e.target.value})} />
+                            </div>
+                            <div>
+                                <SessionLabel style={{ marginBottom: "8px" }}>Price (₹)</SessionLabel>
+                                <Input type="number" placeholder="0.00" value={extraFormData.price} onChange={e => setExtraFormData({...extraFormData, price: e.target.value})} />
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "15px", background: "#f8fafc", borderRadius: "14px" }}>
+                                <input type="checkbox" id="extra_active" checked={extraFormData.is_active} onChange={e => setExtraFormData({...extraFormData, is_active: e.target.checked})} style={{ width: "18px", height: "18px" }} />
+                                <label htmlFor="extra_active" style={{ fontWeight: 700, fontSize: "0.9rem", color: "#475569" }}>Active</label>
+                            </div>
+                            <NewBtn onClick={handleSaveExtra} style={{ width: "100%", justifyContent: "center", padding: "16px" }}>
+                                {editingExtra ? "🚀 Update Item" : "✨ Save Extra Item"}
                             </NewBtn>
                         </MBody>
                     </Modal>

@@ -416,6 +416,11 @@ const InvestigationPrice = () => {
   const [viewRecord, setViewRecord] = useState(null);
   const [newItemName, setNewItemName] = useState("");
   const [filters, setFilters] = useState({ search: "", is_active: "" });
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-IPE-RW");
+  const canDelete = allowedActions.includes("HMS-P-IPD-RW");
 
   /* ── Fetch ── */
   const fetchRecords = async (params = {}) => {
@@ -760,18 +765,22 @@ const InvestigationPrice = () => {
                           >
                             View
                           </button>
-                          <button
-                            style={css.smallBtn("ghost")}
-                            onClick={() => handleEdit(rec)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            style={css.smallBtn("danger")}
-                            onClick={() => handleDelete(rec.billTypeNo)}
-                          >
-                            Delete
-                          </button>
+                          {canEdit && (
+                            <button
+                              style={css.smallBtn("ghost")}
+                              onClick={() => handleEdit(rec)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              style={css.smallBtn("danger")}
+                              onClick={() => handleDelete(rec.billTypeNo)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </Td>
                     </Tr>

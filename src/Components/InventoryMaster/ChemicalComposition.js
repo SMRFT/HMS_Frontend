@@ -40,27 +40,27 @@ const SectionTitle = styled.h4`
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PharmacyCategory = () => {
-  const [categories, setCategories] = useState([]);
-  const [formData, setFormData]     = useState({ category_name: "" });
-  const [editingId, setEditingId]   = useState(null);
+const ChemicalComposition = () => {
+  const [compositions, setCompositions] = useState([]);
+  const [formData, setFormData]         = useState({ composition_name: "" });
+  const [editingId, setEditingId]       = useState(null);
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => { fetchCompositions(); }, []);
 
   // ── API ──────────────────────────────────────────────────────────────────
 
-  const fetchCategories = async () => {
+  const fetchCompositions = async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}pharmacy-category/`, "GET");
-      setCategories(
+      const response = await apiRequest(`${HmsBaseUrl}chemical-composition/`, "GET");
+      setCompositions(
         response && !response.error && Array.isArray(response.data)
           ? response.data
           : []
       );
     } catch {
-      toast.error("Failed to fetch categories");
+      toast.error("Failed to fetch compositions");
     }
   };
 
@@ -71,67 +71,71 @@ const PharmacyCategory = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleEdit = (category) => {
-    setEditingId(category.category_id);
-    setFormData({ category_name: category.category_name });
+  const handleEdit = (composition) => {
+    setEditingId(composition.composition_id);
+    setFormData({ composition_name: composition.composition_name });
     window.scrollTo(0, 0);
   };
 
-  const handleDelete = async (category) => {
-    if (!window.confirm("Are you sure you want to delete this category?")) return;
+  const handleDelete = async (composition) => {
+    if (!window.confirm("Are you sure you want to delete this composition?")) return;
     try {
       const response = await apiRequest(
-        `${HmsBaseUrl}pharmacy-category/${category.category_id}/`,
+        `${HmsBaseUrl}chemical-composition/${composition.composition_id}/`,
         "DELETE"
       );
       if (response && !response.error) {
-        toast.success("Category deleted successfully");
-        fetchCategories();
+        toast.success("Composition deleted successfully");
+        fetchCompositions();
       } else {
-        toast.error(response?.error || "Failed to delete category");
+        toast.error(response?.error || "Failed to delete composition");
       }
     } catch {
-      toast.error("Failed to delete category");
+      toast.error("Failed to delete composition");
     }
   };
 
   const handleReset = () => {
     setEditingId(null);
-    setFormData({ category_name: "" });
+    setFormData({ composition_name: "" });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.composition_name.trim()) {
+      toast.error("Composition name is required");
+      return;
+    }
     try {
       if (editingId) {
         const response = await apiRequest(
-          `${HmsBaseUrl}pharmacy-category/${editingId}/`,
+          `${HmsBaseUrl}chemical-composition/${editingId}/`,
           "PUT",
           formData
         );
         if (response && !response.error) {
-          toast.success("Category updated successfully");
+          toast.success("Composition updated successfully");
           handleReset();
-          fetchCategories();
+          fetchCompositions();
         } else {
           toast.error(response?.error || "Update failed");
         }
       } else {
         const response = await apiRequest(
-          `${HmsBaseUrl}pharmacy-category/`,
+          `${HmsBaseUrl}chemical-composition/`,
           "POST",
           formData
         );
         if (response && !response.error) {
-          toast.success("Category added successfully");
+          toast.success("Composition added successfully");
           handleReset();
-          fetchCategories();
+          fetchCompositions();
         } else {
           toast.error(response?.error || "Create failed");
         }
       }
     } catch {
-      toast.error("Failed to save category");
+      toast.error("Failed to save composition");
     }
   };
 
@@ -144,8 +148,8 @@ const PharmacyCategory = () => {
         {/* ── Header ── */}
         <PageHeader>
           <div>
-            <PageTitle>🗂️ Pharmacy Category</PageTitle>
-            <PageSubtitle>Manage pharmacy category master data</PageSubtitle>
+            <PageTitle>🧪 Chemical Composition</PageTitle>
+            <PageSubtitle>Manage chemical composition master data</PageSubtitle>
           </div>
         </PageHeader>
 
@@ -154,14 +158,14 @@ const PharmacyCategory = () => {
           <form onSubmit={handleSubmit}>
             <FormRow columns="1fr">
               <InputWrapper>
-                <Label required>Category Name</Label>
+                <Label required>Composition Name</Label>
                 <Input
                   type="text"
-                  name="category_name"
-                  value={formData.category_name}
+                  name="composition_name"
+                  value={formData.composition_name}
                   onChange={handleInputChange}
                   required
-                  placeholder="Enter Category Name"
+                  placeholder="Enter Composition Name (e.g. Paracetamol 500mg)"
                 />
               </InputWrapper>
             </FormRow>
@@ -171,7 +175,7 @@ const PharmacyCategory = () => {
                 Reset
               </Button>
               <Button type="submit">
-                {editingId ? "Update Category" : "Add Category"}
+                {editingId ? "Update Composition" : "Add Composition"}
               </Button>
             </ButtonContainer>
           </form>
@@ -179,40 +183,40 @@ const PharmacyCategory = () => {
 
         {/* ── Table ── */}
         <div style={{ padding: "0 24px 24px" }}>
-          <SectionTitle>Category List</SectionTitle>
+          <SectionTitle>Composition List</SectionTitle>
           <TableWrapper>
             <Table>
               <thead>
                 <tr>
-                  <Th>Category ID</Th>
-                  <Th>Category Name</Th>
+                  <Th>Composition ID</Th>
+                  <Th>Composition Name</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
-                {categories.length === 0 ? (
+                {compositions.length === 0 ? (
                   <Tr>
                     <Td colSpan="3" style={{ textAlign: "center" }}>
-                      No categories found
+                      No compositions found
                     </Td>
                   </Tr>
                 ) : (
-                  categories.map((category) => (
-                    <Tr key={category.category_id}>
-                      <Td>{category.category_id}</Td>
-                      <Td>{category.category_name}</Td>
+                  compositions.map((comp) => (
+                    <Tr key={comp.composition_id}>
+                      <Td>{comp.composition_id}</Td>
+                      <Td>{comp.composition_name}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
                           <Button
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleEdit(category)}
+                            onClick={() => handleEdit(comp)}
                           >
                             Edit
                           </Button>
                           <Button
                             danger
                             style={{ padding: "6px 12px", fontSize: "0.8rem" }}
-                            onClick={() => handleDelete(category)}
+                            onClick={() => handleDelete(comp)}
                           >
                             Delete
                           </Button>
@@ -231,4 +235,4 @@ const PharmacyCategory = () => {
   );
 };
 
-export default PharmacyCategory;
+export default ChemicalComposition;

@@ -594,25 +594,26 @@ const SurgerySchedule = () => {
   // Date filter
   const [fromDate, setFromDate] = useState(today());
   const [toDate, setToDate] = useState(today());
-
-  // Form
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
   const [errorMsg, setErrorMsg] = useState("");
-
-  // Additional staff
   const [addAnes, setAddAnes] = useState([]); // [{ id, name }]
   const [addDoctors, setAddDoctors] = useState([]); // [{ id, name }]
   const [anesInput, setAnesInput] = useState("");
   const [docInput, setDocInput] = useState("");
-
-  // Table
   const [scheduleList, setScheduleList] = useState([]);
   const [loading, setLoading] = useState(false);
-  // Multi-filter: 'Scheduled' | 'Confirmed' | 'Cancelled' | 'Emergency'
-  // Empty set = show all
   const [activeFilters, setActiveFilters] = useState(new Set());
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-OTSSE-RW");
+  const canDelete = allowedActions.includes("HMS-P-OTSSD-RW");
+  const canSchedule = allowedActions.includes("HMS-P-OTSSU-RW");
+  const canApprove = allowedActions.includes("HMS-P-OTSSA-RW");
+  const canLab = allowedActions.includes("HMS-P-IB-RW");
+  const canMedicine = allowedActions.includes("HMS-P-OTMB-RW");
 
   const toggleFilter = (key) => {
     setActiveFilters((prev) => {
@@ -1996,40 +1997,48 @@ const SurgerySchedule = () => {
                           return (
                             <ActionBtnRow>
                               {/* Edit */}
-                              <IconAction
-                                col="#0d9488"
-                                title={lockMain ? "Edit locked" : "Edit"}
-                                disabled={lockMain}
-                                onClick={() => !lockMain && openEdit(s)}
-                              >
-                                <Pencil size={15} />
-                              </IconAction>
+                              {canEdit && (
+                                <IconAction
+                                  col="#0d9488"
+                                  title={lockMain ? "Edit locked" : "Edit"}
+                                  disabled={lockMain}
+                                  onClick={() => !lockMain && openEdit(s)}
+                                >
+                                  <Pencil size={15} />
+                                </IconAction>
+                              )}
 
                               {/* Cancel */}
-                              <IconAction
-                                col="#dc2626"
-                                title={
-                                  lockMain ? "Cancel locked" : "Cancel Schedule"
-                                }
-                                disabled={lockMain}
-                                onClick={() => !lockMain && handleCancel(s)}
-                              >
-                                <X size={15} />
-                              </IconAction>
+                              {canDelete && (
+                                <IconAction
+                                  col="#dc2626"
+                                  title={
+                                    lockMain
+                                      ? "Cancel locked"
+                                      : "Cancel Schedule"
+                                  }
+                                  disabled={lockMain}
+                                  onClick={() => !lockMain && handleCancel(s)}
+                                >
+                                  <X size={15} />
+                                </IconAction>
+                              )}
 
                               {/* Postponed Date */}
-                              <IconAction
-                                col="#7c3aed"
-                                title={
-                                  lockMain
-                                    ? "Postpone locked"
-                                    : "Set Postponed Date"
-                                }
-                                disabled={lockMain}
-                                onClick={() => !lockMain && openPostpone(s)}
-                              >
-                                <CalendarClock size={15} />
-                              </IconAction>
+                              {canSchedule && (
+                                <IconAction
+                                  col="#7c3aed"
+                                  title={
+                                    lockMain
+                                      ? "Postpone locked"
+                                      : "Set Postponed Date"
+                                  }
+                                  disabled={lockMain}
+                                  onClick={() => !lockMain && openPostpone(s)}
+                                >
+                                  <CalendarClock size={15} />
+                                </IconAction>
+                              )}
 
                               {/* Send Pack Request to CSSD */}
                               <IconAction
@@ -2070,52 +2079,58 @@ const SurgerySchedule = () => {
                               </IconAction>
 
                               {/* Confirm Schedule */}
-                              <IconAction
-                                col="#ea580c"
-                                title={
-                                  lockConfirm
-                                    ? "Already Confirmed"
-                                    : "Confirm Schedule"
-                                }
-                                disabled={lockConfirm}
-                                onClick={() =>
-                                  !lockConfirm && confirmSchedule(s)
-                                }
-                              >
-                                <CheckCheck size={15} />
-                              </IconAction>
+                              {canApprove && (
+                                <IconAction
+                                  col="#ea580c"
+                                  title={
+                                    lockConfirm
+                                      ? "Already Confirmed"
+                                      : "Confirm Schedule"
+                                  }
+                                  disabled={lockConfirm}
+                                  onClick={() =>
+                                    !lockConfirm && confirmSchedule(s)
+                                  }
+                                >
+                                  <CheckCheck size={15} />
+                                </IconAction>
+                              )}
 
                               {/* Raise Lab Request — only enabled after Confirmed */}
-                              <IconAction
-                                col="#0891b2"
-                                title={
-                                  isConfirmed
-                                    ? "Raise Lab Request"
-                                    : "Available after Confirmed"
-                                }
-                                disabled={!isConfirmed}
-                                onClick={() =>
-                                  isConfirmed && raiseLabRequest(s)
-                                }
-                              >
-                                <FlaskConical size={15} />
-                              </IconAction>
+                              {canLab && (
+                                <IconAction
+                                  col="#0891b2"
+                                  title={
+                                    isConfirmed
+                                      ? "Raise Lab Request"
+                                      : "Available after Confirmed"
+                                  }
+                                  disabled={!isConfirmed}
+                                  onClick={() =>
+                                    isConfirmed && raiseLabRequest(s)
+                                  }
+                                >
+                                  <FlaskConical size={15} />
+                                </IconAction>
+                              )}
 
                               {/* Raise Medicine Request — only enabled after Confirmed */}
-                              <IconAction
-                                col="#7c3aed"
-                                title={
-                                  isConfirmed
-                                    ? "Raise Medicine Request"
-                                    : "Available after Confirmed"
-                                }
-                                disabled={!isConfirmed}
-                                onClick={() =>
-                                  isConfirmed && raiseMedicineRequest(s)
-                                }
-                              >
-                                <Pill size={15} />
-                              </IconAction>
+                              {canMedicine && (
+                                <IconAction
+                                  col="#7c3aed"
+                                  title={
+                                    isConfirmed
+                                      ? "Raise Medicine Request"
+                                      : "Available after Confirmed"
+                                  }
+                                  disabled={!isConfirmed}
+                                  onClick={() =>
+                                    isConfirmed && raiseMedicineRequest(s)
+                                  }
+                                >
+                                  <Pill size={15} />
+                                </IconAction>
+                              )}
                             </ActionBtnRow>
                           );
                         })()}

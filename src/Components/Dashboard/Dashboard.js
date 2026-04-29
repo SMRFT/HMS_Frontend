@@ -1,136 +1,203 @@
-
 import React, { useState, useEffect } from "react";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import axios from "axios";
-import { colors, fadeIn, PageWrapper, Container, SectionTitle } from "../GlobalStyles";
-import { FiUsers, FiUserCheck, FiActivity, FiUserPlus } from "react-icons/fi";
+import { colors, fadeIn, Container } from "../GlobalStyles";
+import { FiUsers, FiUserCheck, FiActivity, FiUserPlus, FiTrendingUp, FiCalendar, FiRefreshCw } from "react-icons/fi";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 
-const DashboardWrapper = styled(PageWrapper)`
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-    margin-top: 24px;
-  }
-  
-  .chart-section {
-    margin-top: 40px;
-    background: ${colors.surface};
-    padding: 24px;
-    border-radius: 12px;
-    border: 1px solid ${colors.border};
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  }
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+const THEMES = {
+    primary: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    secondary: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+    warning: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    accent: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
+};
+
+// ─── ANIMATIONS ──────────────────────────────────────────────────────────────
+const pulse = keyframes`
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 `;
 
-const StatCard = styled.div`
-  background: ${colors.surface};
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  border: 1px solid ${colors.border};
+const rotate = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+// ─── STYLED COMPONENTS ───────────────────────────────────────────────────────
+const DashboardWrapper = styled.div`
+  min-height: 100vh;
+  background: #f8fafc;
+  padding: 30px 24px 60px;
+  font-family: 'Inter', -apple-system, sans-serif;
+`;
+
+const HeaderSection = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 20px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  animation: ${fadeIn} 0.4s ease-out;
+  margin-bottom: 32px;
+  
+  h1 {
+    font-size: 1.85rem;
+    font-weight: 850;
+    color: #0f172a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
 
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-    border-color: ${colors.primary};
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #10b981;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      animation: ${pulse} 2s infinite;
+    }
   }
 `;
 
-const IconWrapper = styled.div`
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+const RefreshBtn = styled.button`
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  flex-shrink: 0;
-  
-  &.primary {
-    background: rgba(13, 148, 136, 0.1);
-    color: ${colors.primary};
-  }
-  
-  &.secondary {
-    background: rgba(245, 158, 11, 0.1);
-    color: ${colors.secondary};
-  }
-  
-  &.info {
-    background: rgba(59, 130, 246, 0.1);
+  transition: all 0.2s;
+  &:hover { 
     color: #3b82f6; 
-  }
-  
-  &.success {
-    background: rgba(34, 197, 94, 0.1);
-    color: ${colors.success};
+    border-color: #3b82f6;
+    svg { animation: ${rotate} 0.5s linear; } 
   }
 `;
 
-const StatContent = styled.div`
-  flex: 1;
-  h4 {
-    margin: 0 0 4px;
-    font-size: 0.8rem;
-    color: ${colors.textMuted};
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+`;
+
+const PremiumCard = styled.div`
+  background: ${({ theme }) => THEMES[theme] || THEMES.primary};
+  padding: 26px;
+  border-radius: 24px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+  transition: all 0.3s;
+  animation: ${fadeIn} 0.5s ease-out backwards;
+  animation-delay: ${({ delay }) => delay}s;
+
+  &:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15);
+  }
+
+  .label {
+    font-size: 0.85rem;
     font-weight: 600;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
   }
-  
-  strong {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: ${colors.textMain};
-    line-height: 1.2;
+
+  .value {
+    font-size: 2.25rem;
+    font-weight: 850;
+    margin-bottom: 4px;
+  }
+
+  .trend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 10px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+
+  .icon {
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    font-size: 6rem;
+    opacity: 0.12;
+    transform: rotate(-15deg);
   }
 `;
 
-const LoadingSpinner = styled.div`
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(13, 148, 136, 0.1);
-  border-top-color: ${colors.primary};
-  border-radius: 50%;
-  animation: spinner 0.6s linear infinite;
-  
-  @keyframes spinner {
-    to { transform: rotate(360deg); }
+const ChartCard = styled.div`
+  background: white;
+  border-radius: 24px;
+  padding: 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  border: 1px solid #eef2f6;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+
+    h3 {
+      margin: 0;
+      color: #1e293b;
+      font-weight: 800;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
   }
 `;
 
-const ErrorMessage = styled.div`
-  color: ${colors.danger};
-  background: rgba(239, 68, 68, 0.1);
-  padding: 12px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  margin-top: 10px;
-`;
+// ─── ANIMATED VALUE ──────────────────────────────────────────────────────────
+const AnimatedValue = ({ value }) => {
+    const [display, setDisplay] = useState(0);
+    useEffect(() => {
+        const val = Number(value) || 0;
+        let start = 0;
+        const duration = 800;
+        const step = val / (duration / 16);
+        const timer = setInterval(() => {
+            start += step;
+            if (start >= val) { setDisplay(val); clearInterval(timer); }
+            else setDisplay(Math.floor(start));
+        }, 16);
+        return () => clearInterval(timer);
+    }, [value]);
+    return <span>{display.toLocaleString()}</span>;
+};
 
-const ChartTitle = styled.h3`
-  font-size: 1.1rem;
-  color: ${colors.textMain};
-  margin-bottom: 20px;
-  font-weight: 600;
-`;
-
+// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 const Dashboard = () => {
   const [stats, setStats] = useState({
     total_registered_patients: 0,
@@ -140,115 +207,95 @@ const Dashboard = () => {
     chart_data: []
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://127.0.0.1:8000/hospital/";
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // If base URL is not set, use a relative path or direct fallback
-        const baseUrl = Hmsbaseurl || "http://127.0.0.1:8000/hospital/";
-        const response = await axios.get(`${baseUrl}dashboard/stats/`);
-        setStats(response.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
-        setError("Failed to load dashboard statistics.");
-        setLoading(false);
-      }
-    };
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(`${Hmsbaseurl}dashboard/stats/`);
+      setStats(data);
+    } catch (err) {
+      console.error("Dashboard error", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchStats();
-  }, [Hmsbaseurl]);
-
-  // Calculate dummy max domain for improved chart visual if needed, 
-  // or let recharts handle auto scaling.
+  useEffect(() => { fetchStats(); }, []);
 
   return (
     <DashboardWrapper>
       <Container>
-        <SectionTitle>
-          <h3>Dashboard Overview</h3>
-        </SectionTitle>
+        <HeaderSection>
+          <h1><FiActivity style={{color: '#10b981'}}/> Hospital Overview</h1>
+          <div style={{display: 'flex', gap: 15, alignItems: 'center'}}>
+            <div className="live-indicator"><div className="dot" /> Live Indicators</div>
+            <RefreshBtn onClick={fetchStats}><FiRefreshCw /></RefreshBtn>
+          </div>
+        </HeaderSection>
 
-        {error && <ErrorMessage>{error}</ErrorMessage>}
+        <Grid>
+          <PremiumCard theme="primary" delay={0}>
+            <div className="label">Total Registered</div>
+            <div className="value"><AnimatedValue value={stats.total_registered_patients} /></div>
+            <div className="trend"><FiUsers /> Lifetime Patients</div>
+            <FiUsers className="icon" />
+          </PremiumCard>
 
-        <div className="dashboard-grid">
-          {/* Total Registered Patients (Lifetime) */}
-          <StatCard>
-            <IconWrapper className="primary">
-              <FiUsers />
-            </IconWrapper>
-            <StatContent>
-              <h4>Total Registered</h4>
-              {loading ? <LoadingSpinner /> : <strong>{stats.total_registered_patients}</strong>}
-            </StatContent>
-          </StatCard>
+          <PremiumCard theme="secondary" delay={0.1}>
+            <div className="label">Today's Visits</div>
+            <div className="value"><AnimatedValue value={stats.today_total_visits} /></div>
+            <div className="trend"><FiActivity /> Active Consultations</div>
+            <FiActivity className="icon" />
+          </PremiumCard>
 
-          {/* Today's Total Visits */}
-          <StatCard>
-            <IconWrapper className="info">
-              <FiActivity />
-            </IconWrapper>
-            <StatContent>
-              <h4>Today's Visits</h4>
-              {loading ? <LoadingSpinner /> : <strong>{stats.today_total_visits}</strong>}
-            </StatContent>
-          </StatCard>
+          <PremiumCard theme="warning" delay={0.2}>
+            <div className="label">New Registrations</div>
+            <div className="value"><AnimatedValue value={stats.today_new_patients} /></div>
+            <div className="trend"><FiUserPlus /> Onboarded Today</div>
+            <FiUserPlus className="icon" />
+          </PremiumCard>
 
-          {/* Today's New Patients */}
-          <StatCard>
-            <IconWrapper className="success">
-              <FiUserPlus />
-            </IconWrapper>
-            <StatContent>
-              <h4>Today's New</h4>
-              {loading ? <LoadingSpinner /> : <strong>{stats.today_new_patients}</strong>}
-            </StatContent>
-          </StatCard>
+          <PremiumCard theme="accent" delay={0.3}>
+            <div className="label">Success Renewals</div>
+            <div className="value"><AnimatedValue value={stats.today_renewals} /></div>
+            <div className="trend"><FiUserCheck /> Returning Patients</div>
+            <FiUserCheck className="icon" />
+          </PremiumCard>
+        </Grid>
 
-          {/* Today's Renewals */}
-          <StatCard>
-            <IconWrapper className="secondary">
-              <FiUserCheck />
-            </IconWrapper>
-            <StatContent>
-              <h4>Today's Renewals</h4>
-              {loading ? <LoadingSpinner /> : <strong>{stats.today_renewals}</strong>}
-            </StatContent>
-          </StatCard>
-        </div>
-
-        {/* Chart Section */}
-        <div className="chart-section">
-          <ChartTitle>Patient Trends (Last 7 Days)</ChartTitle>
+        <ChartCard>
+          <div className="header">
+            <h3><FiCalendar /> Patient Volume Trends</h3>
+            <div style={{fontSize: '0.85rem', color: '#64748b', fontWeight: 600}}>Last 7 Days (Moving Average)</div>
+          </div>
           <div style={{ width: '100%', height: 400 }}>
             <ResponsiveContainer>
-              <BarChart
-                data={stats.chart_data}
-                margin={{
-                  top: 20,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                  cursor={{ fill: '#f1f5f9' }}
+              <AreaChart data={stats.chart_data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorNew" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorRenew" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.05)' }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="New Patients" fill={colors.success} radius={[4, 4, 0, 0]} maxBarSize={50} />
-                <Bar dataKey="Renewals" fill={colors.secondary} radius={[4, 4, 0, 0]} maxBarSize={50} />
-              </BarChart>
+                <Legend verticalAlign="top" height={36} iconType="circle" />
+                <Area type="monotone" dataKey="New Patients" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorNew)" />
+                <Area type="monotone" dataKey="Renewals" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRenew)" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
+        </ChartCard>
       </Container>
     </DashboardWrapper>
   );

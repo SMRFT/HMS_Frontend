@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   PageWrapper,
   Container,
@@ -50,7 +50,7 @@ const Drawer = styled.div`
   background: ${colors.surface};
   border: 1px solid ${colors.border};
   border-radius: 0 0 8px 8px;
-  max-height: ${(p) => (p.open ? "700px" : "0")};
+  max-height: ${(p) => (p.open ? "800px" : "0")};
   overflow: hidden;
   transition: max-height 0.35s ease;
 `;
@@ -58,7 +58,7 @@ const Drawer = styled.div`
 const DrawerInner = styled.div`
   padding: 20px 24px 16px;
   overflow-y: auto;
-  max-height: 680px;
+  max-height: 780px;
 `;
 
 const DrawerHeader = styled.div`
@@ -228,72 +228,191 @@ const DisabledInput = styled(Input)`
   cursor: not-allowed;
 `;
 
-// HSN read-only display (add mode) — shows the auto-generated value
-const HsnReadOnly = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid ${colors.border};
-  border-radius: 6px;
-  background: #f0fdf4;
-  font-family: monospace;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #16a34a;
-  letter-spacing: 1px;
+// ─── Searchable Composition Dropdown ─────────────────────────────────────────
+
+const ComboWrapper = styled.div`
+  position: relative;
 `;
 
-const HsnTag = styled.span`
-  font-size: 0.65rem;
-  font-weight: 700;
-  background: #16a34a;
-  color: white;
-  padding: 1px 5px;
-  border-radius: 8px;
-  letter-spacing: 0.3px;
+const ComboInput = styled(Input)`
+  cursor: text;
 `;
+
+const ComboDropdown = styled.ul`
+  position: absolute;
+  z-index: 1000;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+`;
+
+const ComboOption = styled.li`
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  color: ${colors.textMain};
+  background: ${(p) => (p.highlighted ? "#f0fdfa" : "transparent")};
+  &:hover { background: #f0fdfa; color: ${colors.primary}; }
+`;
+
+const ComboEmpty = styled.li`
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  color: ${colors.textMuted};
+  list-style: none;
+`;
+
+const CompositionTag = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f766e;
+  margin-top: 4px;
+`;
+
+// ─── Searchable Dropdown Component ───────────────────────────────────────────
+
+const CompositionSelect = ({ compositions, value, onChange, error }) => {
+  const [query, setQuery]       = useState("");
+  const [open, setOpen]         = useState(false);
+  const wrapperRef              = useRef(null);
+
+  // Find label for the current value
+  const selectedLabel = compositions.find(
+    (c) => String(c.composition_id) === String(value)
+  )?.composition_name || "";
+
+  // Filter by search query
+  const filtered = query.trim()
+    ? compositions.filter((c) =>
+        c.composition_name.toLowerCase().includes(query.toLowerCase())
+      )
+    : compositions;
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (comp) => {
+    onChange(comp.composition_id);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const handleClear = () => {
+    onChange("");
+    setQuery("");
+  };
+
+  return (
+    <ComboWrapper ref={wrapperRef}>
+      <ComboInput
+        readOnly={!!selectedLabel && !open}
+        value={open ? query : selectedLabel}
+        placeholder="Search composition…"
+        style={error ? { borderColor: "#dc2626" } : {}}
+        onFocus={() => { setOpen(true); setQuery(""); }}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
+      {selectedLabel && !open && (
+        <CompositionTag>
+          🧪 {selectedLabel}
+          <span
+            style={{ cursor: "pointer", fontWeight: 700, color: "#dc2626" }}
+            onClick={handleClear}
+            title="Clear"
+          >
+            ×
+          </span>
+        </CompositionTag>
+      )}
+
+      {open && (
+        <ComboDropdown>
+          {filtered.length === 0 ? (
+            <ComboEmpty>No compositions found</ComboEmpty>
+          ) : (
+            filtered.map((comp) => (
+              <ComboOption
+                key={comp.composition_id}
+                highlighted={String(comp.composition_id) === String(value)}
+                onMouseDown={() => handleSelect(comp)}
+              >
+                {comp.composition_name}
+              </ComboOption>
+            ))
+          )}
+        </ComboDropdown>
+      )}
+    </ComboWrapper>
+  );
+};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const EMPTY_FORM = {
-  item_name: "",
-  item_last_name: "",
-  category: "",
-  hsn: "",
-  high_risk: false,
-  look_alike: false,
-  sound_alike: false,
-  reorder_level: "",
-  IP_available: true,
-  IP_shelf_no: "",
-  IP_rack_no: "",
-  OP_available: true,
-  OP_shelf_no: "",
-  OP_rack_no: "",
-  G_available: true,
-  G_shelf_no: "",
-  G_rack_no: "",
-  is_blocked: false,
-  blocked_reason: "",
+  item_name:            "",
+  item_last_name:       "",
+  category:             "",
+  hsn:                  "",       // manual input now
+  brand_name:           "",       // NEW
+  chemical_composition: "",       // NEW — stores composition_id
+  high_risk:            false,
+  look_alike:           false,
+  sound_alike:          false,
+  reorder_level:        "",
+  IP_available:         true,
+  IP_shelf_no:          "",
+  IP_rack_no:           "",
+  OP_available:         true,
+  OP_shelf_no:          "",
+  OP_rack_no:           "",
+  G_available:          true,
+  G_shelf_no:           "",
+  G_rack_no:            "",
+  is_blocked:           false,
+  blocked_reason:       "",
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const PharmacyItemMaster = () => {
-  const [items, setItems]           = useState([]);
-  const [categories, setCategories] = useState([]);   // ← from API
-  const [nextHsn, setNextHsn]       = useState("");   // ← auto-generated preview
-  const [form, setForm]             = useState(EMPTY_FORM);
-  const [editId, setEditId]         = useState(null);
-  const [showForm, setShowForm]     = useState(false);
-  const [search, setSearch]         = useState("");
-  const [loading, setLoading]       = useState(false);
-  const [errors, setErrors]         = useState({});
-  const [toast, setToast]           = useState(null);
+  const [items, setItems]               = useState([]);
+  const [categories, setCategories]     = useState([]);
+  const [compositions, setCompositions] = useState([]);   // NEW
+  const [form, setForm]                 = useState(EMPTY_FORM);
+  const [editId, setEditId]             = useState(null);
+  const [showForm, setShowForm]         = useState(false);
+  const [search, setSearch]             = useState("");
+  const [loading, setLoading]           = useState(false);
+  const [errors, setErrors]             = useState({});
+  const [toast, setToast]               = useState(null);
 
   // ── API ──────────────────────────────────────────────────────────────────
 
@@ -306,11 +425,9 @@ const PharmacyItemMaster = () => {
     }
   };
 
-  // Fetch categories from pharmacy-category endpoint
   const fetchCategories = async () => {
     try {
       const res = await apiRequest(`${baseUrl}pharmacy-category/`, "GET");
-      // Accept both response shapes: res.data (array) or res itself (array)
       const list = Array.isArray(res?.data) ? res.data
                  : Array.isArray(res)        ? res
                  : [];
@@ -320,29 +437,23 @@ const PharmacyItemMaster = () => {
     }
   };
 
-  // Derive the next HSN from the existing items list
-  const computeNextHsn = (itemList) => {
-    if (!itemList || itemList.length === 0) return "00001";
-    // Collect valid numeric HSN values
-    const nums = itemList
-      .map((it) => parseInt(it.hsn, 10))
-      .filter((n) => !isNaN(n));
-    if (nums.length === 0) return "00001";
-    const max = Math.max(...nums);
-    return String(max + 1).padStart(5, "0");
+  const fetchCompositions = async () => {
+    try {
+      const res = await apiRequest(`${baseUrl}chemical-composition/`, "GET");
+      const list = Array.isArray(res?.data) ? res.data
+                 : Array.isArray(res)        ? res
+                 : [];
+      setCompositions(list);
+    } catch {
+      showToast("Failed to fetch compositions", "error");
+    }
   };
 
   useEffect(() => {
     fetchItems();
     fetchCategories();
+    fetchCompositions();
   }, []);
-
-  // Recompute preview whenever items list changes and we're in add mode
-  useEffect(() => {
-    if (!editId) {
-      setNextHsn(computeNextHsn(items));
-    }
-  }, [items, editId]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -377,22 +488,19 @@ const PharmacyItemMaster = () => {
 
       const payload = {
         ...form,
-        is_active:      true,
-        reorder_level:  Number(form.reorder_level) || 0,
-        // HSN: on add, omit it entirely so the backend auto-generates;
-        //      on edit, send whatever the user sees (existing value)
-        ...(editId ? { hsn: form.hsn } : {}),
-        IP_shelf_no:    form.IP_available ? form.IP_shelf_no : "",
-        IP_rack_no:     form.IP_available ? form.IP_rack_no  : "",
-        OP_shelf_no:    form.OP_available ? form.OP_shelf_no : "",
-        OP_rack_no:     form.OP_available ? form.OP_rack_no  : "",
-        G_shelf_no:     form.G_available  ? form.G_shelf_no  : "",
-        G_rack_no:      form.G_available  ? form.G_rack_no   : "",
-        blocked_reason: form.is_blocked   ? form.blocked_reason : "",
+        is_active:            true,
+        reorder_level:        Number(form.reorder_level) || 0,
+        hsn:                  form.hsn,   // always typed manually now
+        brand_name:           form.brand_name,
+        chemical_composition: form.chemical_composition || null,
+        IP_shelf_no:          form.IP_available ? form.IP_shelf_no : "",
+        IP_rack_no:           form.IP_available ? form.IP_rack_no  : "",
+        OP_shelf_no:          form.OP_available ? form.OP_shelf_no : "",
+        OP_rack_no:           form.OP_available ? form.OP_rack_no  : "",
+        G_shelf_no:           form.G_available  ? form.G_shelf_no  : "",
+        G_rack_no:            form.G_available  ? form.G_rack_no   : "",
+        blocked_reason:       form.is_blocked   ? form.blocked_reason : "",
       };
-
-      // Remove hsn key entirely on POST so backend generates it
-      if (!editId) delete payload.hsn;
 
       const res = await apiRequest(url, method, payload);
       if (res.success) {
@@ -400,7 +508,7 @@ const PharmacyItemMaster = () => {
         setForm(EMPTY_FORM);
         setEditId(null);
         setShowForm(false);
-        fetchItems(); // refreshes items → recomputes nextHsn
+        fetchItems();
       } else {
         showToast(JSON.stringify(res.data || res.error), "error");
       }
@@ -413,25 +521,29 @@ const PharmacyItemMaster = () => {
 
   const handleEdit = (item) => {
     setForm({
-      item_name:      item.item_name      || "",
-      item_last_name: item.item_last_name || "",
-      category:       item.category       || "",
-      hsn:            item.hsn            || "",
-      high_risk:      !!item.high_risk,
-      look_alike:     !!item.look_alike,
-      sound_alike:    !!item.sound_alike,
-      reorder_level:  item.reorder_level  ?? "",
-      IP_available:   item.IP_available   !== false,
-      IP_shelf_no:    item.IP_shelf_no    || "",
-      IP_rack_no:     item.IP_rack_no     || "",
-      OP_available:   item.OP_available   !== false,
-      OP_shelf_no:    item.OP_shelf_no    || "",
-      OP_rack_no:     item.OP_rack_no     || "",
-      G_available:    item.G_available    !== false,
-      G_shelf_no:     item.G_shelf_no     || "",
-      G_rack_no:      item.G_rack_no      || "",
-      is_blocked:     !!item.is_blocked,
-      blocked_reason: item.blocked_reason || "",
+      item_name:            item.item_name            || "",
+      item_last_name:       item.item_last_name       || "",
+      category:             item.category             || "",
+      hsn:                  item.hsn                  || "",
+      brand_name:           item.brand_name           || "",
+      chemical_composition: item.chemical_composition != null
+                              ? String(item.chemical_composition)
+                              : "",
+      high_risk:            !!item.high_risk,
+      look_alike:           !!item.look_alike,
+      sound_alike:          !!item.sound_alike,
+      reorder_level:        item.reorder_level        ?? "",
+      IP_available:         item.IP_available         !== false,
+      IP_shelf_no:          item.IP_shelf_no          || "",
+      IP_rack_no:           item.IP_rack_no           || "",
+      OP_available:         item.OP_available         !== false,
+      OP_shelf_no:          item.OP_shelf_no          || "",
+      OP_rack_no:           item.OP_rack_no           || "",
+      G_available:          item.G_available          !== false,
+      G_shelf_no:           item.G_shelf_no           || "",
+      G_rack_no:            item.G_rack_no            || "",
+      is_blocked:           !!item.is_blocked,
+      blocked_reason:       item.blocked_reason       || "",
     });
     setEditId(item.item_id);
     setShowForm(true);
@@ -457,13 +569,21 @@ const PharmacyItemMaster = () => {
     setErrors({});
   };
 
+  // Helper: get composition name for table display
+  const getCompositionName = (id) => {
+    if (!id) return "—";
+    const comp = compositions.find((c) => String(c.composition_id) === String(id));
+    return comp ? comp.composition_name : id;
+  };
+
   const filtered = items.filter((it) => {
     const q = search.toLowerCase();
     return (
       it.item_name?.toLowerCase().includes(q) ||
       it.item_last_name?.toLowerCase().includes(q) ||
       it.category?.toLowerCase().includes(q) ||
-      it.hsn?.toLowerCase().includes(q)
+      it.hsn?.toLowerCase().includes(q) ||
+      it.brand_name?.toLowerCase().includes(q)
     );
   });
 
@@ -509,29 +629,52 @@ const PharmacyItemMaster = () => {
           </DrawerHeader>
           <DrawerInner>
 
-            {/* Basic Info */}
+            {/* ── Basic Info ── */}
             <SectionLabel>Basic Information</SectionLabel>
             <FormRow>
 
               <InputWrapper>
                 <Label>Item Name *</Label>
-                <Input name="item_name" value={form.item_name} onChange={handleChange}
+                <Input
+                  name="item_name"
+                  value={form.item_name}
+                  onChange={handleChange}
                   placeholder="Generic / brand name"
-                  style={errors.item_name ? { borderColor: "#dc2626" } : {}} />
+                  style={errors.item_name ? { borderColor: "#dc2626" } : {}}
+                />
                 {errors.item_name && <ErrorText>{errors.item_name}</ErrorText>}
               </InputWrapper>
 
               <InputWrapper>
                 <Label>Item Last Name</Label>
-                <Input name="item_last_name" value={form.item_last_name} onChange={handleChange}
-                  placeholder="Salt / compound name" />
+                <Input
+                  name="item_last_name"
+                  value={form.item_last_name}
+                  onChange={handleChange}
+                  placeholder="Salt / compound name"
+                />
               </InputWrapper>
 
-              {/* Category — populated from API */}
+              {/* Brand Name — NEW */}
+              <InputWrapper>
+                <Label>Brand Name</Label>
+                <Input
+                  name="brand_name"
+                  value={form.brand_name}
+                  onChange={handleChange}
+                  placeholder="e.g. Crocin, Dolo"
+                />
+              </InputWrapper>
+
+              {/* Category */}
               <InputWrapper>
                 <Label>Category *</Label>
-                <Select name="category" value={form.category} onChange={handleChange}
-                  style={errors.category ? { borderColor: "#dc2626" } : {}}>
+                <Select
+                  name="category"
+                  value={form.category}
+                  onChange={handleChange}
+                  style={errors.category ? { borderColor: "#dc2626" } : {}}
+                >
                   <option value="">-- Select --</option>
                   {categories.length === 0 ? (
                     <option disabled>Loading…</option>
@@ -546,33 +689,52 @@ const PharmacyItemMaster = () => {
                 {errors.category && <ErrorText>{errors.category}</ErrorText>}
               </InputWrapper>
 
-              {/* HSN — auto on add, editable on edit */}
+              {/* HSN — manual input (no auto-generate) */}
               <InputWrapper>
                 <Label>HSN Code</Label>
-                {editId ? (
-                  <Input
-                    name="hsn"
-                    value={form.hsn}
-                    onChange={handleChange}
-                    placeholder="HSN code"
-                    style={{ fontFamily: "monospace", letterSpacing: "1px" }}
-                  />
-                ) : (
-                  <HsnReadOnly>
-                    {nextHsn || "—"}
-                  </HsnReadOnly>
-                )}
+                <Input
+                  name="hsn"
+                  value={form.hsn}
+                  onChange={handleChange}
+                  placeholder="Enter HSN code"
+                  style={{ fontFamily: "monospace", letterSpacing: "1px" }}
+                />
               </InputWrapper>
 
               <InputWrapper>
                 <Label>Reorder Level</Label>
-                <Input name="reorder_level" type="number" value={form.reorder_level}
-                  onChange={handleChange} placeholder="0" min="0" />
+                <Input
+                  name="reorder_level"
+                  type="number"
+                  value={form.reorder_level}
+                  onChange={handleChange}
+                  placeholder="0"
+                  min="0"
+                />
               </InputWrapper>
 
             </FormRow>
 
-            {/* Special Flags */}
+            {/* ── Chemical Composition — NEW searchable dropdown ── */}
+            <SectionLabel>Chemical Composition</SectionLabel>
+            <FormRow columns="1fr 1fr">
+              <InputWrapper>
+                <Label>Chemical Composition</Label>
+                <CompositionSelect
+                  compositions={compositions}
+                  value={form.chemical_composition}
+                  onChange={(id) => {
+                    setForm((p) => ({ ...p, chemical_composition: id ? String(id) : "" }));
+                  }}
+                  error={errors.chemical_composition}
+                />
+                {errors.chemical_composition && (
+                  <ErrorText>{errors.chemical_composition}</ErrorText>
+                )}
+              </InputWrapper>
+            </FormRow>
+
+            {/* ── Special Flags ── */}
             <SectionLabel>Special Flags</SectionLabel>
             <FlagGroup>
               <FlagItem>
@@ -589,7 +751,7 @@ const PharmacyItemMaster = () => {
               </FlagItem>
             </FlagGroup>
 
-            {/* Availability */}
+            {/* ── Availability ── */}
             <SectionLabel>Pharmacy Availability &amp; Location</SectionLabel>
 
             <AvailRow>
@@ -664,7 +826,7 @@ const PharmacyItemMaster = () => {
               )}
             </AvailRow>
 
-            {/* Status */}
+            {/* ── Status ── */}
             <SectionLabel>Status</SectionLabel>
             <FormRow style={{ alignItems: "flex-start" }}>
               <InputWrapper>
@@ -712,14 +874,14 @@ const PharmacyItemMaster = () => {
           </DrawerInner>
         </Drawer>
 
+        {/* ── Table ── */}
         <FormContent style={{ marginTop: 20 }}>
-          {/* Search */}
           <ControlsContainer>
             <SearchContainer>
               <InputWrapper>
                 <Label>Search</Label>
                 <SearchInput
-                  placeholder="Search by name, category, HSN…"
+                  placeholder="Search by name, category, HSN, brand…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -728,7 +890,6 @@ const PharmacyItemMaster = () => {
             <CountText>{filtered.length} item(s) found</CountText>
           </ControlsContainer>
 
-          {/* Table */}
           <TableWrapper>
             <Table>
               <thead>
@@ -736,8 +897,10 @@ const PharmacyItemMaster = () => {
                   <Th>#</Th>
                   <Th>Item Name</Th>
                   <Th>Last Name</Th>
+                  <Th>Brand</Th>
                   <Th>Category</Th>
                   <Th>HSN</Th>
+                  <Th>Composition</Th>
                   <Th>Reorder</Th>
                   <Th>High Risk</Th>
                   <Th>Look-Alike</Th>
@@ -755,7 +918,7 @@ const PharmacyItemMaster = () => {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={17}>
+                    <td colSpan={19}>
                       <EmptyState>No items found. Click "+ Add New Item" to get started.</EmptyState>
                     </td>
                   </tr>
@@ -765,8 +928,10 @@ const PharmacyItemMaster = () => {
                       <Td>{idx + 1}</Td>
                       <Td style={{ fontWeight: 600 }}>{item.item_name}</Td>
                       <Td>{item.item_last_name || "—"}</Td>
+                      <Td>{item.brand_name || "—"}</Td>
                       <Td>{item.category}</Td>
                       <Td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{item.hsn || "—"}</Td>
+                      <Td style={{ fontSize: "0.82rem" }}>{getCompositionName(item.chemical_composition)}</Td>
                       <Td style={{ textAlign: "center" }}>{item.reorder_level}</Td>
                       <Td><Badge variant={item.high_risk   ? "green" : ""}>{item.high_risk   ? "Yes" : "No"}</Badge></Td>
                       <Td><Badge variant={item.look_alike  ? "green" : ""}>{item.look_alike  ? "Yes" : "No"}</Badge></Td>
