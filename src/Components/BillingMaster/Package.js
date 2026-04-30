@@ -487,15 +487,16 @@ const Package = () => {
   const [showModal, setShowModal] = useState(false);
   const [viewPkg, setViewPkg] = useState(null);
   const [filters, setFilters] = useState({ search: "", outlet: "" });
-
-  // Outlet state
   const [outlets, setOutlets] = useState([]);
-
-  // Bill-type picker state
   const [billTypes, setBillTypes] = useState([]);
   const [selectedBillType, setSelectedBillType] = useState("");
   const [pickerItems, setPickerItems] = useState([]);
   const [selectedPickerItem, setSelectedPickerItem] = useState("");
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-IPKGE-RW");
+  const canDelete = allowedActions.includes("HMS-P-IPKGD-RW");
 
   // Auto-calculate totalPrice
   useEffect(() => {
@@ -686,14 +687,14 @@ const Package = () => {
       return { ...prev, items };
     });
   };
-  const addItem = () =>
-    setFormData((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
-      ],
-    }));
+  // const addItem = () =>
+  //   setFormData((prev) => ({
+  //     ...prev,
+  //     items: [
+  //       ...prev.items,
+  //       { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
+  //     ],
+  //   }));
   const removeItem = (index) => {
     if (formData.items.length === 1) {
       alert("At least one item is required.");
@@ -981,18 +982,22 @@ const Package = () => {
                           >
                             View
                           </button>
-                          <button
-                            style={css.smallBtn("ghost")}
-                            onClick={() => handleEdit(pkg)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            style={css.smallBtn("danger")}
-                            onClick={() => handleDelete(pkg.packageNo)}
-                          >
-                            Delete
-                          </button>
+                          {canEdit && (
+                            <button
+                              style={css.smallBtn("ghost")}
+                              onClick={() => handleEdit(pkg)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              style={css.smallBtn("danger")}
+                              onClick={() => handleDelete(pkg.packageNo)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </Td>
                     </Tr>
@@ -1284,12 +1289,12 @@ const Package = () => {
                     ))}
                   </tbody>
                 </table>
-                <button
+                {/* <button
                   style={{ ...css.addRowBtn, marginTop: 12 }}
                   onClick={addItem}
                 >
                   + Add Item Manually
-                </button>
+                </button> */}
                 <div style={css.totalRow}>
                   <span style={{ color: tokens.muted, fontWeight: 500 }}>
                     Total Price:

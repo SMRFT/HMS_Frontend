@@ -416,6 +416,11 @@ const InvestigationPrice = () => {
   const [viewRecord, setViewRecord] = useState(null);
   const [newItemName, setNewItemName] = useState("");
   const [filters, setFilters] = useState({ search: "", is_active: "" });
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-IPE-RW");
+  const canDelete = allowedActions.includes("HMS-P-IPD-RW");
 
   /* ── Fetch ── */
   const fetchRecords = async (params = {}) => {
@@ -586,7 +591,7 @@ const InvestigationPrice = () => {
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <div style={css.dateBadge}>📅 {currentDate}</div>
             <button style={css.btn("primary")} onClick={openCreate}>
-              + New Bill Type
+              + New Item
             </button>
           </div>
         </div>
@@ -760,18 +765,22 @@ const InvestigationPrice = () => {
                           >
                             View
                           </button>
-                          <button
-                            style={css.smallBtn("ghost")}
-                            onClick={() => handleEdit(rec)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            style={css.smallBtn("danger")}
-                            onClick={() => handleDelete(rec.billTypeNo)}
-                          >
-                            Delete
-                          </button>
+                          {canEdit && (
+                            <button
+                              style={css.smallBtn("ghost")}
+                              onClick={() => handleEdit(rec)}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              style={css.smallBtn("danger")}
+                              onClick={() => handleDelete(rec.billTypeNo)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </Td>
                     </Tr>
@@ -809,11 +818,11 @@ const InvestigationPrice = () => {
             <div style={css.modalBody}>
               <div style={css.card}>
                 <div style={css.cardTitle}>
-                  <div style={css.sectionLine} /> Bill Type Details
+                  <div style={css.sectionLine} /> Item Details
                 </div>
 
                 <div style={{ ...css.grid3, marginBottom: 0 }}>
-                  <Field label="Bill Type *">
+                  <Field label="Item Name *">
                     <Inp
                       value={formData.BillType}
                       onChange={(e) =>

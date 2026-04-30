@@ -479,6 +479,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const [modalSearch, setModalSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [qtyErrors, setQtyErrors] = useState({});
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState("cash");
+  const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printBillData, setPrintBillData] = useState(null);
   const [showNilStock, setShowNilStock] = useState(false);
@@ -507,13 +510,20 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const [patientType, setPatientType] = useState("");
   const [address, setAddress] = useState("");
   const [place, setPlace] = useState("");
+  const [mobilePhone, setMobilePhone] = useState("");
+  const [patientAge, setPatientAge] = useState("");
   const [admissionStatus, setAdmissionStatus] = useState("NOT ADMITTED");
+  const [admissionRoomNo, setAdmissionRoomNo] = useState("");
+  const [admissionDateTime, setAdmissionDateTime] = useState("");
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [recordId, setRecordId] = useState(null);
   const [editReason, setEditReason] = useState("");
+  const [isWardRequest, setIsWardRequest] = useState(false);
 
    const branch_code = localStorage.getItem("selected_branch");
+   const outlet_code = localStorage.getItem("outlet_code");
+   console.log(outlet_code);
 
   const [formData, setFormData] = useState({
     uhid: "",
@@ -574,43 +584,58 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   }, [formData.uhid, isEditMode]);
 
   // UHID Modal: fetch all patients then filter client-side for partial UHID match
-  const handleUHIDSearch = async () => {
-    setUhidSearchLoading(true);
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}create/`, "GET");
-      const allPatients = res.success && Array.isArray(res.data) ? res.data : [];
+  const handleUHIDSearch = async (directUhidVal) => {
+  const uhidVal = (directUhidVal !== undefined ? directUhidVal : uhidSearchInput).trim();
+  const nameVal = uhidNamePhone.trim();
 
-      let filtered = allPatients;
+  // ✅ Require at least one search param
+  if (!uhidVal && !nameVal) {
+    toast.warning("Please enter a UHID or name to search.");
+    return;
+  }
 
-      if (uhidSearchInput.trim()) {
-        const searchVal = uhidSearchInput.trim().toLowerCase();
-        filtered = filtered.filter(p => {
-          const uhidStr = (p.uhid || p.UHID || "").toLowerCase();
-          return uhidStr.includes(searchVal);
-        });
-      }
+  setUhidSearchLoading(true);
+  try {
+    let url = `${HmsBaseUrl}patient_details/`;
+    const params = [];
 
-      if (uhidNamePhone.trim()) {
-        const nameVal = uhidNamePhone.trim().toLowerCase();
-        filtered = filtered.filter(p => {
-          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
-          const mobile = (p.mobile || p.phone || p.mobileNumber || "").toLowerCase();
-          return fullName.includes(nameVal) || mobile.includes(nameVal);
-        });
-      }
+    if (uhidVal) params.push(`uhid=${encodeURIComponent(uhidVal)}`);
+    if (nameVal)  params.push(`name=${encodeURIComponent(nameVal)}`);
+    if (nameVal)  params.push(`mobile=${encodeURIComponent(nameVal)}`);
 
-      if (uhidAdmitted) {
-        filtered = filtered.filter(p => Boolean(p.ip_number || p.admitted));
-      }
+    if (params.length > 0) url += `?${params.join("&")}`;
 
-      setUhidSearchResults(filtered);
-    } catch (err) {
-      console.error("UHID search failed", err);
-      setUhidSearchResults([]);
-    } finally {
-      setUhidSearchLoading(false);
+    const res = await apiRequest(url, "GET");
+    // ✅ FIX: API returns { success, data: [...] }
+    // apiRequest wraps it so the array lives at res.data.data
+    const resBody = res.data || res;
+    let results = Array.isArray(resBody?.data)
+      ? resBody.data
+      : Array.isArray(resBody)
+        ? resBody
+        : [];
+
+    if (uhidAdmitted) {
+      results = results.filter(p => Boolean(p.ip_number));
     }
-  };
+
+    setUhidSearchResults(results);
+
+    // Always show results in modal — let user pick, even if only 1 result
+    if (results.length === 0) {
+      toast.info("No patients found for the given UHID.");
+    }
+    // Modal stays open so user can see and select from the list
+
+  } catch (err) {
+    console.error("UHID search failed", err);
+    setUhidSearchResults([]);
+    toast.error("Search failed. Please try again.");
+  } finally {
+    setUhidSearchLoading(false);
+  }
+};
+
 
   const fetchAdmissionStatus = async (uhid) => {
     try {
@@ -622,8 +647,43 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       if (res.success) {
         if (res.data.admitted === true) {
           setAdmissionStatus("ADMITTED");
+
+          const admData = res.data.data;
+
+          // ── Admission Date & Time ──────────────────────────────────────
+          if (admData?.admissionDateTime) {
+            const dt = new Date(admData.admissionDateTime);
+            const formatted = dt.toLocaleString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
+              hour: "2-digit", minute: "2-digit", hour12: true
+            });
+            setAdmissionDateTime(formatted);
+          } else {
+            setAdmissionDateTime("");
+          }
+
+          // ── Active Room No ─────────────────────────────────────────────
+          // Primary source: room_details (fields: roomNo, bedNo)
+          // Fallback: roomShitingDetails (fields: newRoomNo, newBedNo)
+          const roomDetails     = admData?.room_details;
+          const shiftingDetails = admData?.roomShitingDetails;
+          const activeFromRoom  = Array.isArray(roomDetails)
+            ? roomDetails.find(r => r.is_roomActive === true) : null;
+          const activeFromShift = Array.isArray(shiftingDetails)
+            ? shiftingDetails.find(r => r.is_roomActive === true) : null;
+
+          if (activeFromRoom) {
+            setAdmissionRoomNo(`${activeFromRoom.roomNo} / Bed ${activeFromRoom.bedNo}`);
+          } else if (activeFromShift) {
+            setAdmissionRoomNo(`${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`);
+          } else {
+            setAdmissionRoomNo("");
+          }
+
         } else {
           setAdmissionStatus("NOT ADMITTED");
+          setAdmissionRoomNo("");
+          setAdmissionDateTime("");
         }
       }
     } catch (error) {
@@ -634,18 +694,46 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const handleUHIDSelect = (p) => {
     const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
 
+    // ── Resolve doctor from most recent billing with a valid doctor_id ──────
+    let resolvedDoctorId = "";
+    if (Array.isArray(p.billing) && p.billing.length > 0) {
+      const billingsWithDoctor = p.billing.filter(b => b.doctor_id);
+      if (billingsWithDoctor.length > 0) {
+        // Sort descending by billed_date and pick latest
+        const sorted = [...billingsWithDoctor].sort(
+          (a, b) => new Date(b.billed_date) - new Date(a.billed_date)
+        );
+        resolvedDoctorId = sorted[0].doctor_id;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       uhid: p.uhid || "",
       name: fullName,
       inpatientNo: p.ip_number || "",
-      doctor_id: p.doctor_id || "",
+      doctor_id: resolvedDoctorId,
       roomNo: p.room_no || ""
     }));
 
     setPatientType(p.customer_type || "");
     setAddress(p.permanent_address || "");
     setPlace(p.area || "");
+    setMobilePhone(p.mobilePhone || p.mobile || "");
+
+    // Calculate age from dob
+    if (p.dob) {
+      const dob = new Date(p.dob);
+      const today = new Date();
+      let years = today.getFullYear() - dob.getFullYear();
+      let months = today.getMonth() - dob.getMonth();
+      let days = today.getDate() - dob.getDate();
+      if (days < 0) { months -= 1; days += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+      if (months < 0) { years -= 1; months += 12; }
+      setPatientAge(`${years}Y ${months}M ${days}D`);
+    } else {
+      setPatientAge("");
+    }
 
     fetchAdmissionStatus(p.uhid);
 
@@ -653,27 +741,18 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   };
 
   const openUHIDModal = () => {
-    setUhidSearchInput(formData.uhid || "");
-    setUhidNamePhone("");
-    setUhidAdmitted(false);
-    setUhidSearchResults([]);
-    setShowUHIDModal(true);
-    setTimeout(() => {
-      setUhidSearchLoading(true);
-      apiRequest(`${HmsBaseUrl}create/`, "GET")
-        .then(res => {
-          const allPatients = res.success && Array.isArray(res.data) ? res.data : [];
-          const searchVal = (formData.uhid || "").trim().toLowerCase();
-          const filtered = searchVal
-            ? allPatients.filter(p => (p.uhid || p.UHID || "").toLowerCase().includes(searchVal))
-            : allPatients;
-          setUhidSearchResults(filtered);
-        })
-        .catch(() => setUhidSearchResults([]))
-        .finally(() => setUhidSearchLoading(false));
-    }, 0);
-  };
+  const currentUhid = formData.uhid || "";
+  setUhidSearchInput(currentUhid);
+  setUhidNamePhone("");
+  setUhidAdmitted(false);
+  setUhidSearchResults([]);
+  setShowUHIDModal(true);
 
+  // Auto-search if UHID already typed in form — pass value directly to avoid stale closure
+  if (currentUhid.trim()) {
+    setTimeout(() => handleUHIDSearch(currentUhid.trim()), 0);
+  }
+};
   const handleLastUHIDClick = () => {
     if (formData.uhid) {
       const ok = window.confirm("Replace current UHID with last billed UHID?");
@@ -719,61 +798,86 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const isMedicineSearchEnabled = Boolean(formData.doctor_id);
 
   useEffect(() => {
-    if (!HmsBaseUrl) return;
-    const fetchMedicines = async () => {
-      try {
-        const response = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "GET");
+  if (!HmsBaseUrl) return;
 
-        const medicineArray = Array.isArray(response.data)
-          ? response.data
-          : Array.isArray(response.data?.data)
-            ? response.data.data
-            : [];
+  const fetchMedicines = async () => {
+    try {
+      // ❌ DO NOT send branch/outlet manually
+      // apiRequest already sends:
+      // Authorization, Branch-Code, Outlet-Code
+      // + auth-* fields in body
 
-        if (response.success && medicineArray.length >= 0) {
-          const formattedMedicines = medicineArray.map((item) => ({
-            name:
-              item.item_name ||
-              `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim() ||
-              "",
-            item_id: item.item_id,
-            batch_number: item.batch_number || "N/A",
-            grn_number: item.grn_number || "",
-            expiry_date: item.expiry_date || "N/A",
-            mrp: parseFloat(item.mrp || 0),
-            price: parseFloat(item.price || item.mrp || 0),
-            hsn_code: item.hsn_code || "—",
-            cgst_rate: item.CGST_Percentage || 0,
-            cgst_amount: item.CGST_Amt || 0,
-            sgst_rate: item.SGST_Percentage || 0,
-            sgst_amount: item.SGST_Amt || 0,
-            group: item.group || "",
-            category: item.category || "",
-            classification: item.classification || "PHARMACY",
-            dosage: item.dosage || "",
-            reorder_level: item.reorder_level || 0,
-            total_stock: Number(item.total_stock ?? 0),
-            available_stock: item.available_stock != null ? Number(item.available_stock) : null,
-            is_low_stock: item.is_low_stock === true,
-            is_nil_stock: item.available_stock != null ? Number(item.available_stock) <= 0 : false,
-            high_risk: item.high_risk === true,
-            look_alike: item.look_alike === true,
-            sound_alike: item.sound_alike === true,
-            quantity: 0,
-            total: 0,
-          }));
+      const response = await apiRequest(
+        `${HmsBaseUrl}get_oppharmacy_stock/`,
+        "POST"
+      );
 
-          setMedicines(formattedMedicines);
-        } else {
-          console.error("Failed to fetch medicines:", response);
-        }
-      } catch (error) {
-        console.error("Error fetching medicines:", error);
+      const medicineArray = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.data)
+        ? response.data.data
+        : [];
+
+      if (response.success) {
+        const formattedMedicines = medicineArray.map((item) => ({
+          name:
+            item.item_name ||
+            `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
+
+          item_id: item.item_id,
+          batch_number: item.batch_number || "N/A",
+          grn_number: item.grn_number || "",
+          expiry_date: item.expiry_date || "N/A",
+
+          mrp: parseFloat(item.mrp || 0),
+          price: parseFloat(item.price || item.mrp || 0),
+
+          hsn_code: item.hsn_code || "—",
+
+          cgst_rate: item.CGST_Percentage || 0,
+          cgst_amount: item.CGST_Amt || 0,
+          sgst_rate: item.SGST_Percentage || 0,
+          sgst_amount: item.SGST_Amt || 0,
+
+          category: item.category || "",
+
+          reorder_level: item.reorder_level || 0,
+          total_stock: Number(item.total_stock ?? 0),
+          available_stock:
+            item.available_stock != null
+              ? Number(item.available_stock)
+              : 0,
+
+          is_low_stock: item.is_low_stock === true,
+          is_nil_stock:
+            item.available_stock != null
+              ? Number(item.available_stock) <= 0
+              : false,
+
+          high_risk: item.high_risk === true,
+          look_alike: item.look_alike === true,
+          sound_alike: item.sound_alike === true,
+
+          chemical_composition: item.chemical_composition || "—",
+          shelf_no: item.shelf_no || "—",
+          rack_no: item.rack_no || "—",
+
+          quantity: 0,
+          total: 0,
+        }));
+
+        setMedicines(formattedMedicines);
+      } else {
+        console.error("API failed:", response.error);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching medicines:", error);
+    }
+  };
 
-    fetchMedicines();
-  }, [HmsBaseUrl]);
+  fetchMedicines();
+}, [HmsBaseUrl]);
+
 
   useEffect(() => {
     const fetchBillTypes = async () => {
@@ -854,7 +958,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     const alreadyInBill = addedMedicines.some((m) => getMedicineKey(m) === key);
     if (alreadyInBill) {
-      toast.warning(`"${medicine.name}" is already added to the bill!`, { autoClose: 5000 });
+      toast.warning(`"${medicine.name}" is already added to the bill!`, { autoClose: 2000 });
       return;
     }
 
@@ -891,7 +995,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     ) {
       toast.warning(
         `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-        { toastId: `stock-excess-${index}`, autoClose: 5000 }
+        { toastId: `stock-excess-${index}`, autoClose: 2000 }
       );
     }
 
@@ -910,7 +1014,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         }
       } catch (error) {
         console.error("Error fetching doctor_names:", error.message);
-        toast.error("Error fetching doctor_names", { autoClose: 5000 });
+        toast.error("Error fetching doctor_names", { autoClose: 2000 });
       }
     };
     fetchdoctor_names();
@@ -937,12 +1041,17 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     setPatientType("");
     setAddress("");
     setPlace("");
+    setMobilePhone("");
+    setPatientAge("");
     setAdmissionStatus("NOT ADMITTED");
+    setAdmissionRoomNo("");
+    setAdmissionDateTime("");
     setBillingType("Direct");
     setLoadedEstimateNo(null);
     setRecordId(null);
     setIsEditMode(false);
     setEditReason("");
+    setIsWardRequest(false);
     setQtyErrors({});
   };
 
@@ -957,51 +1066,112 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     if (saving) return;
 
     if (!formData.billType) {
-      toast.error("Bill Type is mandatory!", { autoClose: 5000 });
+      toast.error("Bill Type is mandatory!", { autoClose: 2000 });
       return;
     }
 
-    // Set billingType based on which button was clicked
-    if (intentStatus === "Estimate") {
-      setBillingType("Estimate");
-    } else {
-      setBillingType("Direct");
+    if (addedMedicines.length === 0) {
+      toast.error("Please add at least one medicine!", { autoClose: 2000 });
+      return;
     }
 
+    const errorMap = {};
+    addedMedicines.forEach((m, i) => {
+      if (!m.quantity || m.quantity <= 0) errorMap[i] = true;
+    });
+
+    if (Object.keys(errorMap).length > 0) {
+      setQtyErrors(errorMap);
+      const first = addedMedicines.find((m) => !m.quantity || m.quantity <= 0);
+      toast.error(`Quantity is required for "${first.name}".`, { autoClose: 2000 });
+      return;
+    }
+
+    setQtyErrors({});
+
+    const invalidStock = addedMedicines.some(
+      (m) => m.available_stock !== 9999 && m.quantity > m.available_stock
+    );
+
+    if (invalidStock) {
+      toast.error("Quantity exceeds available stock!", { autoClose: 2000 });
+      return;
+    }
+
+    // For Direct bill → show payment mode modal first
+    if (intentStatus !== "Estimate") {
+      setPendingBillIntent(intentStatus);
+      setSelectedPaymentMode("cash");
+      setShowPaymentModal(true);
+      return;
+    }
+
+    // For Estimate → save directly (no payment mode needed)
+    await executeSave(intentStatus, null);
+  };
+
+  const executeSave = async (intentStatus, paymentMode) => {
     setSaving(true);
 
     try {
-      if (addedMedicines.length === 0) {
-        toast.error("Please add at least one medicine!", { autoClose: 5000 });
-        setSaving(false);
-        return;
+      // ── Ward Request → Convert to Bill ────────────────────────────────────
+      // When the bill originates from MedicineChart ("Convert to Bill"), the
+      // record already exists in the DB with its own Bill_id.
+      // We skip save_oppharmacy_bill entirely and call finalize_bill directly.
+      // finalize_bill handles: bill_no generation, stock update (blocked_quantity),
+      // and setting billing_status → "Billed".
+      if (isWardRequest && intentStatus !== "Estimate") {
+        const hasBillId = recordId !== undefined && recordId !== null && recordId !== "" && recordId !== 0;
+
+        if (!hasBillId) {
+          toast.error("Cannot finalize: Bill_id is missing for this ward request.", { autoClose: 3000 });
+          setSaving(false);
+          return;
+        }
+
+        console.log("🏥 Ward request → calling finalize_bill directly | Bill_id:", recordId);
+
+        const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
+          Bill_id: parseInt(recordId),
+        });
+
+        console.log("finalize_bill RESPONSE:", finalizeRes);
+
+        if (finalizeRes.success) {
+          const savedBillNo = finalizeRes.data?.bill_no || finalizeRes.bill_no || "";
+          const backendMsg  = finalizeRes.data?.message || finalizeRes.message;
+          toast.success(backendMsg || `Bill finalized successfully! #${savedBillNo}`, { autoClose: 2000 });
+
+          const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
+          const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+
+          setPrintBillData({
+            billNo: savedBillNo,
+            billDate: formData.billDate,
+            patientName: formData.name,
+            uhid: formData.uhid,
+            doctorName,
+            cashierId: formData.cashier_id || "",
+            medicines: [...addedMedicines],
+            totalAmount,
+            totalItemDiscount,
+            overallDiscountType,
+            overallDiscountValue,
+            netAmount,
+            paymentMode,
+          });
+          setShowPrintModal(true);
+          resetForm();
+          setTodayBillDate();
+        } else {
+          const backendErr = finalizeRes.data?.error || finalizeRes.error;
+          toast.error(backendErr || "Finalize bill failed.", { autoClose: 2000 });
+        }
+
+        return; // ← done; skip the normal save_oppharmacy_bill path below
       }
 
-      const errorMap = {};
-      addedMedicines.forEach((m, i) => {
-        if (!m.quantity || m.quantity <= 0) errorMap[i] = true;
-      });
-
-      if (Object.keys(errorMap).length > 0) {
-        setQtyErrors(errorMap);
-        const first = addedMedicines.find((m) => !m.quantity || m.quantity <= 0);
-        toast.error(`Quantity is required for "${first.name}".`, { autoClose: 5000 });
-        setSaving(false);
-        return;
-      }
-
-      setQtyErrors({});
-
-      const invalidStock = addedMedicines.some(
-        (m) => m.available_stock !== 9999 && m.quantity > m.available_stock
-      );
-
-      if (invalidStock) {
-        toast.error("Quantity exceeds available stock!", { autoClose: 5000 });
-        setSaving(false);
-        return;
-      }
-
+      // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
       const finalItems = addedMedicines.map((m) => ({
         item_id: Number(m.item_id),
         batch_number: String(m.batch_number),
@@ -1026,8 +1196,16 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         billing_mode = "ESTIMATE";
       } else {
         status = "Billed";
-        billing_mode = loadedEstimateNo ? "ESTIMATE" : "DIRECT";
+        if (loadedEstimateNo) {
+          billing_mode = "ESTIMATE";
+        } else {
+          billing_mode = "DIRECT";
+        }
       }
+
+      const paymentFields = {
+        payment_mode: paymentMode === "cash" ? "Cash" : paymentMode === "credit" ? "Credit" : null
+      };
 
       const basePayload = {
         bill_date: formData.billDate,
@@ -1048,8 +1226,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         net_amount: roundedNet,
         status,
         billing_mode,
-        branch_code: branch_code,
-        outlet_code: "OLET003",
+        ...paymentFields,
       };
 
       let response;
@@ -1057,33 +1234,22 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       const hasBillId = recordId !== undefined && recordId !== null && recordId !== "" && recordId !== 0;
 
       console.log(
-        "💾 handleSave | intent:", intentStatus,
+        "💾 executeSave | intent:", intentStatus,
+        "| paymentMode:", paymentMode,
         "| recordId:", recordId,
         "| hasBillId:", hasBillId,
         "| loadedEstimateNo:", loadedEstimateNo
       );
 
       if (hasBillId) {
-        console.log("PATCH API CALL 🔁 Bill_id:", recordId, "| intent:", intentStatus);
-
         const patchPayload = {
           ...basePayload,
           Bill_id: parseInt(recordId),
+          edit_reason: editReason.trim() || undefined,
         };
-
-        response = await apiRequest(
-          `${HmsBaseUrl}save_oppharmacy_bill/`,
-          "PATCH",
-          patchPayload
-        );
+        response = await apiRequest(`${HmsBaseUrl}save_oppharmacy_bill/`, "PATCH", patchPayload);
       } else {
-        console.log("POST API CALL 🆕 | intent:", intentStatus);
-
-        response = await apiRequest(
-          `${HmsBaseUrl}save_oppharmacy_bill/`,
-          "POST",
-          basePayload
-        );
+        response = await apiRequest(`${HmsBaseUrl}save_oppharmacy_bill/`, "POST", basePayload);
       }
 
       console.log("API RESPONSE:", response);
@@ -1091,7 +1257,6 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       if (!hasBillId) {
         const newBillId = response?.data?.Bill_id ?? response?.Bill_id ?? null;
         if (newBillId) {
-          console.log("✅ New Bill_id stored from POST:", newBillId);
           setRecordId(newBillId);
         }
       }
@@ -1099,12 +1264,11 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       if (response.success) {
         const backendMsg = response.data?.message || response.message;
         if (status === "Estimate") {
-          toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 3000 });
+          toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 2000 });
           resetForm();
           setTodayBillDate();
         } else {
-          toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 3000 });
-          // Capture bill info for print modal before resetting
+          toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 2000 });
           const savedBillNo = response.data?.bill_no || response.bill_no || "";
           const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
           const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
@@ -1121,6 +1285,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
             overallDiscountType,
             overallDiscountValue,
             netAmount,
+            paymentMode,
           });
           setShowPrintModal(true);
           resetForm();
@@ -1128,12 +1293,12 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         }
       } else {
         const backendErr = response.data?.error || response.error;
-        toast.error(backendErr || "Save failed.", { autoClose: 5000 });
+        toast.error(backendErr || "Save failed.", { autoClose: 2000 });
       }
 
     } catch (error) {
       console.error("Error saving:", error);
-      toast.error("Failed to save.", { autoClose: 5000 });
+      toast.error("Failed to save.", { autoClose: 2000 });
     } finally {
       setSaving(false);
     }
@@ -1193,9 +1358,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     return [];
   };
 
-  const convertEstimate = (estimate) => {
+  const convertEstimate = async (estimate) => {
     if (!estimate.Bill_id) {
-      toast.error("Estimate is missing Bill_id — cannot load.", { autoClose: 5000 });
+      toast.error("Estimate is missing Bill_id — cannot load.", { autoClose: 2000 });
       return;
     }
 
@@ -1205,38 +1370,103 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       billTypes.find(bt => String(bt.bill_type) === String(estimate.bill_type))?.bill_name ||
       "";
 
+    // ── Step 1: Set the bill/form header fields first ─────────────────────────
     setFormData((prev) => ({
       ...prev,
-      name: estimate.patient_name || "",
-      uhid: estimate.uhid || "",
-      inpatientNo: estimate.inpatient_number || "",
-      doctor_id: estimate.doctor_id || "",
-      roomNo: estimate.room_no || "",
-      billType: estimate.bill_type || "",
+      name:        estimate.patient_name      || "",
+      uhid:        estimate.uhid              || "",
+      inpatientNo: estimate.inpatient_number  || "",
+      doctor_id:   estimate.doctor_id         || "",
+      roomNo:      estimate.room_no           || "",
+      billType:    estimate.bill_type         || "",
       billTypeName: resolvedEstimateBillTypeName,
     }));
 
+    // ── Step 2: Fetch full patient record to populate Additional Details ──────
+    // This mirrors what handleUHIDSelect does after picking a patient from the
+    // UHID modal — we need address, mobile, age, customer_type, etc.
+    if (estimate.uhid) {
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(estimate.uhid)}`,
+          "GET"
+        );
+
+        // API returns { success, data: [...] }; apiRequest may wrap it one level deeper
+        const resBody = res.data ?? res;
+        const patients = res.success
+          ? Array.isArray(resBody?.data)
+            ? resBody.data
+            : Array.isArray(resBody)
+              ? resBody
+              : []
+          : [];
+
+        const p = patients.length > 0 ? patients[0] : null;
+
+        if (p) {
+          setPatientType(p.customer_type || "");
+          setAddress(p.permanent_address || "");
+          setPlace(p.area || "");
+          setMobilePhone(p.mobilePhone || p.mobile || "");
+
+          // ✅ Age calculation
+          if (p.dob) {
+            const dob = new Date(p.dob);
+            const today = new Date();
+
+            let years = today.getFullYear() - dob.getFullYear();
+            let months = today.getMonth() - dob.getMonth();
+            let days = today.getDate() - dob.getDate();
+
+            if (days < 0) {
+              months -= 1;
+              days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+            }
+
+            if (months < 0) {
+              years -= 1;
+              months += 12;
+            }
+
+            setPatientAge(`${years}Y ${months}M ${days}D`);
+          } else if (p.age) {
+            setPatientAge(String(p.age));
+          } else {
+            setPatientAge("");
+          }
+        }
+
+      } catch (err) {
+        console.warn("convertEstimate: could not fetch patient details —", err);
+      }
+
+      // ✅ Admission status
+      fetchAdmissionStatus(estimate.uhid);
+    }
+
+    // ── Step 4: Resolve medicine rows ─────────────────────────────────────────
     const rawMeds = parseOrderedDictMeds(estimate.medicine_particulars);
 
     const loadedMedicines = rawMeds.map((m) => {
       const price = parseFloat(m.price || m.Price || m.mrp || 0);
-      const qty = parseFloat(m.qty || m.quantity || 0);
+      const qty   = parseFloat(m.qty   || m.quantity || 0);
 
-      const stockMatch = medicines.find(
-        (s) =>
-          String(s.item_id) === String(m.item_id) &&
-          String(s.batch_number) === String(m.batch_number)
-      ) || medicines.find(
-        (s) => String(s.item_id) === String(m.item_id)
-      );
+      const stockMatch =
+        medicines.find(
+          (s) =>
+            String(s.item_id)     === String(m.item_id) &&
+            String(s.batch_number) === String(m.batch_number)
+        ) ||
+        medicines.find((s) => String(s.item_id) === String(m.item_id));
 
       return {
         item_id:         m.item_id,
-        name:            stockMatch?.name || m.item_name || m.name || `Item #${m.item_id}`,
-        batch_number:    m.batch_number || "",
+        name:            stockMatch?.name     || m.item_name || m.name || `Item #${m.item_id}`,
+        batch_number:    m.batch_number       || "",
         quantity:        qty,
         price:           price,
-        mrp:             stockMatch?.mrp ?? price,
+        mrp:             stockMatch?.mrp      ?? price,
         hsn_code:        stockMatch?.hsn_code    || "—",
         cgst_rate:       stockMatch?.cgst_rate   || 0,
         cgst_amount:     stockMatch?.cgst_amount || 0,
@@ -1262,32 +1492,91 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     console.log(
       "✅ Estimate loaded | Bill_id:", estimate.Bill_id,
-      "| estimate_no:", estimate.estimate_no
+      "| estimate_no:", estimate.estimate_no,
+      "| uhid:", estimate.uhid
     );
   };
 
   // ── Convert Ward Request → Bill ────────────────────────────────────────────
-  const convertWardRequest = (wardReq) => {
+  const convertWardRequest = async (wardReq) => {
     if (!wardReq) return;
 
-    // ── 1. Fill header fields ──────────────────────────────────────────────
+    // ── 1. Fill header fields immediately so the form is not blank ────────
     const billDateStr = wardReq.bill_date
       ? wardReq.bill_date.split("T")[0]
       : new Date().toISOString().split("T")[0];
 
     setFormData((prev) => ({
       ...prev,
-      uhid:        wardReq.uhid             || "",
-      inpatientNo: wardReq.inpatient_number || "",
-      name:        wardReq.patient_details?.patient_name || "",
-      doctor_id:   wardReq.doctor_id        || "",
-      roomNo:      wardReq.room_no          || "",
-      billType:    wardReq.bill_type        || "",
-      billTypeName: wardReq.bill_name       || "",
-      billDate:    billDateStr,
+      uhid:         wardReq.uhid             || "",
+      inpatientNo:  wardReq.inpatient_number || "",
+      name:         wardReq.patient_name || wardReq.patient_details?.patient_name || "",
+      doctor_id:    wardReq.doctor_id        || "",
+      roomNo:       wardReq.room_no          || wardReq.ward_name || "",
+      billType:     wardReq.bill_type        || "",
+      billTypeName: wardReq.bill_name        || "",
+      billDate:     billDateStr,
     }));
 
-    setAddress(wardReq.patient_details?.address || "");
+    // ── 2. Fetch full patient details from API (same as convertEstimate) ──
+    // This guarantees all Additional-Details fields are populated from the
+    // live API response — not from pre-enriched data that may be partial.
+    if (wardReq.uhid) {
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(wardReq.uhid)}`,
+          "GET"
+        );
+
+        // API returns { success, data: [...] }
+        // apiRequest may wrap it one level deeper: res = { success, data: { success, data: [...] } }
+        const resBody = res.data ?? res;
+        const patients = res.success
+          ? Array.isArray(resBody?.data)
+            ? resBody.data
+            : Array.isArray(resBody)
+              ? resBody
+              : []
+          : [];
+
+        const p = patients.length > 0 ? patients[0] : null;
+
+        if (p) {
+          // Update name in formData with fully resolved name from API
+          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          setFormData((prev) => ({
+            ...prev,
+            name: fullName || prev.name,
+          }));
+
+          setPatientType(p.customer_type || "");
+          setAddress(p.permanent_address || p.area || "");
+          setPlace(p.area || "");
+          setMobilePhone(p.mobilePhone || p.mobile || "");
+
+          // Calculate age from dob
+          if (p.dob) {
+            const dob = new Date(p.dob);
+            const today = new Date();
+            let years  = today.getFullYear() - dob.getFullYear();
+            let months = today.getMonth()    - dob.getMonth();
+            let days   = today.getDate()     - dob.getDate();
+            if (days   < 0) { months -= 1; days   += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+            if (months < 0) { years  -= 1; months += 12; }
+            setPatientAge(`${years}Y ${months}M ${days}D`);
+          } else if (p.age) {
+            setPatientAge(String(p.age));
+          } else {
+            setPatientAge("");
+          }
+        }
+      } catch (err) {
+        console.warn("convertWardRequest: could not fetch patient details —", err);
+      }
+
+      // ── Fetch admission status (same as convertEstimate) ─────────────────
+      fetchAdmissionStatus(wardReq.uhid);
+    }
 
     // ── 2. Map medicine_items to addedMedicines format ─────────────────────
     // ✅ FIX: Always default to [] and filter out any null/undefined entries
@@ -1359,8 +1648,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     setLoadedEstimateNo(null);
     setBillingType("Direct");
+    setIsWardRequest(true);
 
-    toast.info(`Ward request loaded for ${wardReq.patient_details?.patient_name || wardReq.uhid}. Review and save as bill.`, { autoClose: 4000 });
+    toast.info(`Ward request loaded for ${wardReq.patient_name || wardReq.patient_details?.patient_name || wardReq.uhid}. Review and save as bill.`, { autoClose: 2000 });
 
     console.log("✅ Ward request loaded for billing | uhid:", wardReq.uhid, "| Bill_id:", existingBillId);
   };
@@ -1368,13 +1658,14 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   // Trigger convertWardRequest when wardRequestToLoad prop changes
   useEffect(() => {
     if (!wardRequestToLoad) return;
-    convertWardRequest(wardRequestToLoad);
-    if (typeof onWardRequestLoaded === "function") onWardRequestLoaded();
+    convertWardRequest(wardRequestToLoad).then(() => {
+      if (typeof onWardRequestLoaded === "function") onWardRequestLoaded();
+    });
   }, [wardRequestToLoad]);
 
-  const loadBillForEdit = (bill) => {
+  const loadBillForEdit = async (bill) => {
     if (!bill.Bill_id) {
-      toast.error("Bill is missing Bill_id — cannot load for edit.", { autoClose: 5000 });
+      toast.error("Bill is missing Bill_id — cannot load for edit.", { autoClose: 2000 });
       return;
     }
 
@@ -1400,6 +1691,79 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
         ? bill.bill_date.split("T")[0]
         : new Date().toISOString().split("T")[0],
     }));
+
+    // ── Fetch full patient record to populate Patient Information &
+    //    Patient Additional Details (address, mobile, age, patientType, etc.)
+    //    Mirrors the same pattern used in convertEstimate / convertWardRequest.
+    if (bill.uhid) {
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(bill.uhid)}`,
+          "GET"
+        );
+
+        const resBody = res.data ?? res;
+        const patients = res.success
+          ? Array.isArray(resBody?.data)
+            ? resBody.data
+            : Array.isArray(resBody)
+              ? resBody
+              : []
+          : [];
+
+        const p = patients.length > 0 ? patients[0] : null;
+
+        if (p) {
+          // Build full patient name from API (salutation + firstName + lastName)
+          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          setFormData((prev) => ({
+            ...prev,
+            name: fullName || prev.name,
+          }));
+
+          setPatientType(p.customer_type || "");
+          setAddress(p.permanent_address || "");
+          setPlace(p.area || "");
+          setMobilePhone(p.mobilePhone || p.mobile || "");
+
+          // Age from dob
+          if (p.dob) {
+            const dob = new Date(p.dob);
+            const today = new Date();
+            let years  = today.getFullYear() - dob.getFullYear();
+            let months = today.getMonth()    - dob.getMonth();
+            let days   = today.getDate()     - dob.getDate();
+            if (days   < 0) { months -= 1; days   += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+            if (months < 0) { years  -= 1; months += 12; }
+            setPatientAge(`${years}Y ${months}M ${days}D`);
+          } else if (p.age) {
+            setPatientAge(String(p.age));
+          } else {
+            setPatientAge("");
+          }
+
+          // ── Resolve doctor_id from most recent billing entry with a doctor_id
+          //    (use bill.doctor_id from ViewBills if already set; otherwise derive)
+          if (!bill.doctor_id && Array.isArray(p.billing) && p.billing.length > 0) {
+            const billingsWithDoctor = p.billing.filter(b => b.doctor_id);
+            if (billingsWithDoctor.length > 0) {
+              const sorted = [...billingsWithDoctor].sort(
+                (a, b) => new Date(b.billed_date) - new Date(a.billed_date)
+              );
+              setFormData((prev) => ({
+                ...prev,
+                doctor_id: sorted[0].doctor_id,
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("loadBillForEdit: could not fetch patient details —", err);
+      }
+
+      // ── Fetch admission status (same as convertEstimate) ──────────────────
+      fetchAdmissionStatus(bill.uhid);
+    }
 
     const rawMeds = parseOrderedDictMeds(bill.medicine_particulars);
 
@@ -1445,6 +1809,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
     setRecordId(bill.Bill_id);
 
+    // ── Store the edit reason typed in ViewBills confirmation modal ──────────
     if (bill.editReason) setEditReason(bill.editReason);
 
     if (bill.billing_mode === "ESTIMATE" && bill.estimate_no) {
@@ -1468,8 +1833,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
   useEffect(() => {
     if (!billToEdit) return;
-    loadBillForEdit(billToEdit);
-    if (typeof onBillEditLoaded === "function") onBillEditLoaded();
+    loadBillForEdit(billToEdit).then(() => {
+      if (typeof onBillEditLoaded === "function") onBillEditLoaded();
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [billToEdit]);
 
@@ -1815,16 +2181,16 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
             </InputWrapper>
 
             <InputWrapper>
-              <Label>Room No</Label>
-              <Input
-                type="text"
-                name="roomNo"
-                placeholder="Enter Room No"
-                value={formData.roomNo}
-                onChange={handleChange}
-              />
+              <Label>Mobile</Label>
+              <Input value={mobilePhone} disabled />
             </InputWrapper>
 
+            <InputWrapper>
+              <Label>Age</Label>
+              <Input value={patientAge} disabled />
+            </InputWrapper>
+
+           
             <InputWrapper>
               <Label>Bill Date</Label>
               <Input
@@ -1900,6 +2266,28 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                 }}
               />
             </InputWrapper>
+
+            {admissionRoomNo && (
+              <InputWrapper>
+                <Label>Room No / Bed</Label>
+                <Input
+                  value={admissionRoomNo}
+                  disabled
+                  style={{ color: "#0f766e", fontWeight: "bold" }}
+                />
+              </InputWrapper>
+            )}
+
+            {admissionDateTime && (
+              <InputWrapper>
+                <Label>Admission Date &amp; Time</Label>
+                <Input
+                  value={admissionDateTime}
+                  disabled
+                  style={{ color: "#0f766e", fontWeight: "600" }}
+                />
+              </InputWrapper>
+            )}
           </FormRow>
         </FormSection>
 
@@ -2029,7 +2417,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                             ) {
                               toast.warning(
                                 `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-                                { toastId: `stock-excess-${index}`, autoClose: 5000 }
+                                { toastId: `stock-excess-${index}`, autoClose: 2000 }
                               );
                             }
 
@@ -2293,6 +2681,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                         <Th>Avail. Stock</Th>
                         <Th>HSN Code</Th>
                         <Th>Classification</Th>
+                        <Th>Chemical Composition</Th>
+                        <Th>Shelf No</Th>
+                        <Th>Rack No</Th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2373,6 +2764,9 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                             </Td>
                             <Td>{medicine.hsn_code || "—"}</Td>
                             <Td>{medicine.classification || "PHARMACY"}</Td>
+                            <Td>{medicine.chemical_composition || "—"}</Td>
+                            <Td>{medicine.shelf_no || "—"}</Td>
+                            <Td>{medicine.rack_no || "—"}</Td>
                           </Tr>
                         );
                       })}
@@ -2543,7 +2937,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                         {uhidSearchResults.map((p, i) => {
                           const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
                           const uhidNo = p.uhid || p.UHID || "";
-                          const mobile = p.mobile || p.phone || p.mobileNumber || "";
+                          const mobile = p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "";
                           const isAdmitted = Boolean(p.ip_number || p.admitted);
                           return (
                             <Tr
@@ -2580,6 +2974,73 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                 </>
               )}
             </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ── Payment Mode Modal ── */}
+      {showPaymentModal && (
+        <ModalOverlay onClick={() => setShowPaymentModal(false)}>
+          <ModalContainer style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <ModalHeader style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)" }}>
+              <ModalTitle style={{ color: "#fff" }}>Select Payment Mode</ModalTitle>
+              <CloseButton onClick={() => setShowPaymentModal(false)} style={{ color: "#fff" }}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody style={{ padding: "32px 36px" }}>
+              <div style={{ marginBottom: 24, color: "#475569", fontSize: "0.93rem" }}>
+                Choose how the patient will pay for this bill:
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {[
+                  { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
+                  { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
+                ].map(opt => (
+                  <label
+                    key={opt.value}
+                    onClick={() => setSelectedPaymentMode(opt.value)}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 14,
+                      padding: "14px 18px",
+                      borderRadius: 12,
+                      border: `2px solid ${selectedPaymentMode === opt.value ? "#0f766e" : "#e2e8f0"}`,
+                      background: selectedPaymentMode === opt.value ? "#f0fdfa" : "#fff",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMode"
+                      value={opt.value}
+                      checked={selectedPaymentMode === opt.value}
+                      onChange={() => setSelectedPaymentMode(opt.value)}
+                      style={{ accentColor: "#0f766e", marginTop: 3, width: 17, height: 17 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#0f172a", fontSize: "0.97rem" }}>{opt.label}</div>
+                      <div style={{ fontSize: "0.82rem", color: "#64748b", marginTop: 3 }}>{opt.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </ModalBody>
+            <ModalFooterBar style={{ justifyContent: "flex-end", gap: 10 }}>
+              <Button secondary onClick={() => setShowPaymentModal(false)}>
+                <FaTimes /> Cancel
+              </Button>
+              <Button
+                disabled={saving}
+                onClick={async () => {
+                  setShowPaymentModal(false);
+                  await executeSave(pendingBillIntent, selectedPaymentMode);
+                }}
+                style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)", color: "#fff", border: "none", opacity: saving ? 0.7 : 1 }}
+              >
+                <FaSave /> {saving ? "Saving…" : "Confirm & Save Bill"}
+              </Button>
+            </ModalFooterBar>
           </ModalContainer>
         </ModalOverlay>
       )}

@@ -49,18 +49,77 @@ const SecondaryButton = styled.button`
 `;
 
 const PatientPanel = styled.div`
-  background: ${colors.surface};
+  background: ${colors.surface}80;
+  backdrop-filter: blur(8px);
   border: 1px solid ${colors.border};
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 24px;
   margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: ${colors.primary};
+  }
+`;
+
+const PatientHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed ${colors.border};
+`;
+
+const PatientAvatar = styled.div`
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${colors.primary};
+  font-size: 1.4rem;
+  font-weight: 800;
+  border: 1px solid ${colors.primary}30;
+`;
+
+const PatientIdentity = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: ${colors.textMain};
+  }
+
+  .sub-text {
+    font-size: 0.85rem;
+    color: ${colors.textMuted};
+    font-weight: 500;
+  }
 `;
 
 const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px 24px;
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 600px) {
     grid-template-columns: 1fr;
   }
 `;
@@ -68,28 +127,21 @@ const PatientGrid = styled.div`
 const FieldBox = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.7rem;
+  font-weight: 700;
   color: ${colors.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 `;
 
 const FieldValue = styled.div`
-  background: ${colors.background};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: ${colors.textMain};
-  min-height: 40px;
-  display: flex;
-  align-items: center;
 `;
 
 const StatusBadge = styled.span`
@@ -582,14 +634,42 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   return (
     <PageWrapper style={{ padding: "10px", minHeight: "600px" }}>
       <PatientPanel>
+        <PatientHeader>
+          <PatientAvatar>
+            {resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase()}
+          </PatientAvatar>
+          <PatientIdentity>
+            <h3>{resolvedPatient.name}</h3>
+            <div className="sub-text">
+              UHID: {resolvedPatient.uhid} | IP No: {resolvedPatient.ipNo}
+            </div>
+          </PatientIdentity>
+        </PatientHeader>
         <PatientGrid>
-          <FieldBox><FieldLabel>UHID</FieldLabel><FieldValue>{resolvedPatient.uhid}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>IP No</FieldLabel><FieldValue>{resolvedPatient.ipNo}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>Patient Name</FieldLabel><FieldValue>{resolvedPatient.name}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>Room | Bed</FieldLabel><FieldValue>{resolvedPatient.roomBed}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>Admitting Date</FieldLabel><FieldValue>{resolvedPatient.admitting}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>Admitting Dr</FieldLabel><FieldValue>{resolvedPatient.admittingDr}</FieldValue></FieldBox>
-          <FieldBox><FieldLabel>Customer Type</FieldLabel><FieldValue>{resolvedPatient.customerType}</FieldValue></FieldBox>
+          <FieldBox>
+            <FieldLabel>Admitting Dr</FieldLabel>
+            <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Room | Bed</FieldLabel>
+            <FieldValue>{resolvedPatient.roomBed}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Customer Type</FieldLabel>
+            <FieldValue>{resolvedPatient.customerType}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Admitting Date</FieldLabel>
+            <FieldValue>{resolvedPatient.admitting}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Ward Name</FieldLabel>
+            <FieldValue>{resolvedPatient.wardName}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Address</FieldLabel>
+            <FieldValue style={{ fontSize: '0.85rem' }}>{resolvedPatient.address}</FieldValue>
+          </FieldBox>
         </PatientGrid>
       </PatientPanel>
 
@@ -638,7 +718,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                     />
                     {showItemDropdown && testSearch && (
                       <DropdownList>
-                        {investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())).map((item, idx) => (
+                        {Array.isArray(investigationItems) && investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())).map((item, idx) => (
                           <DropdownItem key={idx} onClick={() => addTestToList(item)}>
                             {item.itemName} - <span style={{ color: colors.primary }}>₹{item.price}</span>
                           </DropdownItem>
@@ -657,7 +737,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                     />
                     {showPackageDropdown && packageSearch && (
                       <DropdownList>
-                        {packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).map((pkg, idx) => (
+                        {Array.isArray(packages) && packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).map((pkg, idx) => (
                           <DropdownItem key={idx} onClick={() => addPackageToList(pkg)}>
                             {pkg.packageName}
                           </DropdownItem>
@@ -751,7 +831,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 {filteredRequests.length === 0 ? (
                   <Tr><Td colSpan="9" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>No investigation history available</Td></Tr>
                 ) : (
-                  filteredRequests.map((req) => (
+                  Array.isArray(filteredRequests) && filteredRequests.map((req) => (
                     <React.Fragment key={req.id}>
                         <Tr>
                           <Td><StatusBadge status={req.status}>{req.status}</StatusBadge></Td>

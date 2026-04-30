@@ -93,20 +93,78 @@ const ContentBody = styled.div`
 `;
 
 const PatientPanel = styled.div`
-  background: ${colors.white};
+  background: ${colors.white}80;
+  backdrop-filter: blur(8px);
   border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 15px 25px;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: ${colors.primary};
+  }
+`;
+
+const PatientHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  padding-bottom: 16px;
+  border-bottom: 1px dashed ${colors.border};
+`;
+
+const PatientAvatar = styled.div`
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, ${colors.primary}20, ${colors.primary}40);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: ${colors.primary};
+  font-size: 1.4rem;
+  font-weight: 800;
+  border: 1px solid ${colors.primary}30;
+`;
+
+const PatientIdentity = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: ${colors.textMain};
+  }
+
+  .sub-text {
+    font-size: 0.85rem;
+    color: ${colors.textMuted};
+    font-weight: 500;
+  }
 `;
 
 const PatientGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 12px 16px;
-  @media (max-width: 1300px) {
-    grid-template-columns: repeat(4, 2fr);
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 24px;
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
   }
 `;
 
@@ -117,24 +175,17 @@ const FieldBox = styled.div`
 `;
 
 const FieldLabel = styled.span`
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
   color: ${colors.textMuted};
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.8px;
 `;
 
 const FieldValue = styled.div`
-  background: #f1f5f7;
-  border: 1px solid ${colors.border};
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: ${colors.textMain};
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  font-weight: 500;
 `;
 
 const TopActionBar = styled.div`
@@ -311,24 +362,28 @@ const CancelBtn = styled.button`
 
 const TabsBar = styled.div`
   display: flex;
-  gap: 15px;
-  margin: 30px 0 15px 0;
-  border-bottom: 2px solid ${colors.border};
-  padding-bottom: 0;
+  gap: 8px;
+  margin: 30px 0 20px 0;
+  padding: 6px;
+  background: ${colors.border}30;
+  border-radius: 12px;
+  width: fit-content;
 `;
 
 const Tab = styled.div`
-  padding: 8px 25px;
-  font-size: 0.9rem;
+  padding: 10px 24px;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
-  border-bottom: 3px solid
-    ${(props) => (props.active ? colors.primary : "transparent")};
-  margin-bottom: -2px;
-  transition: all 0.2s;
+  background: ${(props) => (props.active ? "white" : "transparent")};
+  border-radius: 8px;
+  box-shadow: ${(props) => (props.active ? "0 4px 12px rgba(0,0,0,0.05)" : "none")};
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
   &:hover {
     color: ${colors.primary};
+    background: ${(props) => (props.active ? "white" : "white")};
   }
 `;
 
@@ -513,15 +568,19 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         .filter(Boolean)
         .join(" ") || "Unknown Patient",
     address: patient?.address || pd.permanent_address || "-",
-    admitting: patient?.admissionDateTime
-      ? new Date(patient.admissionDateTime).toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
+    admittingDate: patient?.admissionDateTime
+      ? new Date(patient.admissionDateTime).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      })
+      : "-",
+    admittingTime: patient?.admissionDateTime
+      ? new Date(patient.admissionDateTime).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
       : "-",
     admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
     roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
@@ -539,10 +598,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // UI States
-  const [showForm, setShowForm] = useState(false);
+  const [showForm,       setShowForm]       = useState(false);
+  const [editingRequest, setEditingRequest] = useState(null);
+  const [editSaving,     setEditSaving]     = useState(false);
 
   // Form Fields
-  const [pharmacyDept, setPharmacyDept] = useState("OP001");
+  const [pharmacyDept, setPharmacyDept] = useState("OLET001");
   const [billTypeNo, setBillTypeNo] = useState("42");
   const [billtype, setBilltype] = useState("42");
   const [billTypeName, setBillTypeName] = useState("PHARMACY OP BILL (SH)");
@@ -588,6 +649,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
   useEffect(() => {
     fetchRequests();
+  }, [pharmacyDept]);
+
+  useEffect(() => {
     fetchDoctors();
     fetchBillTypes();
     fetchDosages();
@@ -632,9 +696,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           setBillTypeNo(opt.billTypeNo);
           setBilltype(opt.bill_type);
           setBillTypeName(opt.bill_name);
-          setPharmacyDept(
-            opt.bill_name?.toLowerCase().includes("ip") ? "IP001" : "OP001",
-          );
+          setPharmacyDept(opt.outlet_code || "");
         }
       }
     } catch (e) {
@@ -648,7 +710,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         `${HmsBaseUrl}get_medicine_ward_requests/?uhid=${resolvedPatient.uhid}&ipNumber=${resolvedPatient.ipNo}`,
         "GET",
       );
-      if (res.success) setRequests(res.data?.data || []);
+      if (res.success) {
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRequests(list);
+      }
     } catch (e) {
       console.error("Error fetching requests:", e);
     }
@@ -734,12 +799,14 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
     const newMed = {
       item_id: selectedDrug.item_id,
-      itemName: selectedDrug.name,
+      name: selectedDrug.name || "",
+      batch_number: selectedDrug.batch_number || "",
       qty: Number(qty),
-      quantity: Number(qty),
       price: selectedDrug.price,
       noOfDays: noOfDays,
       dosage: dosage,
+      dose: dose,
+      doseunit: doseUnit,
     };
 
     setSelectedMedicines([...selectedMedicines, newMed]);
@@ -748,11 +815,34 @@ const MedicineWardRequest = ({ patient, onClose }) => {
 
   const resetForm = () => {
     setSelectedDrug(null);
+    setSearchQuery("");
+    setSearchResults([]);
     setNoOfDays("");
     setQty("");
+    setDosage("");
     setDose("");
+    setDoseUnit("");
     setRoute("");
     setRemark("");
+  };
+
+  // Load a selected medicine back into the form for editing
+  const handleEditSelectedMed = (idx) => {
+    const med = selectedMedicines[idx];
+    // Restore the drug selector state
+    setSelectedDrug({
+      item_id: med.item_id,
+      name: med.name || `Item ${med.item_id}`,
+      batch_number: med.batch_number,
+      price: med.price,
+    });
+    setDosage(med.dosage || "");
+    setNoOfDays(med.noOfDays || "");
+    setQty(String(med.qty || ""));
+    setDose(med.dose || "");
+    setDoseUnit(med.doseunit || "");
+    // Remove from list (it will be re-added on handleAddMedicine)
+    setSelectedMedicines((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleConfirm = async () => {
@@ -768,13 +858,14 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
       medicine_particulars: selectedMedicines,
       total_amount: selectedMedicines.reduce(
-        (acc, m) => acc + (m.price || 0) * m.quantity,
+        (acc, m) => acc + (m.price || 0) * (m.qty || 0),
         0,
       ),
       doctor: doctorName,
       doctor_id: doctor,
       billing_status: "Ward Request",
       billing_mode: "WARD REQUEST",
+      outlet_code: pharmacyDept,
     };
 
     try {
@@ -797,6 +888,95 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     setSelectedMedicines((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // ─── Open Edit (loads history medicines into the right side panel) ─────────
+  const handleOpenEdit = (req) => {
+    setEditingRequest(req);
+    // Map history medicine format → side panel format
+    const mapped = (req.medicines || [])
+      .filter((m) => !m.is_deleted)
+      .map((m) => ({
+        item_id: m.item_id,
+        name: m.item_name || m.name || `Item ${m.item_id}`,
+        batch_number: m.batch_number || "",
+        qty: m.quantity || 0,
+        price: m.price || 0,
+        noOfDays: m.noOfDays || "",
+        dosage: m.dosage || "",
+        dose: m.dose || "",
+        doseunit: m.doseunit || "",
+      }));
+    setSelectedMedicines(mapped);
+    setShowForm(true);   // open the form panel to show the loaded medicines
+    // Scroll to top so the panel is visible
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ─── Cancel editing ────────────────────────────────────────────────────────
+  const handleCancelEdit = () => {
+    setEditingRequest(null);
+    setSelectedMedicines([]);
+    setShowForm(false);
+  };
+
+  // ─── Save edits back to server ────────────────────────────────────────────
+  const handleEditSave = async () => {
+    if (!editingRequest) return;
+    setEditSaving(true);
+    try {
+      // Build the full list: non-deleted items from selectedMedicines,
+      // plus mark items originally present but now removed as is_deleted
+      const originalIds = new Set(
+        (editingRequest.medicines || []).map(
+          (m) => `${m.item_id}__${m.batch_number}`
+        )
+      );
+      const keptIds = new Set(
+        selectedMedicines.map((m) => `${m.item_id}__${m.batch_number}`)
+      );
+
+      // Kept / edited items
+      const updated = selectedMedicines.map((m) => ({
+        item_id: m.item_id,
+        batch_number: m.batch_number,
+        quantity: m.qty,
+        dosage: m.dosage,
+        is_deleted: false,
+      }));
+
+      // Items that were in the original but removed in the panel → soft-delete
+      const deleted = (editingRequest.medicines || [])
+        .filter((m) => !keptIds.has(`${m.item_id}__${m.batch_number}`))
+        .map((m) => ({
+          item_id: m.item_id,
+          batch_number: m.batch_number || "",
+          quantity: m.quantity,
+          dosage: m.dosage,
+          is_deleted: true,
+        }));
+
+      const res = await apiRequest(
+        `${HmsBaseUrl}update_medicine_ward_request/`,
+        "PATCH",
+        {
+          Bill_id: editingRequest.Bill_id,
+          medicine_particulars: [...updated, ...deleted],
+        },
+      );
+      if (res.success) {
+        setEditingRequest(null);
+        setSelectedMedicines([]);
+        setShowForm(false);
+        fetchRequests();
+      } else {
+        alert(res.error || "Failed to save changes.");
+      }
+    } catch (e) {
+      console.error("Edit save error", e);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   const getStatusColor = (status, isDischarge) => {
     if (isDischarge) return colors.legDischarge;
     if (status === "Pending") return colors.legPending;
@@ -809,53 +989,48 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     <>
       <div style={{ padding: "20px" }}>
         <PatientPanel>
+          <PatientHeader>
+            <PatientAvatar>
+              {resolvedPatient.name ? resolvedPatient.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() : "P"}
+            </PatientAvatar>
+            <PatientIdentity>
+              <h3>{resolvedPatient.name || "Unknown Patient"}</h3>
+              <div className="sub-text">
+                UHID: {resolvedPatient.uhid || "-"} | IP No: {resolvedPatient.ipNo || "-"} {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
+              </div>
+            </PatientIdentity>
+          </PatientHeader>
+          
           <PatientGrid>
             <FieldBox>
-              <FieldLabel>IP No</FieldLabel>
-              <FieldValue>
-                {resolvedPatient.ipNo}{" "}
-                {resolvedPatient.ipBadge && `(${resolvedPatient.ipBadge})`}
-              </FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>UHID</FieldLabel>
-              <FieldValue>{resolvedPatient.uhid}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Name</FieldLabel>
-              <FieldValue>{resolvedPatient.name}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Address</FieldLabel>
-              <FieldValue>{resolvedPatient.address}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Admitting Date & Time</FieldLabel>
-              <FieldValue>{resolvedPatient.admitting}</FieldValue>
-            </FieldBox>
-            <FieldBox>
               <FieldLabel>Admitting Dr</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
+              <FieldValue>{resolvedPatient.admittingDr || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Room | Bed</FieldLabel>
-              <FieldValue>{resolvedPatient.roomBed}</FieldValue>
+              <FieldValue>{resolvedPatient.roomBed || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
               <FieldLabel>Customer Type</FieldLabel>
-              <FieldValue>{resolvedPatient.customerType}</FieldValue>
+              <FieldValue>{resolvedPatient.customerType || "-"}</FieldValue>
             </FieldBox>
             <FieldBox>
-              <FieldLabel>Company</FieldLabel>
-              <FieldValue>{resolvedPatient.companyName}</FieldValue>
+              <FieldLabel>Admitting Date</FieldLabel>
+              <FieldValue>{resolvedPatient.admittingDate} {resolvedPatient.admittingTime}</FieldValue>
+            </FieldBox>
+            <FieldBox>
+              <FieldLabel>Company Name</FieldLabel>
+              <FieldValue>{resolvedPatient.companyName || "-"}</FieldValue>
             </FieldBox>
           </PatientGrid>
         </PatientPanel>
 
         <TopActionBar>
-          <RequestBtn onClick={() => setShowForm(!showForm)}>
-            {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
-          </RequestBtn>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <RequestBtn onClick={() => setShowForm(!showForm)}>
+              {showForm ? "✕ Close Form" : "＋ New Medicine Request"}
+            </RequestBtn>
+          </div>
         </TopActionBar>
 
         {showForm && (
@@ -865,27 +1040,23 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 <FormItem>
                   <FormLabel>Medicine Bill Type</FormLabel>
                   <SearchableDropdown
-                    value={billTypeNo}
+                    value={billtype}
                     onChange={(val) => {
                       const opt = billTypeOptions.find(
-                        (o) => String(o.billTypeNo) === String(val),
+                        (o) => String(o.bill_type) === String(val),
                       );
                       if (opt) {
-                        setBillTypeNo(val);
-                        setBilltype(opt.bill_type);
+                        setBillTypeNo(opt.billTypeNo);
+                        setBilltype(val);
                         setBillTypeName(opt.bill_name);
-                        setPharmacyDept(
-                          opt.bill_name?.toLowerCase().includes("ip")
-                            ? "IP001"
-                            : "OP001",
-                        );
+                        setPharmacyDept(opt.outlet_code || "");
                         setSearchResults([]);
                         setSelectedDrug(null);
                         setSearchQuery("");
                       }
                     }}
                     options={billTypeOptions.map((o) => ({
-                      id: o.billTypeNo,
+                      id: o.bill_type,
                       name: o.bill_name,
                     }))}
                   />
@@ -1096,39 +1267,61 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     <div
                       key={idx}
                       style={{
-                        padding: "12px 0",
+                        padding: "12px 10px 12px 12px",
                         borderBottom: "1px solid #F0F0F0",
                         position: "relative",
+                        borderRadius: "6px",
+                        background: "#f7fcfb",
+                        marginBottom: "4px",
+                        cursor: "default",
                       }}
                     >
+                      {/* Medicine Name – click to load back into form */}
                       <div
+                        onClick={() => handleEditSelectedMed(idx)}
+                        title="Click to edit this medicine"
                         style={{
-                          fontWeight: "600",
+                          fontWeight: "700",
                           fontSize: "0.85rem",
                           color: colors.primary,
+                          cursor: "pointer",
+                          paddingRight: "50px",
                         }}
                       >
-                        {m.itemName}
+                        ✎ {m.name || `Item ID: ${m.item_id}`}
                       </div>
                       <div
                         style={{
                           fontSize: "0.75rem",
                           color: colors.textMuted,
                           marginTop: "4px",
+                          paddingRight: "50px",
                         }}
                       >
-                        {m.dosage} | {m.noOfDays} Days | Qty: {m.quantity}
+                        {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
+                        {m.batch_number ? ` | B: ${m.batch_number}` : ""}
                       </div>
+                      {/* Remove button */}
                       <button
                         onClick={() => removeSelectedMed(idx)}
+                        title="Remove"
                         style={{
                           position: "absolute",
-                          right: "0",
-                          top: "12px",
-                          background: "none",
+                          right: "8px",
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "#ffe8e8",
                           border: "none",
                           color: "#e53935",
                           cursor: "pointer",
+                          borderRadius: "4px",
+                          width: "26px",
+                          height: "26px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: "bold",
+                          fontSize: "0.75rem",
                         }}
                       >
                         ✕
@@ -1138,21 +1331,48 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 )}
               </SidePanelContent>
               <SidePanelFooter>
-                <AddBtn
-                  style={{ width: "100%", padding: "12px" }}
-                  onClick={handleConfirm}
-                >
-                  Confirm Request
-                </AddBtn>
+                {editingRequest ? (
+                  <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+                    <button
+                      onClick={handleCancelEdit}
+                      style={{
+                        flex: 1,
+                        padding: "12px",
+                        borderRadius: "6px",
+                        border: `1px solid ${colors.border}`,
+                        background: "white",
+                        cursor: "pointer",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <AddBtn
+                      style={{ flex: 2, padding: "12px" }}
+                      onClick={handleEditSave}
+                      disabled={editSaving}
+                    >
+                      {editSaving ? "Saving..." : "💾 Save Edit"}
+                    </AddBtn>
+                  </div>
+                ) : (
+                  <AddBtn
+                    style={{ width: "100%", padding: "12px" }}
+                    onClick={handleConfirm}
+                  >
+                    Confirm Request
+                  </AddBtn>
+                )}
               </SidePanelFooter>
             </SidePanel>
           </RequestFormWrapper>
         )}
 
         <TabsBar>
-          <Tab active={true}>Request History</Tab>
+          <Tab active={true}>💊 Medicine Request History</Tab>
         </TabsBar>
 
+        {/* ── Medicine History Table ── */}
         <StyledTable>
           <thead>
             <tr>
@@ -1165,13 +1385,14 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               <th>Doctor</th>
               <th>Bill Name</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="9"
+                  colSpan="10"
                   style={{
                     textAlign: "center",
                     padding: "30px",
@@ -1182,26 +1403,28 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                 </td>
               </tr>
             ) : (
-              requests.map((req, i) => (
+              Array.isArray(requests) && requests.map((req, i) => (
                 <tr key={i}>
                   <td>
                     {req.reqDate} {req.reqTime}
                   </td>
                   <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.itemName || m.name}
-                      </div>
-                    ))}
+                    {req.medicines
+                      ?.filter((m) => !m.is_deleted)
+                      .map((m, idx, arr) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < arr.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.item_name || m.name || `(ID: ${m.item_id})`}
+                        </div>
+                      ))}
                   </td>
                   <td>
                     {req.medicines?.map((m, idx) => (
@@ -1276,12 +1499,29 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       {req.status || "Pending"}
                     </LegendItem>
                   </td>
+                  <td>
+                    <button
+                      onClick={() => handleOpenEdit(req)}
+                      disabled={req.status === "Billed" || req.status === "Cancelled"}
+                      style={{
+                        background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        padding: "5px 12px",
+                        cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
+                        fontSize: "0.8rem",
+                        fontWeight: "600",
+                      }}
+                    >
+                      ✎ Edit
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </StyledTable>
-
         <LegendContainer>
           <LegendItem color={colors.legPending}>Pending</LegendItem>
           <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
@@ -1294,6 +1534,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
         </LegendContainer>
       </div>
+
+
 
       {/* ─── Medicine Search Modal ────────────────────────────────────── */}
       {isSearchModalOpen && (
@@ -1383,7 +1625,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {searchResults.map((item, idx) => (
+                      {Array.isArray(searchResults) && searchResults.map((item, idx) => (
                         <tr
                           key={idx}
                           style={{ borderBottom: `1px solid ${colors.border}` }}

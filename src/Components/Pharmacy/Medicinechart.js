@@ -358,22 +358,25 @@ const BillingStatusBadge = styled.span`
   letter-spacing: 0.03em;
   white-space: nowrap;
   background: ${({ $status }) =>
-    $status === "Pending"   ? "#fef3c7" :
-    $status === "Approved"  ? "#dcfce7" :
-    $status === "Cancelled" ? "#fee2e2" :
-    $status === "Billed"    ? "#dbeafe" :
+    $status === "Pending"    ? "#fef3c7" :
+    $status === "Processing" ? "#ede9fe" :
+    $status === "Approved"   ? "#dcfce7" :
+    $status === "Cancelled"  ? "#fee2e2" :
+    $status === "Billed"     ? "#dbeafe" :
     "#f1f5f9"};
   color: ${({ $status }) =>
-    $status === "Pending"   ? "#b45309" :
-    $status === "Approved"  ? "#16a34a" :
-    $status === "Cancelled" ? "#dc2626" :
-    $status === "Billed"    ? "#1d4ed8" :
+    $status === "Pending"    ? "#b45309" :
+    $status === "Processing" ? "#7c3aed" :
+    $status === "Approved"   ? "#16a34a" :
+    $status === "Cancelled"  ? "#dc2626" :
+    $status === "Billed"     ? "#1d4ed8" :
     "#64748b"};
   border: 1px solid ${({ $status }) =>
-    $status === "Pending"   ? "#fcd34d" :
-    $status === "Approved"  ? "#86efac" :
-    $status === "Cancelled" ? "#fca5a5" :
-    $status === "Billed"    ? "#93c5fd" :
+    $status === "Pending"    ? "#fcd34d" :
+    $status === "Processing" ? "#c4b5fd" :
+    $status === "Approved"   ? "#86efac" :
+    $status === "Cancelled"  ? "#fca5a5" :
+    $status === "Billed"     ? "#93c5fd" :
     "#e2e8f0"};
 `;
 
@@ -413,6 +416,419 @@ const ErrorMsg = styled.div`
   font-size: 0.875rem;
 `;
 
+// ─── Date Filter Bar ──────────────────────────────────────────────────────────
+const DateFilterBar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+`;
+
+const DateLabel = styled.label`
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const DateInput = styled.input`
+  padding: 7px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.83rem;
+  color: #374151;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  &:focus { border-color: #14b8a6; }
+`;
+
+// ─── Print Modal ──────────────────────────────────────────────────────────────
+const PrintOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const PrintModalBox = styled.div`
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  width: 680px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: ${fadeIn} 0.2s ease;
+`;
+
+const PrintModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+`;
+
+const PrintModalTitle = styled.span`
+  font-weight: 700;
+  font-size: 1rem;
+  color: #0f766e;
+`;
+
+const PrintCloseBtn = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  color: #64748b;
+  line-height: 1;
+  &:hover { color: #dc2626; }
+`;
+
+const PrintContent = styled.div`
+  padding: 24px 28px;
+  font-family: Arial, sans-serif;
+  font-size: 0.85rem;
+  color: #1e293b;
+`;
+
+const PrintHospitalHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 10px;
+`;
+
+const PrintHospitalLogo = styled.div`
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+`;
+
+const PrintHospitalInfo = styled.div`
+  flex: 1;
+`;
+
+const PrintHospitalName = styled.div`
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f766e;
+  letter-spacing: 0.02em;
+`;
+
+const PrintHospitalSub = styled.div`
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 2px;
+`;
+
+const PrintSectionTitle = styled.div`
+  background: #e5e7eb;
+  text-align: right;
+  padding: 4px 10px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #374151;
+  margin-bottom: 10px;
+`;
+
+const PrintMetaGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 24px;
+  margin-bottom: 12px;
+  font-size: 0.82rem;
+`;
+
+const PrintMetaRow = styled.div`
+  display: flex;
+  gap: 6px;
+`;
+
+const PrintMetaKey = styled.span`
+  color: #64748b;
+  white-space: nowrap;
+  min-width: 80px;
+`;
+
+const PrintMetaVal = styled.span`
+  font-weight: 600;
+  color: #1e293b;
+`;
+
+const PrintDateRow = styled.div`
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 2px;
+  color: #1e293b;
+`;
+
+const PrintDoctorRow = styled.div`
+  font-weight: 700;
+  font-size: 0.84rem;
+  color: #0f766e;
+  margin-bottom: 12px;
+`;
+
+const PrintItemTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+`;
+
+const PrintItemTh = styled.th`
+  border: 1px solid #d1d5db;
+  padding: 6px 10px;
+  background: #f9fafb;
+  text-align: left;
+  font-weight: 700;
+  font-size: 0.78rem;
+`;
+
+const PrintItemTd = styled.td`
+  border: 1px solid #e5e7eb;
+  padding: 6px 10px;
+`;
+
+const PrintFooterBtns = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+`;
+
+const PrintBtn = styled.button`
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { opacity: 0.88; }
+`;
+
+const CancelBtn = styled.button`
+  padding: 8px 20px;
+  background: #f1f5f9;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background: #e2e8f0; }
+`;
+
+const PrintIconBtn = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #0f766e;
+  transition: background 0.12s;
+  &:hover { background: #e6faf8; }
+`;
+
+// ─── Substitute Modal Styled Components ──────────────────────────────────────
+const SubstOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const SubstModalBox = styled.div`
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  width: 520px;
+  max-width: 96vw;
+  animation: ${fadeIn} 0.2s ease;
+  overflow: hidden;
+`;
+
+const SubstModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #fff;
+`;
+
+const SubstModalTitle = styled.span`
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+`;
+
+const SubstCloseX = styled.button`
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.85;
+  &:hover { opacity: 1; }
+`;
+
+const SubstBody = styled.div`
+  padding: 22px 24px 18px;
+`;
+
+const SubstFieldLabel = styled.label`
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+`;
+
+const SubstInputWrapper = styled.div`
+  position: relative;
+`;
+
+const SubstInput = styled.input`
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background: #fff;
+  box-sizing: border-box;
+  outline: none;
+  &:focus { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,0.1); }
+`;
+
+const SubstDropList = styled.ul`
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 7px;
+  box-shadow: 0 6px 24px rgba(15,118,110,0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+`;
+
+const SubstDropItem = styled.li`
+  padding: 9px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #1e293b;
+  font-weight: 500;
+  transition: background 0.12s;
+  &:hover, &.highlighted {
+    background: #0f766e;
+    color: #fff;
+  }
+`;
+
+const SubstSelectedTag = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: #e6faf8;
+  border: 1.5px solid #99f6e4;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f766e;
+`;
+
+const SubstTagClose = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #0f766e;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  &:hover { color: #dc2626; }
+`;
+
+const SubstFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+`;
+
+const SubstCloseBtn = styled.button`
+  padding: 8px 20px;
+  background: #374151;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { background: #1e293b; }
+`;
+
+const SubstConfirmBtn = styled.button`
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { opacity: 0.88; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+`;
+
 // ─── Portal Dropdown — renders into document.body to escape overflow:hidden ────
 const PortalDropdown = ({ menuKey, openActionMenu, pos, children }) => {
   if (openActionMenu !== menuKey || !pos) return null;
@@ -426,31 +842,180 @@ const PortalDropdown = ({ menuKey, openActionMenu, pos, children }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const MedicineChart = ({ onConvertToBill }) => {
+  const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD for input[type=date]
+
   const [medicineData, setMedicineData] = useState([]);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState(null);
   const [expandedKey, setExpandedKey]   = useState(null);
   const [openActionMenu, setOpenActionMenu] = useState(null); // { key, top, left }
+  const [fromDate, setFromDate]         = useState(todayStr);
+  const [toDate, setToDate]             = useState(todayStr);
+  const [printPatient, setPrintPatient] = useState(null); // patient to print
 
-  // 🔹 Fetch patients + their medicine items
+  // ─── Substitute Modal State ───────────────────────────────────────────────
+  const [substituteModal, setSubstituteModal] = useState(null); // { patientIdx, itemIdx }
+  const [substSearch, setSubstSearch]         = useState("");
+  const [substSelected, setSubstSelected]     = useState(null); // chosen medicine object
+  const [substDropOpen, setSubstDropOpen]     = useState(false);
+  const [medicines, setMedicines]             = useState([]);   // from get_oppharmacy_stock
+  const HmsBaseUrl = Hmsbaseurl;
+
+  // ─── Helper: fetch patient_details for a single UHID ─────────────────────
+  const fetchPatientDetails = async (uhid) => {
+    try {
+      const res = await apiRequest(
+        `${Hmsbaseurl}patient_details/?uhid=${encodeURIComponent(uhid)}`,
+        "GET"
+      );
+      // API returns { success, data: [...] }
+      const resBody = res.data ?? res;
+      const list = res.success
+        ? Array.isArray(resBody?.data)
+          ? resBody.data
+          : Array.isArray(resBody)
+            ? resBody
+            : []
+        : [];
+      return list.length > 0 ? list[0] : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // ─── Helper: fetch admissionstatus for a single UHID ──────────────────────
+  const fetchAdmissionDetails = async (uhid) => {
+    try {
+      const res = await apiRequest(
+        `${Hmsbaseurl}admissionstatus/?uhid=${encodeURIComponent(uhid)}`,
+        "GET"
+      );
+      if (!res.success) return null;
+      const admitted = res.data?.admitted ?? res.admitted ?? false;
+      if (!admitted) return { admitted: false };
+
+      const admData = res.data?.data ?? res.data ?? {};
+
+      // ── Resolve active room ────────────────────────────────────────────
+      // Primary: room_details (fields: roomNo, bedNo)
+      // Fallback: roomShitingDetails (fields: newRoomNo, newBedNo)
+      const roomDetails     = admData?.room_details;
+      const shiftingDetails = admData?.roomShitingDetails;
+      const activeFromRoom  = Array.isArray(roomDetails)
+        ? roomDetails.find(r => r.is_roomActive === true) : null;
+      const activeFromShift = Array.isArray(shiftingDetails)
+        ? shiftingDetails.find(r => r.is_roomActive === true) : null;
+
+      let roomLabel = "";
+      if (activeFromRoom) {
+        roomLabel = `${activeFromRoom.roomNo} / Bed ${activeFromRoom.bedNo}`;
+      } else if (activeFromShift) {
+        roomLabel = `${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`;
+      }
+
+      return {
+        admitted:         true,
+        ipNumber:         admData?.ipNumber         || "",
+        admissionDateTime: admData?.admissionDateTime || "",
+        admittingDoctor:  admData?.admittingDoctor   || "",
+        consultingDoctor: admData?.consultingDoctor  || "",
+        roomLabel,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  // ─── Calculate age string from dob ────────────────────────────────────────
+  const calcAge = (dob) => {
+    if (!dob) return "";
+    const d = new Date(dob);
+    const today = new Date();
+    let years  = today.getFullYear() - d.getFullYear();
+    let months = today.getMonth()    - d.getMonth();
+    let days   = today.getDate()     - d.getDate();
+    if (days   < 0) { months -= 1; days  += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+    if (months < 0) { years  -= 1; months += 12; }
+    return `${years}Y ${months}M ${days}D`;
+  };
+
+  // 🔹 Fetch patients + their medicine items, then enrich with patient & admission data
   const fetchMedicineChart = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const branch_code = localStorage.getItem("selected_branch");
+          const response = await apiRequest(
+      `${Hmsbaseurl}pharmacy_medicinechart/`,
+      "POST",
+      {}
+    );
 
-      const response = await apiRequest(
-        `${Hmsbaseurl}pharmacy_medicinechart/`,
-        "POST",
-        { branch_code, outlet_code: "OLET001" }
+      if (!response.success) {
+        setError(response.error || "Failed to load data.");
+        return;
+      }
+
+      const rawList = response.data?.data || [];
+
+      // ── Enrich each patient in parallel ──────────────────────────────────
+      const enriched = await Promise.all(
+        rawList.map(async (patient) => {
+          const uhid = patient.uhid;
+          if (!uhid) return patient;
+
+          // Run both API calls concurrently
+          const [pd, adm] = await Promise.all([
+            fetchPatientDetails(uhid),
+            fetchAdmissionDetails(uhid),
+          ]);
+
+          // ── Merge patient_details fields ────────────────────────────────
+          const pdMerge = pd
+            ? {
+                // patient_details sub-object (used in UI)
+                patient_details: {
+                  patient_name: `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
+                  address:      pd.permanent_address || pd.area || "",
+                  mobile:       pd.mobilePhone || pd.mobile || "",
+                },
+                // top-level fields used by convertWardRequest in OPPharmacy
+                patient_name:      `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
+                address:           pd.permanent_address || "",
+                place:             pd.area              || "",
+                mobile:            pd.mobilePhone       || pd.mobile || "",
+                customer_type:     pd.customer_type     || "",
+                age:               pd.dob ? calcAge(pd.dob) : pd.age ? String(pd.age) : "",
+                // doctor from latest billing entry
+                doctor_id: (() => {
+                  if (!Array.isArray(pd.billing) || pd.billing.length === 0)
+                    return patient.doctor_id || "";
+                  const withDoc = pd.billing.filter(b => b.doctor_id);
+                  if (!withDoc.length) return patient.doctor_id || "";
+                  const sorted = [...withDoc].sort(
+                    (a, b) => new Date(b.billed_date) - new Date(a.billed_date)
+                  );
+                  return sorted[0].doctor_id;
+                })(),
+              }
+            : {};
+
+          // ── Merge admissionstatus fields ────────────────────────────────
+          const admMerge = adm
+            ? {
+                admission_status:   adm.admitted ? "ADMITTED" : "NOT ADMITTED",
+                inpatient_number:   adm.ipNumber            || patient.inpatient_number || "",
+                admission_datetime: adm.admissionDateTime   || "",
+                room_no:            adm.roomLabel           || patient.room_no || patient.ward_name || "",
+                ward_name:          adm.roomLabel           || patient.ward_name || patient.room_no || "",
+              }
+            : {};
+
+          return { ...patient, ...pdMerge, ...admMerge };
+        })
       );
 
-      if (response.success) {
-        setMedicineData(response.data?.data || []);
-      } else {
-        setError(response.error || "Failed to load data.");
-      }
+      setMedicineData(enriched);
     } catch (err) {
       console.error("Error fetching medicine chart:", err);
       setError("Failed to load data. Please try again.");
@@ -460,6 +1025,16 @@ const MedicineChart = ({ onConvertToBill }) => {
   };
 
   useEffect(() => { fetchMedicineChart(); }, []);
+
+  // ── Frontend date filter based on ward_request_date ───────────────────────
+  const filteredData = medicineData.filter((patient) => {
+    const raw = patient.ward_request_date || patient.created_date;
+    if (!raw) return true; // no date → always show
+    const wardDate = new Date(raw).toLocaleDateString("en-CA"); // YYYY-MM-DD
+    if (fromDate && wardDate < fromDate) return false;
+    if (toDate   && wardDate > toDate)   return false;
+    return true;
+  });
 
   // Close action dropdown when clicking outside
   useEffect(() => {
@@ -474,15 +1049,12 @@ const MedicineChart = ({ onConvertToBill }) => {
     setOpenActionMenu(null);
   };
 
-  // ✅ FIX: Safe Convert to Bill handler
-  // Validates medicine_items before passing to parent,
-  // so parent never receives a patient with undefined/empty items.
-  const handleConvertToBillSafe = useCallback((patient) => {
+  // ✅ Convert to Bill — calls convert_to_bill API (sets billing_status = "Processing")
+  // finalize_bill (blocked_quantity update) is called by OPPharmacy AFTER successful PATCH save
+  const handleConvertToBillSafe = useCallback(async (patient) => {
     if (typeof onConvertToBill !== "function") return;
 
-    // Safely resolve medicine_items — never undefined
     const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
-
     if (items.length === 0) {
       alert(
         `No medicine items found for patient ${
@@ -492,9 +1064,149 @@ const MedicineChart = ({ onConvertToBill }) => {
       return;
     }
 
-    // Pass full patient record — OPPharmacy's convertWardRequest handles the mapping
+    const billId = patient.Bill_id ?? patient.bill_id ?? null;
+
+    // Step 1 — set billing_status = "Processing" in DB
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}convert_to_bill/`, "POST", { Bill_id: billId });
+      if (!res.success) {
+        console.error("convert_to_bill API error:", res.error);
+      }
+    } catch (err) {
+      console.error("convert_to_bill API failed:", err);
+    }
+
+    // Step 2 — optimistic UI: reflect "Processing" status in the list
+    setMedicineData(prev =>
+      prev.map(p =>
+        (p.Bill_id ?? p.bill_id) === billId
+          ? { ...p, billing_status: "Processing" }
+          : p
+      )
+    );
+
+    // Step 3 — hand off to parent (switches to pharmacy bill tab)
     onConvertToBill({ ...patient, medicine_items: items });
-  }, [onConvertToBill]);
+  }, [onConvertToBill, HmsBaseUrl]);
+
+  // ─── Fetch pharmacy stock for substitute dropdown ─────────────────────────
+  useEffect(() => {
+    if (!HmsBaseUrl) return;
+    const fetchMedicines = async () => {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "POST");
+        const medicineArray = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data?.data)
+          ? response.data.data
+          : [];
+        if (response.success) {
+          const formatted = medicineArray.map((item) => ({
+            name: item.item_name || "",
+            item_id: item.item_id,
+            batch_number: item.batch_number || "N/A",
+            expiry_date: item.expiry_date || "N/A",
+            mrp: parseFloat(item.mrp || 0),
+            available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
+            category: item.category || "",
+          }));
+          // Deduplicate by item_id — keep unique names
+          const seen = new Set();
+          const unique = formatted.filter(m => {
+            if (seen.has(m.item_id)) return false;
+            seen.add(m.item_id);
+            return true;
+          });
+          setMedicines(unique);
+        }
+      } catch (err) {
+        console.error("Error fetching medicines for substitute:", err);
+      }
+    };
+    fetchMedicines();
+  }, [HmsBaseUrl]);
+
+  // ─── Open substitute modal ────────────────────────────────────────────────
+  const openSubstituteModal = (patientIdx, itemIdx) => {
+    setSubstituteModal({ patientIdx, itemIdx });
+    setSubstSearch("");
+    setSubstSelected(null);
+    setSubstDropOpen(false);
+  };
+
+  // ─── Confirm substitution — replaces item in medicineData + persists via API ─
+  const handleSubstituteConfirm = async () => {
+    if (!substSelected || !substituteModal) return;
+
+    const { patientIdx, itemIdx } = substituteModal;
+
+    // Capture original patient + item BEFORE state update
+    const selectedPatient = medicineData[patientIdx];
+    const selectedItem    = selectedPatient?.medicine_items?.[itemIdx];
+
+    if (!selectedPatient || !selectedItem) {
+      console.error("Substitute: could not resolve patient/item at", patientIdx, itemIdx);
+      setSubstituteModal(null);
+      return;
+    }
+
+    // Build the substitute_item payload the API expects (mirrors medicine_particulars shape)
+    const substituteItemPayload = {
+      item_id:         substSelected.item_id,
+      item_name:       substSelected.name,
+      batch_number:    substSelected.batch_number || selectedItem.batch_number || "",
+      qty:             selectedItem.qty      ?? selectedItem.quantity ?? 0,
+      quantity:        selectedItem.qty      ?? selectedItem.quantity ?? 0,
+      noOfDays:        selectedItem.noOfDays  || "",
+      dosage:          selectedItem.dosage    || "",
+      dose:            selectedItem.dose      || "",
+      doseUnit:        selectedItem.doseUnit  || "",
+      route:           selectedItem.route     || "",
+      remark:          selectedItem.remark    || "",
+      is_substitute:   true,
+      substituted:     true,
+      // carry stock/price fields so Convert-to-Bill still works
+      available_stock: substSelected.available_stock ?? 9999,
+      mrp:             substSelected.mrp ?? selectedItem.mrp ?? 0,
+      price:           substSelected.mrp ?? selectedItem.price ?? 0,
+      CGST_Percentage: selectedItem.CGST_Percentage ?? 0,
+      SGST_Percentage: selectedItem.SGST_Percentage ?? 0,
+      CGST_Amt:        selectedItem.CGST_Amt ?? 0,
+      SGST_Amt:        selectedItem.SGST_Amt ?? 0,
+    };
+
+    // Optimistic UI update
+    setMedicineData(prev =>
+      prev.map((patient, pIdx) => {
+        if (pIdx !== patientIdx) return patient;
+        const updatedItems = (patient.medicine_items || []).map((item, iIdx) =>
+          iIdx === itemIdx ? substituteItemPayload : item
+        );
+        return { ...patient, medicine_items: updatedItems };
+      })
+    );
+
+    // Persist to backend — POST substitute_medicine
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}substitute_medicine/`, "POST", {
+        Bill_id:          selectedPatient.Bill_id ?? selectedPatient.bill_id ?? null,
+        item_id:          selectedItem.item_id,
+        batch_number:     selectedItem.batch_number || "",
+        substitute_item:  substituteItemPayload,
+      });
+      if (!res.success) {
+        console.error("Substitute API error:", res.error);
+      }
+    } catch (err) {
+      console.error("Substitute API failed:", err);
+    }
+
+    setSubstituteModal(null);
+  };
+  // ─── Filtered suggestions (min 2 chars typed) ────────────────────────────
+  const substSuggestions = substSearch.length >= 2
+    ? medicines.filter(m => m.name.toLowerCase().includes(substSearch.toLowerCase()))
+    : [];
 
   return (
     <>
@@ -502,9 +1214,27 @@ const MedicineChart = ({ onConvertToBill }) => {
       <Wrapper>
         <Header>
           <Title>Pharmacy Medicine Chart</Title>
-          <RefreshBtn onClick={fetchMedicineChart} disabled={loading}>
-            {loading ? <SpinIcon>⟳</SpinIcon> : "⟳"} Refresh
-          </RefreshBtn>
+          <DateFilterBar>
+            <DateLabel>
+              From
+              <DateInput
+                type="date"
+                value={fromDate}
+                onChange={e => setFromDate(e.target.value)}
+              />
+            </DateLabel>
+            <DateLabel>
+              To
+              <DateInput
+                type="date"
+                value={toDate}
+                onChange={e => setToDate(e.target.value)}
+              />
+            </DateLabel>
+            <RefreshBtn onClick={fetchMedicineChart} disabled={loading} style={{ alignSelf: "flex-end" }}>
+              {loading ? <SpinIcon>⟳</SpinIcon> : "⟳"} Refresh
+            </RefreshBtn>
+          </DateFilterBar>
         </Header>
 
         {error && <ErrorMsg>⚠ {error}</ErrorMsg>}
@@ -531,14 +1261,14 @@ const MedicineChart = ({ onConvertToBill }) => {
                     <EmptyState>Loading...</EmptyState>
                   </td>
                 </tr>
-              ) : medicineData.length === 0 ? (
+              ) : filteredData.length === 0 ? (
                 <tr>
                   <td colSpan="9">
                     <EmptyState>No Data Available</EmptyState>
                   </td>
                 </tr>
               ) : (
-                medicineData.map((patient, idx) => {
+                filteredData.map((patient, idx) => {
                   const patientKey = `${patient.uhid || "row"}-${idx}`;
                   const isExpanded = expandedKey === patientKey;
 
@@ -555,7 +1285,15 @@ const MedicineChart = ({ onConvertToBill }) => {
                         onClick={() => handleToggleMedicines(patientKey)}
                       >
                         <PrintIcon>
-                          <span title="Print">🖨</span>
+                          <PrintIconBtn
+                            title="Print"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPrintPatient(patient);
+                            }}
+                          >
+                            🖨
+                          </PrintIconBtn>
                         </PrintIcon>
                         <UHIDCell>{patient.uhid}</UHIDCell>
                         <td style={{ fontWeight: isExpanded ? 700 : 500 }}>
@@ -596,20 +1334,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                         <DetailPanel onClick={(e) => e.stopPropagation()}>
                           <DetailCell colSpan="9">
                             <DetailInner>
-                              {/* Sub-header with patient meta */}
-                              <DetailHeader>
-                                <DetailTitle>
-                                  💊 Medicine Items — {patient.patient_details?.patient_name || patient.patient_name || `Patient (${patient.uhid})`}
-                                </DetailTitle>
-                                <PatientMeta>
-                                  {(patient.ward_name || patient.room_no) && <MetaBadge>🏥 {patient.ward_name || patient.room_no}</MetaBadge>}
-                                  {patient.doctor_id && <MetaBadge>👨‍⚕️ Dr. {patient.doctor_id}</MetaBadge>}
-                                  {patient.billing_status && <MetaBadge>{patient.billing_status}</MetaBadge>}
-                                  {patient.billing_mode && <MetaBadge>📋 {patient.billing_mode}</MetaBadge>}
-                                  {patient.net_amount && <MetaBadge>₹ {patient.net_amount}</MetaBadge>}
-                                  {patient.patient_details?.mobile && <MetaBadge>📞 {patient.patient_details.mobile}</MetaBadge>}
-                                </PatientMeta>
-                              </DetailHeader>
+
 
                               {/* Medicine items table */}
                               <ItemTable>
@@ -621,8 +1346,8 @@ const MedicineChart = ({ onConvertToBill }) => {
                                     <th>Qty</th>
                                     <th>Available Stock</th>
                                     <th>Dosage</th>
-                                    <th>No. of Days</th>
-                                    <th>Usage Date</th>
+                                    <th>Ward Request Date</th>
+                                    <th>Time</th>
                                   </tr>
                                 </ItemThead>
                                 <tbody>
@@ -631,10 +1356,19 @@ const MedicineChart = ({ onConvertToBill }) => {
                                       // ✅ FIX: Guard against null/undefined item in array
                                       if (!item) return null;
 
-                                      const usageDate = item.usage_date || patient.bill_date || patient.created_date;
-                                      const dateStr = usageDate
-                                        ? new Date(usageDate).toLocaleDateString("en-GB")
-                                        : "-";
+                                      const wardReqRaw = patient.ward_request_date || patient.created_date;
+                                      let wardDateStr = "-";
+                                      let wardTimeStr = "-";
+                                      if (wardReqRaw) {
+                                        const d = new Date(wardReqRaw);
+                                        wardDateStr = d.toLocaleDateString("en-GB"); // DD/MM/YYYY
+                                        wardTimeStr = d.toLocaleTimeString("en-IN", {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          second: "2-digit",
+                                          hour12: true,
+                                        });
+                                      }
 
                                       const stockLow = item.available_stock !== undefined && item.available_stock < 10;
 
@@ -648,6 +1382,11 @@ const MedicineChart = ({ onConvertToBill }) => {
                                           : "regular";
 
                                       const menuKey = `${patientKey}-${i}`;
+
+                                      // Find the real index of this patient in medicineData
+                                      const patientDataIdx = medicineData.findIndex(
+                                        (p, pIdx) => `${p.uhid || "row"}-${pIdx}` === patientKey
+                                      );
 
                                       return (
                                         <ItemRow key={`${item.item_id ?? i}-${i}`}>
@@ -681,6 +1420,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     setOpenActionMenu(null);
+                                                    openSubstituteModal(patientDataIdx, i);
                                                   }}
                                                 >
                                                   🔄 Substitute
@@ -714,13 +1454,11 @@ const MedicineChart = ({ onConvertToBill }) => {
                                           <td style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem" }}>
                                             {item.dosage || item.dose || <span style={{ color: "#cbd5e1" }}>—</span>}
                                           </td>
-                                          <td style={{ textAlign: "center" }}>
-                                            {item.noOfDays
-                                              ? <PendingBadge>{item.noOfDays} days</PendingBadge>
-                                              : <span style={{ color: "#94a3b8" }}>-</span>}
+                                          <td style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#64748b" }}>
+                                            {wardDateStr}
                                           </td>
                                           <td style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#64748b" }}>
-                                            {dateStr}
+                                            {wardTimeStr}
                                           </td>
                                         </ItemRow>
                                       );
@@ -758,6 +1496,241 @@ const MedicineChart = ({ onConvertToBill }) => {
         </Legend>
 
       </Wrapper>
+
+      {/* ── Substitute Modal ── */}
+      {substituteModal && createPortal(
+        <SubstOverlay onClick={() => setSubstituteModal(null)}>
+          <SubstModalBox onClick={e => e.stopPropagation()}>
+            <SubstModalHeader>
+              <SubstModalTitle>Substituted Item</SubstModalTitle>
+              <SubstCloseX onClick={() => setSubstituteModal(null)}>✕</SubstCloseX>
+            </SubstModalHeader>
+            <SubstBody>
+              <SubstFieldLabel>Item Name</SubstFieldLabel>
+              <SubstInputWrapper>
+                <SubstInput
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Type at least 2 letters to search..."
+                  value={substSearch}
+                  onChange={e => {
+                    setSubstSearch(e.target.value);
+                    setSubstDropOpen(true);
+                    if (!e.target.value) setSubstSelected(null);
+                  }}
+                  onFocus={() => substSearch.length >= 2 && setSubstDropOpen(true)}
+                />
+                {substDropOpen && substSuggestions.length > 0 && (
+                  <SubstDropList>
+                    {substSuggestions.map((med, idx) => (
+                      <SubstDropItem
+                        key={`${med.item_id}-${idx}`}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setSubstSelected(med);
+                          setSubstSearch(med.name);
+                          setSubstDropOpen(false);
+                        }}
+                      >
+                        {med.name}
+                      </SubstDropItem>
+                    ))}
+                  </SubstDropList>
+                )}
+              </SubstInputWrapper>
+
+              {/* Selected item tag with delete */}
+              {substSelected && (
+                <SubstSelectedTag>
+                  💊 {substSelected.name}
+                  <SubstTagClose
+                    title="Remove selection"
+                    onClick={() => {
+                      setSubstSelected(null);
+                      setSubstSearch("");
+                    }}
+                  >
+                    ✕
+                  </SubstTagClose>
+                </SubstSelectedTag>
+              )}
+            </SubstBody>
+            <SubstFooter>
+              <SubstCloseBtn onClick={() => setSubstituteModal(null)}>
+                ✕ Close
+              </SubstCloseBtn>
+              <SubstConfirmBtn
+                disabled={!substSelected}
+                onClick={handleSubstituteConfirm}
+              >
+                🔄 Substitute
+              </SubstConfirmBtn>
+            </SubstFooter>
+          </SubstModalBox>
+        </SubstOverlay>,
+        document.body
+      )}
+
+      {/* ── Print Modal ── */}
+      {printPatient && (() => {
+        const p = printPatient;
+        const items = Array.isArray(p?.medicine_items) ? p.medicine_items : [];
+        const wardReqRaw = p.ward_request_date || p.created_date;
+        let wardDateStr = "-", wardTimeStr = "-";
+        if (wardReqRaw) {
+          const d = new Date(wardReqRaw);
+          wardDateStr = d.toLocaleDateString("en-GB");
+          wardTimeStr = d.toLocaleTimeString("en-IN", {
+            hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+          });
+        }
+
+        const handlePrint = () => {
+          const printWindow = window.open("", "_blank", "width=800,height=600");
+          const html = `
+            <html><head><title>Ward Prescription</title>
+            <style>
+              body { font-family: Arial, sans-serif; font-size: 13px; color: #1e293b; padding: 24px; }
+              .hosp-header { display: flex; align-items: flex-start; gap: 14px; border-bottom: 2px solid #ccc; padding-bottom: 10px; margin-bottom: 10px; }
+              .hosp-name { font-size: 18px; font-weight: 800; color: #0f766e; }
+              .hosp-sub { font-size: 12px; color: #666; }
+              .section-title { background: #e5e7eb; text-align: right; padding: 3px 10px; font-weight: 700; font-size: 12px; margin-bottom: 10px; }
+              .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin-bottom: 10px; }
+              .meta-row { display: flex; gap: 6px; font-size: 12px; }
+              .meta-key { color: #666; min-width: 80px; }
+              .meta-val { font-weight: 600; }
+              .bold { font-weight: 700; margin-bottom: 4px; }
+              .doctor { font-weight: 700; color: #0f766e; margin-bottom: 14px; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              th { border: 1px solid #ccc; padding: 6px 8px; background: #f3f4f6; text-align: left; }
+              td { border: 1px solid #e5e7eb; padding: 6px 8px; }
+            </style></head><body>
+            <div class="hosp-header">
+              <div>
+                <div class="hosp-name">SHANMUGA HOSPITAL LIMITED</div>
+                <div class="hosp-sub">51/24, Saradha College Road, Salem - 636007</div>
+                <div class="hosp-sub">Ph: 04272706666</div>
+              </div>
+            </div>
+            <div class="section-title">**Ward Prescription Details</div>
+            <div class="meta-grid">
+              <div class="meta-row"><span class="meta-key">UHID</span><span>:</span><span class="meta-val">${p.uhid || "-"}</span></div>
+              <div class="meta-row"><span class="meta-key">Age/Gender</span><span>:</span><span class="meta-val">${p.age || "-"} / ${p.gender || "-"}</span></div>
+              <div class="meta-row"><span class="meta-key">Name</span><span>:</span><span class="meta-val">${p.patient_details?.patient_name || p.patient_name || "-"}</span></div>
+              <div class="meta-row"><span class="meta-key">Req Ref</span><span>:</span><span class="meta-val">${p.Bill_id || p.bill_no || "-"}</span></div>
+              <div class="meta-row"><span class="meta-key">Address</span><span>:</span><span class="meta-val">${p.patient_details?.address || p.address || "-"}</span></div>
+              <div class="meta-row"><span class="meta-key">Ward Name</span><span>:</span><span class="meta-val">${p.ward_name || p.room_no || "-"}</span></div>
+            </div>
+            <div class="bold">${wardDateStr} &nbsp; ${wardTimeStr}</div>
+            <div class="doctor">Dr. ${p.doctor_name || "-"}</div>
+            <table>
+              <thead><tr><th>Sl</th><th>Brand Name</th><th>Dosage</th><th>Qty</th><th>Remarks</th></tr></thead>
+              <tbody>
+                ${items.map((item, i) => `
+                  <tr>
+                    <td>${i + 1}</td>
+                    <td>${item.item_name || item.medicine_name || "-"}</td>
+                    <td>${item.dosage || item.dose || "-"}</td>
+                    <td>${item.qty ?? item.quantity ?? "-"}</td>
+                    <td>${item.remark || ""}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </body></html>`;
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.focus();
+          printWindow.print();
+        };
+
+        return createPortal(
+          <PrintOverlay onClick={() => setPrintPatient(null)}>
+            <PrintModalBox onClick={e => e.stopPropagation()}>
+              <PrintModalHeader>
+                <PrintModalTitle>🖨 Ward Prescription Details</PrintModalTitle>
+                <PrintCloseBtn onClick={() => setPrintPatient(null)}>✕</PrintCloseBtn>
+              </PrintModalHeader>
+              <PrintContent>
+                <PrintHospitalHeader>
+                  <PrintHospitalLogo>🏥</PrintHospitalLogo>
+                  <PrintHospitalInfo>
+                    <PrintHospitalName>SHANMUGA HOSPITAL LIMITED</PrintHospitalName>
+                    <PrintHospitalSub>51/24, Saradha College Road, Salem - 636007</PrintHospitalSub>
+                    <PrintHospitalSub>Ph: 04272706666</PrintHospitalSub>
+                  </PrintHospitalInfo>
+                </PrintHospitalHeader>
+
+                <PrintSectionTitle>**Ward Prescription Details</PrintSectionTitle>
+
+                <PrintMetaGrid>
+                  <PrintMetaRow>
+                    <PrintMetaKey>UHID</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.uhid || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                  <PrintMetaRow>
+                    <PrintMetaKey>Age/Gender</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.age || "-"} / {p.gender || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                  <PrintMetaRow>
+                    <PrintMetaKey>Name</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.patient_details?.patient_name || p.patient_name || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                  <PrintMetaRow>
+                    <PrintMetaKey>Req Ref</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.Bill_id || p.bill_no || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                  <PrintMetaRow>
+                    <PrintMetaKey>Address</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.patient_details?.address || p.address || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                  <PrintMetaRow>
+                    <PrintMetaKey>Ward Name</PrintMetaKey>
+                    <span>:</span>
+                    <PrintMetaVal>{p.ward_name || p.room_no || "-"}</PrintMetaVal>
+                  </PrintMetaRow>
+                </PrintMetaGrid>
+
+                <PrintDateRow>{wardDateStr} &nbsp; {wardTimeStr}</PrintDateRow>
+                <PrintDoctorRow>Dr. {p.doctor_name || "-"}</PrintDoctorRow>
+
+                <PrintItemTable>
+                  <thead>
+                    <tr>
+                      <PrintItemTh>Sl</PrintItemTh>
+                      <PrintItemTh>Brand Name</PrintItemTh>
+                      <PrintItemTh>Dosage</PrintItemTh>
+                      <PrintItemTh>Qty</PrintItemTh>
+                      <PrintItemTh>Remarks</PrintItemTh>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, i) => (
+                      <tr key={i}>
+                        <PrintItemTd>{i + 1}</PrintItemTd>
+                        <PrintItemTd style={{ fontWeight: 600 }}>{item.item_name || item.medicine_name || "-"}</PrintItemTd>
+                        <PrintItemTd>{item.dosage || item.dose || "-"}</PrintItemTd>
+                        <PrintItemTd>{item.qty ?? item.quantity ?? "-"}</PrintItemTd>
+                        <PrintItemTd>{item.remark || ""}</PrintItemTd>
+                      </tr>
+                    ))}
+                  </tbody>
+                </PrintItemTable>
+              </PrintContent>
+              <PrintFooterBtns>
+                <CancelBtn onClick={() => setPrintPatient(null)}>Cancel</CancelBtn>
+                <PrintBtn onClick={handlePrint}>🖨 Print</PrintBtn>
+              </PrintFooterBtns>
+            </PrintModalBox>
+          </PrintOverlay>,
+          document.body
+        );
+      })()}
     </>
   );
 };
