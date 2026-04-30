@@ -697,8 +697,8 @@ const UserPermissionManager = () => {
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp =>
-      (emp.employeeName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (emp.employeeId?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+      (emp.employeeName?.toLowerCase() || "").includes(searchTerm?.toLowerCase() || "") ||
+      (emp.employeeId?.toLowerCase() || "").includes(searchTerm?.toLowerCase() || "")
     );
   }, [employees, searchTerm]);
 
@@ -909,11 +909,11 @@ const UserPermissionManager = () => {
   }, [sidebarData]);
 
   const filteredGroupedPermissions = useMemo(() => {
-    const term = pageSearchTerm.toLowerCase();
+    const term = (pageSearchTerm || "").toLowerCase();
     const groups = {};
     Object.entries(groupedPermissions).forEach(([category, pages]) => {
       const filteredPages = pages.filter(page => {
-        const matchesSearch = page.pageName.toLowerCase().includes(term) || (page.route || '').toLowerCase().includes(term);
+        const matchesSearch = (page.pageName || "").toLowerCase().includes(term) || (page.route || "").toLowerCase().includes(term);
         if (!matchesSearch) return false;
 
         const isEnabled = permissions.includes(page.page_id);
@@ -973,7 +973,7 @@ const UserPermissionManager = () => {
                   }}
                 >
                   <Avatar active={selectedEmpId === emp.employeeId}>
-                    {emp.employeeName.charAt(0)}
+                    {emp.employeeName?.charAt(0) || "U"}
                   </Avatar>
                   <EmpInfo active={selectedEmpId === emp.employeeId}>
                     <h4>{emp.employeeName}</h4>

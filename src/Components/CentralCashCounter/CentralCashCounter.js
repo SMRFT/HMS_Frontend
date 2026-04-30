@@ -1026,17 +1026,17 @@ export default function CentralCashCounter() {
 
 
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
-  const formatIpAdvanceData = (admissionsArray) => {
+  const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
-      // Only show admissions that have pending advance payments
-      const pendingPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === "pending"
+      // Filter based on status (pending or paid)
+      const filteredPayments = payments.filter(
+        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
       );
-      if (pendingPayments.length === 0) return;
+      if (filteredPayments.length === 0) return;
 
-      pendingPayments.forEach((payment) => {
+      filteredPayments.forEach((payment) => {
         const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
@@ -1080,14 +1080,14 @@ const openPaymentModal = (bill) => {
   setPayments({ cash: totalAmt > 0 ? String(totalAmt) : "", cheque: "", chequeNo: "", card: "", cardNo: "" });
   setShowPaymentModal(true);
 };
-  // Fetch pending bills from get_maniblock_pedingbills API
+  // Fetch pending bills from get_mainblock_pendingbills API
 const fetchPendingBills = async () => {
   setLoading(true);
   setError("");
 
   try {
     const response = await apiRequest(
-      `${HmsBaseUrl}get_maniblock_pedingbills/`,
+      `${HmsBaseUrl}get_mainblock_pendingbills/`,
       "GET"
     );
 
@@ -1097,7 +1097,7 @@ const fetchPendingBills = async () => {
       ? response.data
       : [];
 
-    console.log("Raw maniblock pending bills:", billsArray);
+    console.log("Raw mainblock pending bills:", billsArray);
 
     const formatted = billsArray.map((item, index) => {
       const dateObj = item.date ? new Date(item.date) : null;
@@ -1148,15 +1148,6 @@ const fetchPendingBills = async () => {
     setLoading(false);
   }
 };
-
-    } catch (err) {
-      console.error("Pending bills error:", err);
-      setError("Unable to connect to HMS server");
-    } finally {
-      setLoading(false);
-    }
-  };
-
 const fetchOpPharmacyPendingBills = async () => {
   try {
     const response = await apiRequest(
@@ -1308,7 +1299,7 @@ const submitPayment = async () => {
     return;
   }
 
-  // ✅ Pending Bills: update_maniblock_pedingbills with type-specific status fields
+  // ✅ Pending Bills: update_mainblock_pendingbills with type-specific status fields
   const billType = selectedBill.raw_bill_type || selectedBill.bill_type || "";
 
   // Build the status update fields based on bill type
@@ -1337,7 +1328,7 @@ const submitPayment = async () => {
 
   try {
     const res = await apiRequest(
-      `${HmsBaseUrl}update_maniblock_pedingbills/`,
+      `${HmsBaseUrl}update_mainblock_pendingbills/`,
       "POST",
       payload
     );
@@ -1369,8 +1360,6 @@ const submitPayment = async () => {
 
       console.log("IP Advance raw response:", JSON.stringify(response));
 
-      // apiRequest wraps the actual response under response.data
-      // so the real array is at response.data.data
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : [];
@@ -1380,7 +1369,7 @@ const submitPayment = async () => {
       return;
     }
 
-      const formatted = formatIpAdvanceData(billsArray);
+      const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
 
   } catch (err) {
@@ -1390,6 +1379,32 @@ const submitPayment = async () => {
     setLoading(false);
   }
 };
+
+  const fetchReceivedBills = async () => {
+    // Both tabs use the same OPPharmacy_pending_bills API data as per filterBills logic
+    await fetchPendingBills();
+  };
+
+  const fetchIpAdvanceReceivedBills = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}ipadvance_bills/`,
+        "GET"
+      );
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : [];
+      const formatted = formatIpAdvanceData(billsArray, "Paid");
+      setIpAdvanceReceivedBills(formatted);
+    } catch (err) {
+      console.error("IP Advance received fetch error:", err);
+      setError("Failed to load Received IP Advance data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const payIpAdvance = async (ipNumber, amount) => {
@@ -1454,7 +1469,69 @@ const submitPayment = async () => {
     setFilteredBills(filtered);
   };
 
+  // Mark bill as received
+  const markBillReceived = async (billId, source) => {
+    try {
+      let endpoint = "";
+      if (activeMenuItem === "Pending Bills") {
+        endpoint = `${HmsBaseUrl}mark-bill-received/`;
+      } else if (activeMenuItem === "IP Advance") {
+        endpoint = `${HmsBaseUrl}ip-advance/mark-received/`;
+      }
 
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
+      });
+
+      if (res?.success || res?.status === "success") {
+        setSuccess(`Bill marked as received successfully`);
+        // Refresh data
+        if (activeMenuItem === "Pending Bills") {
+          fetchPendingBills();
+        } else if (activeMenuItem === "IP Advance") {
+          fetchIpAdvancePendingBills();
+        }
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(res?.message || "Failed to update bill");
+      }
+    } catch (err) {
+      setError("Error updating bill");
+      console.error("Error marking bill as received:", err);
+    }
+  };
+
+  const markBillUnreceived = async (billId, source) => {
+    try {
+      let endpoint = "";
+      if (activeMenuItem === "Pending Bills") {
+        endpoint = `${HmsBaseUrl}mark-bill-unreceived/`;
+      } else if (activeMenuItem === "IP Advance") {
+        endpoint = `${HmsBaseUrl}ip-advance/mark-unreceived/`;
+      }
+
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
+      });
+
+      if (res?.success || res?.status === "success") {
+        setSuccess(`Bill marked as unreceived successfully`);
+        if (activeMenuItem === "Pending Bills") {
+          fetchReceivedBills();
+        } else if (activeMenuItem === "IP Advance") {
+          fetchIpAdvanceReceivedBills();
+        }
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(res?.message || "Failed to update bill");
+      }
+    } catch (err) {
+      setError("Error updating bill");
+      console.error("Error marking bill as unreceived:", err);
+    }
+  };
 
   const handleMenuItemClick = (itemLabel) => {
     setActiveMenuItem(itemLabel);
@@ -2329,40 +2406,9 @@ const submitPayment = async () => {
                 <tbody>
                   {loading ? (
                     <tr>
-                      {activeMenuItem !== "IP Advance" && (
-                        <>
-                          <TableHeader>Date</TableHeader>
-                          <TableHeader>Time</TableHeader>
-                        </>
-                      )}
-                      {activeMenuItem === "IP Advance" ? (
-                        <>
-                          <TableHeader>Bill Date</TableHeader>
-                          <TableHeader>Advance Bill No</TableHeader>
-                          <TableHeader>UHID No</TableHeader>
-                          <TableHeader>Patient Name</TableHeader>
-                          <TableHeader>Amount (₹)</TableHeader>
-                          <TableHeader>IP Number</TableHeader>
-                          <TableHeader>IP Serial</TableHeader>
-                          <TableHeader>Status</TableHeader>
-                        </>
-                      ) : (
-                        <>
-                          <TableHeader>Bill No</TableHeader>
-                          <TableHeader>Bill Type</TableHeader>
-                          <TableHeader>UHID No</TableHeader>
-                          <TableHeader>Patient</TableHeader>
-                          <TableHeader>Status</TableHeader>
-                          {selectedType === "received" && (
-                            <>
-                              <TableHeader>Doctor</TableHeader>
-                              <TableHeader>Total</TableHeader>
-                              <TableHeader>Payment Method</TableHeader>
-                            </>
-                          )}
-                        </>
-                      )}
-                      <TableHeader>Action</TableHeader>
+                      <TableCell center colSpan={colSpan}>
+                        <LoadingSpinner /> Loading bills...
+                      </TableCell>
                     </tr>
                   ) : filteredBills.length > 0 ? (
                     filteredBills.slice(0, parseInt(showEntries)).map((bill) => (
@@ -2429,67 +2475,28 @@ const submitPayment = async () => {
                           </>
                         )}
 
-                        <TableCell>
+                        <TableCell center>
                           {selectedType === "pending" ? (
-                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                              
-                              <TableCell center style={{ border: "none", padding: 0 }}>
-                                <button
-                                  title="Collect Payment"
-                                  onClick={() => openPaymentModal(bill)}
-                                  style={{
-                                    background: "#0d9488",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "6px",
-                                    borderRadius: "4px",
-                                    cursor: "pointer"
-                                  }}
-                                >
-                                  <CreditCard size={16} />
-                                </button>
-                              </TableCell>
-                            </>
+                            <button
+                              title={shiftBelongsHere ? "Collect Payment" : "Start Shift to Collect Payment"}
+                              onClick={() => shiftBelongsHere && openPaymentModal(bill)}
+                              disabled={!shiftBelongsHere}
+                              style={{
+                                background: shiftBelongsHere ? "#0d9488" : "#9ca3af",
+                                color: "white",
+                                border: "none",
+                                padding: "6px",
+                                borderRadius: "4px",
+                                cursor: shiftBelongsHere ? "pointer" : "not-allowed",
+                                display: "inline-flex"
+                              }}
+                            >
+                              <CreditCard size={16} />
+                            </button>
                           ) : (
-                            <>
-                              <TableCell>{bill.bill_no}</TableCell>
-                              <TableCell>{bill.bill_type}</TableCell>
-                              <TableCell>{bill.uhid_no}</TableCell>
-                              <TableCell>{bill.patient}</TableCell>
-                              <TableCell>{bill.investigation}</TableCell>
-                              {selectedType === "received" && (
-                                <>
-                                  <TableCell>{bill.doctor}</TableCell>
-                                  <TableCell>₹{bill.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
-                                  <TableCell>{bill.payment_method}</TableCell>
-                                </>
-                              )}
-                            </>
+                            "-"
                           )}
-
-                          <TableCell>
-                            {selectedType === "pending" ? (
-                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-
-                                <TableCell center style={{ border: "none", padding: 0 }}>
-                                  <button
-                                    title="Collect Payment"
-                                    onClick={() => openPaymentModal(bill)}
-                                    style={{
-                                      background: "#0d9488",
-                                      color: "white",
-                                      border: "none",
-                                      padding: "6px",
-                                      borderRadius: "4px",
-                                      cursor: "pointer"
-                                    }}
-                                  >
-                                    <CreditCard size={16} />
-                                  </button>
-                                </TableCell>
-                              </div>
-                            ) : null}
-                          </TableCell>
+                        </TableCell>
                         </tr>
                       ))
                     ) : (
@@ -2500,7 +2507,6 @@ const submitPayment = async () => {
                             : "No received bills found"}
                         </TableCell>
                       </tr>
-
                     )}
                   </tbody>
                 </Table>

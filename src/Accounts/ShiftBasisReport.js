@@ -64,6 +64,8 @@ const ShiftBasisReport = () => {
     const [outlet, setOutlet] = useState("all");
     const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
+    const [summaryData, setSummaryData] = useState([]);
+    const [viewType, setViewType] = useState("detailed"); // "detailed" or "summary"
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -103,13 +105,19 @@ const ShiftBasisReport = () => {
                 "auth-user-id": user_id
             };
 
-            const response = await axios.post(`${HmsBaseUrl}pharmacy_sales_report/`, payload);
-            if (response.data.success) {
-                setReportData(response.data.data);
-                setSummary(response.data.summary);
-            } else {
-                toast.error(response.data.message || "Failed to fetch report");
+            // Fetch Detailed Report
+            const detailedRes = await axios.post(`${HmsBaseUrl}shift_basis_accounts_report/`, payload);
+            if (detailedRes.data.success) {
+                setReportData(detailedRes.data.data);
+                setSummary(detailedRes.data.summary);
             }
+
+            // Fetch Summary Report
+            const summaryRes = await axios.post(`${HmsBaseUrl}get_shift_summary_report/`, payload);
+            if (summaryRes.data.success) {
+                setSummaryData(summaryRes.data.data);
+            }
+
         } catch (error) {
             toast.error("Error fetching report");
             console.error(error);
@@ -125,7 +133,7 @@ const ShiftBasisReport = () => {
     return (
         <PageWrapper>
             <SectionTitle>
-                <h3>Pharmacy Sales Report</h3>
+                <h3>Shift Basis Accounts Report</h3>
             </SectionTitle>
 
             <FilterSection className="no-print">
@@ -160,6 +168,16 @@ const ShiftBasisReport = () => {
                             ))}
                         </Select>
                     </InputWrapper>
+                    <InputWrapper>
+                        <Label>View Mode</Label>
+                        <Select
+                            value={viewType}
+                            onChange={(e) => setViewType(e.target.value)}
+                        >
+                            <option value="detailed">Detailed Bills</option>
+                            <option value="summary">Shift Summary</option>
+                        </Select>
+                    </InputWrapper>
                     <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", flex: 1 }}>
                             {loading ? "..." : "Filter"}
@@ -171,7 +189,7 @@ const ShiftBasisReport = () => {
                 </FormRow>
             </FilterSection>
 
-            {summary && (
+            {viewType === "detailed" && summary && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "25px" }}>
                     <SummaryCard color={colors.primary}>
                         <SummaryLabel>Total Sales</SummaryLabel>
@@ -193,73 +211,120 @@ const ShiftBasisReport = () => {
             )}
 
             <TableWrapper>
-                <Table>
-                    <thead>
-                        <Tr>
-                            <Th>Bill Info</Th>
-                            <Th>Patient</Th>
-                            <Th style={{ textAlign: "right" }}>Gross Total</Th>
-                            <Th style={{ textAlign: "right" }}>Discount</Th>
-                            <Th style={{ textAlign: "right" }}>Net Total</Th>
-                            <Th>Status & Mode</Th>
-                            <Th>Cashier</Th>
-                            <Th style={{ textAlign: "center" }}>Location</Th>
-                        </Tr>
-                    </thead>
-                    <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((b, i) => (
-                                <Tr key={i}>
-                                    <Td>
-                                        <div style={{ fontWeight: "600" }}>{b.bill_no}</div>
-                                        <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>
-                                            {format(new Date(b.bill_date), "dd MMM yyyy, HH:mm")}
-                                        </div>
-                                    </Td>
-                                    <Td>
-                                        <div style={{ fontWeight: "600" }}>{b.patient_name || "Unknown"}</div>
-                                        <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{b.uhid}</div>
-                                    </Td>
-                                    <Td style={{ textAlign: "right" }}>₹{b.total_amount.toFixed(2)}</Td>
-                                    <Td style={{ textAlign: "right", color: colors.danger }}>-₹{b.discount_amount.toFixed(2)}</Td>
-                                    <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{b.net_amount.toFixed(2)}</Td>
-                                    <Td>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                                            <span style={{ 
-                                                fontSize: "0.65rem", 
-                                                fontWeight: "700",
-                                                padding: "2px 6px",
-                                                borderRadius: "4px",
-                                                backgroundColor: b.billing_status === 'Paid' ? "#dcfce7" : "#fef3c7",
-                                                color: b.billing_status === 'Paid' ? "#166534" : "#92400e",
-                                                width: "fit-content"
-                                            }}>
-                                                {b.billing_status}
-                                            </span>
-                                            <span style={{ fontSize: "0.7rem", color: colors.textMuted }}>
-                                                {b.payment_mode || 'Credit'}
-                                            </span>
-                                        </div>
-                                    </Td>
-                                    <Td>
-                                        <div style={{ fontWeight: "500", fontSize: "0.8rem" }}>{b.cashier_name}</div>
-                                        <div style={{ fontSize: "0.65rem", color: colors.textMuted }}>ID: {b.cashier_id}</div>
-                                    </Td>
-                                    <Td style={{ textAlign: "center" }}>
-                                        <div style={{ fontWeight: "600" }}>{b.outlet_code}</div>
-                                        <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>#{b.shiftno}</div>
+                {viewType === "detailed" ? (
+                    <Table>
+                        <thead>
+                            <Tr>
+                                <Th>Bill Info</Th>
+                                <Th>Patient</Th>
+                                <Th style={{ textAlign: "right" }}>Gross Total</Th>
+                                <Th style={{ textAlign: "right" }}>Discount</Th>
+                                <Th style={{ textAlign: "right" }}>Net Total</Th>
+                                <Th>Status & Mode</Th>
+                                <Th>Cashier</Th>
+                                <Th style={{ textAlign: "center" }}>Location</Th>
+                            </Tr>
+                        </thead>
+                        <tbody>
+                            {reportData.length > 0 ? (
+                                reportData.map((b, i) => (
+                                    <Tr key={i}>
+                                        <Td>
+                                            <div style={{ fontWeight: "600" }}>{b.bill_no}</div>
+                                            <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>
+                                                {format(new Date(b.bill_date), "dd MMM yyyy, HH:mm")}
+                                            </div>
+                                        </Td>
+                                        <Td>
+                                            <div style={{ fontWeight: "600" }}>{b.patient_name || "Unknown"}</div>
+                                            <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{b.uhid}</div>
+                                        </Td>
+                                        <Td style={{ textAlign: "right" }}>₹{b.total_amount.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: colors.danger }}>-₹{b.discount_amount.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{b.net_amount.toFixed(2)}</Td>
+                                        <Td>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                                <span style={{ 
+                                                    fontSize: "0.65rem", 
+                                                    fontWeight: "700",
+                                                    padding: "2px 6px",
+                                                    borderRadius: "4px",
+                                                    backgroundColor: b.billing_status === 'Paid' ? "#dcfce7" : "#fef3c7",
+                                                    color: b.billing_status === 'Paid' ? "#166534" : "#92400e",
+                                                    width: "fit-content"
+                                                }}>
+                                                    {b.billing_status}
+                                                </span>
+                                                <span style={{ fontSize: "0.7rem", color: colors.textMuted }}>
+                                                    {b.payment_mode || 'Credit'}
+                                                </span>
+                                            </div>
+                                        </Td>
+                                        <Td>
+                                            <div style={{ fontWeight: "500", fontSize: "0.8rem" }}>{b.cashier_name}</div>
+                                            <div style={{ fontSize: "0.65rem", color: colors.textMuted }}>ID: {b.cashier_id}</div>
+                                        </Td>
+                                        <Td style={{ textAlign: "center" }}>
+                                            <div style={{ fontWeight: "600" }}>{b.outlet_code}</div>
+                                            <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>#{b.shiftno}</div>
+                                        </Td>
+                                    </Tr>
+                                ))
+                            ) : (
+                                <Tr>
+                                    <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                        No records found for the selected criteria.
                                     </Td>
                                 </Tr>
-                            ))
-                        ) : (
+                            )}
+                        </tbody>
+                    </Table>
+                ) : (
+                    <Table>
+                        <thead>
                             <Tr>
-                                <Td colSpan="8" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
-                                    No records found for the selected criteria.
-                                </Td>
+                                <Th>Shift No</Th>
+                                <Th style={{ textAlign: "right" }}>Opening</Th>
+                                <Th style={{ textAlign: "right" }}>Collected</Th>
+                                <Th style={{ textAlign: "right" }}>Closing</Th>
+                                <Th style={{ textAlign: "right" }}>Petty Cash</Th>
+                                <Th>Date</Th>
+                                <Th>User</Th>
+                                <Th>Start Time</Th>
+                                <Th>End Time</Th>
+                                <Th style={{ textAlign: "right" }}>Remitted</Th>
+                                <Th style={{ textAlign: "right" }}>Submitted</Th>
+                                <Th>Outlet</Th>
                             </Tr>
-                        )}
-                    </tbody>
-                </Table>
+                        </thead>
+                        <tbody>
+                            {summaryData.length > 0 ? (
+                                summaryData.map((s, i) => (
+                                    <Tr key={i}>
+                                        <Td style={{ fontWeight: "700" }}>{s.shiftno}</Td>
+                                        <Td style={{ textAlign: "right" }}>₹{s.OpeningBalance.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{s.collected_Amount.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{s.ClosingBalance.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right" }}>₹{s.PettyCashBalance.toFixed(2)}</Td>
+                                        <Td>{s.date}</Td>
+                                        <Td>{s.User}</Td>
+                                        <Td>{s.StartTime}</Td>
+                                        <Td>{s.EndTime}</Td>
+                                        <Td style={{ textAlign: "right", color: colors.primary }}>₹{s.RemittedToBank.toFixed(2)}</Td>
+                                        <Td style={{ textAlign: "right" }}>₹{s.SubmittedToAccount.toFixed(2)}</Td>
+                                        <Td>{s.SelectedOutlet}</Td>
+                                    </Tr>
+                                ))
+                            ) : (
+                                <Tr>
+                                    <Td colSpan="12" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                        No shift records found.
+                                    </Td>
+                                </Tr>
+                            )}
+                        </tbody>
+                    </Table>
+                )}
             </TableWrapper>
 
             <style>
