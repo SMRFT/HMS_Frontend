@@ -106,6 +106,8 @@ import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCount
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
+// import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
+import DoctorReport from "./Components/DoctorMaster/DoctorReport";
 import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
@@ -160,6 +162,12 @@ function App() {
       let actions = JSON.parse(localStorage.getItem("allowedActions")) || [];
       const employeeId = localStorage.getItem("employeeId");
       let dPerms = {};
+
+      // Skip permission loading for public routes if not logged in
+      if (location.pathname === "/MobileRegistration" && !employeeId) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const allSidebarData = await fetchSidebarMapping();
@@ -278,6 +286,7 @@ function App() {
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
+      "/DoctorReport": "Doctor Day/Month Report",
       "/Oppharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
     };
@@ -769,6 +778,11 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/DeptBUDReport" element={<DeptBUDReport />} />}
+              {hasPagePermission(
+                "/DoctorReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/DoctorReport" element={<DoctorReport />} />}
 
               {/* Velavan */}
               {hasPagePermission(

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import styled, { keyframes, css } from "styled-components";
+import React, { useState, useEffect, useMemo } from "react";
+import styled, { keyframes, css, createGlobalStyle } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { PageWrapper, colors } from "../GlobalStyles";
 import { FiPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiSunrise, FiSun, FiSunset, FiMoon, FiActivity, FiSearch } from "react-icons/fi";
@@ -29,16 +29,35 @@ const slideUp = keyframes`
   to { opacity: 1; transform: translateY(0) scale(1); }
 `;
 
+// ─── Global Scroll Lock ───────────────────────────────────────────────────────
+const GlobalStyle = createGlobalStyle`
+  body.diet-master-active {
+    overflow: hidden !important;
+  }
+`;
+
 // ─── Styled Components ────────────────────────────────────────────────────────
+const ContentWrapper = styled.div`
+    height: calc(100vh - 110px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 20px;
+`;
+
 const GlassContainer = styled.div`
     background: ${T.bgGlass};
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     border: 1px solid ${T.border};
     border-radius: 28px;
-    padding: 35px;
+    padding: 30px;
     box-shadow: ${T.shadow};
     animation: ${fadeIn} 0.5s ease-out;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
 `;
 
 const HeaderSection = styled.div`
@@ -56,17 +75,47 @@ const Title = styled.h2`
 
 const NewBtn = styled.button`
     background: linear-gradient(135deg, ${T.primary}, ${T.primaryDark});
-    color: white; border: none; padding: 12px 24px; border-radius: 14px;
-    font-weight: 800; font-size: 0.95rem; cursor: pointer;
+    color: white; border: none; padding: 10px 20px; border-radius: 12px;
+    font-weight: 800; font-size: 0.9rem; cursor: pointer;
     display: flex; align-items: center; gap: 10px;
     box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.3);
     transition: all 0.3s;
+    white-space: nowrap;
     &:hover { transform: translateY(-2px); box-shadow: 0 15px 25px -5px rgba(16, 185, 129, 0.4); }
 `;
 
+const SearchBox = styled.div`
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+    
+    input {
+        width: 100%;
+        padding: 10px 16px 10px 42px;
+        background: white;
+        border: 1px solid ${T.border};
+        border-radius: 12px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        outline: none;
+        transition: all 0.2s;
+        &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 4px ${T.primaryLight}; }
+    }
+    
+    svg {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+    }
+`;
+
 const TableWrapper = styled.div`
+    overflow-y: auto;
     overflow-x: auto;
-    &::-webkit-scrollbar { height: 6px; }
+    flex: 1;
+    &::-webkit-scrollbar { width: 6px; height: 6px; }
     &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 `;
 
@@ -78,6 +127,11 @@ const Th = styled.th`
     padding: 15px 20px; text-align: left;
     font-size: 0.75rem; font-weight: 800; color: #64748b;
     text-transform: uppercase; letter-spacing: 1.2px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
 `;
 
 const Tr = styled.tr`
@@ -181,6 +235,7 @@ const DietMaster = () => {
     const [showExtraModal, setShowExtraModal] = useState(false);
     const [editingDiet, setEditingDiet] = useState(null);
     const [editingExtra, setEditingExtra] = useState(null);
+    const [searchTerm, setSearchTerm] = useState("");
     
     const [formData, setFormData] = useState({ 
         diet_name: "", 
@@ -199,9 +254,29 @@ const DietMaster = () => {
     });
 
     useEffect(() => { 
+        document.body.classList.add("diet-master-active");
         fetchDiets(); 
         fetchExtras();
+        return () => document.body.classList.remove("diet-master-active");
     }, []);
+
+    const filteredDiets = useMemo(() => {
+        if (!searchTerm) return diets;
+        const s = searchTerm.toLowerCase();
+        return diets.filter(d => 
+            (d.diet_name || "").toLowerCase().includes(s) ||
+            (d.morning_items || "").toLowerCase().includes(s) ||
+            (d.afternoon_items || "").toLowerCase().includes(s) ||
+            (d.evening_items || "").toLowerCase().includes(s) ||
+            (d.dinner_items || "").toLowerCase().includes(s)
+        );
+    }, [diets, searchTerm]);
+
+    const filteredExtras = useMemo(() => {
+        if (!searchTerm) return extras;
+        const s = searchTerm.toLowerCase();
+        return extras.filter(e => (e.item_name || "").toLowerCase().includes(s));
+    }, [extras, searchTerm]);
 
     const fetchDiets = async () => {
         setLoading(true);
@@ -274,17 +349,30 @@ const DietMaster = () => {
 
     return (
         <PageWrapper style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #eef2ff 100%)", minHeight: "100vh" }}>
-            <GlassContainer>
-                <HeaderSection>
-                    <Title>🥗 Diet Configuration & Pricing</Title>
-                    <NewBtn onClick={() => activeTab === "categories" ? openModal() : openExtraModal()}>
-                        <FiPlus size={20} /> New {activeTab === "categories" ? "Diet Category" : "Extra Item"}
-                    </NewBtn>
-                </HeaderSection>
-                <TabContainer>
-                    <Tab active={activeTab === "categories"} onClick={() => setActiveTab("categories")}>Diet Categories</Tab>
-                    <Tab active={activeTab === "extras"} onClick={() => setActiveTab("extras")}>Extra Food Items</Tab>
-                </TabContainer>
+            <GlobalStyle />
+            <ContentWrapper>
+                <GlassContainer>
+                    <HeaderSection>
+                        <Title>🥗 Diet Master</Title>
+                        <div style={{ display: "flex", alignItems: "center", gap: "20px", flex: 1, justifyContent: "flex-end" }}>
+                            <SearchBox>
+                                <FiSearch size={18} />
+                                <input 
+                                    type="text" 
+                                    placeholder={`Search ${activeTab === "categories" ? "diets" : "items"}...`} 
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </SearchBox>
+                            <NewBtn onClick={() => activeTab === "categories" ? openModal() : openExtraModal()}>
+                                <FiPlus size={20} /> New {activeTab === "categories" ? "Diet" : "Extra"}
+                            </NewBtn>
+                        </div>
+                    </HeaderSection>
+                    <TabContainer>
+                        <Tab active={activeTab === "categories"} onClick={() => { setActiveTab("categories"); setSearchTerm(""); }}>Diet Categories</Tab>
+                        <Tab active={activeTab === "extras"} onClick={() => { setActiveTab("extras"); setSearchTerm(""); }}>Extra Food Items</Tab>
+                    </TabContainer>
 
                 <TableWrapper>
                     <SmartTable>
@@ -306,7 +394,7 @@ const DietMaster = () => {
                         </thead>
                         <tbody>
                             {activeTab === "categories" ? (
-                                Array.isArray(diets) && diets.map((diet, i) => (
+                                filteredDiets.map((diet, i) => (
                                     <Tr key={i}>
                                         <Td><DietName>{diet.diet_name}</DietName></Td>
                                         <Td><MenuText title={diet.morning_items}>{diet.morning_items || "—"}</MenuText></Td>
@@ -325,7 +413,7 @@ const DietMaster = () => {
                                     </Tr>
                                 ))
                             ) : (
-                                Array.isArray(extras) && extras.map((item, i) => (
+                                filteredExtras.map((item, i) => (
                                     <Tr key={i}>
                                         <Td><DietName>{item.item_name}</DietName></Td>
                                         <Td><div style={{ fontWeight: 800, color: T.secondary }}>{item.price.toFixed(2)}</div></Td>
@@ -340,7 +428,7 @@ const DietMaster = () => {
                                     </Tr>
                                 ))
                             )}
-                            {((activeTab === "categories" && diets.length === 0) || (activeTab === "extras" && extras.length === 0)) && !loading && (
+                            {((activeTab === "categories" && filteredDiets.length === 0) || (activeTab === "extras" && filteredExtras.length === 0)) && !loading && (
                                 <Tr>
                                     <Td colSpan={activeTab === "categories" ? 8 : 4} style={{ textAlign: "center", padding: "40px", color: "#64748b", fontWeight: 600 }}>
                                         No items found. Click 'New' to add one.
@@ -351,6 +439,7 @@ const DietMaster = () => {
                     </SmartTable>
                 </TableWrapper>
             </GlassContainer>
+            </ContentWrapper>
 
             {showModal && (
                 <Overlay onClick={() => setShowModal(false)}>

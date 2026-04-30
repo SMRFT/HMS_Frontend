@@ -1026,17 +1026,17 @@ export default function CentralCashCounter() {
 
 
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
-  const formatIpAdvanceData = (admissionsArray) => {
+  const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
-      // Only show admissions that have pending advance payments
-      const pendingPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === "pending"
+      // Filter based on status (pending or paid)
+      const filteredPayments = payments.filter(
+        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
       );
-      if (pendingPayments.length === 0) return;
+      if (filteredPayments.length === 0) return;
 
-      pendingPayments.forEach((payment) => {
+      filteredPayments.forEach((payment) => {
         const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
@@ -1369,8 +1369,6 @@ const submitPayment = async () => {
 
       console.log("IP Advance raw response:", JSON.stringify(response));
 
-      // apiRequest wraps the actual response under response.data
-      // so the real array is at response.data.data
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : [];
@@ -1380,7 +1378,7 @@ const submitPayment = async () => {
       return;
     }
 
-      const formatted = formatIpAdvanceData(billsArray);
+      const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
 
   } catch (err) {
@@ -1390,6 +1388,32 @@ const submitPayment = async () => {
     setLoading(false);
   }
 };
+
+  const fetchReceivedBills = async () => {
+    // Both tabs use the same OPPharmacy_pending_bills API data as per filterBills logic
+    await fetchPendingBills();
+  };
+
+  const fetchIpAdvanceReceivedBills = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}ipadvance_bills/`,
+        "GET"
+      );
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : [];
+      const formatted = formatIpAdvanceData(billsArray, "Paid");
+      setIpAdvanceReceivedBills(formatted);
+    } catch (err) {
+      console.error("IP Advance received fetch error:", err);
+      setError("Failed to load Received IP Advance data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   const payIpAdvance = async (ipNumber, amount) => {
@@ -1454,7 +1478,69 @@ const submitPayment = async () => {
     setFilteredBills(filtered);
   };
 
+  // Mark bill as received
+  const markBillReceived = async (billId, source) => {
+    try {
+      let endpoint = "";
+      if (activeMenuItem === "Pending Bills") {
+        endpoint = `${HmsBaseUrl}mark-bill-received/`;
+      } else if (activeMenuItem === "IP Advance") {
+        endpoint = `${HmsBaseUrl}ip-advance/mark-received/`;
+      }
 
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
+      });
+
+      if (res?.success || res?.status === "success") {
+        setSuccess(`Bill marked as received successfully`);
+        // Refresh data
+        if (activeMenuItem === "Pending Bills") {
+          fetchPendingBills();
+        } else if (activeMenuItem === "IP Advance") {
+          fetchIpAdvancePendingBills();
+        }
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(res?.message || "Failed to update bill");
+      }
+    } catch (err) {
+      setError("Error updating bill");
+      console.error("Error marking bill as received:", err);
+    }
+  };
+
+  const markBillUnreceived = async (billId, source) => {
+    try {
+      let endpoint = "";
+      if (activeMenuItem === "Pending Bills") {
+        endpoint = `${HmsBaseUrl}mark-bill-unreceived/`;
+      } else if (activeMenuItem === "IP Advance") {
+        endpoint = `${HmsBaseUrl}ip-advance/mark-unreceived/`;
+      }
+
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
+      });
+
+      if (res?.success || res?.status === "success") {
+        setSuccess(`Bill marked as unreceived successfully`);
+        if (activeMenuItem === "Pending Bills") {
+          fetchReceivedBills();
+        } else if (activeMenuItem === "IP Advance") {
+          fetchIpAdvanceReceivedBills();
+        }
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(res?.message || "Failed to update bill");
+      }
+    } catch (err) {
+      setError("Error updating bill");
+      console.error("Error marking bill as unreceived:", err);
+    }
+  };
 
   const handleMenuItemClick = (itemLabel) => {
     setActiveMenuItem(itemLabel);
