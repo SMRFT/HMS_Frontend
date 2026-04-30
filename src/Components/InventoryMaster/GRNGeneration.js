@@ -191,7 +191,6 @@ const EMPTY_ITEM = {
   max_packing_mrp:"0.00",                  // ← Max Packing MRP
   selling_discount:"0",                    // ← Selling Discount %
   selling_price:"0.00",                    // ← Price (MRP / (1+tax) when tax-inclusive)
-  ip_price:"0.00",                         // ← IP Price
   tax_inclusive: true,                     // ← Tax Inclusive checkbox (selling)
   selling_tax_label:"RATE OF 5%",selling_tax_rate:"5",
   selling_cgst_percent:"2.50",selling_sgst_percent:"2.50",
@@ -828,38 +827,9 @@ const GRNGeneration = () => {
                               <Lbl>Unit Price (auto)</Lbl>
                               <CalcInput value={`₹ ${parseFloat(curItem.unit_price).toFixed(4)}`} readOnly />
                             </InputWrapper>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>MRP ₹</Lbl>
-                              <Input type="number" name="mrp" value={curItem.mrp}
-                                onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
-                              <LastHint>Last MRP: {lastMRP}</LastHint>
-                            </InputWrapper>
                           </GridRow>
-                        </Panel>
 
-                        {/* ── RIGHT: Tax Details ── */}
-                        <Panel>
-                          <PanelTitle>Tax Details</PanelTitle>
-
-                          {/* Max Retail Price / Max Packing MRP */}
-                          <MrpStrip>
-                            <MrpCard>
-                              <MrpLabel>Max Retail Price</MrpLabel>
-                              <MrpValue>₹ {parseFloat(curItem.mrp||0).toFixed(2)}</MrpValue>
-                            </MrpCard>
-                            <MrpCard>
-                              <MrpLabel>Max Packing MRP</MrpLabel>
-                              <Input
-                                type="number" name="max_packing_mrp"
-                                value={curItem.max_packing_mrp}
-                                onChange={handleItemChange}
-                                placeholder="0.00" min="0"
-                                style={{fontSize:"0.8rem", marginTop:2}}
-                              />
-                            </MrpCard>
-                          </MrpStrip>
-
-                          {/* Purchase Tax */}
+                        {/* Purchase Tax */}
                           <TaxBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#0369a1",marginBottom:7}}>PURCHASE TAX</div>
                             <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:7}}>
@@ -910,6 +880,17 @@ const GRNGeneration = () => {
                             </CostBar>
                             <LastHint style={{marginTop:4}}>Last Purchase Cost: {lastPurchaseCost}</LastHint>
                           </TaxBox>
+                        </Panel>
+
+                        {/* ── RIGHT: Tax Details ── */}
+                        <Panel>
+                          <PanelTitle>Tax Details</PanelTitle>
+                            <InputWrapper style={{margin:0}}>
+                              <Lbl>MRP ₹</Lbl>
+                              <Input type="number" name="mrp" value={curItem.mrp}
+                                onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                              <LastHint>Last MRP: {lastMRP}</LastHint>
+                            </InputWrapper>
 
                           {/* Selling Tax */}
                           <GreenBox>
@@ -956,11 +937,6 @@ const GRNGeneration = () => {
                                 <Lbl>Price (auto)</Lbl>
                                 <CalcInput value={`₹ ${curItem.selling_price}`} readOnly />
                                 <LastHint>Last Selling Price: {lastSellingPrice}</LastHint>
-                              </InputWrapper>
-                              <InputWrapper style={{margin:0}}>
-                                <Lbl>IP Price ₹</Lbl>
-                                <Input type="number" name="ip_price" value={curItem.ip_price}
-                                  onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                             </GridRow>
                           </GreenBox>
@@ -1046,7 +1022,6 @@ const GRNGeneration = () => {
                           <Th style={{fontSize:"0.72rem"}}>Cost/Pack</Th>
                           <Th style={{fontSize:"0.72rem"}}>MRP</Th>
                           <Th style={{fontSize:"0.72rem"}}>Price</Th>
-                          <Th style={{fontSize:"0.72rem"}}>IP Price</Th>
                           {!isVerified && <Th style={{fontSize:"0.72rem"}}></Th>}
                         </tr></thead>
                         <tbody>
