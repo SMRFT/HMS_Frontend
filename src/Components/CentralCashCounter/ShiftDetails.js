@@ -184,8 +184,12 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       hospitalCode:    d.hospital_code    || "",
       outletCode:      d.outlet_code      || "",
       date:            d.date             || "",
-      openingBalance:  d.OpeningBalance   != null ? String(d.OpeningBalance)  : "0.00",
+      openingBalance:  d.OpeningBalance   != null ? String(d.OpeningBalance)  : (d.expected_opening != null ? String(d.expected_opening) : "0.00"),
+      pettyCashBalance: d.PettyCashBalance  != null ? String(d.PettyCashBalance) : (d.default_petty_cash != null ? String(d.default_petty_cash) : "0.00"),
+      collectedAmount: d.collected_Amount != null ? String(d.collected_Amount) : "0.00",
       closingBalance:  d.ClosingBalance   != null ? String(d.ClosingBalance)  : "0.00",
+      remittedToBank:  d.RemittedToBank    != null ? String(d.RemittedToBank)   : "0.00",
+      submittedToAccount: d.SubmittedToAccount != null ? String(d.SubmittedToAccount) : "0.00",
       shiftStatus:     d.ShiftStatus      || (active ? "active" : "not_started"),
     });
 
@@ -224,11 +228,17 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
         { CashCounter: cashCounter }
       );
       console.log("🔍 [ShiftDetails] get_active_shift:", res);
-      if (res?.success && res?.data) {
-        console.log("test",res.data.data)
+      
+      // We apply data if we get a record OR if we get the 'expected' values
+      if (res?.success && res?.data?.data) {
         applyShiftData(res.data.data);
-        return res.data;
+        return res.data.data;
+      } else if (res?.data?.expected_opening != null) {
+        // Handle the case where no active shift is found, but we have expected values
+        applyShiftData(res.data); 
+        return null;
       }
+      
       // No active shift — clear clocks & buttons
       setIsActive(false);
       setCurrentShiftId(null);
@@ -282,10 +292,19 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
     const resolvedOutlet =
       outletCode || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
 
+    const safeParse = (val) => {
+      if (!val) return 0;
+      // Strip smart quotes, currency symbols, commas, and whitespace
+      const clean = String(val).replace(/[“|”|'|"|₹|,|\s]/g, "");
+      const p = parseFloat(clean);
+      return isNaN(p) ? 0 : p;
+    };
+
     const payload = {
       CashCounter:    formData.cashCounter || resolvedOutlet,
       StartingTime:   new Date().toISOString(),
-      OpeningBalance: parseFloat(formData.openingBalance) || 0,
+      OpeningBalance: safeParse(formData.openingBalance),
+      PettyCashBalance: safeParse(formData.pettyCashBalance),
     };
 
     setLoading(true);
@@ -293,17 +312,17 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       const res = await apiRequest(`${HmsBaseUrl}cash_counter_shiftdetails/`, "POST", payload);
       console.log("🚀 [ShiftDetails] Start:", res);
 
-      if (res?.success && res?.data) {
+      if (res?.success && res?.data?.success) {
         // Paint from POST response first (instant feedback)
-        applyShiftData(res.data);
-        addAlert("success", `Shift started — ${res.data.shiftno}`);
+        applyShiftData(res.data.data);
+        addAlert("success", `Shift started — ${res.data.data.shiftno}`);
 
         // ✅ Immediate GET to refresh all fields from DB
         const fresh = await fetchActiveShift(resolvedOutlet);
         if (onShiftChange) onShiftChange(fresh || res.data);
 
       } else {
-        addAlert("error", res?.message || "Failed to start shift.");
+        addAlert("error", res?.data?.message || res?.message || "Failed to start shift.");
       }
     } catch (err) {
       console.error("❌ [ShiftDetails] Start error:", err);
@@ -325,9 +344,18 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
     const resolvedOutlet =
       outletCode || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
 
+    const safeParse = (val) => {
+      if (!val) return 0;
+      const clean = String(val).replace(/[“|”|'|"|₹|,|\s]/g, "");
+      const p = parseFloat(clean);
+      return isNaN(p) ? 0 : p;
+    };
+
     const payload = {
       shiftno:        currentShiftId,
-      ClosingBalance: parseFloat(formData.closingBalance) || 0,
+      ClosingBalance: safeParse(formData.closingBalance),
+      RemittedToBank: safeParse(formData.remittedToBank),
+      SubmittedToAccount: safeParse(formData.submittedToAccount),
       closingTime:    new Date().toISOString(),
     };
 
@@ -336,7 +364,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
       const res = await apiRequest(`${HmsBaseUrl}cash_counter_shiftdetails/`, "PATCH", payload);
       console.log("🛑 [ShiftDetails] Stop:", res);
 
-      if (res?.success && res?.data) {
+      if (res?.success && res?.data?.success) {
         // Paint from PATCH response first (instant feedback)
         applyShiftData(res.data);
         addAlert("success", res.message || "Shift closed successfully.");
@@ -347,7 +375,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
         if (onShiftChange) onShiftChange(fresh || res.data);
 
       } else {
-        addAlert("error", res?.message || "Failed to close shift.");
+        addAlert("error", res?.data?.message || res?.message || "Failed to close shift.");
       }
     } catch (err) {
       console.error("❌ [ShiftDetails] Stop error:", err);
@@ -422,11 +450,55 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
             </FormGroup>
 
             <FormGroup>
+              <FormLabel>PETTY CASH BALANCE</FormLabel>
+              <FormInput
+                type="number" min="0" step="0.01"
+                value={formData.pettyCashBalance || "0.00"}
+                onChange={(e) => handleInputChange("pettyCashBalance", e.target.value)}
+                readOnly={isActive}
+                placeholder="0.00"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>COLLECTED AMOUNT</FormLabel>
+              <FormInput
+                type="text"
+                value={formData.collectedAmount || "0.00"}
+                readOnly
+                style={{ backgroundColor: "#f0fdf4", color: "#166534", fontWeight: "bold" }}
+              />
+            </FormGroup>
+
+            <FormGroup>
               <FormLabel>CLOSING BALANCE</FormLabel>
               <FormInput
                 type="number" min="0" step="0.01"
                 value={formData.closingBalance || "0.00"}
                 onChange={(e) => handleInputChange("closingBalance", e.target.value)}
+                readOnly={!isActive}
+                placeholder="0.00"
+              />
+              <SubLabel>Formula: Opening + Collected - Remitted - Submitted</SubLabel>
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>REMITTED TO BANK</FormLabel>
+              <FormInput
+                type="number" min="0" step="0.01"
+                value={formData.remittedToBank || "0.00"}
+                onChange={(e) => handleInputChange("remittedToBank", e.target.value)}
+                readOnly={!isActive}
+                placeholder="0.00"
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <FormLabel>SUBMITTED TO ACCOUNT</FormLabel>
+              <FormInput
+                type="number" min="0" step="0.01"
+                value={formData.submittedToAccount || "0.00"}
+                onChange={(e) => handleInputChange("submittedToAccount", e.target.value)}
                 readOnly={!isActive}
                 placeholder="0.00"
               />
