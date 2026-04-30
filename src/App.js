@@ -116,6 +116,8 @@ import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
+import ShiftBasisReport from "./Accounts/ShiftBasisReport";
+import SalesReturn from "./Components/Pharmacy/SalesReturn";
 
 
 
@@ -286,6 +288,7 @@ function App() {
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
       "/Oppharmacytabs": "OP Pharmacy Tabs",
+      "/ShiftBasisReport": "Shift Basis Report",
     };
 
     const path = location.pathname;
@@ -639,6 +642,7 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OPPharmacy" element={<OPPharmacy />} />}
+              <Route path="/ShiftBasisReport" element={<ShiftBasisReport />} />
 
               {/* Doctor Master */}
               {hasPagePermission(
@@ -904,6 +908,19 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
+                
+
+
+
+
+
+              {hasPagePermission(
+                "/SalesReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/SalesReturn" element={<SalesReturn />} />}
+
+                
               {hasPagePermission(
                 "/OTMaster",
                 allowedActions,
