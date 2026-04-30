@@ -362,23 +362,16 @@ const ToastBox = styled.div`
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   animation: slideIn 0.3s ease;
   pointer-events: all;
-  background: ${({ type }) => (type === "success" ? "#ecfdf5" : "#fef2f2")};
-  color: ${({ type }) => (type === "success" ? "#065f46" : "#991b1b")};
-  border-left: 4px solid
-    ${({ type }) => (type === "success" ? "#10b981" : "#ef4444")};
+  background: ${({ type }) => type === "success" ? "#ecfdf5" : "#fef2f2"};
+  color: ${({ type }) => type === "success" ? "#065f46" : "#991b1b"};
+  border-left: 4px solid ${({ type }) => type === "success" ? "#10b981" : "#ef4444"};
 
   @keyframes slideIn {
-    from {
-      transform: translateX(120%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
+    from { transform: translateX(120%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
   }
 `;
 
@@ -896,10 +889,7 @@ export default function CentralCashCounter() {
         // Background sync to get the authoritative server record (replaces optimistic row)
         rpFetchRecords();
       } else {
-        rpShowAlert(
-          "error",
-          res?.message || "Payment failed. Please try again.",
-        );
+        rpShowAlert("error", res?.message || "Payment failed. Please try again.");
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -1015,6 +1005,7 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
+  
   // Called by ShiftDetails when shift starts (passes data) or stops (passes null)
   // After every POST/PATCH in ShiftDetails, do an immediate GET to refresh top section
   const handleShiftChange = async (shiftData) => {
@@ -1130,16 +1121,12 @@ export default function CentralCashCounter() {
       const payments = admission.advance_payments || [];
       // Filter based on status (pending or paid)
       const filteredPayments = payments.filter(
-        (p) =>
-          p.is_advanceActive &&
-          String(p.status).toLowerCase() === statusFilter.toLowerCase(),
+        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
       );
       if (filteredPayments.length === 0) return;
 
       filteredPayments.forEach((payment) => {
-        const billDateObj = payment.bill_date
-          ? new Date(payment.bill_date)
-          : null;
+        const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
@@ -1176,287 +1163,180 @@ export default function CentralCashCounter() {
     (selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0) +
     (selectedMethods.card ? parseFloat(payments.card) || 0 : 0);
 
-  const balance = netAmount - paidAmount; // can be positive (pending) or 0 (fully paid)
+const balance = netAmount - paidAmount; // can be positive (pending) or 0 (fully paid)
 
-  const openPaymentModal = (bill) => {
-    setSelectedBill(bill);
-    // Default: cash selected with full amount pre-filled
-    const totalAmt = parseFloat(bill?.total || 0);
-    setSelectedMethods({ cash: true, card: false, cheque: false });
-    setPayments({
-      cash: totalAmt > 0 ? String(totalAmt) : "",
-      cheque: "",
-      chequeNo: "",
-      card: "",
-      cardNo: "",
+
+const openPaymentModal = (bill) => {
+  setSelectedBill(bill);
+  // Default: cash selected with full amount pre-filled
+  const totalAmt = parseFloat(bill?.total || 0);
+  setSelectedMethods({ cash: true, card: false, cheque: false });
+  setPayments({ cash: totalAmt > 0 ? String(totalAmt) : "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+  setShowPaymentModal(true);
+};
+  // Fetch pending bills from get_maniblock_pedingbills API
+const fetchPendingBills = async () => {
+  setLoading(true);
+  setError("");
+
+  try {
+    const response = await apiRequest(
+      `${HmsBaseUrl}get_maniblock_pedingbills/`,
+      "GET"
+    );
+
+    const billsArray = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+      ? response.data
+      : [];
+
+    console.log("Raw maniblock pending bills:", billsArray);
+
+    const formatted = billsArray.map((item, index) => {
+      const dateObj = item.date ? new Date(item.date) : null;
+      const billDate = dateObj
+        ? dateObj.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+      const billTime = dateObj
+        ? dateObj.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+
+      return {
+        id: `${item.type}-${item.bill_no}-${index}`,
+        date: billDate,
+        time: billTime,
+        bill_no: item.bill_no || "-",
+        raw_bill_no: item.bill_no || null,   // original value — used in API payload
+        bill_type: item.type || "-",
+        raw_bill_type: item.type || null,    // original type — used for status field logic
+        uhid_no: item.uhid || "-",
+        patient: item.patient_name || "-",
+        amount: parseFloat(item.amount || 0),
+        status: item.status || "-",
+        raw: item.raw || {},
+        // kept for payment modal compatibility
+        Bill_id: item.raw?.patient_id || null,
+        uhid: item.uhid || "-",
+        total: parseFloat(item.amount || 0),
+        source: item.type === "Discharge" ? "IP" : "OP",
+      };
     });
-    setShowPaymentModal(true);
-  };
-  // Fetch pending bills from get_mainblock_pendingbills API
-  const fetchPendingBills = async () => {
-    setLoading(true);
-    setError("");
 
-    try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}get_mainblock_pendingbills/`,
-        "GET",
-      );
+    setPendingBills(formatted);
 
-      const billsArray = Array.isArray(response?.data?.data)
-        ? response.data.data
-        : Array.isArray(response?.data)
-          ? response.data
-          : [];
+  } catch (err) {
+    console.error("Pending bills error:", err);
+    showToast("error", "Unable to connect to HMS server. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      console.log("Raw mainblock pending bills:", billsArray);
+const fetchOpPharmacyPendingBills = async () => {
+  try {
+    const response = await apiRequest(
+      `${HmsBaseUrl}OPPharmacy_pending_bills/`,
+      "GET"
+    );
 
-      const formatted = billsArray.map((item, index) => {
-        const dateObj = item.date ? new Date(item.date) : null;
-        const billDate = dateObj
-          ? dateObj.toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
+    const billsArray = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response)
+      ? response
+      : [];
+
+    console.log("Raw OP Pharmacy pending bills:", billsArray);
+
+    const formatted = billsArray
+      .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
+      .map((item, index) => {
+        const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+        const billDate = billDateObj
+          ? billDateObj.toLocaleDateString("en-IN", {
+              day: "2-digit", month: "2-digit", year: "numeric",
               timeZone: "Asia/Kolkata",
             })
           : "-";
-        const billTime = dateObj
-          ? dateObj.toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-              timeZone: "Asia/Kolkata",
+        const billTime = billDateObj
+          ? billDateObj.toLocaleTimeString("en-IN", {
+              hour: "2-digit", minute: "2-digit",
+              hour12: true, timeZone: "Asia/Kolkata",
             })
           : "-";
 
         return {
-          id: `${item.type}-${item.bill_no}-${index}`,
+          id: `pharmacy-${item.Bill_id}-${index}`,
           date: billDate,
           time: billTime,
+          Bill_id: item.Bill_id,
+          uhid: item.uhid || "-",
           bill_no: item.bill_no || "-",
-          raw_bill_no: item.bill_no || null, // original value — used in API payload
-          bill_type: item.type || "-",
-          raw_bill_type: item.type || null, // original type — used for status field logic
+          bill_type: "OP Pharmacy",
+          raw_bill_type: "OPPharmacy",
           uhid_no: item.uhid || "-",
           patient: item.patient_name || "-",
-          amount: parseFloat(item.amount || 0),
-          status: item.status || "-",
-          raw: item.raw || {},
-          // kept for payment modal compatibility
-          Bill_id: item.raw?.patient_id || null,
-          uhid: item.uhid || "-",
-          total: parseFloat(item.amount || 0),
-          source: item.type === "Discharge" ? "IP" : "OP",
+          amount: parseFloat(item.net_amount || 0),
+          total: parseFloat(item.net_amount || 0),
+          status: item.billing_status || "-",
+          doctor: item.doctor_name || "-",
+          payment_method: "-",
+          source: "OPPharmacy",
+          raw_bill_no: item.bill_no || null,
+          raw: item,
         };
       });
 
-      setPendingBills(formatted);
-    } catch (err) {
-      console.error("Pending bills error:", err);
-      showToast("error", "Unable to connect to HMS server. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-  const fetchOpPharmacyPendingBills = async () => {
-    try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}OPPharmacy_pending_bills/`,
-        "GET",
-      );
+    setOpPharmacyBills(formatted);
+  } catch (err) {
+    console.error("OP Pharmacy bills fetch error:", err);
+    showToast("error", "Unable to load OP Pharmacy bills.");
+  }
+};
 
-      const billsArray = Array.isArray(response?.data?.data)
-        ? response.data.data
-        : Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response)
-            ? response
-            : [];
 
-      console.log("Raw OP Pharmacy pending bills:", billsArray);
+const submitPayment = async () => {
+  // Build list of active payment methods
+  const activeMethods = [];
+  if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
+    activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
+  }
+  if (selectedMethods.card && parseFloat(payments.card) > 0) {
+    activeMethods.push({ method: "card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+  }
+  if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
+    activeMethods.push({ method: "cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
+  }
 
-      const formatted = billsArray
-        .filter(
-          (item) =>
-            item.billing_status === "Billed" ||
-            item.billing_status === "Processing",
-        )
-        .map((item, index) => {
-          const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
-          const billDate = billDateObj
-            ? billDateObj.toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                timeZone: "Asia/Kolkata",
-              })
-            : "-";
-          const billTime = billDateObj
-            ? billDateObj.toLocaleTimeString("en-IN", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-                timeZone: "Asia/Kolkata",
-              })
-            : "-";
+  if (activeMethods.length === 0) {
+    showToast("error", "Please enter at least one payment amount.");
+    return;
+  }
 
-          return {
-            id: `pharmacy-${item.Bill_id}-${index}`,
-            date: billDate,
-            time: billTime,
-            Bill_id: item.Bill_id,
-            uhid: item.uhid || "-",
-            bill_no: item.bill_no || "-",
-            bill_type: "OP Pharmacy",
-            raw_bill_type: "OPPharmacy",
-            uhid_no: item.uhid || "-",
-            patient: item.patient_name || "-",
-            amount: parseFloat(item.net_amount || 0),
-            total: parseFloat(item.net_amount || 0),
-            status: item.billing_status || "-",
-            doctor: item.doctor_name || "-",
-            payment_method: "-",
-            source: "OPPharmacy",
-            raw_bill_no: item.bill_no || null,
-            raw: item,
-          };
-        });
+  // Determine payment_details: single object if one method, method="multiple" if more
+  let payment_details;
+  if (activeMethods.length === 1) {
+    payment_details = activeMethods[0];
+  } else {
+    payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
+  }
 
-      setOpPharmacyBills(formatted);
-    } catch (err) {
-      console.error("OP Pharmacy bills fetch error:", err);
-      showToast("error", "Unable to load OP Pharmacy bills.");
-    }
-  };
+  const pendingAmount = Math.max(netAmount - paidAmount, 0);
 
-  const submitPayment = async () => {
-    // Build list of active payment methods
-    const activeMethods = [];
-    if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
-      activeMethods.push({
-        method: "cash",
-        Paid_amount: parseFloat(payments.cash),
-      });
-    }
-    if (selectedMethods.card && parseFloat(payments.card) > 0) {
-      activeMethods.push({
-        method: "card",
-        Paid_amount: parseFloat(payments.card),
-        card_no: payments.cardNo,
-      });
-    }
-    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
-      activeMethods.push({
-        method: "cheque",
-        Paid_amount: parseFloat(payments.cheque),
-        cheque_no: payments.chequeNo,
-      });
-    }
-
-    if (activeMethods.length === 0) {
-      showToast("error", "Please enter at least one payment amount.");
-      return;
-    }
-
-    // Determine payment_details: single object if one method, method="multiple" if more
-    let payment_details;
-    if (activeMethods.length === 1) {
-      payment_details = activeMethods[0];
-    } else {
-      payment_details = {
-        method: "Multiple Payment",
-        Paid_amount: paidAmount,
-        breakdown: activeMethods,
-      };
-    }
-
-    const pendingAmount = Math.max(netAmount - paidAmount, 0);
-
-    // ✅ IP Advance: send ipNumber + payment_details
-    if (activeMenuItem === "IP Advance") {
-      const payload = {
-        Bill_id: selectedBill.Bill_id,
-        uhid: selectedBill.uhid_no,
-        bill_no: selectedBill.bill_no,
-        bill_date: selectedBill.raw_bill_date?.slice(0, 10),
-        payment_details,
-        shiftno: activeShift?.shiftno || "",
-      };
-
-      const res = await apiRequest(
-        `${HmsBaseUrl}collect_oppharmacy_payment/`,
-        "POST",
-        payload,
-      );
-
-      const ipRes = res?.data || res;
-      if (ipRes?.status === "success") {
-        setShowPaymentModal(false);
-        fetchIpAdvancePendingBills();
-        showToast("success", "Payment collected successfully!");
-      } else {
-        showToast(
-          "error",
-          ipRes?.message || ipRes?.error || "Payment failed. Please try again.",
-        );
-      }
-      return;
-    }
-
-    // ✅ OP Pharmacy: call collect_oppharmacy_payment
-    if (selectedBill.source === "OPPharmacy") {
-      const payload = {
-        Bill_id: selectedBill.Bill_id,
-        uhid: selectedBill.uhid,
-        payment_details,
-        shiftno: activeShift?.shiftno || "",
-      };
-
-      try {
-        const res = await apiRequest(
-          `${HmsBaseUrl}collect_oppharmacy_payment/`,
-          "POST",
-          payload,
-        );
-        const result = res?.data || res;
-        if (result?.success) {
-          setShowPaymentModal(false);
-          fetchOpPharmacyPendingBills();
-          fetchPendingBills();
-          showToast("success", "Pharmacy payment collected successfully!");
-        } else {
-          showToast(
-            "error",
-            result?.error || "Payment failed. Please try again.",
-          );
-        }
-      } catch (err) {
-        console.error("OPPharmacy submitPayment error:", err);
-        showToast("error", "Payment failed. Please check your connection.");
-      }
-      return;
-    }
-
-    // ✅ Pending Bills: update_mainblock_pendingbills with type-specific status fields
-    const billType = selectedBill.raw_bill_type || selectedBill.bill_type || "";
-
-    // Build the status update fields based on bill type
-    let statusFields = {};
-    if (billType === "Discharge") {
-      // status: "Billed" → "Paid"
-      statusFields = { status: "Paid" };
-    } else if (billType === "Investigation") {
-      // paymentStatus: "Pending" → "Paid"
-      statusFields = { paymentStatus: "Paid" };
-    } else if (billType === "Billing") {
-      // payment_status: "Pending" → "Paid"
-      statusFields = { payment_status: "Paid" };
-    } else {
-      // Generic fallback
-      statusFields = { payment_status: "Paid" };
-    }
-
+  // ✅ IP Advance: send ipNumber + payment_details
+  if (activeMenuItem === "IP Advance") {
     const payload = {
       bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
       ...statusFields,
@@ -1472,24 +1352,96 @@ export default function CentralCashCounter() {
         payload,
       );
 
-      const billRes = res?.data || res;
-      if (billRes?.success || billRes?.status === "success") {
+    const ipRes = res?.data || res;
+    if (ipRes?.status === "success") {
+      setShowPaymentModal(false);
+      fetchIpAdvancePendingBills();
+      showToast("success", "Payment collected successfully!");
+    } else {
+      showToast("error", ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
+    }
+    return;
+  }
+
+  // ✅ OP Pharmacy: call collect_oppharmacy_payment
+  if (selectedBill.source === "OPPharmacy") {
+    const payload = {
+      Bill_id: selectedBill.Bill_id,
+      uhid: selectedBill.uhid,
+      payment_details,
+      shiftno: activeShift?.shiftno || "",
+    };
+
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}collect_oppharmacy_payment/`,
+        "POST",
+        payload
+      );
+      const result = res?.data || res;
+      if (result?.success) {
         setShowPaymentModal(false);
+        fetchOpPharmacyPendingBills();
         fetchPendingBills();
-        showToast("success", "Payment collected successfully!");
+        showToast("success", "Pharmacy payment collected successfully!");
       } else {
-        showToast(
-          "error",
-          billRes?.message ||
-            billRes?.error ||
-            "Payment failed. Please try again.",
-        );
+        showToast("error", result?.error || "Payment failed. Please try again.");
       }
     } catch (err) {
-      console.error("submitPayment error:", err);
+      console.error("OPPharmacy submitPayment error:", err);
       showToast("error", "Payment failed. Please check your connection.");
     }
+    return;
+  }
+
+  // ✅ Pending Bills: update_maniblock_pedingbills with type-specific status fields
+  const billType = selectedBill.raw_bill_type || selectedBill.bill_type || "";
+
+  // Build the status update fields based on bill type
+  let statusFields = {};
+  if (billType === "Discharge") {
+    // status: "Billed" → "Paid"
+    statusFields = { status: "Paid" };
+  } else if (billType === "Investigation") {
+    // paymentStatus: "Pending" → "Paid"
+    statusFields = { paymentStatus: "Paid" };
+  } else if (billType === "Billing") {
+    // payment_status: "Pending" → "Paid"
+    statusFields = { payment_status: "Paid" };
+  } else {
+    // Generic fallback
+    statusFields = { payment_status: "Paid" };
+  }
+
+  const payload = {
+    bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
+    ...statusFields,
+    payment_details,
+    shiftno: activeShift?.shiftno || "",
+    ...(pendingAmount > 0 ? { pendingAmount } : {}),
   };
+
+  try {
+    const res = await apiRequest(
+      `${HmsBaseUrl}update_maniblock_pedingbills/`,
+      "POST",
+      payload
+    );
+
+    const billRes = res?.data || res;
+    if (billRes?.success || billRes?.status === "success") {
+      setShowPaymentModal(false);
+      fetchPendingBills();
+      showToast("success", "Payment collected successfully!");
+    } else {
+      showToast("error", billRes?.message || billRes?.error || "Payment failed. Please try again.");
+    }
+  } catch (err) {
+    console.error("submitPayment error:", err);
+    showToast("error", "Payment failed. Please check your connection.");
+  }
+};
+  
 
   const fetchIpAdvancePendingBills = async () => {
     setLoading(true);
@@ -1504,16 +1456,43 @@ export default function CentralCashCounter() {
         ? response.data.data
         : [];
 
-      if (!billsArray.length && response?.data?.error) {
-        showToast("error", "IP Advance API error: " + response.data.error);
-        return;
-      }
+    if (!billsArray.length && response?.data?.error) {
+      showToast("error", "IP Advance API error: " + response.data.error);
+      return;
+    }
 
       const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
+
+  } catch (err) {
+    console.error("IP Advance fetch error:", err?.message || err);
+    showToast("error", "Failed to load IP Advance data. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const fetchReceivedBills = async () => {
+    // Both tabs use the same OPPharmacy_pending_bills API data as per filterBills logic
+    await fetchPendingBills();
+  };
+
+  const fetchIpAdvanceReceivedBills = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}ipadvance_bills/`,
+        "GET"
+      );
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : [];
+      const formatted = formatIpAdvanceData(billsArray, "Paid");
+      setIpAdvanceReceivedBills(formatted);
     } catch (err) {
-      console.error("IP Advance fetch error:", err?.message || err);
-      showToast("error", "Failed to load IP Advance data. Please try again.");
+      console.error("IP Advance received fetch error:", err);
+      setError("Failed to load Received IP Advance data");
     } finally {
       setLoading(false);
     }
@@ -1559,23 +1538,19 @@ export default function CentralCashCounter() {
         payload,
       );
 
-      const quickRes = response?.data || response;
-      if (quickRes?.status === "success") {
-        fetchIpAdvancePendingBills();
-        showToast("success", "Payment collected successfully!");
-      } else {
-        showToast(
-          "error",
-          quickRes?.message ||
-            quickRes?.error ||
-            "Payment failed. Please try again.",
-        );
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      showToast("error", "Payment failed. Please try again.");
+    const quickRes = response?.data || response;
+    if (quickRes?.status === "success") {
+      fetchIpAdvancePendingBills();
+      showToast("success", "Payment collected successfully!");
+    } else {
+      showToast("error", quickRes?.message || quickRes?.error || "Payment failed. Please try again.");
     }
-  };
+
+  } catch (error) {
+    console.error("Payment error:", error);
+    showToast("error", "Payment failed. Please try again.");
+  }
+};
 
   // Filter bills based on search term and bill type
   const filterBills = () => {
@@ -1583,8 +1558,7 @@ export default function CentralCashCounter() {
 
     if (activeMenuItem === "Pending Bills") {
       // New API returns all pending bills; show all for pending tab, none for received tab
-      bills =
-        selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : [];
+      bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : [];
     } else if (activeMenuItem === "IP Advance") {
       bills =
         selectedType === "pending"
@@ -1756,17 +1730,7 @@ export default function CentralCashCounter() {
 
   useEffect(() => {
     filterBills();
-  }, [
-    billType,
-    searchTerm,
-    selectedType,
-    pendingBills,
-    receivedBills,
-    ipAdvancePendingBills,
-    ipAdvanceReceivedBills,
-    opPharmacyBills,
-    activeMenuItem,
-  ]);
+  }, [billType, searchTerm, selectedType, pendingBills, receivedBills, ipAdvancePendingBills, ipAdvanceReceivedBills, opPharmacyBills, activeMenuItem]);
 
   const getTableColumns = () => {
     const baseColumns = [
@@ -3093,286 +3057,245 @@ export default function CentralCashCounter() {
                 })()}
               {/* ══════════════ END RECEIPT / PAYMENT PANEL ══════════════ */}
 
-              {activeMenuItem !== "Receipt / Payment" && (
-                <>
-                  <ControlsWrapper>
-                    <ControlGroup>
-                      <Label>Bill Type</Label>
-                      <Select
-                        value={billType}
-                        onChange={(e) => setBillType(e.target.value)}
-                      >
-                        <option value="ALL">ALL</option>
-                        <option value="OP">OP</option>
-                        <option value="IP">IP</option>
-                        <option value="Discharge">Discharge</option>
-                        <option value="CT Scan">CT Scan</option>
-                        <option value="MRI Scan">MRI Scan</option>
-                        <option value="Lab Test">Lab Test</option>
-                        <option value="Scanning">Scanning</option>
-                        <option value="X-Ray">X-Ray</option>
-                      </Select>
-                    </ControlGroup>
+              {activeMenuItem !== "Receipt / Payment" && <>
+              <ControlsWrapper>
+                <ControlGroup>
+                  <Label>Bill Type</Label>
+                  <Select value={billType} onChange={(e) => setBillType(e.target.value)}>
+                    <option value="ALL">ALL</option>
+                    <option value="OP">OP</option>
+                    <option value="IP">IP</option>
+                    <option value="Discharge">Discharge</option>
+                    <option value="CT Scan">CT Scan</option>
+                    <option value="MRI Scan">MRI Scan</option>
+                    <option value="Lab Test">Lab Test</option>
+                    <option value="Scanning">Scanning</option>
+                    <option value="X-Ray">X-Ray</option>
+                  </Select>
+                </ControlGroup>
 
-                    <ControlGroup>
-                      <Label>Type</Label>
-                      <RadioLabel>
-                        <RadioInput
-                          type="radio"
-                          name="billStatus"
-                          value="pending"
-                          checked={selectedType === "pending"}
-                          onChange={(e) => handleTypeChange(e.target.value)}
-                        />
-                        Pending Bills
-                      </RadioLabel>
-                      <RadioLabel>
-                        <RadioInput
-                          type="radio"
-                          name="billStatus"
-                          value="received"
-                          checked={selectedType === "received"}
-                          onChange={(e) => handleTypeChange(e.target.value)}
-                        />
-                        Received Bills
-                      </RadioLabel>
-                    </ControlGroup>
+                <ControlGroup>
+                  <Label>Type</Label>
+                  <RadioLabel>
+                    <RadioInput
+                      type="radio"
+                      name="billStatus"
+                      value="pending"
+                      checked={selectedType === "pending"}
+                      onChange={(e) => handleTypeChange(e.target.value)}
+                    />
+                    Pending Bills
+                  </RadioLabel>
+                  <RadioLabel>
+                    <RadioInput
+                      type="radio"
+                      name="billStatus"
+                      value="received"
+                      checked={selectedType === "received"}
+                      onChange={(e) => handleTypeChange(e.target.value)}
+                    />
+                    Received Bills
+                  </RadioLabel>
+                </ControlGroup>
 
-                    <Button onClick={handleRefresh} disabled={loading}>
-                      {loading ? <LoadingSpinner /> : <RotateCcw size={16} />}
-                      Refresh
-                    </Button>
-                  </ControlsWrapper>
+                <Button onClick={handleRefresh} disabled={loading}>
+                  {loading ? <LoadingSpinner /> : <RotateCcw size={16} />}
+                  Refresh
+                </Button>
+              </ControlsWrapper>
 
-                  <TableControls>
-                    <ControlGroup>
-                      <span>Show up to</span>
-                      <Select
-                        value={showEntries}
-                        onChange={(e) => setShowEntries(e.target.value)}
-                      >
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                      </Select>
-                    </ControlGroup>
+              <TableControls>
+                <ControlGroup>
+                  <span>Show up to</span>
+                  <Select value={showEntries} onChange={(e) => setShowEntries(e.target.value)}>
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </Select>
+                </ControlGroup>
 
-                    <SearchWrapper>
-                      <span>Search:</span>
-                      <SearchInputWrapper>
-                        <SearchInput
-                          type="text"
-                          placeholder="Patient Name, UHID, or Bill No"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                        <MicButton>
-                          <Mic size={14} />
-                        </MicButton>
-                      </SearchInputWrapper>
-                    </SearchWrapper>
-                  </TableControls>
+                <SearchWrapper>
+                  <span>Search:</span>
+                  <SearchInputWrapper>
+                    <SearchInput
+                      type="text"
+                      placeholder="Patient Name, UHID, or Bill No"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <MicButton>
+                      <Mic size={14} />
+                    </MicButton>
+                  </SearchInputWrapper>
+                </SearchWrapper>
+              </TableControls>
 
-                  {/* inline error/success replaced by Toast — see ToastWrapper below */}
+              {/* inline error/success replaced by Toast — see ToastWrapper below */}
 
-                  <Table>
-                    <thead>
-                      <tr>
-                        {activeMenuItem !== "IP Advance" && (
+              <Table>
+                <thead>
+                  <tr>
+                    {activeMenuItem !== "IP Advance" && (
+                      <>
+                        <TableHeader>Date</TableHeader>
+                        <TableHeader>Time</TableHeader>
+                      </>
+                    )}
+                    {activeMenuItem === "IP Advance" ? (
+                      <>
+                        <TableHeader>Bill Date</TableHeader>
+                        <TableHeader>Advance Bill No</TableHeader>
+                        <TableHeader>UHID No</TableHeader>
+                        <TableHeader>Patient Name</TableHeader>
+                        <TableHeader>Amount (₹)</TableHeader>
+                        <TableHeader>IP Number</TableHeader>
+                        <TableHeader>IP Serial</TableHeader>
+                        <TableHeader>Status</TableHeader>
+                      </>
+                    ) : (
+                      <>
+                        <TableHeader>Bill No</TableHeader>
+                        <TableHeader>Bill Type</TableHeader>
+                        <TableHeader>UHID No</TableHeader>
+                        <TableHeader>Patient</TableHeader>
+                        <TableHeader>Amount (₹)</TableHeader>
+                        <TableHeader>Status</TableHeader>
+                        {selectedType === "received" && (
                           <>
-                            <TableHeader>Date</TableHeader>
-                            <TableHeader>Time</TableHeader>
+                            <TableHeader>Doctor</TableHeader>
+                            <TableHeader>Total</TableHeader>
+                            <TableHeader>Payment Method</TableHeader>
                           </>
                         )}
+                      </>
+                    )}
+                    <TableHeader>Action</TableHeader>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      {activeMenuItem !== "IP Advance" && (
+                        <>
+                          <TableHeader>Date</TableHeader>
+                          <TableHeader>Time</TableHeader>
+                        </>
+                      )}
+                      {activeMenuItem === "IP Advance" ? (
+                        <>
+                          <TableHeader>Bill Date</TableHeader>
+                          <TableHeader>Advance Bill No</TableHeader>
+                          <TableHeader>UHID No</TableHeader>
+                          <TableHeader>Patient Name</TableHeader>
+                          <TableHeader>Amount (₹)</TableHeader>
+                          <TableHeader>IP Number</TableHeader>
+                          <TableHeader>IP Serial</TableHeader>
+                          <TableHeader>Status</TableHeader>
+                        </>
+                      ) : (
+                        <>
+                          <TableHeader>Bill No</TableHeader>
+                          <TableHeader>Bill Type</TableHeader>
+                          <TableHeader>UHID No</TableHeader>
+                          <TableHeader>Patient</TableHeader>
+                          <TableHeader>Status</TableHeader>
+                          {selectedType === "received" && (
+                            <>
+                              <TableHeader>Doctor</TableHeader>
+                              <TableHeader>Total</TableHeader>
+                              <TableHeader>Payment Method</TableHeader>
+                            </>
+                          )}
+                        </>
+                      )}
+                      <TableHeader>Action</TableHeader>
+                    </tr>
+                  ) : filteredBills.length > 0 ? (
+                    filteredBills.slice(0, parseInt(showEntries)).map((bill) => (
+                      <tr key={bill.id}>
+                        {activeMenuItem !== "IP Advance" && (
+                          <>
+                            <TableCell>{bill.date}</TableCell>
+                            <TableCell>{bill.time}</TableCell>
+                          </>
+                        )}
+
                         {activeMenuItem === "IP Advance" ? (
                           <>
-                            <TableHeader>Bill Date</TableHeader>
-                            <TableHeader>Advance Bill No</TableHeader>
-                            <TableHeader>UHID No</TableHeader>
-                            <TableHeader>Patient Name</TableHeader>
-                            <TableHeader>Amount (₹)</TableHeader>
-                            <TableHeader>IP Number</TableHeader>
-                            <TableHeader>IP Serial</TableHeader>
-                            <TableHeader>Status</TableHeader>
+                            <TableCell>{bill.bill_date}</TableCell>
+                            <TableCell>{bill.bill_no}</TableCell>
+                            <TableCell>{bill.uhid_no}</TableCell>
+                            <TableCell>{bill.patient}</TableCell>
+                            <TableCell>₹{(bill.advance_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell>{bill.ipNumber}</TableCell>
+                            <TableCell>{bill.ipserial_number}</TableCell>
+                            <TableCell>
+                              <span style={{
+                                padding: "2px 10px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                background: bill.status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
+                                color: bill.status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                              }}>
+                                {bill.status}
+                              </span>
+                            </TableCell>
                           </>
                         ) : (
                           <>
-                            <TableHeader>Bill No</TableHeader>
-                            <TableHeader>Bill Type</TableHeader>
-                            <TableHeader>UHID No</TableHeader>
-                            <TableHeader>Patient</TableHeader>
-                            <TableHeader>Amount (₹)</TableHeader>
-                            <TableHeader>Status</TableHeader>
+                            <TableCell>{bill.bill_no}</TableCell>
+                            <TableCell>{bill.bill_type}</TableCell>
+                            <TableCell>{bill.uhid_no}</TableCell>
+                            <TableCell>{bill.patient}</TableCell>
+                            <TableCell>₹{(bill.amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                            <TableCell>
+                              <span style={{
+                                padding: "2px 10px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                                background: bill.status?.toLowerCase() === "pending" ? "#fef3c7"
+                                  : bill.status?.toLowerCase() === "billed" ? "#dbeafe"
+                                  : "#d1fae5",
+                                color: bill.status?.toLowerCase() === "pending" ? "#b45309"
+                                  : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
+                                  : "#065f46",
+                              }}>
+                                {bill.status}
+                              </span>
+                            </TableCell>
                             {selectedType === "received" && (
                               <>
-                                <TableHeader>Doctor</TableHeader>
-                                <TableHeader>Total</TableHeader>
-                                <TableHeader>Payment Method</TableHeader>
+                                <TableCell>{bill.doctor}</TableCell>
+                                <TableCell>₹{(bill.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>{bill.payment_method}</TableCell>
                               </>
                             )}
                           </>
                         )}
-                        <TableHeader>Action</TableHeader>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {loading ? (
-                        <tr>
-                          <TableCell center colSpan={colSpan}>
-                            <LoadingSpinner /> Loading bills...
-                          </TableCell>
-                        </tr>
-                      ) : filteredBills.length > 0 ? (
-                        filteredBills
-                          .slice(0, parseInt(showEntries))
-                          .map((bill) => (
-                            <tr key={bill.id}>
-                              {activeMenuItem !== "IP Advance" && (
-                                <>
-                                  <TableCell>{bill.date}</TableCell>
-                                  <TableCell>{bill.time}</TableCell>
-                                </>
-                              )}
 
-                              {activeMenuItem === "IP Advance" ? (
-                                <>
-                                  <TableCell>{bill.bill_date}</TableCell>
-                                  <TableCell>{bill.bill_no}</TableCell>
-                                  <TableCell>{bill.uhid_no}</TableCell>
-                                  <TableCell>{bill.patient}</TableCell>
-                                  <TableCell>
-                                    ₹
-                                    {(bill.advance_amount || 0).toLocaleString(
-                                      "en-IN",
-                                      { maximumFractionDigits: 2 },
-                                    )}
-                                  </TableCell>
-                                  <TableCell>{bill.ipNumber}</TableCell>
-                                  <TableCell>{bill.ipserial_number}</TableCell>
-                                  <TableCell>
-                                    <span
-                                      style={{
-                                        padding: "2px 10px",
-                                        borderRadius: "12px",
-                                        fontSize: "12px",
-                                        fontWeight: 600,
-                                        background:
-                                          bill.status?.toLowerCase() ===
-                                          "pending"
-                                            ? "#fef3c7"
-                                            : "#d1fae5",
-                                        color:
-                                          bill.status?.toLowerCase() ===
-                                          "pending"
-                                            ? "#b45309"
-                                            : "#065f46",
-                                      }}
-                                    >
-                                      {bill.status}
-                                    </span>
-                                  </TableCell>
-                                </>
-                              ) : (
-                                <>
-                                  <TableCell>{bill.bill_no}</TableCell>
-                                  <TableCell>{bill.bill_type}</TableCell>
-                                  <TableCell>{bill.uhid_no}</TableCell>
-                                  <TableCell>{bill.patient}</TableCell>
-                                  <TableCell>
-                                    ₹
-                                    {(bill.amount || 0).toLocaleString(
-                                      "en-IN",
-                                      { maximumFractionDigits: 2 },
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <span
-                                      style={{
-                                        padding: "2px 10px",
-                                        borderRadius: "12px",
-                                        fontSize: "12px",
-                                        fontWeight: 600,
-                                        background:
-                                          bill.status?.toLowerCase() ===
-                                          "pending"
-                                            ? "#fef3c7"
-                                            : bill.status?.toLowerCase() ===
-                                                "billed"
-                                              ? "#dbeafe"
-                                              : "#d1fae5",
-                                        color:
-                                          bill.status?.toLowerCase() ===
-                                          "pending"
-                                            ? "#b45309"
-                                            : bill.status?.toLowerCase() ===
-                                                "billed"
-                                              ? "#1d4ed8"
-                                              : "#065f46",
-                                      }}
-                                    >
-                                      {bill.status}
-                                    </span>
-                                  </TableCell>
-                                  {selectedType === "received" && (
-                                    <>
-                                      <TableCell>{bill.doctor}</TableCell>
-                                      <TableCell>
-                                        ₹
-                                        {(bill.total || 0).toLocaleString(
-                                          "en-IN",
-                                          { maximumFractionDigits: 2 },
-                                        )}
-                                      </TableCell>
-                                      <TableCell>
-                                        {bill.payment_method}
-                                      </TableCell>
-                                    </>
-                                  )}
-                                </>
-                              )}
-
-                              <TableCell center>
-                                {selectedType === "pending" ? (
-                                  <button
-                                    title={
-                                      shiftBelongsHere
-                                        ? "Collect Payment"
-                                        : "Start Shift to Collect Payment"
-                                    }
-                                    onClick={() =>
-                                      shiftBelongsHere && openPaymentModal(bill)
-                                    }
-                                    disabled={!shiftBelongsHere}
-                                    style={{
-                                      background: shiftBelongsHere
-                                        ? "#0d9488"
-                                        : "#9ca3af",
-                                      color: "white",
-                                      border: "none",
-                                      padding: "6px",
-                                      borderRadius: "4px",
-                                      cursor: shiftBelongsHere
-                                        ? "pointer"
-                                        : "not-allowed",
-                                      display: "inline-flex",
-                                    }}
-                                  >
-                                    <CreditCard size={16} />
-                                  </button>
-                                ) : (
-                                  "-"
-                                )}
-                              </TableCell>
-                            </tr>
-                          ))
-                      ) : (
-                        <tr>
-                          <TableCell center muted colSpan={colSpan}>
-                            {selectedType === "pending"
-                              ? "No pending bills found"
-                              : "No received bills found"}
-                          </TableCell>
+                        <TableCell>
+                          {selectedType === "pending" ? (
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              <button
+                                title="Collect Payment"
+                                onClick={() => openPaymentModal(bill)}
+                                style={{
+                                  background: "#0d9488",
+                                  color: "white",
+                                  border: "none",
+                                  padding: "6px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer"
+                                }}
+                              >
+                                <CreditCard size={16} />
+                              </button>
+                            </div>
+                          ) : null}
+                        </TableCell>
                         </tr>
                       )}
                     </tbody>
@@ -3416,244 +3339,195 @@ export default function CentralCashCounter() {
       />
 
       {showPaymentModal && (
-        <ModalOverlay>
-          <ModalContainer style={{ maxWidth: 560 }}>
-            <ModalHeader>
-              <ModalTitle>💳 Collect Payment</ModalTitle>
-              <CloseButton onClick={() => setShowPaymentModal(false)}>
-                ✕
-              </CloseButton>
-            </ModalHeader>
+  <ModalOverlay>
+    <ModalContainer style={{ maxWidth: 560 }}>
+      <ModalHeader>
+        <ModalTitle>💳 Collect Payment</ModalTitle>
+        <CloseButton onClick={() => setShowPaymentModal(false)}>✕</CloseButton>
+      </ModalHeader>
 
-            <ModalBody>
-              <BillInfoCard>
-                {activeMenuItem === "IP Advance" ? (
-                  <>
-                    <BillInfoItem>
-                      <BillInfoLabel>Patient</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.patient}</BillInfoValue>
-                    </BillInfoItem>
-                    <BillInfoItem>
-                      <BillInfoLabel>IP Number</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.ipNumber}</BillInfoValue>
-                    </BillInfoItem>
-                    <BillInfoItem>
-                      <BillInfoLabel>Bill No</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
-                    </BillInfoItem>
-                    <BillInfoItem>
-                      <BillInfoLabel>UHID</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.uhid_no}</BillInfoValue>
-                    </BillInfoItem>
-                  </>
-                ) : (
-                  <>
-                    <BillInfoItem>
-                      <BillInfoLabel>Bill No</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
-                    </BillInfoItem>
-                    <BillInfoItem>
-                      <BillInfoLabel>Patient</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.patient}</BillInfoValue>
-                    </BillInfoItem>
-                    <BillInfoItem>
-                      <BillInfoLabel>Bill Type</BillInfoLabel>
-                      <BillInfoValue>{selectedBill.bill_type}</BillInfoValue>
-                    </BillInfoItem>
-                  </>
-                )}
-              </BillInfoCard>
+      <ModalBody>
+        <BillInfoCard>
+          {activeMenuItem === "IP Advance" ? (
+            <>
+              <BillInfoItem>
+                <BillInfoLabel>Patient</BillInfoLabel>
+                <BillInfoValue>{selectedBill.patient}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>IP Number</BillInfoLabel>
+                <BillInfoValue>{selectedBill.ipNumber}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Bill No</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>UHID</BillInfoLabel>
+                <BillInfoValue>{selectedBill.uhid_no}</BillInfoValue>
+              </BillInfoItem>
+            </>
+          ) : (
+            <>
+              <BillInfoItem>
+                <BillInfoLabel>Bill No</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Patient</BillInfoLabel>
+                <BillInfoValue>{selectedBill.patient}</BillInfoValue>
+              </BillInfoItem>
+              <BillInfoItem>
+                <BillInfoLabel>Bill Type</BillInfoLabel>
+                <BillInfoValue>{selectedBill.bill_type}</BillInfoValue>
+              </BillInfoItem>
+            </>
+          )}
+        </BillInfoCard>
 
-              <NetAmountBanner>
-                <span>Net Amount</span>
-                <span>
-                  ₹{" "}
-                  {netAmount.toLocaleString("en-IN", {
-                    maximumFractionDigits: 2,
-                  })}
-                </span>
-              </NetAmountBanner>
+        <NetAmountBanner>
+          <span>Net Amount</span>
+          <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+        </NetAmountBanner>
 
-              {/* Payment method selector row */}
-              <div
-                style={{ display: "flex", gap: "12px", marginBottom: "16px" }}
-              >
-                {["cash", "card", "cheque"].map((method) => (
-                  <label
-                    key={method}
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      border: `2px solid ${selectedMethods[method] ? "#0d9488" : "#e5e7eb"}`,
-                      borderRadius: "8px",
-                      padding: "10px 12px",
-                      cursor: "pointer",
-                      background: selectedMethods[method]
-                        ? "#f0fdfa"
-                        : "#fafafa",
-                      fontWeight: 600,
-                      fontSize: "14px",
-                      color: selectedMethods[method] ? "#0d9488" : "#6b7280",
-                      transition: "all 0.2s",
-                      userSelect: "none",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedMethods[method]}
-                      onChange={(e) => {
-                        setSelectedMethods((prev) => ({
-                          ...prev,
-                          [method]: e.target.checked,
-                        }));
-                        if (!e.target.checked) {
-                          setPayments((prev) => ({
-                            ...prev,
-                            [method]: "",
-                            ...(method === "card" ? { cardNo: "" } : {}),
-                            ...(method === "cheque" ? { chequeNo: "" } : {}),
-                          }));
-                        }
-                      }}
-                      style={{
-                        accentColor: "#0d9488",
-                        width: "16px",
-                        height: "16px",
-                      }}
-                    />
-                    {method.charAt(0).toUpperCase() + method.slice(1)}
-                  </label>
-                ))}
-              </div>
+        {/* Payment method selector row */}
+        <div style={{ display: "flex", gap: "12px", marginBottom: "16px" }}>
+          {["cash", "card", "cheque"].map((method) => (
+            <label
+              key={method}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                border: `2px solid ${selectedMethods[method] ? "#0d9488" : "#e5e7eb"}`,
+                borderRadius: "8px",
+                padding: "10px 12px",
+                cursor: "pointer",
+                background: selectedMethods[method] ? "#f0fdfa" : "#fafafa",
+                fontWeight: 600,
+                fontSize: "14px",
+                color: selectedMethods[method] ? "#0d9488" : "#6b7280",
+                transition: "all 0.2s",
+                userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedMethods[method]}
+                onChange={(e) => {
+                  setSelectedMethods((prev) => ({ ...prev, [method]: e.target.checked }));
+                  if (!e.target.checked) {
+                    setPayments((prev) => ({
+                      ...prev,
+                      [method]: "",
+                      ...(method === "card" ? { cardNo: "" } : {}),
+                      ...(method === "cheque" ? { chequeNo: "" } : {}),
+                    }));
+                  }
+                }}
+                style={{ accentColor: "#0d9488", width: "16px", height: "16px" }}
+              />
+              {method.charAt(0).toUpperCase() + method.slice(1)}
+            </label>
+          ))}
+        </div>
 
-              {/* Cash */}
-              {selectedMethods.cash && (
-                <PaymentSection>
-                  <PaymentMethodLabel>💵 Cash</PaymentMethodLabel>
-                  <FormRow>
-                    <FormLabel>Amount (₹)</FormLabel>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={payments.cash}
-                      onChange={(e) =>
-                        setPayments({ ...payments, cash: e.target.value })
-                      }
-                    />
-                  </FormRow>
-                </PaymentSection>
-              )}
+        {/* Cash */}
+        {selectedMethods.cash && (
+          <PaymentSection>
+            <PaymentMethodLabel>💵 Cash</PaymentMethodLabel>
+            <FormRow>
+              <FormLabel>Amount (₹)</FormLabel>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={payments.cash}
+                onChange={(e) => setPayments({ ...payments, cash: e.target.value })}
+              />
+            </FormRow>
+          </PaymentSection>
+        )}
 
-              {/* Card */}
-              {selectedMethods.card && (
-                <PaymentSection>
-                  <PaymentMethodLabel>💳 Card</PaymentMethodLabel>
-                  <FormRow>
-                    <FormLabel>Amount (₹)</FormLabel>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={payments.card}
-                      onChange={(e) =>
-                        setPayments({ ...payments, card: e.target.value })
-                      }
-                    />
-                  </FormRow>
-                  <FormRow>
-                    <FormLabel>Card / Ref No</FormLabel>
-                    <SubInput
-                      type="text"
-                      placeholder="Enter card / transaction ref no"
-                      value={payments.cardNo}
-                      onChange={(e) =>
-                        setPayments({ ...payments, cardNo: e.target.value })
-                      }
-                    />
-                  </FormRow>
-                </PaymentSection>
-              )}
+        {/* Card */}
+        {selectedMethods.card && (
+          <PaymentSection>
+            <PaymentMethodLabel>💳 Card</PaymentMethodLabel>
+            <FormRow>
+              <FormLabel>Amount (₹)</FormLabel>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={payments.card}
+                onChange={(e) => setPayments({ ...payments, card: e.target.value })}
+              />
+            </FormRow>
+            <FormRow>
+              <FormLabel>Card / Ref No</FormLabel>
+              <SubInput
+                type="text"
+                placeholder="Enter card / transaction ref no"
+                value={payments.cardNo}
+                onChange={(e) => setPayments({ ...payments, cardNo: e.target.value })}
+              />
+            </FormRow>
+          </PaymentSection>
+        )}
 
-              {/* Cheque */}
-              {selectedMethods.cheque && (
-                <PaymentSection>
-                  <PaymentMethodLabel>🏦 Cheque</PaymentMethodLabel>
-                  <FormRow>
-                    <FormLabel>Amount (₹)</FormLabel>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={payments.cheque}
-                      onChange={(e) =>
-                        setPayments({ ...payments, cheque: e.target.value })
-                      }
-                    />
-                  </FormRow>
-                  <FormRow>
-                    <FormLabel>Cheque No</FormLabel>
-                    <SubInput
-                      type="text"
-                      placeholder="Enter cheque number"
-                      value={payments.chequeNo}
-                      onChange={(e) =>
-                        setPayments({ ...payments, chequeNo: e.target.value })
-                      }
-                    />
-                  </FormRow>
-                </PaymentSection>
-              )}
+        {/* Cheque */}
+        {selectedMethods.cheque && (
+          <PaymentSection>
+            <PaymentMethodLabel>🏦 Cheque</PaymentMethodLabel>
+            <FormRow>
+              <FormLabel>Amount (₹)</FormLabel>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={payments.cheque}
+                onChange={(e) => setPayments({ ...payments, cheque: e.target.value })}
+              />
+            </FormRow>
+            <FormRow>
+              <FormLabel>Cheque No</FormLabel>
+              <SubInput
+                type="text"
+                placeholder="Enter cheque number"
+                value={payments.chequeNo}
+                onChange={(e) => setPayments({ ...payments, chequeNo: e.target.value })}
+              />
+            </FormRow>
+          </PaymentSection>
+        )}
 
-              <SummaryCard>
-                <SummaryRow>
-                  <span>Net Amount</span>
-                  <span>
-                    ₹{" "}
-                    {netAmount.toLocaleString("en-IN", {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </SummaryRow>
-                <SummaryRow>
-                  <span>Paid Amount</span>
-                  <span>
-                    ₹{" "}
-                    {paidAmount.toLocaleString("en-IN", {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </SummaryRow>
-                <SummaryRow
-                  bold
-                  separator
-                  highlight={balance === 0}
-                  danger={balance > 0}
-                >
-                  <span>{balance > 0 ? "Pending Amount" : "Balance"}</span>
-                  <span>
-                    ₹{" "}
-                    {Math.max(balance, 0).toLocaleString("en-IN", {
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                </SummaryRow>
-              </SummaryCard>
-            </ModalBody>
+        <SummaryCard>
+          <SummaryRow>
+            <span>Net Amount</span>
+            <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+          </SummaryRow>
+          <SummaryRow>
+            <span>Paid Amount</span>
+            <span>₹ {paidAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+          </SummaryRow>
+          <SummaryRow bold separator highlight={balance === 0} danger={balance > 0}>
+            <span>{balance > 0 ? "Pending Amount" : "Balance"}</span>
+            <span>₹ {Math.max(balance, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+          </SummaryRow>
+        </SummaryCard>
+      </ModalBody>
 
-            <ModalFooterBar>
-              <CancelButton onClick={() => setShowPaymentModal(false)}>
-                Cancel
-              </CancelButton>
-              <SaveButton disabled={paidAmount === 0} onClick={submitPayment}>
-                {balance > 0
-                  ? `Save (₹${balance.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Pending)`
-                  : "Save Payment"}
-              </SaveButton>
-            </ModalFooterBar>
-          </ModalContainer>
-        </ModalOverlay>
-      )}
+      <ModalFooterBar>
+        <CancelButton onClick={() => setShowPaymentModal(false)}>Cancel</CancelButton>
+        <SaveButton
+          disabled={paidAmount === 0}
+          onClick={submitPayment}
+        >
+          {balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment"}
+        </SaveButton>
+      </ModalFooterBar>
+    </ModalContainer>
+  </ModalOverlay>
+)}
       {/* ══════════════ CENTRAL CASH VOUCHER PRINT MODAL ══════════════ */}
       {rpPrintVoucher &&
         (() => {
@@ -3917,6 +3791,7 @@ export default function CentralCashCounter() {
           </ToastBox>
         </ToastWrapper>
       )}
+
     </Container>
   );
 }

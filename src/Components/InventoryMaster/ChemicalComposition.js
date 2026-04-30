@@ -8,7 +8,7 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 
-// ─── Header (matches PharmacyItem gradient style) ─────────────────────────────
+// ─── Header ───────────────────────────────────────────────────────────────────
 const PageHeader = styled.div`
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: white;
@@ -38,8 +38,133 @@ const SectionTitle = styled.h4`
   font-weight: 700;
 `;
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Pagination Styles ────────────────────────────────────────────────────────
+const PaginationWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+`;
 
+const PaginationInfo = styled.span`
+  font-size: 0.85rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const PaginationControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const PageBtn = styled.button`
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid ${(p) => (p.active ? "#0d9488" : "#d1d5db")};
+  border-radius: 6px;
+  background: ${(p) => (p.active ? "#0d9488" : "#ffffff")};
+  color: ${(p) => (p.active ? "white" : "#374151")};
+  font-size: 0.82rem;
+  font-weight: ${(p) => (p.active ? 700 : 400)};
+  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.disabled ? 0.4 : 1)};
+  transition: all 0.15s;
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? "#0f766e" : "#f0fdf4")};
+    border-color: #0d9488;
+  }
+`;
+
+const PageSizeSelect = styled.select`
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+`;
+
+// ─── Pagination Hook ──────────────────────────────────────────────────────────
+const usePagination = (data, defaultPageSize = 10) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
+
+  useEffect(() => { setCurrentPage(1); }, [data.length, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const startIdx = (currentPage - 1) * pageSize;
+  const pageData = data.slice(startIdx, startIdx + pageSize);
+
+  const goTo = (page) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => setPageSize(Number(size));
+
+  return { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx };
+};
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+const Pagination = ({ currentPage, totalPages, pageSize, totalItems, startIdx, goTo, onPageSizeChange }) => {
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+
+  return (
+    <PaginationWrapper>
+      <PaginationInfo>
+        Showing <strong>{totalItems === 0 ? 0 : startIdx + 1}–{endIdx}</strong> of{" "}
+        <strong>{totalItems}</strong> composition(s)
+        &nbsp;|&nbsp; Rows per page:{" "}
+        <PageSizeSelect value={pageSize} onChange={(e) => onPageSizeChange(e.target.value)}>
+          <option value={10}>10</option>
+          <option value={15}>15</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+        </PageSizeSelect>
+      </PaginationInfo>
+
+      <PaginationControls>
+        <PageBtn onClick={() => goTo(1)} disabled={currentPage === 1}>«</PageBtn>
+        <PageBtn onClick={() => goTo(currentPage - 1)} disabled={currentPage === 1}>‹</PageBtn>
+        {getPageNumbers().map((p, idx) =>
+          p === "..." ? (
+            <PageBtn key={`e-${idx}`} disabled style={{ cursor: "default" }}>…</PageBtn>
+          ) : (
+            <PageBtn key={p} active={p === currentPage} onClick={() => goTo(p)}>{p}</PageBtn>
+          )
+        )}
+        <PageBtn onClick={() => goTo(currentPage + 1)} disabled={currentPage === totalPages}>›</PageBtn>
+        <PageBtn onClick={() => goTo(totalPages)} disabled={currentPage === totalPages}>»</PageBtn>
+      </PaginationControls>
+    </PaginationWrapper>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const ChemicalComposition = () => {
   const [compositions, setCompositions] = useState([]);
   const [formData, setFormData]         = useState({ composition_name: "" });
@@ -49,7 +174,15 @@ const ChemicalComposition = () => {
 
   useEffect(() => { fetchCompositions(); }, []);
 
-  // ── API ──────────────────────────────────────────────────────────────────
+  // Sorted alphabetically, then paginated
+  const sorted = [...compositions].sort((a, b) =>
+    (a.composition_name || "").localeCompare(b.composition_name || "")
+  );
+
+  const { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx } =
+    usePagination(sorted, 10);
+
+  // ── API ───────────────────────────────────────────────────────────────────
 
   const fetchCompositions = async () => {
     try {
@@ -64,7 +197,7 @@ const ChemicalComposition = () => {
     }
   };
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -188,22 +321,22 @@ const ChemicalComposition = () => {
             <Table>
               <thead>
                 <tr>
-                  <Th>Composition ID</Th>
-                  <Th>Composition Name</Th>
+                  <Th>#</Th>
+                  <Th>Composition Name ↑</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
               <tbody>
-                {compositions.length === 0 ? (
+                {pageData.length === 0 ? (
                   <Tr>
                     <Td colSpan="3" style={{ textAlign: "center" }}>
                       No compositions found
                     </Td>
                   </Tr>
                 ) : (
-                  compositions.map((comp) => (
+                  pageData.map((comp, idx) => (
                     <Tr key={comp.composition_id}>
-                      <Td>{comp.composition_id}</Td>
+                      <Td>{startIdx + idx + 1}</Td>
                       <Td>{comp.composition_name}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: "10px" }}>
@@ -228,6 +361,19 @@ const ChemicalComposition = () => {
               </tbody>
             </Table>
           </TableWrapper>
+
+          {/* ── Pagination ── */}
+          {sorted.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={sorted.length}
+              startIdx={startIdx}
+              goTo={goTo}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
         </div>
 
       </Container>
