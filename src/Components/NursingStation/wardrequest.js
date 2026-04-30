@@ -20,7 +20,8 @@ import {
   FiFilter,
   FiGrid,
   FiList,
-  FiCheckCircle
+  FiCheckCircle,
+  FiRefreshCcw
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant } from "react-icons/md";
 
@@ -1048,26 +1049,20 @@ const WardRequest = () => {
             </div>
 
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-              <Select
-                value={block}
-                onChange={(e) => setBlock(e.target.value)}
-                style={{ width: "160px", height: "45px", borderRadius: "12px", margin: 0 }}
-              >
-                <option value="ALL">All Blocks</option>
-                {availableBlocks.map((blk, i) => {
-                  const id = blk.id || blk.block_id;
-                  return <option key={i} value={id}>{blk.block_name}</option>;
-                })}
-              </Select>
-
-              <Button
-                primary
-                onClick={fetchAdmissions}
-                disabled={loading}
-                style={{ height: "45px", minWidth: "120px", borderRadius: "12px", padding: "0 16px", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-              >
-                <FiClock /> {loading ? "..." : "Refresh"}
-              </Button>
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <FiFilter style={{ position: "absolute", left: "12px", color: colors.primary, zIndex: 1, pointerEvents: "none" }} />
+                <Select
+                  value={block}
+                  onChange={(e) => setBlock(e.target.value)}
+                  style={{ width: "160px", height: "45px", borderRadius: "12px", margin: 0, paddingLeft: "35px", background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
+                >
+                  <option value="ALL">All Blocks</option>
+                  {availableBlocks.map((blk, i) => {
+                    const id = blk.id || blk.block_id;
+                    return <option key={i} value={id}>{blk.block_name}</option>;
+                  })}
+                </Select>
+              </div>
 
               <SearchBox>
                 <FiSearch />
@@ -1079,10 +1074,19 @@ const WardRequest = () => {
                 />
               </SearchBox>
 
+              <Button
+                primary
+                onClick={fetchAdmissions}
+                disabled={loading}
+                style={{ height: "45px", borderRadius: "12px", padding: "0 18px", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: colors.primary, boxShadow: "0 4px 12px rgba(13, 148, 136, 0.2)" }}
+              >
+                <FiRefreshCcw className={loading ? "spin" : ""} /> {loading ? "..." : "Refresh"}
+              </Button>
+
               <Select
                 value={showUpTo}
                 onChange={(e) => setShowUpTo(Number(e.target.value))}
-                style={{ width: "80px", height: "45px", borderRadius: "12px", margin: 0 }}
+                style={{ width: "80px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontWeight: 600 }}
               >
                 <option value={15}>15</option>
                 <option value={30}>30</option>
@@ -1187,40 +1191,38 @@ const WardRequest = () => {
 
       {showActionModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowActionModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px", padding: "0", borderRadius: "24px", overflow: "hidden", border: "none", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)" }}>
-            <div style={{ background: "linear-gradient(135deg, #136A63, #0d9488)", padding: "20px 24px", color: "white", position: "relative" }}>
-              <div style={{ display: "flex", gap: "14px", alignItems: "center" }}>
-                <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem", fontWeight: 900, backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.3)" }}>
-                  {getInitials(selectedPatient.firstName + " " + selectedPatient.lastName)}
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px", padding: "0", borderRadius: "28px", overflow: "hidden", border: "none", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)" }}>
+            <div style={{ background: "linear-gradient(135deg, #136A63, #0d9488)", padding: "24px", color: "white", position: "relative" }}>
+              <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
+                <div style={{ width: "56px", height: "56px", borderRadius: "18px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem", fontWeight: 900, backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" }}>
+                  {getInitials(getField(selectedPatient, "firstName") + " " + getField(selectedPatient, "lastName"))}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1.2 }}>{selectedPatient.salutation} {selectedPatient.firstName} {selectedPatient.lastName}</h2>
-                  <div style={{ opacity: 0.9, fontSize: "0.75rem", marginTop: "2px", display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span>Patient Name: <strong>{getField(selectedPatient, "patient_name")}</strong></span>
-                    <span style={{ width: "3px", height: "3px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
+                  <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1.1 }}>
+                    {getField(selectedPatient, "patient_name") || `${getField(selectedPatient, "salutation")} ${getField(selectedPatient, "firstName")} ${getField(selectedPatient, "lastName")}`}
+                  </h2>
+                  <div style={{ opacity: 0.9, fontSize: "0.8rem", marginTop: "6px", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><FiUser size={12}/> {getField(selectedPatient, "salutation")} {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
+                    <span style={{ width: "4px", height: "4px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
                     <span>UHID: <strong>{getField(selectedPatient, "uhid")}</strong></span>
-                    <span style={{ width: "3px", height: "3px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
+                    <span style={{ width: "4px", height: "4px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
                     <span>IP: <strong>{selectedPatient.ipNumber}</strong></span>
-                    <span style={{ width: "3px", height: "3px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
-                    {/* <span>Gender: <strong>{getField(selectedPatient, "gender")}</strong></span>
-                    <span style={{ width: "3px", height: "3px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} /> */}
-
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => setShowActionModal(false)}
-                style={{ position: "absolute", top: "16px", right: "16px", width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; }}
+                style={{ position: "absolute", top: "24px", right: "24px", width: "32px", height: "32px", borderRadius: "10px", background: "rgba(255,255,255,0.15)", border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s", backdropFilter: "blur(5px)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; e.currentTarget.style.transform = "rotate(90deg)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; e.currentTarget.style.transform = "rotate(0deg)"; }}
               >
-                <FiX size={16} />
+                <FiX size={18} />
               </button>
             </div>
 
             <div style={{ padding: "24px", background: "#ffffff" }}>
               <div style={{ marginBottom: "16px", fontWeight: 800, color: colors.textMuted, textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: "1.2px" }}>Select Request Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
                 <div
                   style={{
                     padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"

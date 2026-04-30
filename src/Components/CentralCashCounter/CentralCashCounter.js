@@ -979,17 +979,17 @@ export default function CentralCashCounter() {
 
 
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
-  const formatIpAdvanceData = (admissionsArray) => {
+  const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
     admissionsArray.forEach((admission) => {
       const payments = admission.advance_payments || [];
-      // Only show admissions that have pending advance payments
-      const pendingPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === "pending"
+      // Filter based on status (pending or paid)
+      const filteredPayments = payments.filter(
+        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
       );
-      if (pendingPayments.length === 0) return;
+      if (filteredPayments.length === 0) return;
 
-      pendingPayments.forEach((payment) => {
+      filteredPayments.forEach((payment) => {
         const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
@@ -1142,8 +1142,6 @@ export default function CentralCashCounter() {
 
       console.log("IP Advance raw response:", JSON.stringify(response));
 
-      // apiRequest wraps the actual response under response.data
-      // so the real array is at response.data.data
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : [];
@@ -1153,12 +1151,38 @@ export default function CentralCashCounter() {
         return;
       }
 
-      const formatted = formatIpAdvanceData(billsArray);
+      const formatted = formatIpAdvanceData(billsArray, "pending");
       setIpAdvancePendingBills(formatted);
 
     } catch (err) {
       console.error("IP Advance fetch error:", err?.message || err);
       setError("Failed to load IP Advance data: " + (err?.message || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchReceivedBills = async () => {
+    // Both tabs use the same OPPharmacy_pending_bills API data as per filterBills logic
+    await fetchPendingBills();
+  };
+
+  const fetchIpAdvanceReceivedBills = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiRequest(
+        `${HmsBaseUrl}ipadvance_bills/`,
+        "GET"
+      );
+      const billsArray = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : [];
+      const formatted = formatIpAdvanceData(billsArray, "Paid");
+      setIpAdvanceReceivedBills(formatted);
+    } catch (err) {
+      console.error("IP Advance received fetch error:", err);
+      setError("Failed to load Received IP Advance data");
     } finally {
       setLoading(false);
     }
@@ -1234,25 +1258,17 @@ export default function CentralCashCounter() {
     try {
       let endpoint = "";
       if (activeMenuItem === "Pending Bills") {
-        endpoint = "http://127.0.0.1:8000/mark-bill-received/";
+        endpoint = `${HmsBaseUrl}mark-bill-received/`;
       } else if (activeMenuItem === "IP Advance") {
-        endpoint = "http://127.0.0.1:8000/ip-advance/mark-received/";
+        endpoint = `${HmsBaseUrl}ip-advance/mark-received/`;
       }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: billId,
-          source: source,
-        }),
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (res?.success || res?.status === "success") {
         setSuccess(`Bill marked as received successfully`);
         // Refresh data
         if (activeMenuItem === "Pending Bills") {
@@ -1262,7 +1278,7 @@ export default function CentralCashCounter() {
         }
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        setError(data.message || "Failed to update bill");
+        setError(res?.message || "Failed to update bill");
       }
     } catch (err) {
       setError("Error updating bill");
@@ -1274,25 +1290,17 @@ export default function CentralCashCounter() {
     try {
       let endpoint = "";
       if (activeMenuItem === "Pending Bills") {
-        endpoint = "http://127.0.0.1:8000/mark-bill-unreceived/";
+        endpoint = `${HmsBaseUrl}mark-bill-unreceived/`;
       } else if (activeMenuItem === "IP Advance") {
-        endpoint = "http://127.0.0.1:8000/ip-advance/mark-unreceived/";
+        endpoint = `${HmsBaseUrl}ip-advance/mark-unreceived/`;
       }
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: billId,
-          source: source,
-        }),
+      const res = await apiRequest(endpoint, "POST", {
+        id: billId,
+        source: source,
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (res?.success || res?.status === "success") {
         setSuccess(`Bill marked as unreceived successfully`);
         if (activeMenuItem === "Pending Bills") {
           fetchReceivedBills();
@@ -1301,7 +1309,7 @@ export default function CentralCashCounter() {
         }
         setTimeout(() => setSuccess(""), 3000);
       } else {
-        setError(data.message || "Failed to update bill");
+        setError(res?.message || "Failed to update bill");
       }
     } catch (err) {
       setError("Error updating bill");
