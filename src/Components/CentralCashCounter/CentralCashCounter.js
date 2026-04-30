@@ -1149,14 +1149,6 @@ const fetchPendingBills = async () => {
   }
 };
 
-    } catch (err) {
-      console.error("Pending bills error:", err);
-      setError("Unable to connect to HMS server");
-    } finally {
-      setLoading(false);
-    }
-  };
-
 const fetchOpPharmacyPendingBills = async () => {
   try {
     const response = await apiRequest(
@@ -2518,64 +2510,23 @@ const submitPayment = async () => {
                         <TableCell>
                           {selectedType === "pending" ? (
                             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                              
-                              <TableCell center style={{ border: "none", padding: 0 }}>
-                                <button
-                                  title="Collect Payment"
-                                  onClick={() => openPaymentModal(bill)}
-                                  style={{
-                                    background: "#0d9488",
-                                    color: "white",
-                                    border: "none",
-                                    padding: "6px",
-                                    borderRadius: "4px",
-                                    cursor: "pointer"
-                                  }}
-                                >
-                                  <CreditCard size={16} />
-                                </button>
-                              </TableCell>
-                            </>
-                          ) : (
-                            <>
-                              <TableCell>{bill.bill_no}</TableCell>
-                              <TableCell>{bill.bill_type}</TableCell>
-                              <TableCell>{bill.uhid_no}</TableCell>
-                              <TableCell>{bill.patient}</TableCell>
-                              <TableCell>{bill.investigation}</TableCell>
-                              {selectedType === "received" && (
-                                <>
-                                  <TableCell>{bill.doctor}</TableCell>
-                                  <TableCell>₹{bill.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
-                                  <TableCell>{bill.payment_method}</TableCell>
-                                </>
-                              )}
-                            </>
-                          )}
-
-                          <TableCell>
-                            {selectedType === "pending" ? (
-                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-
-                                <TableCell center style={{ border: "none", padding: 0 }}>
-                                  <button
-                                    title="Collect Payment"
-                                    onClick={() => openPaymentModal(bill)}
-                                    style={{
-                                      background: "#0d9488",
-                                      color: "white",
-                                      border: "none",
-                                      padding: "6px",
-                                      borderRadius: "4px",
-                                      cursor: "pointer"
-                                    }}
-                                  >
-                                    <CreditCard size={16} />
-                                  </button>
-                                </TableCell>
-                              </div>
-                            ) : null}
-                          </TableCell>
+                              <button
+                                title="Collect Payment"
+                                onClick={() => openPaymentModal(bill)}
+                                style={{
+                                  background: "#0d9488",
+                                  color: "white",
+                                  border: "none",
+                                  padding: "6px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer"
+                                }}
+                              >
+                                <CreditCard size={16} />
+                              </button>
+                            </div>
+                          ) : null}
+                        </TableCell>
                         </tr>
                       ))
                     ) : (
