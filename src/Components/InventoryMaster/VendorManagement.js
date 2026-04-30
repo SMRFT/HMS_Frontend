@@ -21,7 +21,7 @@ import {
   colors,
 } from "../GlobalStyles";
 import styled from "styled-components";
-import apiRequest from "../../Auth/apiRequest"
+import apiRequest from "../../Auth/apiRequest";
 
 // ─── Styled Helpers ───────────────────────────────────────────────────────────
 const PageHeader = styled.div`
@@ -139,15 +139,66 @@ const SearchInput = styled(Input)`
   min-width: 260px;
 `;
 
+// ─── Pagination Styles ────────────────────────────────────────────────────────
+const PaginationWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+`;
+
+const PaginationInfo = styled.span`
+  font-size: 0.85rem;
+  color: ${colors.textMuted};
+`;
+
+const PaginationControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const PageBtn = styled.button`
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid ${(p) => (p.active ? colors.primary : colors.border)};
+  border-radius: 6px;
+  background: ${(p) => (p.active ? colors.primary : colors.surface)};
+  color: ${(p) => (p.active ? "white" : colors.text)};
+  font-size: 0.82rem;
+  font-weight: ${(p) => (p.active ? 700 : 400)};
+  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.disabled ? 0.4 : 1)};
+  transition: all 0.15s;
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? colors.primaryDark : colors.tabBg)};
+    border-color: ${colors.primary};
+  }
+`;
+
+const PageSizeSelect = styled.select`
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: ${colors.surface};
+  color: ${colors.text};
+  cursor: pointer;
+`;
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const SUPPLIER_TYPES = ["SUPPLIER", "MANUFACTURER"];
 const PAYMENT_TERMS = ["CHEQUE", "CASH", "DD"];
-const COUNTRY = "India"; // default country for state/city
+const COUNTRY = "India";
 
 const EMPTY_FORM = {
-  supplier_type: "",
+  vendor_type: "",
   name: "",
   address_line1: "",
   address_line2: "",
@@ -161,6 +212,91 @@ const EMPTY_FORM = {
   payment_terms: "",
 };
 
+// ─── Pagination Hook ──────────────────────────────────────────────────────────
+const usePagination = (data, defaultPageSize = 10) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
+
+  // Reset to page 1 whenever data or pageSize changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data.length, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const startIdx = (currentPage - 1) * pageSize;
+  const pageData = data.slice(startIdx, startIdx + pageSize);
+
+  const goTo = (page) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(Number(size));
+  };
+
+  return { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx };
+};
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+const Pagination = ({ currentPage, totalPages, pageSize, totalItems, startIdx, goTo, onPageSizeChange }) => {
+  // Build page number list with ellipsis
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+
+  return (
+    <PaginationWrapper>
+      <PaginationInfo>
+        Showing <strong>{totalItems === 0 ? 0 : startIdx + 1}–{endIdx}</strong> of{" "}
+        <strong>{totalItems}</strong> vendor(s)
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        Rows per page:{" "}
+        <PageSizeSelect
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(e.target.value)}
+        >
+          <option value={10}>10</option>
+          <option value={15}>15</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+        </PageSizeSelect>
+      </PaginationInfo>
+
+      <PaginationControls>
+        <PageBtn onClick={() => goTo(1)} disabled={currentPage === 1}>«</PageBtn>
+        <PageBtn onClick={() => goTo(currentPage - 1)} disabled={currentPage === 1}>‹</PageBtn>
+
+        {getPageNumbers().map((p, idx) =>
+          p === "..." ? (
+            <PageBtn key={`ellipsis-${idx}`} disabled style={{ cursor: "default" }}>…</PageBtn>
+          ) : (
+            <PageBtn key={p} active={p === currentPage} onClick={() => goTo(p)}>
+              {p}
+            </PageBtn>
+          )
+        )}
+
+        <PageBtn onClick={() => goTo(currentPage + 1)} disabled={currentPage === totalPages}>›</PageBtn>
+        <PageBtn onClick={() => goTo(totalPages)} disabled={currentPage === totalPages}>»</PageBtn>
+      </PaginationControls>
+    </PaginationWrapper>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const VendorMaster = () => {
   const [vendors, setVendors] = useState([]);
@@ -172,11 +308,25 @@ const VendorMaster = () => {
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
 
-  // State / City
   const [states, setStates] = useState([]);
   const [cities, setCities] = useState([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+
+  // ── Filter first, then paginate ────────────────────────────────────────────
+  const filtered = vendors.filter((v) => {
+    const q = search.toLowerCase();
+    return (
+      v.name?.toLowerCase().includes(q) ||
+      v.vendor_type?.toLowerCase().includes(q) ||
+      v.gstin?.toLowerCase().includes(q) ||
+      v.contact_person?.toLowerCase().includes(q) ||
+      v.city?.toLowerCase().includes(q)
+    );
+  });
+
+  const { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx } =
+    usePagination(filtered, 10);
 
   // ── Load India states on mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -203,10 +353,7 @@ const VendorMaster = () => {
 
   // ── Load cities when state changes ────────────────────────────────────────
   useEffect(() => {
-    if (!form.state) {
-      setCities([]);
-      return;
-    }
+    if (!form.state) { setCities([]); return; }
     const fetchCities = async () => {
       setLoadingCities(true);
       setCities([]);
@@ -245,9 +392,7 @@ const VendorMaster = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchVendors();
-  }, [fetchVendors]);
+  useEffect(() => { fetchVendors(); }, [fetchVendors]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -259,7 +404,6 @@ const VendorMaster = () => {
     const { name, value } = e.target;
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
-      // Reset city when state changes
       if (name === "state") updated.city = "";
       return updated;
     });
@@ -268,7 +412,7 @@ const VendorMaster = () => {
 
   const validate = () => {
     const errs = {};
-    if (!form.supplier_type) errs.supplier_type = "Type is required";
+    if (!form.vendor_type) errs.vendor_type = "Type is required";
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.address_line1.trim()) errs.address_line1 = "Address Line 1 is required";
     if (form.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin)) {
@@ -286,7 +430,6 @@ const VendorMaster = () => {
   const handleSubmit = async () => {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-
     setLoading(true);
     try {
       const url = editId ? `${baseUrl}vendors/${editId}/` : `${baseUrl}vendors/`;
@@ -311,7 +454,7 @@ const VendorMaster = () => {
 
   const handleEdit = (vendor) => {
     setForm({
-      supplier_type: vendor.supplier_type || "",
+      vendor_type: vendor.vendor_type || "",
       name: vendor.name || "",
       address_line1: vendor.address_line1 || "",
       address_line2: vendor.address_line2 || "",
@@ -353,18 +496,6 @@ const VendorMaster = () => {
     setErrors({});
   };
 
-  // ── Filter ─────────────────────────────────────────────────────────────────
-  const filtered = vendors.filter((v) => {
-    const q = search.toLowerCase();
-    return (
-      v.name?.toLowerCase().includes(q) ||
-      v.supplier_type?.toLowerCase().includes(q) ||
-      v.gstin?.toLowerCase().includes(q) ||
-      v.contact_person?.toLowerCase().includes(q) ||
-      v.city?.toLowerCase().includes(q)
-    );
-  });
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
@@ -400,17 +531,17 @@ const VendorMaster = () => {
                   <InputWrapper>
                     <Label required>Supplier / Manufacturer</Label>
                     <Select
-                      name="supplier_type"
-                      value={form.supplier_type}
+                      name="vendor_type"
+                      value={form.vendor_type}
                       onChange={handleChange}
-                      style={errors.supplier_type ? { borderColor: colors.danger } : {}}
+                      style={errors.vendor_type ? { borderColor: colors.danger } : {}}
                     >
                       <option value="">-- Select Type --</option>
                       {SUPPLIER_TYPES.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </Select>
-                    {errors.supplier_type && <ErrorText>{errors.supplier_type}</ErrorText>}
+                    {errors.vendor_type && <ErrorText>{errors.vendor_type}</ErrorText>}
                   </InputWrapper>
 
                   <InputWrapper>
@@ -486,7 +617,7 @@ const VendorMaster = () => {
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </Select>
-                    {(loadingCities) && (
+                    {loadingCities && (
                       <div style={{ position: "absolute", right: 36, top: 36 }}>
                         <LoadingDot style={{ animationDelay: "0s" }} />
                         <LoadingDot style={{ animationDelay: "0.2s" }} />
@@ -577,9 +708,7 @@ const VendorMaster = () => {
                 </FormRow>
 
                 <ButtonContainer>
-                  <Button secondary onClick={handleCancel}>
-                    ✕ Cancel
-                  </Button>
+                  <Button secondary onClick={handleCancel}>✕ Cancel</Button>
                   <Button onClick={handleSubmit} disabled={loading}>
                     {loading ? "Saving..." : editId ? "✔ Update Vendor" : "✔ Save Vendor"}
                   </Button>
@@ -626,7 +755,7 @@ const VendorMaster = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {pageData.length === 0 ? (
                   <tr>
                     <td colSpan={10}>
                       <EmptyState>
@@ -635,13 +764,14 @@ const VendorMaster = () => {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((vendor, idx) => (
+                  pageData.map((vendor, idx) => (
                     <Tr key={vendor.vendor_id}>
-                      <Td>{idx + 1}</Td>
+                      {/* Serial number continues across pages */}
+                      <Td>{startIdx + idx + 1}</Td>
                       <Td style={{ fontWeight: 600, minWidth: 160 }}>{vendor.name}</Td>
                       <Td>
-                        <Badge supplier={vendor.supplier_type === "SUPPLIER"}>
-                          {vendor.supplier_type}
+                        <Badge supplier={vendor.vendor_type === "SUPPLIER"}>
+                          {vendor.vendor_type}
                         </Badge>
                       </Td>
                       <Td style={{ maxWidth: 180, fontSize: "0.82rem" }}>
@@ -672,6 +802,19 @@ const VendorMaster = () => {
               </tbody>
             </Table>
           </TableWrapper>
+
+          {/* ── Pagination ── */}
+          {filtered.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              startIdx={startIdx}
+              goTo={goTo}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
         </FormContent>
       </Container>
     </PageWrapper>

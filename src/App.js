@@ -114,6 +114,8 @@ import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
+import StockTransfer from "./Components/InventoryMaster/StockTransfer";
+import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Accounts/ShiftBasisReport";
@@ -457,6 +459,17 @@ function App() {
               ) && <Route path="/IPAdvance" element={<IPAdvance />} />}
 
               {hasPagePermission(
+                "/IPAdvanceReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/IPAdvanceReport"
+                    element={<IPAdvanceReport />}
+                  />
+                )}
+
+              {hasPagePermission(
                 "/PatientRegistrationForm",
                 allowedActions,
                 dynamicPermissions,
@@ -620,6 +633,18 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/GRNAnalysis" element={<GRNAnalysis />} />}
+
+              {hasPagePermission(
+                "/StockTransfer",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StockTransfer"
+                    element={<StockTransfer />}
+                  />
+                )}
+
               {hasPagePermission(
                 "/PharmacyItemMaster",
                 allowedActions,

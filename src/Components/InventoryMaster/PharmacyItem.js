@@ -228,6 +228,62 @@ const DisabledInput = styled(Input)`
   cursor: not-allowed;
 `;
 
+// ─── Pagination Styles ────────────────────────────────────────────────────────
+
+const PaginationWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 4px;
+  flex-wrap: wrap;
+  gap: 12px;
+`;
+
+const PaginationInfo = styled.span`
+  font-size: 0.85rem;
+  color: ${colors.textMuted};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const PaginationControls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+
+const PageBtn = styled.button`
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid ${(p) => (p.active ? colors.primary : colors.border)};
+  border-radius: 6px;
+  background: ${(p) => (p.active ? colors.primary : colors.surface)};
+  color: ${(p) => (p.active ? "white" : colors.text)};
+  font-size: 0.82rem;
+  font-weight: ${(p) => (p.active ? 700 : 400)};
+  cursor: ${(p) => (p.disabled ? "not-allowed" : "pointer")};
+  opacity: ${(p) => (p.disabled ? 0.4 : 1)};
+  transition: all 0.15s;
+  &:hover:not(:disabled) {
+    background: ${(p) => (p.active ? colors.primaryDark : colors.tabBg)};
+    border-color: ${colors.primary};
+  }
+`;
+
+const PageSizeSelect = styled.select`
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: ${colors.surface};
+  color: ${colors.text};
+  cursor: pointer;
+`;
+
 // ─── Searchable Composition Dropdown ─────────────────────────────────────────
 
 const ComboWrapper = styled.div`
@@ -288,23 +344,20 @@ const CompositionTag = styled.div`
 // ─── Searchable Dropdown Component ───────────────────────────────────────────
 
 const CompositionSelect = ({ compositions, value, onChange, error }) => {
-  const [query, setQuery]       = useState("");
-  const [open, setOpen]         = useState(false);
-  const wrapperRef              = useRef(null);
+  const [query, setQuery] = useState("");
+  const [open, setOpen]   = useState(false);
+  const wrapperRef        = useRef(null);
 
-  // Find label for the current value
   const selectedLabel = compositions.find(
     (c) => String(c.composition_id) === String(value)
   )?.composition_name || "";
 
-  // Filter by search query
   const filtered = query.trim()
     ? compositions.filter((c) =>
         c.composition_name.toLowerCase().includes(query.toLowerCase())
       )
     : compositions;
 
-  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
@@ -337,7 +390,6 @@ const CompositionSelect = ({ compositions, value, onChange, error }) => {
         onFocus={() => { setOpen(true); setQuery(""); }}
         onChange={(e) => setQuery(e.target.value)}
       />
-
       {selectedLabel && !open && (
         <CompositionTag>
           🧪 {selectedLabel}
@@ -350,7 +402,6 @@ const CompositionSelect = ({ compositions, value, onChange, error }) => {
           </span>
         </CompositionTag>
       )}
-
       {open && (
         <ComboDropdown>
           {filtered.length === 0 ? (
@@ -372,6 +423,79 @@ const CompositionSelect = ({ compositions, value, onChange, error }) => {
   );
 };
 
+// ─── Pagination Hook ──────────────────────────────────────────────────────────
+
+const usePagination = (data, defaultPageSize = 10) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize]       = useState(defaultPageSize);
+
+  useEffect(() => { setCurrentPage(1); }, [data.length, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
+  const startIdx   = (currentPage - 1) * pageSize;
+  const pageData   = data.slice(startIdx, startIdx + pageSize);
+
+  const goTo = (page) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size) => setPageSize(Number(size));
+
+  return { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx };
+};
+
+// ─── Pagination Component ─────────────────────────────────────────────────────
+
+const Pagination = ({ currentPage, totalPages, pageSize, totalItems, startIdx, goTo, onPageSizeChange }) => {
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end   = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+
+  return (
+    <PaginationWrapper>
+      <PaginationInfo>
+        Showing <strong>{totalItems === 0 ? 0 : startIdx + 1}–{endIdx}</strong> of{" "}
+        <strong>{totalItems}</strong> item(s)
+        &nbsp;|&nbsp; Rows per page:{" "}
+        <PageSizeSelect value={pageSize} onChange={(e) => onPageSizeChange(e.target.value)}>
+          <option value={10}>10</option>
+          <option value={15}>15</option>
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+        </PageSizeSelect>
+      </PaginationInfo>
+
+      <PaginationControls>
+        <PageBtn onClick={() => goTo(1)} disabled={currentPage === 1}>«</PageBtn>
+        <PageBtn onClick={() => goTo(currentPage - 1)} disabled={currentPage === 1}>‹</PageBtn>
+        {getPageNumbers().map((p, idx) =>
+          p === "..." ? (
+            <PageBtn key={`e-${idx}`} disabled style={{ cursor: "default" }}>…</PageBtn>
+          ) : (
+            <PageBtn key={p} active={p === currentPage} onClick={() => goTo(p)}>{p}</PageBtn>
+          )
+        )}
+        <PageBtn onClick={() => goTo(currentPage + 1)} disabled={currentPage === totalPages}>›</PageBtn>
+        <PageBtn onClick={() => goTo(totalPages)} disabled={currentPage === totalPages}>»</PageBtn>
+      </PaginationControls>
+    </PaginationWrapper>
+  );
+};
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -379,10 +503,10 @@ const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const EMPTY_FORM = {
   item_name:            "",
   item_last_name:       "",
-  category:             "",
-  hsn:                  "",       // manual input now
-  brand_name:           "",       // NEW
-  chemical_composition: "",       // NEW — stores composition_id
+  category:             "",   // stores category_id (number as string)
+  hsn:                  "",
+  brand_name:           "",
+  chemical_composition: "",
   high_risk:            false,
   look_alike:           false,
   sound_alike:          false,
@@ -405,7 +529,7 @@ const EMPTY_FORM = {
 const PharmacyItemMaster = () => {
   const [items, setItems]               = useState([]);
   const [categories, setCategories]     = useState([]);
-  const [compositions, setCompositions] = useState([]);   // NEW
+  const [compositions, setCompositions] = useState([]);
   const [form, setForm]                 = useState(EMPTY_FORM);
   const [editId, setEditId]             = useState(null);
   const [showForm, setShowForm]         = useState(false);
@@ -413,6 +537,37 @@ const PharmacyItemMaster = () => {
   const [loading, setLoading]           = useState(false);
   const [errors, setErrors]             = useState({});
   const [toast, setToast]               = useState(null);
+
+  // ── Lookup helpers ────────────────────────────────────────────────────────
+  const getCompositionName = (id) => {
+    if (!id) return "—";
+    const comp = compositions.find((c) => String(c.composition_id) === String(id));
+    return comp ? comp.composition_name : String(id);
+  };
+
+  const getCategoryName = (id) => {
+    if (!id) return "—";
+    const cat = categories.find((c) => String(c.category_id) === String(id));
+    return cat ? cat.category_name : String(id);
+  };
+
+  // ── Filtered + sorted alphabetically by item_name ────────────────────────
+  const filtered = items
+    .filter((it) => {
+      const q = search.toLowerCase();
+      const catName = getCategoryName(it.category).toLowerCase();
+      return (
+        it.item_name?.toLowerCase().includes(q) ||
+        it.item_last_name?.toLowerCase().includes(q) ||
+        catName.includes(q) ||
+        it.hsn?.toLowerCase().includes(q) ||
+        it.brand_name?.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (a.item_name || "").localeCompare(b.item_name || ""));
+
+  const { currentPage, pageSize, totalPages, pageData, goTo, handlePageSizeChange, startIdx } =
+    usePagination(filtered, 10);
 
   // ── API ──────────────────────────────────────────────────────────────────
 
@@ -429,8 +584,7 @@ const PharmacyItemMaster = () => {
     try {
       const res = await apiRequest(`${baseUrl}pharmacy-category/`, "GET");
       const list = Array.isArray(res?.data) ? res.data
-                 : Array.isArray(res)        ? res
-                 : [];
+                 : Array.isArray(res)        ? res : [];
       setCategories(list);
     } catch {
       showToast("Failed to fetch categories", "error");
@@ -441,8 +595,7 @@ const PharmacyItemMaster = () => {
     try {
       const res = await apiRequest(`${baseUrl}chemical-composition/`, "GET");
       const list = Array.isArray(res?.data) ? res.data
-                 : Array.isArray(res)        ? res
-                 : [];
+                 : Array.isArray(res)        ? res : [];
       setCompositions(list);
     } catch {
       showToast("Failed to fetch compositions", "error");
@@ -490,7 +643,7 @@ const PharmacyItemMaster = () => {
         ...form,
         is_active:            true,
         reorder_level:        Number(form.reorder_level) || 0,
-        hsn:                  form.hsn,   // always typed manually now
+        category:             form.category ? Number(form.category) : null,
         brand_name:           form.brand_name,
         chemical_composition: form.chemical_composition || null,
         IP_shelf_no:          form.IP_available ? form.IP_shelf_no : "",
@@ -523,12 +676,12 @@ const PharmacyItemMaster = () => {
     setForm({
       item_name:            item.item_name            || "",
       item_last_name:       item.item_last_name       || "",
-      category:             item.category             || "",
+      category:             item.category != null
+                              ? String(item.category) : "",
       hsn:                  item.hsn                  || "",
       brand_name:           item.brand_name           || "",
       chemical_composition: item.chemical_composition != null
-                              ? String(item.chemical_composition)
-                              : "",
+                              ? String(item.chemical_composition) : "",
       high_risk:            !!item.high_risk,
       look_alike:           !!item.look_alike,
       sound_alike:          !!item.sound_alike,
@@ -569,29 +722,10 @@ const PharmacyItemMaster = () => {
     setErrors({});
   };
 
-  // Helper: get composition name for table display
-  const getCompositionName = (id) => {
-    if (!id) return "—";
-    const comp = compositions.find((c) => String(c.composition_id) === String(id));
-    return comp ? comp.composition_name : id;
-  };
-
-  const filtered = items.filter((it) => {
-    const q = search.toLowerCase();
-    return (
-      it.item_name?.toLowerCase().includes(q) ||
-      it.item_last_name?.toLowerCase().includes(q) ||
-      it.category?.toLowerCase().includes(q) ||
-      it.hsn?.toLowerCase().includes(q) ||
-      it.brand_name?.toLowerCase().includes(q)
-    );
-  });
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <PageWrapper>
-      {/* Toast */}
       {toast && (
         <div style={{
           position: "fixed", top: 16, right: 16, zIndex: 9999,
@@ -629,10 +763,8 @@ const PharmacyItemMaster = () => {
           </DrawerHeader>
           <DrawerInner>
 
-            {/* ── Basic Info ── */}
             <SectionLabel>Basic Information</SectionLabel>
             <FormRow>
-
               <InputWrapper>
                 <Label>Item Name *</Label>
                 <Input
@@ -655,7 +787,6 @@ const PharmacyItemMaster = () => {
                 />
               </InputWrapper>
 
-              {/* Brand Name — NEW */}
               <InputWrapper>
                 <Label>Brand Name</Label>
                 <Input
@@ -666,7 +797,6 @@ const PharmacyItemMaster = () => {
                 />
               </InputWrapper>
 
-              {/* Category */}
               <InputWrapper>
                 <Label>Category *</Label>
                 <Select
@@ -680,7 +810,7 @@ const PharmacyItemMaster = () => {
                     <option disabled>Loading…</option>
                   ) : (
                     categories.map((cat) => (
-                      <option key={cat.category_id} value={cat.category_name}>
+                      <option key={cat.category_id} value={cat.category_id}>
                         {cat.category_name}
                       </option>
                     ))
@@ -689,7 +819,6 @@ const PharmacyItemMaster = () => {
                 {errors.category && <ErrorText>{errors.category}</ErrorText>}
               </InputWrapper>
 
-              {/* HSN — manual input (no auto-generate) */}
               <InputWrapper>
                 <Label>HSN Code</Label>
                 <Input
@@ -712,10 +841,8 @@ const PharmacyItemMaster = () => {
                   min="0"
                 />
               </InputWrapper>
-
             </FormRow>
 
-            {/* ── Chemical Composition — NEW searchable dropdown ── */}
             <SectionLabel>Chemical Composition</SectionLabel>
             <FormRow columns="1fr 1fr">
               <InputWrapper>
@@ -734,7 +861,6 @@ const PharmacyItemMaster = () => {
               </InputWrapper>
             </FormRow>
 
-            {/* ── Special Flags ── */}
             <SectionLabel>Special Flags</SectionLabel>
             <FlagGroup>
               <FlagItem>
@@ -751,7 +877,6 @@ const PharmacyItemMaster = () => {
               </FlagItem>
             </FlagGroup>
 
-            {/* ── Availability ── */}
             <SectionLabel>Pharmacy Availability &amp; Location</SectionLabel>
 
             <AvailRow>
@@ -826,7 +951,6 @@ const PharmacyItemMaster = () => {
               )}
             </AvailRow>
 
-            {/* ── Status ── */}
             <SectionLabel>Status</SectionLabel>
             <FormRow style={{ alignItems: "flex-start" }}>
               <InputWrapper>
@@ -895,7 +1019,7 @@ const PharmacyItemMaster = () => {
               <thead>
                 <tr>
                   <Th>#</Th>
-                  <Th>Item Name</Th>
+                  <Th>Item Name ↑</Th>
                   <Th>Last Name</Th>
                   <Th>Brand</Th>
                   <Th>Category</Th>
@@ -916,20 +1040,20 @@ const PharmacyItemMaster = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {pageData.length === 0 ? (
                   <tr>
                     <td colSpan={19}>
                       <EmptyState>No items found. Click "+ Add New Item" to get started.</EmptyState>
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((item, idx) => (
+                  pageData.map((item, idx) => (
                     <Tr key={item.item_id}>
-                      <Td>{idx + 1}</Td>
+                      <Td>{startIdx + idx + 1}</Td>
                       <Td style={{ fontWeight: 600 }}>{item.item_name}</Td>
                       <Td>{item.item_last_name || "—"}</Td>
                       <Td>{item.brand_name || "—"}</Td>
-                      <Td>{item.category}</Td>
+                      <Td>{getCategoryName(item.category)}</Td>
                       <Td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{item.hsn || "—"}</Td>
                       <Td style={{ fontSize: "0.82rem" }}>{getCompositionName(item.chemical_composition)}</Td>
                       <Td style={{ textAlign: "center" }}>{item.reorder_level}</Td>
@@ -965,6 +1089,19 @@ const PharmacyItemMaster = () => {
               </tbody>
             </Table>
           </TableWrapper>
+
+          {/* ── Pagination ── */}
+          {filtered.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              startIdx={startIdx}
+              goTo={goTo}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
         </FormContent>
       </Container>
     </PageWrapper>
