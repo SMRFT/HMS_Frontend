@@ -104,14 +104,20 @@ import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCount
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
+// import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
+import DoctorReport from "./Components/DoctorMaster/DoctorReport";
 import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
 import IPAdvance from "./Components/NursingStation/IPAdvance";
 import PharmacyCategory from "./Components/InventoryMaster/PharmacyCategory";
 import ChemicalComposition from "./Components/InventoryMaster/ChemicalComposition";
+import StockTransfer from "./Components/InventoryMaster/StockTransfer";
+import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
+import ShiftBasisReport from "./Accounts/ShiftBasisReport";
+import SalesReturn from "./Components/Pharmacy/SalesReturn";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -154,6 +160,12 @@ function App() {
       let actions = JSON.parse(localStorage.getItem("allowedActions")) || [];
       const employeeId = localStorage.getItem("employeeId");
       let dPerms = {};
+
+      // Skip permission loading for public routes if not logged in
+      if (location.pathname === "/MobileRegistration" && !employeeId) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         const allSidebarData = await fetchSidebarMapping();
@@ -272,7 +284,9 @@ function App() {
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
+      "/DoctorReport": "Doctor Day/Month Report",
       "/Oppharmacytabs": "OP Pharmacy Tabs",
+      "/ShiftBasisReport": "Shift Basis Report",
     };
 
     const path = location.pathname;
@@ -437,6 +451,17 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/IPAdvance" element={<IPAdvance />} />}
+
+              {hasPagePermission(
+                "/IPAdvanceReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/IPAdvanceReport"
+                    element={<IPAdvanceReport />}
+                  />
+                )}
 
               {hasPagePermission(
                 "/PatientRegistrationForm",
@@ -612,6 +637,18 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/GRNAnalysis" element={<GRNAnalysis />} />}
+
+              {hasPagePermission(
+                "/StockTransfer",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/StockTransfer"
+                    element={<StockTransfer />}
+                  />
+                )}
+
               {hasPagePermission(
                 "/PharmacyItemMaster",
                 allowedActions,
@@ -634,6 +671,7 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OPPharmacy" element={<OPPharmacy />} />}
+              <Route path="/ShiftBasisReport" element={<ShiftBasisReport />} />
 
               {/* Doctor Master */}
               {hasPagePermission(
@@ -725,6 +763,11 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/DeptBUDReport" element={<DeptBUDReport />} />}
+              {hasPagePermission(
+                "/DoctorReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/DoctorReport" element={<DoctorReport />} />}
 
               {/* Velavan */}
               {hasPagePermission(
@@ -844,6 +887,24 @@ function App() {
                   element={<OTMedicineBilling />}
                 />
               )}
+                  <Route
+                    path="/OTMedicineBilling"
+                    element={<OTMedicineBilling />}
+                  />
+                )}
+                
+
+
+
+
+
+              {hasPagePermission(
+                "/SalesReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/SalesReturn" element={<SalesReturn />} />}
+
+                
               {hasPagePermission(
                 "/OTMaster",
                 allowedActions,

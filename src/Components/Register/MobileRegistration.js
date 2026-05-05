@@ -1,18 +1,48 @@
 import React, { useState } from 'react';
-import styled, { createGlobalStyle } from 'styled-components';
+import styled, { createGlobalStyle, keyframes } from 'styled-components';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle, AlertCircle, Building2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Building2, User, Phone, Mail, MapPin, Calendar, Droplet } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import smrftLogo from '../Images/smrft_logo.png';
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const scaleIn = keyframes`
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+`;
+
+const float = keyframes`
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+`;
+
 const GlobalStyle = createGlobalStyle`
+  :root {
+    --primary: #0d9488;
+    --primary-dark: #0f766e;
+    --primary-light: #ccfbf1;
+    --secondary: #0f172a;
+    --bg-gray: #f8fafc;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+  }
+
   body {
-    background-color: #f8fafc;
+    background-color: var(--bg-gray);
     margin: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-text-size-adjust: 100%;
-    -webkit-tap-highlight-color: transparent;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   * {
@@ -25,147 +55,146 @@ const PageWrapper = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px;
-  padding-bottom: env(safe-area-inset-bottom, 16px);
+  justify-content: center;
+  padding: 24px 16px;
+  background: radial-gradient(circle at top right, #f0fdfa, transparent),
+              radial-gradient(circle at bottom left, #f1f5f9, transparent);
   
   @media (max-width: 480px) {
-    padding: 12px;
-  }
-  
-  @media (max-width: 360px) {
-    padding: 8px;
+    padding: 16px 12px;
   }
 `;
 
 const Card = styled.div`
   background: white;
   width: 100%;
-  max-width: 480px;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  max-width: 500px;
+  border-radius: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
+  position: relative;
+  animation: ${scaleIn} 0.5s ease-out;
   
   @media (max-width: 480px) {
-    border-radius: 16px;
-    max-width: 100%;
+    border-radius: 20px;
   }
 `;
 
 const Header = styled.div`
-  background: #0f172a;
-  padding: 24px 20px;
+  background: linear-gradient(135deg, var(--secondary) 0%, #1e293b 100%);
+  padding: 32px 24px;
   text-align: center;
   color: white;
   position: relative;
-  overflow: hidden;
   
-  @media (max-width: 480px) {
-    padding: 20px 16px;
-  }
-  
-  &::before {
+  &::after {
     content: '';
     position: absolute;
-    top: 0;
+    bottom: 0;
     left: 0;
     right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-    pointer-events: none;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(13, 148, 136, 0.5), transparent);
+  }
+`;
+
+const LogoWrapper = styled.div`
+  background: white;
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  padding: 10px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+  
+  img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
   }
 `;
 
 const CompanyName = styled.h1`
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  margin: 0 0 6px 0;
-  letter-spacing: 0.3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  
-  @media (max-width: 480px) {
-    font-size: 16px;
-    gap: 6px;
-  }
+  margin: 0 0 4px 0;
+  letter-spacing: -0.5px;
+  color: white;
 `;
 
 const PageTitle = styled.h2`
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
   color: #94a3b8;
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
-  
-  @media (max-width: 480px) {
-    font-size: 11px;
-  }
+  letter-spacing: 2px;
 `;
 
 const Form = styled.form`
-  padding: 24px 20px;
+  padding: 32px 24px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   
   @media (max-width: 480px) {
-    padding: 20px 16px;
-    gap: 16px;
+    padding: 24px 20px;
+    gap: 20px;
   }
 `;
 
-const SectionTitle = styled.h3`
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #f1f5f9;
+const SectionTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
   
-  @media (max-width: 480px) {
-    font-size: 14px;
-    margin-bottom: 6px;
+  h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+  }
+  
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
   }
 `;
 
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  
-  @media (max-width: 480px) {
-    gap: 5px;
-  }
+  gap: 8px;
 `;
 
 const Row = styled.div`
   display: grid;
   grid-template-columns: ${props => props.cols || '1fr 1fr'};
   gap: 16px;
-  width: 100%;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
   
   @media (max-width: 480px) {
-    gap: 14px;
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 `;
 
 const Label = styled.label`
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: #475569;
-  margin-left: 1px;
-  line-height: 1.3;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
   
-  @media (max-width: 480px) {
-    font-size: 11.5px;
+  span {
+    color: #ef4444;
   }
 `;
 
@@ -174,121 +203,112 @@ const InputWrapper = styled.div`
   width: 100%;
 `;
 
-const Input = styled.input`
-  width: 100%;
-  padding: 14px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 15px;
-  color: #1e293b;
-  transition: all 0.2s ease;
-  background: #f8fafc;
-  
-  &::placeholder {
-    color: #94a3b8;
-  }
-  
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
-  }
-  
-  @media (max-width: 480px) {
-    font-size: 16px; /* Prevents zoom on iOS */
-    padding: 16px 16px;
-  }
-`;
-
 const SelectWrapper = styled.div`
   position: relative;
   width: 100%;
 `;
 
+const Input = styled.input`
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  font-size: 15px;
+  color: var(--text-main);
+  background: #fdfdfd;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px var(--primary-light);
+    transform: translateY(-1px);
+  }
+  
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+    font-size: 16px;
+  }
+`;
+
 const Select = styled.select`
   width: 100%;
-  padding: 14px 44px 14px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
   font-size: 15px;
-  line-height: normal;
-  color: #1e293b;
-  background-color: #f8fafc;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  color: var(--text-main);
+  background: #fdfdfd;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 16px center;
-  background-size: 18px;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
+  background-size: 16px;
   transition: all 0.2s ease;
   
   &:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--primary);
     background-color: white;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 4px var(--primary-light);
   }
-  
+
   @media (max-width: 480px) {
+    padding: 16px;
     font-size: 16px;
-    padding: 16px 44px 16px 16px;
-    background-size: 20px;
-    background-position: right 14px center;
-  }
-  
-  &::-ms-expand {
-    display: none;
   }
 `;
 
 const TextArea = styled.textarea`
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
   font-size: 15px;
-  color: #1e293b;
-  background: #f8fafc;
+  color: var(--text-main);
+  background: #fdfdfd;
   min-height: 100px;
-  resize: vertical;
+  resize: none;
   font-family: inherit;
   transition: all 0.2s ease;
   
   &:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--primary);
     background: white;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    box-shadow: 0 0 0 4px var(--primary-light);
   }
-  
+
   @media (max-width: 480px) {
+    padding: 16px;
     font-size: 16px;
-    min-height: 90px;
-    padding: 16px 16px;
   }
 `;
 
 const SubmitButton = styled.button`
-  margin-top: 8px;
-  padding: 16px 24px;
-  background: #0d9488;
+  margin-top: 12px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
-  width: 100%;
-  letter-spacing: 0.3px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
   
   &:hover:not(:disabled) {
-    background: #0d9488;
-    transform: translateY(-1px);
-    box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 20px 25px -5px rgba(13, 148, 136, 0.4);
+    filter: brightness(1.1);
   }
 
   &:active {
@@ -296,15 +316,9 @@ const SubmitButton = styled.button`
   }
 
   &:disabled {
-    background: #94a3b8;
+    background: #cbd5e1;
     cursor: not-allowed;
-    transform: none;
     box-shadow: none;
-  }
-  
-  @media (max-width: 480px) {
-    padding: 18px 24px;
-    font-size: 16px;
   }
 `;
 
@@ -312,74 +326,38 @@ const SuccessContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
+  padding: 60px 32px;
   text-align: center;
-  gap: 20px;
-  
-  @media (max-width: 480px) {
-    padding: 48px 20px;
-    gap: 16px;
-  }
-`;
-
-const SuccessTitle = styled.h2`
-  color: #166534;
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  
-  @media (max-width: 480px) {
-    font-size: 22px;
-  }
-`;
-
-const SuccessText = styled.p`
-  color: #475569;
-  line-height: 1.6;
-  margin: 0;
-  font-size: 15px;
-  
-  @media (max-width: 480px) {
-    font-size: 14px;
-  }
-`;
-
-const ErrorBanner = styled.div`
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
-  padding: 20px;
-  border-radius: 12px;
-  margin: 24px;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  font-weight: 500;
-  font-size: 14px;
-  line-height: 1.5;
-  
-  @media (max-width: 480px) {
-    margin: 16px 12px;
-    padding: 16px;
-    font-size: 13px;
-  }
+  animation: ${fadeIn} 0.6s ease-out;
 `;
 
 const SuccessIcon = styled.div`
-  background: #dcfce7;
-  padding: 20px;
-  border-radius: 50%;
-  color: #16a34a;
+  background: #f0fdf4;
+  width: 100px;
+  height: 100px;
+  border-radius: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  
-  @media (max-width: 480px) {
-    padding: 18px;
-    width: 72px;
-    height: 72px;
-  }
+  color: #22c55e;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.1);
+  animation: ${float} 3s ease-in-out infinite;
+`;
+
+const SuccessTitle = styled.h2`
+  font-size: 28px;
+  font-weight: 800;
+  color: #064e3b;
+  margin: 0 0 12px 0;
+  letter-spacing: -1px;
+`;
+
+const SuccessText = styled.p`
+  font-size: 16px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
 `;
 
 const MobileRegistration = () => {
@@ -521,11 +499,10 @@ const MobileRegistration = () => {
             <SuccessIcon>
               <CheckCircle size={48} strokeWidth={3} />
             </SuccessIcon>
-            <SuccessTitle>Registration Received!</SuccessTitle>
+            <SuccessTitle>Success!</SuccessTitle>
             <SuccessText>
-              Your details have been successfully sent to the reception desk.
-              <br /><br />
-              Please highlight your name to the staff to complete the process.
+              Your registration has been received at the reception.
+              Please visit the counter to complete your check-in.
             </SuccessText>
           </SuccessContainer>
         </Card>
@@ -552,15 +529,17 @@ const MobileRegistration = () => {
       />
       <Card>
         <Header>
-          <CompanyName>
-            <Building2 size={24} />
-            Shanmuga Hospital Limited
-          </CompanyName>
+          <LogoWrapper>
+            <img src={smrftLogo} alt="SMRFT Logo" />
+          </LogoWrapper>
+          <CompanyName>Shanmuga Hospital Limited</CompanyName>
           <PageTitle>Mobile Registration</PageTitle>
         </Header>
 
         <Form onSubmit={handleSubmit} noValidate>
-          <SectionTitle>Personal Details</SectionTitle>
+          <SectionTitle>
+            <h3><User size={18} style={{ color: 'var(--primary)', verticalAlign: 'middle', marginRight: '8px' }} /> Personal Details</h3>
+          </SectionTitle>
 
           <FormGroup>
             <Label>Salutation *</Label>
@@ -623,7 +602,9 @@ const MobileRegistration = () => {
             </FormGroup>
           </Row>
 
-          <SectionTitle>Contact Information</SectionTitle>
+          <SectionTitle>
+            <h3><Phone size={18} style={{ color: 'var(--primary)', verticalAlign: 'middle', marginRight: '8px' }} /> Contact Information</h3>
+          </SectionTitle>
 
           <FormGroup>
             <Label>Mobile Number *</Label>

@@ -295,6 +295,30 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const [extraSearch, setExtraSearch] = useState("");
   const [showDietDropdown, setShowDietDropdown] = useState(false);
   const [showExtraDropdown, setShowExtraDropdown] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+
+  const loadOrderForEditing = (order) => {
+    if (!order) return;
+    setEditingOrderId(order.diet_id);
+    setMealSession(order.meal_time);
+    setSelectedDiet(order.diet_type);
+    setInstructions(order.special_instructions || "");
+    setSpecialNote(order.special_diet_note || "");
+    
+    // Map extras
+    const newExtras = {};
+    if (Array.isArray(order.extra_items)) {
+        order.extra_items.forEach(ex => {
+            const master = extraMasters.find(m => m.item_name === (ex.item || ex.item_name));
+            if (master) {
+                newExtras[master.extra_id] = { checked: true, qty: ex.qty || 1 };
+            }
+        });
+    }
+    setExtras(newExtras);
+    setIsReadOnly(order.status !== "Ordered");
+  };
 
   useEffect(() => {
     const closeDropdowns = () => {
@@ -304,6 +328,31 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
     window.addEventListener("click", closeDropdowns);
     return () => window.removeEventListener("click", closeDropdowns);
   }, []);
+
+  useEffect(() => {
+    if (!history.length) return;
+    
+    const today = new Date();
+    // Support both DD-MM-YYYY and YYYY-MM-DD
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+    const todayISO = today.toISOString().split("T")[0];
+    
+    const existing = history.find(h => 
+        (h.order_date === todayStr || h.order_date.startsWith(todayISO)) && 
+        h.meal_time === mealSession
+    );
+    
+    if (existing) {
+      loadOrderForEditing(existing);
+    } else {
+      setEditingOrderId(null);
+      setSelectedDiet("");
+      setExtras({});
+      setInstructions("");
+      setSpecialNote("");
+      setIsReadOnly(false);
+    }
+  }, [history, mealSession, extraMasters]);
 
   // Resolve patient data properly
   const pd = patient?.patient_details || {};
@@ -371,7 +420,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
 
       const dietPrice = currentDietData?.price || 0;
       
-      const extraItems = extraMasters
+      const extraItems = (Array.isArray(extraMasters) ? extraMasters : [])
         .filter(e => extras[e.extra_id]?.checked)
         .map(e => ({ 
           item: e.item_name, 
@@ -398,6 +447,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
         diet_price: dietPrice,
         extra_items_price: extraItemsPrice,
         total_price: totalPrice,
+        diet_id: editingOrderId,
       };
 
       const res = await apiRequest(`${HmsBaseUrl}save_diet_order/`, "POST", payload);
@@ -419,11 +469,16 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
       <GlobalModalStyle />
       <ModalContainer>
         <Header>
-          <Title>🥗 Premium Diet Concierge</Title>
+          <Title>🥗 {isReadOnly ? "View Diet Order" : editingOrderId ? "Update Diet Order" : "Premium Diet Concierge"}</Title>
           <CloseBtn onClick={onClose}>✕</CloseBtn>
         </Header>
 
         <Body>
+          {isReadOnly && (
+            <div style={{ background: "#fee2e2", color: "#b91c1c", padding: "12px 20px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 700, marginBottom: "20px", border: "1px solid #fecaca", display: "flex", alignItems: "center", gap: "10px" }}>
+              <span>⚠️</span> This order has been received by the kitchen and can no longer be edited.
+            </div>
+          )}
           {/* Patient Profile */}
           <PatientCard>
             <PatientHeader>
@@ -458,7 +513,12 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
             <SectionHeader>Meal Session</SectionHeader>
             <PillContainer>
               {MEAL_SESSIONS.map(s => (
-                <SessionPill key={s.id} active={mealSession === s.id} onClick={() => setMealSession(s.id)}>
+                <SessionPill 
+                  key={s.id} 
+                  active={mealSession === s.id} 
+                  onClick={() => !isReadOnly && setMealSession(s.id)}
+                  style={{ opacity: isReadOnly && mealSession !== s.id ? 0.5 : 1, cursor: isReadOnly ? "default" : "pointer" }}
+                >
                   {s.icon} {s.label}
                 </SessionPill>
               ))}
@@ -474,10 +534,11 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                   <FiSearch size={18} />
                 </div>
                 <SearchInput 
-                  placeholder="Search and select diet..."
+                  placeholder={isReadOnly ? "Diet type" : "Search and select diet..."}
                   value={showDietDropdown ? dietSearch : selectedDiet}
-                  onChange={(e) => { setDietSearch(e.target.value); setShowDietDropdown(true); }}
-                  onFocus={() => { setDietSearch(""); setShowDietDropdown(true); }}
+                  onChange={(e) => { if(!isReadOnly) { setDietSearch(e.target.value); setShowDietDropdown(true); } }}
+                  onFocus={() => { if(!isReadOnly) { setDietSearch(""); setShowDietDropdown(true); } }}
+                  readOnly={isReadOnly}
                 />
                 <div style={{ position: "absolute", right: "14px", color: C.textMuted, cursor: "pointer" }}>
                   <FiChevronDown />
@@ -541,10 +602,11 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                   <FiSearch size={18} />
                 </div>
                 <SearchInput 
-                  placeholder="Quick add extras..."
+                  placeholder={isReadOnly ? "Extra items" : "Quick add extras..."}
                   value={extraSearch}
-                  onChange={(e) => { setExtraSearch(e.target.value); setShowExtraDropdown(true); }}
-                  onFocus={() => setShowExtraDropdown(true)}
+                  onChange={(e) => { if(!isReadOnly) { setExtraSearch(e.target.value); setShowExtraDropdown(true); } }}
+                  onFocus={() => { if(!isReadOnly) setShowExtraDropdown(true); }}
+                  readOnly={isReadOnly}
                 />
               </SearchInputWrapper>
 
@@ -577,10 +639,13 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
               {Array.isArray(extraMasters) && extraMasters
                 .filter(e => (extras[e.extra_id]?.checked || e.item_name.toLowerCase().includes(extraSearch.toLowerCase())))
                 .map(e => (
-                <ExtraCard key={e.extra_id} active={!!extras[e.extra_id]?.checked} onClick={() => setExtras(p => ({
-                  ...p,
-                  [e.extra_id]: { checked: !p[e.extra_id]?.checked, qty: p[e.extra_id]?.qty || 1 }
-                }))}>
+                <ExtraCard key={e.extra_id} active={!!extras[e.extra_id]?.checked} onClick={() => {
+                  if(isReadOnly) return;
+                  setExtras(p => ({
+                    ...p,
+                    [e.extra_id]: { checked: !p[e.extra_id]?.checked, qty: p[e.extra_id]?.qty || 1 }
+                  }));
+                }} style={{ cursor: isReadOnly ? "default" : "pointer" }}>
                   <div style={{ fontSize: "1.3rem" }}>✨</div>
                   <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                     <span style={{ fontWeight: 700 }}>{e.item_name}</span>
@@ -590,8 +655,9 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                     <input 
                       type="number" min="1" value={extras[e.extra_id].qty} 
                       onClick={ev => ev.stopPropagation()}
-                      onChange={ev => setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: parseInt(ev.target.value) || 1 } }))}
-                      style={{ width: "45px", padding: "4px", border: "none", borderRadius: "6px", textAlign: "center", fontWeight: 800 }}
+                      onChange={ev => !isReadOnly && setExtras(p => ({ ...p, [e.extra_id]: { ...p[e.extra_id], qty: parseInt(ev.target.value) || 1 } }))}
+                      readOnly={isReadOnly}
+                      style={{ width: "45px", padding: "4px", border: "none", borderRadius: "6px", textAlign: "center", fontWeight: 800, background: isReadOnly ? "transparent" : "white" }}
                     />
                   )}
                 </ExtraCard>
@@ -605,8 +671,9 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
             <textarea 
               placeholder="Allergies, specific time, or kitchen instructions..."
               value={instructions}
-              onChange={e => setInstructions(e.target.value)}
-              style={{ width: "100%", height: "80px", border: `1px solid ${C.border}`, borderRadius: "16px", padding: "15px", fontFamily: "inherit", fontSize: "0.9rem" }}
+              onChange={e => !isReadOnly && setInstructions(e.target.value)}
+              readOnly={isReadOnly}
+              style={{ width: "100%", height: "80px", border: `1px solid ${C.border}`, borderRadius: "16px", padding: "15px", fontFamily: "inherit", fontSize: "0.9rem", background: isReadOnly ? "rgba(0,0,0,0.02)" : "white" }}
             />
           </section>
 
@@ -621,17 +688,28 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                         <th style={{ padding: "12px 15px", textAlign: "left" }}>Time</th>
                         <th style={{ padding: "12px 15px", textAlign: "left" }}>Meal</th>
                         <th style={{ padding: "12px 15px", textAlign: "left" }}>Status</th>
+                        <th style={{ padding: "12px 15px", textAlign: "center" }}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {history.slice(0, 3).map((h, i) => (
+                      {history.slice(0, 5).map((h, i) => (
                         <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
                           <td style={{ padding: "12px 15px" }}>{h.order_date.split("-").slice(0,2).join("-")} <small>{h.order_time}</small></td>
                           <td style={{ padding: "12px 15px", fontWeight: 700 }}>{h.diet_type}</td>
                           <td style={{ padding: "12px 15px" }}>
-                            <span style={{ padding: "3px 8px", borderRadius: "6px", background: h.status === "Delivered" ? "#dcfce7" : "#f1f5f9", color: h.status === "Delivered" ? "#166534" : "#475569", fontWeight: 800 }}>
+                            <span style={{ padding: "3px 8px", borderRadius: "6px", background: h.status === "Delivered" ? "#dcfce7" : h.status === "Ordered" ? "#eff6ff" : "#f1f5f9", color: h.status === "Delivered" ? "#166534" : h.status === "Ordered" ? "#2563eb" : "#475569", fontWeight: 800 }}>
                               {h.status}
                             </span>
+                          </td>
+                          <td style={{ padding: "12px 15px", textAlign: "center" }}>
+                            {h.status === "Ordered" && (
+                                <button 
+                                    onClick={() => loadOrderForEditing(h)}
+                                    style={{ background: C.primaryLight, color: C.primary, border: "none", padding: "4px 8px", borderRadius: "6px", fontWeight: 800, cursor: "pointer", fontSize: "0.75rem" }}
+                                >
+                                    Edit
+                                </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -648,7 +726,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
                 <span>Base Diet ({selectedDiet})</span>
                 <span style={{ fontWeight: 700 }}>₹{currentDietData?.price || 0}</span>
               </div>
-              {extraMasters.filter(e => extras[e.extra_id]?.checked).map(e => (
+              {(Array.isArray(extraMasters) ? extraMasters : []).filter(e => extras[e.extra_id]?.checked).map(e => (
                 <div key={e.extra_id} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontSize: "0.9rem" }}>
                   <span>{e.item_name} (x{extras[e.extra_id].qty})</span>
                   <span style={{ fontWeight: 700 }}>₹{e.price * extras[e.extra_id].qty}</span>
@@ -656,7 +734,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
               ))}
               <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${C.primary}30`, display: "flex", justifyContent: "space-between", fontSize: "1.1rem", fontWeight: 900, color: C.primaryDark }}>
                 <span>Grand Total</span>
-                <span>₹{(currentDietData?.price || 0) + extraMasters.filter(e => extras[e.extra_id]?.checked).reduce((acc, curr) => acc + (curr.price * extras[curr.extra_id].qty), 0)}</span>
+                <span>₹{(currentDietData?.price || 0) + (Array.isArray(extraMasters) ? extraMasters : []).filter(e => extras[e.extra_id]?.checked).reduce((acc, curr) => acc + (curr.price * extras[curr.extra_id].qty), 0)}</span>
               </div>
             </section>
           )}
@@ -664,8 +742,8 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
 
         <Footer>
           <SecondaryBtn onClick={onClose}>Discard</SecondaryBtn>
-          <PrimaryBtn onClick={handlePlaceOrder} disabled={saving || !selectedDiet}>
-            {saving ? "Confirming..." : "🔥 Confirm Order"}
+          <PrimaryBtn onClick={handlePlaceOrder} disabled={saving || !selectedDiet || isReadOnly}>
+            {saving ? "Confirming..." : isReadOnly ? "🔒 Order Locked" : editingOrderId ? "✨ Update Order" : "🔥 Confirm Order"}
           </PrimaryBtn>
         </Footer>
       </ModalContainer>

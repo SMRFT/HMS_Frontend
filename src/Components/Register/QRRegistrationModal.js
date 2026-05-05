@@ -123,12 +123,36 @@ const ListTitle = styled.div`
 `;
 
 const CountBadge = styled.span`
-  background: #e0f2fe;
-  color: #0284c7;
+  background: ${props => props.active ? '#0284c7' : '#e0f2fe'};
+  color: ${props => props.active ? 'white' : '#0284c7'};
   padding: 2px 8px;
   border-radius: 999px;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
+  margin-left: 8px;
+`;
+
+const TabsContainer = styled.div`
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+`;
+
+const Tab = styled.div`
+  padding: 10px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${props => props.active ? '#3b82f6' : '#64748b'};
+  border-bottom: 2px solid ${props => props.active ? '#3b82f6' : 'transparent'};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  
+  &:hover {
+    color: #3b82f6;
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -338,29 +362,32 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pendingList, setPendingList] = useState([]);
-  const [showAll, setShowAll] = useState(false);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'consumed'
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Poll for pending registrations
+  // Fetch on mount or when tab changes
   React.useEffect(() => {
-    let interval;
     if (isOpen) {
-      fetchPendingList(); // Initial fetch
-      interval = setInterval(fetchPendingList, 3000); // Poll every 3 seconds
+      fetchPendingList();
     }
-    return () => clearInterval(interval);
-  }, [isOpen, showAll]);
+  }, [isOpen, activeTab]);
 
   const fetchPendingList = async () => {
+    setLoading(true);
     try {
-      const status = showAll ? 'all' : 'pending';
+      // Use 'all' for history view to ensure all records are visible
+      const status = activeTab === 'consumed' ? 'all' : 'pending';
       const response = await axios.get(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`);
-      setPendingList(response.data);
+      if (Array.isArray(response.data)) {
+        setPendingList(response.data);
+      }
     } catch (error) {
       console.error("Error fetching pending list", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -405,12 +432,7 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
     .filter(p =>
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.mobile && p.mobile.includes(searchTerm))
-    )
-    // Assuming the ID or order implies recency. If we want "Recently Added" (Newest First), 
-    // and if API returns Oldest First (standard list), we reverse.
-    // If API returns Newest First, we don't need reverse. 
-    // For now, let's reverse it to show newest at top as default typically desired.
-    .reverse();
+    );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -440,31 +462,34 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
             <QRLabel>Scan with Phone Camera</QRLabel>
           </QRCard>
 
-          <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
-            <p>Detailed form will open on their phone.</p>
-            <p>Once submitted, they will appear in the list.</p>
+          <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b', background: '#eff6ff', padding: '15px', borderRadius: '12px', border: '1px solid #dbeafe' }}>
+            <p style={{ fontWeight: 700, color: '#1e40af', marginBottom: '8px' }}>Admin Instructions</p>
+            <p>1. Patients scan this static QR</p>
+            <p>2. They fill the form on their phone</p>
+            <p>3. Refresh the list to see them here</p>
           </div>
         </LeftPanel>
 
         {/* Right Panel: Patient List */}
         <RightPanel>
           <ListHeader>
-            <ListTitle>
-              Incoming Registrations
-              <CountBadge>{pendingList.filter(p => !p.is_consumed).length}</CountBadge>
-            </ListTitle>
-
-            {/* History Toggle */}
-            <HistoryToggle>
-              <input
-                type="checkbox"
-                id="showAll"
-                checked={showAll}
-                onChange={(e) => setShowAll(e.target.checked)}
-              />
-              <label htmlFor="showAll" style={{ cursor: 'pointer' }}>Show History</label>
-            </HistoryToggle>
+            <ListTitle>Registration Queue</ListTitle>
           </ListHeader>
+
+          <TabsContainer>
+            <Tab 
+              active={activeTab === 'pending'} 
+              onClick={() => setActiveTab('pending')}
+            >
+              Unused {activeTab === 'pending' && <CountBadge active>{pendingList.length}</CountBadge>}
+            </Tab>
+            <Tab 
+              active={activeTab === 'consumed'} 
+              onClick={() => setActiveTab('consumed')}
+            >
+              Used / History {activeTab === 'consumed' && <CountBadge active>{pendingList.length}</CountBadge>}
+            </Tab>
+          </TabsContainer>
 
           {/* Search Bar */}
           <SearchContainer>
@@ -479,6 +504,15 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
                 setCurrentPage(1); // Reset to first page
               }}
             />
+            <ActionButton 
+              variant="secondary" 
+              onClick={fetchPendingList} 
+              disabled={loading}
+              style={{ position: 'absolute', right: '4px', top: '4px', padding: '6px 12px' }}
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              Refresh
+            </ActionButton>
           </SearchContainer>
 
           {currentItems.length > 0 ? (
@@ -550,7 +584,12 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
           ) : (
             <EmptyState>
               <RefreshCw size={48} className="animate-spin" style={{ opacity: 0.2 }} />
-              <p>{searchTerm ? "No results found" : "Waiting for new submissions..."}</p>
+              <p>{searchTerm ? "No results found" : `No ${activeTab} registrations found`}</p>
+              {activeTab === 'pending' && (
+                <ActionButton variant="secondary" onClick={() => setActiveTab('consumed')} style={{ marginTop: '10px' }}>
+                  Check History
+                </ActionButton>
+              )}
             </EmptyState>
           )}
         </RightPanel>
