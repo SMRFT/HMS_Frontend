@@ -369,10 +369,23 @@ const ActionRow = styled.div`
 
 // ─── Print Dropdown (portal pattern) ─────────────────────────────────────────
 
+// Replace the styled component
 const PrintDropdownWrapper = styled.div`
   position: relative;
+  &::after {
+    content: "";
+    position: fixed;
+    width: 210px;
+    height: 10px;
+    left: ${(p) => p.left || 0}px;
+    top: ${(p) => p.top || 0}px;
+    z-index: 9998;
+    pointer-events: auto;
+    background: transparent;
+  }
 `;
 
+// Replace PortalDropdownMenu
 const PortalDropdownMenu = styled.div`
   position: fixed;
   background-color: white;
@@ -382,8 +395,10 @@ const PortalDropdownMenu = styled.div`
   z-index: 9999;
   overflow: hidden;
   border: 1px solid #e9ecef;
+  // Bridge the gap with invisible top padding
+  padding-top: 6px;
+  margin-top: -6px;
 `;
-
 const DropdownItem = styled.button`
   display: block;
   width: 100%;
@@ -618,19 +633,6 @@ const PreviewContent = styled.div`
     font-weight: 800;
   }
 `;
-
-const SECTION_TITLES = {
-  "01": "Liver",
-  "02": "Gall Bladder",
-  "03": "Pancreas",
-  "04": "Spleen",
-  "05": "Kidneys",
-  "06": "Urinary Bladder",
-  "07": "Uterus & Ovaries",
-  "08": "Aorta / Others",
-};
-const getSectionTitle = (title_id) =>
-  SECTION_TITLES[title_id] || `Section ${title_id}`;
 
 const RichEditor = styled.div`
   width: 100%;
@@ -1148,11 +1150,11 @@ const EditSectionItem = ({ section, index, onChange }) => {
   );
 };
 
-const buildSectionsFromValueDetails = (valuedetails) => {
+const buildSectionsFromValueDetails = (valuedetails, titleMap = null) => {
   if (!valuedetails || !Array.isArray(valuedetails.value)) return [];
   return valuedetails.value.map((v) => ({
     title_id: v.title_id,
-    title: getSectionTitle(v.title_id),
+    title: (titleMap && titleMap[v.title_id]) || v.title || v.title_id,
     value: v.title_value || "",
   }));
 };
@@ -1174,17 +1176,37 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return;
     }
 
-    const sections = buildSectionsFromValueDetails(report.valuedetails);
+    // ── Fetch signature data for approved_by ──────────────────────────────
+    let signatureData = null;
+    const approvedBy = report.approved_by;
+    if (approvedBy) {
+      try {
+        const result = await apiRequest(
+          `${process.env.REACT_APP_BACKEND_HMS_BASE_URL}employee-signature/?employee_id=${approvedBy}`,
+          "GET",
+        );
+        if (result.success && result.data) {
+          signatureData = result.data;
+        }
+      } catch (e) {
+        console.warn("Could not fetch signature:", e);
+      }
+    }
+
+    const sections = buildSectionsFromValueDetails(
+      report.valuedetails,
+      row._titleMap,
+    );
     const impression = report.impression || "";
 
-    // ── Layout constants (mirrors PatientOverview) ────────────────────────
+    // ── Layout constants ──────────────────────────────────────────────────
     const leftMargin = 10;
     const rightMargin = leftMargin + 190;
     const contentWidth = rightMargin - leftMargin;
     const headerHeight = 25;
     const footerHeight = 20;
     const contentYStart = headerHeight + 15;
-    const signatureHeight = 35;
+    const signatureBlockHeight = signatureData ? 55 : 0;
 
     // ── Patient info rows ─────────────────────────────────────────────────
     const billDateFormatted = row.investBillDate
@@ -1228,40 +1250,118 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       if (!text) return [];
       return doc.splitTextToSize(text, maxWidth);
     };
-    const justifyText = (text, maxWidth, x, y, lineHeight = 5) => {
-      if (!text) return 0;
-      const lines = wrapText(text, maxWidth);
-      lines.forEach((line, i) => {
-        const isLast = i === lines.length - 1;
-        if (isLast || line.trim() === "") {
-          doc.text(line, x, y + i * lineHeight); // last line left-aligned
-          return;
-        }
-        const words = line.split(" ");
-        if (words.length === 1) {
-          doc.text(line, x, y + i * lineHeight);
-          return;
-        }
-        const totalWordW = words.reduce((s, w) => s + doc.getTextWidth(w), 0);
-        const gap = (maxWidth - totalWordW) / (words.length - 1);
-        let cx = x;
-        words.forEach((word) => {
-          doc.text(word, cx, y + i * lineHeight);
-          cx += doc.getTextWidth(word) + gap;
-        });
-      });
-      return lines.length * lineHeight;
-    };
-    const renderWrapped = (text, maxWidth, x, y, lineHeight = 4) => {
-      if (!text) return 0;
-      const lines = wrapText(text, maxWidth);
-      lines.forEach((line, i) => doc.text(line, x, y + i * lineHeight));
-      return lines.length * lineHeight;
-    };
 
     const calculateMaxLabelWidth = (details) => {
       const tempDoc = new jsPDF();
       return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
+    };
+
+    // ── Strip HTML to plain text (for height estimation) ──────────────────
+    const htmlToPlainText = (html) => {
+      if (!html) return "";
+      return html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&#39;/g, "'")
+        .trim();
+    };
+
+    // ── Parse HTML into bold/normal segments ──────────────────────────────
+    const parseHtmlSegments = (html) => {
+      if (!html) return [];
+      const normalized = html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&#39;/g, "'");
+
+      const segments = [];
+      const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
+      let match;
+      while ((match = regex.exec(normalized)) !== null) {
+        if (match[1] !== undefined) {
+          segments.push({ text: match[1], bold: true });
+        } else if (match[2] !== undefined) {
+          const plain = match[2].replace(/<[^>]*>/g, "");
+          if (plain) segments.push({ text: plain, bold: false });
+        }
+      }
+      return segments;
+    };
+
+    // ── Rich text renderer (bold-aware word wrap) ─────────────────────────
+    const renderRichText = (html, maxWidth, x, y, lineHeight = 4.8) => {
+      if (!html) return 0;
+      const segments = parseHtmlSegments(html);
+
+      const lines = [];
+      let currentLine = [];
+      let currentLineWidth = 0;
+
+      const pushLine = () => {
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = [];
+          currentLineWidth = 0;
+        }
+      };
+
+      segments.forEach(({ text, bold }) => {
+        const parts = text.split("\n");
+        parts.forEach((part, partIdx) => {
+          if (partIdx > 0) pushLine();
+          const words = part.split(" ");
+          words.forEach((word, wi) => {
+            if (word === "" && wi === 0 && currentLine.length === 0) return;
+            doc.setFont("helvetica", bold ? "bold" : "normal");
+            const spaceW = currentLine.length > 0 ? doc.getTextWidth(" ") : 0;
+            const wordW = doc.getTextWidth(word);
+            if (
+              currentLineWidth + spaceW + wordW > maxWidth &&
+              currentLine.length > 0
+            ) {
+              pushLine();
+            }
+            const space = currentLine.length > 0 ? " " : "";
+            const last = currentLine[currentLine.length - 1];
+            if (last && last.bold === bold) {
+              last.text += space + word;
+              last.width += doc.getTextWidth(space + word);
+            } else {
+              const segText = space + word;
+              currentLine.push({
+                text: segText,
+                bold,
+                width: doc.getTextWidth(segText),
+              });
+            }
+            currentLineWidth += doc.getTextWidth(space + word);
+          });
+        });
+      });
+      pushLine();
+
+      lines.forEach((line, li) => {
+        let cx = x;
+        line.forEach(({ text, bold }) => {
+          doc.setFont("helvetica", bold ? "bold" : "normal");
+          doc.text(text, cx, y + li * lineHeight);
+          cx += doc.getTextWidth(text);
+        });
+      });
+
+      doc.setFont("helvetica", "normal");
+      return lines.length * lineHeight;
     };
 
     // ── Header / Footer ───────────────────────────────────────────────────
@@ -1320,7 +1420,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           );
           leftRowH = leftLines.length * 4;
         }
-
         if (right) {
           doc.setFont("helvetica", "bold");
           doc.text(right.label, rightLabelX, infoY);
@@ -1334,16 +1433,65 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return infoY;
     };
 
-    // ── Signatures placeholder (no signature data in RD response) ─────────
-    // If signatures are available in future, they can be added here.
-    const addSignatures = () => {
-      // No signature data provided in scan report response — space reserved.
+    // ── Signature block (last page only) ──────────────────────────────────
+    const addSignatures = (yPos) => {
+      if (!signatureData) return 0;
+
+      const sigX = rightMargin - 68;
+      let sy = yPos + 3; // matches sigH gap(6)
+
+      if (signatureData.signatureBase64) {
+        try {
+          doc.addImage(
+            `data:image/png;base64,${signatureData.signatureBase64}`,
+            "PNG",
+            sigX,
+            sy,
+            52,
+            14,
+          );
+        } catch (e) {
+          console.warn("Could not render signature image:", e);
+        }
+      }
+      sy += 16; // 16(img) + 2(gap)
+
+      doc.setDrawColor(100, 100, 100);
+      doc.line(sigX, sy, sigX + 52, sy);
+      doc.setDrawColor(0, 0, 0);
+      sy += 3;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(signatureData.employeeName || "", sigX + 29, sy, {
+        align: "center",
+      });
+      sy += 3;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.text(signatureData.designation || "", sigX + 29, sy, {
+        align: "center",
+      });
+      sy += 3;
+
+      if (signatureData.registrationNumber) {
+        doc.setFontSize(7);
+        doc.text(
+          `Reg. No: ${signatureData.registrationNumber}`,
+          sigX + 29,
+          sy,
+          { align: "center" },
+        );
+      }
+
+      doc.setFont("helvetica", "normal");
     };
 
     // ── Page overflow check ───────────────────────────────────────────────
     const checkNewPage = (yPos, needed) => {
       const pageH = doc.internal.pageSize.height;
-      const footerStart = pageH - (footerHeight + signatureHeight + 5);
+      const footerStart = pageH - footerHeight - 5;
       if (yPos + needed >= footerStart) {
         doc.addPage();
         pageCount++;
@@ -1351,7 +1499,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         let ny = contentYStart;
         ny = addPatientInfo(ny);
         ny += 10;
-        // draw a thin separator line
         doc.setDrawColor(200, 200, 200);
         doc.line(leftMargin, ny - 4, rightMargin, ny - 4);
         doc.setDrawColor(0, 0, 0);
@@ -1360,34 +1507,18 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return yPos;
     };
 
-    // ── Strip HTML for plain-text PDF rendering ───────────────────────────
-    const htmlToPlainText = (html) => {
-      if (!html) return "";
-      // Preserve line breaks from <br> and block tags before stripping
-      return html
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n")
-        .replace(/<\/div>/gi, "\n")
-        .replace(/<[^>]*>/g, "")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&#39;/g, "'")
-        .trim();
-    };
-
     // ─────────────────────────────────────────────────────────────────────
     // BUILD THE PDF
     // ─────────────────────────────────────────────────────────────────────
 
     addHeaderFooter();
     let yPos = addPatientInfo(contentYStart);
+
     // ── Separator line after patient info ─────────────────────────────────
     doc.setDrawColor(180, 180, 180);
     doc.line(leftMargin, yPos, rightMargin, yPos);
     doc.setDrawColor(0, 0, 0);
-    yPos += 8;
+    yPos += 6;
 
     // ── Report title ──────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
@@ -1406,20 +1537,19 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       leftMargin + contentWidth / 2 + titleW / 2,
       yPos + 2,
     );
-    yPos += 10;
+    yPos += 6;
 
     // ── Scan Findings sections ────────────────────────────────────────────
     if (sections.length > 0) {
       sections.forEach((section, idx) => {
         const plainValue = htmlToPlainText(section.value);
-        if (!plainValue) return; // skip empty sections
+        if (!plainValue) return;
 
         const valueLines = wrapText(plainValue, contentWidth - 4);
         const sectionHeight = 7 + valueLines.length * 4.8 + 4;
 
         yPos = checkNewPage(yPos, sectionHeight);
 
-        // Section title
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(0, 105, 92);
@@ -1431,11 +1561,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         doc.setTextColor(0, 0, 0);
         yPos += 6;
 
-        // Section value
-        doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        yPos += justifyText(
-          plainValue,
+        yPos += renderRichText(
+          section.value,
           contentWidth - 6,
           leftMargin + 3,
           yPos,
@@ -1443,43 +1571,130 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         );
         yPos += 3;
       });
-    } // closes if (sections.length > 0)
+    }
 
-    // ── Impression / Findings ─────────────────────────────────────────────
-    if (impression) {
+    // ── Calculate actual available space on current page ──────────────────
+    const getAvailableSpace = (currentY) => {
+      const pageH = doc.internal.pageSize.height;
+      return pageH - footerHeight - 5 - currentY;
+    };
+
+    // ── Measure impression height accurately ─────────────────────────────
+    const measureImpressionHeight = () => {
+      if (!impression) return 0;
       const plainImpression = htmlToPlainText(impression);
-      const impressionLines = wrapText(plainImpression, contentWidth - 4);
-      const impressionHeight = 10 + impressionLines.length * 5.2 + 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      const impressionLines = doc.splitTextToSize(
+        plainImpression,
+        contentWidth - 6,
+      );
+      // 7 (heading) + lines + 2 (gap before "End of Report")  ← FIX: was +4
+      return 7 + impressionLines.length * 5.2 + 2;
+    };
 
-      yPos = checkNewPage(yPos, impressionHeight);
+    const impressionH = measureImpressionHeight();
+    const endOfReportH = 6; // FIX: was 10 — only "End of Report" text + yPos += 2
+    // addSignatures renders: 3(gap) + 14(img) + 2 + 1(line) + 3 + 3 + 3 = ~29
+    const sigH = signatureData ? 32 : 0; // FIX: was 42
+    const totalFinalH = impressionH + endOfReportH + sigH;
+    const available = getAvailableSpace(yPos);
 
+    console.log(
+      "yPos:",
+      yPos,
+      "available:",
+      available,
+      "totalFinalH:",
+      totalFinalH,
+      "impressionH:",
+      impressionH,
+      "sigH:",
+      sigH,
+    );
+
+    if (totalFinalH > available) {
+      doc.addPage();
+      pageCount++;
+      addHeaderFooter();
+      let ny = contentYStart;
+      ny = addPatientInfo(ny);
+      ny += 10;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(leftMargin, ny - 4, rightMargin, ny - 4);
+      doc.setDrawColor(0, 0, 0);
+      yPos = ny;
+    }
+
+    // ── Impression ────────────────────────────────────────────────────────
+    // ── Impression ────────────────────────────────────────────────────────────────
+    if (impression) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.setTextColor(0, 105, 92);
-      doc.text("IMPRESSION", leftMargin + 3, yPos + 3);
+      doc.text("IMPRESSION:", leftMargin + 3, yPos + 3);
       doc.setTextColor(0, 0, 0);
-      yPos += 7;
+      yPos += 8;
 
-      doc.setFont("helvetica", "normal");
       doc.setFontSize(9.5);
-      impressionLines.forEach((line) => {
-        doc.text(line, leftMargin + 3, yPos);
 
-        yPos += 5;
+      // Split impression into bullet lines on \n or <br>
+      const impressionLines = impression
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>/gi, "\n")
+        .replace(/<\/div>/gi, "\n")
+        .split("\n")
+        .map((line) =>
+          line
+            .replace(/<[^>]*>/g, "")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&nbsp;/g, " ")
+            .trim(),
+        )
+        .filter(Boolean);
+
+      const bulletX = leftMargin + 3;
+      const textX = leftMargin + 9;
+      const bulletMaxWidth = contentWidth - 9;
+
+      impressionLines.forEach((line) => {
+        const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
+        yPos = checkNewPage(yPos, wrapped.length * 5.2 + 2);
+
+        // Bullet dot
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 105, 92);
+        doc.text("•", bulletX, yPos);
+        doc.setTextColor(0, 0, 0);
+
+        // Line text (bold if original was wrapped in <b>)
+        const isBold =
+          /<b>/i.test(impression) &&
+          impression.includes(line.replace(/\s+/g, " ").trim().slice(0, 20));
+        doc.setFont("helvetica", isBold ? "bold" : "normal");
+
+        wrapped.forEach((wline, wi) => {
+          doc.text(wline, wi === 0 ? textX : textX, yPos + wi * 5.2);
+        });
+        yPos += wrapped.length * 5.2 + 0.2;
       });
 
-      yPos += 8;
+      doc.setFont("helvetica", "normal");
+      yPos += 0.5;
     }
 
     // ── End of report ─────────────────────────────────────────────────────
-    yPos = checkNewPage(yPos, 5);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.text("**End of the Report**", leftMargin + contentWidth / 2, yPos, {
       align: "center",
     });
+    yPos += 6;
 
-    addSignatures();
+    // ── Signature inline ──────────────────────────────────────────────────
+    addSignatures(yPos);
 
     // ── Page numbers ──────────────────────────────────────────────────────
     const finalPageCount = pageCount;
@@ -1511,7 +1726,8 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 const Modal = ({ row, onClose }) => {
   const report = row.report;
   const sections = useMemo(
-    () => buildSectionsFromValueDetails(report?.valuedetails),
+    () =>
+      buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
     [report],
   );
 
@@ -1620,7 +1836,7 @@ const Modal = ({ row, onClose }) => {
 const EditModal = ({ row, onClose, onSave }) => {
   const report = row.report;
   const [sections, setSections] = useState(() =>
-    buildSectionsFromValueDetails(report?.valuedetails),
+    buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
   );
   const [impression, setImpression] = useState(report?.impression || "");
   const [saving, setSaving] = useState(false);
@@ -1960,6 +2176,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchPatient, setSearchPatient] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const [searchReferredBy, setSearchReferredBy] = useState("");
+  const [titleMapCache, setTitleMapCache] = useState({});
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -2016,6 +2233,43 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const fetchFormatAndBuildSections = async (row, HMSURL) => {
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo || row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
+        "GET",
+      );
+      if (result.success && result.data?.format) {
+        const titleMap = {};
+        result.data.format.forEach((f) => {
+          titleMap[f.title_id] = f.title;
+        });
+        return titleMap;
+      }
+    } catch (e) {
+      console.warn("Could not fetch format titles:", e);
+    }
+    return null;
+  };
+
+  const getTitleMap = useCallback(
+    async (row) => {
+      const cacheKey = `${row.billTypeNo}-${row.item_id}-${row.gender}`;
+      if (titleMapCache[cacheKey]) return titleMapCache[cacheKey];
+      const map = await fetchFormatAndBuildSections(row, HMSURL);
+      if (map) setTitleMapCache((prev) => ({ ...prev, [cacheKey]: map }));
+      return map;
+    },
+    [titleMapCache, HMSURL],
+  );
+  const handlePrintWithTitleMap = useCallback(
+    async (row, withLetterpad) => {
+      const titleMap = await getTitleMap(row);
+      handlePrintReport({ ...row, _titleMap: titleMap }, withLetterpad);
+    },
+    [getTitleMap],
+  );
 
   // ── Reset ──────────────────────────────────────────────────────────────
   const handleResetFilter = () => {
@@ -2075,12 +2329,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const showPrintDropdown = (investBillNo, e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setPrintDropdownPos({
-      top: rect.bottom + 4,
+      top: rect.bottom - 2, // was +4, now -2 so the menu overlaps the button slightly
       left: rect.right - 200,
     });
     setActivePrintRowId(investBillNo);
   };
-
   const hidePrintDropdown = () => {
     setActivePrintRowId(null);
   };
@@ -2144,12 +2397,28 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     );
   };
 
-  const handlePreview = (row) => {
-    setSelectedRow(row);
+  const handlePreview = async (row) => {
+    const titleMap = await getTitleMap(row);
+    const enrichedRow = {
+      ...row,
+      report: row.report
+        ? {
+            ...row.report,
+            _titleMap: titleMap,
+          }
+        : row.report,
+    };
+    setSelectedRow(enrichedRow);
     setIsModalOpen(true);
   };
-  const handleEdit = (row) => {
-    setEditingRow(row);
+
+  const handleEdit = async (row) => {
+    const titleMap = await getTitleMap(row);
+    const enrichedRow = {
+      ...row,
+      report: row.report ? { ...row.report, _titleMap: titleMap } : row.report,
+    };
+    setEditingRow(enrichedRow);
     setIsEditModalOpen(true);
   };
 
@@ -2165,7 +2434,17 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === row.investBillNo && r.itemName === row.itemName
-            ? { ...r, report: { ...r.report, is_approved: true } }
+            ? {
+                ...r,
+                report: {
+                  ...r.report,
+                  is_approved: true,
+                  approved_by:
+                    result.data?.approved_by ?? r.report?.approved_by,
+                  approved_date:
+                    result.data?.approved_date ?? r.report?.approved_date,
+                },
+              }
             : r,
         ),
       );
@@ -2560,16 +2839,20 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           {/* ── PRINT icon — portal dropdown, same pattern as PatientOverview ── */}
                           <PrintDropdownWrapper
                             onMouseEnter={(e) =>
-                              row.hasReport &&
+                              row.report?.is_approved &&
                               showPrintDropdown(row.investBillNo, e)
                             }
                             onMouseLeave={hidePrintDropdown}
                           >
                             <IconBtn
                               bg="linear-gradient(135deg,#ff7043,#e64a19)"
-                              disabled={!row.hasReport}
+                              disabled={!row.report?.is_approved}
                               data-tip={
-                                row.hasReport ? "Print Options" : "No Report"
+                                row.report?.is_approved
+                                  ? "Print Options"
+                                  : !row.hasReport
+                                    ? "No Report"
+                                    : "Not Yet Approved"
                               }
                             >
                               🖨️
@@ -2622,7 +2905,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           >
             <DropdownItem
               onClick={() => {
-                handlePrintReport(activePrintRow, true);
+                handlePrintWithTitleMap(activePrintRow, true);
                 hidePrintDropdown();
               }}
             >
@@ -2630,7 +2913,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             </DropdownItem>
             <DropdownItem
               onClick={() => {
-                handlePrintReport(activePrintRow, false);
+                handlePrintWithTitleMap(activePrintRow, false);
                 hidePrintDropdown();
               }}
             >
