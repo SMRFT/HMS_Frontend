@@ -68,9 +68,13 @@ const VelavanItemList = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState({});
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-VIE-RW");
+  const canDelete = allowedActions.includes("HMS-P-VID-RW");
 
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-  const BASEURL = process.env.REACT_APP_BACKEND_BASE_URL;
 
   // Fetch items directly from VelavanItems via get_item
   const fetchItems = async () => {
@@ -87,10 +91,7 @@ const VelavanItemList = () => {
           const itemId = velavanItem.item_id || velavanItem.item;
           if (!itemId) return velavanItem;
           try {
-            const res = await apiRequest(
-              `${BASEURL}get_item/${itemId}/`,
-              "GET",
-            );
+            const res = await apiRequest(`${HMSURL}get_item/${itemId}/`, "GET");
             if (res.status === 200) {
               // Merge Items fields with VelavanItem fields (VelavanItem takes priority)
               return { ...res.data, ...velavanItem };
@@ -272,18 +273,22 @@ const VelavanItemList = () => {
                         </>
                       ) : (
                         <>
-                          <ActionButton
-                            color="blue"
-                            onClick={() => handleEdit(item)}
-                          >
-                            <FiEdit />
-                          </ActionButton>
-                          <ActionButton
-                            color="red"
-                            onClick={() => handleDelete(id)}
-                          >
-                            <FiTrash2 />
-                          </ActionButton>
+                          {canEdit && (
+                            <ActionButton
+                              color="blue"
+                              onClick={() => handleEdit(item)}
+                            >
+                              <FiEdit />
+                            </ActionButton>
+                          )}
+                          {canDelete && (
+                            <ActionButton
+                              color="red"
+                              onClick={() => handleDelete(id)}
+                            >
+                              <FiTrash2 />
+                            </ActionButton>
+                          )}
                         </>
                       )}
                     </Td>

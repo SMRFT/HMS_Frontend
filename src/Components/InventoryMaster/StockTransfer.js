@@ -505,8 +505,8 @@ const StockTransfer = () => {
       const url = `${HmsBaseUrl}stock-transfer/${params.toString() ? "?" + params.toString() : ""}`;
       const response = await apiRequest(url, "GET");
 
-      if (response?.success && Array.isArray(response.data)) {
-        setTransfers(response.data);
+      if (response?.success && Array.isArray(response.data.data)) {
+        setTransfers(response.data.data);
       } else {
         setTransfers([]);
       }
@@ -523,8 +523,8 @@ const StockTransfer = () => {
       let maxSeq = 0;
       if (response?.success && Array.isArray(response.data)) {
         response.data.forEach((t) => {
-          if (t.transfer_ref_number?.startsWith(prefix)) {
-            const seq = parseInt(t.transfer_ref_number.split("/")[1] || "0", 10);
+          if (t.transfer_id?.startsWith(prefix)) {
+            const seq = parseInt(t.transfer_id.split("/")[1] || "0", 10);
             if (seq > maxSeq) maxSeq = seq;
           }
         });
@@ -706,7 +706,7 @@ const StockTransfer = () => {
       const payload = {
         from_outlet:         fromOutlet || null,
         to_outlet:           toOutlet   || null,
-        transfer_ref_number: transferRefNumber,
+        transfer_id: transferRefNumber,
         items: addedItems.map((i) => ({
           stock_id:          i.stock_id,
           item_id:           i.item_id,
@@ -771,7 +771,8 @@ const StockTransfer = () => {
   };
 
   const handleApproveConfirm = async () => {
-    const { transfer } = confirmModal;
+    const transfer = confirmModal?.transfer || {};
+    const transferId = transfer.transfer_id || transfer.id || transfer.pk;
     setConfirmModal(null);
     try {
       const response = await apiRequest(
@@ -805,7 +806,8 @@ const StockTransfer = () => {
   };
 
   const handleRejectConfirm = async () => {
-    const { transfer } = confirmModal;
+    const transfer = confirmModal?.transfer || {};
+    const transferId = transfer.transfer_id || transfer.id || transfer.pk;
     setConfirmModal(null);
     try {
       const response = await apiRequest(
@@ -1173,7 +1175,7 @@ const StockTransfer = () => {
                     const isRejected = status === "Rejected";
 
                     return (
-                      <Tr key={t.transfer_id || t.transfer_ref_number}>
+                      <Tr key={t.transfer_id || t.transfer_id}>
                         <Td>
                           <StatusBadge status={status}>{status}</StatusBadge>
                         </Td>
@@ -1183,7 +1185,7 @@ const StockTransfer = () => {
                             : "-"}
                         </Td>
                         <Td style={{ fontWeight: 600, color: "#0d9488" }}>
-                          {t.transfer_ref_number}
+                          {t.transfer_id}
                         </Td>
                         <Td>{getOutletName(t.from_outlet || t.outlet_code)}</Td>
                         <Td>{getOutletName(t.to_outlet)}</Td>
@@ -1233,7 +1235,7 @@ const StockTransfer = () => {
       {confirmModal && confirmModal.type === "approve" && (
         <ConfirmModal
           title="Approve Stock Transfer"
-          message={`Approve transfer ${confirmModal.transfer.transfer_ref_number}? This will update stock quantities and cannot be undone.`}
+          message={`Approve transfer ${confirmModal.transfer.transfer_id}? This will update stock quantities and cannot be undone.`}
           confirmLabel="Approve"
           confirmColor="#0d9488"
           onConfirm={handleApproveConfirm}
@@ -1243,7 +1245,7 @@ const StockTransfer = () => {
       {confirmModal && confirmModal.type === "reject" && (
         <ConfirmModal
           title="Cancel Stock Transfer"
-          message={`Cancel transfer ${confirmModal.transfer.transfer_ref_number}? This will mark it as Rejected.`}
+          message={`Cancel transfer ${confirmModal.transfer.transfer_id}? This will mark it as Rejected.`}
           confirmLabel="Yes, Cancel"
           confirmColor="#dc2626"
           onConfirm={handleRejectConfirm}
@@ -1278,7 +1280,7 @@ const StockTransfer = () => {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
                 <span>Destination : <strong>{getOutletName(printSlip.to_outlet)}</strong></span>
-                <span>Ref.  : <strong>{printSlip.transfer_ref_number}</strong></span>
+                <span>Ref.  : <strong>{printSlip.transfer_id}</strong></span>
               </div>
             </div>
 

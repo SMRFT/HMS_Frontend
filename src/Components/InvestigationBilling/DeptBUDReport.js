@@ -185,6 +185,82 @@ const PlaceholderState = styled.div`
     margin-bottom: 8px;
   }
 `;
+const ExpandBtn = styled(Button)`
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  background: transparent;
+  color: ${colors.primary};
+  border: 1px solid ${colors.primary};
+  &:hover {
+    background: ${colors.primary};
+    color: white;
+  }
+`;
+const HistoryPanel = styled.div`
+  background: #f8fafc;
+  padding: 10px 14px;
+  border-top: 0.5px solid ${colors.border};
+`;
+const HistoryEntry = styled.div`
+  border: 1px solid ${colors.border};
+  border-radius: 6px;
+  background: white;
+  margin-bottom: 8px;
+  overflow: hidden;
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+const HistoryEntryHeader = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border-bottom: 0.5px solid ${colors.border};
+  font-size: 0.75rem;
+`;
+const RemarksPill = styled.span`
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+`;
+const ChangesTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  th,
+  td {
+    padding: 6px 12px;
+    border-bottom: 0.5px solid ${colors.border};
+    text-align: left;
+  }
+  tr:last-child td {
+    border-bottom: none;
+  }
+  th {
+    color: ${colors.textMuted};
+    font-weight: 500;
+    background: none;
+  }
+`;
+const OldVal = styled.span`
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+`;
+const NewVal = styled.span`
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 0.72rem;
+`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -228,6 +304,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
         <td>${i + 1}</td>
         <td>${bill.investBillNo || "—"}</td>
         <td>${bill.uhid || "—"}</td>
+        <td>${bill.outlet_name || "—"}</td>
         <td>${bill.bill_name || bill.bill_type || "—"}</td>
         <td>${isDeleted ? bill.deletedByName || bill.deletedBy || "—" : bill.lastmodified_by_name || bill.lastmodified_by || "—"}</td>
         <td>${isDeleted ? bill.deleteRemarks || "—" : bill.editRemarks || "—"}</td>
@@ -265,6 +342,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
             <th>Sl.No</th>
             <th>Bill No</th>
             <th>UHID</th>
+            <th>OUTLET</th>
             <th>Bill Type</th>
             <th>${actionLabel}</th>
             <th>${isDeleted ? "Delete Remarks" : "Edited Remarks"}</th>
@@ -292,9 +370,45 @@ const DeptBUDReport = () => {
   const [toDate, setToDate] = useState(dayjs());
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const [expandedRows, setExpandedRows] = useState(new Set());
+
+  const toggleRow = (id) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const fmtVal = (v) => {
+    if (v === null || v === undefined) return "—";
+    if (Array.isArray(v))
+      return v.map((i) => i?.itemName || JSON.stringify(i)).join(", ");
+
+    // Detect date strings and format as IST
+    if (
+      typeof v === "string" &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(v)
+    ) {
+      const normalized = v.endsWith("Z") || v.includes("+") ? v : v + "Z";
+      return new Date(normalized)
+        .toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+          timeZone: "Asia/Kolkata",
+        })
+        .toUpperCase();
+    }
+
+    return String(v);
+  };
 
   // ── Fetch whenever type or dates change ─────────────────────────────────────
   useEffect(() => {
@@ -421,11 +535,10 @@ const DeptBUDReport = () => {
                     <Th>Sl.No</Th>
                     <Th>Bill No</Th>
                     <Th>UHID</Th>
+                    <Th>OUTLET</Th>
                     <Th>Bill Type</Th>
                     <Th>{isDeleted ? "Deleted By" : "Edited By"}</Th>
-                    <RemarksTh>
-                      {isDeleted ? "Delete Remarks" : "Edited Remarks"}
-                    </RemarksTh>
+                    <RemarksTh>{isDeleted ? "Delete Remarks" : ""}</RemarksTh>
                     <Th style={{ minWidth: 160 }}>
                       {isDeleted
                         ? "Deleted Date & Time"
@@ -435,35 +548,99 @@ const DeptBUDReport = () => {
                 </thead>
                 <tbody>
                   {bills.map((bill, index) => (
-                    <Tr key={index}>
-                      <Td>{index + 1}</Td>
-                      <Td>{bill.investBillNo || "—"}</Td>
-                      <Td>{bill.uhid || "—"}</Td>
-                      <Td>{bill.bill_name || bill.bill_type || "—"}</Td>
-                      <Td>
-                        {isDeleted ? (
-                          <DeletedBadge title={bill.deletedBy}>
-                            {bill.deletedByName || bill.deletedBy || "—"}
-                          </DeletedBadge>
-                        ) : (
+                    <React.Fragment key={index}>
+                      <Tr>
+                        <Td>{index + 1}</Td>
+                        <Td>{bill.investBillNo || "—"}</Td>
+                        <Td>{bill.uhid || "—"}</Td>
+                        <Td>{bill.outlet_name || "—"}</Td>
+                        <Td>{bill.bill_name || bill.bill_type || "—"}</Td>
+                        <Td>
                           <EditedBadge title={bill.lastmodified_by}>
                             {bill.lastmodified_by_name ||
                               bill.lastmodified_by ||
                               "—"}
                           </EditedBadge>
-                        )}
-                      </Td>
-                      <RemarksTd>
-                        {isDeleted
-                          ? bill.deleteRemarks || "—"
-                          : bill.editRemarks || "—"}
-                      </RemarksTd>
-                      <Td>
-                        {isDeleted
-                          ? formatDateTime(bill.deletedAt)
-                          : formatDateTime(bill.lastmodified_date)}
-                      </Td>
-                    </Tr>
+                        </Td>
+                        <RemarksTd>
+                          {isDeleted ? bill.deleteRemarks || "—" : ""}
+                        </RemarksTd>
+                        <Td>{formatDateTime(bill.lastmodified_date)}</Td>
+                        <Td>
+                          {!isDeleted && bill.history?.length > 0 && (
+                            <ExpandBtn onClick={() => toggleRow(bill._id)}>
+                              {expandedRows.has(bill._id)
+                                ? "▲ Hide"
+                                : "▼ History"}{" "}
+                              ({bill.history.length})
+                            </ExpandBtn>
+                          )}
+                        </Td>
+                      </Tr>
+
+                      {!isDeleted && expandedRows.has(bill._id) && (
+                        <tr>
+                          <td colSpan={8} style={{ padding: 0 }}>
+                            <HistoryPanel>
+                              {[...bill.history].reverse().map((entry, i) => (
+                                <HistoryEntry key={i}>
+                                  <HistoryEntryHeader>
+                                    <span>Edit {bill.history.length - i}</span>
+                                    <span>
+                                      {formatDateTime(entry.modified_date)}
+                                    </span>
+                                    <span>
+                                      by <strong>{entry.modified_by}</strong>
+                                    </span>
+                                    <RemarksPill>
+                                      {entry.editRemarks || "—"}
+                                    </RemarksPill>
+                                  </HistoryEntryHeader>
+                                  <ChangesTable>
+                                    <thead>
+                                      <tr>
+                                        <th>Field</th>
+                                        <th>Old value → Current value</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {Object.entries(entry.changes || {}).map(
+                                        ([key, oldVal]) => (
+                                          <tr key={key}>
+                                            <td
+                                              style={{
+                                                fontWeight: 500,
+                                                width: 140,
+                                              }}
+                                            >
+                                              {key}
+                                            </td>
+                                            <td>
+                                              <OldVal>{fmtVal(oldVal)}</OldVal>
+                                              <span
+                                                style={{
+                                                  margin: "0 6px",
+                                                  color: colors.textMuted,
+                                                }}
+                                              >
+                                                →
+                                              </span>
+                                              <NewVal>
+                                                {fmtVal(bill[key])}
+                                              </NewVal>
+                                            </td>
+                                          </tr>
+                                        ),
+                                      )}
+                                    </tbody>
+                                  </ChangesTable>
+                                </HistoryEntry>
+                              ))}
+                            </HistoryPanel>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </Table>

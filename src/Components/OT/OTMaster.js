@@ -134,6 +134,11 @@ const OTMaster = () => {
   const [editItem, setEditItem] = useState(null); // null = add mode
   const [formData, setFormData] = useState(emptyForm);
   const [errorMsg, setErrorMsg] = useState("");
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-OTME-RW");
+  const canDelete = allowedActions.includes("HMS-P-OTMD-RW");
 
   // ── Fetch list ──────────────────────────────────────────────────────────────
   const fetchOTs = useCallback(async () => {
@@ -325,12 +330,16 @@ const OTMaster = () => {
                       <Td>{ot.capacity}</Td>
                       <Td>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <EditButton onClick={() => openEdit(ot)}>
-                            <Pencil size={13} /> Edit
-                          </EditButton>
-                          <DangerButton onClick={() => handleDelete(ot)}>
-                            <Trash2 size={13} /> Delete
-                          </DangerButton>
+                          {canEdit && (
+                            <EditButton onClick={() => openEdit(ot)}>
+                              <Pencil size={13} /> Edit
+                            </EditButton>
+                          )}
+                          {canDelete && (
+                            <DangerButton onClick={() => handleDelete(ot)}>
+                              <Trash2 size={13} /> Delete
+                            </DangerButton>
+                          )}
                         </div>
                       </Td>
                     </Tr>
