@@ -100,6 +100,7 @@ import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
 
 // import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
+import CashCounterManager from "./Components/CentralCashCounter/CashCounterManager";
 
 import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
 
@@ -116,8 +117,10 @@ import StockTransfer from "./Components/InventoryMaster/StockTransfer";
 import IPAdvanceReport from "./Components/Accounts/IPAdvanceReport";
 import DietOrderReport from "./Components/NursingStation/DietOrderReport";
 import DietOrder from "./Components/NursingStation/DietMaster";
-import ShiftBasisReport from "./Accounts/ShiftBasisReport";
+import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
+import BillWiseReport from "./Components/Accounts/BillWiseReport"
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -287,6 +290,8 @@ function App() {
       "/DoctorReport": "Doctor Day/Month Report",
       "/Oppharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
+      "/CashCounterManager": "Cash Counter Manager",
+      "/BillWiseReport": "BillWiseReport"
     };
 
     const path = location.pathname;
@@ -892,10 +897,16 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
-                
-
-
-
+              {hasPagePermission(
+                "/ShiftBasisReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/ShiftBasisReport" element={<ShiftBasisReport />} />}
+              {hasPagePermission(
+                "/BillWiseReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/BillWiseReport" element={<BillWiseReport />} />}
 
 
               {hasPagePermission(
@@ -904,7 +915,7 @@ function App() {
                 dynamicPermissions,
               ) && <Route path="/SalesReturn" element={<SalesReturn />} />}
 
-                
+
               {hasPagePermission(
                 "/OTMaster",
                 allowedActions,
@@ -925,11 +936,23 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route
-                  path="/CentralCashCounter"
-                  element={<CentralCashCounter />}
-                />
-              )}
+                  <Route
+                    path="/CentralCashCounter"
+                    element={<CentralCashCounter />}
+                  />
+                )}
+              {hasPagePermission(
+                "/CashCounterManager",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/CashCounterManager"
+                    element={<CashCounterManager />}
+                  />
+                )}
+
+
             </Routes>
           </ContentWrapper>
         </>

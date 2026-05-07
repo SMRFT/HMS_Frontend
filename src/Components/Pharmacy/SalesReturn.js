@@ -305,12 +305,10 @@ const SaveBtn = styled.button`
 
 const BillItemsFooter = styled.div`
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: flex-end;
   padding: 10px 12px;
   background: #fafafa;
   border-top: 1px solid #e0e0e0;
-  gap: 12px;
 `;
 
 // ─── Table Card ───────────────────────────────────────────────────────────────
@@ -474,40 +472,6 @@ const ReturnQtyInput = styled.input`
   outline: none;
   text-align: center;
   &:focus { border-color: #00796b; }
-`;
-
-const ReturnAmountCell = styled.span`
-  font-weight: 600;
-  color: #1565c0;
-  font-size: 13px;
-`;
-
-const ReturnAmountFooter = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-`;
-
-const ReturnAmountLabel = styled.label`
-  font-size: 13px;
-  font-weight: 600;
-  color: #444;
-  white-space: nowrap;
-`;
-
-const ReturnAmountInput = styled.input`
-  border: 1px solid #b0bec5;
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1565c0;
-  background: #e3f2fd;
-  width: 140px;
-  text-align: right;
-  outline: none;
-  cursor: default;
 `;
 
 // ─── Donut Component ──────────────────────────────────────────────────────────
@@ -1113,6 +1077,7 @@ const SalesReturn = () => {
                           <BillItemsTh>Item Name</BillItemsTh>
                           <BillItemsTh>Batch No</BillItemsTh>
                           <BillItemsTh>Qty</BillItemsTh>
+                          <BillItemsTh>Return Qty</BillItemsTh>
                           <BillItemsTh>Unit Price (₹)</BillItemsTh>
                           <BillItemsTh>Return Qty</BillItemsTh>
                           <BillItemsTh>Return Amount (₹)</BillItemsTh>
@@ -1125,7 +1090,7 @@ const SalesReturn = () => {
                             <BillItemsTd>{item.item_name || "—"}</BillItemsTd>
                             <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
                             <BillItemsTd>{item.qty ?? "—"}</BillItemsTd>
-                            <BillItemsTd>{parseFloat(item.price ?? item.rate ?? 0).toFixed(2)}</BillItemsTd>
+                         // <BillItemsTd>{parseFloat(item.price ?? item.rate ?? 0).toFixed(2)}</BillItemsTd>
                             <BillItemsTd>
                               <ReturnQtyInput
                                 type="number"
@@ -1136,27 +1101,11 @@ const SalesReturn = () => {
                                 onChange={e => handleReturnQtyChange(index, e.target.value)}
                               />
                             </BillItemsTd>
-                            <BillItemsTd>
-                              <ReturnAmountCell>
-                                {(parseFloat(item.returnQty || 0) * parseFloat(item.price ?? item.rate ?? 0)).toFixed(2)}
-                              </ReturnAmountCell>
-                            </BillItemsTd>
                           </tr>
                         ))}
                       </tbody>
                     </BillItemsTable>
                     <BillItemsFooter>
-                      <ReturnAmountFooter>
-                        <ReturnAmountLabel>Total Return Amount (₹)</ReturnAmountLabel>
-                        <ReturnAmountInput
-                          type="text"
-                          readOnly
-                          value={billItems
-                            .reduce((sum, item) =>
-                              sum + parseFloat(item.returnQty || 0) * parseFloat(item.price ?? item.rate ?? 0), 0)
-                            .toFixed(2)}
-                        />
-                      </ReturnAmountFooter>
                       <SaveBtn type="button" onClick={handleSave}>
                         💾 Save
                       </SaveBtn>
