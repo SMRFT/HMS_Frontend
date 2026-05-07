@@ -340,15 +340,21 @@ const ModalOverlay = styled.div`
   animation: fadeIn 0.2s ease;
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 `;
 
 const ModalContainer = styled.div`
   background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
@@ -356,8 +362,14 @@ const ModalContainer = styled.div`
   animation: slideUp 0.25s ease;
 
   @keyframes slideUp {
-    from { transform: translateY(24px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 `;
 
@@ -381,7 +393,7 @@ const ModalTitle = styled.h3`
 `;
 
 const CloseButton = styled.button`
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   font-size: 18px;
   cursor: pointer;
@@ -392,7 +404,7 @@ const CloseButton = styled.button`
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(255,255,255,0.35);
+    background: rgba(255, 255, 255, 0.35);
   }
 `;
 
@@ -482,13 +494,15 @@ const Input = styled.input`
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   background: #fafafa;
 
   &:focus {
     outline: none;
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     background: #fff;
   }
 
@@ -519,9 +533,12 @@ const SummaryRow = styled.div`
   justify-content: space-between;
   align-items: center;
   font-size: 14px;
-  color: ${props => props.highlight ? '#0d9488' : props.danger ? '#dc2626' : '#374151'};
-  font-weight: ${props => props.bold ? '700' : '500'};
-  ${props => props.separator && `
+  color: ${(props) =>
+    props.highlight ? "#0d9488" : props.danger ? "#dc2626" : "#374151"};
+  font-weight: ${(props) => (props.bold ? "700" : "500")};
+  ${(props) =>
+    props.separator &&
+    `
     border-top: 1px solid #e5e7eb;
     padding-top: 8px;
     margin-top: 2px;
@@ -548,11 +565,11 @@ const SaveButton = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.25);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
   }
 
   &:disabled {
@@ -605,8 +622,15 @@ const ShiftRunningBanner = styled.div`
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.5; transform: scale(1.3); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.3);
+    }
   }
 `;
 
@@ -635,22 +659,32 @@ export default function CentralCashCounter() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
 
-  const [selectedMethods, setSelectedMethods] = useState({ cash: false, card: false, cheque: false });
-  const [payments, setPayments] = useState({ cash: "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+  const [selectedMethods, setSelectedMethods] = useState({
+    cash: false,
+    card: false,
+    cheque: false,
+  });
+  const [payments, setPayments] = useState({
+    cash: "",
+    cheque: "",
+    chequeNo: "",
+    card: "",
+    cardNo: "",
+  });
   const [activeShift, setActiveShift] = useState(null);
 
   // ── Receipt / Payment state ──────────────────────────────────────────────────
-  const [rpReceiptType, setRpReceiptType]       = useState("Receipt");
-  const [rpAccountHeads, setRpAccountHeads]     = useState([]);
-  const [rpSelectedSNo, setRpSelectedSNo]       = useState("");
-  const [rpAmount, setRpAmount]                 = useState("");
-  const [rpDescFields, setRpDescFields]         = useState({});
-  const [rpRecords, setRpRecords]               = useState([]);
-  const [rpSearchTerm, setRpSearchTerm]         = useState("");
-  const [rpShowEntries, setRpShowEntries]       = useState("10");
-  const [rpAlert, setRpAlert]                   = useState(null);
-  const [rpSaving, setRpSaving]                 = useState(false);
-  const [rpLoading, setRpLoading]               = useState(false);
+  const [rpReceiptType, setRpReceiptType] = useState("Receipt");
+  const [rpAccountHeads, setRpAccountHeads] = useState([]);
+  const [rpSelectedSNo, setRpSelectedSNo] = useState("");
+  const [rpAmount, setRpAmount] = useState("");
+  const [rpDescFields, setRpDescFields] = useState({});
+  const [rpRecords, setRpRecords] = useState([]);
+  const [rpSearchTerm, setRpSearchTerm] = useState("");
+  const [rpShowEntries, setRpShowEntries] = useState("10");
+  const [rpAlert, setRpAlert] = useState(null);
+  const [rpSaving, setRpSaving] = useState(false);
+  const [rpLoading, setRpLoading] = useState(false);
   const [rpShowVoucherModal, setRpShowVoucherModal] = useState(false);
   const [rpShowVoucherForm, setRpShowVoucherForm]   = useState(false);
   const [rpVoucherLoading, setRpVoucherLoading] = useState(false);
@@ -672,7 +706,7 @@ export default function CentralCashCounter() {
 
   // ── Receipt / Payment derived ────────────────────────────────────────────────
   const rpSelectedHead = Array.isArray(rpAccountHeads)
-    ? (rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null)
+    ? rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null
     : null;
   const rpSelectedHeadName = rpSelectedHead ? rpSelectedHead.account_head : "";
 
@@ -700,7 +734,11 @@ export default function CentralCashCounter() {
   const rpFetchRecords = async () => {
     setRpLoading(true);
     try {
-      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", {});
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_receipt_payments/`,
+        "POST",
+        {},
+      );
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -715,7 +753,8 @@ export default function CentralCashCounter() {
   };
 
   const rpHandleSave = async () => {
-    if (!rpSelectedSNo) return rpShowAlert("error", "Please select an Account Head.");
+    if (!rpSelectedSNo)
+      return rpShowAlert("error", "Please select an Account Head.");
     if (!rpAmount || isNaN(rpAmount) || parseFloat(rpAmount) <= 0)
       return rpShowAlert("error", "Please enter a valid Amount.");
 
@@ -724,7 +763,10 @@ export default function CentralCashCounter() {
     if (rpSelectedHeadName === "ROOM ACCESS CARD") {
       if (!rpDescFields.patient_name || !rpDescFields.room_no)
         return rpShowAlert("error", "Please fill in Patient Name and Room No.");
-      description = { patient_name: rpDescFields.patient_name, room_no: rpDescFields.room_no };
+      description = {
+        patient_name: rpDescFields.patient_name,
+        room_no: rpDescFields.room_no,
+      };
     } else if (rpSelectedHeadName === "MISCELLANEOUS INCOME") {
       description = { description: rpDescFields.description || "" };
     }
@@ -740,7 +782,11 @@ export default function CentralCashCounter() {
 
     setRpSaving(true);
     try {
-      const res = await apiRequest(`${HmsBaseUrl}post_receipt_payments/`, "POST", payload);
+      const res = await apiRequest(
+        `${HmsBaseUrl}post_receipt_payments/`,
+        "POST",
+        payload,
+      );
       if (res?.success || res?.id || res?._id || res?.voucher_no) {
         rpShowAlert("success", "Payment collected successfully!");
 
@@ -751,21 +797,23 @@ export default function CentralCashCounter() {
           receipt_type:      payload.receipt_type,
           account_head:      payload.account_head,
           account_head_details: {
-            no:   payload.account_head,
+            no: payload.account_head,
             name: rpSelectedHeadName,
           },
-          description:       payload.description,
-          amount:            payload.amount,
-          shiftno:           payload.shiftno,
-          CashCounter:       payload.CashCounter,
+          description: payload.description,
+          amount: payload.amount,
+          shiftno: payload.shiftno,
+          CashCounter: payload.CashCounter,
         };
         setRpRecords((prev) => [newRecord, ...prev]);
 
         setRpAmount("");
         setRpDescFields(
-          rpSelectedHeadName === "ROOM ACCESS CARD" ? { patient_name: "", room_no: "" }
-          : rpSelectedHeadName === "MISCELLANEOUS INCOME" ? { description: "" }
-          : {}
+          rpSelectedHeadName === "ROOM ACCESS CARD"
+            ? { patient_name: "", room_no: "" }
+            : rpSelectedHeadName === "MISCELLANEOUS INCOME"
+              ? { description: "" }
+              : {},
         );
 
         rpFetchRecords();
@@ -795,7 +843,11 @@ export default function CentralCashCounter() {
         to_date: toDate,
         voucher_type: vType === "All" ? "" : vType,
       };
-      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", payload);
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_receipt_payments/`,
+        "POST",
+        payload,
+      );
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -803,7 +855,8 @@ export default function CentralCashCounter() {
       else if (Array.isArray(res?.results)) list = res.results;
       setPvData(list);
       setPvPage(1);
-      let totalR = 0, totalP = 0;
+      let totalR = 0,
+        totalP = 0;
       list.forEach((r) => {
         const amt = parseFloat(r.amount || 0);
         if (r.receipt_type === "Receipt") totalR += amt;
@@ -820,29 +873,64 @@ export default function CentralCashCounter() {
   };
 
   const pvExportExcel = () => {
-    const headers = ["Date","Time","Shift Reference","Account Name","Voucher No","Receipt No","Payment","Description"];
+    const headers = [
+      "Date",
+      "Time",
+      "Shift Reference",
+      "Account Name",
+      "Voucher No",
+      "Receipt No",
+      "Payment",
+      "Description",
+    ];
     const rows = pvData.map((r) => {
       const d = r.voucher_date ? new Date(r.voucher_date) : null;
-      const dateStr = d ? d.toLocaleDateString("en-IN", { day:"2-digit", month:"2-digit", year:"numeric" }) : "—";
-      const timeStr = d ? d.toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "—";
+      const dateStr = d
+        ? d.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
+        : "—";
+      const timeStr = d
+        ? d.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        : "—";
       const desc = r.description
-        ? typeof r.description === "object" ? Object.values(r.description).filter(Boolean).join(", ") : r.description
+        ? typeof r.description === "object"
+          ? Object.values(r.description).filter(Boolean).join(", ")
+          : r.description
         : "—";
       return [
-        dateStr, timeStr,
+        dateStr,
+        timeStr,
         r.shiftno || r.shift_reference || "—",
-        r.account_head_details?.name || r.account_head_name || r.account_head || "—",
+        r.account_head_details?.name ||
+          r.account_head_name ||
+          r.account_head ||
+          "—",
         r.voucher_no || "—",
-        r.receipt_type === "Receipt" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
-        r.receipt_type === "Payment" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
+        r.receipt_type === "Receipt"
+          ? parseFloat(r.amount || 0).toFixed(2)
+          : "0.00",
+        r.receipt_type === "Payment"
+          ? parseFloat(r.amount || 0).toFixed(2)
+          : "0.00",
         desc,
       ];
     });
-    const csv = [headers, ...rows].map(row => row.map(c => '"' + c + '"').join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((row) => row.map((c) => '"' + c + '"').join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "previous_vouchers.csv"; a.click();
+    a.href = url;
+    a.download = "previous_vouchers.csv";
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -907,6 +995,88 @@ export default function CentralCashCounter() {
           id: `${admission.ipNumber}-${payment.advance_id}`,
           bill_date: billDateObj
             ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+  };
+  useEffect(() => {
+    // ✅ call immediately when component loads
+    refreshActiveShift();
+
+    // ✅ keep checking every few seconds
+    const interval = setInterval(() => {
+      refreshActiveShift();
+    }, 5000); // 5 sec (adjust if needed)
+
+    // ✅ cleanup (important)
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatBillData = (billsArray) => {
+    return billsArray.map((item, index) => {
+      // unique fallback id
+      const id = item.id ?? `temp-${index}-${Date.now()}`;
+
+      // ✅ use bill_date only
+      const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+
+      const billDate = billDateObj
+        ? billDateObj.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+
+      const billTime = billDateObj
+        ? billDateObj.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true, // 👈 IMPORTANT
+            timeZone: "Asia/Kolkata",
+          })
+        : "-";
+
+      return {
+        id,
+        date: billDate,
+        time: billTime,
+        Bill_id: item.Bill_id,
+        uhid: item.uhid,
+        bill_no: item.bill_no || "-",
+        bill_type: item.bill_type || item.type || "-",
+        uhid_no: item.uhid || "-",
+        patient: item.patient_name || "-",
+        investigation: item.billing_status || "-",
+        doctor: item.doctor_id || "-",
+        total: item.net_amount || 0,
+        payment_method: "-",
+        source: "OP",
+      };
+    });
+  };
+
+  // ✅ IP Advance formatter — flattens each pending_payment into its own table row
+  const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
+    const rows = [];
+    admissionsArray.forEach((admission) => {
+      const payments = admission.advance_payments || [];
+      // Filter based on status (pending or paid)
+      const filteredPayments = payments.filter(
+        (p) => p.is_advanceActive && String(p.status).toLowerCase() === statusFilter.toLowerCase()
+      );
+      if (filteredPayments.length === 0) return;
+
+      filteredPayments.forEach((payment) => {
+        const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
+        rows.push({
+          id: `${admission.ipNumber}-${payment.advance_id}`,
+          // display fields
+          bill_date: billDateObj
+            ? billDateObj.toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                timeZone: "Asia/Kolkata",
+              })
             : "-",
           bill_no: payment.bill_no || "-",
           uhid_no: admission.uhid || "-",
@@ -1208,13 +1378,19 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : receivedBills;
     } else if (activeMenuItem === "IP Advance") {
-      bills = selectedType === "pending" ? ipAdvancePendingBills : ipAdvanceReceivedBills;
+      bills =
+        selectedType === "pending"
+          ? ipAdvancePendingBills
+          : ipAdvanceReceivedBills;
     }
 
     let filtered = bills;
     if (billType !== "ALL") {
       filtered = filtered.filter((bill) =>
-        bill.bill_type.toString().toLowerCase().includes(billType.toLowerCase())
+        bill.bill_type
+          .toString()
+          .toLowerCase()
+          .includes(billType.toLowerCase()),
       );
     }
     if (searchTerm) {
@@ -1222,7 +1398,7 @@ export default function CentralCashCounter() {
         (bill) =>
           bill.patient.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bill.uhid_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase())
+          bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
     setFilteredBills(filtered);
@@ -1331,12 +1507,24 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>STARTING TIME</Label>
                 <span>:</span>
-                <Value style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 600 } : {}}>
+                <Value
+                  style={
+                    shiftBelongsHere
+                      ? { color: "#0d9488", fontWeight: 600 }
+                      : {}
+                  }
+                >
                   {activeShift?.StartingTime
-                    ? new Date(String(activeShift.StartingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                    ? new Date(
+                        String(activeShift.StartingTime).replace(" ", "T"),
+                      ).toLocaleString("en-IN", {
                         timeZone: "Asia/Kolkata",
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit", second: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
                         hour12: true,
                       })
                     : "—"}
@@ -1345,15 +1533,29 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>CLOSING TIME</Label>
                 <span>:</span>
-                <Value style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 600 } : {}}>
+                <Value
+                  style={
+                    !shiftBelongsHere && activeShift?.closingTime
+                      ? { color: "#dc2626", fontWeight: 600 }
+                      : {}
+                  }
+                >
                   {activeShift?.closingTime
-                    ? new Date(String(activeShift.closingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                    ? new Date(
+                        String(activeShift.closingTime).replace(" ", "T"),
+                      ).toLocaleString("en-IN", {
                         timeZone: "Asia/Kolkata",
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit", second: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
                         hour12: true,
                       })
-                    : shiftBelongsHere ? "Running…" : "—"}
+                    : shiftBelongsHere
+                      ? "Running…"
+                      : "—"}
                 </Value>
               </InfoRow>
               <InfoRow>
@@ -1369,7 +1571,10 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift
-                    ? "₹ " + parseFloat(activeShift.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    ? "₹ " +
+                      parseFloat(
+                        activeShift.OpeningBalance || 0,
+                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
@@ -1378,18 +1583,27 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift?.ClosingBalance
-                    ? "₹ " + parseFloat(activeShift.ClosingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    ? "₹ " +
+                      parseFloat(activeShift.ClosingBalance).toLocaleString(
+                        "en-IN",
+                        { minimumFractionDigits: 2 },
+                      )
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
               <InfoRow>
                 <Label>SHIFT STATUS</Label>
                 <span>:</span>
-                <Value style={{
-                  color: activeShift?.ShiftStatus === "active" ? "#10b981" : "#6b7280",
-                  fontWeight: 600,
-                  textTransform: "capitalize",
-                }}>
+                <Value
+                  style={{
+                    color:
+                      activeShift?.ShiftStatus === "active"
+                        ? "#10b981"
+                        : "#6b7280",
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                  }}
+                >
                   {activeShift?.ShiftStatus || "—"}
                 </Value>
               </InfoRow>
@@ -1409,13 +1623,16 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>DATE</Label>
                 <span>:</span>
-                <Value>{activeShift?.date || new Date().toLocaleDateString("en-IN")}</Value>
+                <Value>
+                  {activeShift?.date || new Date().toLocaleDateString("en-IN")}
+                </Value>
               </InfoRow>
 
               {shiftBelongsHere && (
                 <ShiftRunningBanner>
                   <span className="dot" />
-                  Shift Running — Cashier&nbsp;<strong>{activeShift.CashierID}</strong>
+                  Shift Running — Cashier&nbsp;
+                  <strong>{activeShift.CashierID}</strong>
                 </ShiftRunningBanner>
               )}
 
@@ -1460,14 +1677,30 @@ export default function CentralCashCounter() {
               <Title>{activeMenuItem}</Title>
 
               {/* ══════════════ RECEIPT / PAYMENT PANEL ══════════════ */}
-              {activeMenuItem === "Receipt / Payment" && (() => {
-                const rpFilteredRecords = (Array.isArray(rpRecords) ? rpRecords : []).filter((r) => {
-                  const t = rpSearchTerm.toLowerCase();
-                  if (!t) return true;
-                  return (
-                    (r.account_head_details?.name || r.account_head || "").toLowerCase().includes(t) ||
-                    (r.voucher_no || "").toLowerCase().includes(t) ||
-                    (r.description?.patient_name || r.description?.description || "").toLowerCase().includes(t)
+              {activeMenuItem === "Receipt / Payment" &&
+                (() => {
+                  const rpFilteredRecords = (
+                    Array.isArray(rpRecords) ? rpRecords : []
+                  ).filter((r) => {
+                    const t = rpSearchTerm.toLowerCase();
+                    if (!t) return true;
+                    return (
+                      (r.account_head_details?.name || r.account_head || "")
+                        .toLowerCase()
+                        .includes(t) ||
+                      (r.voucher_no || "").toLowerCase().includes(t) ||
+                      (
+                        r.description?.patient_name ||
+                        r.description?.description ||
+                        ""
+                      )
+                        .toLowerCase()
+                        .includes(t)
+                    );
+                  });
+                  const rpDisplayed = rpFilteredRecords.slice(
+                    0,
+                    parseInt(rpShowEntries, 10),
                   );
                 });
                 const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
@@ -1481,9 +1714,10 @@ export default function CentralCashCounter() {
                       <button
                         onClick={() => setRpShowVoucherForm(prev => !prev)}
                         style={{
-                          background:"#f97316", color:"white", border:"none",
-                          borderRadius:4, padding:"8px 16px", fontSize:14,
-                          fontWeight:500, cursor:"pointer",
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: 10,
+                          marginBottom: 16,
                         }}
                       >
                         {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
@@ -1667,9 +1901,9 @@ export default function CentralCashCounter() {
                                     title="Print"
                                     onClick={() => setRpPrintVoucher(r)}
                                     style={{
-                                      background:"#0d9488", color:"white", border:"none",
-                                      padding:"5px 8px", borderRadius:4, cursor:"pointer",
-                                      display:"flex", alignItems:"center",
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: "#374151",
                                     }}
                                   >
                                     🖨️
@@ -1681,14 +1915,42 @@ export default function CentralCashCounter() {
                                         console.log("Delete voucher:", r.voucher_no);
                                       }
                                     }}
+                                  />
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <label
                                     style={{
-                                      background:"#dc2626", color:"white", border:"none",
-                                      padding:"5px 8px", borderRadius:4, cursor:"pointer",
-                                      display:"flex", alignItems:"center",
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: "#374151",
                                     }}
                                   >
-                                    🗑️
-                                  </button>
+                                    Room No
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Enter room no"
+                                    value={rpDescFields.room_no || ""}
+                                    onChange={(e) =>
+                                      setRpDescFields((p) => ({
+                                        ...p,
+                                        room_no: e.target.value,
+                                      }))
+                                    }
+                                    style={{
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: 4,
+                                      padding: "8px 12px",
+                                      fontSize: 14,
+                                      minWidth: 120,
+                                    }}
+                                  />
                                 </div>
                               </TableCell>
                             </tr>
@@ -1758,15 +2020,219 @@ export default function CentralCashCounter() {
                               onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
                               disabled={rpVoucherLoading}
                               style={{
-                                background: "#0d9488", color: "white", border: "none",
-                                borderRadius: 4, padding: "8px 18px", fontSize: 13,
-                                fontWeight: 600, cursor: "pointer", display: "flex",
-                                alignItems: "center", gap: 6,
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 4,
                               }}
                             >
-                              {rpVoucherLoading ? "⏳" : "🔍"} Fetch
-                            </button>
+                              <label style={{ fontSize: 13 }}>&nbsp;</label>
+                              <Button
+                                onClick={rpHandleSave}
+                                disabled={rpSaving}
+                                style={{ gap: 6 }}
+                              >
+                                {rpSaving ? <LoadingSpinner /> : "💾"}
+                                Save
+                              </Button>
+                            </div>
                           </div>
+                        </div>
+                      )}{" "}
+                      {/* end rpShowVoucherForm */}
+                      {/* Table controls */}
+                      <TableControls>
+                        <ControlGroup>
+                          <span>Show up to</span>
+                          <Select
+                            value={rpShowEntries}
+                            onChange={(e) => setRpShowEntries(e.target.value)}
+                          >
+                            {["10", "25", "50", "100"].map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </Select>
+                        </ControlGroup>
+                        <SearchWrapper>
+                          <span>Search:</span>
+                          <SearchInputWrapper>
+                            <SearchInput
+                              type="text"
+                              placeholder="Patient Name"
+                              value={rpSearchTerm}
+                              onChange={(e) => setRpSearchTerm(e.target.value)}
+                            />
+                            <MicButton>
+                              <Mic size={14} />
+                            </MicButton>
+                          </SearchInputWrapper>
+                        </SearchWrapper>
+                      </TableControls>
+                      {/* Table */}
+                      <Table>
+                        <thead>
+                          <tr>
+                            <TableHeader>Account Name ↕</TableHeader>
+                            <TableHeader>Voucher ↕</TableHeader>
+                            <TableHeader>Receipts ↕</TableHeader>
+                            <TableHeader>Payments ↕</TableHeader>
+                            <TableHeader>Description ↕</TableHeader>
+                            <TableHeader>Action</TableHeader>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rpLoading ? (
+                            <tr>
+                              <TableCell center muted colSpan={6}>
+                                Loading...
+                              </TableCell>
+                            </tr>
+                          ) : rpDisplayed.length === 0 ? (
+                            <tr>
+                              <TableCell center muted colSpan={6}>
+                                No data available in table
+                              </TableCell>
+                            </tr>
+                          ) : (
+                            rpDisplayed.map((r, idx) => (
+                              <tr key={r._id || r.voucher_no || idx}>
+                                <TableCell>
+                                  {r.account_head_details?.name ||
+                                    r.account_head_name ||
+                                    r.account_head ||
+                                    "—"}
+                                </TableCell>
+                                <TableCell>{r.voucher_no || "—"}</TableCell>
+                                <TableCell>
+                                  ₹
+                                  {r.receipt_type === "Receipt"
+                                    ? parseFloat(r.amount || 0).toLocaleString(
+                                        "en-IN",
+                                        { minimumFractionDigits: 2 },
+                                      )
+                                    : "0.00"}
+                                </TableCell>
+                                <TableCell>
+                                  ₹
+                                  {r.receipt_type === "Payment"
+                                    ? parseFloat(r.amount || 0).toLocaleString(
+                                        "en-IN",
+                                        { minimumFractionDigits: 2 },
+                                      )
+                                    : "0.00"}
+                                </TableCell>
+                                <TableCell>
+                                  {r.description
+                                    ? typeof r.description === "object"
+                                      ? Object.values(r.description)
+                                          .filter(Boolean)
+                                          .join(", ") || "—"
+                                      : r.description
+                                    : "—"}
+                                </TableCell>
+                                <TableCell center>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 6,
+                                      justifyContent: "center",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <button
+                                      title="Print"
+                                      onClick={() => setRpPrintVoucher(r)}
+                                      style={{
+                                        background: "#0d9488",
+                                        color: "white",
+                                        border: "none",
+                                        padding: "5px 8px",
+                                        borderRadius: 4,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      🖨️
+                                    </button>
+                                    <button
+                                      title="Delete"
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            `Delete voucher ${r.voucher_no}?`,
+                                          )
+                                        ) {
+                                          // TODO: call delete API
+                                          console.log(
+                                            "Delete voucher:",
+                                            r.voucher_no,
+                                          );
+                                        }
+                                      }}
+                                      style={{
+                                        background: "#dc2626",
+                                        color: "white",
+                                        border: "none",
+                                        padding: "5px 8px",
+                                        borderRadius: 4,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </TableCell>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </Table>
+                      <Pagination>
+                        <div>
+                          Showing {rpDisplayed.length} of{" "}
+                          {rpFilteredRecords.length} entries
+                        </div>
+                        <div>
+                          <PaginationButton style={{ marginRight: 8 }}>
+                            Previous
+                          </PaginationButton>
+                          <PaginationButton>Next</PaginationButton>
+                        </div>
+                      </Pagination>
+                      {/* ══ Previous Vouchers Modal ══ */}
+                      {rpShowVoucherModal && (
+                        <ModalOverlay
+                          onClick={() => setRpShowVoucherModal(false)}
+                        >
+                          <ModalContainer
+                            style={{
+                              maxWidth: 1000,
+                              borderRadius: 8,
+                              maxHeight: "92vh",
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* Header */}
+                            <ModalHeader
+                              style={{
+                                background: "#0d6e6e",
+                                borderRadius: "8px 8px 0 0",
+                                padding: "14px 20px",
+                              }}
+                            >
+                              <ModalTitle style={{ fontSize: 16 }}>
+                                Previous Vouchers
+                              </ModalTitle>
+                              <CloseButton
+                                onClick={() => setRpShowVoucherModal(false)}
+                              >
+                                ✕
+                              </CloseButton>
+                            </ModalHeader>
 
                           <ModalBody style={{ padding: "14px 20px", overflowX: "auto" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1777,18 +2243,94 @@ export default function CentralCashCounter() {
                                   onChange={(e) => { setPvShowEntries(Number(e.target.value)); setPvPage(1); }}
                                   style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "5px 8px", fontSize: 13 }}
                                 >
-                                  {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
+                                  To Date
+                                </label>
+                                <input
+                                  type="date"
+                                  value={pvToDate}
+                                  onChange={(e) => setPvToDate(e.target.value)}
+                                  style={{
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: 4,
+                                    padding: "7px 10px",
+                                    fontSize: 13,
+                                  }}
+                                />
                               </div>
-                              <button
-                                onClick={pvExportExcel}
+                              {/* Voucher Type */}
+                              <div
                                 style={{
-                                  background: "#f97316", color: "white", border: "none",
-                                  borderRadius: 4, padding: "7px 16px", fontSize: 13,
-                                  fontWeight: 600, cursor: "pointer",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 4,
                                 }}
                               >
-                                📊 Excel export
+                                <label
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    color: "#374151",
+                                  }}
+                                >
+                                  Voucher Type
+                                </label>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 14,
+                                    alignItems: "center",
+                                    padding: "7px 0",
+                                  }}
+                                >
+                                  {["All", "Receipt", "Payment"].map((t) => (
+                                    <label
+                                      key={t}
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 5,
+                                        fontSize: 13,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name="pvVoucherType"
+                                        value={t}
+                                        checked={pvVoucherType === t}
+                                        onChange={() => setPvVoucherType(t)}
+                                        style={{ accentColor: "#0d9488" }}
+                                      />
+                                      {t}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* Fetch button */}
+                              <button
+                                onClick={() =>
+                                  pvFetchVouchers(
+                                    pvFromDate,
+                                    pvToDate,
+                                    pvVoucherType,
+                                  )
+                                }
+                                disabled={rpVoucherLoading}
+                                style={{
+                                  background: "#0d9488",
+                                  color: "white",
+                                  border: "none",
+                                  borderRadius: 4,
+                                  padding: "8px 18px",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                {rpVoucherLoading ? "⏳" : "🔍"} Fetch
                               </button>
                             </div>
 
@@ -1877,6 +2419,22 @@ export default function CentralCashCounter() {
                                     )}
                                   </Table>
                                 </div>
+                                <button
+                                  onClick={pvExportExcel}
+                                  style={{
+                                    background: "#f97316",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: 4,
+                                    padding: "7px 16px",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  📊 Excel export
+                                </button>
+                              </div>
 
                                 {pvData.length > 0 && (() => {
                                   const totalPages = Math.ceil(pvData.length / pvShowEntries);
@@ -1909,25 +2467,286 @@ export default function CentralCashCounter() {
                                               <button style={btnStyle(pvPage === p)} onClick={() => setPvPage(p)}>{p}</button>
                                             </React.Fragment>
                                           );
-                                        })}
-                                        <button style={btnStyle(false)} disabled={pvPage === totalPages} onClick={() => setPvPage(p => p + 1)}>Next</button>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                              </>
-                            )}
-                          </ModalBody>
+                                          const pageData = pvData.slice(
+                                            (pvPage - 1) * pvShowEntries,
+                                            pvPage * pvShowEntries,
+                                          );
+                                          if (pvData.length === 0) {
+                                            return (
+                                              <tr>
+                                                <TableCell
+                                                  center
+                                                  muted
+                                                  colSpan={9}
+                                                >
+                                                  No vouchers found. Adjust
+                                                  filters and click Fetch.
+                                                </TableCell>
+                                              </tr>
+                                            );
+                                          }
+                                          return pageData.map((r, idx) => {
+                                            const d = r.voucher_date
+                                              ? new Date(r.voucher_date)
+                                              : null;
+                                            const dateStr = d
+                                              ? d.toLocaleDateString("en-IN", {
+                                                  day: "2-digit",
+                                                  month: "2-digit",
+                                                  year: "numeric",
+                                                })
+                                              : "—";
+                                            const timeStr = d
+                                              ? d.toLocaleTimeString("en-IN", {
+                                                  hour: "2-digit",
+                                                  minute: "2-digit",
+                                                  second: "2-digit",
+                                                })
+                                              : "—";
+                                            const desc = r.description
+                                              ? typeof r.description ===
+                                                "object"
+                                                ? Object.values(r.description)
+                                                    .filter(Boolean)
+                                                    .join(", ") || "—"
+                                                : r.description
+                                              : "—";
+                                            const isReceipt =
+                                              r.receipt_type === "Receipt";
+                                            const amt = parseFloat(
+                                              r.amount || 0,
+                                            ).toLocaleString("en-IN", {
+                                              minimumFractionDigits: 2,
+                                            });
+                                            return (
+                                              <tr
+                                                key={
+                                                  r._id || r.voucher_no || idx
+                                                }
+                                                style={{
+                                                  background:
+                                                    idx % 2 === 0
+                                                      ? "#fff"
+                                                      : "#f9fafb",
+                                                }}
+                                              >
+                                                <TableCell>{dateStr}</TableCell>
+                                                <TableCell>{timeStr}</TableCell>
+                                                <TableCell>
+                                                  {r.shiftno ||
+                                                    r.shift_reference ||
+                                                    "—"}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {r.account_head_details
+                                                    ?.name ||
+                                                    r.account_head_name ||
+                                                    r.account_head ||
+                                                    "REMOTE"}
+                                                </TableCell>
+                                                <TableCell>
+                                                  {r.voucher_no || "—"}
+                                                </TableCell>
+                                                <TableCell>
+                                                  ₹ {isReceipt ? amt : "0.00"}
+                                                </TableCell>
+                                                <TableCell>
+                                                  ₹ {!isReceipt ? amt : "0.00"}
+                                                </TableCell>
+                                                <TableCell>{desc}</TableCell>
+                                                <TableCell center>
+                                                  <button
+                                                    title="Print"
+                                                    onClick={() => {
+                                                      setRpShowVoucherModal(
+                                                        false,
+                                                      );
+                                                      setRpPrintVoucher(r);
+                                                    }}
+                                                    style={{
+                                                      background: "#0d9488",
+                                                      color: "white",
+                                                      border: "none",
+                                                      padding: "5px 8px",
+                                                      borderRadius: 4,
+                                                      cursor: "pointer",
+                                                    }}
+                                                  >
+                                                    🖨️
+                                                  </button>
+                                                </TableCell>
+                                              </tr>
+                                            );
+                                          });
+                                        })()}
+                                      </tbody>
+                                      {/* Totals row */}
+                                      {pvData.length > 0 && (
+                                        <tfoot>
+                                          <tr
+                                            style={{
+                                              background: "#f3f4f6",
+                                              fontWeight: 700,
+                                            }}
+                                          >
+                                            <TableCell
+                                              colSpan={5}
+                                              style={{
+                                                textAlign: "right",
+                                                fontWeight: 700,
+                                              }}
+                                            >
+                                              Total:
+                                            </TableCell>
+                                            <TableCell
+                                              style={{ fontWeight: 700 }}
+                                            >
+                                              ₹{" "}
+                                              {pvTotalReceipt.toLocaleString(
+                                                "en-IN",
+                                                { minimumFractionDigits: 2 },
+                                              )}
+                                            </TableCell>
+                                            <TableCell
+                                              style={{ fontWeight: 700 }}
+                                            >
+                                              ₹{" "}
+                                              {pvTotalPayment.toLocaleString(
+                                                "en-IN",
+                                                { minimumFractionDigits: 2 },
+                                              )}
+                                            </TableCell>
+                                            <TableCell colSpan={2} />
+                                          </tr>
+                                        </tfoot>
+                                      )}
+                                    </Table>
+                                  </div>
 
-                          <ModalFooterBar>
-                            <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
-                          </ModalFooterBar>
-                        </ModalContainer>
-                      </ModalOverlay>
-                    )}
-                  </>
-                );
-              })()}
+                                  {/* Pagination */}
+                                  {pvData.length > 0 &&
+                                    (() => {
+                                      const totalPages = Math.ceil(
+                                        pvData.length / pvShowEntries,
+                                      );
+                                      const startEntry =
+                                        (pvPage - 1) * pvShowEntries + 1;
+                                      const endEntry = Math.min(
+                                        pvPage * pvShowEntries,
+                                        pvData.length,
+                                      );
+                                      const pageNums = [];
+                                      for (let i = 1; i <= totalPages; i++)
+                                        pageNums.push(i);
+                                      const visiblePages = pageNums.filter(
+                                        (p) =>
+                                          p === 1 ||
+                                          p === totalPages ||
+                                          Math.abs(p - pvPage) <= 1,
+                                      );
+                                      const btnStyle = (active) => ({
+                                        padding: "5px 10px",
+                                        border: "1px solid #d1d5db",
+                                        borderRadius: 4,
+                                        fontSize: 13,
+                                        cursor: "pointer",
+                                        background: active
+                                          ? "#0d9488"
+                                          : "white",
+                                        color: active ? "white" : "#374151",
+                                        fontWeight: active ? 700 : 400,
+                                      });
+                                      return (
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                            marginTop: 12,
+                                            flexWrap: "wrap",
+                                            gap: 8,
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              fontSize: 13,
+                                              color: "#6b7280",
+                                            }}
+                                          >
+                                            Showing {startEntry} to {endEntry}{" "}
+                                            of {pvData.length} entries
+                                          </span>
+                                          <div
+                                            style={{
+                                              display: "flex",
+                                              gap: 4,
+                                              flexWrap: "wrap",
+                                            }}
+                                          >
+                                            <button
+                                              style={btnStyle(false)}
+                                              disabled={pvPage === 1}
+                                              onClick={() =>
+                                                setPvPage((p) => p - 1)
+                                              }
+                                            >
+                                              Previous
+                                            </button>
+                                            {visiblePages.map((p, i) => {
+                                              const prev = visiblePages[i - 1];
+                                              return (
+                                                <React.Fragment key={p}>
+                                                  {prev && p - prev > 1 && (
+                                                    <span
+                                                      style={{
+                                                        padding: "5px 4px",
+                                                        fontSize: 13,
+                                                      }}
+                                                    >
+                                                      ...
+                                                    </span>
+                                                  )}
+                                                  <button
+                                                    style={btnStyle(
+                                                      pvPage === p,
+                                                    )}
+                                                    onClick={() => setPvPage(p)}
+                                                  >
+                                                    {p}
+                                                  </button>
+                                                </React.Fragment>
+                                              );
+                                            })}
+                                            <button
+                                              style={btnStyle(false)}
+                                              disabled={pvPage === totalPages}
+                                              onClick={() =>
+                                                setPvPage((p) => p + 1)
+                                              }
+                                            >
+                                              Next
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+                                </>
+                              )}
+                            </ModalBody>
+
+                            <ModalFooterBar>
+                              <CancelButton
+                                onClick={() => setRpShowVoucherModal(false)}
+                              >
+                                Close
+                              </CancelButton>
+                            </ModalFooterBar>
+                          </ModalContainer>
+                        </ModalOverlay>
+                      )}
+                    </>
+                  );
+                })()}
               {/* ══════════════ END RECEIPT / PAYMENT PANEL ══════════════ */}
 
               {activeMenuItem !== "Receipt / Payment" && (
@@ -2429,7 +3248,7 @@ export default function CentralCashCounter() {
                   <div key={label} style={{ display: "flex", fontFamily: "'Courier New', monospace", fontSize: 13, marginBottom: 6 }}>
                     <span style={{ width: 130, fontWeight: 600 }}>{label}</span>
                     <span style={{ width: 20 }}>:</span>
-                    <span>{value}</span>
+                    <span>{accountName}</span>
                   </div>
                 ))}
                 <hr style={{ border: "none", borderTop: "1px solid #ccc", margin: "12px 0" }} />

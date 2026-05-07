@@ -440,6 +440,11 @@ const BillsReport = () => {
   const [deleteBill, setDeleteBill] = useState(null);
   const [deleteRemarks, setDeleteRemarks] = useState("");
   const [deleteRemarksErr, setDeleteRemarksErr] = useState(false);
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-IBE-RW");
+  const canDelete = allowedActions.includes("HMS-P-IBD-RW");
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -803,6 +808,7 @@ const BillsReport = () => {
                   <Th>Billed By</Th>
                   <Th>Edited By</Th>
                   <RemarksTh>Remarks</RemarksTh>
+                  <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
               </thead>
@@ -849,6 +855,7 @@ const BillsReport = () => {
                     <Td>{bill.created_by}</Td>
                     <Td>{bill.lastmodified_by}</Td>
                     <RemarksTd>{bill.editRemarks}</RemarksTd>
+                    <Td>{bill.paymentStatus}</Td>
                     <Td>
                       <ActionGroup>
                         <PrintIcon
@@ -863,15 +870,23 @@ const BillsReport = () => {
                         >
                           👁
                         </ViewIcon>
-                        <EditIcon onClick={() => handleEdit(bill)} title="Edit">
-                          ✏️
-                        </EditIcon>
-                        <DeleteIcon
-                          onClick={() => handleDelete(bill)}
-                          title="Delete"
-                        >
-                          🗑️
-                        </DeleteIcon>
+                        {canEdit && (
+                          <EditIcon
+                            onClick={() => handleEdit(bill)}
+                            title="Edit"
+                          >
+                            ✏️
+                          </EditIcon>
+                        )}
+
+                        {canDelete && (
+                          <DeleteIcon
+                            onClick={() => handleDelete(bill)}
+                            title="Delete"
+                          >
+                            🗑️
+                          </DeleteIcon>
+                        )}
                       </ActionGroup>
                     </Td>
                   </Tr>

@@ -7,7 +7,8 @@ import { useNavigate } from "react-router-dom"
 import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
-import QRRegistrationModal from "./QRRegistrationModal"; // Keeping for backward compatibility or removal
+import QRRegistrationModal from "./QRRegistrationModal";
+import QRRegistrationSidebar from "./QRRegistrationSidebar";
 
 
 // Modal component for search results
@@ -298,13 +299,11 @@ const PatientRegistrationForm = () => {
     const [selectedVisit, setSelectedVisit] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
+    const [unusedQRCount, setUnusedQRCount] = useState(0);
 
-    // Handle data from QR scan
     const handleQRDataReceived = (data) => {
         setPatient(prev => {
             let updated = { ...prev, ...data };
-
-            // Recalculate name
             if (data.firstName || data.lastName) {
                 const f = data.firstName !== undefined ? data.firstName : prev.firstName;
                 const l = data.lastName !== undefined ? data.lastName : prev.lastName;
@@ -312,15 +311,23 @@ const PatientRegistrationForm = () => {
                 updated.lastName = l;
                 updated.name = `${f} ${l}`.trim();
             }
-
-            // Calculate Age if DOB is present
-            if (data.dob) {
-                updated.age = calculateAgeFromDOB(data.dob);
-            }
-
+            if (data.dob) updated.age = calculateAgeFromDOB(data.dob);
             return updated;
         });
     };
+
+    // Fetch unused QR count once on mount
+    useEffect(() => {
+        const fetchCount = async () => {
+            try {
+                const response = await apiRequest(`${Hmsbaseurl}get-pending-qr-registrations/?status=pending`, "GET");
+                if (response.success && Array.isArray(response.data)) {
+                    setUnusedQRCount(response.data.length);
+                }
+            } catch (e) { console.error(e); }
+        };
+        fetchCount();
+    }, []);
 
 
     // Fetch stats
@@ -1074,9 +1081,38 @@ const PatientRegistrationForm = () => {
                             <List size={20} />
                             <span>Visited List</span>
                         </StatsButton>
-                        <StatsButton onClick={() => setShowQRModal(true)} style={{ background: 'white', color: '#0d9488', border: '1px solid #ccfbf1', height: '40px' }}>
+                        <StatsButton 
+                            onClick={() => setShowQRModal(true)} 
+                            style={{ 
+                                background: 'white', 
+                                color: '#0d9488', 
+                                border: '1px solid #ccfbf1', 
+                                height: '40px',
+                                position: 'relative'
+                            }}
+                        >
                             <QrCode size={20} />
                             <span>QR Scan</span>
+                            {unusedQRCount > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-8px',
+                                    right: '-8px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '20px',
+                                    height: '20px',
+                                    fontSize: '11px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    {unusedQRCount}
+                                </span>
+                            )}
                         </StatsButton>
                     </div>
                     {lastUhid && <LastUhidBadge>Last Created UHID: {lastUhid}</LastUhidBadge>}
@@ -1888,6 +1924,10 @@ const PatientRegistrationForm = () => {
 
                         </FormGrid>
                     </DoctorContainer >
+                    
+                    <div style={{ marginTop: '24px' }}>
+                        <QRRegistrationSidebar onDataReceived={handleQRDataReceived} />
+                    </div>
                 </SidebarWrapper>
 
             </MainContentWrapper >

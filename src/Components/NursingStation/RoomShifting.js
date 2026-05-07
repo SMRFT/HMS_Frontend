@@ -412,8 +412,8 @@ const RC = styled.div`
   border: 1.5px solid ${p => rC[p.s]?.br || T.gray200};
   border-radius: 7px;
   overflow: hidden;
-  cursor: ${p => ['occupied','booked','reserved','not cleaned'].includes(p.s) ? 'not-allowed' : 'pointer'};
-  opacity: ${p => ['occupied','booked','reserved','not cleaned'].includes(p.s) ? 0.7 : 1};
+  cursor: ${p => (p.s === 'maintenance' || p.noavail) ? 'not-allowed' : 'pointer'};
+  opacity: ${p => (p.s === 'maintenance' || p.noavail) ? 0.7 : 1};
   background: ${p => rC[p.s]?.bg || T.white};
   transition: box-shadow .15s, transform .15s;
   &:hover:not([style*="not-allowed"]) { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
@@ -463,13 +463,16 @@ const NR = styled.div`text-align: center; padding: 30px; color: ${T.gray400}; fo
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
-  const s = beds.map(b => (b.status || "").toLowerCase());
-  if (s.every(x => x === "maintenance")) return "maintenance";
-  if (s.every(x => x === "occupied")) return "occupied";
-  if (s.every(x => x === "reserved" || x === "booked")) return "booked";
-  if (s.every(x => x === "occupied" || x === "reserved" || x === "booked")) return "occupied";
-  if (s.some(x => x === "occupied" || x === "reserved" || x === "booked") && s.some(x => x === "available" || x === "available - not cleaned")) return "partial";
-  if (s.every(x => x === "available - not cleaned")) return "not cleaned";
+  const s = beds.map(b => (b.status || ""));
+  if (s.every(x => x === "Maintenance"))             return "maintenance";
+  if (s.every(x => x === "Occupied"))                return "occupied";
+  if (s.every(x => x === "Reserved"))                return "reserved";
+  if (s.every(x => x === "Available - Not Cleaned")) return "not cleaned";
+  // mixed occupied + available/not-cleaned → partial
+  if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
+  if (s.some(x => x === "Occupied"))                 return "partial";
+  if (s.some(x => x === "Reserved"))                 return "reserved";
+  if (s.some(x => x === "Available - Not Cleaned"))  return "not cleaned";
   return "available";
 };
 
@@ -528,19 +531,33 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   const [selRoom,  setSelRoom]  = useState(null);
   const [filter,   setFilter]   = useState({ room_number: "", block: "", floor: "" });
 
-  const fetchRooms = async (fo = {}) => {
-    setLoading(true);
-    try {
-      const f = { ...filter, ...fo };
-      const p = new URLSearchParams();
-      if (f.room_number) p.append("room_number", f.room_number);
-      if (f.block)       p.append("block",       f.block);
-      if (f.floor)       p.append("floor",       f.floor);
-      const res = await apiRequest(`${baseUrl}search-rooms/${p.toString() ? `?${p}` : ""}`, "GET");
-      setAllRooms(Array.isArray(res) ? res : res.data || []);
-    } catch { setAllRooms([]); }
-    finally { setLoading(false); }
-  };
+const fetchRooms = async (fo = {}) => {
+  setLoading(true);
+  try {
+    const f = { ...filter, ...fo };
+    const p = new URLSearchParams();
+    if (f.room_number) p.append("room_number", f.room_number);
+    if (f.block)       p.append("block",       f.block);
+    if (f.floor)       p.append("floor",       f.floor);
+    const res = await apiRequest(
+      `${baseUrl}admission-room-search/${p.toString() ? `?${p}` : ""}`,
+      "GET"
+    );
+    const rooms = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data?.data)
+      ? res.data.data
+      : Array.isArray(res?.data)
+      ? res.data
+      : [];
+    setAllRooms(rooms);
+  } catch (err) {
+    console.error("fetchRooms error:", err);
+    setAllRooms([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { fetchRooms(); }, []);
 
@@ -556,7 +573,9 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   })();
 
   const handleRoomClick = room => {
-    if (["occupied","maintenance","booked","not cleaned","reserved"].includes(getRoomStatus(room.beds))) return;
+    if (getRoomStatus(room.beds) === "maintenance") return;
+    const hasAvail = (room.beds||[]).some(b => b.status === "Available");
+    if (!hasAvail) return;
     setSelRoom(room); setShowBed(true);
   };
 
@@ -616,7 +635,7 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
                       {rooms.map(room => {
                         const s = getRoomStatus(room.beds);
                         return (
-                          <RC key={room.room_number} s={s} onClick={() => handleRoomClick(room)}>
+                          <RC key={room.room_number} s={s} noavail={!(room.beds||[]).some(b=>b.status==="Available")?1:0} onClick={() => handleRoomClick(room)}>
                             <RCT s={s}>
                               <RNum>{room.room_number}</RNum>
                               <RSP s={s}>{s === "partial" ? "Partial" : s === "not cleaned" ? "Not Cleaned" : s.charAt(0).toUpperCase() + s.slice(1)}</RSP>

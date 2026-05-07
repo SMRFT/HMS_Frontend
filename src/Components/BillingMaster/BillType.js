@@ -225,20 +225,16 @@ const BillType = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [filters, setFilters] = useState({ search: "" });
-
-  // All investigation categories with their items
-  // [{ billTypeNo, BillType, Items: [{ itemName, "10": "1200", ... }] }]
   const [invCategories, setInvCategories] = useState([]);
-
-  // Prices being set for this bill type: { "<invBillTypeNo>:<itemName>": "price" }
   const [itemPrices, setItemPrices] = useState({});
-
-  // Which investigation category is selected in the dropdown
   const [selectedInvCat, setSelectedInvCat] = useState("");
-
-  // Track original category when editing, so backend can remove old prices if category changed
   const [originalInvCat, setOriginalInvCat] = useState("");
   const [viewRec, setViewRec] = useState(null);
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-BTE-RW");
+  const canDelete = allowedActions.includes("HMS-P-BTD-RW");
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -476,22 +472,26 @@ const BillType = () => {
                       >
                         View
                       </button>
-                      <button
-                        style={{
-                          ...css.btn("ghost"),
-                          padding: "4px 8px",
-                          marginRight: 5,
-                        }}
-                        onClick={() => openEdit(rec)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        style={{ ...css.btn("danger"), padding: "4px 8px" }}
-                        onClick={() => handleDelete(rec.bill_type)}
-                      >
-                        Delete
-                      </button>
+                      {canEdit && (
+                        <button
+                          style={{
+                            ...css.btn("ghost"),
+                            padding: "4px 8px",
+                            marginRight: 5,
+                          }}
+                          onClick={() => openEdit(rec)}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          style={{ ...css.btn("danger"), padding: "4px 8px" }}
+                          onClick={() => handleDelete(rec.bill_type)}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </Td>
                   </Tr>
                 ))
