@@ -750,6 +750,11 @@ const SalesReturn = () => {
       return;
     }
 
+    const totalReturnAmount = billItems
+      .filter(item => Number(item.returnQty) > 0)
+      .reduce((sum, item) =>
+        sum + parseFloat(item.returnQty || 0) * parseFloat(item.price ?? item.rate ?? 0), 0);
+
     const medicine_particulars = billItems
       .filter(item => Number(item.returnQty) > 0)
       .map(item => ({
@@ -763,6 +768,7 @@ const SalesReturn = () => {
     const payload = {
       bill_no:               form.billNumber,
       uhid:                  form.uhidNo,
+      return_amount:         totalReturnAmount.toFixed(2),
       medicine_particulars,
     };
 
@@ -1072,6 +1078,9 @@ const SalesReturn = () => {
                           <BillItemsTh>Batch No</BillItemsTh>
                           <BillItemsTh>Qty</BillItemsTh>
                           <BillItemsTh>Return Qty</BillItemsTh>
+                          <BillItemsTh>Unit Price (₹)</BillItemsTh>
+                          <BillItemsTh>Return Qty</BillItemsTh>
+                          <BillItemsTh>Return Amount (₹)</BillItemsTh>
                         </tr>
                       </thead>
                       <tbody>
@@ -1081,6 +1090,7 @@ const SalesReturn = () => {
                             <BillItemsTd>{item.item_name || "—"}</BillItemsTd>
                             <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
                             <BillItemsTd>{item.qty ?? "—"}</BillItemsTd>
+                         // <BillItemsTd>{parseFloat(item.price ?? item.rate ?? 0).toFixed(2)}</BillItemsTd>
                             <BillItemsTd>
                               <ReturnQtyInput
                                 type="number"

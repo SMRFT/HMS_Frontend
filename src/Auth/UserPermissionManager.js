@@ -696,10 +696,12 @@ const UserPermissionManager = () => {
   }, []);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp =>
-      (emp.employeeName?.toLowerCase() || "").includes(searchTerm?.toLowerCase() || "") ||
-      (emp.employeeId?.toLowerCase() || "").includes(searchTerm?.toLowerCase() || "")
-    );
+    return employees.filter(emp => {
+      const name = emp.employeeName?.toLowerCase() || "";
+      const id = emp.employeeId?.toString().toLowerCase() || "";
+      const term = searchTerm?.toLowerCase() || "";
+      return name.includes(term) || id.includes(term);
+    });
   }, [employees, searchTerm]);
 
   useEffect(() => {
@@ -717,11 +719,11 @@ const UserPermissionManager = () => {
         if (response && response.hms_pages) {
           setPermissions(response.hms_pages);
           setRoles(response.roles || []);
-          
+
           // Infer sub-permissions and identify legacy strings
           const sub = {};
           const managedStrings = new Set();
-          
+
           // Normalized mapping of ALL incoming permissions
           let allIncomingMapping = {};
           if (response.allowed_pages && !Array.isArray(response.allowed_pages) && typeof response.allowed_pages === 'object') {
@@ -743,7 +745,7 @@ const UserPermissionManager = () => {
 
               // Track all values that are "managed" by sidebar mapping
               Object.values(pMap).forEach(v => managedStrings.add(String(v).trim()));
-              
+
               const activeKeys = [];
               Object.entries(pMap).forEach(([k, v]) => {
                 const normalizedV = String(v).trim();
@@ -768,7 +770,7 @@ const UserPermissionManager = () => {
               legacy[k] = v;
             }
           });
-          
+
           setPermissions(Array.from(discoveredPageIds));
           setSelectedSubPerms(sub);
           setLegacyPermissions(legacy);
@@ -792,38 +794,38 @@ const UserPermissionManager = () => {
 
   const togglePermission = (pageId, subKey = null) => {
     if (pageId == null) return;
-    
+
     if (subKey) {
-        setSelectedSubPerms(prev => {
-            const current = prev[pageId] || [];
-            const next = current.includes(subKey) 
-                ? current.filter(k => k !== subKey)
-                : [...current, subKey];
-            return { ...prev, [pageId]: next };
-        });
-        return;
+      setSelectedSubPerms(prev => {
+        const current = prev[pageId] || [];
+        const next = current.includes(subKey)
+          ? current.filter(k => k !== subKey)
+          : [...current, subKey];
+        return { ...prev, [pageId]: next };
+      });
+      return;
     }
 
     setPermissions(prev => {
       if (prev.includes(pageId)) {
-          // If turning off page, also clear sub-permissions
-          setSelectedSubPerms(s => {
-              const next = { ...s };
-              delete next[pageId];
-              return next;
-          });
-          return prev.filter(p => p !== pageId);
+        // If turning off page, also clear sub-permissions
+        setSelectedSubPerms(s => {
+          const next = { ...s };
+          delete next[pageId];
+          return next;
+        });
+        return prev.filter(p => p !== pageId);
       }
-      
+
       // If turning on page, enable all its defined sub-permissions by default
       const pageInfo = sidebarData.flatMap(g => g.pages).find(p => p.page_id === pageId);
       if (pageInfo && pageInfo.permissions && typeof pageInfo.permissions === 'object') {
-          setSelectedSubPerms(s => ({
-              ...s,
-              [pageId]: Object.keys(pageInfo.permissions)
-          }));
+        setSelectedSubPerms(s => ({
+          ...s,
+          [pageId]: Object.keys(pageInfo.permissions)
+        }));
       }
-      
+
       return [...prev, pageId];
     });
   };
@@ -844,23 +846,23 @@ const UserPermissionManager = () => {
           if (page.page_id != null && activePageIds.includes(page.page_id)) {
             // Collect outlet codes for active pages
             if (page.outlet_code) {
-                hmsOutlets.add(page.outlet_code);
+              hmsOutlets.add(page.outlet_code);
             }
 
             if (page.permissions && typeof page.permissions === 'object' && !Array.isArray(page.permissions)) {
-                // Granular: only add key-value pairs for active keys selected in UI
-                const activeKeys = selectedSubPerms[page.page_id] || [];
-                activeKeys.forEach(k => {
-                    if (page.permissions[k]) {
-                        allowedPagesObj[k] = page.permissions[k];
-                    }
-                });
+              // Granular: only add key-value pairs for active keys selected in UI
+              const activeKeys = selectedSubPerms[page.page_id] || [];
+              activeKeys.forEach(k => {
+                if (page.permissions[k]) {
+                  allowedPagesObj[k] = page.permissions[k];
+                }
+              });
             } else {
-                // Legacy Array or Multi-string: add all as value:value (or key:value if possible)
-                const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
-                permsArr.forEach(p => {
-                    allowedPagesObj[String(p)] = p;
-                });
+              // Legacy Array or Multi-string: add all as value:value (or key:value if possible)
+              const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
+              permsArr.forEach(p => {
+                allowedPagesObj[String(p)] = p;
+              });
             }
           }
         });
@@ -913,7 +915,9 @@ const UserPermissionManager = () => {
     const groups = {};
     Object.entries(groupedPermissions).forEach(([category, pages]) => {
       const filteredPages = pages.filter(page => {
-        const matchesSearch = (page.pageName || "").toLowerCase().includes(term) || (page.route || "").toLowerCase().includes(term);
+        const pageName = page.pageName || "";
+        const route = page.route || "";
+        const matchesSearch = pageName.toLowerCase().includes(term) || route.toLowerCase().includes(term);
         if (!matchesSearch) return false;
 
         const isEnabled = permissions.includes(page.page_id);
@@ -973,7 +977,7 @@ const UserPermissionManager = () => {
                   }}
                 >
                   <Avatar active={selectedEmpId === emp.employeeId}>
-                    {emp.employeeName?.charAt(0) || "U"}
+                    {emp.employeeName?.charAt(0) || "?"}
                   </Avatar>
                   <EmpInfo active={selectedEmpId === emp.employeeId}>
                     <h4>{emp.employeeName}</h4>
@@ -1007,17 +1011,17 @@ const UserPermissionManager = () => {
                 {!isLoadingPerms && (
                   <HeaderTools>
                     <SearchInputWrapper className="compact-search">
-                        <FiSearch />
-                        <input
-                            placeholder="Find pages or routes..."
-                            value={pageSearchTerm}
-                            onChange={(e) => setPageSearchTerm(e.target.value)}
-                        />
+                      <FiSearch />
+                      <input
+                        placeholder="Find pages or routes..."
+                        value={pageSearchTerm}
+                        onChange={(e) => setPageSearchTerm(e.target.value)}
+                      />
                     </SearchInputWrapper>
                     <FilterGroup>
-                        <FilterBtn active={pageStatusFilter === 'all'} onClick={() => setPageStatusFilter('all')}>All</FilterBtn>
-                        <FilterBtn active={pageStatusFilter === 'enabled'} onClick={() => setPageStatusFilter('enabled')}>Enabled</FilterBtn>
-                        <FilterBtn active={pageStatusFilter === 'disabled'} onClick={() => setPageStatusFilter('disabled')}>Disabled</FilterBtn>
+                      <FilterBtn active={pageStatusFilter === 'all'} onClick={() => setPageStatusFilter('all')}>All</FilterBtn>
+                      <FilterBtn active={pageStatusFilter === 'enabled'} onClick={() => setPageStatusFilter('enabled')}>Enabled</FilterBtn>
+                      <FilterBtn active={pageStatusFilter === 'disabled'} onClick={() => setPageStatusFilter('disabled')}>Disabled</FilterBtn>
                     </FilterGroup>
                   </HeaderTools>
                 )}
@@ -1038,70 +1042,70 @@ const UserPermissionManager = () => {
                   <>
 
                     {sortedCategories.length === 0 ? (
-                        <EmptyState>
-                            <div className="icon-wrapper" style={{ background: 'transparent', height: 40 }}><FiSearch /></div>
-                            <h4>No pages found</h4>
-                        </EmptyState>
+                      <EmptyState>
+                        <div className="icon-wrapper" style={{ background: 'transparent', height: 40 }}><FiSearch /></div>
+                        <h4>No pages found</h4>
+                      </EmptyState>
                     ) : (
-                        sortedCategories.map(category => (
-                            <div key={category} style={{ marginBottom: '32px' }}>
-                              <SectionTitle>{category}</SectionTitle>
-                              <PermissionsGrid>
-                                {filteredGroupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
-                                  const isActive = permissions.includes(page_id);
-                                  const subPermEntries = Object.keys(permissionsData || {});
-                                  
-                                  return (
-                                    <PermissionCard
-                                      key={`${pageName}-${page_id}`}
+                      sortedCategories.map(category => (
+                        <div key={category} style={{ marginBottom: '32px' }}>
+                          <SectionTitle>{category}</SectionTitle>
+                          <PermissionsGrid>
+                            {filteredGroupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
+                              const isActive = permissions.includes(page_id);
+                              const subPermEntries = Object.keys(permissionsData || {});
+
+                              return (
+                                <PermissionCard
+                                  key={`${pageName}-${page_id}`}
+                                  active={isActive}
+                                >
+                                  <CardHeader>
+                                    <PermLabel active={isActive}>
+                                      <div className="icon-box">
+                                        <FiActivity />
+                                      </div>
+                                      <div className="text-box">
+                                        <strong>{pageName}</strong>
+                                        <span>{route}</span>
+                                      </div>
+                                    </PermLabel>
+                                    <Switch
                                       active={isActive}
-                                    >
-                                        <CardHeader>
-                                            <PermLabel active={isActive}>
-                                                <div className="icon-box">
-                                                    <FiActivity />
-                                                </div>
-                                                <div className="text-box">
-                                                    <strong>{pageName}</strong>
-                                                    <span>{route}</span>
-                                                </div>
-                                            </PermLabel>
-                                            <Switch 
-                                                active={isActive} 
-                                                onClick={() => togglePermission(page_id)}
-                                            />
-                                        </CardHeader>
-        
-                                        {isActive && subPermEntries.length > 0 && (
-                                            <SubPermGrid>
-                                                {subPermEntries.map(k => {
-                                                    const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
-                                                    return (
-                                                        <SubToggle
-                                                            key={k}
-                                                            active={isSubActive}
-                                                            onClick={() => togglePermission(page_id, k)}
-                                                            title={`Toggle ${k} permission`}
-                                                        >
-                                                            {isSubActive && <FiCheck size={10} />}
-                                                            {k}
-                                                        </SubToggle>
-                                                    );
-                                                })}
-                                            </SubPermGrid>
-                                        )}
-                                        
-                                        {isActive && subPermEntries.length === 0 && (
-                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                                                No granular permissions defined for this page.
-                                            </div>
-                                        )}
-                                    </PermissionCard>
-                                  );
-                                })}
-                              </PermissionsGrid>
-                            </div>
-                        ))
+                                      onClick={() => togglePermission(page_id)}
+                                    />
+                                  </CardHeader>
+
+                                  {isActive && subPermEntries.length > 0 && (
+                                    <SubPermGrid>
+                                      {subPermEntries.map(k => {
+                                        const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
+                                        return (
+                                          <SubToggle
+                                            key={k}
+                                            active={isSubActive}
+                                            onClick={() => togglePermission(page_id, k)}
+                                            title={`Toggle ${k} permission`}
+                                          >
+                                            {isSubActive && <FiCheck size={10} />}
+                                            {k}
+                                          </SubToggle>
+                                        );
+                                      })}
+                                    </SubPermGrid>
+                                  )}
+
+                                  {isActive && subPermEntries.length === 0 && (
+                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                                      No granular permissions defined for this page.
+                                    </div>
+                                  )}
+                                </PermissionCard>
+                              );
+                            })}
+                          </PermissionsGrid>
+                        </div>
+                      ))
                     )}
                   </>
                 )}
