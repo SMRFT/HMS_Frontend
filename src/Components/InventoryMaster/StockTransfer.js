@@ -880,15 +880,6 @@ const StockTransfer = () => {
         {/* ── Inline Form Panel ── */}
         {showForm && (
           <FormPanel>
-            <FormPanelHeader>
-              <div>
-                <PageTitle style={{ fontSize: "1rem" }}>📦 New Stock Transfer</PageTitle>
-                <p style={{ margin: "2px 0 0", fontSize: "0.78rem", opacity: 0.8 }}>
-                  Ref: {transferRefNumber}
-                </p>
-              </div>
-              <FormPanelClose onClick={handleCancelForm}>✕</FormPanelClose>
-            </FormPanelHeader>
 
             <FormPanelBody>
 
