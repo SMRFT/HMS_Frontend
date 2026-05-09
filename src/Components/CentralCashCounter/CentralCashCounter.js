@@ -624,6 +624,7 @@ export default function CentralCashCounter() {
   const [opPharmacyBills, setOpPharmacyBills] = useState([]);
   const [allowedBillTypes, setAllowedBillTypes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cashCounterId, setCashCounterId] = useState("");
   const [toast, setToast] = useState({ visible: false, type: "", message: "" });
 
   const showToast = (type, message) => {
@@ -1020,7 +1021,7 @@ export default function CentralCashCounter() {
         ? response.data.allowed_bill_type_details
         : [];
       setAllowedBillTypes(billTypeDetails);
-
+      setCashCounterId(response?.data?.cashcounter?.counter_id || response?.cashcounter?.counter_id || "");
       const formatted = billsArray
         .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
         .map((item, index) => {
@@ -1147,6 +1148,7 @@ export default function CentralCashCounter() {
         uhid: selectedBill.uhid,
         payment_details,
         shiftno: activeShift?.shiftno || "",
+        counter_id: cashCounterId,
       };
       try {
         const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);

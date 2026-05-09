@@ -16,6 +16,77 @@ const slideDown = keyframes`
   to   { opacity: 1; transform: translateY(0); }
 `;
 
+// ─── Toast Notification ───────────────────────────────────────────────────────
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const ToastContainer = styled.div`
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+`;
+
+const ToastItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: ${p => p.$type === "success" ? "#1b5e20" : p.$type === "error" ? "#b71c1c" : "#e65100"};
+  color: #fff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 13px;
+  min-width: 280px;
+  max-width: 380px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  animation: ${slideUp} 0.25s ease;
+  pointer-events: all;
+  line-height: 1.45;
+`;
+
+const ToastIcon = styled.span`
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+`;
+
+const ToastMsg = styled.span`
+  flex: 1;
+`;
+
+let _toastId = 0;
+
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = "info", duration = 3500) => {
+    const id = ++_toastId;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+  };
+
+  const ToastPortal = () => (
+    <ToastContainer>
+      {toasts.map(t => (
+        <ToastItem key={t.id} $type={t.type}>
+          <ToastIcon>
+            {t.type === "success" ? "✅" : t.type === "error" ? "❌" : "⚠️"}
+          </ToastIcon>
+          <ToastMsg>{t.message}</ToastMsg>
+        </ToastItem>
+      ))}
+    </ToastContainer>
+  );
+
+  return { showToast, ToastPortal };
+}
+
 // ─── Page Layout ─────────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   padding: 0;
@@ -577,6 +648,8 @@ const SalesReturn = () => {
   const [billTypes, setBillTypes] = useState([]);
   const [billItems, setBillItems] = useState([]);
 
+  const { showToast, ToastPortal } = useToast();
+
   const [form, setForm] = useState({
     uhidNo: "", ipNumber: "", name: "",
     ageY: "", ageM: "", ageD: "",
@@ -613,11 +686,11 @@ const SalesReturn = () => {
     try {
       setLoading(true);
       const res = await apiRequest(
-        `${HmsBaseUrl}sales_return_medicine/?from_date=${fromDate}&to_date=${toDate}`,
+        `${HmsBaseUrl}get_salesreturn_details/?from_date=${fromDate}&to_date=${toDate}`,
         "GET"
       );
       const data = res.data;
-      setReturnList(Array.isArray(data) ? data : data?.results || []);
+      setReturnList(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error("Sales return fetch error:", err);
     } finally {
@@ -627,7 +700,7 @@ const SalesReturn = () => {
 
   const fetchPatientDetails = async (uhid) => {
   if (!uhid) {
-    alert("Enter UHID");
+    showToast("Please enter a UHID to search.", "warning");
     return;
   }
 
@@ -662,7 +735,7 @@ const SalesReturn = () => {
 
   } catch (err) {
     console.error("Fetch patient error:", err);
-    alert("Server error");
+    showToast("Server error while fetching patient details.", "error");
   } finally {
     setFetchingPatient(false);
   }
@@ -671,7 +744,7 @@ const SalesReturn = () => {
   // ─── Fetch Bill Details from hospital_pharmacybilling ────────────────────────
   const fetchBillDetails = async (billNo) => {
     if (!billNo?.trim()) {
-      alert("Enter a Bill Number");
+      showToast("Please enter a Bill Number to search.", "warning");
       return;
     }
     try {
@@ -701,7 +774,7 @@ const SalesReturn = () => {
       }
     } catch (err) {
       console.error("Fetch bill error:", err);
-      alert("Server error while fetching bill details");
+      showToast("Server error while fetching bill details.", "error");
     } finally {
       setFetchingBill(false);
     }
@@ -730,7 +803,8 @@ const SalesReturn = () => {
 
   const filtered = returnList.filter(r =>
     !searchFilter ||
-    (r.patient || "").toLowerCase().includes(searchFilter.toLowerCase())
+    (r.patient_name || "").toLowerCase().includes(searchFilter.toLowerCase()) ||
+    (r.uhid || "").toLowerCase().includes(searchFilter.toLowerCase())
   );
 
   const handleFormChange = (field, val) =>
@@ -773,16 +847,16 @@ const SalesReturn = () => {
 
   const handleSave = async () => {
     if (!form.billNumber?.trim()) {
-      alert("Please enter a Bill Number before saving.");
+      showToast("Please enter a Bill Number before saving.", "warning");
       return;
     }
     if (!billItems.length) {
-      alert("No bill items to save.");
+      showToast("No bill items to save.", "warning");
       return;
     }
     const hasReturn = billItems.some(item => Number(item.returnQty) > 0);
     if (!hasReturn) {
-      alert("Please enter return quantity for at least one item.");
+      showToast("Please enter return quantity for at least one item.", "warning");
       return;
     }
 
@@ -816,25 +890,34 @@ const SalesReturn = () => {
       );
       const data = res.data;
       if (data?.status === "success" || res.status === 200 || res.status === 201) {
-        alert("Sales return saved successfully.");
+        showToast(data?.message || "Sales return saved successfully.", "success");
         handleFormReset();
         setShowForm(false);
         handleSearch();
       } else {
-        alert(data?.message || "Failed to save sales return.");
+        showToast(data?.message || "Failed to save sales return.", "error");
       }
     } catch (err) {
       console.error("Save sales return error:", err);
-      alert("Server error while saving.");
+      const errMsg = err?.response?.data?.message || "Server error while saving.";
+      showToast(errMsg, "error");
     }
   };
 
-  const formatDate = iso =>
-    iso ? iso.split("-").reverse().join("/") : "";
+  const formatDate = iso => {
+    if (!iso) return "—";
+    const date = new Date(iso);
+    if (isNaN(date)) return iso;
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
 
   return (
     <>
       <GlobalStyle />
+      <ToastPortal />
       <PageWrapper>
 
         {/* Breadcrumb */}
@@ -1194,39 +1277,28 @@ const SalesReturn = () => {
                   <Th>IP No/SL No</Th>
                   <Th>Return Amount</Th>
                   <Th>User</Th>
-                  <Th>Action</Th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <Td colSpan={9}><NoRecords>Loading…</NoRecords></Td>
+                    <Td colSpan={8}><NoRecords>Loading…</NoRecords></Td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <Td colSpan={9}><NoRecords>No records found</NoRecords></Td>
+                    <Td colSpan={8}><NoRecords>No records found</NoRecords></Td>
                   </tr>
                 ) : (
                   filtered.map((row, i) => (
                     <tr key={i}>
                       <Td><CashBadge>{row.mode || "Cash Return"}</CashBadge></Td>
-                      <Td>{formatDate(row.return_date)}</Td>
-                      <Td>{row.return_no}</Td>
-                      <Td>{row.patient}</Td>
-                      <Td>{row.uhid}</Td>
-                      <Td>{row.ip_sl_no}</Td>
+                      <Td>{formatDate(row.return_bill_date)}</Td>
+                      <Td>{row.return_bill_no}</Td>
+                      <Td>{row.patient_name || "—"}</Td>
+                      <Td>{row.uhid || "—"}</Td>
+                      <Td>{row.bill_no || "—"}</Td>
                       <Td>₹ {parseFloat(row.return_amount || 0).toFixed(2)}</Td>
-                      <Td>{row.user}</Td>
-                      <Td>
-                        <button
-                          style={{
-                            background: "none", border: "none",
-                            cursor: "pointer", fontSize: 15, color: "#555",
-                          }}
-                        >
-                          🖨
-                        </button>
-                      </Td>
+                      <Td>{row.pharmacist_name || "—"}</Td>
                     </tr>
                   ))
                 )}
