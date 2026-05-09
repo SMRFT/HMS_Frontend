@@ -456,6 +456,12 @@ const Summary = () => {
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [medicinesLoading, setMedicinesLoading] = useState(false);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]",
+  );
+  const canEdit = allowedActions.includes("HMS-P-SUME-RW");
+  const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
+  const canApprove = allowedActions.includes("HMS-P-SUMA-RW");
 
   const noteFields = [
     "ONCOLOGY NOTES",
@@ -1957,42 +1963,48 @@ const Summary = () => {
                               flexWrap: "wrap",
                             }}
                           >
-                            <button
-                              style={{
-                                ...css.btn("ghost"),
-                                padding: "5px 12px",
-                                fontSize: 12,
-                                opacity: s.approve ? 0.4 : 1,
-                              }}
-                              onClick={() => handleEdit(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              style={{
-                                ...css.btn("danger"),
-                                padding: "5px 12px",
-                                fontSize: 12,
-                                opacity: s.approve ? 0.4 : 1,
-                              }}
-                              onClick={() => handleDelete(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              Delete
-                            </button>
-                            <button
-                              style={{
-                                ...css.btn("success"),
-                                padding: "5px 12px",
-                                fontSize: 12,
-                                opacity: s.approve ? 0.4 : 1,
-                              }}
-                              onClick={() => handleApprove(s.ipNo)}
-                              disabled={s.approve}
-                            >
-                              Approve
-                            </button>
+                            {canEdit && (
+                              <button
+                                style={{
+                                  ...css.btn("ghost"),
+                                  padding: "5px 12px",
+                                  fontSize: 12,
+                                  opacity: s.approve ? 0.4 : 1,
+                                }}
+                                onClick={() => handleEdit(s.ipNo)}
+                                disabled={s.approve}
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                style={{
+                                  ...css.btn("danger"),
+                                  padding: "5px 12px",
+                                  fontSize: 12,
+                                  opacity: s.approve ? 0.4 : 1,
+                                }}
+                                onClick={() => handleDelete(s.ipNo)}
+                                disabled={s.approve}
+                              >
+                                Delete
+                              </button>
+                            )}
+                            {canApprove && (
+                              <button
+                                style={{
+                                  ...css.btn("success"),
+                                  padding: "5px 12px",
+                                  fontSize: 12,
+                                  opacity: s.approve ? 0.4 : 1,
+                                }}
+                                onClick={() => handleApprove(s.ipNo)}
+                                disabled={s.approve}
+                              >
+                                Approve
+                              </button>
+                            )}
                             <button
                               style={{
                                 ...css.btn("primary"),

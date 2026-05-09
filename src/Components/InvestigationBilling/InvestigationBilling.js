@@ -655,6 +655,7 @@ const InvestigationBilling = () => {
         quantity: quantity,
         billTypeNo: formData.billTypeNo,
         ...(obj?.test_id && { test_id: obj.test_id }),
+        ...(obj?.item_id && { item_id: obj.item_id }),
       };
       const updatedList = [...productList, newProduct];
       setProductList(updatedList);

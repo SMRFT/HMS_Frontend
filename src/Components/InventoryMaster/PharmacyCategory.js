@@ -4,19 +4,52 @@ import apiRequest from "../../Auth/apiRequest";
 import {
   Container, PageWrapper, FormContent, FormRow,
   InputWrapper, Label, Input, Button, ButtonContainer,
-  TableWrapper, Table, Th, Td, Tr, SectionHeader,
+  TableWrapper, Table, Th, Td, Tr,
 } from "../GlobalStyles";
+import styled from "styled-components";
+
+// ─── Header (matches PharmacyItem gradient style) ─────────────────────────────
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: white;
+  padding: 18px 24px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const PageTitle = styled.h1`
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+`;
+
+const PageSubtitle = styled.p`
+  margin: 3px 0 0;
+  font-size: 0.8rem;
+  opacity: 0.8;
+`;
+
+const SectionTitle = styled.h4`
+  color: #0d9488;
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+`;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PharmacyCategory = () => {
   const [categories, setCategories] = useState([]);
   const [formData, setFormData]     = useState({ category_name: "" });
-  const [editingId, setEditingId]   = useState(null); // holds category_id (integer)
+  const [editingId, setEditingId]   = useState(null);
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => { fetchCategories(); }, []);
 
-  // ── API ────────────────────────────────────────────────────────────────────
+  // ── API ──────────────────────────────────────────────────────────────────
 
   const fetchCategories = async () => {
     try {
@@ -31,7 +64,7 @@ const PharmacyCategory = () => {
     }
   };
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -102,15 +135,21 @@ const PharmacyCategory = () => {
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <PageWrapper>
       <Container>
-        <SectionHeader>
-          <h3>Pharmacy Category Management</h3>
-        </SectionHeader>
 
+        {/* ── Header ── */}
+        <PageHeader>
+          <div>
+            <PageTitle>🗂️ Pharmacy Category</PageTitle>
+            <PageSubtitle>Manage pharmacy category master data</PageSubtitle>
+          </div>
+        </PageHeader>
+
+        {/* ── Form ── */}
         <FormContent>
           <form onSubmit={handleSubmit}>
             <FormRow columns="1fr">
@@ -138,10 +177,9 @@ const PharmacyCategory = () => {
           </form>
         </FormContent>
 
+        {/* ── Table ── */}
         <div style={{ padding: "0 24px 24px" }}>
-          <h4 style={{ color: "#0d9488", marginBottom: "16px" }}>
-            Category List
-          </h4>
+          <SectionTitle>Category List</SectionTitle>
           <TableWrapper>
             <Table>
               <thead>
@@ -187,6 +225,7 @@ const PharmacyCategory = () => {
             </Table>
           </TableWrapper>
         </div>
+
       </Container>
     </PageWrapper>
   );
