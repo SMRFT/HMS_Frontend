@@ -340,21 +340,15 @@ const ModalOverlay = styled.div`
   animation: fadeIn 0.2s ease;
 
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 `;
 
 const ModalContainer = styled.div`
   background: #ffffff;
   border-radius: 16px;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.2),
-    0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
@@ -362,14 +356,8 @@ const ModalContainer = styled.div`
   animation: slideUp 0.25s ease;
 
   @keyframes slideUp {
-    from {
-      transform: translateY(24px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
+    from { transform: translateY(24px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
   }
 `;
 
@@ -393,7 +381,7 @@ const ModalTitle = styled.h3`
 `;
 
 const CloseButton = styled.button`
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255,255,255,0.2);
   border: none;
   font-size: 18px;
   cursor: pointer;
@@ -404,7 +392,7 @@ const CloseButton = styled.button`
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.35);
+    background: rgba(255,255,255,0.35);
   }
 `;
 
@@ -494,15 +482,13 @@ const Input = styled.input`
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   background: #fafafa;
 
   &:focus {
     outline: none;
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
     background: #fff;
   }
 
@@ -533,12 +519,9 @@ const SummaryRow = styled.div`
   justify-content: space-between;
   align-items: center;
   font-size: 14px;
-  color: ${(props) =>
-    props.highlight ? "#0d9488" : props.danger ? "#dc2626" : "#374151"};
-  font-weight: ${(props) => (props.bold ? "700" : "500")};
-  ${(props) =>
-    props.separator &&
-    `
+  color: ${props => props.highlight ? '#0d9488' : props.danger ? '#dc2626' : '#374151'};
+  font-weight: ${props => props.bold ? '700' : '500'};
+  ${props => props.separator && `
     border-top: 1px solid #e5e7eb;
     padding-top: 8px;
     margin-top: 2px;
@@ -565,11 +548,11 @@ const SaveButton = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  box-shadow: 0 2px 8px rgba(13,148,136,0.25);
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+    box-shadow: 0 4px 14px rgba(13,148,136,0.35);
   }
 
   &:disabled {
@@ -622,15 +605,8 @@ const ShiftRunningBanner = styled.div`
   }
 
   @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.5;
-      transform: scale(1.3);
-    }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(1.3); }
   }
 `;
 
@@ -660,18 +636,8 @@ export default function CentralCashCounter() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
 
-  const [selectedMethods, setSelectedMethods] = useState({
-    cash: false,
-    card: false,
-    cheque: false,
-  });
-  const [payments, setPayments] = useState({
-    cash: "",
-    cheque: "",
-    chequeNo: "",
-    card: "",
-    cardNo: "",
-  });
+  const [selectedMethods, setSelectedMethods] = useState({ cash: false, card: false, cheque: false });
+  const [payments, setPayments] = useState({ cash: "", cheque: "", chequeNo: "", card: "", cardNo: "" });
   const [activeShift, setActiveShift] = useState(null);
 
   // ── Receipt / Payment state ──────────────────────────────────────────────────
@@ -697,7 +663,7 @@ export default function CentralCashCounter() {
     d.setDate(1);
     return d.toISOString().split("T")[0];
   });
-  const [pvToDate, setPvToDate]         = useState(() => new Date().toISOString().split("T")[0]);
+  const [pvToDate, setPvToDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [pvVoucherType, setPvVoucherType] = useState("All");
   const [pvData, setPvData]             = useState([]);
   const [pvPage, setPvPage]             = useState(1);
@@ -707,7 +673,7 @@ export default function CentralCashCounter() {
 
   // ── Receipt / Payment derived ────────────────────────────────────────────────
   const rpSelectedHead = Array.isArray(rpAccountHeads)
-    ? rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null
+    ? (rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null)
     : null;
   const rpSelectedHeadName = rpSelectedHead ? rpSelectedHead.account_head : "";
 
@@ -735,11 +701,7 @@ export default function CentralCashCounter() {
   const rpFetchRecords = async () => {
     setRpLoading(true);
     try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}get_receipt_payments/`,
-        "POST",
-        {},
-      );
+      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", {});
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -754,8 +716,7 @@ export default function CentralCashCounter() {
   };
 
   const rpHandleSave = async () => {
-    if (!rpSelectedSNo)
-      return rpShowAlert("error", "Please select an Account Head.");
+    if (!rpSelectedSNo) return rpShowAlert("error", "Please select an Account Head.");
     if (!rpAmount || isNaN(rpAmount) || parseFloat(rpAmount) <= 0)
       return rpShowAlert("error", "Please enter a valid Amount.");
 
@@ -764,10 +725,7 @@ export default function CentralCashCounter() {
     if (rpSelectedHeadName === "ROOM ACCESS CARD") {
       if (!rpDescFields.patient_name || !rpDescFields.room_no)
         return rpShowAlert("error", "Please fill in Patient Name and Room No.");
-      description = {
-        patient_name: rpDescFields.patient_name,
-        room_no: rpDescFields.room_no,
-      };
+      description = { patient_name: rpDescFields.patient_name, room_no: rpDescFields.room_no };
     } else if (rpSelectedHeadName === "MISCELLANEOUS INCOME") {
       description = { description: rpDescFields.description || "" };
     }
@@ -783,11 +741,7 @@ export default function CentralCashCounter() {
 
     setRpSaving(true);
     try {
-      const res = await apiRequest(
-        `${HmsBaseUrl}post_receipt_payments/`,
-        "POST",
-        payload,
-      );
+      const res = await apiRequest(`${HmsBaseUrl}post_receipt_payments/`, "POST", payload);
       if (res?.success || res?.id || res?._id || res?.voucher_no) {
         rpShowAlert("success", "Payment collected successfully!");
 
@@ -810,11 +764,9 @@ export default function CentralCashCounter() {
 
         setRpAmount("");
         setRpDescFields(
-          rpSelectedHeadName === "ROOM ACCESS CARD"
-            ? { patient_name: "", room_no: "" }
-            : rpSelectedHeadName === "MISCELLANEOUS INCOME"
-              ? { description: "" }
-              : {},
+          rpSelectedHeadName === "ROOM ACCESS CARD" ? { patient_name: "", room_no: "" }
+            : rpSelectedHeadName === "MISCELLANEOUS INCOME" ? { description: "" }
+              : {}
         );
 
         rpFetchRecords();
@@ -844,11 +796,7 @@ export default function CentralCashCounter() {
         to_date: toDate,
         voucher_type: vType === "All" ? "" : vType,
       };
-      const res = await apiRequest(
-        `${HmsBaseUrl}get_receipt_payments/`,
-        "POST",
-        payload,
-      );
+      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", payload);
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -856,8 +804,7 @@ export default function CentralCashCounter() {
       else if (Array.isArray(res?.results)) list = res.results;
       setPvData(list);
       setPvPage(1);
-      let totalR = 0,
-        totalP = 0;
+      let totalR = 0, totalP = 0;
       list.forEach((r) => {
         const amt = parseFloat(r.amount || 0);
         if (r.receipt_type === "Receipt") totalR += amt;
@@ -874,64 +821,29 @@ export default function CentralCashCounter() {
   };
 
   const pvExportExcel = () => {
-    const headers = [
-      "Date",
-      "Time",
-      "Shift Reference",
-      "Account Name",
-      "Voucher No",
-      "Receipt No",
-      "Payment",
-      "Description",
-    ];
+    const headers = ["Date", "Time", "Shift Reference", "Account Name", "Voucher No", "Receipt No", "Payment", "Description"];
     const rows = pvData.map((r) => {
       const d = r.voucher_date ? new Date(r.voucher_date) : null;
-      const dateStr = d
-        ? d.toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          })
-        : "—";
-      const timeStr = d
-        ? d.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })
-        : "—";
+      const dateStr = d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+      const timeStr = d ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
       const desc = r.description
-        ? typeof r.description === "object"
-          ? Object.values(r.description).filter(Boolean).join(", ")
-          : r.description
+        ? typeof r.description === "object" ? Object.values(r.description).filter(Boolean).join(", ") : r.description
         : "—";
       return [
-        dateStr,
-        timeStr,
+        dateStr, timeStr,
         r.shiftno || r.shift_reference || "—",
-        r.account_head_details?.name ||
-          r.account_head_name ||
-          r.account_head ||
-          "—",
+        r.account_head_details?.name || r.account_head_name || r.account_head || "—",
         r.voucher_no || "—",
-        r.receipt_type === "Receipt"
-          ? parseFloat(r.amount || 0).toFixed(2)
-          : "0.00",
-        r.receipt_type === "Payment"
-          ? parseFloat(r.amount || 0).toFixed(2)
-          : "0.00",
+        r.receipt_type === "Receipt" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
+        r.receipt_type === "Payment" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
         desc,
       ];
     });
-    const csv = [headers, ...rows]
-      .map((row) => row.map((c) => '"' + c + '"').join(","))
-      .join("\n");
+    const csv = [headers, ...rows].map(row => row.map(c => '"' + c + '"').join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "previous_vouchers.csv";
-    a.click();
+    a.href = url; a.download = "previous_vouchers.csv"; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -947,6 +859,7 @@ export default function CentralCashCounter() {
     { label: "IP Advance", id: "ip-advance" },
     { label: "Sales Returns", id: "sales-returns" },
     { label: "Receipt / Payment", id: "receipt-payment" },
+
   ];
 
   const refreshActiveShift = useCallback(async () => {
@@ -967,6 +880,7 @@ export default function CentralCashCounter() {
       } else if (res && !res.success) {
         setActiveShift(prev => (prev ? null : prev));
       }
+
     } catch (err) {
       console.error("Failed to refresh active shift:", err);
     }
@@ -982,31 +896,36 @@ export default function CentralCashCounter() {
 
 
 
+
   const formatBillData = (billsArray) => {
     return billsArray.map((item, index) => {
+
       // unique fallback id
       const id = item.id ?? `temp-${index}-${Date.now()}`;
 
       // ✅ use bill_date only
-      const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+      const billDateObj = item.bill_date
+        ? new Date(item.bill_date)
+        : null;
 
       const billDate = billDateObj
         ? billDateObj.toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            timeZone: "Asia/Kolkata",
-          })
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: "Asia/Kolkata",
+        })
         : "-";
 
       const billTime = billDateObj
         ? billDateObj.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true, // 👈 IMPORTANT
-            timeZone: "Asia/Kolkata",
-          })
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,          // 👈 IMPORTANT
+          timeZone: "Asia/Kolkata",
+        })
         : "-";
+
 
       return {
         id,
@@ -1027,6 +946,7 @@ export default function CentralCashCounter() {
     });
   };
 
+
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
   const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
@@ -1044,12 +964,7 @@ export default function CentralCashCounter() {
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
           bill_date: billDateObj
-            ? billDateObj.toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                timeZone: "Asia/Kolkata",
-              })
+            ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
             : "-",
           bill_no: payment.bill_no || "-",
           uhid_no: admission.uhid || "-",
@@ -1352,19 +1267,13 @@ export default function CentralCashCounter() {
     if (activeMenuItem === "Pending Bills") {
       bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : receivedBills;
     } else if (activeMenuItem === "IP Advance") {
-      bills =
-        selectedType === "pending"
-          ? ipAdvancePendingBills
-          : ipAdvanceReceivedBills;
+      bills = selectedType === "pending" ? ipAdvancePendingBills : ipAdvanceReceivedBills;
     }
 
     let filtered = bills;
     if (billType !== "ALL") {
       filtered = filtered.filter((bill) =>
-        bill.bill_type
-          .toString()
-          .toLowerCase()
-          .includes(billType.toLowerCase()),
+        bill.bill_type.toString().toLowerCase().includes(billType.toLowerCase())
       );
     }
     if (searchTerm) {
@@ -1372,7 +1281,7 @@ export default function CentralCashCounter() {
         (bill) =>
           bill.patient.toLowerCase().includes(searchTerm.toLowerCase()) ||
           bill.uhid_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase()),
+          bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     setFilteredBills(filtered);
@@ -1481,55 +1390,29 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>STARTING TIME</Label>
                 <span>:</span>
-                <Value
-                  style={
-                    shiftBelongsHere
-                      ? { color: "#0d9488", fontWeight: 600 }
-                      : {}
-                  }
-                >
+                <Value style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 600 } : {}}>
                   {activeShift?.StartingTime
-                    ? new Date(
-                        String(activeShift.StartingTime).replace(" ", "T"),
-                      ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: true,
-                      })
+                    ? new Date(String(activeShift.StartingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit", second: "2-digit",
+                      hour12: true,
+                    })
                     : "—"}
                 </Value>
               </InfoRow>
               <InfoRow>
                 <Label>CLOSING TIME</Label>
                 <span>:</span>
-                <Value
-                  style={
-                    !shiftBelongsHere && activeShift?.closingTime
-                      ? { color: "#dc2626", fontWeight: 600 }
-                      : {}
-                  }
-                >
+                <Value style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 600 } : {}}>
                   {activeShift?.closingTime
-                    ? new Date(
-                        String(activeShift.closingTime).replace(" ", "T"),
-                      ).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                        hour12: true,
-                      })
-                    : shiftBelongsHere
-                      ? "Running…"
-                      : "—"}
+                    ? new Date(String(activeShift.closingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                      timeZone: "Asia/Kolkata",
+                      day: "2-digit", month: "2-digit", year: "numeric",
+                      hour: "2-digit", minute: "2-digit", second: "2-digit",
+                      hour12: true,
+                    })
+                    : shiftBelongsHere ? "Running…" : "—"}
                 </Value>
               </InfoRow>
               <InfoRow>
@@ -1545,10 +1428,7 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift
-                    ? "₹ " +
-                      parseFloat(
-                        activeShift.OpeningBalance || 0,
-                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    ? "₹ " + parseFloat(activeShift.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
@@ -1557,27 +1437,18 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift?.ClosingBalance
-                    ? "₹ " +
-                      parseFloat(activeShift.ClosingBalance).toLocaleString(
-                        "en-IN",
-                        { minimumFractionDigits: 2 },
-                      )
+                    ? "₹ " + parseFloat(activeShift.ClosingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
               <InfoRow>
                 <Label>SHIFT STATUS</Label>
                 <span>:</span>
-                <Value
-                  style={{
-                    color:
-                      activeShift?.ShiftStatus === "active"
-                        ? "#10b981"
-                        : "#6b7280",
-                    fontWeight: 600,
-                    textTransform: "capitalize",
-                  }}
-                >
+                <Value style={{
+                  color: activeShift?.ShiftStatus === "active" ? "#10b981" : "#6b7280",
+                  fontWeight: 600,
+                  textTransform: "capitalize",
+                }}>
                   {activeShift?.ShiftStatus || "—"}
                 </Value>
               </InfoRow>
@@ -1597,16 +1468,13 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>DATE</Label>
                 <span>:</span>
-                <Value>
-                  {activeShift?.date || new Date().toLocaleDateString("en-IN")}
-                </Value>
+                <Value>{activeShift?.date || new Date().toLocaleDateString("en-IN")}</Value>
               </InfoRow>
 
               {shiftBelongsHere && (
                 <ShiftRunningBanner>
                   <span className="dot" />
-                  Shift Running — Cashier&nbsp;
-                  <strong>{activeShift.CashierID}</strong>
+                  Shift Running — Cashier&nbsp;<strong>{activeShift.CashierID}</strong>
                 </ShiftRunningBanner>
               )}
 
@@ -1683,10 +1551,9 @@ export default function CentralCashCounter() {
                       <button
                         onClick={() => setRpShowVoucherForm(prev => !prev)}
                         style={{
-                          display: "flex",
-                          justifyContent: "flex-end",
-                          gap: 10,
-                          marginBottom: 16,
+                          background: "#f97316", color: "white", border: "none",
+                          borderRadius: 4, padding: "8px 16px", fontSize: 14,
+                          fontWeight: 500, cursor: "pointer",
                         }}
                       >
                         {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
@@ -2364,6 +2231,7 @@ export default function CentralCashCounter() {
         onShiftChange={handleShiftChange}
         activeShiftData={activeShift}
       />
+
 
       {showPaymentModal && (
         <ModalOverlay>
