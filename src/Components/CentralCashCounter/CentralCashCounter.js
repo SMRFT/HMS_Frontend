@@ -979,35 +979,7 @@ export default function CentralCashCounter() {
     return () => clearInterval(interval);
   }, [refreshActiveShift]);
 
-  // ── IP Advance formatter ──────────────────────────────────────────────────────
-  const formatIpAdvanceData = (admissionsArray) => {
-    const rows = [];
-    admissionsArray.forEach((admission) => {
-      const payments = admission.advance_payments || [];
-      const pendingPayments = payments.filter(
-        (p) => p.is_advanceActive && String(p.status).toLowerCase() === "pending"
-      );
-      if (pendingPayments.length === 0) return;
 
-      pendingPayments.forEach((payment) => {
-        const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
-        rows.push({
-          id: `${admission.ipNumber}-${payment.advance_id}`,
-          bill_date: billDateObj
-            ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
-  };
-  useEffect(() => {
-    // ✅ call immediately when component loads
-    refreshActiveShift();
-
-    // ✅ keep checking every few seconds
-    const interval = setInterval(() => {
-      refreshActiveShift();
-    }, 5000); // 5 sec (adjust if needed)
-
-    // ✅ cleanup (important)
-    return () => clearInterval(interval);
-  }, []);
 
   const formatBillData = (billsArray) => {
     return billsArray.map((item, index) => {
@@ -1698,14 +1670,9 @@ export default function CentralCashCounter() {
                         .includes(t)
                     );
                   });
-                  const rpDisplayed = rpFilteredRecords.slice(
-                    0,
-                    parseInt(rpShowEntries, 10),
-                  );
-                });
-                const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
+                  const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
 
-                return (
+                  return (
                   <>
                     <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:16 }}>
                       <Button onClick={rpOpenVoucherModal} style={{ gap:6 }}>
@@ -1915,7 +1882,15 @@ export default function CentralCashCounter() {
                                         console.log("Delete voucher:", r.voucher_no);
                                       }
                                     }}
-                                  />
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: "1.1rem"
+                                    }}
+                                  >
+                                    🗑️
+                                  </button>
                                 </div>
                                 <div
                                   style={{
@@ -1970,333 +1945,42 @@ export default function CentralCashCounter() {
                     {/* ══ Previous Vouchers Modal ══ */}
                     {rpShowVoucherModal && (
                       <ModalOverlay onClick={() => setRpShowVoucherModal(false)}>
-                        <ModalContainer
-                          style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <ModalContainer style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
                           <ModalHeader style={{ background: "#0d6e6e", borderRadius: "8px 8px 0 0", padding: "14px 20px" }}>
                             <ModalTitle style={{ fontSize: 16 }}>Previous Vouchers</ModalTitle>
                             <CloseButton onClick={() => setRpShowVoucherModal(false)}>✕</CloseButton>
                           </ModalHeader>
 
-                          <div style={{
-                            padding: "14px 20px", background: "#f9fafb",
-                            borderBottom: "1px solid #e5e7eb",
-                            display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
-                          }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
-                              <input
-                                type="date" value={pvFromDate}
-                                onChange={(e) => setPvFromDate(e.target.value)}
-                                style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                              />
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
-                              <input
-                                type="date" value={pvToDate}
-                                onChange={(e) => setPvToDate(e.target.value)}
-                                style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                              />
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
-                              <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
-                                {["All", "Receipt", "Payment"].map((t) => (
-                                  <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
-                                    <input
-                                      type="radio" name="pvVoucherType" value={t}
-                                      checked={pvVoucherType === t}
-                                      onChange={() => setPvVoucherType(t)}
-                                      style={{ accentColor: "#0d9488" }}
-                                    />
-                                    {t}
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
-                              disabled={rpVoucherLoading}
-                              style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 4,
-                              }}
-                            >
-                              <label style={{ fontSize: 13 }}>&nbsp;</label>
-                              <Button
-                                onClick={rpHandleSave}
-                                disabled={rpSaving}
-                                style={{ gap: 6 }}
-                              >
-                                {rpSaving ? <LoadingSpinner /> : "💾"}
-                                Save
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}{" "}
-                      {/* end rpShowVoucherForm */}
-                      {/* Table controls */}
-                      <TableControls>
-                        <ControlGroup>
-                          <span>Show up to</span>
-                          <Select
-                            value={rpShowEntries}
-                            onChange={(e) => setRpShowEntries(e.target.value)}
-                          >
-                            {["10", "25", "50", "100"].map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </Select>
-                        </ControlGroup>
-                        <SearchWrapper>
-                          <span>Search:</span>
-                          <SearchInputWrapper>
-                            <SearchInput
-                              type="text"
-                              placeholder="Patient Name"
-                              value={rpSearchTerm}
-                              onChange={(e) => setRpSearchTerm(e.target.value)}
-                            />
-                            <MicButton>
-                              <Mic size={14} />
-                            </MicButton>
-                          </SearchInputWrapper>
-                        </SearchWrapper>
-                      </TableControls>
-                      {/* Table */}
-                      <Table>
-                        <thead>
-                          <tr>
-                            <TableHeader>Account Name ↕</TableHeader>
-                            <TableHeader>Voucher ↕</TableHeader>
-                            <TableHeader>Receipts ↕</TableHeader>
-                            <TableHeader>Payments ↕</TableHeader>
-                            <TableHeader>Description ↕</TableHeader>
-                            <TableHeader>Action</TableHeader>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rpLoading ? (
-                            <tr>
-                              <TableCell center muted colSpan={6}>
-                                Loading...
-                              </TableCell>
-                            </tr>
-                          ) : rpDisplayed.length === 0 ? (
-                            <tr>
-                              <TableCell center muted colSpan={6}>
-                                No data available in table
-                              </TableCell>
-                            </tr>
-                          ) : (
-                            rpDisplayed.map((r, idx) => (
-                              <tr key={r._id || r.voucher_no || idx}>
-                                <TableCell>
-                                  {r.account_head_details?.name ||
-                                    r.account_head_name ||
-                                    r.account_head ||
-                                    "—"}
-                                </TableCell>
-                                <TableCell>{r.voucher_no || "—"}</TableCell>
-                                <TableCell>
-                                  ₹
-                                  {r.receipt_type === "Receipt"
-                                    ? parseFloat(r.amount || 0).toLocaleString(
-                                        "en-IN",
-                                        { minimumFractionDigits: 2 },
-                                      )
-                                    : "0.00"}
-                                </TableCell>
-                                <TableCell>
-                                  ₹
-                                  {r.receipt_type === "Payment"
-                                    ? parseFloat(r.amount || 0).toLocaleString(
-                                        "en-IN",
-                                        { minimumFractionDigits: 2 },
-                                      )
-                                    : "0.00"}
-                                </TableCell>
-                                <TableCell>
-                                  {r.description
-                                    ? typeof r.description === "object"
-                                      ? Object.values(r.description)
-                                          .filter(Boolean)
-                                          .join(", ") || "—"
-                                      : r.description
-                                    : "—"}
-                                </TableCell>
-                                <TableCell center>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      gap: 6,
-                                      justifyContent: "center",
-                                      alignItems: "center",
-                                    }}
-                                  >
-                                    <button
-                                      title="Print"
-                                      onClick={() => setRpPrintVoucher(r)}
-                                      style={{
-                                        background: "#0d9488",
-                                        color: "white",
-                                        border: "none",
-                                        padding: "5px 8px",
-                                        borderRadius: 4,
-                                        cursor: "pointer",
-                                        display: "flex",
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      🖨️
-                                    </button>
-                                    <button
-                                      title="Delete"
-                                      onClick={() => {
-                                        if (
-                                          window.confirm(
-                                            `Delete voucher ${r.voucher_no}?`,
-                                          )
-                                        ) {
-                                          // TODO: call delete API
-                                          console.log(
-                                            "Delete voucher:",
-                                            r.voucher_no,
-                                          );
-                                        }
-                                      }}
-                                      style={{
-                                        background: "#dc2626",
-                                        color: "white",
-                                        border: "none",
-                                        padding: "5px 8px",
-                                        borderRadius: 4,
-                                        cursor: "pointer",
-                                        display: "flex",
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      🗑️
-                                    </button>
-                                  </div>
-                                </TableCell>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </Table>
-                      <Pagination>
-                        <div>
-                          Showing {rpDisplayed.length} of{" "}
-                          {rpFilteredRecords.length} entries
-                        </div>
-                        <div>
-                          <PaginationButton style={{ marginRight: 8 }}>
-                            Previous
-                          </PaginationButton>
-                          <PaginationButton>Next</PaginationButton>
-                        </div>
-                      </Pagination>
-                      {/* ══ Previous Vouchers Modal ══ */}
-                      {rpShowVoucherModal && (
-                        <ModalOverlay
-                          onClick={() => setRpShowVoucherModal(false)}
-                        >
-                          <ModalContainer
-                            style={{
-                              maxWidth: 1000,
-                              borderRadius: 8,
-                              maxHeight: "92vh",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {/* Header */}
-                            <ModalHeader
-                              style={{
-                                background: "#0d6e6e",
-                                borderRadius: "8px 8px 0 0",
-                                padding: "14px 20px",
-                              }}
-                            >
-                              <ModalTitle style={{ fontSize: 16 }}>
-                                Previous Vouchers
-                              </ModalTitle>
-                              <CloseButton
-                                onClick={() => setRpShowVoucherModal(false)}
-                              >
-                                ✕
-                              </CloseButton>
-                            </ModalHeader>
-
-                          <ModalBody style={{ padding: "14px 20px", overflowX: "auto" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                                <span>Show up to</span>
-                                <select
-                                  value={pvShowEntries}
-                                  onChange={(e) => { setPvShowEntries(Number(e.target.value)); setPvPage(1); }}
-                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "5px 8px", fontSize: 13 }}
-                                >
-                                  To Date
-                                </label>
+                          <ModalBody style={{ padding: "0", overflowX: "hidden" }}>
+                            {/* Filter Bar */}
+                            <div style={{
+                              padding: "14px 20px", background: "#f9fafb",
+                              borderBottom: "1px solid #e5e7eb",
+                              display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
+                            }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
                                 <input
-                                  type="date"
-                                  value={pvToDate}
-                                  onChange={(e) => setPvToDate(e.target.value)}
-                                  style={{
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: 4,
-                                    padding: "7px 10px",
-                                    fontSize: 13,
-                                  }}
+                                  type="date" value={pvFromDate}
+                                  onChange={(e) => setPvFromDate(e.target.value)}
+                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
                                 />
                               </div>
-                              {/* Voucher Type */}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: 4,
-                                }}
-                              >
-                                <label
-                                  style={{
-                                    fontSize: 12,
-                                    fontWeight: 600,
-                                    color: "#374151",
-                                  }}
-                                >
-                                  Voucher Type
-                                </label>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    gap: 14,
-                                    alignItems: "center",
-                                    padding: "7px 0",
-                                  }}
-                                >
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
+                                <input
+                                  type="date" value={pvToDate}
+                                  onChange={(e) => setPvToDate(e.target.value)}
+                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
+                                />
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
+                                <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
                                   {["All", "Receipt", "Payment"].map((t) => (
-                                    <label
-                                      key={t}
-                                      style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 5,
-                                        fontSize: 13,
-                                        cursor: "pointer",
-                                      }}
-                                    >
+                                    <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
                                       <input
-                                        type="radio"
-                                        name="pvVoucherType"
-                                        value={t}
+                                        type="radio" name="pvVoucherType" value={t}
                                         checked={pvVoucherType === t}
                                         onChange={() => setPvVoucherType(t)}
                                         style={{ accentColor: "#0d9488" }}
@@ -2306,316 +1990,87 @@ export default function CentralCashCounter() {
                                   ))}
                                 </div>
                               </div>
-                              {/* Fetch button */}
-                              <button
-                                onClick={() =>
-                                  pvFetchVouchers(
-                                    pvFromDate,
-                                    pvToDate,
-                                    pvVoucherType,
-                                  )
-                                }
-                                disabled={rpVoucherLoading}
-                                style={{
-                                  background: "#0d9488",
-                                  color: "white",
-                                  border: "none",
-                                  borderRadius: 4,
-                                  padding: "8px 18px",
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                }}
-                              >
-                                {rpVoucherLoading ? "⏳" : "🔍"} Fetch
-                              </button>
-                            </div>
-
-                            {rpVoucherLoading ? (
-                              <div style={{ textAlign: "center", padding: 32, color: "#6b7280" }}>
-                                <LoadingSpinner /> &nbsp; Loading vouchers...
-                              </div>
-                            ) : (
-                              <>
-                                <div style={{ overflowX: "auto", maxHeight: 380, overflowY: "auto" }}>
-                                  <Table>
-                                    <thead>
-                                      <tr>
-                                        <TableHeader>Date ↕</TableHeader>
-                                        <TableHeader>Time ↕</TableHeader>
-                                        <TableHeader>Shift Reference ↕</TableHeader>
-                                        <TableHeader>Account Name ↕</TableHeader>
-                                        <TableHeader>Voucher No ↕</TableHeader>
-                                        <TableHeader>Receipt No ↕</TableHeader>
-                                        <TableHeader>Payment ↕</TableHeader>
-                                        <TableHeader>Description ↑</TableHeader>
-                                        <TableHeader>Action</TableHeader>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {(() => {
-                                        const pageData = pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries);
-                                        if (pvData.length === 0) {
-                                          return (
-                                            <tr>
-                                              <TableCell center muted colSpan={9}>No vouchers found. Adjust filters and click Fetch.</TableCell>
-                                            </tr>
-                                          );
-                                        }
-                                        return pageData.map((r, idx) => {
-                                          const d = r.voucher_date ? new Date(r.voucher_date) : null;
-                                          const dateStr = d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
-                                          const timeStr = d ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
-                                          const desc = r.description
-                                            ? typeof r.description === "object"
-                                              ? Object.values(r.description).filter(Boolean).join(", ") || "—"
-                                              : r.description
-                                            : "—";
-                                          const isReceipt = r.receipt_type === "Receipt";
-                                          const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-                                          return (
-                                            <tr key={r._id || r.voucher_no || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                                              <TableCell>{dateStr}</TableCell>
-                                              <TableCell>{timeStr}</TableCell>
-                                              <TableCell>{r.shiftno || r.shift_reference || "—"}</TableCell>
-                                              <TableCell>{r.account_head_details?.name || r.account_head_name || r.account_head || "REMOTE"}</TableCell>
-                                              <TableCell>{r.voucher_no || "—"}</TableCell>
-                                              <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
-                                              <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
-                                              <TableCell>{desc}</TableCell>
-                                              <TableCell center>
-                                                <button
-                                                  title="Print"
-                                                  onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
-                                                  style={{
-                                                    background: "#0d9488", color: "white", border: "none",
-                                                    padding: "5px 8px", borderRadius: 4, cursor: "pointer",
-                                                  }}
-                                                >
-                                                  🖨️
-                                                </button>
-                                              </TableCell>
-                                            </tr>
-                                          );
-                                        });
-                                      })()}
-                                    </tbody>
-                                    {pvData.length > 0 && (
-                                      <tfoot>
-                                        <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                                          <TableCell colSpan={5} style={{ textAlign: "right", fontWeight: 700 }}>Total:</TableCell>
-                                          <TableCell style={{ fontWeight: 700 }}>
-                                            ₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                          </TableCell>
-                                          <TableCell style={{ fontWeight: 700 }}>
-                                            ₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                                          </TableCell>
-                                          <TableCell colSpan={2} />
-                                        </tr>
-                                      </tfoot>
-                                    )}
-                                  </Table>
-                                </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 13 }}>&nbsp;</label>
                                 <button
-                                  onClick={pvExportExcel}
+                                  onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
+                                  disabled={rpVoucherLoading}
                                   style={{
-                                    background: "#f97316",
-                                    color: "white",
-                                    border: "none",
-                                    borderRadius: 4,
-                                    padding: "7px 16px",
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
+                                    background: "#0d9488", color: "white", border: "none",
+                                    borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600,
+                                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6
                                   }}
                                 >
-                                  📊 Excel export
+                                  {rpVoucherLoading ? "⏳" : "🔍"} Fetch
                                 </button>
                               </div>
+                            </div>
 
-                                {pvData.length > 0 && (() => {
-                                  const totalPages = Math.ceil(pvData.length / pvShowEntries);
-                                  const startEntry = (pvPage - 1) * pvShowEntries + 1;
-                                  const endEntry = Math.min(pvPage * pvShowEntries, pvData.length);
-                                  const pageNums = [];
-                                  for (let i = 1; i <= totalPages; i++) pageNums.push(i);
-                                  const visiblePages = pageNums.filter(p =>
-                                    p === 1 || p === totalPages || Math.abs(p - pvPage) <= 1
-                                  );
-                                  const btnStyle = (active) => ({
-                                    padding: "5px 10px", border: "1px solid #d1d5db",
-                                    borderRadius: 4, fontSize: 13, cursor: "pointer",
-                                    background: active ? "#0d9488" : "white",
-                                    color: active ? "white" : "#374151",
-                                    fontWeight: active ? 700 : 400,
-                                  });
-                                  return (
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, flexWrap: "wrap", gap: 8 }}>
-                                      <span style={{ fontSize: 13, color: "#6b7280" }}>
-                                        Showing {startEntry} to {endEntry} of {pvData.length} entries
-                                      </span>
-                                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                                        <button style={btnStyle(false)} disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Previous</button>
-                                        {visiblePages.map((p, i) => {
-                                          const prev = visiblePages[i - 1];
-                                          return (
-                                            <React.Fragment key={p}>
-                                              {prev && p - prev > 1 && <span style={{ padding: "5px 4px", fontSize: 13 }}>...</span>}
-                                              <button style={btnStyle(pvPage === p)} onClick={() => setPvPage(p)}>{p}</button>
-                                            </React.Fragment>
-                                          );
-                                          const pageData = pvData.slice(
-                                            (pvPage - 1) * pvShowEntries,
-                                            pvPage * pvShowEntries,
-                                          );
-                                          if (pvData.length === 0) {
+                            {/* Table Area */}
+                            <div style={{ padding: "14px 20px" }}>
+                              {rpVoucherLoading ? (
+                                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                                  <LoadingSpinner />
+                                  <p style={{ marginTop: 10, color: "#6b7280" }}>Fetching vouchers...</p>
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ overflowX: "auto", maxHeight: "45vh" }}>
+                                    <Table>
+                                      <thead>
+                                        <tr>
+                                          <TableHeader>Date</TableHeader>
+                                          <TableHeader>Time</TableHeader>
+                                          <TableHeader>Shift Ref</TableHeader>
+                                          <TableHeader>Account Name</TableHeader>
+                                          <TableHeader>Voucher No</TableHeader>
+                                          <TableHeader>Receipts</TableHeader>
+                                          <TableHeader>Payments</TableHeader>
+                                          <TableHeader>Description</TableHeader>
+                                          <TableHeader>Action</TableHeader>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {pvData.length === 0 ? (
+                                          <tr>
+                                            <TableCell center muted colSpan={9}>No vouchers found.</TableCell>
+                                          </tr>
+                                        ) : (
+                                          pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
+                                            const d = r.voucher_date ? new Date(r.voucher_date) : null;
+                                            const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
+                                            const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
+                                            const isReceipt = r.receipt_type === "Receipt";
+                                            const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
                                             return (
-                                              <tr>
-                                                <TableCell
-                                                  center
-                                                  muted
-                                                  colSpan={9}
-                                                >
-                                                  No vouchers found. Adjust
-                                                  filters and click Fetch.
-                                                </TableCell>
-                                              </tr>
-                                            );
-                                          }
-                                          return pageData.map((r, idx) => {
-                                            const d = r.voucher_date
-                                              ? new Date(r.voucher_date)
-                                              : null;
-                                            const dateStr = d
-                                              ? d.toLocaleDateString("en-IN", {
-                                                  day: "2-digit",
-                                                  month: "2-digit",
-                                                  year: "numeric",
-                                                })
-                                              : "—";
-                                            const timeStr = d
-                                              ? d.toLocaleTimeString("en-IN", {
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                                  second: "2-digit",
-                                                })
-                                              : "—";
-                                            const desc = r.description
-                                              ? typeof r.description ===
-                                                "object"
-                                                ? Object.values(r.description)
-                                                    .filter(Boolean)
-                                                    .join(", ") || "—"
-                                                : r.description
-                                              : "—";
-                                            const isReceipt =
-                                              r.receipt_type === "Receipt";
-                                            const amt = parseFloat(
-                                              r.amount || 0,
-                                            ).toLocaleString("en-IN", {
-                                              minimumFractionDigits: 2,
-                                            });
-                                            return (
-                                              <tr
-                                                key={
-                                                  r._id || r.voucher_no || idx
-                                                }
-                                                style={{
-                                                  background:
-                                                    idx % 2 === 0
-                                                      ? "#fff"
-                                                      : "#f9fafb",
-                                                }}
-                                              >
+                                              <tr key={r._id || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
                                                 <TableCell>{dateStr}</TableCell>
                                                 <TableCell>{timeStr}</TableCell>
-                                                <TableCell>
-                                                  {r.shiftno ||
-                                                    r.shift_reference ||
-                                                    "—"}
-                                                </TableCell>
-                                                <TableCell>
-                                                  {r.account_head_details
-                                                    ?.name ||
-                                                    r.account_head_name ||
-                                                    r.account_head ||
-                                                    "REMOTE"}
-                                                </TableCell>
-                                                <TableCell>
-                                                  {r.voucher_no || "—"}
-                                                </TableCell>
-                                                <TableCell>
-                                                  ₹ {isReceipt ? amt : "0.00"}
-                                                </TableCell>
-                                                <TableCell>
-                                                  ₹ {!isReceipt ? amt : "0.00"}
-                                                </TableCell>
-                                                <TableCell>{desc}</TableCell>
+                                                <TableCell>{r.shiftno || "—"}</TableCell>
+                                                <TableCell>{r.account_head_details?.name || r.account_head || "—"}</TableCell>
+                                                <TableCell>{r.voucher_no || "—"}</TableCell>
+                                                <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
+                                                <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
+                                                <TableCell>{typeof r.description === 'object' ? Object.values(r.description).join(", ") : (r.description || "—")}</TableCell>
                                                 <TableCell center>
                                                   <button
-                                                    title="Print"
-                                                    onClick={() => {
-                                                      setRpShowVoucherModal(
-                                                        false,
-                                                      );
-                                                      setRpPrintVoucher(r);
-                                                    }}
-                                                    style={{
-                                                      background: "#0d9488",
-                                                      color: "white",
-                                                      border: "none",
-                                                      padding: "5px 8px",
-                                                      borderRadius: 4,
-                                                      cursor: "pointer",
-                                                    }}
+                                                    onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
+                                                    style={{ background: "#0d9488", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
                                                   >
                                                     🖨️
                                                   </button>
                                                 </TableCell>
                                               </tr>
                                             );
-                                          });
-                                        })()}
+                                          })
+                                        )}
                                       </tbody>
-                                      {/* Totals row */}
                                       {pvData.length > 0 && (
                                         <tfoot>
-                                          <tr
-                                            style={{
-                                              background: "#f3f4f6",
-                                              fontWeight: 700,
-                                            }}
-                                          >
-                                            <TableCell
-                                              colSpan={5}
-                                              style={{
-                                                textAlign: "right",
-                                                fontWeight: 700,
-                                              }}
-                                            >
-                                              Total:
-                                            </TableCell>
-                                            <TableCell
-                                              style={{ fontWeight: 700 }}
-                                            >
-                                              ₹{" "}
-                                              {pvTotalReceipt.toLocaleString(
-                                                "en-IN",
-                                                { minimumFractionDigits: 2 },
-                                              )}
-                                            </TableCell>
-                                            <TableCell
-                                              style={{ fontWeight: 700 }}
-                                            >
-                                              ₹{" "}
-                                              {pvTotalPayment.toLocaleString(
-                                                "en-IN",
-                                                { minimumFractionDigits: 2 },
-                                              )}
-                                            </TableCell>
+                                          <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
+                                            <TableCell colSpan={5} style={{ textAlign: "right" }}>Total:</TableCell>
+                                            <TableCell>₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                                            <TableCell>₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
                                             <TableCell colSpan={2} />
                                           </tr>
                                         </tfoot>
@@ -2623,127 +2078,34 @@ export default function CentralCashCounter() {
                                     </Table>
                                   </div>
 
-                                  {/* Pagination */}
-                                  {pvData.length > 0 &&
-                                    (() => {
-                                      const totalPages = Math.ceil(
-                                        pvData.length / pvShowEntries,
-                                      );
-                                      const startEntry =
-                                        (pvPage - 1) * pvShowEntries + 1;
-                                      const endEntry = Math.min(
-                                        pvPage * pvShowEntries,
-                                        pvData.length,
-                                      );
-                                      const pageNums = [];
-                                      for (let i = 1; i <= totalPages; i++)
-                                        pageNums.push(i);
-                                      const visiblePages = pageNums.filter(
-                                        (p) =>
-                                          p === 1 ||
-                                          p === totalPages ||
-                                          Math.abs(p - pvPage) <= 1,
-                                      );
-                                      const btnStyle = (active) => ({
-                                        padding: "5px 10px",
-                                        border: "1px solid #d1d5db",
-                                        borderRadius: 4,
-                                        fontSize: 13,
-                                        cursor: "pointer",
-                                        background: active
-                                          ? "#0d9488"
-                                          : "white",
-                                        color: active ? "white" : "#374151",
-                                        fontWeight: active ? 700 : 400,
-                                      });
-                                      return (
-                                        <div
-                                          style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            marginTop: 12,
-                                            flexWrap: "wrap",
-                                            gap: 8,
-                                          }}
-                                        >
-                                          <span
-                                            style={{
-                                              fontSize: 13,
-                                              color: "#6b7280",
-                                            }}
-                                          >
-                                            Showing {startEntry} to {endEntry}{" "}
-                                            of {pvData.length} entries
-                                          </span>
-                                          <div
-                                            style={{
-                                              display: "flex",
-                                              gap: 4,
-                                              flexWrap: "wrap",
-                                            }}
-                                          >
-                                            <button
-                                              style={btnStyle(false)}
-                                              disabled={pvPage === 1}
-                                              onClick={() =>
-                                                setPvPage((p) => p - 1)
-                                              }
-                                            >
-                                              Previous
-                                            </button>
-                                            {visiblePages.map((p, i) => {
-                                              const prev = visiblePages[i - 1];
-                                              return (
-                                                <React.Fragment key={p}>
-                                                  {prev && p - prev > 1 && (
-                                                    <span
-                                                      style={{
-                                                        padding: "5px 4px",
-                                                        fontSize: 13,
-                                                      }}
-                                                    >
-                                                      ...
-                                                    </span>
-                                                  )}
-                                                  <button
-                                                    style={btnStyle(
-                                                      pvPage === p,
-                                                    )}
-                                                    onClick={() => setPvPage(p)}
-                                                  >
-                                                    {p}
-                                                  </button>
-                                                </React.Fragment>
-                                              );
-                                            })}
-                                            <button
-                                              style={btnStyle(false)}
-                                              disabled={pvPage === totalPages}
-                                              onClick={() =>
-                                                setPvPage((p) => p + 1)
-                                              }
-                                            >
-                                              Next
-                                            </button>
-                                          </div>
-                                        </div>
-                                      );
-                                    })()}
+                                  {/* Pagination & Excel */}
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                                    <button
+                                      onClick={pvExportExcel}
+                                      style={{ background: "#f97316", color: "white", border: "none", padding: "7px 14px", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                                    >
+                                      📊 Excel Export
+                                    </button>
+
+                                    {pvData.length > pvShowEntries && (
+                                      <div style={{ display: "flex", gap: 5 }}>
+                                        <button disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Prev</button>
+                                        <span>Page {pvPage}</span>
+                                        <button disabled={pvPage * pvShowEntries >= pvData.length} onClick={() => setPvPage(p => p + 1)}>Next</button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </>
                               )}
-                            </ModalBody>
+                            </div>
+                          </ModalBody>
 
-                            <ModalFooterBar>
-                              <CancelButton
-                                onClick={() => setRpShowVoucherModal(false)}
-                              >
-                                Close
-                              </CancelButton>
-                            </ModalFooterBar>
-                          </ModalContainer>
-                        </ModalOverlay>
-                      )}
+                          <ModalFooterBar>
+                            <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
+                          </ModalFooterBar>
+                        </ModalContainer>
+                      </ModalOverlay>
+                    )}
                     </>
                   );
                 })()}
