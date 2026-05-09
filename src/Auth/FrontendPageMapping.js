@@ -1,7 +1,5 @@
 export const PAGE_PERMISSIONS = {
-
-
-
+    "/CashCounterManager": "HMS-P-CCC",
 };
 
 /**

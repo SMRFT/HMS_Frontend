@@ -16,6 +16,77 @@ const slideDown = keyframes`
   to   { opacity: 1; transform: translateY(0); }
 `;
 
+// ─── Toast Notification ───────────────────────────────────────────────────────
+const slideUp = keyframes`
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const ToastContainer = styled.div`
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+`;
+
+const ToastItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: ${p => p.$type === "success" ? "#1b5e20" : p.$type === "error" ? "#b71c1c" : "#e65100"};
+  color: #fff;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 13px;
+  min-width: 280px;
+  max-width: 380px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+  animation: ${slideUp} 0.25s ease;
+  pointer-events: all;
+  line-height: 1.45;
+`;
+
+const ToastIcon = styled.span`
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+`;
+
+const ToastMsg = styled.span`
+  flex: 1;
+`;
+
+let _toastId = 0;
+
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message, type = "info", duration = 3500) => {
+    const id = ++_toastId;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
+  };
+
+  const ToastPortal = () => (
+    <ToastContainer>
+      {toasts.map(t => (
+        <ToastItem key={t.id} $type={t.type}>
+          <ToastIcon>
+            {t.type === "success" ? "✅" : t.type === "error" ? "❌" : "⚠️"}
+          </ToastIcon>
+          <ToastMsg>{t.message}</ToastMsg>
+        </ToastItem>
+      ))}
+    </ToastContainer>
+  );
+
+  return { showToast, ToastPortal };
+}
+
 // ─── Page Layout ─────────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   padding: 0;
@@ -174,6 +245,20 @@ const FormGrid = styled.div`
   margin-bottom: 18px;
 `;
 
+const BillRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 20px;
+  margin-bottom: 18px;
+`;
+
+const BillTypeOnlyRow = styled.div`
+  display: grid;
+  grid-template-columns: minmax(170px, 220px);
+  gap: 14px 20px;
+  margin-bottom: 18px;
+`;
+
 const FormGroup = styled.div``;
 
 const InputRow = styled.div`
@@ -271,6 +356,30 @@ const FormSearchBtn = styled.button`
   gap: 6px;
   transition: background 0.2s;
   &:hover { background: #004d40; }
+`;
+
+const SaveBtn = styled.button`
+  background: #1565c0;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 18px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+  &:hover { background: #0d47a1; }
+  &:disabled { background: #90a4ae; cursor: not-allowed; }
+`;
+
+const BillItemsFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  background: #fafafa;
+  border-top: 1px solid #e0e0e0;
 `;
 
 // ─── Table Card ───────────────────────────────────────────────────────────────
@@ -385,6 +494,57 @@ const PageBtn = styled.button`
   opacity: ${p => p.disabled ? 0.5 : 1};
 `;
 
+// ─── Bill Items Table ─────────────────────────────────────────────────────────
+const BillItemsSection = styled.div`
+  margin-top: 18px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+`;
+
+const BillItemsTitle = styled.div`
+  background: #f5f5f5;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  border-bottom: 1px solid #e0e0e0;
+`;
+
+const BillItemsTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+`;
+
+const BillItemsTh = styled.th`
+  background: #fafafa;
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 1px solid #e8e8e8;
+  white-space: nowrap;
+`;
+
+const BillItemsTd = styled.td`
+  padding: 8px 12px;
+  border-bottom: 1px solid #f2f2f2;
+  color: #333;
+  vertical-align: middle;
+`;
+
+const ReturnQtyInput = styled.input`
+  width: 80px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  outline: none;
+  text-align: center;
+  &:focus { border-color: #00796b; }
+`;
+
 // ─── Donut Component ──────────────────────────────────────────────────────────
 function DonutChart({ cashCount, ipCount, otherCount }) {
   const r = 36, cx = 45, cy = 45;
@@ -448,22 +608,53 @@ const SalesReturn = () => {
   const formRef = useRef(null);
 
   const [fetchingPatient, setFetchingPatient] = useState(false);
+  const [fetchingBill, setFetchingBill]       = useState(false);
+  const [billTypes, setBillTypes] = useState([]);
+  const [billItems, setBillItems] = useState([]);
+
+  const { showToast, ToastPortal } = useToast();
 
   const [form, setForm] = useState({
     uhidNo: "", ipNumber: "", name: "",
     ageY: "", ageM: "", ageD: "",
     gender: "", requestNo: "", paymentType: "Cash",
+    billType: "", billName: "", billNumber: "", billAmount: "",
   });
+
+  useEffect(() => {
+    const fetchBillTypes = async () => {
+      try {
+        const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_BillType/`, "GET");
+        if (response.success && Array.isArray(response.data?.data)) {
+          const data = response.data.data;
+          setBillTypes(data);
+          if (data.length > 0) {
+            setForm((prev) => ({
+              ...prev,
+              billType: data[0].bill_type,
+              billName: data[0].bill_name,
+            }));
+          }
+        } else {
+          setBillTypes([]);
+        }
+      } catch (error) {
+        console.error("Error fetching bill types:", error);
+        setBillTypes([]);
+      }
+    };
+    fetchBillTypes();
+  }, []);
 
   const handleSearch = async () => {
     try {
       setLoading(true);
       const res = await apiRequest(
-        `${HmsBaseUrl}sales_return_medicine/?from_date=${fromDate}&to_date=${toDate}`,
+        `${HmsBaseUrl}get_salesreturn_details/?from_date=${fromDate}&to_date=${toDate}`,
         "GET"
       );
       const data = res.data;
-      setReturnList(Array.isArray(data) ? data : data?.results || []);
+      setReturnList(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error("Sales return fetch error:", err);
     } finally {
@@ -473,7 +664,7 @@ const SalesReturn = () => {
 
   const fetchPatientDetails = async (uhid) => {
   if (!uhid) {
-    alert("Enter UHID");
+    showToast("Please enter a UHID to search.", "warning");
     return;
   }
 
@@ -508,11 +699,56 @@ const SalesReturn = () => {
 
   } catch (err) {
     console.error("Fetch patient error:", err);
-    alert("Server error");
+    showToast("Server error while fetching patient details.", "error");
   } finally {
     setFetchingPatient(false);
   }
 };
+
+  // ─── Fetch Bill Details from hospital_pharmacybilling ────────────────────────
+  const fetchBillDetails = async (billNo) => {
+    if (!billNo?.trim()) {
+      showToast("Please enter a Bill Number to search.", "warning");
+      return;
+    }
+    try {
+      setFetchingBill(true);
+      setBillItems([]);
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_salesreturn_billdetails/`,
+        "POST",
+        { bill_no: billNo.trim() }
+      );
+      const data = res.data;
+
+      if (data?.status === "success") {
+        const d = data.data;
+        setForm(prev => ({
+          ...prev,
+          billAmount:  d.net_amount  ?? d.total_amount ?? "",
+          billType:    d.bill_type   ?? prev.billType,
+          billName:    d.bill_name   ?? prev.billName,
+          uhidNo:      prev.uhidNo   || d.uhid        || "",
+          ipNumber:    prev.ipNumber || d.inpatient_number || "",
+        }));
+        const items = (d.items || []).map(item => ({ ...item, returnQty: "" }));
+        setBillItems(items);
+      } else {
+        
+      }
+    } catch (err) {
+      console.error("Fetch bill error:", err);
+      showToast("Server error while fetching bill details.", "error");
+    } finally {
+      setFetchingBill(false);
+    }
+  };
+
+  const handleReturnQtyChange = (index, value) => {
+    setBillItems(prev =>
+      prev.map((item, i) => i === index ? { ...item, returnQty: value } : item)
+    );
+  };
 
   useEffect(() => { handleSearch(); }, []);
 
@@ -531,18 +767,24 @@ const SalesReturn = () => {
 
   const filtered = returnList.filter(r =>
     !searchFilter ||
-    (r.patient || "").toLowerCase().includes(searchFilter.toLowerCase())
+    (r.patient_name || "").toLowerCase().includes(searchFilter.toLowerCase()) ||
+    (r.uhid || "").toLowerCase().includes(searchFilter.toLowerCase())
   );
 
   const handleFormChange = (field, val) =>
     setForm(prev => ({ ...prev, [field]: val }));
 
-  const handleFormReset = () =>
+  const handleFormReset = () => {
+    setBillItems([]);
     setForm({
       uhidNo: "", ipNumber: "", name: "",
       ageY: "", ageM: "", ageD: "",
       gender: "", requestNo: "", paymentType: "Cash",
+      billType: billTypes.length > 0 ? billTypes[0].bill_type : "",
+      billName: billTypes.length > 0 ? billTypes[0].bill_name : "",
+      billNumber: "", billAmount: "",
     });
+  };
 
   const handleFormSearch = async () => {
     try {
@@ -567,12 +809,79 @@ const SalesReturn = () => {
     }
   };
 
-  const formatDate = iso =>
-    iso ? iso.split("-").reverse().join("/") : "";
+  const handleSave = async () => {
+    if (!form.billNumber?.trim()) {
+      showToast("Please enter a Bill Number before saving.", "warning");
+      return;
+    }
+    if (!billItems.length) {
+      showToast("No bill items to save.", "warning");
+      return;
+    }
+    const hasReturn = billItems.some(item => Number(item.returnQty) > 0);
+    if (!hasReturn) {
+      showToast("Please enter return quantity for at least one item.", "warning");
+      return;
+    }
+
+    const totalReturnAmount = billItems
+      .filter(item => Number(item.returnQty) > 0)
+      .reduce((sum, item) =>
+        sum + parseFloat(item.returnQty || 0) * parseFloat(item.price ?? item.rate ?? 0), 0);
+
+    const medicine_particulars = billItems
+      .filter(item => Number(item.returnQty) > 0)
+      .map(item => ({
+        item_id:      item.item_id      ?? item.id ?? "",
+        batch_number: item.batch_number ?? "",
+        billed_qty:   item.qty          ?? item.billed_qty ?? 0,
+        return_qty:   Number(item.returnQty),
+        price:        item.price        ?? item.rate ?? 0,
+      }));
+
+    const payload = {
+      bill_no:               form.billNumber,
+      uhid:                  form.uhidNo,
+      return_amount:         totalReturnAmount.toFixed(2),
+      medicine_particulars,
+    };
+
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}OP_salesreturn_billdetails/`,
+        "POST",
+        payload
+      );
+      const data = res.data;
+      if (data?.status === "success" || res.status === 200 || res.status === 201) {
+        showToast(data?.message || "Sales return saved successfully.", "success");
+        handleFormReset();
+        setShowForm(false);
+        handleSearch();
+      } else {
+        showToast(data?.message || "Failed to save sales return.", "error");
+      }
+    } catch (err) {
+      console.error("Save sales return error:", err);
+      const errMsg = err?.response?.data?.message || "Server error while saving.";
+      showToast(errMsg, "error");
+    }
+  };
+
+  const formatDate = iso => {
+    if (!iso) return "—";
+    const date = new Date(iso);
+    if (isNaN(date)) return iso;
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
 
   return (
     <>
       <GlobalStyle />
+      <ToastPortal />
       <PageWrapper>
 
         {/* Breadcrumb */}
@@ -752,42 +1061,140 @@ const SalesReturn = () => {
                     </InputRow>
                   </FormGroup>
 
-                  <FormGroup>
+                  <FormGroup style={{ gridColumn: "span 2" }}>
                     <Label>Payment Type</Label>
-                    <RadioGroup>
-                      <label>
-                        <input
-                          type="radio"
-                          name="paymentType"
-                          value="Cash"
-                          checked={form.paymentType === "Cash"}
-                          onChange={() => handleFormChange("paymentType", "Cash")}
-                        />
-                        Cash
-                      </label>
-                      <label>
-                        <input
-                          type="radio"
-                          name="paymentType"
-                          value="Other"
-                          checked={form.paymentType === "Other"}
-                          onChange={() => handleFormChange("paymentType", "Other")}
-                        />
-                        Other
-                      </label>
-                    </RadioGroup>
+                    <div style={{ display: "flex", alignItems: "center", gap: "18px", flexWrap: "wrap" }}>
+                      <RadioGroup>
+                        <label>
+                          <input
+                            type="radio"
+                            name="paymentType"
+                            value="Cash"
+                            checked={form.paymentType === "Cash"}
+                            onChange={() => handleFormChange("paymentType", "Cash")}
+                          />
+                          Cash
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="paymentType"
+                            value="Other"
+                            checked={form.paymentType === "Other"}
+                            onChange={() => handleFormChange("paymentType", "Other")}
+                          />
+                          Other
+                        </label>
+                      </RadioGroup>
+                      <ResetBtn type="button" onClick={handleFormReset}>
+                        ↺ Reset
+                      </ResetBtn>
+                      <FormSearchBtn type="button" onClick={handleFormSearch}>
+                        🔍 Search
+                      </FormSearchBtn>
+                    </div>
                   </FormGroup>
 
                 </FormGrid>
 
-                <FormActions>
-                  <ResetBtn type="button" onClick={handleFormReset}>
-                    ↺ Reset
-                  </ResetBtn>
-                  <FormSearchBtn type="button" onClick={handleFormSearch}>
-                    🔍 Search
-                  </FormSearchBtn>
-                </FormActions>
+               
+
+                {/* ── Bill Type | Bill Number | Bill Amount ── */}
+                <BillRow>
+                  <FormGroup>
+                    <Label>Bill Type</Label>
+                    <FormInput
+                      value={form.billName || form.billType || ""}
+                      readOnly
+                      placeholder="—"
+                    />
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Bill Number</Label>
+                    <InputRow>
+                      <FormInput
+                        value={form.billNumber}
+                        onChange={e => handleFormChange("billNumber", e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            fetchBillDetails(form.billNumber);
+                          }
+                        }}
+                        onBlur={() => {
+                          if (form.billNumber.trim()) fetchBillDetails(form.billNumber);
+                        }}
+                        placeholder="Enter Bill No & press Enter"
+                      />
+                      <IconBtn
+                        type="button"
+                        title="Search Bill"
+                        onClick={() => fetchBillDetails(form.billNumber)}
+                        disabled={fetchingBill}
+                      >
+                        {fetchingBill ? "⏳" : "🔍"}
+                      </IconBtn>
+                    </InputRow>
+                  </FormGroup>
+                  <FormGroup>
+                    <Label>Bill Amount</Label>
+                    <FormInput
+                      value={form.billAmount}
+                      onChange={e => handleFormChange("billAmount", e.target.value)}
+                      placeholder="0.00"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                    />
+                  </FormGroup>
+                </BillRow>
+
+                {/* ── Bill Items Table (shown after bill search) ── */}
+                {billItems.length > 0 && (
+                  <BillItemsSection>
+                    <BillItemsTitle>Bill Items</BillItemsTitle>
+                    <BillItemsTable>
+                      <thead>
+                        <tr>
+                          <BillItemsTh>#</BillItemsTh>
+                          <BillItemsTh>Item Name</BillItemsTh>
+                          <BillItemsTh>Batch No</BillItemsTh>
+                          <BillItemsTh>Qty</BillItemsTh>
+                          <BillItemsTh>Return Qty</BillItemsTh>
+                          <BillItemsTh>Unit Price (₹)</BillItemsTh>
+                          <BillItemsTh>Return Qty</BillItemsTh>
+                          <BillItemsTh>Return Amount (₹)</BillItemsTh>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {billItems.map((item, index) => (
+                          <tr key={index}>
+                            <BillItemsTd>{index + 1}</BillItemsTd>
+                            <BillItemsTd>{item.item_name || "—"}</BillItemsTd>
+                            <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
+                            <BillItemsTd>{item.qty ?? "—"}</BillItemsTd>
+                         // <BillItemsTd>{parseFloat(item.price ?? item.rate ?? 0).toFixed(2)}</BillItemsTd>
+                            <BillItemsTd>
+                              <ReturnQtyInput
+                                type="number"
+                                min="0"
+                                max={item.qty}
+                                value={item.returnQty}
+                                placeholder="0"
+                                onChange={e => handleReturnQtyChange(index, e.target.value)}
+                              />
+                            </BillItemsTd>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </BillItemsTable>
+                    <BillItemsFooter>
+                      <SaveBtn type="button" onClick={handleSave}>
+                        💾 Save
+                      </SaveBtn>
+                    </BillItemsFooter>
+                  </BillItemsSection>
+                )}
               </FormBody>
             </FormCard>
           )}
@@ -819,39 +1226,28 @@ const SalesReturn = () => {
                   <Th>IP No/SL No</Th>
                   <Th>Return Amount</Th>
                   <Th>User</Th>
-                  <Th>Action</Th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <Td colSpan={9}><NoRecords>Loading…</NoRecords></Td>
+                    <Td colSpan={8}><NoRecords>Loading…</NoRecords></Td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <Td colSpan={9}><NoRecords>No records found</NoRecords></Td>
+                    <Td colSpan={8}><NoRecords>No records found</NoRecords></Td>
                   </tr>
                 ) : (
                   filtered.map((row, i) => (
                     <tr key={i}>
                       <Td><CashBadge>{row.mode || "Cash Return"}</CashBadge></Td>
-                      <Td>{formatDate(row.return_date)}</Td>
-                      <Td>{row.return_no}</Td>
-                      <Td>{row.patient}</Td>
-                      <Td>{row.uhid}</Td>
-                      <Td>{row.ip_sl_no}</Td>
+                      <Td>{formatDate(row.return_bill_date)}</Td>
+                      <Td>{row.return_bill_no}</Td>
+                      <Td>{row.patient_name || "—"}</Td>
+                      <Td>{row.uhid || "—"}</Td>
+                      <Td>{row.bill_no || "—"}</Td>
                       <Td>₹ {parseFloat(row.return_amount || 0).toFixed(2)}</Td>
-                      <Td>{row.user}</Td>
-                      <Td>
-                        <button
-                          style={{
-                            background: "none", border: "none",
-                            cursor: "pointer", fontSize: 15, color: "#555",
-                          }}
-                        >
-                          🖨
-                        </button>
-                      </Td>
+                      <Td>{row.pharmacist_name || "—"}</Td>
                     </tr>
                   ))
                 )}
