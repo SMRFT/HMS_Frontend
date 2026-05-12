@@ -90,7 +90,7 @@ const SidebarContainer = styled.div`
   @media (max-width: 1024px) {
     width: 260px;
     transform: ${({ $isCollapsed }) =>
-    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
+      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
 
   @media (max-width: 768px) {
@@ -99,7 +99,7 @@ const SidebarContainer = styled.div`
     height: 100vh;
     top: 0;
     transform: ${({ $isCollapsed }) =>
-    $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
+      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
 `;
@@ -467,7 +467,7 @@ const LogoutButton = styled.button`
 const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
   const location = useLocation();
   const [sidebarData, setSidebarData] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [openGroups, setOpenGroups] = useState({});
 
   useEffect(() => {
@@ -541,8 +541,11 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
           {sidebarData.map((group, groupIndex) => {
             // Use globally configured integer ID array for permission-based rendering
             const storedHmsPages = (() => {
-              try { return JSON.parse(localStorage.getItem("hms_pages") || "[]"); }
-              catch { return []; }
+              try {
+                return JSON.parse(localStorage.getItem("hms_pages") || "[]");
+              } catch {
+                return [];
+              }
             })();
 
             const currentOutlet = localStorage.getItem("selected_outlet");
@@ -551,14 +554,20 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
               // Check if permissions are defined (either as non-empty array or non-empty object)
               const hasDefinedPermissions = Array.isArray(perms)
                 ? perms.length > 0
-                : (perms && typeof perms === 'object' && Object.keys(perms).length > 0);
+                : perms &&
+                  typeof perms === "object" &&
+                  Object.keys(perms).length > 0;
 
-              if (hasDefinedPermissions && page.page_id != null && !storedHmsPages.includes(page.page_id)) {
+              if (
+                hasDefinedPermissions &&
+                page.page_id != null &&
+                !storedHmsPages.includes(page.page_id)
+              ) {
                 return false;
               }
 
               // Check if the page is bound to a specific outlet
-              if (page.outlet_code && page.outlet_code.trim() !== '') {
+              if (page.outlet_code && page.outlet_code.trim() !== "") {
                 // If it is bound, only show if it matches the current active outlet
                 if (page.outlet_code !== currentOutlet) {
                   return false;
@@ -568,14 +577,18 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
               return true;
             });
 
-            const groupNameMatches = group.group && group.group.toLowerCase().includes(searchTerm.toLowerCase());
+            const groupNameMatches =
+              group.group &&
+              group.group.toLowerCase().includes(searchTerm.toLowerCase());
 
             const searchFilteredPages = allowedPages.filter((page) =>
-              page.name.toLowerCase().includes(searchTerm.toLowerCase())
+              page.name.toLowerCase().includes(searchTerm.toLowerCase()),
             );
 
             // Hide the entire group if user has no access to any of its pages after search
-            const pagesToShow = groupNameMatches ? allowedPages : searchFilteredPages;
+            const pagesToShow = groupNameMatches
+              ? allowedPages
+              : searchFilteredPages;
 
             if (pagesToShow.length === 0) return null;
 

@@ -375,8 +375,11 @@ const InvoiceReport = () => {
           items: parseItems(record.items),
         }));
 
-        setAllData(data);
-        setFilteredData(data);
+        const sorted = [...data].sort(
+          (a, b) => new Date(b.invoice_date) - new Date(a.invoice_date),
+        );
+        setAllData(sorted);
+        setFilteredData(sorted);
         if (data.length === 0)
           toast.info("No records found for the selected date range");
       } catch (err) {
@@ -403,16 +406,18 @@ const InvoiceReport = () => {
     }
     const s = filters.search.toLowerCase().trim();
     setFilteredData(
-      allData.filter(
-        (item) =>
-          item.grn_number?.toLowerCase().includes(s) ||
-          item.invoice_no?.toLowerCase().includes(s) ||
-          item.vendor?.toLowerCase().includes(s) ||
-          item.vendor_id?.toLowerCase().includes(s) ||
-          item.patient_name?.toLowerCase().includes(s) ||
-          item.surgeon_id?.toLowerCase().includes(s) ||
-          item.ip_number?.toLowerCase().includes(s),
-      ),
+      [
+        ...allData.filter(
+          (item) =>
+            item.grn_number?.toLowerCase().includes(s) ||
+            item.invoice_no?.toLowerCase().includes(s) ||
+            item.vendor?.toLowerCase().includes(s) ||
+            item.vendor_id?.toLowerCase().includes(s) ||
+            item.patient_name?.toLowerCase().includes(s) ||
+            item.surgeon_id?.toLowerCase().includes(s) ||
+            item.ip_number?.toLowerCase().includes(s),
+        ),
+      ].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date)),
     );
     setCurrentPage(1);
   }, [allData, filters.search]);
