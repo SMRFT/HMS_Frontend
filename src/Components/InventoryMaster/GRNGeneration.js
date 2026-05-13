@@ -232,6 +232,11 @@ const MONTHS = [
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
 
+// ─── FIX: "DRUG PURCHASE" is always the first fixed option in the dropdown.
+// It is NOT fetched from the API — it's hardcoded here so it always appears
+// regardless of what the outlets API returns.
+const FIXED_PURCHASE_CATEGORIES = ["DRUG PURCHASE"]
+
 const EMPTY_GRN = {
   purchase_category:"",vendor_id:"",date:todayStr(),
   invoice_no:"",invoice_date:todayStr(),payment_mode:"CHEQUE",
@@ -338,15 +343,15 @@ function isExpiryTooShort(month, year) {
 
 /* ─── OCR Panel Component ───────────────────────────────────────────────── */
 const OcrPanel = ({ onOcrResult, disabled }) => {
-  const [ocrMode,    setOcrMode]    = useState("upload")   // "upload" | "camera"
+  const [ocrMode,    setOcrMode]    = useState("upload")
   const [dragging,   setDragging]   = useState(false)
   const [previewSrc, setPreviewSrc] = useState(null)
   const [ocrFile,    setOcrFile]    = useState(null)
   const [scanning,   setScanning]   = useState(false)
   const [camActive,  setCamActive]  = useState(false)
   const [camError,   setCamError]   = useState("")
-  const [captured,   setCaptured]   = useState(null)   // blob
-  const [ocrStatus,  setOcrStatus]  = useState(null)   // null | "success" | "error"
+  const [captured,   setCaptured]   = useState(null)
+  const [ocrStatus,  setOcrStatus]  = useState(null)
   const [ocrMsg,     setOcrMsg]     = useState("")
   const [warnings,   setWarnings]   = useState([])
 
@@ -355,7 +360,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
   const canvasRef     = useRef(null)
   const streamRef     = useRef(null)
 
-  /* ── Camera ── */
   const startCamera = useCallback(async () => {
     setCamError("")
     try {
@@ -417,7 +421,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     startCamera()
   }
 
-  /* ── File handling ── */
   const handleFileSelect = (file) => {
     if (!file) return
     const allowed = ["image/jpeg","image/png","image/jpg","image/webp","application/pdf"]
@@ -444,20 +447,12 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     handleFileSelect(file)
   }
 
-  /* ── OCR API call ── */
   const runOcr = async () => {
     if (!ocrFile) { toast.error("No file selected or captured."); return }
     setScanning(true); setOcrStatus(null); setOcrMsg(""); setWarnings([])
     try {
       const formData = new FormData()
       formData.append("file", ocrFile)
-
-      // Use raw fetch so we can send FormData through apiRequest wrapper
-      // Adjust if your apiRequest already supports FormData
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token") || ""
-      const hospitalCode = localStorage.getItem("hospital_code") || ""
-      const branchCode   = localStorage.getItem("branch_code")   || ""
-      const userId       = localStorage.getItem("user_id")       || ""
 
       const res = await fetch(`${baseUrl}grn-ocr/`, {
         method: "POST",
@@ -488,7 +483,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
     }
   }
 
-  /* ── Reset ── */
   const resetOcr = () => {
     setOcrFile(null); setPreviewSrc(null); setCaptured(null)
     setOcrStatus(null); setOcrMsg(""); setWarnings([])
@@ -507,7 +501,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         </span>
       </OcrCardHeader>
 
-      {/* Mode selector */}
       <OcrMethodRow>
         <OcrMethodBtn
           active={ocrMode === "upload"}
@@ -525,7 +518,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         </OcrMethodBtn>
       </OcrMethodRow>
 
-      {/* ── Upload mode ── */}
       {ocrMode === "upload" && (
         <>
           {!ocrFile ? (
@@ -565,7 +557,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         </>
       )}
 
-      {/* ── Camera mode ── */}
       {ocrMode === "camera" && (
         <div>
           {camError && (
@@ -615,7 +606,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         </div>
       )}
 
-      {/* ── Status messages ── */}
       {ocrStatus === "success" && (
         <OcrSuccessBox>
           <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
@@ -636,7 +626,6 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
         </OcrWarnBox>
       )}
 
-      {/* ── Action buttons ── */}
       <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
         {ocrFile && (
           <Button
@@ -683,8 +672,7 @@ const GRNGeneration = () => {
   const [editStatus,  setEditStatus]  = useState("")
   const [search,      setSearch]      = useState("")
   const [loading,     setLoading]     = useState(false)
-  // OCR state
-  const [ocrApplied,  setOcrApplied]  = useState(false)  // shows badge on fields filled by OCR
+  const [ocrApplied,  setOcrApplied]  = useState(false)
 
   /* ── Fetchers ── */
   const fetchVendors   = useCallback(async () => {
@@ -697,11 +685,17 @@ const GRNGeneration = () => {
     try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data)?r.data:[]) } catch {}
   },[])
 
+  // ── FIX: fetchOutlets strips any "DRUG PURCHASE" variant from the API list.
+  // "DRUG PURCHASE" is always shown as a fixed hardcoded option in the dropdown,
+  // so we must not also load it from the API (would cause duplicates).
   const fetchOutlets = useCallback(async () => {
     try {
       const r = await apiRequest(`${baseUrl}get_active_outlets/`, "GET")
       if (r?.success && Array.isArray(r?.data?.data)) {
-        setOutlets([...r.data.data])
+        const filtered = r.data.data.filter(
+          (o) => (o.outlet_name || "").trim().toLowerCase() !== "drug purchase"
+        )
+        setOutlets(filtered)
         setGrnData(prev => ({ ...prev, purchase_category: "" }))
       } else {
         setOutlets([])
@@ -774,17 +768,12 @@ const GRNGeneration = () => {
     setGrnData(p=>({...p, net_invoice_amount:(tot+round).toFixed(2)}))
   },[grnData.round_amount]) // eslint-disable-line
 
-  /* ── OCR result handler ─────────────────────────────────────────────────
-     Maps the OCR API response onto GRN form state.
-     Items from OCR are added to the items list (user must confirm/edit each).
-     Header fields are patched; vendor_id resolved by name match.
-  ── */
+  /* ── OCR result handler ── */
   const handleOcrResult = useCallback((data) => {
     if (!data) return
 
     setGrnData(prev => {
       const updated = { ...prev }
-
       if (data.invoice_no)       updated.invoice_no       = data.invoice_no
       if (data.invoice_date)     updated.invoice_date     = data.invoice_date.split("T")[0]
       if (data.payment_mode)     updated.payment_mode     = data.payment_mode
@@ -800,11 +789,9 @@ const GRNGeneration = () => {
         updated.total_amount     = parseFloat(data.total_amount).toFixed(2)
       if (data.net_invoice_amount && parseFloat(data.net_invoice_amount) > 0)
         updated.net_invoice_amount = parseFloat(data.net_invoice_amount).toFixed(2)
-
       return updated
     })
 
-    // Try to match vendor by name
     if (data.vendor_name) {
       const nameLower = data.vendor_name.toLowerCase()
       const matched = vendors.find(v =>
@@ -820,10 +807,8 @@ const GRNGeneration = () => {
       }
     }
 
-    // Append OCR items to item list (with unique IDs, marked as OCR-sourced)
     if (Array.isArray(data.items) && data.items.length > 0) {
       const ocrItems = data.items.map(it => {
-        // Try to match medicine by name
         const nameLower = (it.name || "").toLowerCase()
         const matched = medicines.find(m =>
           `${m.item_name} ${m.item_last_name||""}`.toLowerCase().includes(nameLower) ||
@@ -833,7 +818,6 @@ const GRNGeneration = () => {
           ? { ...it, item_id: matched.item_id, name: `${matched.item_name} ${matched.item_last_name||""}`.trim(), hsn: matched.hsn || it.hsn }
           : it
 
-        // Force packing=1 if not set so recalc works
         const withPacking = {
           ...resolved,
           packing: resolved.packing || "1",
@@ -905,7 +889,6 @@ const GRNGeneration = () => {
 
   const removeItem = (id) => { if(isVerified) return; setItems(p=>p.filter(i=>i.id!==id)) }
 
-  /* ── Inline edit of OCR items in the table ── */
   const updateItem = (id, field, value) => {
     setItems(prev => prev.map(it => {
       if (it.id !== id) return it
@@ -1057,7 +1040,6 @@ const GRNGeneration = () => {
                 </VerifiedBanner>
               )}
 
-              {/* ── OCR Panel (hidden for verified GRNs) ── */}
               {!isVerified && (
                 <OcrPanel
                   onOcrResult={handleOcrResult}
@@ -1065,7 +1047,6 @@ const GRNGeneration = () => {
                 />
               )}
 
-              {/* OCR applied notice */}
               {ocrApplied && !isVerified && (
                 <OcrSuccessBox style={{marginBottom:12}}>
                   <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
@@ -1094,6 +1075,11 @@ const GRNGeneration = () => {
                   <GridRow cols="repeat(3,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Purchase Category *</Lbl>
+                      {/*
+                        FIX: "DRUG PURCHASE" is always the first option, hardcoded here.
+                        API outlets are appended below it (with any "DRUG PURCHASE" variant
+                        already stripped in fetchOutlets so there's no duplicate).
+                      */}
                       <Select
                         name="purchase_category"
                         value={grnData.purchase_category}
@@ -1101,16 +1087,17 @@ const GRNGeneration = () => {
                         disabled={isVerified}
                         style={{fontSize:"0.8rem"}}
                       >
-                        <option value="">-- Select Outlet --</option>
-                        {outlets.length === 0 ? (
-                          <option disabled>No outlets available</option>
-                        ) : (
-                          outlets.map((o, i) => (
-                            <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
-                              {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
-                            </option>
-                          ))
-                        )}
+                        <option value="">-- Select Category --</option>
+
+                        {/* ── Fixed hardcoded option — always present ── */}
+                        <option value="DRUG PURCHASE">DRUG PURCHASE</option>
+
+                        {/* ── Dynamic options from API (Drug Purchase already stripped) ── */}
+                        {outlets.map((o, i) => (
+                          <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
+                            {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
+                          </option>
+                        ))}
                       </Select>
                     </InputWrapper>
 
@@ -1164,12 +1151,11 @@ const GRNGeneration = () => {
                         disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>
-                        Invoice Date
-                        {ocrApplied && grnData.invoice_date && <OcrFieldBadge>OCR</OcrFieldBadge>}
-                      </Lbl>
-                      <Input type="date" name="invoice_date" value={grnData.invoice_date}
-                        onChange={handleGrnChange} disabled={isVerified} max={todayStr()} style={{fontSize:"0.8rem"}} />
+                      <Lbl>Invoice Date</Lbl>
+                      <ReadOnlyInput
+                        type="date" name="invoice_date" value={grnData.invoice_date}
+                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>
@@ -1185,7 +1171,7 @@ const GRNGeneration = () => {
                 </CardBody>
               </Card>
 
-              {/* ── Item Entry (manual — unchanged) ── */}
+              {/* ── Item Entry ── */}
               {!isVerified && (
                 <Card>
                   <CardHeader>💊 Item Entry <span style={{fontWeight:400,fontSize:"0.72rem",color:colors.textMuted,marginLeft:4}}>(Manual — or edit OCR items in table below)</span></CardHeader>
@@ -1462,7 +1448,7 @@ const GRNGeneration = () => {
                 </Card>
               )}
 
-              {/* ── Items Table (with inline edit for OCR items) ── */}
+              {/* ── Items Table ── */}
               {items.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -1657,7 +1643,7 @@ const GRNGeneration = () => {
             </>
           )}
 
-          {/* ── GRN List (unchanged) ── */}
+          {/* ── GRN List ── */}
           {activeTab==="list"&&(
             <>
               <SectionTitle><h3>GRN Records</h3></SectionTitle>
