@@ -179,39 +179,26 @@ const QRRegistrationSidebar = ({ onDataReceived }) => {
     const [showAll, setShowAll] = useState(false);
     const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    // Generate session on mount
+    // No need to generate session on mount for static QR
     React.useEffect(() => {
-        generateSession();
         return () => {
-            setSessionId(null);
             setPendingList([]);
         };
     }, []);
 
-    // Poll for pending registrations
+    // Fetch on mount or when showAll changes
     React.useEffect(() => {
-        const interval = setInterval(fetchPendingList, 3000); // Poll every 3 seconds
-        fetchPendingList(); // Initial fetch
-        return () => clearInterval(interval);
+        fetchPendingList();
     }, [showAll]);
 
     const fetchPendingList = async () => {
+        setLoading(true);
         try {
             const status = showAll ? 'all' : 'pending';
             const response = await axios.get(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`);
             setPendingList(response.data);
         } catch (error) {
             console.error("Error fetching pending list", error);
-        }
-    };
-
-    const generateSession = async () => {
-        setLoading(true);
-        try {
-            const response = await axios.get(`${Hmsbaseurl}generate-qr-session/`);
-            setSessionId(response.data.session_id);
-        } catch (error) {
-            console.error("Error generating QR session", error);
         } finally {
             setLoading(false);
         }
@@ -219,7 +206,6 @@ const QRRegistrationSidebar = ({ onDataReceived }) => {
 
     const handleSelectPatient = async (patient) => {
         try {
-            // Mark as consumed
             await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
                 session_id: patient.session_id
             });
@@ -237,68 +223,66 @@ const QRRegistrationSidebar = ({ onDataReceived }) => {
         }
     };
 
-    const registrationUrl = sessionId ? `${window.location.origin}/MobileRegistration?session_id=${sessionId}` : "";
+    const registrationUrl = `${window.location.origin}/HMS/MobileRegistration`;
 
     return (
         <SidebarContainer>
             <Title>Smart Registration</Title>
             <Subtitle>Scan QR to fast-track patient details.</Subtitle>
 
-            {loading ? (
-                <div>Loading QR...</div>
-            ) : sessionId ? (
-                <>
-                    <QRContainer>
-                        <QRCodeCanvas value={registrationUrl} size={140} level="H" />
-                    </QRContainer>
+            <QRContainer>
+                <QRCodeCanvas value={registrationUrl} size={140} level="H" />
+            </QRContainer>
 
-                    <ListHeader>
-                        Incoming Queue <Badge>{pendingList.length}</Badge>
-                    </ListHeader>
+            <ListHeader>
+                Incoming Queue <Badge>{pendingList.length}</Badge>
+                <RefreshCw 
+                    size={14} 
+                    onClick={fetchPendingList} 
+                    style={{ cursor: 'pointer', color: '#64748b' }} 
+                    className={loading ? "animate-spin" : ""}
+                />
+            </ListHeader>
 
-                    <ToggleContainer>
-                        <input
-                            type="checkbox"
-                            id="showAllSidebar"
-                            checked={showAll}
-                            onChange={(e) => setShowAll(e.target.checked)}
-                            style={{ accentColor: '#0d9488' }}
-                        />
-                        <label htmlFor="showAllSidebar" style={{ color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
-                            Show History
-                        </label>
-                    </ToggleContainer>
+            <ToggleContainer>
+                <input
+                    type="checkbox"
+                    id="showAllSidebar"
+                    checked={showAll}
+                    onChange={(e) => setShowAll(e.target.checked)}
+                    style={{ accentColor: '#0d9488' }}
+                />
+                <label htmlFor="showAllSidebar" style={{ color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
+                    Show History
+                </label>
+            </ToggleContainer>
 
-                    {pendingList.length > 0 ? (
-                        <PatientList>
-                            {pendingList.map((p) => (
-                                <PatientItem
-                                    key={p.session_id}
-                                    onClick={() => handleSelectPatient(p)}
-                                    consumed={p.is_consumed}
-                                >
-                                    <PatientInfo>
-                                        <PatientName>
-                                            {p.name}
-                                        </PatientName>
-                                        <PatientMeta>{p.mobile}</PatientMeta>
-                                        <PatientMeta>{p.age_gender}</PatientMeta>
-                                    </PatientInfo>
-                                    <ActionButton consumed={p.is_consumed}>
-                                        {p.is_consumed ? 'Load' : 'Fill'}
-                                    </ActionButton>
-                                </PatientItem>
-                            ))}
-                        </PatientList>
-                    ) : (
-                        <StatusText>
-                            <RefreshCw size={14} className="animate-spin" />
-                            Waiting for scans...
-                        </StatusText>
-                    )}
-                </>
+            {pendingList.length > 0 ? (
+                <PatientList>
+                    {pendingList.map((p) => (
+                        <PatientItem
+                            key={p.session_id}
+                            onClick={() => handleSelectPatient(p)}
+                            consumed={p.is_consumed}
+                        >
+                            <PatientInfo>
+                                <PatientName>
+                                    {p.name}
+                                </PatientName>
+                                <PatientMeta>{p.mobile}</PatientMeta>
+                                <PatientMeta>{p.age_gender}</PatientMeta>
+                            </PatientInfo>
+                            <ActionButton consumed={p.is_consumed}>
+                                {p.is_consumed ? 'Load' : 'Fill'}
+                            </ActionButton>
+                        </PatientItem>
+                    ))}
+                </PatientList>
             ) : (
-                <div>Error. <button onClick={generateSession}>Retry</button></div>
+                <StatusText>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Waiting for scans...
+                </StatusText>
             )}
         </SidebarContainer>
     );
