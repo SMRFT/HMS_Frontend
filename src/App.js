@@ -222,6 +222,7 @@ function App() {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
                 localStorage.setItem("selected_outlet", outlet.outlet_code);
+                localStorage.setItem("outlet_code", outlet.outlet_code);
                 localStorage.setItem(
                   "selected_outlet_name",
                   outlet.outlet_name,
@@ -349,10 +350,17 @@ function App() {
           }
           onSelect={(outlet) => {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
+            localStorage.setItem("outlet_code", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
             setShowOutletModal(false);
-            // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
-            window.location.reload();
+            
+            const userRole = getUserRole(allowedActions);
+            const targetPath = userRole === "Pharmacist" ? "/OPPharmacy" : "/Dashboard";
+            
+            navigate(targetPath);
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
           }}
         />
       )}
@@ -909,6 +917,7 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
+              {hasPagePermission(
                 "/ShiftBasisReport",
                 allowedActions,
                 dynamicPermissions,
