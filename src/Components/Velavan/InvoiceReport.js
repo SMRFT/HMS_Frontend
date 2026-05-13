@@ -704,10 +704,8 @@ const InvoiceReport = () => {
   const handleVelavanPrint = (record) => {
     const items = parseItems(record.items);
 
-    const sellingNonTaxableAmt = items.reduce(
-      (sum, item) =>
-        sum +
-        parseFloat(item.sellingUnitCost || 0) * parseFloat(item.quantity || 0),
+    const sellingTaxableAmt = items.reduce(
+      (sum, item) => sum + parseFloat(item.sellingCostBeforeGst || 0),
       0,
     );
 
@@ -803,12 +801,13 @@ const InvoiceReport = () => {
           ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
-              const unitSelling = parseFloat(item.sellingUnitCost || 0);
+              const unitSelling =
+                parseFloat(item.sellingCostBeforeGst || 0) / qty;
               const nonTaxableAmt = unitSelling * qty;
               const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
               const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
               const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
+              // const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
               return `<tr>
               <td>${i + 1}</td>
               <td class="l">${item.name || "N/A"}</td>
@@ -825,18 +824,18 @@ const InvoiceReport = () => {
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
               <td class="r">₹${sgstAmt.toFixed(2)}</td>
-              <td class="r"><b>₹${lineTotal.toFixed(2)}</b></td>
+              <td class="r"><b>₹${item.sellingCost || 0}</b></td>
             </tr>`;
             })
             .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
+            <td class="r">₹${sellingTaxableAmt.toFixed(2)}</td>
             <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
+            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.sellingCost || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -897,7 +896,7 @@ const InvoiceReport = () => {
           </div>
         </div>
         <div class="amts">
-          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
+          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
           <div class="amt-row">
@@ -1006,9 +1005,7 @@ const InvoiceReport = () => {
 
       const rowItems = parseItems(row.items);
       const sellingAmt = rowItems.reduce((sum, item) => {
-        const base =
-          parseFloat(item.unitSellingCost || 0) *
-          parseFloat(item.quantity || 0);
+        const base = parseFloat(item.sellingCostBeforeGst || 0);
         const cgst = parseFloat(item.sellingCgstAmt || 0);
         const sgst = parseFloat(item.sellingSgstAmt || 0);
         return sum + base + cgst + sgst;
@@ -1807,9 +1804,9 @@ const InvoiceReport = () => {
                       {(() => {
                         const rowItems = parseItems(row.items);
                         const sellingAmt = rowItems.reduce((sum, item) => {
-                          const base =
-                            parseFloat(item.unitSellingCost || 0) *
-                            parseFloat(item.quantity || 0);
+                          const base = parseFloat(
+                            item.sellingCostBeforeGst || 0,
+                          );
                           const cgst = parseFloat(item.sellingCgstAmt || 0);
                           const sgst = parseFloat(item.sellingSgstAmt || 0);
                           return sum + base + cgst + sgst;
