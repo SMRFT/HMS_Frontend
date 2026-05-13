@@ -145,10 +145,17 @@ const ViewIcon = styled(ActionIcon)`
   color: #7c3aed;
 `;
 const EditIcon = styled(ActionIcon)`
-  color: ${colors.secondary};
+  color: ${({ $disabled }) => ($disabled ? "#ccc" : colors.secondary)};
+  opacity: ${({ $disabled }) => ($disabled ? 0.45 : 1)};
+  cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+  pointer-events: auto;
 `;
+
 const DeleteIcon = styled(ActionIcon)`
-  color: ${colors.danger};
+  color: ${({ $disabled }) => ($disabled ? "#ccc" : colors.danger)};
+  opacity: ${({ $disabled }) => ($disabled ? 0.45 : 1)};
+  cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+  pointer-events: auto;
 `;
 
 // ─── Frozen-column table ──────────────────────────────────────────────────────
@@ -872,8 +879,16 @@ const BillsReport = () => {
                         </ViewIcon>
                         {canEdit && (
                           <EditIcon
-                            onClick={() => handleEdit(bill)}
-                            title="Edit"
+                            onClick={() =>
+                              bill.paymentStatus === "Pending" &&
+                              handleEdit(bill)
+                            }
+                            title={
+                              bill.paymentStatus !== "Pending"
+                                ? "Edit not allowed"
+                                : "Edit"
+                            }
+                            $disabled={bill.paymentStatus !== "Pending"}
                           >
                             ✏️
                           </EditIcon>
@@ -881,8 +896,16 @@ const BillsReport = () => {
 
                         {canDelete && (
                           <DeleteIcon
-                            onClick={() => handleDelete(bill)}
-                            title="Delete"
+                            onClick={() =>
+                              bill.paymentStatus === "Pending" &&
+                              handleDelete(bill)
+                            }
+                            title={
+                              bill.paymentStatus !== "Pending"
+                                ? "Delete not allowed"
+                                : "Delete"
+                            }
+                            $disabled={bill.paymentStatus !== "Pending"}
                           >
                             🗑️
                           </DeleteIcon>
