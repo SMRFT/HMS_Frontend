@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import dayjs from "dayjs";
+import { DatePicker } from "antd";
 import { FaEye, FaTimes } from "react-icons/fa";
 import {
     PageWrapper,
@@ -18,6 +21,12 @@ import {
     Td,
     Tr,
     SectionTitle,
+    ModalOverlay,
+    ModalContainer,
+    ModalHeader,
+    ModalTitle,
+    ModalBody,
+    CloseButton,
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
@@ -59,27 +68,6 @@ const FilterSection = styled.div`
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
-const ModalOverlay = styled.div`
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 2000;
-    backdrop-filter: blur(4px);
-    animation: ${fadeIn} 0.2s ease-out;
-`;
-
-const ModalContent = styled.div`
-    background: white;
-    padding: 24px;
-    border-radius: 16px;
-    width: 650px;
-    max-width: 95%;
-    max-height: 85vh;
-    overflow-y: auto;
-    position: relative;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-`;
 
 const PrintTemplate = styled.div`
     display: none;
@@ -101,9 +89,10 @@ const PrintHeader = styled.div`
     p { margin: 2px 0; font-size: 12px; }
 `;
 
-const ShiftBasisReport = () => {
-    const [fromDate, setFromDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
+const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
+    const location = useLocation();
+    const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
+    const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
     const [outlet, setOutlet] = useState("all");
     const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
@@ -123,12 +112,19 @@ const ShiftBasisReport = () => {
     const branch_name = localStorage.getItem("branch_name") || "Main Branch";
 
     useEffect(() => {
-        const loadInitialData = async () => {
-            await fetchOutlets();
-            await fetchReport();
-        };
-        loadInitialData();
-    }, []);
+        if (startDate) setFromDate(startDate);
+        if (endDate) setToDate(endDate);
+    }, [startDate, endDate]);
+
+    useEffect(() => {
+        if (fromDate && toDate) {
+            const loadInitialData = async () => {
+                await fetchOutlets();
+                await fetchReport();
+            };
+            loadInitialData();
+        }
+    }, [fromDate, toDate, outlet, shiftNo, viewType]);
 
     const fetchOutlets = async () => {
         try {
@@ -201,18 +197,20 @@ const ShiftBasisReport = () => {
                     <FormRow>
                         <InputWrapper>
                             <Label>From Date</Label>
-                            <Input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
+                            <DatePicker 
+                                value={fromDate ? dayjs(fromDate) : null} 
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                                format="DD/MM/YYYY"
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
                         <InputWrapper>
                             <Label>To Date</Label>
-                            <Input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
+                            <DatePicker 
+                                value={toDate ? dayjs(toDate) : null} 
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                                format="DD/MM/YYYY"
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
                         <InputWrapper>
@@ -278,23 +276,23 @@ const ShiftBasisReport = () => {
                                         </div>
                                         <div>
                                             <SummaryLabel>Opening Bal</SummaryLabel>
-                                            <div style={{ fontWeight: "700" }}>₹{group.OpeningBalance.toFixed(2)}</div>
+                                            <div style={{ fontWeight: "700" }}>₹{(group.OpeningBalance || 0).toFixed(2)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Collection</SummaryLabel>
-                                            <div style={{ fontWeight: "700", color: colors.success }}>₹{group.collected_Amount.toFixed(2)}</div>
+                                            <div style={{ fontWeight: "700", color: colors.success }}>₹{(group.collected_Amount || 0).toFixed(2)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Closing Bal</SummaryLabel>
-                                            <div style={{ fontWeight: "700" }}>₹{group.ClosingBalance.toFixed(2)}</div>
+                                            <div style={{ fontWeight: "700" }}>₹{(group.ClosingBalance || 0).toFixed(2)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Remitted</SummaryLabel>
-                                            <div style={{ fontWeight: "700", color: "#6366f1" }}>₹{group.RemittedToBank.toFixed(2)}</div>
+                                            <div style={{ fontWeight: "700", color: "#6366f1" }}>₹{(group.RemittedToBank || 0).toFixed(2)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Handover</SummaryLabel>
-                                            <div style={{ fontWeight: "700", color: "#8b5cf6" }}>₹{group.SubmittedToAccount.toFixed(2)}</div>
+                                            <div style={{ fontWeight: "700", color: "#8b5cf6" }}>₹{(group.SubmittedToAccount || group.HandOverAmount || 0).toFixed(2)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Counter</SummaryLabel>
@@ -331,7 +329,7 @@ const ShiftBasisReport = () => {
                                                             <div style={{ fontSize: "0.8rem", fontWeight: "600" }}>{b.patient_name}</div>
                                                             <div style={{ fontSize: "0.65rem", color: colors.textMuted }}>{b.uhid}</div>
                                                         </Td>
-                                                        <Td style={{ padding: "8px", textAlign: "right", fontWeight: "700", color: b.display_amount < 0 ? colors.danger : colors.textMain }}>₹{b.net_amount.toFixed(2)}</Td>
+                                                        <Td style={{ padding: "8px", textAlign: "right", fontWeight: "700", color: b.display_amount < 0 ? colors.danger : colors.textMain }}>₹{(b.net_amount || 0).toFixed(2)}</Td>
                                                         <Td style={{ padding: "8px", fontSize: "0.75rem" }}>{b.payment_mode}</Td>
                                                         <Td style={{ padding: "8px", fontSize: "0.75rem" }}>{b.cashier_name}</Td>
                                                         <Td style={{ padding: "8px", textAlign: "center" }}>
@@ -359,15 +357,18 @@ const ShiftBasisReport = () => {
                         <Table>
                             <thead>
                                 <Tr>
+                                    <Th>Counter</Th>
+                                    <Th>Date</Th>
                                     <Th>Shift No</Th>
+                                    <Th>Cashier Name</Th>
+                                    <Th>Start Time</Th>
+                                    <Th>End Time</Th>
                                     <Th style={{ textAlign: "right" }}>Opening Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Collection</Th>
                                     <Th style={{ textAlign: "right" }}>Closing Bal</Th>
+                                    <Th style={{ textAlign: "right" }}>Collection</Th>
+                                    <Th style={{ textAlign: "right" }}>Return</Th>
                                     <Th style={{ textAlign: "right" }}>Remitted</Th>
                                     <Th style={{ textAlign: "right" }}>Handover</Th>
-                                    <Th>Counter</Th>
-                                    <Th>Start Time</Th>
-                                    <Th>Close Time</Th>
                                     <Th style={{ textAlign: "right" }}>Total Coll.</Th>
                                     <Th style={{ textAlign: "center" }} className="hide-on-print">Action</Th>
                                 </Tr>
@@ -376,16 +377,19 @@ const ShiftBasisReport = () => {
                                 {summaryData.length > 0 ? (
                                     summaryData.map((s, i) => (
                                         <Tr key={i}>
-                                            <Td style={{ fontWeight: "700", color: colors.primary }}>{s.shiftno}</Td>
-                                            <Td style={{ textAlign: "right" }}>₹{s.OpeningBalance.toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{s.collected_Amount.toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{s.ClosingBalance.toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{s.RemittedToBank.toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", color: "#8b5cf6" }}>₹{s.SubmittedToAccount.toFixed(2)}</Td>
                                             <Td>{s.SelectedOutlet}</Td>
+                                            <Td>{s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"}</Td>
+                                            <Td style={{ fontWeight: "700", color: colors.primary }}>{s.shiftno}</Td>
+                                            <Td>{s.User}</Td>
                                             <Td style={{ fontSize: "0.75rem" }}>{s.StartTime}</Td>
                                             <Td style={{ fontSize: "0.75rem" }}>{s.EndTime || "Active"}</Td>
-                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{s.collected_Amount.toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right" }}>₹{(parseFloat(s.OpeningBalance || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.ClosingBalance || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{(parseFloat(s.collected_Amount || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", color: colors.danger }}>₹{(parseFloat(s.SalesReturnAmount || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{(parseFloat(s.RemittedToBank || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", color: "#8b5cf6" }}>₹{(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.collected_Amount || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "center" }} className="hide-on-print">
                                                 <FaEye
                                                     style={{ cursor: "pointer", color: colors.primary, fontSize: "1.1rem" }}
@@ -399,7 +403,7 @@ const ShiftBasisReport = () => {
                                     ))
                                 ) : (
                                     <Tr>
-                                        <Td colSpan="11" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                        <Td colSpan="14" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                             No shift records found.
                                         </Td>
                                     </Tr>
@@ -437,8 +441,8 @@ const ShiftBasisReport = () => {
                         <p>{branch_name}</p>
                         <p style={{ marginTop: "10px", fontSize: "16px", fontWeight: "bold" }}>SHIFT BASIS ACCOUNTS REPORT</p>
                         <div style={{ display: "flex", justifyContent: "space-between", marginTop: "15px", fontSize: "11px" }}>
-                            <span>Report Range: {format(new Date(fromDate), "dd-MM-yyyy")} to {format(new Date(toDate), "dd-MM-yyyy")}</span>
-                            <span>Printed On: {format(new Date(), "dd-MM-yyyy HH:mm")}</span>
+                            <span>Report Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}</span>
+                            <span>Printed On: {format(new Date(), "dd/MM/yyyy HH:mm")}</span>
                         </div>
                     </PrintHeader>
 
@@ -461,15 +465,15 @@ const ShiftBasisReport = () => {
                             {summaryData.map((s, i) => (
                                 <tr key={i}>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.shiftno}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{s.OpeningBalance.toFixed(2)}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{s.collected_Amount.toFixed(2)}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{s.ClosingBalance.toFixed(2)}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{s.RemittedToBank.toFixed(2)}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{s.SubmittedToAccount.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.OpeningBalance || 0).toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.collected_Amount || 0).toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.ClosingBalance || 0).toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.RemittedToBank || 0).toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.SelectedOutlet}</td>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.StartTime}</td>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.EndTime || "Active"}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{s.collected_Amount.toFixed(2)}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{(s.collected_Amount || 0).toFixed(2)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -492,14 +496,14 @@ const ShiftBasisReport = () => {
                     </div>
                 </PrintTemplate>
 
-                {/* SHIFT BILLS MODAL */}
                 {selectedShiftBills && (
                     <ModalOverlay onClick={() => setSelectedShiftBills(null)}>
-                        <ModalContent style={{ width: "900px" }} onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "15px" }}>
-                                <h3 style={{ margin: 0, color: colors.primary }}>Transactions for Shift: {selectedShiftBills.shiftno}</h3>
-                                <FaTimes style={{ cursor: "pointer", fontSize: "1.2rem", color: colors.textMuted }} onClick={() => setSelectedShiftBills(null)} />
-                            </div>
+                        <ModalContainer style={{ maxWidth: "900px" }} onClick={(e) => e.stopPropagation()}>
+                            <ModalHeader>
+                                <ModalTitle>Transactions for Shift: {selectedShiftBills.shiftno}</ModalTitle>
+                                <CloseButton onClick={() => setSelectedShiftBills(null)}>×</CloseButton>
+                            </ModalHeader>
+                            <ModalBody>
 
                             <TableWrapper style={{ maxHeight: "60vh", overflowY: "auto" }}>
                                 <Table>
@@ -526,7 +530,7 @@ const ShiftBasisReport = () => {
                                                         <div style={{ fontSize: "0.8rem", fontWeight: "600" }}>{b.patient_name}</div>
                                                         <div style={{ fontSize: "0.65rem", color: colors.textMuted }}>{b.uhid}</div>
                                                     </Td>
-                                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{b.net_amount.toFixed(2)}</Td>
+                                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(b.net_amount || 0).toFixed(2)}</Td>
                                                     <Td style={{ fontSize: "0.75rem" }}>{b.payment_mode}</Td>
                                                     <Td style={{ fontSize: "0.75rem" }}>{b.cashier_name}</Td>
                                                     <Td style={{ textAlign: "center" }}>
@@ -543,22 +547,23 @@ const ShiftBasisReport = () => {
                                     </tbody>
                                 </Table>
                             </TableWrapper>
-
-                            <div style={{ marginTop: "20px", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                            </ModalBody>
+                            <div style={{ padding: "15px", display: "flex", justifyContent: "flex-end", borderTop: `1px solid ${colors.border}` }}>
                                 <Button secondary onClick={() => setSelectedShiftBills(null)}>Close</Button>
                             </div>
-                        </ModalContent>
+                            
+                        </ModalContainer>
                     </ModalOverlay>
                 )}
 
-                {/* BILL DETAILS MODAL */}
                 {selectedBill && (
                     <ModalOverlay style={{ zIndex: 3000 }} onClick={() => setSelectedBill(null)}>
-                        <ModalContent onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "15px" }}>
-                                <h3 style={{ margin: 0, color: colors.primary }}>Bill Details: {selectedBill.bill_no}</h3>
-                                <FaTimes style={{ cursor: "pointer", fontSize: "1.2rem", color: colors.textMuted }} onClick={() => setSelectedBill(null)} />
-                            </div>
+                        <ModalContainer onClick={(e) => e.stopPropagation()}>
+                            <ModalHeader>
+                                <ModalTitle>Bill Details: {selectedBill.bill_no}</ModalTitle>
+                                <CloseButton onClick={() => setSelectedBill(null)}>×</CloseButton>
+                            </ModalHeader>
+                            <ModalBody>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "25px" }}>
                                 <div>
@@ -574,7 +579,7 @@ const ShiftBasisReport = () => {
                                 <div>
                                     <SummaryLabel>Payment Details</SummaryLabel>
                                     <div style={{ fontWeight: "600", marginTop: "5px" }}>Mode: {selectedBill.payment_mode}</div>
-                                    <div style={{ fontWeight: "700", color: colors.success }}>Total: ₹{selectedBill.net_amount.toFixed(2)}</div>
+                                    <div style={{ fontWeight: "700", color: colors.success }}>Total: ₹{(selectedBill.net_amount || 0).toFixed(2)}</div>
                                 </div>
                                 <div style={{ textAlign: "right" }}>
                                     <SummaryLabel>Billing Station</SummaryLabel>
@@ -612,12 +617,13 @@ const ShiftBasisReport = () => {
                                     </tbody>
                                 </Table>
                             </div>
-
-                            <div style={{ marginTop: "30px", display: "flex", justifyContent: "flex-end" }}>
-                                <Button onClick={() => setSelectedBill(null)} style={{ padding: "8px 25px" }}>Close</Button>
+                            </ModalBody>
+                            <div style={{ padding: "15px", display: "flex", justifyContent: "flex-end", borderTop: `1px solid ${colors.border}` }}>
+                                <Button onClick={() => setSelectedBill(null)}>Close</Button>
                             </div>
-                        </ModalContent>
+                        </ModalContainer>
                     </ModalOverlay>
+                    
                 )}
             </PageWrapper>
 
@@ -635,56 +641,65 @@ const ShiftBasisReport = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
                     <thead>
                         <tr style={{ background: "#f0f0f0" }}>
+                            <th style={{ border: "1px solid black", padding: "5px" }}>Counter</th>
+                            <th style={{ border: "1px solid black", padding: "5px" }}>Date</th>
                             <th style={{ border: "1px solid black", padding: "5px" }}>Shift No</th>
+                            <th style={{ border: "1px solid black", padding: "5px" }}>Cashier Name</th>
+                            <th style={{ border: "1px solid black", padding: "5px" }}>Start Time</th>
+                            <th style={{ border: "1px solid black", padding: "5px" }}>End Time</th>
                             <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Opening Bal</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Collection</th>
                             <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Closing Bal</th>
+                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Collection</th>
+                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Return</th>
                             <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Remitted</th>
                             <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Handover</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Counter</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Start Time</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Close Time</th>
                             <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Total Coll.</th>
                         </tr>
                     </thead>
                     <tbody>
                         {summaryData && summaryData.length > 0 ? summaryData.map((s, i) => (
                             <tr key={i}>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.shiftno}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.SubmittedToAccount || 0).toFixed(2)}</td>
                                 <td style={{ border: "1px solid black", padding: "5px" }}>{s.SelectedOutlet}</td>
+                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.date}</td>
+                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.shiftno}</td>
+                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.User}</td>
                                 <td style={{ border: "1px solid black", padding: "5px" }}>{s.StartTime}</td>
                                 <td style={{ border: "1px solid black", padding: "5px" }}>{s.EndTime || "Active"}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.SalesReturnAmount || 0).toFixed(2)}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
                             </tr>
                         )) : (
-                            <tr><td colSpan="10" style={{ textAlign: "center", padding: "10px" }}>No data available for print.</td></tr>
+                            <tr><td colSpan="13" style={{ textAlign: "center", padding: "10px" }}>No data available for print.</td></tr>
                         )}
                     </tbody>
                     {summaryData && summaryData.length > 0 && (
                         <tfoot>
                             <tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
                                 <td style={{ border: "1px solid black", padding: "5px" }}>GRAND TOTAL</td>
+                                <td colSpan="5" style={{ border: "1px solid black", padding: "5px" }}></td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
                                     {summaryData.reduce((acc, s) => acc + parseFloat(s.OpeningBalance || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}
                                 </td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
                                     {summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}
                                 </td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
+                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}
+                                </td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
+                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.SalesReturnAmount || 0), 0).toFixed(2)}
+                                </td>
+                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
                                     {summaryData.reduce((acc, s) => acc + parseFloat(s.RemittedToBank || 0), 0).toFixed(2)}
                                 </td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || 0), 0).toFixed(2)}
+                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0), 0).toFixed(2)}
                                 </td>
-                                <td colSpan="3" style={{ border: "1px solid black", padding: "5px" }}></td>
                                 <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
                                     {summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}
                                 </td>

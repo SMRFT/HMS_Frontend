@@ -121,7 +121,14 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
-
+import DischargeBills from "./Components/Accounts/DischargeBills";
+import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
+import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
+import CashierWiseDetailedReport from "./Components/Accounts/CashierWiseDetailedReport";
+import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrationInsurence";
+import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
+import AccountsReports from "./Components/Reports/AccountsReports";
+import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -292,7 +299,13 @@ function App() {
       "/Oppharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
       "/CashCounterManager": "Cash Counter Manager",
-      "/BillWiseReport": "BillWiseReport"
+      "/BillWiseReport": "BillWiseReport",
+      "/DischargeBills": "Discharge Bills",
+      "/DischargeBillsDetailed": "Discharge Bills Detailed",
+      "/CashierWiseReport": "Cashier Wise Report",
+      "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
+      "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
+      "/AdvanceRegistration": "Advance Registration"
     };
 
     const path = location.pathname;
@@ -535,6 +548,16 @@ function App() {
                   <Route
                     path="/InsuranceProvider"
                     element={<InsuranceProvider />}
+                  />
+                )}
+                {hasPagePermission(
+                "/InsuranceClaim",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/InsuranceClaim"
+                    element={<InsuranceClaim />}
                   />
                 )}
 
@@ -780,6 +803,11 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/FrontOfficeReports" element={<FrontOfficeReports />} />}
+              {hasPagePermission(
+                "/AccountsReports",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/AccountsReports" element={<AccountsReports />} />}
 
               {/* Velavan */}
               {hasPagePermission(
@@ -909,6 +937,7 @@ function App() {
                     element={<OTMedicineBilling />}
                   />
                 )}
+              {hasPagePermission(
                 "/ShiftBasisReport",
                 allowedActions,
                 dynamicPermissions,
@@ -962,6 +991,26 @@ function App() {
                     element={<CashCounterManager />}
                   />
                 )}
+
+              {/* Accounts Reports */}
+              {hasPagePermission("/DischargeBills", allowedActions, dynamicPermissions) && (
+                <Route path="/DischargeBills" element={<DischargeBills />} />
+              )}
+              {hasPagePermission("/DischargeBillsDetailed", allowedActions, dynamicPermissions) && (
+                <Route path="/DischargeBillsDetailed" element={<DischargeBillsDetailed />} />
+              )}
+              {hasPagePermission("/CashierWiseReport", allowedActions, dynamicPermissions) && (
+                <Route path="/CashierWiseReport" element={<CashierWiseReport />} />
+              )}
+              {hasPagePermission("/CashierWiseDetailedReport", allowedActions, dynamicPermissions) && (
+                <Route path="/CashierWiseDetailedReport" element={<CashierWiseDetailedReport />} />
+              )}
+              {hasPagePermission("/AdvanceRegistrationInsurence", allowedActions, dynamicPermissions) && (
+                <Route path="/AdvanceRegistrationInsurence" element={<AdvanceRegistrationInsurence />} />
+              )}
+              {hasPagePermission("/AdvanceRegistration", allowedActions, dynamicPermissions) && (
+                <Route path="/AdvanceRegistration" element={<AdvanceRegistration />} />
+              )}
 
 
             </Routes>

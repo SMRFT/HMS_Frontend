@@ -146,7 +146,7 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
     setListBusy(true); setListErr("");
     try {
       const res  = await apiRequest(`${BASE}discharge-billing/?status=Estimate`, "GET");
-      const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+      const list = res.success && res.data && Array.isArray(res.data.data) ? res.data.data : [];
       setEstimates(list);
     } catch {
       setListErr("Failed to load estimates. Please try again.");
