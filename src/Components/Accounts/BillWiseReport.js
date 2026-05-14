@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
+import dayjs from "dayjs";
+import { DatePicker } from "antd";
 import {
     PageWrapper,
     colors,
@@ -67,9 +70,10 @@ const ItemsList = styled.div`
     border: 1px solid #e2e8f0;
 `;
 
-const BillWiseReport = () => {
-    const [fromDate, setFromDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
+const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
+    const location = useLocation();
+    const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
+    const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
     const [billType, setBillType] = useState("All");
     const [uhid, setUhid] = useState("");
     const [reportData, setReportData] = useState([]);
@@ -83,8 +87,13 @@ const BillWiseReport = () => {
     const user_id = localStorage.getItem("employeeId");
 
     useEffect(() => {
+        if (startDate) setFromDate(startDate);
+        if (endDate) setToDate(endDate);
+    }, [startDate, endDate]);
+
+    useEffect(() => {
         fetchReport();
-    }, []);
+    }, [fromDate, toDate, billType, uhid]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -131,7 +140,7 @@ const BillWiseReport = () => {
             <SectionTitle>
                 <h3>Bill Wise Accounts Report</h3>
                 <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Range: {format(new Date(fromDate), "dd MMM yyyy")} to {format(new Date(toDate), "dd MMM yyyy")}
+                    Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}
                 </p>
             </SectionTitle>
 
@@ -139,18 +148,20 @@ const BillWiseReport = () => {
                 <FormRow>
                     <InputWrapper>
                         <Label>From Date</Label>
-                        <Input
-                            type="date"
-                            value={fromDate}
-                            onChange={(e) => setFromDate(e.target.value)}
+                        <DatePicker 
+                            value={fromDate ? dayjs(fromDate) : null} 
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            format="DD/MM/YYYY"
+                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
                     <InputWrapper>
                         <Label>To Date</Label>
-                        <Input
-                            type="date"
-                            value={toDate}
-                            onChange={(e) => setToDate(e.target.value)}
+                        <DatePicker 
+                            value={toDate ? dayjs(toDate) : null} 
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            format="DD/MM/YYYY"
+                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
                     <InputWrapper>
@@ -248,7 +259,7 @@ const BillWiseReport = () => {
                                         <Td>
                                             <div style={{ fontWeight: "600" }}>{b.bill_no}</div>
                                             <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>
-                                                {format(new Date(b.bill_date), "dd MMM yyyy, HH:mm")}
+                                                {format(new Date(b.bill_date), "dd/MM/yyyy, HH:mm")}
                                             </div>
                                         </Td>
                                         <Td>

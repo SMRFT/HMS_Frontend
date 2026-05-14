@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
+  LayoutDashboard,
 } from "lucide-react";
 import { hasPagePermission } from "../Auth/FrontendPageMapping";
 import { fetchSidebarMapping } from "../Auth/apiRequest";
@@ -54,6 +55,7 @@ const iconMap = {
   FiTag: Tag,
   Code,
   FiCode: Code,
+  LayoutDashboard,
 };
 
 // Use the same theme colors for consistency
