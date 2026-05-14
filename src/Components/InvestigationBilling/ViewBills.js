@@ -157,6 +157,112 @@ const DeleteIcon = styled(ActionIcon)`
   cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
   pointer-events: auto;
 `;
+const RefundIcon = styled(ActionIcon)`
+  color: ${({ $disabled }) => ($disabled ? "#ccc" : "#0891b2")};
+  opacity: ${({ $disabled }) => ($disabled ? 0.45 : 1)};
+  cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+  pointer-events: auto;
+`;
+
+const ItemCheckRow = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid
+    ${({ $checked }) => ($checked ? colors.primary : colors.border)};
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  background: ${({ $checked }) =>
+    $checked ? "rgba(13,148,136,0.06)" : "white"};
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: ${colors.primary};
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+`;
+
+const ItemInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const ItemName = styled.span`
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+`;
+
+const ItemMeta = styled.span`
+  font-size: 0.72rem;
+  color: ${colors.textMuted};
+`;
+
+const ItemPrice = styled.span`
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: ${colors.primary};
+  white-space: nowrap;
+`;
+
+const RefundSummaryBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: ${colors.primary}15;
+  border: 1px solid ${colors.primary}40;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+  margin-top: 2px;
+`;
+
+const RefundTotal = styled.span`
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: ${colors.primary};
+`;
+
+const SelectAllRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: ${colors.textMuted};
+  padding-bottom: 4px;
+  border-bottom: 1px solid ${colors.border};
+  margin-bottom: 2px;
+
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: ${colors.primary};
+    cursor: pointer;
+  }
+`;
+
+const ConfirmRefundBtn = styled(Button)`
+  background: #0891b2;
+  font-size: 0.78rem;
+  padding: 5px 14px;
+  &:hover {
+    background: #0e7490;
+  }
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+`;
 
 // ─── Frozen-column table ──────────────────────────────────────────────────────
 // border-collapse:separate is required for position:sticky to work on td/th.
@@ -369,6 +475,17 @@ const RemarksModalBody = styled(ModalBody)`
   flex-direction: column;
   gap: 10px;
 `;
+const RefundModalBox = styled(ModalBox)`
+  // ← MOVE HERE (after ModalBox)
+  max-width: 600px;
+`;
+
+const RefundModalBody = styled(ModalBody)`
+  // ← MOVE HERE (after ModalBody)
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
 
 const RemarksTextarea = styled.textarea`
   width: 100%;
@@ -447,6 +564,9 @@ const BillsReport = () => {
   const [deleteBill, setDeleteBill] = useState(null);
   const [deleteRemarks, setDeleteRemarks] = useState("");
   const [deleteRemarksErr, setDeleteRemarksErr] = useState(false);
+  const [refundBill, setRefundBill] = useState(null);
+  const [refundSelected, setRefundSelected] = useState([]);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
@@ -677,6 +797,69 @@ const BillsReport = () => {
       toast.error("An error occurred while deleting the bill.");
     }
   };
+  const handleRefund = (bill) => {
+    setRefundBill({ ...bill });
+    setRefundSelected([]);
+  };
+
+  const handleRefundCancel = () => {
+    setRefundBill(null);
+    setRefundSelected([]);
+    setRefundSubmitting(false);
+  };
+
+  const toggleRefundItem = (idx) => {
+    setRefundSelected((prev) =>
+      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (!refundBill) return;
+    const allIdx = refundBill.item.map((_, i) => i);
+    setRefundSelected(refundSelected.length === allIdx.length ? [] : allIdx);
+  };
+
+  const refundTotal = refundBill
+    ? refundSelected.reduce((sum, idx) => {
+        const it = refundBill.item[idx];
+        return sum + parseFloat(it.price || 0) * parseInt(it.quantity || 1, 10);
+      }, 0)
+    : 0;
+
+  const handleRefundConfirm = async () => {
+    if (!refundSelected.length) return;
+    setRefundSubmitting(true);
+    try {
+      const selectedItems = refundSelected.map((idx) => refundBill.item[idx]);
+      const payload = {
+        investBillNo: refundBill.investBillNo || refundBill.EstBillNo,
+        uhid: refundBill.uhid,
+        ipNumber: refundBill.ipNumber || "",
+        bill_type: refundBill.bill_type,
+        billTypeNo: refundBill.billTypeNo || "",
+        refund_finalPrice: refundTotal.toFixed(2),
+        item: selectedItems,
+        investBillDate: refundBill.investBillDate || refundBill.EstBillDate,
+      };
+
+      const result = await apiRequest(
+        `${HMSURL}invest-refund/`,
+        "POST",
+        payload,
+      );
+      if (result.success) {
+        toast.success(`Refund created — ${result.data?.refundBillNo || ""}`);
+        handleRefundCancel();
+      } else {
+        toast.error(result.error || "Failed to create refund");
+      }
+    } catch {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setRefundSubmitting(false);
+    }
+  };
 
   const fmtName = (s, f, m, l) =>
     `${s || ""} ${f || ""} ${m ? m + " " : ""}${l || ""}`.trim();
@@ -689,7 +872,6 @@ const BillsReport = () => {
         <PageTitle>📄 Bills Report</PageTitle>
         <BackButton onClick={() => navigate(-1)}>← Back to Billing</BackButton>
       </HeaderContainer>
-
       <ContentCard>
         {/* Filters */}
         <FilterGrid>
@@ -910,6 +1092,20 @@ const BillsReport = () => {
                             🗑️
                           </DeleteIcon>
                         )}
+                        <RefundIcon
+                          onClick={() =>
+                            bill.paymentStatus !== "Pending" &&
+                            handleRefund(bill)
+                          }
+                          title={
+                            bill.paymentStatus === "Pending"
+                              ? "Refund not allowed (Pending)"
+                              : "Refund"
+                          }
+                          $disabled={bill.paymentStatus === "Pending"}
+                        >
+                          💸
+                        </RefundIcon>
                       </ActionGroup>
                     </Td>
                   </Tr>
@@ -923,7 +1119,6 @@ const BillsReport = () => {
           </EmptyState>
         )}
       </ContentCard>
-
       {/* ── View Items Modal ── */}
       {viewBill && (
         <ModalOverlay onClick={() => setViewBill(null)}>
@@ -989,7 +1184,6 @@ const BillsReport = () => {
           </ModalBox>
         </ModalOverlay>
       )}
-
       {/* ── Delete Remarks Modal ── */}
       {deleteBill && (
         <ModalOverlay onClick={handleDeleteCancel}>
@@ -1037,7 +1231,6 @@ const BillsReport = () => {
           </RemarksModalBox>
         </ModalOverlay>
       )}
-
       {/* ── Edit Remarks Modal ── */}
       {remarksBill && (
         <ModalOverlay onClick={handleRemarksCancel}>
@@ -1079,6 +1272,96 @@ const BillsReport = () => {
               </ConfirmBtn>
             </RemarksModalFooter>
           </RemarksModalBox>
+        </ModalOverlay>
+      )}
+      {/* ── Refund Items Modal ── */} {/* ← ADD FROM HERE */}
+      {refundBill && (
+        <ModalOverlay onClick={handleRefundCancel}>
+          <RefundModalBox onClick={(e) => e.stopPropagation()}>
+            <ModalHeader style={{ background: "#0891b2" }}>
+              <ModalTitle>
+                💸 Refund — Bill No:{" "}
+                {refundBill.investBillNo || refundBill.EstBillNo}
+              </ModalTitle>
+              <ModalClose onClick={handleRefundCancel}>✕</ModalClose>
+            </ModalHeader>
+
+            <RefundModalBody>
+              {Array.isArray(refundBill.item) && refundBill.item.length > 0 ? (
+                <>
+                  <SelectAllRow>
+                    <input
+                      type="checkbox"
+                      id="refund-select-all"
+                      checked={refundSelected.length === refundBill.item.length}
+                      onChange={toggleSelectAll}
+                    />
+                    <label
+                      htmlFor="refund-select-all"
+                      style={{ cursor: "pointer" }}
+                    >
+                      Select All ({refundBill.item.length} items)
+                    </label>
+                  </SelectAllRow>
+
+                  {refundBill.item.map((it, idx) => (
+                    <ItemCheckRow
+                      key={idx}
+                      $checked={refundSelected.includes(idx)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={refundSelected.includes(idx)}
+                        onChange={() => toggleRefundItem(idx)}
+                      />
+                      <ItemInfo>
+                        <ItemName>{it.itemName}</ItemName>
+                        <ItemMeta>
+                          Qty: {it.quantity || 1}
+                          {it.test_id ? `  ·  Test ID: ${it.test_id}` : ""}
+                          {it.billTypeNo ? `  ·  ${it.billTypeNo}` : ""}
+                        </ItemMeta>
+                      </ItemInfo>
+                      <ItemPrice>
+                        ₹{" "}
+                        {(
+                          parseFloat(it.price || 0) *
+                          parseInt(it.quantity || 1, 10)
+                        ).toFixed(2)}
+                      </ItemPrice>
+                    </ItemCheckRow>
+                  ))}
+
+                  <RefundSummaryBar>
+                    <span>
+                      {refundSelected.length} item
+                      {refundSelected.length !== 1 ? "s" : ""} selected
+                    </span>
+                    <RefundTotal>
+                      Refund Total: ₹ {refundTotal.toFixed(2)}
+                    </RefundTotal>
+                  </RefundSummaryBar>
+                </>
+              ) : (
+                <EmptyState>
+                  <p>No items found for this bill</p>
+                </EmptyState>
+              )}
+            </RefundModalBody>
+
+            <RemarksModalFooter>
+              <CancelBtn type="button" onClick={handleRefundCancel}>
+                Cancel
+              </CancelBtn>
+              <ConfirmRefundBtn
+                type="button"
+                onClick={handleRefundConfirm}
+                disabled={!refundSelected.length || refundSubmitting}
+              >
+                {refundSubmitting ? "Processing..." : "💸 Confirm Refund"}
+              </ConfirmRefundBtn>
+            </RemarksModalFooter>
+          </RefundModalBox>
         </ModalOverlay>
       )}
     </PageContainer>
