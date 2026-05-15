@@ -16,7 +16,7 @@ import {
   Td,
   Tr,
 } from "../GlobalStyles";
-import styled, { keyframes, createGlobalStyle } from "styled-components";
+import styled, { keyframes } from "styled-components";
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 const slideDown = keyframes`
@@ -27,28 +27,6 @@ const slideDown = keyframes`
 const fadeIn = keyframes`
   from { opacity: 0; transform: scale(0.97); }
   to   { opacity: 1; transform: scale(1); }
-`;
-
-// ─── Print Global Style (injected when printing) ──────────────────────────────
-// FIX #2: Use a proper React global style approach instead of injecting raw <style>
-// This ensures the print target is visible and correctly positioned.
-const PrintGlobalStyle = createGlobalStyle`
-  @media print {
-    body > * { display: none !important; }
-    #stock-transfer-print-root { display: block !important; }
-    #stock-transfer-print-root * { visibility: visible !important; }
-    #stock-transfer-print-root {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      padding: 16px 20px;
-      font-family: "Courier New", Courier, monospace;
-      font-size: 11px;
-      color: #000;
-      background: white;
-      z-index: 99999;
-    }
-  }
 `;
 
 // ─── Styled Components ────────────────────────────────────────────────────────
@@ -505,8 +483,7 @@ const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, o
 const DRUG_PURCHASE_LABEL = "Drug Purchase";
 const DRUG_PURCHASE_VALUE = "__DRUG_PURCHASE__";
 
-// ─── Normalize outlet name list for duplicate detection ───────────────────────
-// FIX #1: Case-insensitive comparison to remove any "drug purchase" variant from API list
+// ─── Filter outlet name variants from API ─────────────────────────────────────
 const isDrugPurchaseOutlet = (outlet) => {
   const name = (outlet?.outlet_name || "").trim().toLowerCase();
   return name === "drug purchase";
@@ -544,7 +521,184 @@ const normalizeTransferItems = (raw) => {
   return [];
 };
 
-// ─── Slip Content (shared by modal preview & hidden print div) ────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD PRINT HTML — generates a full standalone HTML string for window.open()
+// This avoids all styled-components / React rendering issues in print windows.
+// ─────────────────────────────────────────────────────────────────────────────
+const buildPrintHtml = (slip, items, getOutletName) => {
+  const RULE  = "─".repeat(72);
+  const RULE2 = "═".repeat(72);
+
+  const fmtExpiry = (d) => {
+    if (!d) return "-";
+    try { return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }); }
+    catch { return "-"; }
+  };
+  const fmtDate = (d) => {
+    try { return d ? new Date(d).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"); }
+    catch { return "-"; }
+  };
+
+  const totalQty = items.reduce(
+    (s, it) => s + Number(it.transferred_out_quantity || it.transfer_quantity || 0), 0
+  );
+  const totalAmt = items.reduce((s, it) => {
+    const qty  = Number(it.transferred_out_quantity || it.transfer_quantity || 0);
+    const rate = Number(it.Selling_Price || it.selling_price || it.mrp || 0);
+    return s + qty * rate;
+  }, 0);
+
+  const itemRows = items.length === 0
+    ? `<tr><td colspan="7" style="text-align:center;color:#999;padding:16px 0;">No items</td></tr>`
+    : items.map((item, idx) => {
+        const qty   = Number(item.transferred_out_quantity || item.transfer_quantity || 0);
+        const rate  = Number(item.Selling_Price || item.selling_price || item.mrp || 0);
+        const total = qty * rate;
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${item.item_name || `Item #${item.item_id}`}</td>
+            <td>${item.batch_number || "-"}</td>
+            <td>${fmtExpiry(item.expiry_date)}</td>
+            <td style="text-align:right">${qty}</td>
+            <td style="text-align:right">${rate ? rate.toFixed(2) : "-"}</td>
+            <td style="text-align:right">${rate ? total.toFixed(2) : "-"}</td>
+          </tr>`;
+      }).join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Stock Transfer Slip — ${slip.transfer_ref_number}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 12px;
+      color: #111;
+      line-height: 1.55;
+      padding: 24px 32px;
+      background: white;
+    }
+    .center { text-align: center; }
+    .bold   { font-weight: bold; }
+    .rule   { white-space: pre; overflow: hidden; margin: 3px 0; font-size: 11px; }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 11.5px;
+    }
+    .company-label {
+      font-size: 11px;
+      text-align: right;
+      margin-bottom: 3px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin: 6px 0;
+    }
+    thead th {
+      font-weight: bold;
+      padding: 3px 4px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+    thead th.right { text-align: right; }
+    tbody td {
+      padding: 4px 4px;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    tbody td.right { text-align: right; }
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    @page { margin: 16px; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="center bold" style="font-size:15px;margin-bottom:2px">SHANMUGA HOSPITAL LIMITED</div>
+  <div class="center" style="font-size:11px;margin-bottom:8px">04272706666</div>
+
+  <div class="rule">${RULE2}</div>
+  <div class="rule">${RULE2}</div>
+
+  <div class="center bold" style="font-size:13.5px;margin:6px 0">STOCK TRANSFER SLIP</div>
+
+  <div class="rule">${RULE2}</div>
+  <div class="rule" style="margin-bottom:10px">${RULE2}</div>
+
+  <div class="meta-row">
+    <span>Source&nbsp;&nbsp;&nbsp;&nbsp;: <strong>${getOutletName(slip.from_outlet ?? slip.outlet_code)}</strong></span>
+    <span>Date : <strong>${fmtDate(slip.created_date)}</strong></span>
+  </div>
+  <div class="meta-row" style="margin-bottom:10px">
+    <span>Destination : <strong>${getOutletName(slip.to_outlet)}</strong></span>
+    <span>Ref.&nbsp; : <strong>${slip.transfer_ref_number}</strong></span>
+  </div>
+
+  <div class="company-label">
+    Company&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total
+  </div>
+
+  <div class="rule">${RULE2}</div>
+  <div class="rule" style="margin-bottom:5px">${RULE}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28px">Sl</th>
+        <th>Particulars</th>
+        <th style="width:90px">Batch</th>
+        <th style="width:62px">Expiry</th>
+        <th class="right" style="width:44px">Qty</th>
+        <th class="right" style="width:76px">S.rate</th>
+        <th class="right" style="width:84px">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${itemRows}
+    </tbody>
+  </table>
+
+  <div class="rule" style="margin-top:6px">${RULE}</div>
+  <div class="rule" style="margin-bottom:6px">${RULE}</div>
+
+  <div style="font-size:11px;margin-bottom:2px">Prepared By : ${slip.created_by || "-"}</div>
+  <div style="font-size:11px;margin-bottom:8px">Remarks :</div>
+
+  <div class="rule">${RULE2}</div>
+  <div class="rule" style="margin-bottom:6px">${RULE2}</div>
+
+  <div class="footer-row">
+    <span>${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+    <span>${totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+  </div>
+
+  <div class="rule" style="margin-top:5px">${RULE}</div>
+  <div class="rule">${RULE}</div>
+
+  <script>
+    window.onload = function() {
+      window.print();
+    };
+  </script>
+</body>
+</html>`;
+};
+
+// ─── Slip Content (modal preview only) ───────────────────────────────────────
 const SlipContent = ({ slip, items, getOutletName }) => {
   const RULE  = "─".repeat(72);
   const RULE2 = "═".repeat(72);
@@ -560,60 +714,41 @@ const SlipContent = ({ slip, items, getOutletName }) => {
 
   const fmtExpiry = (d) => {
     if (!d) return "-";
-    try {
-      return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" });
-    } catch { return "-"; }
+    try { return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }); }
+    catch { return "-"; }
   };
-
   const fmtDate = (d) => {
-    try {
-      return d
-        ? new Date(d).toLocaleDateString("en-GB")
-        : new Date().toLocaleDateString("en-GB");
-    } catch { return "-"; }
+    try { return d ? new Date(d).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"); }
+    catch { return "-"; }
   };
 
-  // Grid: serial | name | batch | expiry | qty | s.rate | total
   const COL = "28px 1fr 90px 62px 44px 76px 84px";
-
-  const cellStyle = (extra = {}) => ({
-    fontFamily: "Courier New, monospace",
-    fontSize: 11.5,
-    lineHeight: 1.55,
-    color: "#111",
-    ...extra,
+  const cell = (extra = {}) => ({
+    fontFamily: "Courier New, monospace", fontSize: 11.5, lineHeight: 1.55, color: "#111", ...extra,
   });
 
   return (
-    <div style={cellStyle()}>
-      {/* Header */}
-      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 15, marginBottom: 2 }}>
-        SHANMUGA HOSPITAL LIMITED
-      </div>
+    <div style={cell()}>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 15, marginBottom: 2 }}>SHANMUGA HOSPITAL LIMITED</div>
       <div style={{ textAlign: "center", fontSize: 11, marginBottom: 8 }}>04272706666</div>
 
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
 
-      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13.5, margin: "6px 0" }}>
-        STOCK TRANSFER SLIP
-      </div>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13.5, margin: "6px 0" }}>STOCK TRANSFER SLIP</div>
 
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 10, overflowX: "hidden" }}>{RULE2}</div>
 
-      {/* Meta row 1 */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, fontSize: 11.5 }}>
         <span>Source&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{getOutletName(slip.from_outlet ?? slip.outlet_code)}</strong></span>
         <span>Date : <strong>{fmtDate(slip.created_date)}</strong></span>
       </div>
-      {/* Meta row 2 */}
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 11.5 }}>
         <span>Destination : <strong>{getOutletName(slip.to_outlet)}</strong></span>
         <span>Ref.&nbsp; : <strong>{slip.transfer_ref_number}</strong></span>
       </div>
 
-      {/* Right-aligned "Company / Total" label row */}
       <div style={{ fontSize: 11, textAlign: "right", marginBottom: 3 }}>
         Company&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Total
       </div>
@@ -621,19 +756,8 @@ const SlipContent = ({ slip, items, getOutletName }) => {
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 5, overflowX: "hidden" }}>{RULE}</div>
 
-      {/* Column Headers */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: COL,
-        gap: "4px",
-        fontWeight: "bold",
-        fontSize: 11,
-        marginBottom: 3,
-      }}>
-        <span>Sl</span>
-        <span>Particulars</span>
-        <span>Batch</span>
-        <span>Expiry</span>
+      <div style={{ display: "grid", gridTemplateColumns: COL, gap: "4px", fontWeight: "bold", fontSize: 11, marginBottom: 3 }}>
+        <span>Sl</span><span>Particulars</span><span>Batch</span><span>Expiry</span>
         <span style={{ textAlign: "right" }}>Qty</span>
         <span style={{ textAlign: "right" }}>S.rate</span>
         <span style={{ textAlign: "right" }}>Total</span>
@@ -642,29 +766,17 @@ const SlipContent = ({ slip, items, getOutletName }) => {
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
 
-      {/* Items */}
       {items.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "12px 0", color: "#999", fontSize: 11 }}>
-          No items
-        </div>
+        <div style={{ textAlign: "center", padding: "12px 0", color: "#999", fontSize: 11 }}>No items</div>
       ) : (
         items.map((item, idx) => {
           const qty   = Number(item.transferred_out_quantity || item.transfer_quantity || 0);
           const rate  = Number(item.Selling_Price || item.selling_price || item.mrp || 0);
           const total = qty * rate;
           return (
-            <div key={idx} style={{
-              display: "grid",
-              gridTemplateColumns: COL,
-              gap: "4px",
-              fontSize: 11,
-              marginBottom: 4,
-              alignItems: "start",
-            }}>
+            <div key={idx} style={{ display: "grid", gridTemplateColumns: COL, gap: "4px", fontSize: 11, marginBottom: 4, alignItems: "start" }}>
               <span>{idx + 1}</span>
-              <span style={{ wordBreak: "break-word" }}>
-                {item.item_name || `Item #${item.item_id}`}
-              </span>
+              <span style={{ wordBreak: "break-word" }}>{item.item_name || `Item #${item.item_id}`}</span>
               <span>{item.batch_number || "-"}</span>
               <span>{fmtExpiry(item.expiry_date)}</span>
               <span style={{ textAlign: "right" }}>{qty}</span>
@@ -678,25 +790,15 @@ const SlipContent = ({ slip, items, getOutletName }) => {
       <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 6, overflowX: "hidden" }}>{RULE}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
 
-      {/* Prepared By / Remarks */}
       <div style={{ fontSize: 11, marginBottom: 2 }}>Prepared By : {slip.created_by || "-"}</div>
       <div style={{ fontSize: 11, marginBottom: 8 }}>Remarks :</div>
 
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE2}</div>
 
-      {/* Totals footer */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        fontSize: 12,
-        fontWeight: "bold",
-      }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold" }}>
         <span>{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
-        <span>
-          {totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-          {totalAmt > 0 ? totalAmt.toFixed(2) : ""}
-        </span>
+        <span>{totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
       </div>
 
       <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 5, overflowX: "hidden" }}>{RULE}</div>
@@ -706,14 +808,11 @@ const SlipContent = ({ slip, items, getOutletName }) => {
 };
 
 // ─── Print Slip Modal ─────────────────────────────────────────────────────────
-// FIX #2: Instead of window.print() hiding everything,
-// we render a hidden <div id="stock-transfer-print-root"> outside the modal
-// with the slip content. The PrintGlobalStyle CSS makes ONLY that div visible
-// during print, so the modal overlay doesn't interfere.
+// FIX: Print opens a real window.open() with full standalone HTML — no styled-components,
+// no React, no modal interference. The modal is for preview only.
 const PrintSlipModal = ({ slip, getOutletName, onClose, HmsBaseUrl }) => {
   const [items, setItems]     = useState([]);
   const [loading, setLoading] = useState(true);
-  const printRootRef          = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -732,9 +831,9 @@ const PrintSlipModal = ({ slip, getOutletName, onClose, HmsBaseUrl }) => {
           : rows;
 
         let enrichedItems = found?.items ?? slip?.items ?? [];
-        if ((!enrichedItems || enrichedItems.length === 0) && found?.items_details) {
+        if ((!enrichedItems || enrichedItems.length === 0) && found?.items_details)
           enrichedItems = found.items_details;
-        }
+
         const finalItems = Array.isArray(enrichedItems)
           ? enrichedItems
           : normalizeTransferItems(enrichedItems);
@@ -751,73 +850,48 @@ const PrintSlipModal = ({ slip, getOutletName, onClose, HmsBaseUrl }) => {
     return () => { cancelled = true; };
   }, [slip.transfer_ref_number, slip.items, HmsBaseUrl]); // eslint-disable-line
 
+  // ── FIX: Open a real window with full HTML ─────────────────────────────────
   const handlePrint = () => {
-    window.print();
+    const html = buildPrintHtml(slip, items, getOutletName);
+    const win  = window.open("", "_blank", "width=800,height=600");
+    if (!win) {
+      toast.error("Popup blocked — please allow popups for this site and try again.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // window.onload inside the HTML will call print() automatically
   };
 
-  const slipNode = (
-    <SlipContent slip={slip} items={items} getOutletName={getOutletName} />
-  );
-
   return (
-    <>
-      {/* Global print style: only #stock-transfer-print-root is visible during print */}
-      <PrintGlobalStyle />
+    <PrintModalOverlay onClick={onClose}>
+      <PrintModalBox onClick={(e) => e.stopPropagation()}>
 
-      {/* Hidden print target rendered outside modal stack — always in DOM when modal is open */}
-      <div
-        id="stock-transfer-print-root"
-        ref={printRootRef}
-        style={{
-          display: "none",          // hidden on screen
-          position: "fixed",
-          inset: 0,
-          zIndex: 99999,
-          background: "white",
-          padding: "16px 20px",
-          fontFamily: "Courier New, monospace",
-          fontSize: 11,
-          color: "#000",
-        }}
-      >
-        {!loading && slipNode}
-      </div>
+        <PrintModalHeader>
+          <PrintModalTitle>🖨️ Stock Transfer Slip — {slip.transfer_ref_number}</PrintModalTitle>
+          <PrintModalActions>
+            <PrintModalPrintBtn onClick={handlePrint} disabled={loading}>
+              🖨️ Print
+            </PrintModalPrintBtn>
+            <PrintModalCloseBtn onClick={onClose}>✕ Close</PrintModalCloseBtn>
+          </PrintModalActions>
+        </PrintModalHeader>
 
-      {/* Visible modal UI */}
-      <PrintModalOverlay onClick={onClose}>
-        <PrintModalBox onClick={(e) => e.stopPropagation()}>
+        <PrintModalBody>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "60px 0", color: "#6b7280", fontFamily: "Courier New", fontSize: 13 }}>
+              ⏳ Loading slip details…
+            </div>
+          ) : (
+            <SlipPaper>
+              <SlipContent slip={slip} items={items} getOutletName={getOutletName} />
+            </SlipPaper>
+          )}
+        </PrintModalBody>
 
-          <PrintModalHeader>
-            <PrintModalTitle>🖨️ Stock Transfer Slip — {slip.transfer_ref_number}</PrintModalTitle>
-            <PrintModalActions>
-              <PrintModalPrintBtn onClick={handlePrint} disabled={loading}>
-                🖨️ Print
-              </PrintModalPrintBtn>
-              <PrintModalCloseBtn onClick={onClose}>✕ Close</PrintModalCloseBtn>
-            </PrintModalActions>
-          </PrintModalHeader>
-
-          <PrintModalBody>
-            {loading ? (
-              <div style={{
-                textAlign: "center",
-                padding: "60px 0",
-                color: "#6b7280",
-                fontFamily: "Courier New",
-                fontSize: 13,
-              }}>
-                ⏳ Loading slip details…
-              </div>
-            ) : (
-              <SlipPaper>
-                {slipNode}
-              </SlipPaper>
-            )}
-          </PrintModalBody>
-
-        </PrintModalBox>
-      </PrintModalOverlay>
-    </>
+      </PrintModalBox>
+    </PrintModalOverlay>
   );
 };
 
@@ -897,6 +971,29 @@ function getAuthContext() {
   return { outletCode, isDrugPurchase: outletCode === "" };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// OUTLET-SPECIFIC TRANSFER FILTER
+// Rules:
+//   Drug Purchase (outletCode === "")  → show only transfers where to_outlet === ""
+//   IP Pharmacy   (outletCode === "OLET001") → show only transfers where to_outlet === "OLET001"
+//   OP Pharmacy   (outletCode === "OLET002") → show only transfers where to_outlet === "OLET002"
+//   Any other real outlet              → show only transfers where to_outlet === outletCode
+//
+// The backend already scopes hospital + branch. This is additional frontend filtering
+// so each context sees ONLY the records they are the destination for.
+// ─────────────────────────────────────────────────────────────────────────────
+function filterTransfersByOutlet(transfers, outletCode, isDrugPurchase) {
+  if (isDrugPurchase) {
+    // Drug Purchase: show transfers where to_outlet is "" or null/undefined
+    return transfers.filter((t) => {
+      const to = t.to_outlet;
+      return to === "" || to === null || to === undefined;
+    });
+  }
+  // Real outlet: show only transfers where to_outlet matches this outlet's code
+  return transfers.filter((t) => t.to_outlet === outletCode);
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const StockTransfer = () => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -907,17 +1004,14 @@ const StockTransfer = () => {
   const [transfers, setTransfers] = useState([]);
   const [showForm, setShowForm]   = useState(false);
 
-  // null  = Drug Purchase user hasn't picked a From Outlet yet (show warning, disable search)
-  // ""    = Drug Purchase selected as From Outlet (valid — send outlet_code: "" to API)
-  // "OLETXXX" = real outlet selected
   const [fromOutlet, setFromOutlet] = useState(isDrugPurchase ? null : outletCode);
   const [toOutlet, setToOutlet]     = useState("");
   const [addedItems, setAddedItems] = useState([]);
 
   // Medicine search
-  const [medicineSearch, setMedicineSearch]   = useState("");
-  const [medicineResults, setMedicineResults] = useState([]);
-  const [showMedDropdown, setShowMedDropdown] = useState(false);
+  const [medicineSearch, setMedicineSearch]     = useState("");
+  const [medicineResults, setMedicineResults]   = useState([]);
+  const [showMedDropdown, setShowMedDropdown]   = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
 
   // Batch / stock
@@ -925,7 +1019,7 @@ const StockTransfer = () => {
   const [selectedBatchIdx, setSelectedBatchIdx] = useState("");
   const [transferQty, setTransferQty]           = useState("");
 
-  // Filters — default to current financial-year start → today
+  // Filters
   const [filterFromDate, setFilterFromDate] = useState(() => {
     const d  = new Date();
     const yr = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
@@ -959,9 +1053,8 @@ const StockTransfer = () => {
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   const getOutletName = useCallback((code) => {
-    if (code === null || code === undefined || code === "" || code === "null") {
+    if (code === null || code === undefined || code === "" || code === "null")
       return DRUG_PURCHASE_LABEL;
-    }
     const o = outlets.find((x) => x.outlet_code === code);
     return o ? o.outlet_name : code;
   }, [outlets]);
@@ -971,8 +1064,6 @@ const StockTransfer = () => {
     try {
       const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET");
       const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
-      // FIX #1: Strip any outlet from the DB whose name matches "drug purchase"
-      // (case-insensitive) — we add our own sentinel option in the dropdown.
       const filtered = Array.isArray(list)
         ? list.filter((o) => o.outlet_name && !isDrugPurchaseOutlet(o))
         : [];
@@ -983,6 +1074,8 @@ const StockTransfer = () => {
   }, [HmsBaseUrl]);
 
   // ── API: fetch transfers ───────────────────────────────────────────────────
+  // After fetching, apply outlet-specific display filter so each login sees
+  // only transfers destined for their outlet.
   const fetchTransfers = useCallback(async (extra = {}) => {
     try {
       const params = new URLSearchParams();
@@ -993,22 +1086,24 @@ const StockTransfer = () => {
         `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
       );
       const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
-      setTransfers(Array.isArray(rows) ? rows : []);
+      const all  = Array.isArray(rows) ? rows : [];
+
+      // Apply outlet-specific display rule
+      const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
+      setTransfers(filtered);
     } catch {
       toast.error("Failed to fetch transfers");
     }
-  }, [HmsBaseUrl]);
+  }, [HmsBaseUrl, outletCode, isDrugPurchase]);
 
   // ── API: search medicines ──────────────────────────────────────────────────
   const searchMedicines = useCallback(async (query) => {
     if (!query || query.length < 2) {
       setMedicineResults([]); setShowMedDropdown(false); return;
     }
-    // null means "not selected yet" — don't search
     if (fromOutlet === null) { setMedicineResults([]); setShowMedDropdown(false); return; }
     try {
       const params = new URLSearchParams({ search: query });
-      // "" = Drug Purchase (outlet_code is empty string in DB), real outlet = its code
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
@@ -1024,12 +1119,11 @@ const StockTransfer = () => {
     }
   }, [HmsBaseUrl, fromOutlet]);
 
-  // ── API: fetch batches for selected item ───────────────────────────────────
+  // ── API: fetch batches ─────────────────────────────────────────────────────
   const fetchBatchesForItem = useCallback(async (itemId) => {
-    if (fromOutlet === null) return; // not selected yet — shouldn't happen but guard anyway
+    if (fromOutlet === null) return;
     try {
       const params = new URLSearchParams({ item_id: itemId });
-      // "" = Drug Purchase stocks (outlet_code: "" in DB), real outlet = its code
       params.append("outlet_code", fromOutlet);
       const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
       const stocks = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
@@ -1052,7 +1146,7 @@ const StockTransfer = () => {
     }
   }, [HmsBaseUrl, fromOutlet]);
 
-  // ── Handlers: medicine search ──────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleMedicineSearch = (e) => {
     const val = e.target.value;
     setMedicineSearch(val);
@@ -1074,7 +1168,6 @@ const StockTransfer = () => {
     setTransferQty("");
   };
 
-  // null → "" (placeholder option), "" → DRUG_PURCHASE_VALUE, real code → itself
   const toSelectVal = (code) => {
     if (code === null || code === undefined) return "";
     if (code === "") return DRUG_PURCHASE_VALUE;
@@ -1082,9 +1175,6 @@ const StockTransfer = () => {
   };
 
   const handleFromOutletChange = (selectVal) => {
-    // DRUG_PURCHASE_VALUE sentinel → "" (Drug Purchase outlet_code)
-    // "-- Select --" placeholder (empty string from <option value="">) → null (not chosen)
-    // Real outlet code → use as-is
     const code = selectVal === DRUG_PURCHASE_VALUE ? "" : (selectVal === "" ? null : selectVal);
     setFromOutlet(code);
     setMedicineSearch(""); setSelectedMedicine(null);
@@ -1096,7 +1186,6 @@ const StockTransfer = () => {
     setToOutlet(code);
   };
 
-  // ── Handlers: add / remove item ────────────────────────────────────────────
   const handleAddItem = () => {
     if (!selectedMedicine)                         { toast.error("Please select a medicine"); return; }
     if (selectedBatchIdx === "" || !selectedBatch) { toast.error("Please select a batch"); return; }
@@ -1128,23 +1217,16 @@ const StockTransfer = () => {
   const handleRemoveItem = (idx) =>
     setAddedItems(addedItems.filter((_, i) => i !== idx));
 
-  // ── Handlers: save ────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (fromOutlet === null) {
-      toast.error("Please select From Outlet"); return;
-    }
-    if (!toOutlet && toOutlet !== "") {
-      toast.error("Please select To Outlet"); return;
-    }
+    if (fromOutlet === null) { toast.error("Please select From Outlet"); return; }
+    if (!toOutlet && toOutlet !== "") { toast.error("Please select To Outlet"); return; }
     if (toOutlet === "" && fromOutlet === "") {
       toast.error("From Outlet and To Outlet cannot both be Drug Purchase"); return;
     }
     if (fromOutlet !== "" && fromOutlet === toOutlet) {
       toast.error("From Outlet and To Outlet cannot be the same"); return;
     }
-    if (addedItems.length === 0) {
-      toast.error("Add at least one medicine"); return;
-    }
+    if (addedItems.length === 0) { toast.error("Add at least one medicine"); return; }
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
@@ -1184,7 +1266,7 @@ const StockTransfer = () => {
   const handleSearch = () =>
     fetchTransfers({ from_date: filterFromDate, to_date: filterToDate });
 
-  // ── Permission helpers ────────────────────────────────────────────────────
+  // ── Permission helpers ─────────────────────────────────────────────────────
   const canApprove = useCallback((t) => {
     if ((t.is_verified || "Draft") !== "Draft") return false;
     if (isDrugPurchase) return true;
@@ -1218,7 +1300,7 @@ const StockTransfer = () => {
     } catch { toast.error("Failed to approve transfer"); }
   };
 
-  // ── Cancel / Reject ───────────────────────────────────────────────────────
+  // ── Cancel / Reject ────────────────────────────────────────────────────────
   const handleRejectClick = (t) => {
     const status = t.is_verified || "Draft";
     if (status === "Approved") { toast.error("Approved transfers cannot be cancelled"); return; }
@@ -1244,8 +1326,7 @@ const StockTransfer = () => {
     } catch { toast.error("Failed to cancel transfer"); }
   };
 
-  // ── Outlet dropdown options ───────────────────────────────────────────────
-  // FIX #1: Only one "Drug Purchase" entry (our sentinel) since API list is filtered above
+  // ── Outlet dropdown options ────────────────────────────────────────────────
   const fromOutletOptions = [
     { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
@@ -1255,13 +1336,12 @@ const StockTransfer = () => {
     { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ].filter((o) => {
-    // If fromOutlet is null (not chosen yet), don't exclude anything
     if (fromOutlet === null) return true;
     const code = o.value === DRUG_PURCHASE_VALUE ? "" : o.value;
     return code !== fromOutlet;
   });
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
       <Container>
@@ -1284,7 +1364,6 @@ const StockTransfer = () => {
           <FormPanel>
             <FormPanelBody>
 
-              {/* Outlet selectors */}
               <FormRow columns="1fr 1fr" style={{ marginBottom: 22 }}>
                 <InputWrapper>
                   <Label required>From Outlet</Label>
@@ -1323,7 +1402,6 @@ const StockTransfer = () => {
               <MedicineBox>
                 <SectionTitle>💊 Add Medicine</SectionTitle>
 
-                {/* Only warn when Drug Purchase user hasn't chosen a From Outlet yet (null) */}
                 {isDrugPurchase && fromOutlet === null && (
                   <div style={{ color: "#d97706", fontSize: "0.82rem", marginBottom: 12 }}>
                     ⚠ Please select a From Outlet first to search medicines.
@@ -1440,7 +1518,6 @@ const StockTransfer = () => {
                 </FormRow>
               </MedicineBox>
 
-              {/* ── Added items table ── */}
               {addedItems.length > 0 && (
                 <div style={{ marginBottom: 22 }}>
                   <SectionTitle>🧾 Added Medicines ({addedItems.length})</SectionTitle>
