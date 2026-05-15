@@ -668,6 +668,15 @@ const RichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
+  /* ✅ mark styling */
+  mark.ph {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
 `;
 
 const FinalRichEditor = styled.div`
@@ -705,6 +714,16 @@ const FinalRichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
+
+  /* ✅ Placeholder mark styling */
+  mark.ph {
+    background: #fff3e0;
+    color: #6a1b9a; /* ✅ was #e65100 (orange), now purple to match <b> */
+    font-weight: 800;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
 `;
 
 const ImpressionBox = styled.div`
@@ -740,6 +759,13 @@ const ImpressionText = styled.div`
   strong {
     color: #6a1b9a;
     font-weight: 800;
+  }
+  mark.ph {
+    background: transparent; /* ✅ no orange highlight in preview */
+    color: #6a1b9a; /* ✅ bold purple like <b> */
+    font-weight: 800;
+    border-radius: 3px;
+    padding: 0 2px;
   }
 `;
 
@@ -994,6 +1020,16 @@ const stripHTML = (html) => (html || "").replace(/<[^>]*>/g, "").trim();
 
 // ─── Rich Editor Components ───────────────────────────────────────────────────
 
+// ─── Helper: track caret inside mark ─────────────────────────────────────────
+const getCaretInsideMark = () => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const node = sel.getRangeAt(0).startContainer;
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  if (el && el.classList && el.classList.contains("ph")) return el;
+  return null;
+};
+
 const SectionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
   const lastRef = useRef("");
@@ -1018,6 +1054,49 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
+  // ✅ Full mark-aware keydown — matches RDReportForm SectionItem
+  const handleKeyDown = (e) => {
+    const el = ref.current;
+    const sel = window.getSelection();
+    if (!el || !sel || sel.rangeCount === 0) return;
+
+    const markEl = getCaretInsideMark();
+
+    // Typing inside a mark → replace mark with bold node
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+
+    // Backspace on a mark → delete the whole mark
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+  };
+
   const handleInput = () => {
     if (!ref.current) return;
     const html = ref.current.innerHTML;
@@ -1032,19 +1111,32 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
     document.execCommand("insertText", false, text);
   };
 
+  // ✅ Click on mark → select its contents
+  const handleClick = (e) => {
+    const target = e.target;
+    if (target.classList && target.classList.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
   return (
     <RichEditor
       ref={ref}
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
+      onKeyDown={handleKeyDown} // ✅ added
       onInput={handleInput}
       onPaste={handlePaste}
+      onClick={handleClick} // ✅ added
       spellCheck={false}
     />
   );
 };
-
 const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
   const lastRef = useRef("");
@@ -1069,6 +1161,59 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
+  // ✅ ADD: same mark-aware keydown as SectionRichEditor
+  const handleKeyDown = (e) => {
+    const el = ref.current;
+    const sel = window.getSelection();
+    if (!el || !sel || sel.rangeCount === 0) return;
+
+    const markEl = getCaretInsideMark();
+
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+  };
+
+  // ✅ ADD: click on mark selects its contents
+  const handleClick = (e) => {
+    const target = e.target;
+    if (target.classList && target.classList.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
   const handleInput = () => {
     if (!ref.current) return;
     const html = ref.current.innerHTML;
@@ -1089,8 +1234,10 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
+      onKeyDown={handleKeyDown} // ✅ added
       onInput={handleInput}
       onPaste={handlePaste}
+      onClick={handleClick} // ✅ added
       spellCheck={false}
     />
   );
@@ -1982,7 +2129,8 @@ const EditModal = ({ row, onClose, onSave }) => {
 // ─── Slot Modal ───────────────────────────────────────────────────────────────
 
 const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
-  const hasReport = row.hasReport;
+  // ✅ If ANY report record exists (even slot-only), use PATCH
+  const recordExists = !!row.report;
 
   const initSlotDate = () => {
     if (row.report?.slot_DateTime) {
@@ -2003,7 +2151,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
 
   const [slotDate, setSlotDate] = useState(initSlotDate);
   const [slotTime, setSlotTime] = useState(initSlotTime);
-  const [impression, setImpression] = useState(row.report?.impression || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -2011,48 +2158,54 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
       toast.error("Please select both slot date and time.");
       return;
     }
+    if (!row.item_id) {
+      toast.error("Item ID is missing. Please refresh and try again.");
+      return;
+    }
+
     const slotDateTime = `${slotDate}T${slotTime}:00`;
     setSaving(true);
     try {
       const encodedBill = encodeURIComponent(row.investBillNo);
-      const encodedItem = encodeURIComponent(row.itemName);
+      const encodedItem = encodeURIComponent(row.item_id);
       let result;
-      if (!hasReport) {
+
+      if (!recordExists) {
+        // ✅ No record at all → POST to create slot-only record
         result = await apiRequest(`${HMSURL}scan-reports/`, "POST", {
           investBillNo: row.investBillNo,
           investBillDate: row.investBillDate,
           billTypeNo: activeBillTypeNo,
           itemName: row.itemName,
+          item_id: row.item_id,
           slot_DateTime: slotDateTime,
-          impression: impression || "",
+          impression: "",
         });
         if (!result.success) {
-          toast.error(result.error || "Failed to create report");
+          toast.error(result.error || "Failed to create slot");
           return;
         }
-        toast.success("Slot scheduled and report created! ✓");
+        toast.success("Slot scheduled! ✓");
       } else {
-        const patchData = { slot_DateTime: slotDateTime };
-        if (impression && impression !== row.report?.impression)
-          patchData.impression = impression;
+        // ✅ Record exists (slot-only OR has_report=true) → PATCH slot
         result = await apiRequest(
           `${HMSURL}scan-reports/slot/${encodedBill}/${encodedItem}/`,
           "PATCH",
-          patchData,
+          { slot_DateTime: slotDateTime },
         );
         if (!result.success) {
           toast.error(result.error || "Failed to update slot");
           return;
         }
-        toast.success("Slot updated successfully! ✓");
+        toast.success("Slot updated! ✓");
       }
+
       onSaved({
         investBillNo: row.investBillNo,
         itemName: row.itemName,
+        item_id: row.item_id,
         slot_DateTime: slotDateTime,
-        impression: impression || row.report?.impression || "",
-        is_approved: row.report?.is_approved || false,
-        wasCreated: !hasReport,
+        wasCreated: !recordExists,
       });
       onClose();
     } catch {
@@ -2067,7 +2220,9 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
       <SlotModalContent onClick={(e) => e.stopPropagation()}>
         <StyledModalHeader>
           <ModalIcon>🕐</ModalIcon>
-          <ModalTitle>{hasReport ? "Update Slot" : "Schedule Slot"}</ModalTitle>
+          <ModalTitle>
+            {row.report?.slot_DateTime ? "Update Slot" : "Schedule Slot"}
+          </ModalTitle>
         </StyledModalHeader>
         <ModalBody style={{ padding: 0 }}>
           <SlotInfoRow>
@@ -2105,17 +2260,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
               />
             </SlotFormGroup>
             <SlotDivider />
-            <SlotSectionTitle>📝 Impression</SlotSectionTitle>
-            <ImpressionOptionalNote>
-              {hasReport
-                ? "Update impression (leave unchanged to keep existing)."
-                : "Optional — can be added now or later."}
-            </ImpressionOptionalNote>
-            <StyledTextArea
-              value={impression}
-              onChange={(e) => setImpression(e.target.value)}
-              placeholder="Enter impression / findings (optional)…"
-            />
           </div>
         </ModalBody>
         <ModalFooter>
@@ -2127,7 +2271,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
           >
             {saving
               ? "Saving…"
-              : hasReport
+              : row.report?.slot_DateTime
                 ? "Update Slot"
                 : "Schedule & Create"}
           </ModalActionButton>
@@ -2144,7 +2288,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
     </SlotModalOverlay>
   );
 };
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDList = ({ investBillNo: investBillNoFilter }) => {
@@ -2167,7 +2310,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [toDate, setToDate] = useState(getToday);
 
   // ── Bill Type state ────────────────────────────────────────────────────
-  const [selectedBillType, setSelectedBillType] = useState("USG01");
+  const [selectedBillType, setSelectedBillType] = useState(
+    () => localStorage.getItem("rdlist_billType") || "USG01",
+  );
 
   // ── Column search ──────────────────────────────────────────────────────
   const [searchBillNo, setSearchBillNo] = useState("");
@@ -2209,15 +2354,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         uhid: row.uhid,
         ipNumber: row.ipNumber,
         investBillDate: row.investBillDate,
-        item: row.item,
-        item_id: Array.isArray(row.item)
-          ? (row.item.find((i) => i.billTypeNo === selectedBillType)?.item_id ??
-            "")
-          : "",
+        item_id: row.item_id ?? "", // ✅ directly from backend
         itemName: row.itemName || "",
         billTypeNo: row.billTypeNo || selectedBillType,
         patientName:
-          `${row.salutation || ""} ${row.firstName || ""} ${row.lastName || ""}`.trim(),
+          `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
         age: row.age,
         gender: row.gender,
         referredBy: row.referredBy || "",
@@ -2237,7 +2378,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const fetchFormatAndBuildSections = async (row, HMSURL) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo || row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
+        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`, // ✅ removed duplicate row.billTypeNo
         "GET",
       );
       if (result.success && result.data?.format) {
@@ -2276,6 +2417,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setFromDate(getToday());
     setToDate(getToday());
     setSelectedBillType("USG01");
+    localStorage.setItem("rdlist_billType", "USG01"); // ← add this
     setSearchBillNo("");
     setSearchUhid("");
     setSearchIpNumber("");
@@ -2326,20 +2468,25 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   ]);
 
   // ── Print dropdown handlers ────────────────────────────────────────────
-  const showPrintDropdown = (investBillNo, e) => {
+  // 1. Change showPrintDropdown to use composite key
+  const showPrintDropdown = (row, e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setPrintDropdownPos({
-      top: rect.bottom - 2, // was +4, now -2 so the menu overlaps the button slightly
+      top: rect.bottom - 2,
       left: rect.right - 200,
     });
-    setActivePrintRowId(investBillNo);
+    setActivePrintRowId(`${row.investBillNo}__${row.item_id}`);
   };
   const hidePrintDropdown = () => {
     setActivePrintRowId(null);
   };
 
+  // 2. Update activePrintRow to match by composite key
   const activePrintRow = useMemo(
-    () => rows.find((r) => r.investBillNo === activePrintRowId) || null,
+    () =>
+      rows.find(
+        (r) => `${r.investBillNo}__${r.item_id}` === activePrintRowId,
+      ) || null,
     [rows, activePrintRowId],
   );
 
@@ -2353,8 +2500,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         uhid: uhidBase,
         subUhid,
         itemName: row.itemName,
+        item_id: row.item_id, // ✅ now correctly populated
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
+        billTypeNo: row.billTypeNo || selectedBillType,
         salutation: "",
         firstName: row.patientName,
         middleName: "",
@@ -2362,8 +2511,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age: row.age,
         gender: row.gender,
         investBillDate: row.investBillDate,
-        billTypeNo: selectedBillType,
-        item_id: row.item_id,
         referredBy: row.referredBy,
       },
     });
@@ -2377,22 +2524,24 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleSlotSaved = ({
     investBillNo,
     itemName,
+    item_id,
     slot_DateTime,
-    impression,
     wasCreated,
   }) => {
     setRows((prev) =>
       prev.map((r) => {
-        if (r.investBillNo !== investBillNo || r.itemName !== itemName)
-          return r;
+        if (r.investBillNo !== investBillNo || r.item_id !== item_id) return r;
         const updatedReport = wasCreated
-          ? { slot_DateTime, impression, is_approved: false, is_active: true }
-          : {
-              ...r.report,
+          ? {
               slot_DateTime,
-              ...(impression ? { impression } : {}),
-            };
-        return { ...r, report: updatedReport, hasReport: true };
+              impression: "",
+              is_approved: false,
+              is_active: true,
+              has_report: false,
+            }
+          : { ...r.report, slot_DateTime };
+        // ✅ hasReport stays as-is — slot update doesn't change report status
+        return { ...r, report: updatedReport };
       }),
     );
   };
@@ -2425,7 +2574,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleApprove = async (row) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/approve/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        `${HMSURL}scan-reports/approve/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
         "PATCH",
         {},
       );
@@ -2433,7 +2582,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       toast.success("Report approved successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
                 ...r,
                 report: {
@@ -2467,7 +2616,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           : {}),
       };
       const result = await apiRequest(
-        `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.itemName)}/`,
+        `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.item_id)}/`,
         "PATCH",
         patchPayload,
       );
@@ -2476,7 +2625,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === editingRow.investBillNo &&
-          r.itemName === editingRow.itemName
+          r.item_id === editingRow.item_id
             ? {
                 ...r,
                 report: {
@@ -2508,7 +2657,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleDelete = async (row) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/delete/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        `${HMSURL}scan-reports/delete/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
         "PATCH",
         {},
       );
@@ -2516,7 +2665,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       toast.success("Report deleted successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? { ...r, report: null, hasReport: false }
             : r,
         ),
@@ -2559,7 +2708,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                 <BillTypeSelect
                   value={selectedBillType}
                   onChange={(e) => {
-                    setSelectedBillType(e.target.value);
+                    const val = e.target.value;
+                    setSelectedBillType(val);
+                    localStorage.setItem("rdlist_billType", val); // ← add this
                     setRows([]);
                     setSearchBillNo("");
                     setSearchStatus("");
@@ -2779,7 +2930,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               data-tip={
                                 row.report?.is_approved
                                   ? "Slot locked (approved)"
-                                  : row.hasReport
+                                  : row.report?.slot_DateTime // ✅ check slot, not hasReport
                                     ? "Update Slot"
                                     : "Set Slot"
                               }
@@ -2838,9 +2989,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
 
                           {/* ── PRINT icon — portal dropdown, same pattern as PatientOverview ── */}
                           <PrintDropdownWrapper
-                            onMouseEnter={(e) =>
-                              row.report?.is_approved &&
-                              showPrintDropdown(row.investBillNo, e)
+                            onMouseEnter={
+                              (e) =>
+                                row.report?.is_approved &&
+                                showPrintDropdown(row, e) // pass whole row, not just investBillNo
                             }
                             onMouseLeave={hidePrintDropdown}
                           >
