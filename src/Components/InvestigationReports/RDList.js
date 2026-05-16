@@ -1353,7 +1353,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const headerHeight = 25;
     const footerHeight = 20;
     const contentYStart = headerHeight + 15;
-    const signatureBlockHeight = signatureData ? 55 : 0;
 
     // ── Patient info rows ─────────────────────────────────────────────────
     const billDateFormatted = row.investBillDate
@@ -1403,7 +1402,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
     };
 
-    // ── Strip HTML to plain text (for height estimation) ──────────────────
+    // ── Strip HTML to plain text ──────────────────────────────────────────
     const htmlToPlainText = (html) => {
       if (!html) return "";
       return html
@@ -1585,7 +1584,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       if (!signatureData) return 0;
 
       const sigX = rightMargin - 68;
-      let sy = yPos + 3; // matches sigH gap(6)
+      let sy = yPos + 3;
 
       if (signatureData.signatureBase64) {
         try {
@@ -1601,7 +1600,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           console.warn("Could not render signature image:", e);
         }
       }
-      sy += 16; // 16(img) + 2(gap)
+      sy += 16;
 
       doc.setDrawColor(100, 100, 100);
       doc.line(sigX, sy, sigX + 52, sy);
@@ -1667,24 +1666,53 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     doc.setDrawColor(0, 0, 0);
     yPos += 6;
 
-    // ── Report title ──────────────────────────────────────────────────────
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    const billTypeLabel =
-      BILL_TYPES.find((b) => b.value === (row.billTypeNo || "USG01"))?.label ||
-      "RADIOLOGY";
-    const reportTitle = `${billTypeLabel} REPORT — ${(row.itemName || "").toUpperCase()}`;
-    doc.text(reportTitle, leftMargin + contentWidth / 2, yPos, {
-      align: "center",
-    });
-    const titleW = doc.getTextWidth(reportTitle);
-    doc.line(
-      leftMargin + contentWidth / 2 - titleW / 2,
-      yPos + 2,
-      leftMargin + contentWidth / 2 + titleW / 2,
-      yPos + 2,
-    );
-    yPos += 6;
+    // ── Report title (Department / Heading / Sub-heading) ─────────────────
+    const centerX = leftMargin + contentWidth / 2;
+
+    // ✅ Read directly from top-level response fields — no fallbacks
+    const department = row.department ? row.department.toUpperCase() : "";
+
+    const headingStr = row.heading ? row.heading.toUpperCase() : "";
+
+    const subHeading = row.sub_heading || "";
+
+    // Line 1: Department — largest, bold
+    if (department) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
+      doc.text(department, centerX, yPos, { align: "center" });
+      yPos += 6;
+    }
+
+    // Line 2: Heading — medium bold + underline
+    if (headingStr) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(headingStr, centerX, yPos, { align: "center" });
+      const headingW = doc.getTextWidth(headingStr);
+      doc.line(
+        centerX - headingW / 2,
+        yPos + 1.5,
+        centerX + headingW / 2,
+        yPos + 1.5,
+      );
+      yPos += 6;
+    }
+
+    // Line 3: Sub-heading — smaller, italic, grey
+    if (subHeading) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 100, 100);
+      doc.text(subHeading, centerX, yPos, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+      yPos += 5;
+    }
+
+    yPos += 2; // breathing room before sections
 
     // ── Scan Findings sections ────────────────────────────────────────────
     if (sections.length > 0) {
@@ -1720,13 +1748,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       });
     }
 
-    // ── Calculate actual available space on current page ──────────────────
+    // ── Calculate available space on current page ─────────────────────────
     const getAvailableSpace = (currentY) => {
       const pageH = doc.internal.pageSize.height;
       return pageH - footerHeight - 5 - currentY;
     };
 
-    // ── Measure impression height accurately ─────────────────────────────
+    // ── Measure impression height ─────────────────────────────────────────
     const measureImpressionHeight = () => {
       if (!impression) return 0;
       const plainImpression = htmlToPlainText(impression);
@@ -1736,29 +1764,14 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         plainImpression,
         contentWidth - 6,
       );
-      // 7 (heading) + lines + 2 (gap before "End of Report")  ← FIX: was +4
       return 7 + impressionLines.length * 5.2 + 2;
     };
 
     const impressionH = measureImpressionHeight();
-    const endOfReportH = 6; // FIX: was 10 — only "End of Report" text + yPos += 2
-    // addSignatures renders: 3(gap) + 14(img) + 2 + 1(line) + 3 + 3 + 3 = ~29
-    const sigH = signatureData ? 32 : 0; // FIX: was 42
+    const endOfReportH = 6;
+    const sigH = signatureData ? 32 : 0;
     const totalFinalH = impressionH + endOfReportH + sigH;
     const available = getAvailableSpace(yPos);
-
-    console.log(
-      "yPos:",
-      yPos,
-      "available:",
-      available,
-      "totalFinalH:",
-      totalFinalH,
-      "impressionH:",
-      impressionH,
-      "sigH:",
-      sigH,
-    );
 
     if (totalFinalH > available) {
       doc.addPage();
@@ -1774,7 +1787,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     }
 
     // ── Impression ────────────────────────────────────────────────────────
-    // ── Impression ────────────────────────────────────────────────────────────────
     if (impression) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -1785,7 +1797,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
       doc.setFontSize(9.5);
 
-      // Split impression into bullet lines on \n or <br>
       const impressionLines = impression
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<\/p>/gi, "\n")
@@ -1810,13 +1821,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
         yPos = checkNewPage(yPos, wrapped.length * 5.2 + 2);
 
-        // Bullet dot
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
 
-        // Line text (bold if original was wrapped in <b>)
         const isBold =
           /<b>/i.test(impression) &&
           impression.includes(line.replace(/\s+/g, " ").trim().slice(0, 20));
@@ -1835,12 +1844,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     // ── End of report ─────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     doc.text("**End of the Report**", leftMargin + contentWidth / 2, yPos, {
       align: "center",
     });
     yPos += 6;
 
-    // ── Signature inline ──────────────────────────────────────────────────
+    // ── Signature ─────────────────────────────────────────────────────────
     addSignatures(yPos);
 
     // ── Page numbers ──────────────────────────────────────────────────────
@@ -2322,6 +2332,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchStatus, setSearchStatus] = useState("");
   const [searchReferredBy, setSearchReferredBy] = useState("");
   const [titleMapCache, setTitleMapCache] = useState({});
+  const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -2356,6 +2367,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         investBillDate: row.investBillDate,
         item_id: row.item_id ?? "", // ✅ directly from backend
         itemName: row.itemName || "",
+        paymentStatus: row.paymentStatus || "",
         billTypeNo: row.billTypeNo || selectedBillType,
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
@@ -2407,9 +2419,37 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handlePrintWithTitleMap = useCallback(
     async (row, withLetterpad) => {
       const titleMap = await getTitleMap(row);
-      handlePrintReport({ ...row, _titleMap: titleMap }, withLetterpad);
+
+      // ── Also grab department/heading/sub_heading from format API ──────────
+      let department = "";
+      let heading = "";
+      let sub_heading = "";
+      try {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
+          "GET",
+        );
+        if (result.success && result.data) {
+          department = result.data.department || "";
+          heading = result.data.heading || "";
+          sub_heading = result.data.sub_heading || "";
+        }
+      } catch (e) {
+        console.warn("Could not fetch format for print:", e);
+      }
+
+      handlePrintReport(
+        {
+          ...row,
+          _titleMap: titleMap,
+          department,
+          heading,
+          sub_heading,
+        },
+        withLetterpad,
+      );
     },
-    [getTitleMap],
+    [getTitleMap, HMSURL],
   );
 
   // ── Reset ──────────────────────────────────────────────────────────────
@@ -2422,6 +2462,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setSearchUhid("");
     setSearchIpNumber("");
     setSearchPatient("");
+    setSearchPaymentStatus("");
     setSearchStatus("");
     setSearchReferredBy("");
   };
@@ -2454,6 +2495,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             .toLowerCase()
             .includes(searchPatient.toLowerCase())) &&
         (!searchStatus || statusLabel === searchStatus) &&
+        (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
         (!searchReferredBy || row.referredBy === searchReferredBy)
       );
     });
@@ -2465,6 +2507,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchPatient,
     searchStatus,
     searchReferredBy,
+    searchPaymentStatus,
   ]);
 
   // ── Print dropdown handlers ────────────────────────────────────────────
@@ -2803,6 +2846,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <Th>Item</Th>
                   <Th>Bill Date</Th>
                   <Th>Referred By</Th>
+                  <Th>Payment Status</Th>
                   <Th>Slot</Th>
                   <Th>Status</Th>
                   <Th>Actions</Th>
@@ -2853,6 +2897,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       ))}
                     </SearchSelect>
                   </SearchTh>
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchPaymentStatus}
+                      onChange={(e) => setSearchPaymentStatus(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      <option value="Paid">✅ Paid</option>
+                      <option value="Pending">⏳ Pending</option>
+                    </SearchSelect>
+                  </SearchTh>
                   <SearchTh />
                   <SearchTh>
                     <SearchSelect
@@ -2895,6 +2949,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             —
                           </span>
                         )}
+                      </Td>
+                      <Td>
+                        <StatusBadge
+                          hasReport={row.paymentStatus === "Paid"}
+                          approved={row.paymentStatus === "Paid"}
+                        >
+                          {row.paymentStatus === "Paid"
+                            ? "✅ Paid"
+                            : "⏳ Pending"}
+                        </StatusBadge>
                       </Td>
                       <Td>
                         {row.report?.slot_DateTime ? (
@@ -2941,11 +3005,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           <IconBtn
                             bg="linear-gradient(135deg,#00897b,#00695c)"
                             onClick={() => handleGoToReport(row)}
-                            disabled={row.hasReport}
+                            disabled={
+                              row.hasReport || row.paymentStatus !== "Paid"
+                            }
                             data-tip={
                               row.hasReport
                                 ? "Already Submitted"
-                                : "Go to Report"
+                                : row.paymentStatus !== "Paid"
+                                  ? "Payment Pending"
+                                  : "Go to Report"
                             }
                           >
                             📋
