@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText, Edit, RotateCcw, History } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 import QRRegistrationModal from "./QRRegistrationModal";
@@ -300,6 +300,12 @@ const PatientRegistrationForm = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     const [unusedQRCount, setUnusedQRCount] = useState(0);
+    const [showEditVisitModal, setShowEditVisitModal] = useState(false);
+    const [showRefundVisitModal, setShowRefundVisitModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [refundAmount, setRefundAmount] = useState("");
+    const [refundRemarks, setRefundRemarks] = useState("Patient Request");
+    const [editingDoctor, setEditingDoctor] = useState("");
 
     const handleQRDataReceived = (data) => {
         setPatient(prev => {
@@ -349,6 +355,63 @@ const PatientRegistrationForm = () => {
         if (result.success) {
             setVisitList(result.data);
             setShowVisitList(true);
+        }
+    };
+
+    const handleUpdateVisit = async () => {
+        try {
+            if (!editingDoctor) {
+                alert("Please select a doctor");
+                return;
+            }
+            const doc = doctors.find(d => d.id === editingDoctor);
+            const payload = {
+                bill_number: selectedVisit.billNumber,
+                doctor_id: editingDoctor,
+                doctorName: doc ? doc.name : "",
+                registrationFee: doc ? doc.registrationFee : 0,
+                consultingFee: doc ? doc.consultingFee : 0,
+                totalFees: doc ? (doc.registrationFee + doc.consultingFee) : 0
+            };
+            
+            const result = await apiRequest(`${Hmsbaseurl}update-registration-visit/`, "POST", payload);
+            if (result.success) {
+                alert("Visit updated successfully");
+                setShowEditVisitModal(false);
+                handleViewList(); // Refresh list
+            } else {
+                alert(result.error || result.message || "Update failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error updating visit");
+        }
+    };
+
+    const handleProcessRefund = async () => {
+        try {
+            if (Number(refundAmount) <= 0) {
+                alert("Please enter a valid refund amount");
+                return;
+            }
+            const payload = {
+                bill_no: selectedVisit.billNumber,
+                uhid: selectedVisit.uhid,
+                refund_amount: refundAmount,
+                remarks: refundRemarks
+            };
+            
+            const result = await apiRequest(`${Hmsbaseurl}process-registration-refund/`, "POST", payload);
+            if (result.success) {
+                alert(`Refund processed successfully. Refund Bill No: ${result.refund_bill_no}`);
+                setShowRefundVisitModal(false);
+                handleViewList(); // Refresh list
+            } else {
+                alert(result.error || result.message || "Refund failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error processing refund");
         }
     };
 
@@ -1251,6 +1314,72 @@ const PatientRegistrationForm = () => {
                                                         >
                                                             <FileText size={16} />
                                                         </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedVisit(visit);
+                                                                setShowHistoryModal(true);
+                                                            }}
+                                                            style={{
+                                                                background: '#f1f5f9',
+                                                                border: '1px solid #e2e8f0',
+                                                                cursor: 'pointer',
+                                                                color: '#64748b',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '6px',
+                                                                borderRadius: '6px'
+                                                            }}
+                                                            title="View History"
+                                                        >
+                                                            <History size={16} />
+                                                        </button>
+                                                        {visit.paymentStatus !== 'Paid' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedVisit(visit);
+                                                                    setEditingDoctor(visit.doctor || "");
+                                                                    setShowEditVisitModal(true);
+                                                                }}
+                                                                style={{
+                                                                    background: '#fef3c7',
+                                                                    border: '1px solid #fde68a',
+                                                                    cursor: 'pointer',
+                                                                    color: '#d97706',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    padding: '6px',
+                                                                    borderRadius: '6px'
+                                                                }}
+                                                                title="Edit Doctor"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                        )}
+                                                        {visit.paymentStatus === 'Paid' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedVisit(visit);
+                                                                    setRefundAmount(visit.billAmount);
+                                                                    setShowRefundVisitModal(true);
+                                                                }}
+                                                                style={{
+                                                                    background: '#fee2e2',
+                                                                    border: '1px solid #fecaca',
+                                                                    cursor: 'pointer',
+                                                                    color: '#dc2626',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    padding: '6px',
+                                                                    borderRadius: '6px'
+                                                                }}
+                                                                title="Refund"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1319,7 +1448,165 @@ const PatientRegistrationForm = () => {
                         )}
                     </Modal>
 
+                    {/* Edit Visit Modal */}
+                    <Modal
+                        show={showEditVisitModal}
+                        onClose={() => setShowEditVisitModal(false)}
+                        title="Edit Visit (Doctor Change)"
+                        footer={
+                            <StatsButton onClick={handleUpdateVisit} style={{ background: '#0d9488', color: 'white', width: '100%' }}>
+                                Update Visit
+                            </StatsButton>
+                        }
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#64748b' }}>Patient</p>
+                                    <p style={{ margin: 0, fontWeight: '600' }}>{selectedVisit.patientName} ({selectedVisit.uhid})</p>
+                                </div>
+                                
+                                <FilterGroup>
+                                    <Label>Select New Doctor</Label>
+                                    <Select 
+                                        value={editingDoctor} 
+                                        onChange={(e) => setEditingDoctor(e.target.value)}
+                                    >
+                                        <option value="">Select Doctor</option>
+                                        {doctors.map(doc => (
+                                            <option key={doc.id} value={doc.id}>{doc.name} - {doc.specialty}</option>
+                                        ))}
+                                    </Select>
+                                </FilterGroup>
 
+                                {editingDoctor && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Reg. Fee</p>
+                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.registrationFee || 0}</p>
+                                        </div>
+                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Cons. Fee</p>
+                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.consultingFee || 0}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Modal>
+
+                    {/* Refund Modal */}
+                    <Modal
+                        show={showRefundVisitModal}
+                        onClose={() => setShowRefundVisitModal(false)}
+                        title="Process Refund"
+                        footer={
+                            <StatsButton onClick={handleProcessRefund} style={{ background: '#dc2626', color: 'white', width: '100%' }}>
+                                Process Refund
+                            </StatsButton>
+                        }
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#fef2f2', padding: '12px', borderRadius: '8px', border: '1px solid #fee2e2' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#991b1b' }}>Refunding for Bill: {selectedVisit.billNumber}</p>
+                                    <p style={{ margin: 0, fontWeight: '600' }}>{selectedVisit.patientName} (₹{selectedVisit.billAmount})</p>
+                                </div>
+
+                                <FilterGroup>
+                                    <Label>Refund Amount</Label>
+                                    <Input 
+                                        type="number" 
+                                        value={refundAmount} 
+                                        onChange={(e) => setRefundAmount(e.target.value)}
+                                        max={selectedVisit.billAmount}
+                                    />
+                                </FilterGroup>
+
+                                <FilterGroup>
+                                    <Label>Remarks / Reason</Label>
+                                    <TextArea 
+                                        value={refundRemarks} 
+                                        onChange={(e) => setRefundRemarks(e.target.value)}
+                                        placeholder="Enter reason for refund..."
+                                        rows={3}
+                                    />
+                                </FilterGroup>
+                            </div>
+                        )}
+                    </Modal>
+
+
+
+                    {/* History Modal */}
+                    <Modal
+                        show={showHistoryModal}
+                        onClose={() => setShowHistoryModal(false)}
+                        title="Visit History & Refunds"
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Edit History Section */}
+                                <div>
+                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <History size={16} /> Edit History
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {selectedVisit.editHistory && selectedVisit.editHistory.length > 0 ? (
+                                            selectedVisit.editHistory.map((edit, idx) => (
+                                                <div key={idx} style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                        <span style={{ fontWeight: '600', color: '#0f172a' }}>{edit.date}</span>
+                                                        <span style={{ color: '#64748b' }}>by {edit.user}</span>
+                                                    </div>
+                                                    <ul style={{ margin: 0, paddingLeft: '18px', color: '#334155' }}>
+                                                        {Object.entries(edit.changes).map(([field, values]) => (
+                                                            <li key={field}>
+                                                                Changed <strong>{field.replace('_', ' ')}</strong> from <em>{values.old}</em> to <strong>{values.new}</strong>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No edit history available.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Refunds Section */}
+                                <div>
+                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <RotateCcw size={16} /> Refunds
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {selectedVisit.refunds && selectedVisit.refunds.length > 0 ? (
+                                            <>
+                                                {selectedVisit.refunds.map((refund, idx) => (
+                                                    <div key={idx} style={{ background: '#fff5f5', padding: '10px', borderRadius: '8px', border: '1px solid #feb2b2', fontSize: '13px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                            <span style={{ fontWeight: '600', color: '#991b1b' }}>{refund.refund_bill_no}</span>
+                                                            <span style={{ color: '#dc2626', fontWeight: '600' }}>₹{refund.amount}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '12px' }}>
+                                                            <span>{refund.date}</span>
+                                                            <span>Status: <strong>{refund.status}</strong></span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div style={{ marginTop: '10px', padding: '10px', borderTop: '2px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: '600' }}>Total Refunded:</span>
+                                                    <span style={{ fontWeight: '700', color: '#dc2626' }}>₹{selectedVisit.totalRefunded}</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No refunds found for this visit.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </Modal>
 
                     {/* Search Container */}
                     <SearchContainer>
@@ -2206,6 +2493,24 @@ const Input = styled.input`
   
   &::placeholder {
     color: #cbd5e1;
+  }
+`
+
+const TextArea = styled.textarea`
+  padding: 12px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #334155;
+  background: #fff;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+  resize: vertical;
+  
+  &:focus {
+    outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
 `
 
