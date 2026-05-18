@@ -312,7 +312,7 @@ const ChevronIcon = styled.span`
 
 const SectionCardBody = styled.div`
   padding: ${(p) => (p.expanded ? "0.875rem 1rem" : "0")};
-  max-height: ${(p) => (p.expanded ? "500px" : "0")};
+  max-height: ${(p) => (p.expanded ? "600px" : "0")};
   overflow: hidden;
   transition:
     max-height 0.3s ease,
@@ -345,18 +345,15 @@ const RichEditor = styled.div`
   word-break: break-word;
   cursor: text;
   background: white;
-
   &:focus {
     border-color: #00897b;
     box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.1);
   }
-
   b,
   strong {
     color: #00695c;
     font-weight: 800;
   }
-
   &:empty::before {
     content: attr(data-placeholder);
     color: #bbb;
@@ -379,7 +376,6 @@ const ShortcutHint = styled.div`
   display: flex;
   align-items: center;
   gap: 0.4rem;
-
   span.key {
     background: rgba(255, 255, 255, 0.2);
     padding: 1px 5px;
@@ -391,6 +387,78 @@ const ShortcutHint = styled.div`
   }
   span.val {
     color: #a5d6a7;
+    font-weight: 700;
+  }
+`;
+
+// ─── Table Styled Components ──────────────────────────────────────────────────
+
+const ReportTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  overflow: hidden;
+`;
+
+const ReportTh = styled.th`
+  background: linear-gradient(135deg, #00897b, #00695c);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.4px;
+  border: 1px solid #00695c;
+`;
+
+const ReportTd = styled.td`
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d0e8e5;
+  vertical-align: middle;
+  text-align: center;
+  color: #333;
+  font-size: 0.8rem;
+  background: ${(p) => (p.isHeader ? "#e8f5e9" : p.alt ? "#f8fffe" : "white")};
+  font-weight: ${(p) => (p.isHeader ? "700" : "400")};
+`;
+
+const EditableCell = styled.div`
+  min-width: 80px;
+  min-height: 28px;
+  padding: 0.2rem 0.4rem;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  &:focus {
+    border-color: #00897b;
+    background: #f0faf8;
+  }
+  b,
+  strong {
+    color: #00695c;
+    font-weight: 800;
+  }
+  mark.ph {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
+  &:empty::before {
+    content: "///";
+    color: #e65100;
     font-weight: 700;
   }
 `;
@@ -467,18 +535,15 @@ const FinalRichEditor = styled.div`
   word-break: break-word;
   cursor: text;
   background: white;
-
   &:focus {
     border-color: #8e24aa;
     box-shadow: 0 0 0 3px rgba(142, 36, 170, 0.12);
   }
-
   b,
   strong {
     color: #6a1b9a;
     font-weight: 800;
   }
-
   mark.ph {
     background: #fff3e0;
     color: #e65100;
@@ -487,7 +552,6 @@ const FinalRichEditor = styled.div`
     padding: 0 2px;
     cursor: text;
   }
-
   &:empty::before {
     content: attr(data-placeholder);
     color: #bbb;
@@ -667,8 +731,6 @@ const formatDisplayTime = (d) =>
     hour12: true,
   });
 
-// ─── Decode HTML entities (e.g. &amp; → &) ───────────────────────────────────
-// Uses a textarea so the browser does the decoding natively — safe & accurate.
 const decodeHTMLEntities = (text) => {
   if (!text) return "";
   const txt = document.createElement("textarea");
@@ -676,42 +738,25 @@ const decodeHTMLEntities = (text) => {
   return txt.value;
 };
 
-// ─── Convert plain text with /// into HTML ────────────────────────────────────
-// 1. Decode any pre-existing HTML entities (&amp; → &)
-// 2. Escape the decoded plain text properly via textContent trick
-// 3. Replace /// with styled <mark> placeholders
 const buildInitialHTML = (text) => {
   if (!text) return "";
-
-  // If text already contains HTML tags (previously saved HTML), return as-is
-  if (/<[a-z][\s\S]*>/i.test(text)) {
-    return text;
-  }
-
-  // Step 1: Decode any HTML entities in the raw string first
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
   const decoded = decodeHTMLEntities(text);
-
-  // Step 2: Safely escape for innerHTML using a temp DOM element
-  // (browser handles & → &amp;, < → &lt; etc. correctly)
   const tmp = document.createElement("div");
   tmp.textContent = decoded;
   const safeHTML = tmp.innerHTML;
-
-  // Step 3: Replace /// with orange placeholder marks
   return safeHTML.replace(
     /\/\/\//g,
     `<mark class="ph" style="background:#fff3e0;color:#e65100;font-weight:700;border-radius:3px;padding:0 2px;cursor:text;">///</mark>`,
   );
 };
 
-// ─── Build final impression HTML by concatenating non-empty section HTML ──────
 const buildImpressionHTMLFromSections = (sections) =>
   sections
-    .filter((s) => s.value.trim())
+    .filter((s) => !s.isTable && s.value.trim())
     .map((s) => `<b>${s.title}:</b>\n${s.value.trim()}`)
     .join("\n\n");
 
-// ─── Track whether caret is inside a placeholder mark ────────────────────────
 const getCaretInsideMark = () => {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
@@ -721,6 +766,185 @@ const getCaretInsideMark = () => {
   return null;
 };
 
+// ─── Table Helpers ────────────────────────────────────────────────────────────
+
+const isTableEntry = (entry) => !!entry?.table_id;
+
+const parseTableDimensions = (tableId) => {
+  const parts = (tableId || "").toUpperCase().split("X");
+  const r = parseInt(parts[0], 10);
+  const c = parseInt(parts[1], 10);
+  return { rows: isNaN(r) ? 0 : r, cols: isNaN(c) ? 0 : c };
+};
+
+const extractTableCells = (entry, rows, cols) => {
+  const grid = [];
+  for (let r = 1; r <= rows; r++) {
+    const row = [];
+    for (let c = 1; c <= cols; c++) {
+      row.push(entry[`row${r}col${c}`] || "");
+    }
+    grid.push(row);
+  }
+  return grid;
+};
+
+const serializeTableCells = (grid) => {
+  const out = {};
+  grid.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      out[`row${ri + 1}col${ci + 1}`] = cell;
+    });
+  });
+  return out;
+};
+// ─── Sanitize: keep only <b> tags, strip everything else ─────────────────────
+const sanitizeCellHTML = (html) => {
+  if (!html) return "";
+  return (
+    html
+      .replace(/<font[^>]*>/gi, "")
+      .replace(/<\/font>/gi, "")
+      .replace(/<span[^>]*>/gi, "")
+      .replace(/<\/span>/gi, "")
+      .replace(/<strong>/gi, "<b>")
+      .replace(/<\/strong>/gi, "</b>")
+      // Remove any remaining tags except <b> and </b>
+      .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
+      .trim()
+  );
+};
+
+// ─── TableEditor ──────────────────────────────────────────────────────────────
+
+const TableEditor = ({ entry, onChange }) => {
+  const { rows, cols } = parseTableDimensions(entry.table_id);
+  const [grid, setGrid] = useState(() => extractTableCells(entry, rows, cols));
+  const cellRefs = useRef({});
+
+  useEffect(() => {
+    // Set initial HTML for all data rows (ri >= 1), all columns
+    grid.forEach((row, ri) => {
+      if (ri === 0) return; // header row is static <th>
+      row.forEach((cell, ci) => {
+        const el = cellRefs.current[`${ri}-${ci}`];
+        if (el) {
+          el.innerHTML = buildInitialHTML(sanitizeCellHTML(cell));
+        }
+      });
+    });
+
+    // Commit initial state so unedited tables are still submitted
+    const sanitizedGrid = grid.map((row, ri) =>
+      ri === 0 ? row : row.map((cell) => sanitizeCellHTML(cell)),
+    );
+    const serialized = serializeTableCells(sanitizedGrid);
+    onChange({ ...serialized, table_id: entry.table_id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commitCell = (ri, ci, html) => {
+    const clean = sanitizeCellHTML(html);
+    setGrid((prev) => {
+      const newGrid = prev.map((r) => [...r]);
+      newGrid[ri][ci] = clean;
+      const serialized = serializeTableCells(newGrid);
+      onChange({ ...serialized, table_id: entry.table_id });
+      return newGrid;
+    });
+  };
+
+  const handleCellKeyDown = (e, ri, ci, el) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const markEl = getCaretInsideMark();
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+  };
+
+  const handleCellInput = (ri, ci, el) => {
+    commitCell(ri, ci, el.innerHTML);
+  };
+
+  const handleCellClick = (e) => {
+    const t = e.target;
+    if (t.classList?.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
+  const headerRow = grid[0] || [];
+  const dataRows = grid.slice(1);
+
+  return (
+    <ReportTable>
+      <thead>
+        <tr>
+          {headerRow.map((cell, ci) => (
+            <ReportTh key={ci}>{cell}</ReportTh>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {dataRows.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+                <EditableCell
+                  ref={(el) => {
+                    cellRefs.current[`${ri + 1}-${ci}`] = el;
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onKeyDown={(e) =>
+                    handleCellKeyDown(e, ri + 1, ci, e.currentTarget)
+                  }
+                  onInput={(e) => handleCellInput(ri + 1, ci, e.currentTarget)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    document.execCommand(
+                      "insertText",
+                      false,
+                      e.clipboardData.getData("text/plain"),
+                    );
+                  }}
+                  onClick={handleCellClick}
+                  spellCheck={false}
+                />
+              </ReportTd>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </ReportTable>
+  );
+};
 // ─── Section Accordion Item ───────────────────────────────────────────────────
 
 const SectionItem = ({ section, index, onChange, shortcuts }) => {
@@ -731,48 +955,41 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
   const suppressRef = useRef(false);
   const lastHTMLRef = useRef("");
 
-  // ── Initial render: section.value is already built HTML from parent ───────
-  // Do NOT call buildInitialHTML again here — it would double-encode entities.
+  // For table sections: initial cell setup handled inside TableEditor
+  // For text sections: set innerHTML once on mount
   useEffect(() => {
+    if (section.isTable) return;
     if (!editorRef.current) return;
     editorRef.current.innerHTML = section.value;
     lastHTMLRef.current = section.value;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── External reset: re-render only when parent pushed a new value ─────────
   useEffect(() => {
+    if (section.isTable) return;
     if (!editorRef.current) return;
-    // Only reset if parent changed the value (e.g. Reset button) and we're
-    // not in the middle of a user keystroke.
     if (section.value !== lastHTMLRef.current && !suppressRef.current) {
-      // section.value is already HTML — set directly
       editorRef.current.innerHTML = section.value;
       lastHTMLRef.current = section.value;
     }
-  }, [section.value]);
+  }, [section.value, section.isTable]);
 
-  // ── Core: handle every keypress ───────────────────────────────────────────
   const handleKeyDown = (e) => {
     const el = editorRef.current;
     const sel = window.getSelection();
     if (!el || !sel || sel.rangeCount === 0) return;
 
-    // ── CASE 1: Typing while caret is inside a <mark class="ph"> ─────────
     const markEl = getCaretInsideMark();
     if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-
       const boldNode = document.createElement("b");
       boldNode.textContent = e.key;
       markEl.replaceWith(boldNode);
-
       const range = document.createRange();
       range.setStartAfter(boldNode);
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
-
       suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
@@ -781,7 +998,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       return;
     }
 
-    // ── CASE 2: Backspace on a mark → delete the whole mark ──────────────
     if (markEl && e.key === "Backspace") {
       e.preventDefault();
       const range = document.createRange();
@@ -790,7 +1006,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       markEl.remove();
       sel.removeAllRanges();
       sel.addRange(range);
-
       suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
@@ -798,7 +1013,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       return;
     }
 
-    // ── CASE 3: Space after a shortcut key → expand to bold ──────────────
     if (e.key === " ") {
       const caretRange = sel.getRangeAt(0).cloneRange();
       const beforeRange = caretRange.cloneRange();
@@ -842,16 +1056,13 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
     }
   };
 
-  // ── After each input: save innerHTML ─────────────────────────────────────
   const handleInput = () => {
     if (suppressRef.current) {
       suppressRef.current = false;
       return;
     }
-
     const el = editorRef.current;
     if (!el) return;
-
     const html = el.innerHTML;
     lastHTMLRef.current = html;
     onChange(index, html);
@@ -878,8 +1089,11 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
   };
 
   const handleClick = (e) => {
@@ -894,6 +1108,8 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
     }
   };
 
+  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+
   return (
     <SectionCard expanded={expanded}>
       <SectionCardHeader
@@ -902,38 +1118,47 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       >
         <SectionTitleRow>
           <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{section.title}</SectionName>
+          <SectionName>{displayTitle}</SectionName>
         </SectionTitleRow>
         <ChevronIcon expanded={expanded}>▼</ChevronIcon>
       </SectionCardHeader>
       <SectionCardBody expanded={expanded}>
-        <RichEditorWrapper>
-          {hint &&
-            createPortal(
-              <ShortcutHint style={{ top: hintPos.top, left: hintPos.left }}>
-                <span className="key">{hint.key}</span>
-                <span className="arrow">→</span>
-                <span className="val">
-                  {hint.value.length > 40
-                    ? hint.value.slice(0, 38) + "…"
-                    : hint.value}
-                </span>
-                &nbsp;· press <span className="key">Space</span>
-              </ShortcutHint>,
-              document.body,
-            )}
-          <RichEditor
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            data-placeholder={`Enter findings for ${section.title}…`}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            onPaste={handlePaste}
-            onClick={handleClick}
-            spellCheck={false}
+        {section.isTable ? (
+          // ── TABLE SECTION ────────────────────────────────────────────────
+          <TableEditor
+            entry={section.tableEntry}
+            onChange={(updatedEntry) => onChange(index, updatedEntry, true)}
           />
-        </RichEditorWrapper>
+        ) : (
+          // ── TEXT SECTION ─────────────────────────────────────────────────
+          <RichEditorWrapper>
+            {hint &&
+              createPortal(
+                <ShortcutHint style={{ top: hintPos.top, left: hintPos.left }}>
+                  <span className="key">{hint.key}</span>
+                  <span className="arrow">→</span>
+                  <span className="val">
+                    {hint.value.length > 40
+                      ? hint.value.slice(0, 38) + "…"
+                      : hint.value}
+                  </span>
+                  &nbsp;· press <span className="key">Space</span>
+                </ShortcutHint>,
+                document.body,
+              )}
+            <RichEditor
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              data-placeholder={`Enter findings for ${section.title}…`}
+              onKeyDown={handleKeyDown}
+              onInput={handleInput}
+              onPaste={handlePaste}
+              onClick={handleClick}
+              spellCheck={false}
+            />
+          </RichEditorWrapper>
+        )}
       </SectionCardBody>
     </SectionCard>
   );
@@ -946,7 +1171,6 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
   const suppressRef = useRef(false);
   const lastHTMLRef = useRef("");
 
-  // ── Initial render ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!editorRef.current) return;
     editorRef.current.innerHTML = value || "";
@@ -954,7 +1178,6 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Sync external value changes (compile / clear) ─────────────────────────
   useEffect(() => {
     if (!editorRef.current) return;
     if (suppressRef.current) {
@@ -978,8 +1201,11 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
   };
 
   return (
@@ -993,6 +1219,31 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
       spellCheck={false}
     />
   );
+};
+
+// ─── Build sections from format_titles (supports table entries) ───────────────
+
+const buildSectionsFromFormat = (formatArr) => {
+  return (formatArr || []).map((f) => {
+    if (isTableEntry(f)) {
+      return {
+        title_id: f.table_id,
+        title: "Study Table",
+        isTable: true,
+        tableEntry: { ...f }, // raw entry with table_id + rowXcolY keys
+        value: "", // not used for tables
+        title_value: "",
+      };
+    }
+    return {
+      title_id: f.title_id,
+      title: f.title,
+      isTable: false,
+      tableEntry: null,
+      value: buildInitialHTML(f.title_value || ""),
+      title_value: f.title_value || "",
+    };
+  });
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -1109,18 +1360,11 @@ const RDReportForm = () => {
 
         setShortcuts(data.shorcuts || {});
 
-        const formatArr = data.format || [];
-        const built = formatArr.map((f) => ({
-          title_id: f.title_id,
-          title: f.title,
-          // ✅ Build HTML once here — SectionItem will set innerHTML directly
-          value: buildInitialHTML(f.title_value || ""),
-          // Keep original plain text for reset
-          title_value: f.title_value || "",
-        }));
+        // ✅ Build sections supporting both text and table entries
+        const built = buildSectionsFromFormat(data.format || []);
         setSections(built);
 
-        // ✅ Impression HTML built once here
+        // Impression HTML built once here
         setImpression(buildInitialHTML(data.impression || ""));
       } catch {
         setFormatError("Unexpected error loading report template.");
@@ -1132,16 +1376,22 @@ const RDReportForm = () => {
     fetchFormat();
   }, [dataLoaded, billTypeNo, itemId, gender, HMSURL]);
 
-  // ── Section value change: receives HTML from SectionItem ─────────────────
-  const handleSectionChange = (index, htmlValue) => {
+  // ── Section value change ──────────────────────────────────────────────────
+  // For text sections: htmlValue is the new HTML string
+  // For table sections: htmlValue is the updated tableEntry object, isTableUpdate=true
+  const handleSectionChange = (index, htmlValue, isTableUpdate = false) => {
     setSections((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], value: htmlValue };
+      if (isTableUpdate) {
+        updated[index] = { ...updated[index], tableEntry: htmlValue };
+      } else {
+        updated[index] = { ...updated[index], value: htmlValue };
+      }
       return updated;
     });
   };
 
-  // ── Merge all section HTML into final impression ──────────────────────────
+  // ── Merge all text section HTML into final impression ─────────────────────
   const handleCompileImpression = () => {
     const compiled = buildImpressionHTMLFromSections(sections);
     setImpression(compiled || impression);
@@ -1151,16 +1401,15 @@ const RDReportForm = () => {
   // ── Reset sections to original template values ────────────────────────────
   const handleResetSections = () => {
     setSections((prev) =>
-      prev.map((s) => ({
-        ...s,
-        // ✅ Rebuild HTML from original plain text (buildInitialHTML handles decoding)
-        value: buildInitialHTML(s.title_value || ""),
-      })),
+      prev.map((s) => {
+        if (s.isTable) return s; // table resets handled inside TableEditor if needed
+        return { ...s, value: buildInitialHTML(s.title_value || "") };
+      }),
     );
     toast.info("Sections reset to template defaults.");
   };
 
-  // ── Insert shortcut text (as bold HTML) into final impression ────────────
+  // ── Insert shortcut text into final impression ────────────────────────────
   const handleShortcutClick = (value) => {
     const boldHTML = `<b>${value}</b> `;
     setImpression((prev) => (prev ? prev + " " + boldHTML : boldHTML));
@@ -1177,6 +1426,22 @@ const RDReportForm = () => {
     }
 
     setSubmitting(true);
+
+    // Serialize sections for API:
+    // Text sections: { title_id, value }
+    // Table sections: { title_id (table_id), isTable: true, tableData: { table_id, row1col1, ... } }
+    const apiSections = sections.map((s) => {
+      if (s.isTable) {
+        // Store exactly as received: { table_id, row1col1, row1col2, ... }
+        return s.tableEntry;
+      }
+      return {
+        title_id: s.title_id,
+        title: s.title,
+        title_value: s.value,
+      };
+    });
+
     const reportData = {
       investBillDate,
       investBillNo,
@@ -1185,10 +1450,7 @@ const RDReportForm = () => {
       itemName,
       item_id: itemId,
       device_id: formatMeta?.device_id || [],
-      sections: sections.map((s) => ({
-        title_id: s.title_id,
-        value: s.value,
-      })),
+      sections: apiSections,
     };
 
     try {
@@ -1242,7 +1504,6 @@ const RDReportForm = () => {
     <PageWrapper>
       <Container>
         <FormCard>
-          {/* ✅ FIX 1: Show department from API, fallback to "RD REPORT" while loading */}
           <PageTitle>{formatMeta?.department || "RD REPORT"}</PageTitle>
           <Subtitle>
             Complete the form below to submit a{" "}
@@ -1352,7 +1613,7 @@ const RDReportForm = () => {
                 <FormatSectionWrapper>
                   {sections.map((section, idx) => (
                     <SectionItem
-                      key={section.title_id}
+                      key={`${section.title_id}-${idx}`}
                       section={section}
                       index={idx}
                       onChange={handleSectionChange}
@@ -1391,7 +1652,7 @@ const RDReportForm = () => {
             <SummarySection>
               <SummaryTitle>Final Impression / Findings</SummaryTitle>
               <SummaryActions>
-                {sections.length > 0 && (
+                {sections.some((s) => !s.isTable) && (
                   <SmallBtn
                     type="button"
                     bg="linear-gradient(135deg,#00897b,#00695c)"

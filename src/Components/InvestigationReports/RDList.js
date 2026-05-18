@@ -58,6 +58,53 @@ const pulse = keyframes`
   50%       { opacity: 0.5; }
 `;
 
+// ─── Table Helpers ────────────────────────────────────────────────────────────
+
+const isTableEntry = (entry) => !!entry?.table_id;
+
+const parseTableDimensions = (tableId) => {
+  const parts = (tableId || "").toUpperCase().split("X");
+  const r = parseInt(parts[0], 10);
+  const c = parseInt(parts[1], 10);
+  return { rows: isNaN(r) ? 0 : r, cols: isNaN(c) ? 0 : c };
+};
+
+const extractTableCells = (entry, rows, cols) => {
+  const grid = [];
+  for (let r = 1; r <= rows; r++) {
+    const row = [];
+    for (let c = 1; c <= cols; c++) {
+      row.push(entry[`row${r}col${c}`] || "");
+    }
+    grid.push(row);
+  }
+  return grid;
+};
+
+const serializeTableCells = (grid) => {
+  const out = {};
+  grid.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      out[`row${ri + 1}col${ci + 1}`] = cell;
+    });
+  });
+  return out;
+};
+
+const buildInitialHTML = (text) => {
+  if (!text) return "";
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  const tmp = document.createElement("div");
+  tmp.textContent = text;
+  const safeHTML = tmp.innerHTML;
+  return safeHTML.replace(
+    /\/\/\//g,
+    `<mark class="ph" style="background:#fff3e0;color:#e65100;font-weight:700;border-radius:3px;padding:0 2px;cursor:text;">///</mark>`,
+  );
+};
+
+const stripHTML = (html) => (html || "").replace(/<[^>]*>/g, "").trim();
+
 // ─── Page Layout ──────────────────────────────────────────────────────────────
 
 const ContentCard = styled.div`
@@ -122,19 +169,16 @@ const StatIcon = styled.span`
   font-size: 1.1rem;
   flex-shrink: 0;
 `;
-
 const StatInfo = styled.div`
   display: flex;
   flex-direction: column;
 `;
-
 const StatCount = styled.span`
   font-size: 1.25rem;
   font-weight: 800;
   color: ${(p) => p.color || "#333"};
   line-height: 1.1;
 `;
-
 const StatLabel = styled.span`
   font-size: 0.65rem;
   font-weight: 600;
@@ -143,7 +187,7 @@ const StatLabel = styled.span`
   letter-spacing: 0.4px;
 `;
 
-// ─── Date + Bill Type Filter Bar ──────────────────────────────────────────────
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
 
 const FilterContainer = styled.div`
   display: flex;
@@ -152,13 +196,11 @@ const FilterContainer = styled.div`
   flex-wrap: wrap;
   align-items: flex-end;
 `;
-
 const FilterGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 `;
-
 const FilterLabel = styled.label`
   color: #00897b;
   font-weight: 600;
@@ -166,7 +208,6 @@ const FilterLabel = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.4px;
 `;
-
 const DateInput = styled.input`
   padding: 0.4rem 0.6rem;
   border: 1.5px solid #e0e0e0;
@@ -180,15 +221,11 @@ const DateInput = styled.input`
     box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.1);
   }
 `;
-
-// ─── Bill Type Dropdown ───────────────────────────────────────────────────────
-
 const BillTypeWrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 `;
-
 const BillTypeSelect = styled.select`
   padding: 0.4rem 2rem 0.4rem 0.75rem;
   border: 2px solid #00897b;
@@ -221,7 +258,6 @@ const BillTypeSelect = styled.select`
     background: white;
   }
 `;
-
 const ResetButton = styled(Button)`
   background: linear-gradient(135deg, #757575 0%, #616161 100%);
   padding: 0.4rem 1rem;
@@ -234,7 +270,7 @@ const ResetButton = styled(Button)`
   }
 `;
 
-// ─── Column Search Row ────────────────────────────────────────────────────────
+// ─── Column Search ────────────────────────────────────────────────────────────
 
 const SearchInput = styled.input`
   width: 100%;
@@ -259,7 +295,6 @@ const SearchInput = styled.input`
     font-style: italic;
   }
 `;
-
 const SearchSelect = styled.select`
   width: 100%;
   padding: 0.4rem 0.5rem;
@@ -280,7 +315,6 @@ const SearchSelect = styled.select`
     background: #fff;
   }
 `;
-
 const SearchTh = styled.th`
   padding: 0.4rem 0.5rem 0.6rem;
   background: #f8fffe;
@@ -339,7 +373,6 @@ const IconBtn = styled.button`
     opacity: 0;
     transition: opacity 0.18s;
     z-index: 9999;
-    letter-spacing: 0.3px;
   }
   &::before {
     content: "";
@@ -359,7 +392,6 @@ const IconBtn = styled.button`
     opacity: 1;
   }
 `;
-
 const ActionRow = styled.div`
   display: flex;
   gap: 0.3rem;
@@ -367,25 +399,11 @@ const ActionRow = styled.div`
   flex-wrap: nowrap;
 `;
 
-// ─── Print Dropdown (portal pattern) ─────────────────────────────────────────
+// ─── Print Dropdown ───────────────────────────────────────────────────────────
 
-// Replace the styled component
 const PrintDropdownWrapper = styled.div`
   position: relative;
-  &::after {
-    content: "";
-    position: fixed;
-    width: 210px;
-    height: 10px;
-    left: ${(p) => p.left || 0}px;
-    top: ${(p) => p.top || 0}px;
-    z-index: 9998;
-    pointer-events: auto;
-    background: transparent;
-  }
 `;
-
-// Replace PortalDropdownMenu
 const PortalDropdownMenu = styled.div`
   position: fixed;
   background-color: white;
@@ -395,7 +413,6 @@ const PortalDropdownMenu = styled.div`
   z-index: 9999;
   overflow: hidden;
   border: 1px solid #e9ecef;
-  // Bridge the gap with invisible top padding
   padding-top: 6px;
   margin-top: -6px;
 `;
@@ -415,7 +432,7 @@ const DropdownItem = styled.button`
   }
 `;
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Status Badges ────────────────────────────────────────────────────────────
 
 const StatusBadge = styled.span`
   padding: 0.3rem 0.75rem;
@@ -430,13 +447,12 @@ const StatusBadge = styled.span`
   white-space: nowrap;
   ${(props) => {
     if (!props.hasReport)
-      return `background: linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%); color:#1565c0;`;
+      return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
     if (props.approved)
-      return `background: linear-gradient(135deg,#c8e6c9 0%,#a5d6a7 100%); color:#2e7d32;`;
-    return `background: linear-gradient(135deg,#fff9c4 0%,#fff59d 100%); color:#f57f17;`;
+      return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
+    return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
   }}
 `;
-
 const SlotBadge = styled.span`
   padding: 0.22rem 0.55rem;
   border-radius: 10px;
@@ -445,11 +461,10 @@ const SlotBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
-  background: linear-gradient(135deg, #ede7f6 0%, #d1c4e9 100%);
+  background: linear-gradient(135deg, #ede7f6, #d1c4e9);
   color: #4527a0;
   white-space: nowrap;
 `;
-
 const ReferredByBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -457,12 +472,11 @@ const ReferredByBadge = styled.span`
   font-size: 0.75rem;
   font-weight: 600;
   color: #0277bd;
-  background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%);
+  background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   white-space: nowrap;
 `;
-
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
@@ -480,13 +494,13 @@ const EmptyState = styled.div`
   }
 `;
 
-// ─── Shared Modal Base ────────────────────────────────────────────────────────
+// ─── Modal Base ───────────────────────────────────────────────────────────────
 
 const StyledModalOverlay = styled(ModalOverlay)`
   background: linear-gradient(
     135deg,
-    rgba(0, 137, 123, 0.9) 0%,
-    rgba(0, 105, 92, 0.9) 100%
+    rgba(0, 137, 123, 0.9),
+    rgba(0, 105, 92, 0.9)
   );
   backdrop-filter: blur(10px);
   display: flex;
@@ -495,7 +509,6 @@ const StyledModalOverlay = styled(ModalOverlay)`
   overflow-y: auto;
   padding: 1rem;
 `;
-
 const StyledModalContent = styled(ModalContainer)`
   border-radius: 24px;
   padding: 2.5rem;
@@ -509,20 +522,17 @@ const StyledModalContent = styled(ModalContainer)`
   position: relative;
   animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 `;
-
 const StyledModalHeader = styled(ModalHeader)`
   border-bottom: 2px solid #f0f0f0;
   background: transparent;
   padding: 0 0 1rem 0;
   margin-bottom: 1.5rem;
 `;
-
 const ModalIcon = styled.span`
   font-size: 2rem;
 `;
-
 const InfoBanner = styled.div`
-  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+  background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
   border: 1.5px solid #b2dfdb;
   border-left: 5px solid #00897b;
   border-radius: 14px;
@@ -532,13 +542,11 @@ const InfoBanner = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.5rem 1rem;
 `;
-
 const InfoChip = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
 `;
-
 const InfoChipLabel = styled.span`
   font-size: 0.62rem;
   font-weight: 700;
@@ -546,12 +554,13 @@ const InfoChipLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
-
 const InfoChipValue = styled.span`
   font-size: 0.85rem;
   font-weight: 600;
   color: #333;
 `;
+
+// ─── Section Cards ────────────────────────────────────────────────────────────
 
 const SectionCard = styled.div`
   border: 2px solid ${(p) => (p.expanded ? "#b2dfdb" : "#f0f0f0")};
@@ -560,28 +569,25 @@ const SectionCard = styled.div`
   transition: border-color 0.2s;
   margin-bottom: 0.6rem;
 `;
-
 const SectionCardHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.7rem 1rem;
-  background: ${(p) =>
-    p.expanded ? "linear-gradient(135deg,#e8f5e9,#f1f8f4)" : "#fafafa"};
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  background: ${(p) =>
+    p.expanded ? "linear-gradient(135deg,#e8f5e9,#f1f8f4)" : "#fafafa"};
   &:hover {
     background: linear-gradient(135deg, #e0f2f1, #e8f5e9);
   }
 `;
-
 const SectionTitleRow = styled.div`
   display: flex;
   align-items: center;
   gap: 0.6rem;
 `;
-
 const SectionNumber = styled.span`
   width: 22px;
   height: 22px;
@@ -595,7 +601,6 @@ const SectionNumber = styled.span`
   justify-content: center;
   flex-shrink: 0;
 `;
-
 const SectionName = styled.span`
   font-weight: 700;
   font-size: 0.82rem;
@@ -603,14 +608,12 @@ const SectionName = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.4px;
 `;
-
 const ChevronIcon = styled.span`
   font-size: 0.8rem;
   color: #00897b;
   transition: transform 0.2s;
   transform: ${(p) => (p.expanded ? "rotate(180deg)" : "rotate(0deg)")};
 `;
-
 const SectionCardBody = styled.div`
   padding: ${(p) => (p.expanded ? "0.875rem 1rem" : "0")};
   max-height: ${(p) => (p.expanded ? "600px" : "0")};
@@ -620,7 +623,6 @@ const SectionCardBody = styled.div`
     padding 0.3s ease;
   background: white;
 `;
-
 const PreviewContent = styled.div`
   font-size: 0.875rem;
   color: #444;
@@ -633,6 +635,77 @@ const PreviewContent = styled.div`
     font-weight: 800;
   }
 `;
+
+// ─── Table Styled Components ──────────────────────────────────────────────────
+
+const ReportTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  overflow: hidden;
+`;
+const ReportTh = styled.th`
+  background: linear-gradient(135deg, #00897b, #00695c);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.4px;
+  border: 1px solid #00695c;
+`;
+const ReportTd = styled.td`
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d0e8e5;
+  vertical-align: middle;
+  text-align: center;
+  color: #333;
+  font-size: 0.8rem;
+  background: ${(p) => (p.isHeader ? "#e8f5e9" : p.alt ? "#f8fffe" : "white")};
+  font-weight: ${(p) => (p.isHeader ? "700" : "400")};
+`;
+const EditableCell = styled.div`
+  min-width: 80px;
+  min-height: 28px;
+  padding: 0.2rem 0.4rem;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  &:focus {
+    border-color: #00897b;
+    background: #f0faf8;
+  }
+  b,
+  strong {
+    color: #00695c;
+    font-weight: 800;
+  }
+  mark.ph {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
+  &:empty::before {
+    content: "///";
+    color: #e65100;
+    font-weight: 700;
+  }
+`;
+
+// ─── Rich Editor Components ───────────────────────────────────────────────────
 
 const RichEditor = styled.div`
   width: 100%;
@@ -668,7 +741,6 @@ const RichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
-  /* ✅ mark styling */
   mark.ph {
     background: #fff3e0;
     color: #e65100;
@@ -678,7 +750,6 @@ const RichEditor = styled.div`
     cursor: text;
   }
 `;
-
 const FinalRichEditor = styled.div`
   width: 100%;
   min-height: 160px;
@@ -714,11 +785,9 @@ const FinalRichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
-
-  /* ✅ Placeholder mark styling */
   mark.ph {
     background: #fff3e0;
-    color: #6a1b9a; /* ✅ was #e65100 (orange), now purple to match <b> */
+    color: #6a1b9a;
     font-weight: 800;
     border-radius: 3px;
     padding: 0 2px;
@@ -726,14 +795,15 @@ const FinalRichEditor = styled.div`
   }
 `;
 
+// ─── Impression & Edit Components ─────────────────────────────────────────────
+
 const ImpressionBox = styled.div`
-  background: linear-gradient(135deg, #f3e5f5 0%, #ede7f6 100%);
+  background: linear-gradient(135deg, #f3e5f5, #ede7f6);
   border: 2px solid #ce93d8;
   border-radius: 14px;
   padding: 1.1rem 1.4rem;
   margin-top: 1.25rem;
 `;
-
 const ImpressionTitle = styled.div`
   font-size: 0.8rem;
   font-weight: 800;
@@ -748,7 +818,6 @@ const ImpressionTitle = styled.div`
     content: "📝";
   }
 `;
-
 const ImpressionText = styled.div`
   font-size: 0.938rem;
   color: #333;
@@ -761,22 +830,20 @@ const ImpressionText = styled.div`
     font-weight: 800;
   }
   mark.ph {
-    background: transparent; /* ✅ no orange highlight in preview */
-    color: #6a1b9a; /* ✅ bold purple like <b> */
+    background: transparent;
+    color: #6a1b9a;
     font-weight: 800;
     border-radius: 3px;
     padding: 0 2px;
   }
 `;
-
 const EditImpressionSection = styled.div`
-  background: linear-gradient(135deg, #f3e5f5 0%, #ede7f6 100%);
+  background: linear-gradient(135deg, #f3e5f5, #ede7f6);
   border: 2px solid #ce93d8;
   border-radius: 14px;
   padding: 1.1rem 1.4rem;
   margin-top: 1.25rem;
 `;
-
 const EditImpressionTitle = styled.div`
   font-size: 0.8rem;
   font-weight: 800;
@@ -791,14 +858,12 @@ const EditImpressionTitle = styled.div`
     content: "📝";
   }
 `;
-
 const SectionsHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
 `;
-
 const SectionsTitle = styled.h3`
   font-size: 0.9rem;
   font-weight: 800;
@@ -811,7 +876,6 @@ const SectionsTitle = styled.h3`
     content: "🏥";
   }
 `;
-
 const SmallBtn = styled.button`
   padding: 0.28rem 0.75rem;
   border: none;
@@ -828,7 +892,6 @@ const SmallBtn = styled.button`
     transform: translateY(-1px);
   }
 `;
-
 const ModalFooter = styled.div`
   display: flex;
   gap: 1rem;
@@ -840,7 +903,6 @@ const ModalFooter = styled.div`
   background: white;
   z-index: 1;
 `;
-
 const ModalActionButton = styled.button`
   flex: 1;
   padding: 0.875rem 1.5rem;
@@ -866,7 +928,6 @@ const ModalActionButton = styled.button`
     transform: none;
   }
 `;
-
 const ApprovalBadge = styled.div`
   display: inline-flex;
   align-items: center;
@@ -875,12 +936,14 @@ const ApprovalBadge = styled.div`
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 700;
+  margin-bottom: 1rem;
   ${(p) =>
     p.approved
-      ? `background: linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#2e7d32;`
-      : `background: linear-gradient(135deg,#fff9c4,#fff59d); color:#f57f17;`}
-  margin-bottom: 1rem;
+      ? `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`
+      : `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`}
 `;
+
+// ─── Slot Modal ───────────────────────────────────────────────────────────────
 
 const SlotModalContent = styled(StyledModalContent)`
   max-width: 580px;
@@ -888,18 +951,16 @@ const SlotModalContent = styled(StyledModalContent)`
 const SlotModalOverlay = styled(StyledModalOverlay)`
   background: linear-gradient(
     135deg,
-    rgba(124, 77, 255, 0.88) 0%,
-    rgba(101, 31, 255, 0.88) 100%
+    rgba(124, 77, 255, 0.88),
+    rgba(101, 31, 255, 0.88)
   );
 `;
-
 const SlotFormGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 `;
-
 const SlotLabel = styled.label`
   color: #4527a0;
   font-weight: 700;
@@ -910,7 +971,6 @@ const SlotLabel = styled.label`
   align-items: center;
   gap: 0.4rem;
 `;
-
 const SlotInput = styled.input`
   padding: 0.875rem 1rem;
   border: 2px solid #d1c4e9;
@@ -926,13 +986,11 @@ const SlotInput = styled.input`
     box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.15);
   }
 `;
-
 const SlotDivider = styled.div`
   height: 1px;
   background: linear-gradient(to right, transparent, #e0e0e0, transparent);
   margin: 1rem 0 1.5rem 0;
 `;
-
 const SlotSectionTitle = styled.h3`
   font-size: 0.938rem;
   font-weight: 700;
@@ -944,14 +1002,6 @@ const SlotSectionTitle = styled.h3`
   align-items: center;
   gap: 0.5rem;
 `;
-
-const ImpressionOptionalNote = styled.p`
-  font-size: 0.8rem;
-  color: #888;
-  margin: -0.75rem 0 1rem 0;
-  font-style: italic;
-`;
-
 const SlotInfoRow = styled.div`
   display: flex;
   padding: 0.875rem 0;
@@ -960,7 +1010,6 @@ const SlotInfoRow = styled.div`
     border-bottom: none;
   }
 `;
-
 const SlotInfoLabel = styled.span`
   color: #00897b;
   font-weight: 700;
@@ -969,23 +1018,10 @@ const SlotInfoLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
-
 const SlotInfoValue = styled.span`
   color: #555;
   font-size: 0.938rem;
   flex: 1;
-`;
-
-const StyledTextArea = styled(TextArea)`
-  width: 100%;
-  min-height: 120px;
-  border: 2px solid #d1c4e9;
-  border-radius: 12px;
-  box-sizing: border-box;
-  &:focus {
-    border-color: #7c4dff;
-    box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.15);
-  }
 `;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -996,9 +1032,7 @@ const formatDate = (date) => {
   if (date instanceof Date) return date.toISOString().split("T")[0];
   return "";
 };
-
 const getToday = () => new Date().toISOString().split("T")[0];
-
 const formatSlotDisplay = (slotDateTime) => {
   if (!slotDateTime) return null;
   try {
@@ -1016,11 +1050,8 @@ const formatSlotDisplay = (slotDateTime) => {
   }
 };
 
-const stripHTML = (html) => (html || "").replace(/<[^>]*>/g, "").trim();
+// ─── Rich Editor Ref Helper ───────────────────────────────────────────────────
 
-// ─── Rich Editor Components ───────────────────────────────────────────────────
-
-// ─── Helper: track caret inside mark ─────────────────────────────────────────
 const getCaretInsideMark = () => {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return null;
@@ -1029,6 +1060,8 @@ const getCaretInsideMark = () => {
   if (el && el.classList && el.classList.contains("ph")) return el;
   return null;
 };
+
+// ─── SectionRichEditor ────────────────────────────────────────────────────────
 
 const SectionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
@@ -1054,15 +1087,11 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
-  // ✅ Full mark-aware keydown — matches RDReportForm SectionItem
   const handleKeyDown = (e) => {
     const el = ref.current;
     const sel = window.getSelection();
     if (!el || !sel || sel.rangeCount === 0) return;
-
     const markEl = getCaretInsideMark();
-
-    // Typing inside a mark → replace mark with bold node
     if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       const boldNode = document.createElement("b");
@@ -1079,8 +1108,6 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
       onChange(html);
       return;
     }
-
-    // Backspace on a mark → delete the whole mark
     if (markEl && e.key === "Backspace") {
       e.preventDefault();
       const range = document.createRange();
@@ -1107,11 +1134,13 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
   };
 
-  // ✅ Click on mark → select its contents
   const handleClick = (e) => {
     const target = e.target;
     if (target.classList && target.classList.contains("ph")) {
@@ -1129,14 +1158,17 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
-      onKeyDown={handleKeyDown} // ✅ added
+      onKeyDown={handleKeyDown}
       onInput={handleInput}
       onPaste={handlePaste}
-      onClick={handleClick} // ✅ added
+      onClick={handleClick}
       spellCheck={false}
     />
   );
 };
+
+// ─── ImpressionRichEditor ─────────────────────────────────────────────────────
+
 const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
   const lastRef = useRef("");
@@ -1161,14 +1193,11 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
-  // ✅ ADD: same mark-aware keydown as SectionRichEditor
   const handleKeyDown = (e) => {
     const el = ref.current;
     const sel = window.getSelection();
     if (!el || !sel || sel.rangeCount === 0) return;
-
     const markEl = getCaretInsideMark();
-
     if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       const boldNode = document.createElement("b");
@@ -1185,7 +1214,6 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
       onChange(html);
       return;
     }
-
     if (markEl && e.key === "Backspace") {
       e.preventDefault();
       const range = document.createRange();
@@ -1202,7 +1230,23 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
-  // ✅ ADD: click on mark selects its contents
+  const handleInput = () => {
+    if (!ref.current) return;
+    const html = ref.current.innerHTML;
+    lastRef.current = html;
+    suppressRef.current = true;
+    onChange(html);
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
+  };
+
   const handleClick = (e) => {
     const target = e.target;
     if (target.classList && target.classList.contains("ph")) {
@@ -1214,107 +1258,298 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
-  const handleInput = () => {
-    if (!ref.current) return;
-    const html = ref.current.innerHTML;
-    lastRef.current = html;
-    suppressRef.current = true;
-    onChange(html);
-  };
-
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
-  };
-
   return (
     <FinalRichEditor
       ref={ref}
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
-      onKeyDown={handleKeyDown} // ✅ added
+      onKeyDown={handleKeyDown}
       onInput={handleInput}
       onPaste={handlePaste}
-      onClick={handleClick} // ✅ added
+      onClick={handleClick}
       spellCheck={false}
     />
   );
 };
 
-// ─── Section Items ────────────────────────────────────────────────────────────
+// ─── TablePreview (read-only) ─────────────────────────────────────────────────
 
-const PreviewSectionItem = ({ section, index }) => {
-  const [expanded, setExpanded] = useState(true);
+const TablePreview = ({ entry }) => {
+  const { rows, cols } = parseTableDimensions(entry.table_id);
+  const grid = extractTableCells(entry, rows, cols);
+  if (!grid.length) return null;
+  const headerRow = grid[0];
+  const dataRows = grid.slice(1);
   return (
-    <SectionCard expanded={expanded}>
-      <SectionCardHeader
-        expanded={expanded}
-        onClick={() => setExpanded((p) => !p)}
-      >
-        <SectionTitleRow>
-          <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{section.title}</SectionName>
-        </SectionTitleRow>
-        <ChevronIcon expanded={expanded}>▼</ChevronIcon>
-      </SectionCardHeader>
-      <SectionCardBody expanded={expanded}>
-        <PreviewContent
-          dangerouslySetInnerHTML={{
-            __html:
-              section.value ||
-              "<em style='color:#bbb'>No findings entered.</em>",
-          }}
-        />
-      </SectionCardBody>
-    </SectionCard>
+    <ReportTable>
+      <thead>
+        <tr>
+          {headerRow.map((cell, ci) => (
+            <ReportTh key={ci}>{cell}</ReportTh>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {dataRows.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+                <span
+                  dangerouslySetInnerHTML={{ __html: buildInitialHTML(cell) }}
+                />
+              </ReportTd>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </ReportTable>
   );
 };
 
-const EditSectionItem = ({ section, index, onChange }) => {
-  const [expanded, setExpanded] = useState(true);
+// ─── TableEditor (editable) ───────────────────────────────────────────────────
+
+// ─── Sanitize: keep only <b> tags, strip everything else ─────────────────────
+const sanitizeCellHTML = (html) => {
+  if (!html) return "";
   return (
-    <SectionCard expanded={expanded}>
-      <SectionCardHeader
-        expanded={expanded}
-        onClick={() => setExpanded((p) => !p)}
-      >
-        <SectionTitleRow>
-          <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{section.title}</SectionName>
-        </SectionTitleRow>
-        <ChevronIcon expanded={expanded}>▼</ChevronIcon>
-      </SectionCardHeader>
-      <SectionCardBody expanded={expanded}>
-        <SectionRichEditor
-          value={section.value}
-          onChange={(html) => onChange(index, html)}
-          placeholder={`Enter findings for ${section.title}…`}
-        />
-      </SectionCardBody>
-    </SectionCard>
+    html
+      .replace(/<font[^>]*>/gi, "")
+      .replace(/<\/font>/gi, "")
+      .replace(/<span[^>]*>/gi, "")
+      .replace(/<\/span>/gi, "")
+      .replace(/<strong>/gi, "<b>")
+      .replace(/<\/strong>/gi, "</b>")
+      // Remove any remaining tags except <b> and </b>
+      .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
+      .trim()
   );
 };
+
+// ─── TableEditor ──────────────────────────────────────────────────────────────
+
+const TableEditor = ({ entry, onChange }) => {
+  const { rows, cols } = parseTableDimensions(entry.table_id);
+  const [grid, setGrid] = useState(() => extractTableCells(entry, rows, cols));
+  const cellRefs = useRef({});
+
+  useEffect(() => {
+    // Set initial HTML for all data rows (ri >= 1), all columns
+    grid.forEach((row, ri) => {
+      if (ri === 0) return; // header row is static <th>
+      row.forEach((cell, ci) => {
+        const el = cellRefs.current[`${ri}-${ci}`];
+        if (el) {
+          el.innerHTML = buildInitialHTML(sanitizeCellHTML(cell));
+        }
+      });
+    });
+
+    // Commit initial state so unedited tables are still submitted
+    const sanitizedGrid = grid.map((row, ri) =>
+      ri === 0 ? row : row.map((cell) => sanitizeCellHTML(cell)),
+    );
+    const serialized = serializeTableCells(sanitizedGrid);
+    onChange({ ...serialized, table_id: entry.table_id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commitCell = (ri, ci, html) => {
+    const clean = sanitizeCellHTML(html);
+    setGrid((prev) => {
+      const newGrid = prev.map((r) => [...r]);
+      newGrid[ri][ci] = clean;
+      const serialized = serializeTableCells(newGrid);
+      onChange({ ...serialized, table_id: entry.table_id });
+      return newGrid;
+    });
+  };
+
+  const handleCellKeyDown = (e, ri, ci, el) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const markEl = getCaretInsideMark();
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+  };
+
+  const handleCellInput = (ri, ci, el) => {
+    commitCell(ri, ci, el.innerHTML);
+  };
+
+  const handleCellClick = (e) => {
+    const t = e.target;
+    if (t.classList?.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
+  const headerRow = grid[0] || [];
+  const dataRows = grid.slice(1);
+
+  return (
+    <ReportTable>
+      <thead>
+        <tr>
+          {headerRow.map((cell, ci) => (
+            <ReportTh key={ci}>{cell}</ReportTh>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {dataRows.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+                <EditableCell
+                  ref={(el) => {
+                    cellRefs.current[`${ri + 1}-${ci}`] = el;
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onKeyDown={(e) =>
+                    handleCellKeyDown(e, ri + 1, ci, e.currentTarget)
+                  }
+                  onInput={(e) => handleCellInput(ri + 1, ci, e.currentTarget)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    document.execCommand(
+                      "insertText",
+                      false,
+                      e.clipboardData.getData("text/plain"),
+                    );
+                  }}
+                  onClick={handleCellClick}
+                  spellCheck={false}
+                />
+              </ReportTd>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </ReportTable>
+  );
+};
+
+// ─── buildSectionsFromValueDetails ───────────────────────────────────────────
 
 const buildSectionsFromValueDetails = (valuedetails, titleMap = null) => {
   if (!valuedetails || !Array.isArray(valuedetails.value)) return [];
-  return valuedetails.value.map((v) => ({
-    title_id: v.title_id,
-    title: (titleMap && titleMap[v.title_id]) || v.title || v.title_id,
-    value: v.title_value || "",
-  }));
+  return valuedetails.value.map((v) => {
+    if (isTableEntry(v)) {
+      return {
+        title_id: v.table_id,
+        title: "Study Table",
+        value: v,
+        isTable: true,
+      };
+    }
+    return {
+      title_id: v.title_id,
+      title: (titleMap && titleMap[v.title_id]) || v.title || v.title_id,
+      value: v.title_value || "",
+      isTable: false,
+    };
+  });
+};
+
+// ─── PreviewSectionItem ───────────────────────────────────────────────────────
+
+const PreviewSectionItem = ({ section, index }) => {
+  const [expanded, setExpanded] = useState(true);
+  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  return (
+    <SectionCard expanded={expanded}>
+      <SectionCardHeader
+        expanded={expanded}
+        onClick={() => setExpanded((p) => !p)}
+      >
+        <SectionTitleRow>
+          <SectionNumber>{index + 1}</SectionNumber>
+          <SectionName>{displayTitle}</SectionName>
+        </SectionTitleRow>
+        <ChevronIcon expanded={expanded}>▼</ChevronIcon>
+      </SectionCardHeader>
+      <SectionCardBody expanded={expanded}>
+        {section.isTable ? (
+          <TablePreview entry={section.value} />
+        ) : (
+          <PreviewContent
+            dangerouslySetInnerHTML={{
+              __html:
+                section.value ||
+                "<em style='color:#bbb'>No findings entered.</em>",
+            }}
+          />
+        )}
+      </SectionCardBody>
+    </SectionCard>
+  );
+};
+
+// ─── EditSectionItem ──────────────────────────────────────────────────────────
+
+const EditSectionItem = ({ section, index, onChange }) => {
+  const [expanded, setExpanded] = useState(true);
+  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  return (
+    <SectionCard expanded={expanded}>
+      <SectionCardHeader
+        expanded={expanded}
+        onClick={() => setExpanded((p) => !p)}
+      >
+        <SectionTitleRow>
+          <SectionNumber>{index + 1}</SectionNumber>
+          <SectionName>{displayTitle}</SectionName>
+        </SectionTitleRow>
+        <ChevronIcon expanded={expanded}>▼</ChevronIcon>
+      </SectionCardHeader>
+      <SectionCardBody expanded={expanded}>
+        {section.isTable ? (
+          <TableEditor
+            entry={section.value}
+            onChange={(updatedEntry) => onChange(index, updatedEntry, true)}
+          />
+        ) : (
+          <SectionRichEditor
+            value={section.value}
+            onChange={(html) => onChange(index, html, false)}
+            placeholder={`Enter findings for ${section.title}…`}
+          />
+        )}
+      </SectionCardBody>
+    </SectionCard>
+  );
 };
 
 // ─── PDF Print Helper ─────────────────────────────────────────────────────────
 
-/**
- * Generates and opens a PDF report for a radiology investigation row.
- * Uses only the data already present in `row` — no extra API call needed.
- *
- * @param {object} row          - The row object from RDList state
- * @param {boolean} withLetterpad - Whether to include header/footer images
- */
 const handlePrintReport = async (row, withLetterpad = true) => {
   try {
     const report = row.report;
@@ -1323,7 +1558,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return;
     }
 
-    // ── Fetch signature data for approved_by ──────────────────────────────
     let signatureData = null;
     const approvedBy = report.approved_by;
     if (approvedBy) {
@@ -1332,9 +1566,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           `${process.env.REACT_APP_BACKEND_HMS_BASE_URL}employee-signature/?employee_id=${approvedBy}`,
           "GET",
         );
-        if (result.success && result.data) {
-          signatureData = result.data;
-        }
+        if (result.success && result.data) signatureData = result.data;
       } catch (e) {
         console.warn("Could not fetch signature:", e);
       }
@@ -1346,7 +1578,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     );
     const impression = report.impression || "";
 
-    // ── Layout constants ──────────────────────────────────────────────────
     const leftMargin = 10;
     const rightMargin = leftMargin + 190;
     const contentWidth = rightMargin - leftMargin;
@@ -1354,7 +1585,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const footerHeight = 20;
     const contentYStart = headerHeight + 15;
 
-    // ── Patient info rows ─────────────────────────────────────────────────
     const billDateFormatted = row.investBillDate
       ? format(new Date(row.investBillDate), "dd MMM yy / HH:mm")
       : "N/A";
@@ -1375,7 +1605,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       },
       { label: "Referred By", value: row.referredBy || "SELF" },
     ];
-
     const rightDetails = [
       { label: "Billed On", value: billDateFormatted },
       ...(slotFormatted ? [{ label: "Slot Date", value: slotFormatted }] : []),
@@ -1388,7 +1617,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         : []),
     ];
 
-    // ── jsPDF setup ───────────────────────────────────────────────────────
     const doc = new jsPDF();
     let pageCount = 1;
 
@@ -1397,12 +1625,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return doc.splitTextToSize(text, maxWidth);
     };
 
-    const calculateMaxLabelWidth = (details) => {
-      const tempDoc = new jsPDF();
-      return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
-    };
-
-    // ── Strip HTML to plain text ──────────────────────────────────────────
     const htmlToPlainText = (html) => {
       if (!html) return "";
       return html
@@ -1418,7 +1640,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         .trim();
     };
 
-    // ── Parse HTML into bold/normal segments ──────────────────────────────
     const parseHtmlSegments = (html) => {
       if (!html) return [];
       const normalized = html
@@ -1430,14 +1651,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         .replace(/&gt;/g, ">")
         .replace(/&nbsp;/g, " ")
         .replace(/&#39;/g, "'");
-
       const segments = [];
       const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
       let match;
       while ((match = regex.exec(normalized)) !== null) {
-        if (match[1] !== undefined) {
+        if (match[1] !== undefined)
           segments.push({ text: match[1], bold: true });
-        } else if (match[2] !== undefined) {
+        else if (match[2] !== undefined) {
           const plain = match[2].replace(/<[^>]*>/g, "");
           if (plain) segments.push({ text: plain, bold: false });
         }
@@ -1445,11 +1665,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return segments;
     };
 
-    // ── Rich text renderer (bold-aware word wrap) ─────────────────────────
     const renderRichText = (html, maxWidth, x, y, lineHeight = 4.8) => {
       if (!html) return 0;
       const segments = parseHtmlSegments(html);
-
       const lines = [];
       let currentLine = [];
       let currentLineWidth = 0;
@@ -1475,9 +1693,8 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             if (
               currentLineWidth + spaceW + wordW > maxWidth &&
               currentLine.length > 0
-            ) {
+            )
               pushLine();
-            }
             const space = currentLine.length > 0 ? " " : "";
             const last = currentLine[currentLine.length - 1];
             if (last && last.bold === bold) {
@@ -1505,12 +1722,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           cx += doc.getTextWidth(text);
         });
       });
-
       doc.setFont("helvetica", "normal");
       return lines.length * lineHeight;
     };
 
-    // ── Header / Footer ───────────────────────────────────────────────────
     const addHeaderFooter = () => {
       if (withLetterpad) {
         doc.addImage(
@@ -1532,12 +1747,15 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       }
     };
 
-    // ── Patient Info block ────────────────────────────────────────────────
+    const calculateMaxLabelWidth = (details) => {
+      const tempDoc = new jsPDF();
+      return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
+    };
+
     const addPatientInfo = (yPos) => {
       const leftMaxW = calculateMaxLabelWidth(leftDetails);
       const rightMaxW = calculateMaxLabelWidth(rightDetails);
       const centerPoint = (leftMargin + rightMargin) / 2;
-
       const leftLabelX = leftMargin;
       const leftColonX = leftLabelX + leftMaxW + 2;
       const leftValueX = leftColonX + 3;
@@ -1548,12 +1766,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setFontSize(10);
       let infoY = yPos;
       const maxLen = Math.max(leftDetails.length, rightDetails.length);
-
       for (let i = 0; i < maxLen; i++) {
         const left = leftDetails[i];
         const right = rightDetails[i];
         let leftRowH = 5;
-
         if (left) {
           doc.setFont("helvetica", "bold");
           doc.text(left.label, leftLabelX, infoY);
@@ -1573,19 +1789,15 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.setFont("helvetica", "normal");
           doc.text(right.value, rightValueX, infoY);
         }
-
         infoY += Math.max(leftRowH, 5);
       }
       return infoY;
     };
 
-    // ── Signature block (last page only) ──────────────────────────────────
     const addSignatures = (yPos) => {
       if (!signatureData) return 0;
-
       const sigX = rightMargin - 68;
       let sy = yPos + 3;
-
       if (signatureData.signatureBase64) {
         try {
           doc.addImage(
@@ -1601,26 +1813,22 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         }
       }
       sy += 16;
-
       doc.setDrawColor(100, 100, 100);
       doc.line(sigX, sy, sigX + 52, sy);
       doc.setDrawColor(0, 0, 0);
       sy += 3;
-
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.text(signatureData.employeeName || "", sigX + 29, sy, {
         align: "center",
       });
       sy += 3;
-
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.text(signatureData.designation || "", sigX + 29, sy, {
         align: "center",
       });
       sy += 3;
-
       if (signatureData.registrationNumber) {
         doc.setFontSize(7);
         doc.text(
@@ -1630,11 +1838,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           { align: "center" },
         );
       }
-
       doc.setFont("helvetica", "normal");
     };
 
-    // ── Page overflow check ───────────────────────────────────────────────
     const checkNewPage = (yPos, needed) => {
       const pageH = doc.internal.pageSize.height;
       const footerStart = pageH - footerHeight - 5;
@@ -1653,55 +1859,52 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return yPos;
     };
 
-    // ─────────────────────────────────────────────────────────────────────
-    // BUILD THE PDF
-    // ─────────────────────────────────────────────────────────────────────
+    // ── BUILD PDF ──────────────────────────────────────────────────────────────
 
     addHeaderFooter();
     let yPos = addPatientInfo(contentYStart);
 
-    // ── Separator line after patient info ─────────────────────────────────
     doc.setDrawColor(180, 180, 180);
     doc.line(leftMargin, yPos, rightMargin, yPos);
     doc.setDrawColor(0, 0, 0);
     yPos += 6;
 
-    // ── Report title (Department / Heading / Sub-heading) ─────────────────
     const centerX = leftMargin + contentWidth / 2;
-
-    // ✅ Read directly from top-level response fields — no fallbacks
     const department = row.department ? row.department.toUpperCase() : "";
-
     const headingStr = row.heading ? row.heading.toUpperCase() : "";
-
     const subHeading = row.sub_heading || "";
 
-    // Line 1: Department — largest, bold
+    // ── Department (single line, large) ────────────────────────────────────────
     if (department) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(13);
       doc.setTextColor(0, 0, 0);
       doc.text(department, centerX, yPos, { align: "center" });
-      yPos += 6;
+      yPos += 7;
     }
 
-    // Line 2: Heading — medium bold + underline
+    // ── Heading with word wrap + underline ─────────────────────────────────────
     if (headingStr) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.text(headingStr, centerX, yPos, { align: "center" });
-      const headingW = doc.getTextWidth(headingStr);
-      doc.line(
-        centerX - headingW / 2,
-        yPos + 1.5,
-        centerX + headingW / 2,
-        yPos + 1.5,
-      );
-      yPos += 6;
+
+      const headingLines = doc.splitTextToSize(headingStr, contentWidth - 10);
+      headingLines.forEach((line, li) => {
+        doc.text(line, centerX, yPos + li * 6, { align: "center" });
+        // Underline each line
+        const lineW = doc.getTextWidth(line);
+        doc.line(
+          centerX - lineW / 2,
+          yPos + li * 6 + 1.5,
+          centerX + lineW / 2,
+          yPos + li * 6 + 1.5,
+        );
+      });
+      yPos += headingLines.length * 6 + 1;
     }
 
-    // Line 3: Sub-heading — smaller, italic, grey
+    // ── Sub heading ────────────────────────────────────────────────────────────
     if (subHeading) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(8.5);
@@ -1711,50 +1914,208 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setFont("helvetica", "normal");
       yPos += 5;
     }
+    yPos += 2;
 
-    yPos += 2; // breathing room before sections
+    // ── Sections ───────────────────────────────────────────────────────────────
 
-    // ── Scan Findings sections ────────────────────────────────────────────
     if (sections.length > 0) {
       sections.forEach((section, idx) => {
-        const plainValue = htmlToPlainText(section.value);
-        if (!plainValue) return;
+        if (section.isTable) {
+          // ── TABLE SECTION ────────────────────────────────────────────────────
+          const entry = section.value;
+          const { rows: tRows, cols } = parseTableDimensions(entry.table_id);
+          const grid = extractTableCells(entry, tRows, cols);
+          if (!grid.length) return;
 
-        const valueLines = wrapText(plainValue, contentWidth - 4);
-        const sectionHeight = 7 + valueLines.length * 4.8 + 4;
+          const cellPadX = 3;
+          const cellPadY = 2.5;
+          const lineH = 5;
+          const minRowH = 9;
+          const fontSize = 8.5;
 
-        yPos = checkNewPage(yPos, sectionHeight);
+          doc.setFontSize(fontSize);
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(0, 105, 92);
-        doc.text(
-          `${idx + 1}. ${section.title.toUpperCase()}`,
-          leftMargin,
-          yPos,
-        );
-        doc.setTextColor(0, 0, 0);
-        yPos += 6;
+          const colWidth = contentWidth / cols;
 
-        doc.setFontSize(9);
-        yPos += renderRichText(
-          section.value,
-          contentWidth - 6,
-          leftMargin + 3,
-          yPos,
-          4.8,
-        );
-        yPos += 3;
+          // ── Pre-calculate row heights based on wrapped content ───────────────
+          const rowHeights = grid.map((row, ri) => {
+            if (ri === 0) return minRowH;
+            let maxLines = 1;
+            row.forEach((cell) => {
+              const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
+              const wrapped = doc.splitTextToSize(
+                plain,
+                colWidth - cellPadX * 2,
+              );
+              if (wrapped.length > maxLines) maxLines = wrapped.length;
+            });
+            return Math.max(minRowH, maxLines * lineH + cellPadY * 2);
+          });
+
+          const totalTableHeight = rowHeights.reduce((a, b) => a + b, 0) + 6;
+          yPos = checkNewPage(yPos, totalTableHeight);
+
+          grid.forEach((row, ri) => {
+            const isHeader = ri === 0;
+            const rowH = rowHeights[ri];
+            yPos = checkNewPage(yPos, rowH + 2);
+
+            // Row background
+            if (isHeader) {
+              doc.setFillColor(0, 137, 123);
+            } else {
+              doc.setFillColor(
+                ri % 2 === 1 ? 240 : 248,
+                ri % 2 === 1 ? 250 : 253,
+                ri % 2 === 1 ? 248 : 252,
+              );
+            }
+            doc.rect(leftMargin, yPos, contentWidth, rowH, "F");
+
+            // Cells
+            row.forEach((cell, ci) => {
+              const x = leftMargin + ci * colWidth;
+
+              // Cell border
+              doc.setDrawColor(180, 220, 215);
+              doc.rect(x, yPos, colWidth, rowH, "S");
+
+              const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
+
+              if (isHeader) {
+                // Header: bold, white, centered
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(fontSize);
+                doc.setTextColor(255, 255, 255);
+                const textY = yPos + rowH / 2 + fontSize * 0.18;
+                doc.text(plain, x + colWidth / 2, textY, { align: "center" });
+              } else {
+                // Data rows: render with bold support, centered
+                doc.setFontSize(fontSize);
+                const maxW = colWidth - cellPadX * 2;
+
+                // Parse bold segments and build wrapped lines
+                const segments = parseHtmlSegments(cell);
+
+                // Build word list with bold flags
+                const words = [];
+                segments.forEach(({ text, bold }) => {
+                  const parts = text.split("\n");
+                  parts.forEach((part, pi) => {
+                    if (pi > 0) words.push({ text: "\n", bold: false });
+                    part.split(" ").forEach((w, wi) => {
+                      if (w) words.push({ text: w, bold });
+                    });
+                  });
+                });
+
+                // Word-wrap into lines preserving bold info per segment
+                const wrappedLines = []; // [{segments: [{text, bold}]}]
+                let curLine = [];
+                let curLineW = 0;
+
+                const pushLine = () => {
+                  wrappedLines.push(curLine);
+                  curLine = [];
+                  curLineW = 0;
+                };
+
+                words.forEach((word) => {
+                  if (word.text === "\n") {
+                    pushLine();
+                    return;
+                  }
+                  doc.setFont("helvetica", word.bold ? "bold" : "normal");
+                  const spaceW = curLine.length > 0 ? doc.getTextWidth(" ") : 0;
+                  const wordW = doc.getTextWidth(word.text);
+                  if (curLineW + spaceW + wordW > maxW && curLine.length > 0)
+                    pushLine();
+                  const spacedText =
+                    curLine.length > 0 ? " " + word.text : word.text;
+                  const last = curLine[curLine.length - 1];
+                  if (last && last.bold === word.bold) {
+                    last.text +=
+                      curLine.length > 0 ? " " + word.text : word.text;
+                    last.w += doc.getTextWidth(spacedText);
+                  } else {
+                    curLine.push({
+                      text: spacedText,
+                      bold: word.bold,
+                      w: doc.getTextWidth(spacedText),
+                    });
+                  }
+                  curLineW += doc.getTextWidth(spacedText);
+                });
+                if (curLine.length > 0) pushLine();
+
+                // Remove empty lines
+                const nonEmpty = wrappedLines.filter(
+                  (l) => l.length > 0 && l.some((s) => s.text.trim()),
+                );
+
+                const blockH = nonEmpty.length * lineH;
+                const startY = yPos + (rowH - blockH) / 2 + lineH * 0.75;
+
+                nonEmpty.forEach((lineSegs, li) => {
+                  // Calculate total line width for centering
+                  const totalW = lineSegs.reduce((acc, s) => acc + s.w, 0);
+                  let cx = x + (colWidth - totalW) / 2; // center align
+                  lineSegs.forEach(({ text, bold }) => {
+                    doc.setFont("helvetica", bold ? "bold" : "normal");
+                    doc.setTextColor(40, 40, 40);
+                    doc.text(text, cx, startY + li * lineH);
+                    cx += doc.getTextWidth(text);
+                  });
+                });
+              }
+            });
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            yPos += rowH;
+          });
+
+          doc.setDrawColor(0, 0, 0);
+          yPos += 5;
+        } else {
+          // ── TEXT SECTION ─────────────────────────────────────────────────────
+          const plainValue = htmlToPlainText(section.value);
+          if (!plainValue) return;
+
+          const valueLines = wrapText(plainValue, contentWidth - 4);
+          const sectionHeight = 7 + valueLines.length * 4.8 + 4;
+          yPos = checkNewPage(yPos, sectionHeight);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(0, 105, 92);
+          doc.text(
+            `${idx + 1}. ${section.title.toUpperCase()}`,
+            leftMargin,
+            yPos,
+          );
+          doc.setTextColor(0, 0, 0);
+          yPos += 6;
+
+          doc.setFontSize(9);
+          yPos += renderRichText(
+            section.value,
+            contentWidth - 6,
+            leftMargin + 3,
+            yPos,
+            4.8,
+          );
+          yPos += 3;
+        }
       });
     }
 
-    // ── Calculate available space on current page ─────────────────────────
+    // ── Impression ─────────────────────────────────────────────────────────────
+
     const getAvailableSpace = (currentY) => {
-      const pageH = doc.internal.pageSize.height;
-      return pageH - footerHeight - 5 - currentY;
+      return doc.internal.pageSize.height - footerHeight - 5 - currentY;
     };
 
-    // ── Measure impression height ─────────────────────────────────────────
     const measureImpressionHeight = () => {
       if (!impression) return 0;
       const plainImpression = htmlToPlainText(impression);
@@ -1762,7 +2123,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setFontSize(9.5);
       const impressionLines = doc.splitTextToSize(
         plainImpression,
-        contentWidth - 6,
+        contentWidth - 9,
       );
       return 7 + impressionLines.length * 5.2 + 2;
     };
@@ -1786,7 +2147,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       yPos = ny;
     }
 
-    // ── Impression ────────────────────────────────────────────────────────
     if (impression) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -1796,7 +2156,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       yPos += 8;
 
       doc.setFontSize(9.5);
-
       const impressionLines = impression
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<\/p>/gi, "\n")
@@ -1820,28 +2179,18 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       impressionLines.forEach((line) => {
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
         yPos = checkNewPage(yPos, wrapped.length * 5.2 + 2);
-
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
-
-        const isBold =
-          /<b>/i.test(impression) &&
-          impression.includes(line.replace(/\s+/g, " ").trim().slice(0, 20));
-        doc.setFont("helvetica", isBold ? "bold" : "normal");
-
-        wrapped.forEach((wline, wi) => {
-          doc.text(wline, wi === 0 ? textX : textX, yPos + wi * 5.2);
-        });
+        doc.setFont("helvetica", "normal");
+        wrapped.forEach((wline, wi) => doc.text(wline, textX, yPos + wi * 5.2));
         yPos += wrapped.length * 5.2 + 0.2;
       });
-
       doc.setFont("helvetica", "normal");
       yPos += 0.5;
     }
 
-    // ── End of report ─────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
@@ -1850,10 +2199,8 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     });
     yPos += 6;
 
-    // ── Signature ─────────────────────────────────────────────────────────
     addSignatures(yPos);
 
-    // ── Page numbers ──────────────────────────────────────────────────────
     const finalPageCount = pageCount;
     for (let i = 1; i <= finalPageCount; i++) {
       doc.setPage(i);
@@ -1868,7 +2215,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       );
     }
 
-    // ── Open PDF ──────────────────────────────────────────────────────────
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, "_blank");
@@ -1887,7 +2233,6 @@ const Modal = ({ row, onClose }) => {
       buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
     [report],
   );
-
   return (
     <StyledModalOverlay onClick={onClose}>
       <StyledModalContent onClick={(e) => e.stopPropagation()}>
@@ -1956,7 +2301,7 @@ const Modal = ({ row, onClose }) => {
               </SectionsHeader>
               {sections.map((section, idx) => (
                 <PreviewSectionItem
-                  key={section.title_id}
+                  key={`${section.title_id}-${idx}`}
                   section={section}
                   index={idx}
                 />
@@ -1998,17 +2343,20 @@ const EditModal = ({ row, onClose, onSave }) => {
   const [impression, setImpression] = useState(report?.impression || "");
   const [saving, setSaving] = useState(false);
 
-  const handleSectionChange = (index, htmlValue) => {
+  const handleSectionChange = (index, value, isTableUpdate = false) => {
     setSections((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], value: htmlValue };
+      updated[index] = { ...updated[index], value };
       return updated;
     });
   };
 
   const handleCompileImpression = () => {
     const compiled = sections
-      .filter((s) => stripHTML(s.value))
+      .filter((s) => {
+        if (s.isTable) return false;
+        return stripHTML(s.value);
+      })
       .map((s) => `<b>${s.title}:</b>\n${s.value.trim()}`)
       .join("\n\n");
     if (compiled) setImpression(compiled);
@@ -2021,7 +2369,12 @@ const EditModal = ({ row, onClose, onSave }) => {
       return;
     }
     setSaving(true);
-    await onSave(impression, sections);
+    const apiSections = sections.map((s) => ({
+      title_id: s.title_id,
+      value: s.isTable ? s.value : s.value,
+      isTable: s.isTable,
+    }));
+    await onSave(impression, apiSections);
     setSaving(false);
   };
 
@@ -2068,7 +2421,7 @@ const EditModal = ({ row, onClose, onSave }) => {
               </SectionsHeader>
               {sections.map((section, idx) => (
                 <EditSectionItem
-                  key={section.title_id}
+                  key={`${section.title_id}-${idx}`}
                   section={section}
                   index={idx}
                   onChange={handleSectionChange}
@@ -2087,7 +2440,7 @@ const EditModal = ({ row, onClose, onSave }) => {
                 marginBottom: "0.75rem",
               }}
             >
-              {sections.length > 0 && (
+              {sections.some((s) => !s.isTable) && (
                 <SmallBtn
                   type="button"
                   bg="linear-gradient(135deg,#00897b,#00695c)"
@@ -2139,7 +2492,6 @@ const EditModal = ({ row, onClose, onSave }) => {
 // ─── Slot Modal ───────────────────────────────────────────────────────────────
 
 const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
-  // ✅ If ANY report record exists (even slot-only), use PATCH
   const recordExists = !!row.report;
 
   const initSlotDate = () => {
@@ -2172,16 +2524,13 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
       toast.error("Item ID is missing. Please refresh and try again.");
       return;
     }
-
     const slotDateTime = `${slotDate}T${slotTime}:00`;
     setSaving(true);
     try {
       const encodedBill = encodeURIComponent(row.investBillNo);
       const encodedItem = encodeURIComponent(row.item_id);
       let result;
-
       if (!recordExists) {
-        // ✅ No record at all → POST to create slot-only record
         result = await apiRequest(`${HMSURL}scan-reports/`, "POST", {
           investBillNo: row.investBillNo,
           investBillDate: row.investBillDate,
@@ -2197,7 +2546,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
         }
         toast.success("Slot scheduled! ✓");
       } else {
-        // ✅ Record exists (slot-only OR has_report=true) → PATCH slot
         result = await apiRequest(
           `${HMSURL}scan-reports/slot/${encodedBill}/${encodedItem}/`,
           "PATCH",
@@ -2209,7 +2557,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
         }
         toast.success("Slot updated! ✓");
       }
-
       onSaved({
         investBillNo: row.investBillNo,
         itemName: row.itemName,
@@ -2298,6 +2645,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
     </SlotModalOverlay>
   );
 };
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDList = ({ investBillNo: investBillNoFilter }) => {
@@ -2311,20 +2659,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // ── Print dropdown portal state ────────────────────────────────────────
   const [activePrintRowId, setActivePrintRowId] = useState(null);
   const [printDropdownPos, setPrintDropdownPos] = useState({ top: 0, left: 0 });
 
-  // ── Date filters ───────────────────────────────────────────────────────
   const [fromDate, setFromDate] = useState(getToday);
   const [toDate, setToDate] = useState(getToday);
-
-  // ── Bill Type state ────────────────────────────────────────────────────
   const [selectedBillType, setSelectedBillType] = useState(
     () => localStorage.getItem("rdlist_billType") || "USG01",
   );
 
-  // ── Column search ──────────────────────────────────────────────────────
   const [searchBillNo, setSearchBillNo] = useState("");
   const [searchUhid, setSearchUhid] = useState("");
   const [searchIpNumber, setSearchIpNumber] = useState("");
@@ -2341,7 +2684,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const canApprove = allowedActions.includes("HMS-API-RDA-RW");
   const canDelete = allowedActions.includes("HMS-API-RDD-RW");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+
   const fetchData = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -2350,7 +2694,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         to_date: toDate,
       });
       if (investBillNoFilter) params.append("investBillNo", investBillNoFilter);
-
       const result = await apiRequest(
         `${HMSURL}investigations/?${params.toString()}`,
         "GET",
@@ -2359,13 +2702,12 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         toast.error(result.error || "Failed to fetch data");
         return;
       }
-
       const merged = (result.data || []).map((row) => ({
         investBillNo: row.investBillNo,
         uhid: row.uhid,
         ipNumber: row.ipNumber,
         investBillDate: row.investBillDate,
-        item_id: row.item_id ?? "", // ✅ directly from backend
+        item_id: row.item_id ?? "",
         itemName: row.itemName || "",
         paymentStatus: row.paymentStatus || "",
         billTypeNo: row.billTypeNo || selectedBillType,
@@ -2390,13 +2732,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const fetchFormatAndBuildSections = async (row, HMSURL) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`, // ✅ removed duplicate row.billTypeNo
+        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
         "GET",
       );
       if (result.success && result.data?.format) {
         const titleMap = {};
         result.data.format.forEach((f) => {
-          titleMap[f.title_id] = f.title;
+          if (f.title_id) titleMap[f.title_id] = f.title;
         });
         return titleMap;
       }
@@ -2416,14 +2758,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     },
     [titleMapCache, HMSURL],
   );
+
   const handlePrintWithTitleMap = useCallback(
     async (row, withLetterpad) => {
       const titleMap = await getTitleMap(row);
-
-      // ── Also grab department/heading/sub_heading from format API ──────────
-      let department = "";
-      let heading = "";
-      let sub_heading = "";
+      let department = "",
+        heading = "",
+        sub_heading = "";
       try {
         const result = await apiRequest(
           `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
@@ -2437,27 +2778,21 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       } catch (e) {
         console.warn("Could not fetch format for print:", e);
       }
-
       handlePrintReport(
-        {
-          ...row,
-          _titleMap: titleMap,
-          department,
-          heading,
-          sub_heading,
-        },
+        { ...row, _titleMap: titleMap, department, heading, sub_heading },
         withLetterpad,
       );
     },
     [getTitleMap, HMSURL],
   );
 
-  // ── Reset ──────────────────────────────────────────────────────────────
+  // ── Filters ────────────────────────────────────────────────────────────────
+
   const handleResetFilter = () => {
     setFromDate(getToday());
     setToDate(getToday());
     setSelectedBillType("USG01");
-    localStorage.setItem("rdlist_billType", "USG01"); // ← add this
+    localStorage.setItem("rdlist_billType", "USG01");
     setSearchBillNo("");
     setSearchUhid("");
     setSearchIpNumber("");
@@ -2510,21 +2845,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchPaymentStatus,
   ]);
 
-  // ── Print dropdown handlers ────────────────────────────────────────────
-  // 1. Change showPrintDropdown to use composite key
+  // ── Print dropdown ─────────────────────────────────────────────────────────
+
   const showPrintDropdown = (row, e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setPrintDropdownPos({
-      top: rect.bottom - 2,
-      left: rect.right - 200,
-    });
+    setPrintDropdownPos({ top: rect.bottom - 2, left: rect.right - 200 });
     setActivePrintRowId(`${row.investBillNo}__${row.item_id}`);
   };
   const hidePrintDropdown = () => {
     setActivePrintRowId(null);
   };
-
-  // 2. Update activePrintRow to match by composite key
   const activePrintRow = useMemo(
     () =>
       rows.find(
@@ -2533,7 +2863,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     [rows, activePrintRowId],
   );
 
-  // ── Other handlers ─────────────────────────────────────────────────────
+  // ── Action Handlers ────────────────────────────────────────────────────────
+
   const handleGoToReport = (row) => {
     const parts = (row.uhid || "").split("/");
     const uhidBase = parts[0] || "";
@@ -2543,7 +2874,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         uhid: uhidBase,
         subUhid,
         itemName: row.itemName,
-        item_id: row.item_id, // ✅ now correctly populated
+        item_id: row.item_id,
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
         billTypeNo: row.billTypeNo || selectedBillType,
@@ -2583,7 +2914,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               has_report: false,
             }
           : { ...r.report, slot_DateTime };
-        // ✅ hasReport stays as-is — slot update doesn't change report status
         return { ...r, report: updatedReport };
       }),
     );
@@ -2593,12 +2923,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     const titleMap = await getTitleMap(row);
     const enrichedRow = {
       ...row,
-      report: row.report
-        ? {
-            ...row.report,
-            _titleMap: titleMap,
-          }
-        : row.report,
+      report: row.report ? { ...row.report, _titleMap: titleMap } : row.report,
     };
     setSelectedRow(enrichedRow);
     setIsModalOpen(true);
@@ -2647,24 +2972,27 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
 
   const handleSaveEdit = async (newImpression, newSections) => {
     try {
-      const patchPayload = {
-        impression: newImpression,
-        ...(newSections?.length > 0
-          ? {
-              sections: newSections.map((s) => ({
-                title_id: s.title_id,
-                value: s.value,
-              })),
-            }
-          : {}),
-      };
+      const apiSections = newSections.map((s) => {
+        if (s.isTable) {
+          // Send raw table entry: { table_id, row1col1, row1col2, ... }
+          return s.value;
+        }
+        // Send text entry: { title_id, title, title_value }
+        return {
+          title_id: s.title_id,
+          title: s.title,
+          title_value: s.value, // s.value holds the HTML string
+        };
+      });
+
       const result = await apiRequest(
         `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.item_id)}/`,
         "PATCH",
-        patchPayload,
+        { impression: newImpression, sections: apiSections },
       );
       if (!result.success) throw new Error(result.error);
       toast.success("Report updated successfully!");
+
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === editingRow.investBillNo &&
@@ -2674,17 +3002,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                 report: {
                   ...r.report,
                   impression: newImpression,
-                  ...(newSections?.length > 0
-                    ? {
-                        valuedetails: {
-                          ...r.report?.valuedetails,
-                          value: newSections.map((s) => ({
-                            title_id: s.title_id,
-                            title_value: s.value,
-                          })),
-                        },
-                      }
-                    : {}),
+                  valuedetails: {
+                    ...r.report?.valuedetails,
+                    value: apiSections,
+                  },
                 },
               }
             : r,
@@ -2736,15 +3057,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const pageLabel =
     BILL_TYPES.find((b) => b.value === selectedBillType)?.label || "Radiology";
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <PageWrapper>
       <Container>
         <ContentCard>
-          {/* ── Top bar ── */}
+          {/* Top bar */}
           <TopBar>
             <PageTitle>{pageLabel} Investigations</PageTitle>
-
             <FilterContainer>
               <BillTypeWrapper>
                 <FilterLabel>Bill Type</FilterLabel>
@@ -2753,7 +3074,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   onChange={(e) => {
                     const val = e.target.value;
                     setSelectedBillType(val);
-                    localStorage.setItem("rdlist_billType", val); // ← add this
+                    localStorage.setItem("rdlist_billType", val);
                     setRows([]);
                     setSearchBillNo("");
                     setSearchStatus("");
@@ -2767,7 +3088,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   ))}
                 </BillTypeSelect>
               </BillTypeWrapper>
-
               <FilterGroup>
                 <FilterLabel>From</FilterLabel>
                 <DateInput
@@ -2788,7 +3108,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             </FilterContainer>
           </TopBar>
 
-          {/* ── Stat Cards ── */}
+          {/* Stats */}
           <StatsRow>
             <StatCard bg="#f0faf8" accent="#00897b">
               <StatIcon>📋</StatIcon>
@@ -2929,7 +3249,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       key={`${row.investBillNo}-${row.itemName}-${index}`}
                       style={{
                         background: row.hasReport
-                          ? "linear-gradient(135deg,#f1f8f4 0%,#e8f5e9 100%)"
+                          ? "linear-gradient(135deg,#f1f8f4,#e8f5e9)"
                           : "white",
                       }}
                     >
@@ -2994,7 +3314,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               data-tip={
                                 row.report?.is_approved
                                   ? "Slot locked (approved)"
-                                  : row.report?.slot_DateTime // ✅ check slot, not hasReport
+                                  : row.report?.slot_DateTime
                                     ? "Update Slot"
                                     : "Set Slot"
                               }
@@ -3054,13 +3374,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               ✏️
                             </IconBtn>
                           )}
-
-                          {/* ── PRINT icon — portal dropdown, same pattern as PatientOverview ── */}
                           <PrintDropdownWrapper
-                            onMouseEnter={
-                              (e) =>
-                                row.report?.is_approved &&
-                                showPrintDropdown(row, e) // pass whole row, not just investBillNo
+                            onMouseEnter={(e) =>
+                              row.report?.is_approved &&
+                              showPrintDropdown(row, e)
                             }
                             onMouseLeave={hidePrintDropdown}
                           >
@@ -3078,7 +3395,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               🖨️
                             </IconBtn>
                           </PrintDropdownWrapper>
-
                           {canDelete && (
                             <IconBtn
                               bg="linear-gradient(135deg,#ef5350,#e53935)"
@@ -3097,7 +3413,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   ))
                 ) : (
                   <tr>
-                    <Td colSpan="12">
+                    <Td colSpan="13">
                       <EmptyState>
                         <p>
                           {rows.length > 0
@@ -3114,7 +3430,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         </ContentCard>
       </Container>
 
-      {/* ── PORTAL PRINT DROPDOWN — renders at <body> level ── */}
+      {/* Print dropdown portal */}
       {activePrintRowId &&
         activePrintRow &&
         createPortal(
