@@ -353,10 +353,10 @@ function App() {
             localStorage.setItem("outlet_code", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
             setShowOutletModal(false);
-            
+
             const userRole = getUserRole(allowedActions);
             const targetPath = userRole === "Pharmacist" ? "/OPPharmacy" : "/Dashboard";
-            
+
             navigate(targetPath);
             setTimeout(() => {
               window.location.reload();
