@@ -514,9 +514,6 @@ const normalizeTransferItems = (raw) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AUTH CONTEXT
-// Reads outlet code from localStorage / sessionStorage.
-// Tries multiple common key names so it works regardless of what the app stores.
-// Drug Purchase = outlet code is empty / null / "None" / "system".
 // ─────────────────────────────────────────────────────────────────────────────
 function getAuthContext() {
   const raw =
@@ -542,25 +539,16 @@ function getAuthContext() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TRANSFER FILTER
-//
-//  Drug Purchase (outletCode = "")
-//    → sees transfers it SENT  (from_outlet / outlet_code = "")
-//
-//  Real outlet (e.g. "OLET001")
-//    → sees transfers it RECEIVES  (to_outlet = outletCode)
 // ─────────────────────────────────────────────────────────────────────────────
 function filterTransfersByOutlet(transfers, outletCode, isDrugPurchase) {
   if (isDrugPurchase) {
-    // Drug Purchase: transfers where from_outlet (outlet_code) is empty
     return transfers.filter((t) => {
-      const from = t.from_outlet ?? t.outlet_code ?? "";
-      return from === "" || from === null || from === undefined;
+      const to = t.to_outlet ?? "";
+      return to === "" || to === null || to === undefined;
     });
   }
-  // Real outlet: transfers where this outlet is the destination
   return transfers.filter((t) => t.to_outlet === outletCode);
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // BUILD PRINT HTML
 // ─────────────────────────────────────────────────────────────────────────────
@@ -617,7 +605,6 @@ const buildPrintHtml = (slip, items, getOutletName) => {
     .bold   { font-weight: bold; }
     .rule   { white-space: pre; overflow: hidden; margin: 3px 0; font-size: 11px; }
     .meta-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11.5px; }
-    .company-label { font-size: 11px; text-align: right; margin-bottom: 3px; }
     table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
     thead th { font-weight: bold; padding: 3px 4px; text-align: left; border-bottom: 1px solid #333; }
     thead th.right { text-align: right; }
@@ -916,7 +903,10 @@ const StockTransfer = () => {
   const [showForm, setShowForm]   = useState(false);
 
   const [fromOutlet, setFromOutlet] = useState(isDrugPurchase ? null : outletCode);
-  const [toOutlet, setToOutlet]     = useState("");
+
+  // FIX: null = not yet chosen (shows placeholder); "" = Drug Purchase chosen
+  const [toOutlet, setToOutlet] = useState(null);
+
   const [addedItems, setAddedItems] = useState([]);
 
   const [medicineSearch, setMedicineSearch]   = useState("");
@@ -982,24 +972,30 @@ const StockTransfer = () => {
   }, [HmsBaseUrl]);
 
   // ── Fetch transfers ────────────────────────────────────────────────────────
-  const fetchTransfers = useCallback(async (extra = {}) => {
-    try {
-      const params = new URLSearchParams();
-      if (extra.from_date) params.append("from_date", extra.from_date);
-      if (extra.to_date)   params.append("to_date",   extra.to_date);
-      const qs  = params.toString();
-      const res = await apiRequest(
-        `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
-      );
-      const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
-      const all  = Array.isArray(rows) ? rows : [];
+const fetchTransfers = useCallback(async (extra = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (extra.from_date) params.append("from_date", extra.from_date);
+    if (extra.to_date)   params.append("to_date",   extra.to_date);
+    const qs  = params.toString();
+    const res = await apiRequest(
+      `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
+    );
+    const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+    const all  = Array.isArray(rows) ? rows : [];
 
-      const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
-      setTransfers(filtered);
-    } catch {
-      toast.error("Failed to fetch transfers");
-    }
-  }, [HmsBaseUrl, outletCode, isDrugPurchase]);
+    // ADD THIS:
+    console.log("outletCode:", outletCode);
+    console.log("isDrugPurchase:", isDrugPurchase);
+    console.log("all transfers:", all.map(t => ({ ref: t.transfer_ref_number, to: t.to_outlet })));
+
+    const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
+    console.log("filtered:", filtered);
+    setTransfers(filtered);
+  } catch {
+    toast.error("Failed to fetch transfers");
+  }
+}, [HmsBaseUrl, outletCode, isDrugPurchase]);
 
   // ── Search medicines ───────────────────────────────────────────────────────
   const searchMedicines = useCallback(async (query) => {
@@ -1051,7 +1047,7 @@ const StockTransfer = () => {
     }
   }, [HmsBaseUrl, fromOutlet]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleMedicineSearch = (e) => {
     const val = e.target.value;
     setMedicineSearch(val);
@@ -1073,20 +1069,33 @@ const StockTransfer = () => {
     setTransferQty("");
   };
 
+  // Maps outlet code → select <option> value
   const toSelectVal = (code) => {
-    if (code === null || code === undefined) return "";
-    if (code === "") return DRUG_PURCHASE_VALUE;
+    if (code === null || code === undefined) return "";        // placeholder
+    if (code === "") return DRUG_PURCHASE_VALUE;              // Drug Purchase
     return code;
   };
 
   const handleFromOutletChange = (selectVal) => {
-    const code = selectVal === DRUG_PURCHASE_VALUE ? "" : (selectVal === "" ? null : selectVal);
+    // "" means placeholder selected (no outlet chosen yet)
+    const code = selectVal === ""
+      ? null
+      : selectVal === DRUG_PURCHASE_VALUE
+        ? ""
+        : selectVal;
     setFromOutlet(code);
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
   };
 
+  // FIX: "" = placeholder (not chosen); DRUG_PURCHASE_VALUE → store as ""
   const handleToOutletChange = (selectVal) => {
+    if (selectVal === "") {
+      // Placeholder option — treat as "not yet chosen"
+      setToOutlet(null);
+      return;
+    }
+    // DRUG_PURCHASE_VALUE maps to "" (empty outlet_code = Drug Purchase)
     const code = selectVal === DRUG_PURCHASE_VALUE ? "" : selectVal;
     setToOutlet(code);
   };
@@ -1123,20 +1132,24 @@ const StockTransfer = () => {
     setAddedItems(addedItems.filter((_, i) => i !== idx));
 
   const handleSave = async () => {
-    if (fromOutlet === null)              { toast.error("Please select From Outlet"); return; }
-    if (!toOutlet && toOutlet !== "")     { toast.error("Please select To Outlet"); return; }
-    if (toOutlet === "" && fromOutlet === "") {
-      toast.error("From Outlet and To Outlet cannot both be Drug Purchase"); return;
+    if (fromOutlet === null) { toast.error("Please select From Outlet"); return; }
+
+    // FIX: null = not chosen; "" = Drug Purchase (valid). Only block null.
+    if (toOutlet === null || toOutlet === undefined) {
+      toast.error("Please select To Outlet"); return;
     }
-    if (fromOutlet !== "" && fromOutlet === toOutlet) {
+
+    // FIX: single clean same-outlet check; works for "", "OLET001", etc.
+    if (fromOutlet === toOutlet) {
       toast.error("From Outlet and To Outlet cannot be the same"); return;
     }
+
     if (addedItems.length === 0) { toast.error("Add at least one medicine"); return; }
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
-        from_outlet: fromOutlet,
-        to_outlet:   toOutlet,
+        from_outlet: fromOutlet,   // "" = Drug Purchase, "OLET001" = real outlet
+        to_outlet:   toOutlet,     // "" = Drug Purchase, "OLET001" = real outlet
         items: addedItems.map((i) => ({
           stock_id:          i.stock_id,
           item_id:           i.item_id,
@@ -1161,7 +1174,8 @@ const StockTransfer = () => {
 
   const handleCancelForm = () => {
     setFromOutlet(isDrugPurchase ? null : outletCode);
-    setToOutlet("");
+    // FIX: reset to null (not chosen), not "" (which would mean Drug Purchase)
+    setToOutlet(null);
     setAddedItems([]);
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
@@ -1237,13 +1251,14 @@ const StockTransfer = () => {
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ];
 
+  // FIX: exclude whichever outlet is already chosen as fromOutlet
   const toOutletOptions = [
     { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ].filter((o) => {
-    if (fromOutlet === null) return true;
+    if (fromOutlet === null) return true;  // nothing chosen yet — show all
     const code = o.value === DRUG_PURCHASE_VALUE ? "" : o.value;
-    return code !== fromOutlet;
+    return code !== fromOutlet;            // hide whichever is already the source
   });
 
   // ── Render ─────────────────────────────────────────────────────────────────
