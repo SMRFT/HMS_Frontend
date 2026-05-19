@@ -37,6 +37,10 @@ const T = {
   amberLight:"#fef3c7",
   orange:    "#ea580c",
   orangeLight:"#ffedd5",
+  purple:    "#9333ea",
+  purpleLight:"#f3e8ff",
+  pink:      "#ec4899",
+  pinkLight: "#fce7f3",
 };
 
 const rowIn = keyframes`
@@ -52,6 +56,11 @@ const fadeIn = keyframes`
 const pulse = keyframes`
   0%,100% { box-shadow: 0 0 0 0 rgba(13,148,136,0.3); }
   50%      { box-shadow: 0 0 0 6px rgba(13,148,136,0); }
+`;
+
+const slideDown = keyframes`
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 `;
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -101,6 +110,7 @@ const CardHead = styled.div`
     color === "blue"   ? "linear-gradient(135deg,#1d4ed8,#2563eb)" :
     color === "violet" ? "linear-gradient(135deg,#6d28d9,#7c3aed)" :
     color === "orange" ? "linear-gradient(135deg,#c2410c,#ea580c)" :
+    color === "purple" ? "linear-gradient(135deg,#7e22ce,#9333ea)" :
                          "linear-gradient(135deg,#0f766e,#0d9488)"};
   color: #fff;
   font-size: 0.75rem;
@@ -197,11 +207,13 @@ const Btn = styled.button`
   cursor: pointer;
   transition: opacity .14s, transform .1s;
   background: ${({ v, c }) =>
-    v === "reset"  ? "#e2e8f0" :
-    v === "cancel" ? T.red     :
-    c === "blue"   ? T.blue    :
-    c === "orange" ? T.orange  :
-    c === "violet" ? T.violet  : T.teal};
+    v === "reset"   ? "#e2e8f0" :
+    v === "cancel"  ? T.red     :
+    c === "blue"    ? T.blue    :
+    c === "orange"  ? T.orange  :
+    c === "violet"  ? T.violet  :
+    c === "purple"  ? T.purple  :
+    c === "red"     ? T.red     : T.teal};
   color: ${({ v }) => v === "reset" ? T.label : "#fff"};
   &:hover { opacity: .88; }
   &:active { transform: scale(.97); }
@@ -254,14 +266,15 @@ const DropMenu = styled.div`
 const DropItem = styled.button`
   display: flex; align-items: center; gap: 9px;
   padding: 9px 14px; font-size: 0.74rem; font-weight: 600;
-  color: ${({ danger }) => danger ? T.red : T.text};
+  color: ${({ danger }) => danger ? T.red : ({ purple }) => purple ? T.purple : T.text};
+  color: ${({ danger, purple }) => danger ? T.red : purple ? T.purple : T.text};
   background: none; border: none; width: 100%; text-align: left;
   cursor: ${({ disabled }) => disabled ? "not-allowed" : "pointer"};
   opacity: ${({ disabled }) => disabled ? 0.38 : 1};
   font-family: inherit;
   transition: background .1s;
   &:hover:not([disabled]) {
-    background: ${({ danger }) => danger ? T.redLight : T.bg};
+    background: ${({ danger, purple }) => danger ? T.redLight : purple ? T.purpleLight : T.bg};
   }
 `;
 
@@ -331,7 +344,7 @@ const ActionBar = styled.div`
 // ── Table ─────────────────────────────────────────────────────────────────────
 const TblWrap = styled.div`
   overflow-x: auto;
-  overflow-y: visible;   /* ← add this */
+  overflow-y: visible;
   padding: 0 14px 14px;
 `;
 
@@ -339,7 +352,7 @@ const Tbl = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-size: 0.71rem;
-  overflow: visible;     /* ← add this */
+  overflow: visible;
 `;
 
 const Th = styled.th`
@@ -376,18 +389,21 @@ const StatusBadge = styled.span`
   background: ${({ status }) =>
     status === "Paid"      ? T.greenLight  :
     status === "Cancelled" ? T.redLight    :
-    status === "Edited"    ? T.orangeLight : T.amberLight};
+    status === "Edited"    ? T.orangeLight :
+    status === "Refunded"  ? T.purpleLight : T.amberLight};
   color: ${({ status }) =>
-    status === "Paid"      ? T.green  :
-    status === "Cancelled" ? T.red    :
-    status === "Edited"    ? T.orange : T.amber};
+    status === "Paid"      ? T.green   :
+    status === "Cancelled" ? T.red     :
+    status === "Edited"    ? T.orange  :
+    status === "Refunded"  ? T.purple  : T.amber};
   border: 1px solid ${({ status }) =>
     status === "Paid"      ? "#bbf7d0" :
     status === "Cancelled" ? "#fecaca" :
-    status === "Edited"    ? "#fed7aa" : "#fde68a"};
+    status === "Edited"    ? "#fed7aa" :
+    status === "Refunded"  ? "#d8b4fe" : "#fde68a"};
 `;
 
-// ── Modal (Print only) ────────────────────────────────────────────────────────
+// ── Modal Base ────────────────────────────────────────────────────────────────
 const ModalOverlay = styled.div`
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5);
@@ -399,13 +415,15 @@ const ModalBox = styled.div`
   background: ${T.white};
   border-radius: 10px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-  max-width: 700px; width: 95%;
+  max-width: ${({ wide }) => wide ? "700px" : "520px"}; width: 95%;
   max-height: 90vh; overflow-y: auto;
   animation: ${fadeIn} 0.3s ease;
 `;
 
 const ModalHeader = styled.div`
-  background: linear-gradient(135deg,#0f766e,#0d9488);
+  background: ${({ color }) =>
+    color === "purple" ? "linear-gradient(135deg,#7e22ce,#9333ea)" :
+                         "linear-gradient(135deg,#0f766e,#0d9488)"};
   color: #fff;
   padding: 14px 18px;
   display: flex; align-items: center; justify-content: space-between;
@@ -430,6 +448,140 @@ const ModalActions = styled.div`
   padding-top: 12px; border-top: 1px solid ${T.border}; margin-top: 12px;
 `;
 
+// ── Refund Modal Specific ─────────────────────────────────────────────────────
+const RefundSummaryBox = styled.div`
+  background: ${T.purpleLight};
+  border: 1.5px solid #d8b4fe;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+const RefundSummaryRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+`;
+
+const RefundSummaryLabel = styled.span`
+  color: ${T.muted};
+  font-weight: 600;
+`;
+
+const RefundSummaryValue = styled.span`
+  font-weight: 800;
+  color: ${({ color }) => color || T.text};
+  font-size: ${({ large }) => large ? "1rem" : "0.75rem"};
+`;
+
+const RefundWarning = styled.div`
+  background: ${T.redLight};
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: ${T.red};
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const RefundInputWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+`;
+
+const RefundBigInp = styled.input`
+  height: 44px;
+  padding: 0 14px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  border: 2px solid ${({ error }) => error ? T.red : "#d8b4fe"};
+  border-radius: 8px;
+  color: ${T.purple};
+  width: 100%;
+  outline: none;
+  font-family: inherit;
+  background: ${T.purpleLight};
+  transition: border-color .14s, box-shadow .14s;
+  &:focus { border-color: ${T.purple}; box-shadow: 0 0 0 3px #f3e8ff; }
+  &::placeholder { color: #c4b5fd; font-weight: 400; font-size: 0.9rem; }
+`;
+
+// ── Refund History Table ──────────────────────────────────────────────────────
+const HistorySection = styled.div`
+  margin-top: 16px;
+  border-top: 2px solid ${T.border};
+  padding-top: 14px;
+`;
+
+const HistoryTitle = styled.div`
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: ${T.purple};
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: ${T.purpleLight};
+    border-radius: 2px;
+  }
+`;
+
+const HistoryTbl = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.71rem;
+`;
+
+const HTh = styled.th`
+  padding: 5px 8px;
+  text-align: ${({ right }) => right ? "right" : "left"};
+  font-weight: 700;
+  border-bottom: 2px solid ${T.purpleLight};
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: ${T.purple};
+  background: #faf5ff;
+`;
+
+const HTr = styled.tr`
+  animation: ${slideDown} 0.2s ease;
+  background: ${({ even }) => even ? "#faf5ff" : "#fff"};
+  &:hover { background: ${T.purpleLight}; }
+`;
+
+const HTd = styled.td`
+  padding: 5px 8px;
+  border-bottom: 1px solid #f3e8ff;
+  text-align: ${({ right }) => right ? "right" : "left"};
+`;
+
+const NoHistoryNote = styled.div`
+  text-align: center;
+  padding: 18px;
+  font-size: 0.72rem;
+  color: ${T.muted};
+  background: #faf5ff;
+  border-radius: 6px;
+  border: 1px dashed #d8b4fe;
+`;
+
 // ── Bill Slip ─────────────────────────────────────────────────────────────────
 const BillSlipContainer = styled.div`
   width: 100%; max-width: 400px; margin: 0 auto;
@@ -444,6 +596,21 @@ const BillRow      = styled.div`display:flex; justify-content:space-between; pad
 const BillLabel    = styled.span`font-weight:bold;`;
 const BillValue    = styled.span`text-align:right;`;
 
+// ── Refund Badge in table ─────────────────────────────────────────────────────
+const RefundTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: ${T.purpleLight};
+  color: ${T.purple};
+  border: 1px solid #d8b4fe;
+  margin-left: 4px;
+`;
+
 // ─────────────────────────────────────────────────────────────────────────────
 const EMPTY_COMMON = {
   uhid: "", ipNumber: "", name: "", age: "", gender: "",
@@ -453,12 +620,6 @@ const EMPTY_COMMON = {
 };
 
 const today = () => new Date().toISOString().split("T")[0];
-
-// Status rules
-// Pending  → Edit ✓  Cancel ✓  Print ✓
-// Paid     → Edit ✗  Cancel ✓  Print ✓
-// Cancelled→ Edit ✗  Cancel ✗  Print ✓
-// (Edited entries are never shown in the table)
 
 export default function IPAdvance() {
   const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -476,8 +637,7 @@ export default function IPAdvance() {
   const [saving, setSaving]           = useState(false);
 
   // ── Edit state ────────────────────────────────────────────────────────────
-  // When editing, we store the original record so we can mark it Edited on save
-  const [editingRecord, setEditingRecord] = useState(null); // original advance record
+  const [editingRecord, setEditingRecord] = useState(null);
   const advanceFormRef = useRef(null);
 
   // ── Records ───────────────────────────────────────────────────────────────
@@ -499,6 +659,15 @@ export default function IPAdvance() {
   // ── Kebab menu ────────────────────────────────────────────────────────────
   const [openMenuId, setOpenMenuId] = useState(null);
 
+  // ── Refund modal ──────────────────────────────────────────────────────────
+  const [refundModalOpen, setRefundModalOpen]   = useState(false);
+  const [refundRecord, setRefundRecord]         = useState(null);       // advance record being refunded
+  const [refundAmount, setRefundAmount]         = useState("");
+  const [refundPaymentMode, setRefundPaymentMode] = useState("Cash");
+  const [refundRemarks, setRefundRemarks]       = useState("");
+  const [refundSaving, setRefundSaving]         = useState(false);
+  const [refundAmountError, setRefundAmountError] = useState("");
+
   const toggleMenu = (id, e) => {
     e.stopPropagation();
     setOpenMenuId(prev => prev === id ? null : id);
@@ -517,6 +686,19 @@ export default function IPAdvance() {
   const splitTouched = ipAdv !== "" || billAdv !== "";
   const splitOk      = total > 0 && Math.abs(splitIP + splitBill - total) < 0.01;
   const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
+  // ── Refund helpers ────────────────────────────────────────────────────────
+  const getTotalRefunded = (record) => {
+    if (!record?.refund_details || !Array.isArray(record.refund_details)) return 0;
+    return record.refund_details.reduce((sum, r) => sum + (parseFloat(r.refunded_amount) || 0), 0);
+  };
+
+  const getRefundableAmount = (record) => {
+    if (!record) return 0;
+    const totalAdvance = parseFloat(record.advance_amount) || 0;
+    const alreadyRefunded = getTotalRefunded(record);
+    return Math.max(0, totalAdvance - alreadyRefunded);
+  };
 
   // ── Load today on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -544,9 +726,7 @@ export default function IPAdvance() {
     }
   };
 
-  // ── Client filters — EXCLUDE "Edited" entries from display ─────────────────
   const applyClientFilters = (data, mode, status) => {
-    // Only show Pending, Paid, Cancelled — never Edited (those are history)
     let filtered = data.filter(p => p.status !== "Edited");
     if (mode)   filtered = filtered.filter(p => p.payment_mode === mode);
     if (status) filtered = filtered.filter(p => p.status === status);
@@ -578,24 +758,17 @@ export default function IPAdvance() {
       }
 
       const patient = adm.patient || {};
-
-      // ✅ Doctor Name (priority: name → id fallback)
       const doctor = adm.admittingDoctorName || adm.admittingDoctor || "";
 
-      // ✅ Room + Bed
       let roomNo = adm.roomNo || "";
       let bedNo  = adm.bedNo || "";
 
       if (!roomNo && Array.isArray(adm.room_details)) {
-        const active = [...adm.room_details]
-          .reverse()
-          .find(r => r?.is_roomActive);
-
+        const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
         roomNo = active?.roomNo || "";
         bedNo  = active?.bedNo  || "";
       }
 
-      // ✅ Patient Name Build
       const nameParts = [
         adm.salutation  || patient.salutation,
         adm.firstName   || patient.firstName || patient.patientname,
@@ -603,35 +776,23 @@ export default function IPAdvance() {
         adm.lastName    || patient.lastName,
       ].filter(Boolean);
 
-      // ✅ Admission Date + Time Formatting
       let formattedDateTime = "";
-
-      // 🔹 1. Prefer backend formatted value
       if (adm.admissionDateTime) {
         formattedDateTime = adm.admissionDateTime;
-      }
-      // 🔹 2. Fallback (combine date + time)
-      else if (adm.admissionDate && adm.admissionTime) {
+      } else if (adm.admissionDate && adm.admissionTime) {
         const raw = `${adm.admissionDate} ${adm.admissionTime}`;
         const dt = new Date(raw);
-
         if (!isNaN(dt)) {
           formattedDateTime = dt.toLocaleString("en-IN", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit", hour12: true,
           });
         } else {
           formattedDateTime = `${adm.admissionDate} ${adm.admissionTime}`;
         }
       }
 
-      // ✅ Set State
       setAdmId(adm.ipNumber);
-
       setCommon((prev) => ({
         ...prev,
         uhid:            adm.uhid || prev.uhid,
@@ -640,38 +801,18 @@ export default function IPAdvance() {
         age:             adm.age || patient.age || prev.age,
         gender:          adm.gender || patient.gender || prev.gender,
         address:
-          adm.permanent_address ||
-          patient.permanent_address ||
-          [patient.area, patient.city, patient.state, patient.zipcode]
-            .filter(Boolean)
-            .join(", ") ||
+          adm.permanent_address || patient.permanent_address ||
+          [patient.area, patient.city, patient.state, patient.zipcode].filter(Boolean).join(", ") ||
           prev.address,
-
-        customer_type:
-          adm.customerType ||
-          adm.customer_type ||
-          patient.customerType ||
-          prev.customer_type,
-
-        company:
-          adm.insuranceCompanyName ||
-          patient.insuranceCompanyName ||
-          adm.insuranceCompany ||
-          prev.company,
-
-        roomNo,
-        bedNo,
-
-        // ✅ FINAL OUTPUT
+        customer_type:   adm.customerType || adm.customer_type || patient.customerType || prev.customer_type,
+        company:         adm.insuranceCompanyName || patient.insuranceCompanyName || adm.insuranceCompany || prev.company,
+        roomNo, bedNo,
         admittingDate:   formattedDateTime,
         admittingDoctor: doctor,
-
-        creditLimit:
-          adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
+        creditLimit:     adm.creditLimit != null ? adm.creditLimit : prev.creditLimit,
       }));
 
       toast.success(`Admission loaded: ${adm.ipNumber}`);
-
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "No active admission found");
@@ -700,12 +841,11 @@ export default function IPAdvance() {
     setSaving(true);
     try {
       if (editingRecord) {
-        // PUT = mark old as Edited + create new entry in one call
         const res = await apiRequest(
           `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
           "PUT",
           {
-            advance_id:      editingRecord.advance_id,   // old entry to mark Edited
+            advance_id:      editingRecord.advance_id,
             date,
             advance_amount:  total,
             ip_advance:      splitIP,
@@ -717,7 +857,6 @@ export default function IPAdvance() {
         toast.success("Advance updated!");
         cancelEditMode();
       } else {
-        // POST = fresh entry
         const res = await apiRequest(
           `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
           "POST",
@@ -735,28 +874,19 @@ export default function IPAdvance() {
     }
   };
 
-  // ── Trigger Edit (fill form in-place) ─────────────────────────────────────
   const handleEdit = (record) => {
-    // Load the IP admission first so admissionId is set
     const ipNo = record.ip_number || record.ipNumber;
     if (!ipNo || ipNo === "—") return toast.error("Cannot determine IP number for this record");
-
-    // Set form fields from the record
     setDate(record.date || today());
     setAmount(String(record.advance_amount || ""));
     setIpAdv(String(record.ip_advance || ""));
     setBillAdv(String(record.billing_advance || ""));
     setPaymentMode(record.payment_mode || "Cash");
     setEditingRecord(record);
-
-    // Load admission details into the patient card
     loadActiveAdmission({ ip_number: ipNo });
-
-    // Scroll to the advance input form
     setTimeout(() => {
       advanceFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 200);
-
     toast.info(`Editing advance ${record.advance_id} — modify and click Update`);
   };
 
@@ -772,7 +902,7 @@ export default function IPAdvance() {
       const res = await apiRequest(
         `${BASE}admission-advance/${encodeURIComponent(ipNumber)}/`,
         "PATCH",
-        { advance_id: advanceId }
+        { advance_id: advanceId, action: "cancel" }
       );
       if (!res.success) throw new Error(res.error || "Cancel failed");
       toast.success("Advance cancelled");
@@ -782,135 +912,175 @@ export default function IPAdvance() {
     }
   };
 
+  // ── Refund Modal ──────────────────────────────────────────────────────────
+  const openRefundModal = (record) => {
+    const refundable = getRefundableAmount(record);
+    if (refundable <= 0) {
+      return toast.warning("No refundable amount remaining for this advance");
+    }
+    setRefundRecord(record);
+    setRefundAmount("");
+    setRefundPaymentMode("Cash");
+    setRefundRemarks("");
+    setRefundAmountError("");
+    setRefundModalOpen(true);
+  };
+
+  const closeRefundModal = () => {
+    setRefundModalOpen(false);
+    setRefundRecord(null);
+    setRefundAmount("");
+    setRefundRemarks("");
+    setRefundAmountError("");
+  };
+
+  const validateRefundAmount = (val) => {
+    const entered = parseFloat(val) || 0;
+    const refundable = getRefundableAmount(refundRecord);
+    if (entered <= 0) {
+      setRefundAmountError("Refund amount must be greater than 0");
+      return false;
+    }
+    if (entered > refundable) {
+      setRefundAmountError(`Cannot exceed refundable amount ₹${fmt(refundable)}`);
+      return false;
+    }
+    setRefundAmountError("");
+    return true;
+  };
+
+  const handleRefundAmountChange = (val) => {
+    setRefundAmount(val);
+    if (val) validateRefundAmount(val);
+    else setRefundAmountError("");
+  };
+
+  const handleRefundSubmit = async () => {
+    if (!validateRefundAmount(refundAmount)) return;
+
+    const ipNo = refundRecord.ip_number || refundRecord.ipNumber;
+    if (!ipNo) return toast.error("Cannot determine IP number");
+
+    setRefundSaving(true);
+    try {
+      const res = await apiRequest(
+        `${BASE}admission-advance/${encodeURIComponent(ipNo)}/`,
+        "PATCH",
+        {
+          advance_id:     refundRecord.advance_id,
+          action:         "refund",
+          refund_amount:  parseFloat(refundAmount),
+          payment_mode:   refundPaymentMode,
+          remarks:        refundRemarks.trim(),
+        }
+      );
+      if (!res.success) throw new Error(res.error || "Refund failed");
+      toast.success(`Refund of ₹${fmt(refundAmount)} processed successfully!`);
+      closeRefundModal();
+      fetchAdvancesByDate(filterFromDate, filterToDate);
+    } catch (e) {
+      toast.error(e.message || "Failed to process refund");
+    } finally {
+      setRefundSaving(false);
+    }
+  };
+
   // ── Print ─────────────────────────────────────────────────────────────────
   const openPrintModal  = (record) => { setPrintRecord(record); setPrintModalOpen(true); };
   const closePrintModal = ()       => { setPrintModalOpen(false); setPrintRecord(null); };
 
-const handlePrint = () => {
-  if (!printRecord) return;
+  const handlePrint = () => {
+    if (!printRecord) return;
 
-  const paymentMode =
-    printRecord.payment_mode ||
-    printRecord.payment_details?.method ||
-    "—";
+    const payMode = printRecord.payment_mode || printRecord.payment_details?.method || "—";
+    const paidDateRaw = printRecord.paid_date || printRecord.paid_datetime;
+    const paidDate = paidDateRaw ? new Date(paidDateRaw).toLocaleString("en-IN") : "—";
+    const billDate = printRecord.bill_date ? new Date(printRecord.bill_date).toLocaleString("en-IN") : "—";
 
-  const paidDateRaw =
-    printRecord.paid_date || printRecord.paid_datetime;
+    const refundHistory = Array.isArray(printRecord.refund_details) ? printRecord.refund_details : [];
+    const totalRefunded = getTotalRefunded(printRecord);
 
-  const paidDate = paidDateRaw
-    ? new Date(paidDateRaw).toLocaleString("en-IN")
-    : "—";
+    const refundRows = refundHistory.map((r, idx) => `
+      <div class="row">
+        <span>${idx + 1}. Refund — ${r.refunded_date ? new Date(r.refunded_date).toLocaleDateString("en-IN") : "—"} (${r.payment_mode || "—"})</span>
+        <span class="val" style="color:#9333ea;">- ₹${parseFloat(r.refunded_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+      </div>
+    `).join("");
 
-  const billDate = printRecord.bill_date
-    ? new Date(printRecord.bill_date).toLocaleString("en-IN")
-    : "—";
-
-  const w = window.open("", "", "height=600,width=750");
-
-  w.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Advance Slip</title>
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            font-family: 'Courier New', monospace;
-            background: #fff;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-          }
-          .slip {
-            width: 100%;
-            max-width: 400px;
-            padding: 16px;
-            border: 2px solid #0f172a;
-            background: #fff;
-          }
-          .bill-header {
-            text-align: center;
-            border-bottom: 1px solid #0f172a;
-            padding-bottom: 8px;
-            margin-bottom: 12px;
-          }
-          .bill-title { font-size: 14px; font-weight: bold; }
-          .bill-subtitle { font-size: 11px; color: #64748b; }
-          .bill-adv { font-weight: bold; margin-top: 4px; }
-
-          .section { margin-bottom: 10px; font-size: 12px; }
-          .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-          }
-          .row.divider { border-bottom: 1px dotted #e2e8f0; }
-          .row.bold { font-weight: bold; }
-          .lbl { font-weight: bold; }
-          .val { text-align: right; }
-          .val.bold { font-weight: bold; }
-
-          .signature {
-            text-align: center;
-            margin-top: 20px;
-            padding-top: 10px;
-            border-top: 1px solid #0f172a;
-            font-size: 11px;
-            margin-bottom: 20px;
-          }
-        </style>
-      </head>
-
-      <body>
-        <div class="slip">
-
-          <div class="bill-header">
-            <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
-            <div class="bill-subtitle">Sh2/1-1, Sardar Patel Road, Salem - 636007</div>
-            <div class="bill-subtitle">Ph: 04272706666</div>
-            <div class="bill-adv">Advance Slip</div>
-          </div>
-
-          <div class="section">
-            <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || printRecord.ipNumber || "—"}</span></div>
-            <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || printRecord.name || "—"}</span></div>
-            <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
-            <div class="row"><span class="lbl">Bill No</span><span class="val bold">${printRecord.bill_no || "—"}</span></div>
-
-            <!-- ✅ Payment Mode -->
-            <div class="row"><span class="lbl">Payment Mode</span><span class="val">${paymentMode}</span></div>
-
-            <!-- ✅ Paid Date -->
-            <div class="row"><span class="lbl">Paid Date</span><span class="val">${paidDate}</span></div>
-          </div>
-
-          <div class="section">
-            <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
-            <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
-            <div class="row"><span>2. Billing Advance</span><span class="val bold">₹${fmt(printRecord.billing_advance)}</span></div>
-          </div>
-
-          <div class="section">
-            <div class="row divider bold">
-              <span class="lbl">User: ${printRecord.created_by || "—"}</span>
-              <span class="val">Total ₹${fmt(printRecord.advance_amount)}</span>
+    const w = window.open("", "", "height=700,width=750");
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Advance Slip</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Courier New', monospace; background: #fff; display: flex; justify-content: center; padding: 20px; }
+            .slip { width: 100%; max-width: 400px; padding: 16px; border: 2px solid #0f172a; background: #fff; }
+            .bill-header { text-align: center; border-bottom: 1px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
+            .bill-title { font-size: 14px; font-weight: bold; }
+            .bill-subtitle { font-size: 11px; color: #64748b; }
+            .bill-adv { font-weight: bold; margin-top: 4px; }
+            .section { margin-bottom: 10px; font-size: 12px; }
+            .row { display: flex; justify-content: space-between; padding: 3px 0; }
+            .row.divider { border-bottom: 1px dotted #e2e8f0; }
+            .row.bold { font-weight: bold; }
+            .lbl { font-weight: bold; }
+            .val { text-align: right; }
+            .refund-section { background: #faf5ff; border: 1px solid #d8b4fe; border-radius: 4px; padding: 8px; margin: 8px 0; }
+            .refund-title { font-weight: bold; color: #7e22ce; margin-bottom: 6px; }
+            .signature { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #0f172a; font-size: 11px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="slip">
+            <div class="bill-header">
+              <div class="bill-title">SHANMUGA HOSPITAL LIMITED</div>
+              <div class="bill-subtitle">Sh2/1-1, Sardar Patel Road, Salem - 636007</div>
+              <div class="bill-subtitle">Ph: 04272706666</div>
+              <div class="bill-adv">Advance Slip</div>
             </div>
+            <div class="section">
+              <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || "—"}</span></div>
+              <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || "—"}</span></div>
+              <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
+              <div class="row"><span class="lbl">Bill No</span><span class="val" style="font-weight:bold">${printRecord.bill_no || "—"}</span></div>
+              <div class="row"><span class="lbl">Payment Mode</span><span class="val">${payMode}</span></div>
+              <div class="row"><span class="lbl">Paid Date</span><span class="val">${paidDate}</span></div>
+            </div>
+            <div class="section">
+              <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
+              <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
+              <div class="row"><span>2. Billing Advance</span><span class="val bold">₹${fmt(printRecord.billing_advance)}</span></div>
+            </div>
+            ${refundHistory.length > 0 ? `
+            <div class="refund-section">
+              <div class="refund-title">Refund History</div>
+              ${refundRows}
+              <div class="row" style="font-weight:bold;margin-top:6px;border-top:1px dotted #d8b4fe;padding-top:4px;">
+                <span>Total Refunded</span><span class="val" style="color:#7e22ce;">- ₹${fmt(totalRefunded)}</span>
+              </div>
+            </div>` : ""}
+            <div class="section">
+              <div class="row divider bold">
+                <span class="lbl">User: ${printRecord.created_by || "—"}</span>
+                <span class="val">Total ₹${fmt(printRecord.advance_amount)}</span>
+              </div>
+              ${totalRefunded > 0 ? `
+              <div class="row" style="font-weight:bold;color:#7e22ce;">
+                <span>Net Amount</span>
+                <span class="val">₹${fmt((parseFloat(printRecord.advance_amount) || 0) - totalRefunded)}</span>
+              </div>` : ""}
+            </div>
+            <div class="signature">Signature Of Cashier</div>
           </div>
-
-          <div class="signature">Signature Of Cashier</div>
-
-        </div>
-      </body>
-    </html>
-  `);
-
-  w.document.close();
-  w.focus();
-  setTimeout(() => {
-    w.print();
-    w.close();
-  }, 300);
-};
+        </body>
+      </html>
+    `);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); w.close(); }, 300);
+  };
 
   const handleResetForm = () => {
     setCommon(EMPTY_COMMON);
@@ -925,16 +1095,17 @@ const handlePrint = () => {
     setBillAdv(rem >= 0 ? rem.toFixed(2) : "");
   };
 
+  // ── Per-row action permissions ────────────────────────────────────────────
+  // Refund is allowed only on Paid advances that still have refundable amount
+  const canEdit   = (p) => p.status === "Pending";
+  const canCancel = (p) => p.status === "Pending" || p.status === "Paid";
+  const canRefund = (p) => p.status === "Paid" && getRefundableAmount(p) > 0;
+
   // ── Stats ─────────────────────────────────────────────────────────────────
   const activeAll    = payments.filter(p => p.is_advanceActive);
   const totalActive  = activeAll.reduce((s, p) => s + (parseFloat(p.advance_amount)  || 0), 0);
   const totalIPSum   = activeAll.reduce((s, p) => s + (parseFloat(p.ip_advance)       || 0), 0);
   const totalBillSum = activeAll.reduce((s, p) => s + (parseFloat(p.billing_advance)  || 0), 0);
-
-  // ── Per-row action permissions ────────────────────────────────────────────
-  const canEdit   = (p) => p.status === "Pending";                         // only Pending
-  const canCancel = (p) => p.status === "Pending" || p.status === "Paid";  // Pending or Paid
-  const canPrint  = ()  => true;                                            // always
 
   return (
     <>
@@ -1093,6 +1264,7 @@ const handlePrint = () => {
                   <option value="Pending">Pending</option>
                   <option value="Paid">Paid</option>
                   <option value="Cancelled">Cancelled</option>
+                  <option value="Refunded">Fully Refunded</option>
                 </Select>
               </F>
               <F span={1}><Lbl>&nbsp;</Lbl>
@@ -1124,6 +1296,8 @@ const handlePrint = () => {
                   <Th right>Advance Amount</Th>
                   <Th right>IP Advance</Th>
                   <Th right>Billing Advance</Th>
+                  <Th right>Total Refunded</Th>
+                  <Th right>Net Balance</Th>
                   <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
@@ -1131,27 +1305,30 @@ const handlePrint = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <Td colSpan={11} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                    <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                       ⏳ Loading records…
                     </Td>
                   </tr>
                 ) : filteredPayments.length === 0 ? (
                   <tr>
-                    <Td colSpan={11} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                    <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                       No advance records found for the selected date range / filters
                     </Td>
                   </tr>
                 ) : (
                   filteredPayments.map((p, i) => {
                     const status      = p.status || "Pending";
-                    const billDate    = p.bill_date
-                      ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
+                    const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
                     const patientName = p.patient_name || p.name || p.patientName || "—";
                     const ipNo        = p.ip_number    || p.ipNumber || "—";
                     const menuId      = p.advance_id || `row-${i}`;
+                    const totalRefunded = getTotalRefunded(p);
+                    const netBalance    = (parseFloat(p.advance_amount) || 0) - totalRefunded;
+                    const hasRefunds    = totalRefunded > 0;
 
                     const allowEdit   = canEdit(p);
                     const allowCancel = canCancel(p);
+                    const allowRefund = canRefund(p);
 
                     return (
                       <Tr key={menuId} even={i % 2 === 0}>
@@ -1166,13 +1343,27 @@ const handlePrint = () => {
                         </Td>
                         <Td>{p.payment_mode || "-"}</Td>
                         <Td>
-                          {p.paid_date
-                            ? new Date(p.paid_date).toLocaleString("en-IN")
-                            : "-"}
+                          {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
                         </Td>
                         <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
                         <Td right>₹{fmt(p.ip_advance)}</Td>
                         <Td right>₹{fmt(p.billing_advance)}</Td>
+                        {/* Total Refunded */}
+                        <Td right style={{ color: hasRefunds ? T.purple : T.muted, fontWeight: hasRefunds ? 700 : 400 }}>
+                          {hasRefunds ? `- ₹${fmt(totalRefunded)}` : "—"}
+                          {hasRefunds && (
+                            <RefundTag title={`${(p.refund_details || []).length} refund(s)`}>
+                              ×{(p.refund_details || []).length}
+                            </RefundTag>
+                          )}
+                        </Td>
+                        {/* Net Balance */}
+                        <Td right style={{
+                          fontWeight: 700,
+                          color: netBalance <= 0 ? T.red : T.green,
+                        }}>
+                          ₹{fmt(netBalance)}
+                        </Td>
                         <Td>
                           <StatusBadge status={status}>{status}</StatusBadge>
                         </Td>
@@ -1195,16 +1386,40 @@ const handlePrint = () => {
                               >
                                 ✏️ Edit
                                 {!allowEdit && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>
-                                    {status}
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
+                                )}
+                              </DropItem>
+
+                              {/* REFUND */}
+                              <DropItem
+                                purple
+                                disabled={!allowRefund}
+                                title={
+                                  !allowRefund
+                                    ? status !== "Paid"
+                                      ? `Refund only available for Paid advances (status: ${status})`
+                                      : "No refundable amount remaining"
+                                    : `Refund — ₹${fmt(getRefundableAmount(p))} available`
+                                }
+                                onClick={() => {
+                                  if (!allowRefund) return;
+                                  setOpenMenuId(null);
+                                  openRefundModal(p);
+                                }}
+                              >
+                                💜 Refund
+                                {allowRefund && (
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.purple, fontWeight: 700 }}>
+                                    ₹{fmt(getRefundableAmount(p))}
                                   </span>
+                                )}
+                                {!allowRefund && (
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
                                 )}
                               </DropItem>
 
                               {/* PRINT */}
-                              <DropItem
-                                onClick={() => { setOpenMenuId(null); openPrintModal(p); }}
-                              >
+                              <DropItem onClick={() => { setOpenMenuId(null); openPrintModal(p); }}>
                                 🖨️ Print Slip
                               </DropItem>
 
@@ -1223,9 +1438,7 @@ const handlePrint = () => {
                               >
                                 {status === "Cancelled" ? "✕ Cancelled" : "✕ Cancel Advance"}
                                 {!allowCancel && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>
-                                    {status}
-                                  </span>
+                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
                                 )}
                               </DropItem>
 
@@ -1244,142 +1457,289 @@ const handlePrint = () => {
             Showing <strong>{filteredPayments.length}</strong> records &nbsp;|&nbsp;
             Pending: <strong>{filteredPayments.filter(p => p.status === "Pending").length}</strong> &nbsp;|&nbsp;
             Paid: <strong>{filteredPayments.filter(p => p.status === "Paid").length}</strong> &nbsp;|&nbsp;
-            Cancelled: <strong>{filteredPayments.filter(p => p.status === "Cancelled").length}</strong>
+            Cancelled: <strong>{filteredPayments.filter(p => p.status === "Cancelled").length}</strong> &nbsp;|&nbsp;
+            Refunds processed: <strong>{filteredPayments.filter(p => (p.refund_details || []).length > 0).length}</strong>
           </CardBody>
         </Card>
       </Page>
 
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* ── REFUND MODAL ── */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {refundModalOpen && refundRecord && (() => {
+        const totalRefunded  = getTotalRefunded(refundRecord);
+        const refundable     = getRefundableAmount(refundRecord);
+        const refundHistory  = Array.isArray(refundRecord.refund_details) ? refundRecord.refund_details : [];
+        const enteredAmount  = parseFloat(refundAmount) || 0;
+        const afterRefund    = refundable - enteredAmount;
+
+        return (
+          <ModalOverlay onClick={closeRefundModal}>
+            <ModalBox onClick={e => e.stopPropagation()}>
+              <ModalHeader color="purple">
+                <ModalTitle>💜 Process Refund — {refundRecord.bill_no || refundRecord.advance_id}</ModalTitle>
+                <CloseBtn onClick={closeRefundModal}>×</CloseBtn>
+              </ModalHeader>
+
+              <ModalBody>
+                {/* Summary */}
+                <RefundSummaryBox>
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>IP Number</RefundSummaryLabel>
+                    <RefundSummaryValue>{refundRecord.ip_number || "—"}</RefundSummaryValue>
+                  </RefundSummaryRow>
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>Patient Name</RefundSummaryLabel>
+                    <RefundSummaryValue>{refundRecord.patient_name || "—"}</RefundSummaryValue>
+                  </RefundSummaryRow>
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>Bill No</RefundSummaryLabel>
+                    <RefundSummaryValue style={{ fontFamily: "monospace" }}>{refundRecord.bill_no || "—"}</RefundSummaryValue>
+                  </RefundSummaryRow>
+                  <div style={{ height: 1, background: "#d8b4fe", margin: "4px 0" }} />
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>Total Advance Amount</RefundSummaryLabel>
+                    <RefundSummaryValue color={T.teal}>₹{fmt(refundRecord.advance_amount)}</RefundSummaryValue>
+                  </RefundSummaryRow>
+                  {totalRefunded > 0 && (
+                    <RefundSummaryRow>
+                      <RefundSummaryLabel>Already Refunded ({refundHistory.length} time{refundHistory.length > 1 ? "s" : ""})</RefundSummaryLabel>
+                      <RefundSummaryValue color={T.red}>- ₹{fmt(totalRefunded)}</RefundSummaryValue>
+                    </RefundSummaryRow>
+                  )}
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>Refundable Balance</RefundSummaryLabel>
+                    <RefundSummaryValue color={T.purple} large>₹{fmt(refundable)}</RefundSummaryValue>
+                  </RefundSummaryRow>
+                  {enteredAmount > 0 && !refundAmountError && (
+                    <RefundSummaryRow style={{ borderTop: "1px dashed #d8b4fe", paddingTop: 4, marginTop: 4 }}>
+                      <RefundSummaryLabel>Remaining after this refund</RefundSummaryLabel>
+                      <RefundSummaryValue color={afterRefund <= 0 ? T.red : T.green}>
+                        ₹{fmt(Math.max(0, afterRefund))}
+                      </RefundSummaryValue>
+                    </RefundSummaryRow>
+                  )}
+                </RefundSummaryBox>
+
+                {/* Refund Amount Input */}
+                <RefundInputWrap>
+                  <Lbl style={{ fontSize: "0.72rem" }}>Refund Amount (₹) *</Lbl>
+                  <RefundBigInp
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    max={refundable}
+                    value={refundAmount}
+                    placeholder={`Enter amount (max ₹${fmt(refundable)})`}
+                    error={!!refundAmountError}
+                    onChange={e => handleRefundAmountChange(e.target.value)}
+                  />
+                  {refundAmountError && (
+                    <RefundWarning>⚠ {refundAmountError}</RefundWarning>
+                  )}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {[25, 50, 75, 100].map(pct => {
+                      const val = ((refundable * pct) / 100).toFixed(2);
+                      return (
+                        <Btn
+                          key={pct}
+                          c="purple"
+                          style={{ height: 24, fontSize: "0.68rem", padding: "0 10px" }}
+                          onClick={() => handleRefundAmountChange(val)}
+                        >
+                          {pct}% — ₹{fmt(val)}
+                        </Btn>
+                      );
+                    })}
+                  </div>
+                </RefundInputWrap>
+
+                {/* Payment Mode */}
+                <Grid cols={2} style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                  <F>
+                    <Lbl>Refund Payment Mode *</Lbl>
+                    <Select value={refundPaymentMode} onChange={e => setRefundPaymentMode(e.target.value)}>
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="UPI">UPI</option>
+                      <option value="NEFT">NEFT</option>
+                      <option value="Cheque">Cheque</option>
+                    </Select>
+                  </F>
+                  <F>
+                    <Lbl>Remarks (optional)</Lbl>
+                    <Inp
+                      value={refundRemarks}
+                      placeholder="Reason for refund"
+                      onChange={e => setRefundRemarks(e.target.value)}
+                    />
+                  </F>
+                </Grid>
+
+                {/* Refund History */}
+                {refundHistory.length > 0 && (
+                  <HistorySection>
+                    <HistoryTitle>📋 Refund History ({refundHistory.length} transaction{refundHistory.length > 1 ? "s" : ""})</HistoryTitle>
+                    <HistoryTbl>
+                      <thead>
+                        <tr>
+                          <HTh>#</HTh>
+                          <HTh>Date</HTh>
+                          <HTh>Payment Mode</HTh>
+                          <HTh>Refunded By</HTh>
+                          <HTh>Remarks</HTh>
+                          <HTh right>Amount</HTh>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {refundHistory.map((r, idx) => (
+                          <HTr key={idx} even={idx % 2 === 0}>
+                            <HTd>{idx + 1}</HTd>
+                            <HTd>
+                              {r.refunded_date
+                                ? new Date(r.refunded_date).toLocaleString("en-IN")
+                                : "—"}
+                            </HTd>
+                            <HTd>{r.payment_mode || "—"}</HTd>
+                            <HTd>{r.refunded_by || "—"}</HTd>
+                            <HTd style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {r.remarks || "—"}
+                            </HTd>
+                            <HTd right style={{ fontWeight: 700, color: T.purple }}>
+                              - ₹{fmt(r.refunded_amount)}
+                            </HTd>
+                          </HTr>
+                        ))}
+                        <HTr>
+                          <HTd colSpan={5} style={{ fontWeight: 800, textAlign: "right", color: T.purple, fontSize: "0.72rem" }}>
+                            Total Refunded
+                          </HTd>
+                          <HTd right style={{ fontWeight: 800, color: T.purple }}>
+                            - ₹{fmt(totalRefunded)}
+                          </HTd>
+                        </HTr>
+                      </tbody>
+                    </HistoryTbl>
+                  </HistorySection>
+                )}
+
+                {refundHistory.length === 0 && (
+                  <NoHistoryNote>No refunds processed for this advance yet.</NoHistoryNote>
+                )}
+
+                <ModalActions>
+                  <Btn v="reset" onClick={closeRefundModal}>Cancel</Btn>
+                  <Btn
+                    c="purple"
+                    onClick={handleRefundSubmit}
+                    disabled={refundSaving || !refundAmount || !!refundAmountError || enteredAmount <= 0}
+                  >
+                    {refundSaving ? "Processing…" : `💜 Process Refund ₹${fmt(enteredAmount || 0)}`}
+                  </Btn>
+                </ModalActions>
+              </ModalBody>
+            </ModalBox>
+          </ModalOverlay>
+        );
+      })()}
+
       {/* ── PRINT MODAL ── */}
       {printModalOpen && printRecord && (
-      <ModalOverlay onClick={closePrintModal}>
-        <ModalBox onClick={e => e.stopPropagation()}>
-          <ModalHeader>
-            <ModalTitle>Advance Payment Slip</ModalTitle>
-            <CloseBtn onClick={closePrintModal}>×</CloseBtn>
-          </ModalHeader>
+        <ModalOverlay onClick={closePrintModal}>
+          <ModalBox wide onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>Advance Payment Slip</ModalTitle>
+              <CloseBtn onClick={closePrintModal}>×</CloseBtn>
+            </ModalHeader>
+            <ModalBody>
+              <BillSlipContainer ref={printRef} className="print-container">
+                <BillHeader>
+                  <BillTitle>SHANMUGA HOSPITAL LIMITED</BillTitle>
+                  <BillSubtitle>Sh2/1-1, Sardar Patel Road, Salem - 636007</BillSubtitle>
+                  <BillSubtitle>Ph: 04272706666</BillSubtitle>
+                  <div style={{ fontWeight: "bold", marginTop: "4px" }}>Advance Slip</div>
+                </BillHeader>
 
-          <ModalBody>
-            <BillSlipContainer ref={printRef} className="print-container">
+                {(() => {
+                  const payMode = printRecord.payment_mode || printRecord.payment_details?.method || "—";
+                  const paidDate = printRecord.paid_date || printRecord.paid_datetime;
+                  const refundHistory = Array.isArray(printRecord.refund_details) ? printRecord.refund_details : [];
+                  const totalRefunded = getTotalRefunded(printRecord);
+                  const netBalance = (parseFloat(printRecord.advance_amount) || 0) - totalRefunded;
 
-              <BillHeader>
-                <BillTitle>SHANMUGA HOSPITAL LIMITED</BillTitle>
-                <BillSubtitle>Sh2/1-1, Sardar Patel Road, Salem - 636007</BillSubtitle>
-                <BillSubtitle>Ph: 04272706666</BillSubtitle>
-                <div style={{ fontWeight: "bold", marginTop: "4px" }}>
-                  Advance Slip
-                </div>
-              </BillHeader>
+                  return (
+                    <>
+                      <BillSection>
+                        <BillRow><BillLabel>IP Number</BillLabel><BillValue>{printRecord.ip_number || "—"}</BillValue></BillRow>
+                        <BillRow><BillLabel>Name</BillLabel><BillValue>{printRecord.patient_name || "—"}</BillValue></BillRow>
+                        <BillRow>
+                          <BillLabel>Bill Date</BillLabel>
+                          <BillValue>{printRecord.bill_date ? new Date(printRecord.bill_date).toLocaleString("en-IN") : "—"}</BillValue>
+                        </BillRow>
+                        <BillRow><BillLabel>Bill No</BillLabel><BillValue style={{ fontWeight: "bold" }}>{printRecord.bill_no || "—"}</BillValue></BillRow>
+                        <BillRow><BillLabel>Payment Mode</BillLabel><BillValue>{payMode}</BillValue></BillRow>
+                        <BillRow>
+                          <BillLabel>Paid Date</BillLabel>
+                          <BillValue>{paidDate ? new Date(paidDate).toLocaleString("en-IN") : "—"}</BillValue>
+                        </BillRow>
+                      </BillSection>
 
-              {/* 🔹 Extract values safely */}
-              {(() => {
-                const paymentMode =
-                  printRecord.payment_mode ||
-                  printRecord.payment_details?.method ||
-                  "—";
+                      <BillSection>
+                        <BillRow divider><BillLabel>Description</BillLabel><BillValue>Amount</BillValue></BillRow>
+                        <BillRow><span>1. IP Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.ip_advance)}</BillValue></BillRow>
+                        <BillRow><span>2. Billing Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.billing_advance)}</BillValue></BillRow>
+                      </BillSection>
 
-                const paidDate = printRecord.paid_date || printRecord.paid_datetime;
+                      {refundHistory.length > 0 && (
+                        <BillSection style={{ background: "#faf5ff", border: "1px solid #d8b4fe", borderRadius: 4, padding: 8 }}>
+                          <div style={{ fontWeight: "bold", color: "#7e22ce", marginBottom: 6, fontSize: 11 }}>
+                            Refund History
+                          </div>
+                          {refundHistory.map((r, idx) => (
+                            <BillRow key={idx}>
+                              <span style={{ fontSize: 11 }}>
+                                {idx + 1}. {r.refunded_date ? new Date(r.refunded_date).toLocaleDateString("en-IN") : "—"} ({r.payment_mode || "—"})
+                              </span>
+                              <BillValue style={{ color: "#7e22ce", fontWeight: "bold" }}>
+                                - ₹{fmt(r.refunded_amount)}
+                              </BillValue>
+                            </BillRow>
+                          ))}
+                          <BillRow divider style={{ fontWeight: "bold", color: "#7e22ce", marginTop: 4 }}>
+                            <span>Total Refunded</span>
+                            <BillValue>- ₹{fmt(totalRefunded)}</BillValue>
+                          </BillRow>
+                        </BillSection>
+                      )}
 
-                return (
-                  <>
-                    <BillSection>
-                      <BillRow>
-                        <BillLabel>IP Number</BillLabel>
-                        <BillValue>{printRecord.ip_number || printRecord.ipNumber || "—"}</BillValue>
-                      </BillRow>
+                      <BillSection>
+                        <BillRow divider style={{ fontWeight: "bold" }}>
+                          <BillLabel>User: {printRecord.created_by || "—"}</BillLabel>
+                          <BillValue>Total ₹{fmt(printRecord.advance_amount)}</BillValue>
+                        </BillRow>
+                        {totalRefunded > 0 && (
+                          <BillRow style={{ fontWeight: "bold", color: "#7e22ce" }}>
+                            <span>Net Balance</span>
+                            <BillValue>₹{fmt(netBalance)}</BillValue>
+                          </BillRow>
+                        )}
+                      </BillSection>
 
-                      <BillRow>
-                        <BillLabel>Name</BillLabel>
-                        <BillValue>{printRecord.patient_name || printRecord.name || "—"}</BillValue>
-                      </BillRow>
+                      <BillSection style={{ textAlign: "center", marginTop: 20, paddingTop: 10, borderTop: `1px solid ${T.text}` }}>
+                        <div style={{ fontSize: 11, marginBottom: 20 }}>Signature Of Cashier</div>
+                      </BillSection>
+                    </>
+                  );
+                })()}
+              </BillSlipContainer>
 
-                      <BillRow>
-                        <BillLabel>Bill Date</BillLabel>
-                        <BillValue>
-                          {printRecord.bill_date
-                            ? new Date(printRecord.bill_date).toLocaleString("en-IN")
-                            : "—"}
-                        </BillValue>
-                      </BillRow>
-
-                      <BillRow>
-                        <BillLabel>Bill No</BillLabel>
-                        <BillValue style={{ fontWeight: "bold" }}>
-                          {printRecord.bill_no || "—"}
-                        </BillValue>
-                      </BillRow>
-
-                      {/* ✅ Payment Mode */}
-                      <BillRow>
-                        <BillLabel>Payment Mode</BillLabel>
-                        <BillValue>{paymentMode}</BillValue>
-                      </BillRow>
-
-                      {/* ✅ Paid Date */}
-                      <BillRow>
-                        <BillLabel>Paid Date</BillLabel>
-                        <BillValue>
-                          {paidDate
-                            ? new Date(paidDate).toLocaleString("en-IN")
-                            : "—"}
-                        </BillValue>
-                      </BillRow>
-                    </BillSection>
-
-                    <BillSection>
-                      <BillRow divider>
-                        <BillLabel>Description</BillLabel>
-                        <BillValue>Amount</BillValue>
-                      </BillRow>
-
-                      <BillRow>
-                        <span>1. IP Advance</span>
-                        <BillValue style={{ fontWeight: "bold" }}>
-                          ₹{fmt(printRecord.ip_advance)}
-                        </BillValue>
-                      </BillRow>
-
-                      <BillRow>
-                        <span>2. Billing Advance</span>
-                        <BillValue style={{ fontWeight: "bold" }}>
-                          ₹{fmt(printRecord.billing_advance)}
-                        </BillValue>
-                      </BillRow>
-                    </BillSection>
-
-                    <BillSection>
-                      <BillRow divider style={{ fontWeight: "bold" }}>
-                        <BillLabel>User: {printRecord.created_by || "—"}</BillLabel>
-                        <BillValue>
-                          Total ₹{fmt(printRecord.advance_amount)}
-                        </BillValue>
-                      </BillRow>
-                    </BillSection>
-
-                    <BillSection
-                      style={{
-                        textAlign: "center",
-                        marginTop: "20px",
-                        paddingTop: "10px",
-                        borderTop: "1px solid " + T.text
-                      }}
-                    >
-                      <div style={{ fontSize: "11px", marginBottom: "20px" }}>
-                        Signature Of Cashier
-                      </div>
-                    </BillSection>
-                  </>
-                );
-              })()}
-
-            </BillSlipContainer>
-
-            <ModalActions>
-              <Btn v="reset" onClick={closePrintModal}>Close</Btn>
-              <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
-            </ModalActions>
-          </ModalBody>
-        </ModalBox>
-      </ModalOverlay>
+              <ModalActions>
+                <Btn v="reset" onClick={closePrintModal}>Close</Btn>
+                <Btn c="blue" onClick={handlePrint}>🖨️ Print</Btn>
+              </ModalActions>
+            </ModalBody>
+          </ModalBox>
+        </ModalOverlay>
       )}
     </>
   );

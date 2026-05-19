@@ -930,6 +930,11 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
+                <Route
+                  path="/OTMedicineBilling"
+                  element={<OTMedicineBilling />}
+                />
+              )}
                   <Route
                     path="/OTMedicineBilling"
                     element={<OTMedicineBilling />}
