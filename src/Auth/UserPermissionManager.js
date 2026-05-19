@@ -24,6 +24,22 @@ const pulseGlow = keyframes`
 
 // --- Styled Components ---
 
+const PageContainer = styled.div`
+  padding: 24px 32px;
+  background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: auto;
+  }
+`;
+
 const Container = styled.div`
   padding: 32px 40px;
   background: #f8fafc;
@@ -109,12 +125,12 @@ const ContentLayout = styled.div`
 // --- Left Panel: User List ---
 
 const ListPanel = styled.div`
-  width: 360px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
+  width: 380px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
   border-radius: 24px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -130,9 +146,9 @@ const ListPanel = styled.div`
 `;
 
 const SearchContainer = styled.div`
-  padding: 20px;
-  background: white;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
   z-index: 2;
 `;
 
@@ -178,14 +194,21 @@ const SearchInputWrapper = styled.div`
 
 const EmployeeList = styled.div`
   flex: 1;
-  padding: 16px;
+  padding: 16px 8px 16px 16px; /* Reduced right padding for inline scrollbar breathing room */
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px; /* Increased space between employee list items */
 
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-track { background: transparent; }
+  /* Inline Scrollbar Styling */
+  &::-webkit-scrollbar { 
+    width: 6px; 
+  }
+  &::-webkit-scrollbar-track { 
+    background: transparent; 
+    margin: 8px 0; /* Keeps scrollbar from touching the top/bottom edges */
+  }
   &::-webkit-scrollbar-thumb { 
     background: #cbd5e1; 
     border-radius: 10px; 
@@ -194,73 +217,107 @@ const EmployeeList = styled.div`
 `;
 
 const EmployeeItem = styled.div`
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   gap: 16px;
   position: relative;
-  overflow: hidden;
-  background: ${props => props.active ? '#f0fdfa' : 'transparent'};
-  border: 1px solid ${props => props.active ? '#ccfbf1' : 'transparent'};
-
-  /* Active State Accent Bar */
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 10%;
-    bottom: 10%;
-    width: 4px;
-    border-radius: 0 4px 4px 0;
-    background: #0d9488;
-    transform: scaleY(${props => props.active ? 1 : 0});
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  }
+  background: ${props => props.active ? 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)' : 'rgba(255, 255, 255, 0.6)'};
+  border: 1px solid ${props => props.active ? 'transparent' : 'rgba(255, 255, 255, 0.8)'};
+  box-shadow: ${props => props.active ? '0 10px 24px rgba(13, 148, 136, 0.3)' : '0 2px 8px rgba(0,0,0,0.02)'};
+  margin-right: 8px; /* Extra space to prevent inline scrollbar overlap */
+  color: ${props => props.active ? 'white' : 'inherit'};
 
   &:hover {
-    background: ${props => props.active ? '#f0fdfa' : '#f8fafc'};
+    background: ${props => props.active ? 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)' : 'rgba(255, 255, 255, 0.9)'};
+    transform: translateY(-2px);
+    box-shadow: ${props => props.active ? '0 12px 28px rgba(13, 148, 136, 0.35)' : '0 6px 16px rgba(0,0,0,0.04)'};
+    animation: ${props => props.active ? pulseGlow : 'none'} 2s infinite;
   }
 `;
 
 const Avatar = styled.div`
-  width: 44px;
-  height: 44px;
-  background: ${props => props.active ? 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' : '#f1f5f9'};
-  color: ${props => props.active ? 'white' : '#64748b'};
+  width: 48px;
+  height: 48px;
+  background: ${props => props.active ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)'};
+  color: ${props => props.active ? 'white' : '#475569'};
+  border: 1px solid ${props => props.active ? 'rgba(255,255,255,0.3)' : 'transparent'};
   border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: ${props => props.active ? '0 4px 10px rgba(13, 148, 136, 0.3)' : 'none'};
+  box-shadow: ${props => props.active ? '0 4px 10px rgba(0, 0, 0, 0.1)' : 'inset 0 2px 4px rgba(255,255,255,0.5)'};
   transition: all 0.3s ease;
 `;
 
 const EmpInfo = styled.div`
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  
+  .emp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+    gap: 8px;
+  }
   
   h4 {
     margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: ${props => props.active ? '#0f766e' : '#1e293b'};
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: ${props => props.active ? 'white' : '#0f172a'};
   }
   
-  span {
-    font-size: 0.8rem;
-    color: ${props => props.active ? '#0d9488' : '#64748b'};
-    display: block;
-    margin-top: 4px;
+  .emp-id {
+    font-size: 0.75rem;
+    color: ${props => props.active ? '#0f766e' : '#64748b'};
+    font-weight: 700;
+    background: ${props => props.active ? 'rgba(255, 255, 255, 0.9)' : '#f1f5f9'};
+    padding: 3px 8px;
+    border-radius: 8px;
+    white-space: nowrap;
+    box-shadow: ${props => props.active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
+  }
+  
+  .emp-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+  
+  .dept {
+    color: ${props => props.active ? 'rgba(255, 255, 255, 0.9)' : '#64748b'};
     font-weight: 500;
+  }
+  
+  .desig {
+    color: ${props => props.active ? 'rgba(255, 255, 255, 0.95)' : '#475569'};
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: ${props => props.active ? 'rgba(255, 255, 255, 0.6)' : '#cbd5e1'};
+    }
   }
 `;
 
@@ -280,10 +337,11 @@ const GroupBadge = styled.div`
 
 const DetailPanel = styled.div`
   flex: 1;
-  background: white;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
   border-radius: 24px;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 0 3px rgba(0,0,0,0.02);
-  border: 1px solid #f1f5f9;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -297,10 +355,9 @@ const DetailPanel = styled.div`
 `;
 
 const DetailHeader = styled.div`
-  padding: 20px 30px;
-  border-bottom: 1px solid #f1f5f9;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
+  padding: 28px 32px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.5);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -312,7 +369,7 @@ const DetailHeader = styled.div`
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
-    padding: 16px 20px;
+    padding: 20px;
   }
 `;
 
@@ -385,8 +442,8 @@ const SaveButton = styled.button`
 
 const PermissionsContent = styled.div`
   flex: 1;
-  padding: 24px 30px;
-  background: #fafafa;
+  padding: 32px;
+  background: transparent;
   overflow-y: auto;
 
   &::-webkit-scrollbar { width: 6px; }
@@ -394,11 +451,7 @@ const PermissionsContent = styled.div`
   &::-webkit-scrollbar-thumb { 
     background: #cbd5e1; 
     border-radius: 10px; 
-    border: 1px solid #fafafa;
-  }
-
-  @media (max-width: 768px) {
-    padding: 16px 20px;
+    border: 1px solid rgba(255,255,255,0.5);
   }
 `;
 
@@ -406,7 +459,7 @@ const SectionTitle = styled.h4`
   font-size: 0.85rem;
   color: #475569;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.5px;
   font-weight: 800;
   margin: 36px 0 20px 0;
   display: flex;
@@ -426,26 +479,26 @@ const SectionTitle = styled.h4`
 const PermissionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  gap: 20px;
 `;
 
 const PermissionCard = styled.div`
-  background: white;
+  background: ${props => props.active ? 'linear-gradient(135deg, rgba(204, 251, 241, 0.4) 0%, rgba(255, 255, 255, 0.8) 100%)' : 'rgba(255, 255, 255, 0.6)'};
+  border: 1px solid ${props => props.active ? 'rgba(20, 184, 166, 0.4)' : 'rgba(255, 255, 255, 0.8)'};
   border-radius: 20px;
-  padding: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid ${props => props.active ? '#0d9488' : '#e2e8f0'};
-  box-shadow: ${props => props.active
-    ? '0 10px 15px -3px rgba(13, 148, 136, 0.1), 0 4px 6px -2px rgba(13, 148, 136, 0.05)'
-    : '0 4px 6px -1px rgba(0, 0, 0, 0.02)'};
+  padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: ${props => props.active ? '0 12px 24px rgba(20, 184, 166, 0.1)' : '0 4px 16px rgba(0,0,0,0.03)'};
+  position: relative;
+  overflow: hidden;
 
   &:hover {
     transform: translateY(-4px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    border-color: ${props => props.active ? '#0d9488' : '#cbd5e1'};
+    box-shadow: ${props => props.active ? '0 16px 32px rgba(20, 184, 166, 0.15)' : '0 10px 24px rgba(0,0,0,0.06)'};
+    background: ${props => props.active ? 'linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%)' : 'rgba(255, 255, 255, 0.9)'};
   }
 `;
 
@@ -726,9 +779,11 @@ const UserPermissionManager = () => {
 
           // Normalized mapping of ALL incoming permissions
           let allIncomingMapping = {};
+          const isLegacyArray = Array.isArray(response.allowed_pages);
+
           if (response.allowed_pages && !Array.isArray(response.allowed_pages) && typeof response.allowed_pages === 'object') {
             allIncomingMapping = { ...response.allowed_pages };
-          } else if (Array.isArray(response.allowed_pages)) {
+          } else if (isLegacyArray) {
             // Convert legacy array to identity mapping
             response.allowed_pages.forEach(s => {
               allIncomingMapping[String(s).trim()] = String(s).trim();
@@ -750,8 +805,13 @@ const UserPermissionManager = () => {
               Object.entries(pMap).forEach(([k, v]) => {
                 const normalizedV = String(v).trim();
                 // Check if this specific mapping (or its value) exists in incoming data
-                // We check values because historically that's what was saved
-                if (allIncomingValues.includes(normalizedV)) {
+                // For modern granular dictionary saves, match strictly by key (k).
+                // For legacy arrays, fall back to value check.
+                const isActive = isLegacyArray 
+                  ? allIncomingValues.includes(normalizedV)
+                  : (k in allIncomingMapping);
+
+                if (isActive) {
                   activeKeys.push(k);
                   discoveredPageIds.add(pId);
                 }
@@ -980,8 +1040,14 @@ const UserPermissionManager = () => {
                     {emp.employeeName?.charAt(0) || "?"}
                   </Avatar>
                   <EmpInfo active={selectedEmpId === emp.employeeId}>
-                    <h4>{emp.employeeName}</h4>
-                    <span>{emp.employeeId} • {emp.designation}</span>
+                    <div className="emp-header">
+                      <h4>{emp.employeeName}</h4>
+                      {emp.employeeId && <span className="emp-id">#{emp.employeeId}</span>}
+                    </div>
+                    <div className="emp-meta">
+                      {emp.department && <span className="dept">{emp.department}</span>}
+                      {emp.designation && <span className="desig">{emp.designation}</span>}
+                    </div>
                   </EmpInfo>
                   {selectedEmpId === emp.employeeId && <FiCheck color="#0d9488" size={18} />}
                 </EmployeeItem>
