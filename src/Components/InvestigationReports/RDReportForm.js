@@ -713,6 +713,59 @@ const ErrorText = styled.p`
   margin: 0;
 `;
 
+// ─── ANC Fields Row ───────────────────────────────────────────────────────────
+const ANCRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
+  border: 1.5px solid #b2dfdb;
+  border-left: 5px solid #00897b;
+  border-radius: 14px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 0;
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 600px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+`;
+const ANCFieldGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+`;
+const ANCLabel = styled.label`
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #00695c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+const ANCInput = styled.input`
+  padding: 0.45rem 0.65rem;
+  border: 1.5px solid #b2dfdb;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  color: #333;
+  background: white;
+  box-sizing: border-box;
+  width: 100%;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+  &:focus {
+    outline: none;
+    border-color: #00897b;
+    box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.12);
+  }
+  &::placeholder {
+    color: #bbb;
+    font-style: italic;
+  }
+`;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDisplayDate = (d) =>
@@ -990,7 +1043,7 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
-      suppressRef.current = true;
+      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1006,7 +1059,7 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       markEl.remove();
       sel.removeAllRanges();
       sel.addRange(range);
-      suppressRef.current = true;
+      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1046,7 +1099,7 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
         sel.removeAllRanges();
         sel.addRange(newRange);
 
-        suppressRef.current = true;
+        // suppressRef.current = true;
         const html = el.innerHTML;
         lastHTMLRef.current = html;
         onChange(index, html);
@@ -1195,7 +1248,7 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
     if (!el) return;
     const html = el.innerHTML;
     lastHTMLRef.current = html;
-    suppressRef.current = true;
+    // suppressRef.current = true;
     onChange(html);
   };
 
@@ -1285,6 +1338,14 @@ const RDReportForm = () => {
   // ── Final impression ──────────────────────────────────────────────────────
   const [impression, setImpression] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isANC, setIsANC] = useState(false);
+  const [ancFields, setAncFields] = useState({
+    guh: "",
+    lmp: "",
+    ga_weeks: "",
+    ga_days: "",
+    edd_usg: "",
+  });
 
   // ── Load patient data ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1356,9 +1417,14 @@ const RDReportForm = () => {
           TAT_Time: data.TAT_Time,
           doctor_id: data.doctor_id,
           impression: data.impression,
+          type: data.type || "",
         });
 
         setShortcuts(data.shorcuts || {});
+
+        // ── ANC type detection ───────────────────────────────────────────────
+        const isANCType = (data.type || "").toUpperCase() === "ANC";
+        setIsANC(isANCType);
 
         // ✅ Build sections supporting both text and table entries
         const built = buildSectionsFromFormat(data.format || []);
@@ -1451,8 +1517,9 @@ const RDReportForm = () => {
       item_id: itemId,
       device_id: formatMeta?.device_id || [],
       sections: apiSections,
+      type: formatMeta?.type || "", // ← add this
+      ...(isANC && { anc_fields: ancFields }),
     };
-
     try {
       const result = await apiRequest(
         `${HMSURL}scan-reports/`,
@@ -1571,6 +1638,82 @@ const RDReportForm = () => {
           )}
 
           <Form onSubmit={handleSubmit}>
+            {/* ── ANC Fields ── */}
+            {isANC && (
+              <div>
+                <FormatSectionHeader>
+                  <FormatSectionTitle style={{ color: "#00695c" }}>
+                    OB / ANC Details
+                  </FormatSectionTitle>
+                  <FormatSubtitle>Obstetric measurements</FormatSubtitle>
+                </FormatSectionHeader>
+                <ANCRow>
+                  <ANCFieldGroup>
+                    <ANCLabel>GUH</ANCLabel>
+                    <ANCInput
+                      placeholder="///"
+                      value={ancFields.guh}
+                      onChange={(e) =>
+                        setAncFields((p) => ({ ...p, guh: e.target.value }))
+                      }
+                    />
+                  </ANCFieldGroup>
+                  <ANCFieldGroup>
+                    <ANCLabel>LMP</ANCLabel>
+                    <ANCInput
+                      type="date"
+                      value={ancFields.lmp}
+                      onChange={(e) =>
+                        setAncFields((p) => ({ ...p, lmp: e.target.value }))
+                      }
+                    />
+                  </ANCFieldGroup>
+                  <ANCFieldGroup>
+                    <ANCLabel>GA (By LMP) — Weeks</ANCLabel>
+                    <ANCInput
+                      type="number"
+                      min="0"
+                      max="45"
+                      placeholder="weeks"
+                      value={ancFields.ga_weeks}
+                      onChange={(e) =>
+                        setAncFields((p) => ({
+                          ...p,
+                          ga_weeks: e.target.value,
+                        }))
+                      }
+                    />
+                  </ANCFieldGroup>
+                  <ANCFieldGroup>
+                    <ANCLabel>GA (By LMP) — Days</ANCLabel>
+                    <ANCInput
+                      type="number"
+                      min="0"
+                      max="6"
+                      placeholder="days"
+                      value={ancFields.ga_days}
+                      onChange={(e) =>
+                        setAncFields((p) => ({
+                          ...p,
+                          ga_days: e.target.value,
+                        }))
+                      }
+                    />
+                  </ANCFieldGroup>
+                  <ANCFieldGroup>
+                    <ANCLabel>EDD (By USG)</ANCLabel>
+                    <ANCInput
+                      type="date"
+                      value={ancFields.edd_usg}
+                      onChange={(e) =>
+                        setAncFields((p) => ({ ...p, edd_usg: e.target.value }))
+                      }
+                    />
+                  </ANCFieldGroup>
+                </ANCRow>
+              </div>
+            )}
+
             {/* ── Format sections ── */}
             {formatLoading && (
               <FormatLoadingBox>

@@ -477,6 +477,39 @@ const ReferredByBadge = styled.span`
   border-radius: 20px;
   white-space: nowrap;
 `;
+
+// ─── ANC Info Row ─────────────────────────────────────────────────────────────
+const ANCInfoRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.65rem;
+  background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
+  border: 1.5px solid #b2dfdb;
+  border-left: 4px solid #00897b;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+`;
+const ANCInfoChip = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+`;
+const ANCInfoLabel = styled.span`
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #00897b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+const ANCInfoValue = styled.span`
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #333;
+`;
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
@@ -1049,6 +1082,140 @@ const formatSlotDisplay = (slotDateTime) => {
     return slotDateTime;
   }
 };
+
+// ─── ANC helpers ──────────────────────────────────────────────────────────────
+const getANCFields = (row) => row?.report?.valuedetails?.anc_fields || null;
+
+const isANCRow = (row) => row.radiology_type === "ANC" || !!getANCFields(row);
+
+const formatLMPDate = (val) => {
+  if (!val) return "—";
+  try {
+    return new Date(val).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return val;
+  }
+};
+
+const ANCDisplayBlock = ({ row }) => {
+  const anc = getANCFields(row) || {};
+  return (
+    <ANCInfoRow>
+      <ANCInfoChip>
+        <ANCInfoLabel>GUH</ANCInfoLabel>
+        <ANCInfoValue>{anc.guh || "—"}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>LMP</ANCInfoLabel>
+        <ANCInfoValue>{formatLMPDate(anc.lmp)}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
+        <ANCInfoValue>
+          {anc.ga_weeks || "—"}w {anc.ga_days || "—"}d
+        </ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
+        <ANCInfoValue>{formatLMPDate(anc.edd_usg)}</ANCInfoValue>
+      </ANCInfoChip>
+    </ANCInfoRow>
+  );
+};
+const ANCEditBlock = ({ row, ancFields, onChange }) => (
+  <ANCInfoRow style={{ marginBottom: "1rem" }}>
+    <ANCInfoChip>
+      <ANCInfoLabel>GUH</ANCInfoLabel>
+      <input
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="///"
+        value={ancFields.guh || ""}
+        onChange={(e) => onChange((p) => ({ ...p, guh: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>LMP</ANCInfoLabel>
+      <input
+        type="date"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        value={ancFields.lmp || ""}
+        onChange={(e) => onChange((p) => ({ ...p, lmp: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>GA Weeks</ANCInfoLabel>
+      <input
+        type="number"
+        min="0"
+        max="45"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="weeks"
+        value={ancFields.ga_weeks || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_weeks: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>GA Days</ANCInfoLabel>
+      <input
+        type="number"
+        min="0"
+        max="6"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="days"
+        value={ancFields.ga_days || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_days: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
+      <input
+        type="date"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        value={ancFields.edd_usg || ""}
+        onChange={(e) => onChange((p) => ({ ...p, edd_usg: e.target.value }))}
+      />
+    </ANCInfoChip>
+  </ANCInfoRow>
+);
 
 // ─── Rich Editor Ref Helper ───────────────────────────────────────────────────
 
@@ -1905,6 +2072,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     }
 
     // ── Sub heading ────────────────────────────────────────────────────────────
+    // ── Sub heading ────────────────────────────────────────────────────────────
     if (subHeading) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(8.5);
@@ -1915,6 +2083,86 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       yPos += 5;
     }
     yPos += 2;
+
+    // ── ANC Fields Row (below sub_heading, only for ANC type) ──────────────────
+    const ancData = row.report?.valuedetails?.anc_fields;
+    if (
+      ancData &&
+      (ancData.guh || ancData.lmp || ancData.ga_weeks || ancData.edd_usg)
+    ) {
+      const ancRowH = 16;
+      const ancCellW = contentWidth / 4;
+      const ancLabels = ["GUH", "LMP", "GA (By LMP)", "EDD (By USG)"];
+      const ancVals = [
+        ancData.guh || "—",
+        ancData.lmp
+          ? (() => {
+              try {
+                return new Date(ancData.lmp).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+              } catch {
+                return ancData.lmp;
+              }
+            })()
+          : "—",
+        ancData.ga_weeks || ancData.ga_days
+          ? `${ancData.ga_weeks || "0"}w ${ancData.ga_days || "0"}d`
+          : "—",
+        ancData.edd_usg
+          ? (() => {
+              try {
+                return new Date(ancData.edd_usg).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+              } catch {
+                return ancData.edd_usg;
+              }
+            })()
+          : "—",
+      ];
+
+      // Background fill
+      doc.setFillColor(232, 245, 233);
+      doc.rect(leftMargin, yPos, contentWidth, ancRowH, "F");
+      // Outer border
+      doc.setDrawColor(178, 223, 219);
+      doc.rect(leftMargin, yPos, contentWidth, ancRowH, "S");
+      // Left accent line
+      doc.setDrawColor(0, 105, 92);
+      doc.setLineWidth(1.2);
+      doc.line(leftMargin, yPos, leftMargin, yPos + ancRowH);
+      doc.setLineWidth(0.2);
+      doc.setDrawColor(178, 223, 219);
+
+      ancLabels.forEach((label, i) => {
+        const cellX = leftMargin + i * ancCellW;
+        // Divider between cells
+        if (i > 0) {
+          doc.line(cellX, yPos, cellX, yPos + ancRowH);
+        }
+        // Label
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(0, 105, 92);
+        doc.text(label, cellX + ancCellW / 2, yPos + 5, { align: "center" });
+        // Value
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(40, 40, 40);
+        doc.text(ancVals[i], cellX + ancCellW / 2, yPos + 11.5, {
+          align: "center",
+        });
+      });
+
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
+      yPos += ancRowH + 4;
+    }
 
     // ── Sections ───────────────────────────────────────────────────────────────
 
@@ -2294,6 +2542,8 @@ const Modal = ({ row, onClose }) => {
               </InfoChip>
             )}
           </InfoBanner>
+          {isANCRow(row) && <ANCDisplayBlock row={row} />}
+
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -2342,6 +2592,16 @@ const EditModal = ({ row, onClose, onSave }) => {
   );
   const [impression, setImpression] = useState(report?.impression || "");
   const [saving, setSaving] = useState(false);
+  const [editAncFields, setEditAncFields] = useState(
+    () =>
+      row.report?.valuedetails?.anc_fields || {
+        guh: "",
+        lmp: "",
+        ga_weeks: "",
+        ga_days: "",
+        edd_usg: "",
+      },
+  );
 
   const handleSectionChange = (index, value, isTableUpdate = false) => {
     setSections((prev) => {
@@ -2374,7 +2634,7 @@ const EditModal = ({ row, onClose, onSave }) => {
       value: s.isTable ? s.value : s.value,
       isTable: s.isTable,
     }));
-    await onSave(impression, apiSections);
+    await onSave(impression, apiSections, isANCRow(row) ? editAncFields : null);
     setSaving(false);
   };
 
@@ -2406,6 +2666,14 @@ const EditModal = ({ row, onClose, onSave }) => {
               </InfoChipValue>
             </InfoChip>
           </InfoBanner>
+          {isANCRow(row) && (
+            <ANCEditBlock
+              row={row}
+              ancFields={editAncFields}
+              onChange={setEditAncFields}
+            />
+          )}
+
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -2718,6 +2986,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         referredBy: row.referredBy || "",
         report: row.report || null,
         hasReport: !!row.hasReport,
+        radiology_type: (row.radiology_format?.type || "").toUpperCase(),
       }));
       setRows(merged);
     } catch {
@@ -2970,7 +3239,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     }
   };
 
-  const handleSaveEdit = async (newImpression, newSections) => {
+  const handleSaveEdit = async (newImpression, newSections, newAncFields) => {
     try {
       const apiSections = newSections.map((s) => {
         if (s.isTable) {
@@ -2988,7 +3257,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       const result = await apiRequest(
         `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.item_id)}/`,
         "PATCH",
-        { impression: newImpression, sections: apiSections },
+        {
+          impression: newImpression,
+          sections: apiSections,
+          ...(newAncFields && { anc_fields: newAncFields }),
+        },
       );
       if (!result.success) throw new Error(result.error);
       toast.success("Report updated successfully!");
@@ -3005,6 +3278,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   valuedetails: {
                     ...r.report?.valuedetails,
                     value: apiSections,
+                    ...(newAncFields && { anc_fields: newAncFields }),
                   },
                 },
               }
@@ -3326,14 +3600,25 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             bg="linear-gradient(135deg,#00897b,#00695c)"
                             onClick={() => handleGoToReport(row)}
                             disabled={
-                              row.hasReport || row.paymentStatus !== "Paid"
+                              row.paymentStatus !== "Paid" ||
+                              row.report?.is_approved ||
+                              (row.hasReport && !row.ipNumber) ||
+                              (row.hasReport &&
+                                row.ipNumber &&
+                                row.report?.impression?.trim())
                             }
                             data-tip={
-                              row.hasReport
-                                ? "Already Submitted"
-                                : row.paymentStatus !== "Paid"
-                                  ? "Payment Pending"
-                                  : "Go to Report"
+                              row.paymentStatus !== "Paid"
+                                ? "Payment Pending"
+                                : row.report?.is_approved
+                                  ? "Already Approved"
+                                  : row.hasReport && !row.ipNumber
+                                    ? "Already Submitted"
+                                    : row.hasReport &&
+                                        row.ipNumber &&
+                                        row.report?.impression?.trim()
+                                      ? "Already Submitted"
+                                      : "Go to Report"
                             }
                           >
                             📋
