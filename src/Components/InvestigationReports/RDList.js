@@ -36,15 +36,7 @@ import {
   ButtonContainer,
   colors,
 } from "../GlobalStyles";
-
-// ─── Bill Type Options ────────────────────────────────────────────────────────
-
-const BILL_TYPES = [
-  { label: "CT", value: "CT01" },
-  { label: "MRI", value: "MRI01" },
-  { label: "USG", value: "USG01" },
-  { label: "X-RAY", value: "XRAY01" },
-];
+import RDPrint from "./RDPrint";
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -477,7 +469,117 @@ const ReferredByBadge = styled.span`
   border-radius: 20px;
   white-space: nowrap;
 `;
+const CheckInBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  ${(p) =>
+    p.checked
+      ? `background: linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#2e7d32;`
+      : `background: linear-gradient(135deg,#f5f5f5,#eeeeee); color:#9e9e9e;`}
+`;
 
+const DispatchBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #1565c0;
+`;
+// ── Scan Type Badge ────────────────────────────────────────────────────────
+const ScanTypeBadge = styled.span`
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  ${(p) => {
+    switch (p.type) {
+      case "DOPPLER":
+        return `background:#e3f2fd; color:#1565c0;`;
+      case "ANC":
+        return `background:#fce4ec; color:#880e4f;`;
+      case "OBSTETRIC":
+        return `background:#f3e5f5; color:#6a1b9a;`;
+      case "GENERAL":
+      default:
+        return `background:#e8f5e9; color:#2e7d32;`;
+    }
+  }}
+`;
+
+// ── TAT Badge ──────────────────────────────────────────────────────────────
+const TATBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  ${(p) => {
+    switch (p.status) {
+      case "completed":
+        return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#1b5e20;`;
+      case "completed_late":
+        return `background:linear-gradient(135deg,#ffe0b2,#ffcc80); color:#bf360c;`;
+      case "overdue":
+        return `background:linear-gradient(135deg,#ffcdd2,#ef9a9a); color:#b71c1c;`;
+      case "on_track":
+        return `background:linear-gradient(135deg,#e3f2fd,#bbdefb); color:#0d47a1;`;
+      case "waiting":
+        return `background:linear-gradient(135deg,#f5f5f5,#eeeeee); color:#9e9e9e;`;
+      default:
+        return `background:#f5f5f5; color:#9e9e9e;`;
+    }
+  }}
+`;
+const ScanStartedBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  ${(p) =>
+    p.started
+      ? `background: linear-gradient(135deg, #fff3e0, #ffe0b2); color: #e65100;`
+      : `background: linear-gradient(135deg, #f5f5f5, #eeeeee); color: #9e9e9e;`}
+`;
+
+const tatIcon = (status) => {
+  switch (status) {
+    case "completed":
+      return "✅";
+    case "completed_late":
+      return "⚠️";
+    case "overdue":
+      return "🔴";
+    case "on_track":
+      return "🟢";
+    case "waiting":
+      return "⏳";
+    default:
+      return "—";
+  }
+};
 // ─── ANC Info Row ─────────────────────────────────────────────────────────────
 const ANCInfoRow = styled.div`
   display: grid;
@@ -2944,6 +3046,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchReferredBy, setSearchReferredBy] = useState("");
   const [titleMapCache, setTitleMapCache] = useState({});
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
+  const [searchScanType, setSearchScanType] = useState("");
+  const [billTypes, setBillTypes] = useState([]);
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -2953,6 +3057,26 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const canDelete = allowedActions.includes("HMS-API-RDD-RW");
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
+
+  // ADD fetch inside useEffect (separate from fetchData):
+  useEffect(() => {
+    const fetchBillTypes = async () => {
+      try {
+        const result = await apiRequest(`${HMSURL}hard-bill-types/`, "GET");
+        if (result.success && Array.isArray(result.data)) {
+          setBillTypes(result.data);
+          // set default only if nothing saved in localStorage
+          const saved = localStorage.getItem("rdlist_billType");
+          if (!saved && result.data.length > 0) {
+            setSelectedBillType(result.data[0].value);
+          }
+        }
+      } catch {
+        toast.error("Failed to load bill types");
+      }
+    };
+    fetchBillTypes();
+  }, [HMSURL]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -2987,6 +3111,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         report: row.report || null,
         hasReport: !!row.hasReport,
         radiology_type: (row.radiology_format?.type || "").toUpperCase(),
+        scan_type: (row.scan_type || "").toUpperCase(), // ← ADD
+        tat_info: row.tat_info || null, // ← ADD
+        radiology_format: row.radiology_format || null, // ← ADD (needed for other uses)
       }));
       setRows(merged);
     } catch {
@@ -3027,6 +3154,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     },
     [titleMapCache, HMSURL],
   );
+  // Add this handler inside RDList component
+  const handleOpenPrint = () => {
+    navigate("/RDPrint", {
+      state: {
+        rows: filteredRows,
+        fromDate,
+        toDate,
+        billTypeLabel:
+          billTypes.find((b) => b.value === selectedBillType)?.label ||
+          selectedBillType,
+      },
+    });
+  };
 
   const handlePrintWithTitleMap = useCallback(
     async (row, withLetterpad) => {
@@ -3060,8 +3200,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleResetFilter = () => {
     setFromDate(getToday());
     setToDate(getToday());
-    setSelectedBillType("USG01");
-    localStorage.setItem("rdlist_billType", "USG01");
+    const defaultType = billTypes[0]?.value || "";
+    setSelectedBillType(defaultType);
+    localStorage.setItem("rdlist_billType", defaultType);
     setSearchBillNo("");
     setSearchUhid("");
     setSearchIpNumber("");
@@ -3069,7 +3210,12 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setSearchPaymentStatus("");
     setSearchStatus("");
     setSearchReferredBy("");
+    setSearchScanType("");
   };
+  const scanTypeOptions = useMemo(() => {
+    const types = rows.map((r) => r.scan_type).filter(Boolean);
+    return [...new Set(types)].sort();
+  }, [rows]);
 
   const referredByOptions = useMemo(() => {
     const names = rows.map((r) => r.referredBy).filter(Boolean);
@@ -3100,6 +3246,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             .includes(searchPatient.toLowerCase())) &&
         (!searchStatus || statusLabel === searchStatus) &&
         (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
+        (!searchScanType || (row.scan_type || "") === searchScanType) &&
         (!searchReferredBy || row.referredBy === searchReferredBy)
       );
     });
@@ -3112,6 +3259,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchStatus,
     searchReferredBy,
     searchPaymentStatus,
+    searchScanType,
   ]);
 
   // ── Print dropdown ─────────────────────────────────────────────────────────
@@ -3157,6 +3305,159 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         referredBy: row.referredBy,
       },
     });
+  };
+  const handlePatientCheckIn = async (row) => {
+    // Toggle: if already checked in, clear it; otherwise set to now
+    const alreadyIn = !!row.report?.patientIn_DateTime;
+    const patientIn_DateTime = alreadyIn ? null : new Date().toISOString();
+
+    try {
+      if (!row.report) {
+        // No record yet — POST to create a skeleton via checkin endpoint
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          {
+            patientIn_DateTime,
+            investBillDate: row.investBillDate,
+            itemName: row.itemName,
+            billTypeNo: row.billTypeNo || selectedBillType,
+          },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to check in");
+          return;
+        }
+      } else {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          { patientIn_DateTime },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to check in");
+          return;
+        }
+      }
+
+      toast.success(alreadyIn ? "Check-in cleared." : "Patient checked in! ✓");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
+            ? {
+                ...r,
+                report: r.report
+                  ? { ...r.report, patientIn_DateTime }
+                  : {
+                      patientIn_DateTime,
+                      has_report: false,
+                      is_approved: false,
+                    },
+              }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
+  };
+
+  const handleScanStarted = async (row) => {
+    const alreadyStarted = !!row.report?.scan_started_DateTime;
+    const scan_started_DateTime = alreadyStarted
+      ? null
+      : new Date().toISOString();
+
+    try {
+      if (!row.report) {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/scan-started/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          {
+            scan_started_DateTime,
+            investBillDate: row.investBillDate,
+            itemName: row.itemName,
+            billTypeNo: row.billTypeNo || selectedBillType,
+          },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to mark scan start");
+          return;
+        }
+      } else {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/scan-started/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          { scan_started_DateTime },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to update scan start");
+          return;
+        }
+      }
+
+      toast.success(
+        alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
+      );
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
+            ? {
+                ...r,
+                report: r.report
+                  ? { ...r.report, scan_started_DateTime }
+                  : {
+                      scan_started_DateTime,
+                      has_report: false,
+                      is_approved: false,
+                    },
+              }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
+  };
+
+  const handleDispatch = async (row) => {
+    if (!row.report?.is_approved) {
+      toast.warning("Only approved reports can be dispatched.");
+      return;
+    }
+    if (row.report?.is_Dispatched) {
+      toast.info("Already dispatched.");
+      return;
+    }
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/dispatch/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+        "PATCH",
+        {},
+      );
+      if (!result.success) {
+        toast.error(result.error || "Dispatch failed");
+        return;
+      }
+      toast.success("Report dispatched! 📤");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
+            ? {
+                ...r,
+                report: {
+                  ...r.report,
+                  is_Dispatched: true,
+                  dispatch_DateTime:
+                    result.data?.dispatch_DateTime || new Date().toISOString(),
+                },
+              }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
   };
 
   const handleOpenSlot = (row) => {
@@ -3329,7 +3630,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   }, [rows]);
 
   const pageLabel =
-    BILL_TYPES.find((b) => b.value === selectedBillType)?.label || "Radiology";
+    billTypes.find((b) => b.value === selectedBillType)?.label || "Radiology";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -3355,7 +3656,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                     setSearchReferredBy("");
                   }}
                 >
-                  {BILL_TYPES.map((bt) => (
+                  {billTypes.map((bt) => (
                     <option key={bt.value} value={bt.value}>
                       {bt.label}
                     </option>
@@ -3380,6 +3681,22 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               </FilterGroup>
               <ResetButton onClick={handleResetFilter}>↺ Reset</ResetButton>
             </FilterContainer>
+            <Button
+              onClick={handleOpenPrint}
+              style={{
+                background: "linear-gradient(135deg,#ff7043,#e64a19)",
+                padding: "0.4rem 1rem",
+                fontSize: "0.82rem",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              🖨️ Print
+            </Button>
           </TopBar>
 
           {/* Stats */}
@@ -3431,6 +3748,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             <Table>
               <thead>
                 <tr>
+                  <Th>Sl.No</Th>
                   <Th>Bill No</Th>
                   <Th>UHID</Th>
                   <Th>IP Number</Th>
@@ -3438,14 +3756,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <Th>Age</Th>
                   <Th>Gender</Th>
                   <Th>Item</Th>
+                  <Th>TAT</Th>
                   <Th>Bill Date</Th>
                   <Th>Referred By</Th>
                   <Th>Payment Status</Th>
                   <Th>Slot</Th>
+                  <Th>Patient In</Th>
+                  <Th>Scan Started</Th>
+                  <Th>Dispatch</Th>
                   <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
                 <tr>
+                  <SearchTh />
                   <SearchTh>
                     <SearchInput
                       placeholder="🔍 Bill No"
@@ -3476,6 +3799,20 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   </SearchTh>
                   <SearchTh />
                   <SearchTh />
+                  {/* search row — Item column gets the scan type dropdown */}
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchScanType}
+                      onChange={(e) => setSearchScanType(e.target.value)}
+                    >
+                      <option value="">All Types</option>
+                      {scanTypeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </SearchSelect>
+                  </SearchTh>
                   <SearchTh />
                   <SearchTh />
                   <SearchTh>
@@ -3502,6 +3839,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                     </SearchSelect>
                   </SearchTh>
                   <SearchTh />
+                  <SearchTh />
+                  <SearchTh /> {/* Patient In */}
+                  <SearchTh /> {/* Dispatch */}
                   <SearchTh>
                     <SearchSelect
                       value={searchStatus}
@@ -3527,13 +3867,41 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           : "white",
                       }}
                     >
+                      <Td
+                        style={{
+                          textAlign: "center",
+                          fontWeight: 700,
+                          color: "#00897b",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {index + 1}
+                      </Td>
                       <Td>{row.investBillNo}</Td>
                       <Td>{row.uhid}</Td>
                       <Td>{row.ipNumber || "—"}</Td>
                       <Td>{row.patientName}</Td>
                       <Td>{row.age || "N/A"}</Td>
                       <Td>{row.gender || "N/A"}</Td>
-                      <Td>{row.itemName || "—"}</Td>
+                      <Td>
+                        <span>{row.itemName || "—"}</span>
+                        {row.scan_type && (
+                          <ScanTypeBadge type={row.scan_type}>
+                            {row.scan_type}
+                          </ScanTypeBadge>
+                        )}
+                      </Td>
+                      <Td>
+                        {row.tat_info && row.tat_info.status !== "unknown" ? (
+                          <TATBadge status={row.tat_info.status}>
+                            {tatIcon(row.tat_info.status)} {row.tat_info.label}
+                          </TATBadge>
+                        ) : (
+                          <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
+                            —
+                          </span>
+                        )}
+                      </Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
                         {row.referredBy ? (
@@ -3563,6 +3931,131 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —
                           </span>
+                        )}
+                      </Td>
+                      {/* ── Patient In ── */}
+                      <Td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                          }}
+                        >
+                          <IconBtn
+                            bg={
+                              row.report?.patientIn_DateTime
+                                ? "linear-gradient(135deg,#66bb6a,#43a047)"
+                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
+                            }
+                            onClick={() => handlePatientCheckIn(row)}
+                            disabled={row.paymentStatus !== "Paid"}
+                            data-tip={
+                              row.paymentStatus !== "Paid"
+                                ? "Payment Pending"
+                                : row.report?.patientIn_DateTime
+                                  ? "Click to clear check-in"
+                                  : "Mark patient as arrived"
+                            }
+                          >
+                            {row.report?.patientIn_DateTime ? "✅" : "☐"}
+                          </IconBtn>
+                          {row.report?.patientIn_DateTime && (
+                            <CheckInBadge checked>
+                              🕐{" "}
+                              {formatSlotDisplay(row.report.patientIn_DateTime)}
+                            </CheckInBadge>
+                          )}
+                        </div>
+                      </Td>
+
+                      {/* ── Scan Started ── */}
+                      <Td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                          }}
+                        >
+                          <IconBtn
+                            bg={
+                              row.report?.scan_started_DateTime
+                                ? "linear-gradient(135deg,#ffa726,#fb8c00)"
+                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
+                            }
+                            onClick={() => handleScanStarted(row)}
+                            disabled={
+                              !row.report?.patientIn_DateTime || // must check in first
+                              row.report?.is_approved // ← ADD: lock after approval
+                            }
+                            data-tip={
+                              !row.report?.patientIn_DateTime
+                                ? "Check in patient first"
+                                : row.report?.is_approved
+                                  ? "Scan locked (approved)" // ← ADD
+                                  : row.report?.scan_started_DateTime
+                                    ? "Click to clear scan start"
+                                    : "Mark scan as started"
+                            }
+                          >
+                            {row.report?.scan_started_DateTime ? "🔬" : "☐"}
+                          </IconBtn>
+                          {row.report?.scan_started_DateTime && (
+                            <ScanStartedBadge started>
+                              🕐{" "}
+                              {formatSlotDisplay(
+                                row.report.scan_started_DateTime,
+                              )}
+                            </ScanStartedBadge>
+                          )}
+                        </div>
+                      </Td>
+
+                      {/* ── Dispatch ── */}
+                      <Td>
+                        {row.report?.is_Dispatched ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            <DispatchBadge>📤 Dispatched</DispatchBadge>
+                            {row.report?.dispatch_DateTime && (
+                              <span
+                                style={{ fontSize: "0.65rem", color: "#888" }}
+                              >
+                                {formatSlotDisplay(
+                                  row.report.dispatch_DateTime,
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <IconBtn
+                            bg={
+                              row.report?.is_approved
+                                ? "linear-gradient(135deg,#29b6f6,#0288d1)"
+                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
+                            }
+                            onClick={() => handleDispatch(row)}
+                            disabled={
+                              !row.report?.is_approved ||
+                              row.report?.is_Dispatched
+                            }
+                            data-tip={
+                              !row.report?.is_approved
+                                ? "Approve report first"
+                                : "Dispatch Report"
+                            }
+                          >
+                            📤
+                          </IconBtn>
                         )}
                       </Td>
                       <Td>
@@ -3602,6 +4095,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             disabled={
                               row.paymentStatus !== "Paid" ||
                               row.report?.is_approved ||
+                              !row.report?.patientIn_DateTime ||
+                              !row.report?.scan_started_DateTime || // ← ADD: must be scan started
                               (row.hasReport && !row.ipNumber) ||
                               (row.hasReport &&
                                 row.ipNumber &&
@@ -3610,15 +4105,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             data-tip={
                               row.paymentStatus !== "Paid"
                                 ? "Payment Pending"
-                                : row.report?.is_approved
-                                  ? "Already Approved"
-                                  : row.hasReport && !row.ipNumber
-                                    ? "Already Submitted"
-                                    : row.hasReport &&
-                                        row.ipNumber &&
-                                        row.report?.impression?.trim()
-                                      ? "Already Submitted"
-                                      : "Go to Report"
+                                : !row.report?.patientIn_DateTime
+                                  ? "Patient not checked in yet"
+                                  : !row.report?.scan_started_DateTime // ← ADD
+                                    ? "Scan not started yet"
+                                    : row.report?.is_approved
+                                      ? "Already Approved"
+                                      : row.hasReport &&
+                                          row.report?.impression?.trim()
+                                        ? "Already Submitted"
+                                        : "Go to Report"
                             }
                           >
                             📋
@@ -3698,7 +4194,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   ))
                 ) : (
                   <tr>
-                    <Td colSpan="13">
+                    <Td colSpan="14">
                       <EmptyState>
                         <p>
                           {rows.length > 0

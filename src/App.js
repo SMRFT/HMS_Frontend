@@ -121,6 +121,7 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import RDPrint from "./Components/InvestigationReports/RDPrint";
 
 
 // Layout wrapper
@@ -732,6 +733,16 @@ function App() {
                   <Route
                     path="/RDReportForm/:uhid/:subUhid"
                     element={<RDReportForm />}
+                  />
+                )}
+                {hasPagePermission(
+                "/RDList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/RDPrint"
+                    element={<RDPrint />}
                   />
                 )}
 
