@@ -4,7 +4,7 @@ import {
     Space, Spin, message, Row, Col, Card 
 } from "antd";
 import { 
-    FaSearch, FaPlus, FaPrint, FaTimes, FaSave, FaShieldAlt 
+    FaSearch, FaPlus, FaPrint, FaTimes, FaSave, FaShieldAlt, FaEdit, FaTrash 
 } from "react-icons/fa";
 import styled from "styled-components";
 import dayjs from "dayjs";
@@ -102,7 +102,8 @@ const InsuranceClaim = () => {
     
     // Filters
     const [filterCompany, setFilterCompany] = useState("ALL");
-    const [filterDates, setFilterDates] = useState([dayjs(), dayjs()]);
+    const [fromDate, setFromDate] = useState(dayjs());
+    const [toDate, setToDate] = useState(dayjs());
     
     // Form Data
     const [formData, setFormData] = useState({
@@ -119,9 +120,11 @@ const InsuranceClaim = () => {
         policy_date: null,
         insurance_id: "",
         approved_amount: 0,
+        estimate_amount: 0,
         claim_status: "Approved",
         approved_date: dayjs(),
-        patient_ward: ""
+        patient_ward: "",
+        claim_id: null
     });
 
     const fetchInitialData = useCallback(async () => {
@@ -142,9 +145,9 @@ const InsuranceClaim = () => {
     const fetchClaims = useCallback(async () => {
         setLoading(true);
         try {
-            const fromDate = filterDates[0].format("YYYY-MM-DD");
-            const toDate = filterDates[1].format("YYYY-MM-DD");
-            const url = `${HmsBaseUrl}insurance-claims/?from_date=${fromDate}&to_date=${toDate}&company=${filterCompany}`;
+            const fDate = fromDate.format("YYYY-MM-DD");
+            const tDate = toDate.format("YYYY-MM-DD");
+            const url = `${HmsBaseUrl}insurance-claims/?from_date=${fDate}&to_date=${tDate}&company=${filterCompany}`;
             const res = await apiRequest(url, "GET");
             if (res.success) setClaims(res.data.data || res.data || []);
         } catch (error) {
@@ -152,7 +155,7 @@ const InsuranceClaim = () => {
         } finally {
             setLoading(false);
         }
-    }, [HmsBaseUrl, filterDates, filterCompany]);
+    }, [HmsBaseUrl, fromDate, toDate, filterCompany]);
 
     useEffect(() => {
         fetchInitialData();
@@ -180,7 +183,7 @@ const InsuranceClaim = () => {
                     room_no: room_info?.room_no || '',
                     bed_no: room_info?.bed_no || '',
                     insurance_company: insurance_details?.company_name || '',
-                    company_code: insurance_details?.company_code || ''
+                    insurance_id: insurance_details?.company_code || patient_details?.company_code || ''
                 }));
                 message.success("Patient details fetched");
             } else {
@@ -207,17 +210,18 @@ const InsuranceClaim = () => {
                 approved_date: formData.approved_date?.format("YYYY-MM-DD"),
             };
             
-            const res = await apiRequest(`${HmsBaseUrl}insurance-claims/`, "POST", payload);
+            const isEdit = !!formData.claim_id;
+            const url = isEdit 
+                ? `${HmsBaseUrl}insurance-claims/${formData.claim_id}/` 
+                : `${HmsBaseUrl}insurance-claims/`;
+            const method = isEdit ? "PATCH" : "POST";
+
+            const res = await apiRequest(url, method, payload);
             if (res.success) {
-                message.success("Claim saved successfully");
+                message.success(isEdit ? "Claim updated successfully" : "Claim saved successfully");
                 setShowForm(false);
                 fetchClaims();
-                setFormData({
-                    uhid: "", ip_number: "", patient_name: "", admission_date: null,
-                    customer_type: "", admitting_doctor: "", room_no: "", bed_no: "",
-                    insurance_company: "", policy_no: "", policy_date: null, insurance_id: "",
-                    approved_amount: 0, claim_status: "Approved", approved_date: dayjs(), patient_ward: ""
-                });
+                resetForm();
             } else {
                 message.error(typeof res.error === 'object' ? JSON.stringify(res.error) : res.error);
             }
@@ -228,10 +232,106 @@ const InsuranceClaim = () => {
         }
     };
 
+    const resetForm = () => {
+        setFormData({
+            uhid: "", ip_number: "", patient_name: "", admission_date: null,
+            customer_type: "", admitting_doctor: "", room_no: "", bed_no: "",
+            insurance_company: "", policy_no: "", policy_date: null, insurance_id: "",
+            approved_amount: 0, estimate_amount: 0, claim_status: "Approved", 
+            approved_date: dayjs(), patient_ward: "", claim_id: null
+        });
+    };
+
+    const handleEdit = (record) => {
+        setFormData({
+            uhid: record.uhid,
+            ip_number: record.ip_number,
+            patient_name: `${record.patient_details?.firstName || ''} ${record.patient_details?.lastName || ''}`.trim(),
+            admission_date: record.admission_details?.admissionDateTime ? dayjs(record.admission_details.admissionDateTime) : null,
+            customer_type: record.patient_details?.customer_type || 'General',
+            admitting_doctor: record.admission_details?.admittingDoctor || '',
+            room_no: record.room_info?.room_no || '',
+            bed_no: record.room_info?.bed_no || '',
+            insurance_company: record.insurance_company,
+            policy_no: record.policy_no,
+            policy_date: record.policy_date ? dayjs(record.policy_date) : null,
+            insurance_id: record.insurance_id,
+            approved_amount: record.approved_amount,
+            estimate_amount: record.estimate_amount,
+            claim_status: record.claim_status,
+            approved_date: record.approved_date ? dayjs(record.approved_date) : null,
+            patient_ward: record.patient_ward,
+            claim_id: record.claim_id
+        });
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (claimId) => {
+        try {
+            const res = await apiRequest(`${HmsBaseUrl}insurance-claims/${claimId}/`, "DELETE");
+            if (res.success) {
+                message.success("Claim deleted successfully");
+                fetchClaims();
+            } else {
+                message.error(res.error || "Failed to delete claim");
+            }
+        } catch (error) {
+            message.error("Error deleting claim");
+        }
+    };
+
+    const handlePrint = (record) => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Insurance Claim - ${record.claim_id}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 40px; }
+                        .header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 30px; padding-bottom: 10px; }
+                        .row { display: flex; margin-bottom: 15px; }
+                        .label { width: 180px; font-weight: bold; }
+                        .value { flex: 1; }
+                        .section-title { background: #f0f0f0; padding: 8px; font-weight: bold; margin: 25px 0 15px 0; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>INSURANCE CLAIM DETAILS</h1>
+                        <p>Claim ID: ${record.claim_id}</p>
+                    </div>
+                    
+                    <div class="section-title">PATIENT INFORMATION</div>
+                    <div class="row"><div class="label">Patient Name:</div><div class="value">${record.patient_details?.firstName} ${record.patient_details?.lastName}</div></div>
+                    <div class="row"><div class="label">UHID:</div><div class="value">${record.uhid}</div></div>
+                    <div class="row"><div class="label">IP Number:</div><div class="value">${record.ip_number}</div></div>
+                    
+                    <div class="section-title">CLAIM INFORMATION</div>
+                    <div class="row"><div class="label">Insurance Company:</div><div class="value">${record.insurance_company}</div></div>
+                    <div class="row"><div class="label">Policy Number:</div><div class="value">${record.policy_no || '-'}</div></div>
+                    <div class="row"><div class="label">Estimate Amount:</div><div class="value">₹${record.estimate_amount}</div></div>
+                    <div class="row"><div class="label">Approved Amount:</div><div class="value">₹${record.approved_amount}</div></div>
+                    <div class="row"><div class="label">Status:</div><div class="value">${record.claim_status}</div></div>
+                    <div class="row"><div class="label">Claim Date:</div><div class="value">${dayjs(record.claim_date).format('DD/MM/YYYY')}</div></div>
+                    
+                    <div style="margin-top: 100px; display: flex; justify-content: space-between;">
+                        <div>Prepared By</div>
+                        <div>Authorized Signatory</div>
+                    </div>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+    };
+
     const columns = [
         {
             title: "Patient",
             key: "patient",
+            fixed: 'left',
+            width: 180,
             render: (text, record) => (
                 <div>
                     <div style={{ fontWeight: 600, color: colors.primary }}>{record.patient_details?.firstName} {record.patient_details?.lastName}</div>
@@ -242,6 +342,7 @@ const InsuranceClaim = () => {
         {
             title: "Age / Gender",
             key: "age_gender",
+            width: 120,
             render: (text, record) => (
                 <div style={{ fontSize: '0.85rem' }}>
                     {record.patient_details?.age}(Y) / {record.patient_details?.gender}
@@ -252,34 +353,42 @@ const InsuranceClaim = () => {
             title: "Insurance Provider",
             dataIndex: "insurance_company",
             key: "insurance_company",
+            width: 180,
+        },
+        {
+            title: "Estimate Amount",
+            dataIndex: "estimate_amount",
+            key: "estimate_amount",
+            align: 'right',
+            width: 140,
+            render: val => <span style={{ fontWeight: 600 }}>₹{parseFloat(val || 0).toFixed(2)}</span>
         },
         {
             title: "Approved Amount",
             dataIndex: "approved_amount",
             key: "approved_amount",
             align: 'right',
-            render: val => <span style={{ fontWeight: 700 }}>₹{parseFloat(val || 0).toFixed(2)}</span>
-        },
-        {
-            title: "Claim Status",
-            dataIndex: "claim_status",
-            key: "claim_status",
-            render: status => {
-                let bg = "#fef3c7", color = "#92400e";
-                if (status === "Approved") { bg = "#dcfce7"; color = "#166534"; }
-                if (status === "Rejected") { bg = "#fee2e2"; color = "#b91c1c"; }
-                return <StatusBadge bg={bg} color={color}>{status}</StatusBadge>
-            }
+            width: 140,
+            render: val => <span style={{ fontWeight: 700, color: '#16a34a' }}>₹{parseFloat(val || 0).toFixed(2)}</span>
         },
         {
             title: "Claim Date",
             dataIndex: "claim_date",
             key: "claim_date",
+            width: 120,
             render: date => dayjs(date).format("DD/MM/YYYY")
+        },
+        {
+            title: "Approved On",
+            dataIndex: "approved_date",
+            key: "approved_date",
+            width: 120,
+            render: date => date ? dayjs(date).format("DD/MM/YYYY") : "-"
         },
         {
             title: "IP No / SL No",
             key: "ip_no",
+            width: 150,
             render: (text, record) => (
                 <div style={{ fontSize: '0.85rem' }}>
                     {record.ip_number}
@@ -287,9 +396,44 @@ const InsuranceClaim = () => {
             )
         },
         {
+            title: "Admission Date",
+            key: "admission_date",
+            width: 140,
+            render: (text, record) => record.admission_details?.admissionDateTime ? dayjs(record.admission_details.admissionDateTime).format("DD/MM/YYYY") : "-"
+        },
+        {
             title: "Patient Ward",
             dataIndex: "patient_ward",
             key: "patient_ward",
+            width: 130,
+        },
+        {
+            title: "Action",
+            key: "action",
+            fixed: 'right',
+            width: 150,
+            render: (text, record) => (
+                <Space>
+                    <Button 
+                        size="small" 
+                        icon={<FaEdit />} 
+                        onClick={() => handleEdit(record)}
+                        style={{ color: '#0284c7' }}
+                    />
+                    <Button 
+                        size="small" 
+                        icon={<FaPrint />} 
+                        onClick={() => handlePrint(record)}
+                        style={{ color: '#64748b' }}
+                    />
+                    <Button 
+                        size="small" 
+                        danger 
+                        icon={<FaTrash />} 
+                        onClick={() => handleDelete(record.claim_id)}
+                    />
+                </Space>
+            )
         }
     ];
 
@@ -324,30 +468,43 @@ const InsuranceClaim = () => {
                                 ))}
                             </Select>
                         </Col>
-                        <Col span={8}>
-                            <FormLabel>Date Range</FormLabel>
-                            <DatePicker.RangePicker 
+                        <Col span={4}>
+                            <FormLabel>From Date</FormLabel>
+                            <DatePicker 
                                 style={{ width: '100%' }} 
-                                value={filterDates} 
-                                onChange={setFilterDates}
+                                value={fromDate} 
+                                onChange={setFromDate}
                                 format="DD/MM/YYYY"
                             />
                         </Col>
                         <Col span={4}>
+                            <FormLabel>To Date</FormLabel>
+                            <DatePicker 
+                                style={{ width: '100%' }} 
+                                value={toDate} 
+                                onChange={setToDate}
+                                format="DD/MM/YYYY"
+                            />
+                        </Col>
+                        <Col span={3}>
                             <ActionButton 
                                 type="primary" 
                                 icon={<FaSearch />} 
                                 onClick={fetchClaims}
                                 loading={loading}
+                                style={{ width: '100%' }}
                             >
                                 Fetch
                             </ActionButton>
                         </Col>
-                        <Col span={6} style={{ textAlign: 'right' }}>
+                        <Col span={7} style={{ textAlign: 'right' }}>
                             <ActionButton 
-                                style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                                style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#fff', marginLeft: 'auto' }}
                                 icon={<FaPlus />}
-                                onClick={() => setShowForm(!showForm)}
+                                onClick={() => {
+                                    resetForm();
+                                    setShowForm(!showForm);
+                                }}
                             >
                                 {showForm ? "Close Form" : "New Claim"}
                             </ActionButton>
@@ -447,22 +604,14 @@ const InsuranceClaim = () => {
                                         </Col>
 
                                         <Col span={12}>
-                                            <FormLabel>Insurance ID</FormLabel>
+                                            <FormLabel>Estimate Amount</FormLabel>
                                             <Input 
-                                                placeholder="ID"
-                                                value={formData.insurance_id} 
-                                                onChange={e => setFormData({...formData, insurance_id: e.target.value})}
+                                                type="number" 
+                                                prefix="₹"
+                                                value={formData.estimate_amount} 
+                                                onChange={e => setFormData({...formData, estimate_amount: e.target.value})}
                                             />
                                         </Col>
-                                        <Col span={12}>
-                                            <FormLabel>Policy No</FormLabel>
-                                            <Input 
-                                                placeholder="Policy #"
-                                                value={formData.policy_no} 
-                                                onChange={e => setFormData({...formData, policy_no: e.target.value})}
-                                            />
-                                        </Col>
-
                                         <Col span={12}>
                                             <FormLabel>Approved Date</FormLabel>
                                             <DatePicker 
@@ -471,6 +620,26 @@ const InsuranceClaim = () => {
                                                 onChange={val => setFormData({...formData, approved_date: val})}
                                                 format="DD/MM/YYYY"
                                             />
+                                        </Col>
+
+                                        <Col span={12}>
+                                            <FormLabel>Insurance ID</FormLabel>
+                                            <Input 
+                                                placeholder="ID"
+                                                value={formData.insurance_id} 
+                                                onChange={e => setFormData({...formData, insurance_id: e.target.value})}
+                                            />
+                                        </Col>
+                                        <Col span={12}>
+                                            <FormLabel>Policy Number</FormLabel>
+                                            <Input 
+                                                placeholder="Policy No"
+                                                value={formData.policy_no} 
+                                                onChange={e => setFormData({...formData, policy_no: e.target.value})}
+                                            />
+                                        </Col>
+
+                                        <Col span={12}>
                                         </Col>
                                         <Col span={12}>
                                             <FormLabel>Claim Status</FormLabel>
@@ -510,10 +679,10 @@ const InsuranceClaim = () => {
                                                 <ActionButton 
                                                     type="primary" 
                                                     style={{ background: colors.primaryDark }}
-                                                    icon={<FaSave />} 
+                                                    icon={formData.claim_id ? <FaEdit /> : <FaSave />} 
                                                     onClick={handleSaveClaim}
                                                 >
-                                                    Generate & Save Claim
+                                                    {formData.claim_id ? "Update Claim" : "Generate & Save Claim"}
                                                 </ActionButton>
                                             </Space>
                                         </Col>
