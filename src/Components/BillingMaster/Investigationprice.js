@@ -292,11 +292,12 @@ const css = {
     marginBottom: 10,
     display: "block",
   },
+  // ✅ Updated item tag — wider to accommodate id badge + action icons
   itemTag: {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: "5px 10px 5px 12px",
+    padding: "5px 8px 5px 10px",
     borderRadius: 20,
     background: `${tokens.sky}12`,
     border: `1px solid ${tokens.sky}30`,
@@ -305,13 +306,52 @@ const css = {
     color: tokens.sky,
     margin: "4px",
   },
+  // ✅ item_id badge inside the tag
+  itemIdBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    background: `${tokens.sky}25`,
+    color: tokens.sky,
+    borderRadius: 4,
+    padding: "1px 5px",
+    letterSpacing: "0.3px",
+    flexShrink: 0,
+  },
+  // ✅ New item badge (no id yet)
+  itemNewBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    background: `${tokens.amber}25`,
+    color: tokens.amber,
+    borderRadius: 4,
+    padding: "1px 5px",
+    letterSpacing: "0.3px",
+    flexShrink: 0,
+  },
+  itemTagAction: {
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    flexShrink: 0,
+    padding: 0,
+    color: tokens.sky,
+    opacity: 0.7,
+  },
   itemTagRemove: {
     width: 18,
     height: 18,
     borderRadius: "50%",
-    background: `${tokens.sky}20`,
+    background: `${tokens.red}18`,
     border: "none",
-    color: tokens.sky,
+    color: tokens.red,
     cursor: "pointer",
     fontSize: 13,
     display: "flex",
@@ -360,6 +400,20 @@ const css = {
     fontSize: 12,
     color: tokens.muted,
     padding: "8px 0",
+  },
+
+  // ✅ Inline edit input inside tag
+  inlineEditInput: {
+    height: 22,
+    padding: "0 6px",
+    fontSize: 12,
+    color: tokens.text,
+    background: tokens.white,
+    border: `1.5px solid ${tokens.sky}`,
+    borderRadius: 5,
+    outline: "none",
+    fontFamily: "inherit",
+    width: 140,
   },
 
   // View modal items list
@@ -411,28 +465,33 @@ const InvestigationPrice = () => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null); // billTypeNo used as URL param
   const [showModal, setShowModal] = useState(false);
   const [viewRecord, setViewRecord] = useState(null);
   const [newItemName, setNewItemName] = useState("");
   const [filters, setFilters] = useState({ search: "", is_active: "" });
+
+  // ✅ Tracks which item tag is currently being inline-edited { index, value }
+  const [inlineEdit, setInlineEdit] = useState(null);
+
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
   const canEdit = allowedActions.includes("HMS-P-IPE-RW");
   const canDelete = allowedActions.includes("HMS-P-IPD-RW");
 
-  /* ── Fetch ── */
+  /* ── Fetch ─────────────────────────────────────────────────────── */
   const fetchRecords = async (params = {}) => {
     setLoading(true);
     const q = new URLSearchParams();
     if (params.search) q.append("search", params.search);
     if (params.is_active) q.append("is_active", params.is_active);
-    const url = `${HMSURL}investigation-prices_get/${q.toString() ? "?" + q.toString() : ""}`;
+    const url = `${HMSURL}investigation-prices_get/${
+      q.toString() ? "?" + q.toString() : ""
+    }`;
     const result = await apiRequest(url, "GET");
     if (result.success) {
       const data = result.data;
-      // Handle both { records: [] } and { billTypes: [] } response shapes
       const raw = Array.isArray(data?.records)
         ? data.records
         : Array.isArray(data?.billTypes)
@@ -440,11 +499,16 @@ const InvestigationPrice = () => {
           : Array.isArray(data)
             ? data
             : [];
-      // Strip extraKeys wrapper — CRUD page only needs itemName
+
+      // ✅ Keep item_id alongside itemName — don't strip extra keys
       const normalized = raw.map((rec) => ({
         ...rec,
         Items: Array.isArray(rec.Items)
-          ? rec.Items.map((i) => ({ itemName: i.itemName || "" }))
+          ? rec.Items.map((i) => ({
+              itemName: i.itemName || "",
+              // ✅ Preserve item_id if it exists (may be undefined for old records)
+              ...(i.item_id !== undefined ? { item_id: i.item_id } : {}),
+            }))
           : [],
       }));
       setRecords(normalized);
@@ -459,7 +523,7 @@ const InvestigationPrice = () => {
     fetchRecords();
   }, []);
 
-  /* ── Items tag management ── */
+  /* ── Items tag management ────────────────────────────────────────── */
   const addItem = () => {
     const name = newItemName.trim();
     if (!name) return;
@@ -471,6 +535,7 @@ const InvestigationPrice = () => {
       alert("Item already added.");
       return;
     }
+    // ✅ New items have NO item_id — backend will assign one on save
     setFormData((prev) => ({
       ...prev,
       Items: [...prev.Items, { itemName: name }],
@@ -478,12 +543,73 @@ const InvestigationPrice = () => {
     setNewItemName("");
   };
 
-  const removeItem = (index) => {
+  // ✅ Remove item from local state
+  //    If it has an item_id and we're in edit mode, also call the backend delete endpoint
+  const removeItem = async (index) => {
+    const item = formData.Items[index];
+
+    if (isEditMode && item.item_id !== undefined) {
+      // Already saved to backend — call item-level delete API
+      if (!window.confirm(`Delete item "${item.itemName}"?`)) return;
+      const result = await apiRequest(
+        `${HMSURL}investigation-prices/delete_item/${editingId}/${item.item_id}/`,
+        "PATCH",
+      );
+      if (!result.success) {
+        alert("Failed to delete item: " + (result.error || "Unknown error"));
+        return;
+      }
+    }
+
+    // Remove from local state regardless
     setFormData((prev) => ({
       ...prev,
       Items: prev.Items.filter((_, i) => i !== index),
     }));
   };
+
+  /* ── Inline item rename ─────────────────────────────────────────── */
+  const startInlineEdit = (index) => {
+    setInlineEdit({ index, value: formData.Items[index].itemName });
+  };
+
+  const commitInlineEdit = async () => {
+    if (!inlineEdit) return;
+    const { index, value } = inlineEdit;
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setInlineEdit(null);
+      return;
+    }
+
+    const item = formData.Items[index];
+    const newName = trimmed;
+
+    // ✅ If editing an existing (saved) item, call the item-level update API
+    if (isEditMode && item.item_id !== undefined) {
+      const result = await apiRequest(
+        `${HMSURL}investigation-prices/update_item/${editingId}/${item.item_id}/`,
+        "PATCH",
+        { itemName: newName },
+      );
+      if (!result.success) {
+        alert("Failed to update item: " + (result.error || "Unknown error"));
+        setInlineEdit(null);
+        return;
+      }
+    }
+
+    // Update local state
+    setFormData((prev) => ({
+      ...prev,
+      Items: prev.Items.map((it, i) =>
+        i === index ? { ...it, itemName: newName } : it,
+      ),
+    }));
+    setInlineEdit(null);
+  };
+
+  const cancelInlineEdit = () => setInlineEdit(null);
 
   /* ── Reset ── */
   const resetForm = () => {
@@ -491,6 +617,7 @@ const InvestigationPrice = () => {
     setIsEditMode(false);
     setEditingId(null);
     setNewItemName("");
+    setInlineEdit(null);
   };
 
   const openCreate = () => {
@@ -498,7 +625,7 @@ const InvestigationPrice = () => {
     setShowModal(true);
   };
 
-  /* ── Submit ── */
+  /* ── Submit (Create) ────────────────────────────────────────────── */
   const handleSubmit = async () => {
     if (!formData.BillType.trim()) {
       alert("Bill Type is required.");
@@ -508,10 +635,15 @@ const InvestigationPrice = () => {
       alert("Bill Type No is required.");
       return;
     }
+    // ✅ Send Items with itemName only — backend assigns item_id
+    const payload = {
+      ...formData,
+      Items: formData.Items.map(({ itemName }) => ({ itemName })),
+    };
     const result = await apiRequest(
       `${HMSURL}investigation-prices/create/`,
       "POST",
-      formData,
+      payload,
     );
     if (result.success) {
       alert("Created successfully!");
@@ -520,23 +652,30 @@ const InvestigationPrice = () => {
     } else alert(result.error || "Failed to create.");
   };
 
-  /* ── Edit ── */
+  /* ── Edit (open modal) ──────────────────────────────────────────── */
   const handleEdit = (rec) => {
     setFormData({
       BillType: rec.BillType || "",
       billTypeNo: rec.billTypeNo || "",
       is_active: rec.is_active !== false,
+      // ✅ Preserve item_id for existing items
       Items: Array.isArray(rec.Items)
-        ? rec.Items.map((i) => ({ itemName: i.itemName || "" }))
+        ? rec.Items.map((i) => ({
+            itemName: i.itemName || "",
+            ...(i.item_id !== undefined ? { item_id: i.item_id } : {}),
+          }))
         : [],
     });
-    setEditingId(rec.billTypeNo); // use billTypeNo as the URL param
+    setEditingId(rec.billTypeNo);
     setIsEditMode(true);
     setNewItemName("");
+    setInlineEdit(null);
     setShowModal(true);
   };
 
-  /* ── Update ── */
+  /* ── Update (full record) ───────────────────────────────────────── */
+  //   Only updates BillType, billTypeNo, is_active, and NEW items (no item_id).
+  //   Existing items are edited/deleted individually via inline actions above.
   const handleUpdate = async () => {
     if (!formData.BillType.trim()) {
       alert("Bill Type is required.");
@@ -546,10 +685,24 @@ const InvestigationPrice = () => {
       alert("Bill Type No is required.");
       return;
     }
+
+    // ✅ Send all items with their item_id (existing) or without (new ones)
+    //    Backend will preserve existing item_ids and assign new ones to items without
+    const payload = {
+      BillType: formData.BillType,
+      billTypeNo: formData.billTypeNo,
+      is_active: formData.is_active,
+      Items: formData.Items.map((i) => {
+        const obj = { itemName: i.itemName };
+        if (i.item_id !== undefined) obj.item_id = i.item_id; // ✅ send existing item_id
+        return obj;
+      }),
+    };
+
     const result = await apiRequest(
       `${HMSURL}investigation-prices/update/${editingId}/`,
       "PATCH",
-      formData,
+      payload,
     );
     if (result.success) {
       alert("Updated successfully!");
@@ -558,7 +711,7 @@ const InvestigationPrice = () => {
     } else alert(result.error || "Failed to update.");
   };
 
-  /* ── Delete ── */
+  /* ── Delete (full record) ───────────────────────────────────────── */
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this record?")) return;
     const result = await apiRequest(
@@ -826,7 +979,10 @@ const InvestigationPrice = () => {
                     <Inp
                       value={formData.BillType}
                       onChange={(e) =>
-                        setFormData((p) => ({ ...p, BillType: e.target.value }))
+                        setFormData((p) => ({
+                          ...p,
+                          BillType: e.target.value,
+                        }))
                       }
                       placeholder="e.g. USG Scan"
                     />
@@ -869,6 +1025,20 @@ const InvestigationPrice = () => {
               <div style={{ ...css.card, marginBottom: 0 }}>
                 <div style={css.cardTitle}>
                   <div style={css.sectionLine} /> Items
+                  {isEditMode && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 500,
+                        color: tokens.muted,
+                        marginLeft: 4,
+                        textTransform: "none",
+                        letterSpacing: 0,
+                      }}
+                    >
+                      — ✏️ click pencil to rename · 🗑 click × to delete
+                    </span>
+                  )}
                 </div>
 
                 {/* Tags display */}
@@ -879,18 +1049,87 @@ const InvestigationPrice = () => {
                       Add.
                     </span>
                   ) : (
-                    formData.Items.map((item, idx) => (
-                      <span key={idx} style={css.itemTag}>
-                        {item.itemName}
-                        <button
-                          style={css.itemTagRemove}
-                          onClick={() => removeItem(idx)}
-                          title="Remove"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))
+                    formData.Items.map((item, idx) => {
+                      const isBeingEdited =
+                        inlineEdit && inlineEdit.index === idx;
+
+                      return (
+                        <span key={idx} style={css.itemTag}>
+                          {/* ✅ item_id badge — blue for saved, amber for new */}
+                          {item.item_id !== undefined ? (
+                            <span style={css.itemIdBadge}>#{item.item_id}</span>
+                          ) : (
+                            <span style={css.itemNewBadge}>new</span>
+                          )}
+
+                          {/* ✅ Inline edit input OR label */}
+                          {isBeingEdited ? (
+                            <>
+                              <input
+                                autoFocus
+                                value={inlineEdit.value}
+                                onChange={(e) =>
+                                  setInlineEdit((p) => ({
+                                    ...p,
+                                    value: e.target.value,
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    commitInlineEdit();
+                                  }
+                                  if (e.key === "Escape") cancelInlineEdit();
+                                }}
+                                style={css.inlineEditInput}
+                              />
+                              {/* ✅ Confirm inline edit */}
+                              <button
+                                style={{
+                                  ...css.itemTagAction,
+                                  color: tokens.green,
+                                }}
+                                title="Save rename"
+                                onClick={commitInlineEdit}
+                              >
+                                ✓
+                              </button>
+                              {/* ✅ Cancel inline edit */}
+                              <button
+                                style={{
+                                  ...css.itemTagAction,
+                                  color: tokens.muted,
+                                }}
+                                title="Cancel"
+                                onClick={cancelInlineEdit}
+                              >
+                                ✕
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span>{item.itemName}</span>
+                              {/* ✅ Pencil — start inline rename */}
+                              <button
+                                style={css.itemTagAction}
+                                title="Rename item"
+                                onClick={() => startInlineEdit(idx)}
+                              >
+                                ✏️
+                              </button>
+                              {/* ✅ Remove — delete from state (+ API if saved) */}
+                              <button
+                                style={css.itemTagRemove}
+                                onClick={() => removeItem(idx)}
+                                title="Remove item"
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
+                        </span>
+                      );
+                    })
                   )}
                 </div>
 
@@ -1009,7 +1248,7 @@ const InvestigationPrice = () => {
                 ))}
               </div>
 
-              {/* Items list */}
+              {/* Items list — now shows item_id */}
               <div
                 style={{ ...css.card, padding: "16px 18px", marginBottom: 0 }}
               >
@@ -1036,10 +1275,38 @@ const InvestigationPrice = () => {
                         style={{
                           ...css.itemListRow,
                           background: i % 2 === 0 ? tokens.white : tokens.bg,
+                          justifyContent: "space-between",
                         }}
                       >
-                        <span style={{ ...css.itemDot }} />
-                        <span style={{ fontWeight: 500 }}>{item.itemName}</span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <span style={css.itemDot} />
+                          <span style={{ fontWeight: 500 }}>
+                            {item.itemName}
+                          </span>
+                        </div>
+                        {/* ✅ Show item_id in the view modal */}
+                        {item.item_id !== undefined && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: tokens.muted,
+                              background: tokens.bg,
+                              border: `1px solid ${tokens.border}`,
+                              borderRadius: 5,
+                              padding: "1px 7px",
+                              fontFamily: "monospace",
+                            }}
+                          >
+                            ID #{item.item_id}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>

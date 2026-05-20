@@ -641,17 +641,17 @@ export default function CentralCashCounter() {
   const [activeShift, setActiveShift] = useState(null);
 
   // ── Receipt / Payment state ──────────────────────────────────────────────────
-  const [rpReceiptType, setRpReceiptType] = useState("Receipt");
-  const [rpAccountHeads, setRpAccountHeads] = useState([]);
-  const [rpSelectedSNo, setRpSelectedSNo] = useState("");
-  const [rpAmount, setRpAmount] = useState("");
-  const [rpDescFields, setRpDescFields] = useState({});
-  const [rpRecords, setRpRecords] = useState([]);
-  const [rpSearchTerm, setRpSearchTerm] = useState("");
-  const [rpShowEntries, setRpShowEntries] = useState("10");
-  const [rpAlert, setRpAlert] = useState(null);
-  const [rpSaving, setRpSaving] = useState(false);
-  const [rpLoading, setRpLoading] = useState(false);
+  const [rpReceiptType, setRpReceiptType]       = useState("Receipt");
+  const [rpAccountHeads, setRpAccountHeads]     = useState([]);
+  const [rpSelectedSNo, setRpSelectedSNo]       = useState("");
+  const [rpAmount, setRpAmount]                 = useState("");
+  const [rpDescFields, setRpDescFields]         = useState({});
+  const [rpRecords, setRpRecords]               = useState([]);
+  const [rpSearchTerm, setRpSearchTerm]         = useState("");
+  const [rpShowEntries, setRpShowEntries]       = useState("10");
+  const [rpAlert, setRpAlert]                   = useState(null);
+  const [rpSaving, setRpSaving]                 = useState(false);
+  const [rpLoading, setRpLoading]               = useState(false);
   const [rpShowVoucherModal, setRpShowVoucherModal] = useState(false);
   const [rpShowVoucherForm, setRpShowVoucherForm]   = useState(false);
   const [rpVoucherLoading, setRpVoucherLoading] = useState(false);
@@ -752,13 +752,13 @@ export default function CentralCashCounter() {
           receipt_type:      payload.receipt_type,
           account_head:      payload.account_head,
           account_head_details: {
-            no: payload.account_head,
+            no:   payload.account_head,
             name: rpSelectedHeadName,
           },
-          description: payload.description,
-          amount: payload.amount,
-          shiftno: payload.shiftno,
-          CashCounter: payload.CashCounter,
+          description:       payload.description,
+          amount:            payload.amount,
+          shiftno:           payload.shiftno,
+          CashCounter:       payload.CashCounter,
         };
         setRpRecords((prev) => [newRecord, ...prev]);
 
@@ -917,7 +917,27 @@ export default function CentralCashCounter() {
         })
         : "-";
 
-      const billTime = billDateObj
+  const formatBillData = (billsArray) => {
+  return billsArray.map((item, index) => {
+
+    // unique fallback id
+    const id = item.id ?? `temp-${index}-${Date.now()}`;
+
+    // ✅ use bill_date only
+    const billDateObj = item.bill_date
+      ? new Date(item.bill_date)
+      : null;
+
+    const billDate = billDateObj
+      ? billDateObj.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: "Asia/Kolkata",
+        })
+      : "-";
+
+          const billTime = billDateObj
         ? billDateObj.toLocaleTimeString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
@@ -925,6 +945,26 @@ export default function CentralCashCounter() {
           timeZone: "Asia/Kolkata",
         })
         : "-";
+          
+
+    return {
+      id,
+      date: billDate,
+      time: billTime,
+      Bill_id: item.Bill_id,
+      uhid: item.uhid,
+      bill_no: item.bill_no || "-",
+      bill_type: item.bill_type || item.type || "-",
+      uhid_no: item.uhid || "-",
+      patient: item.patient_name || "-",
+      investigation: item.billing_status || "-",
+      doctor: item.doctor_id || "-",
+      total: item.net_amount || 0,
+      payment_method: "-",
+      source: "OP",
+    };
+  });
+};
 
 
       return {
@@ -980,15 +1020,16 @@ export default function CentralCashCounter() {
         });
       });
     });
-    return rows;
-  };
+  });
+  return rows;
+};
 
-  const netAmount = selectedBill?.total || 0;
+const netAmount = selectedBill?.total || 0;
 
-  const paidAmount =
-    (selectedMethods.cash ? parseFloat(payments.cash) || 0 : 0) +
-    (selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0) +
-    (selectedMethods.card ? parseFloat(payments.card) || 0 : 0);
+const paidAmount =
+  (selectedMethods.cash ? parseFloat(payments.cash) || 0 : 0) +
+  (selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0) +
+  (selectedMethods.card ? parseFloat(payments.card) || 0 : 0);
 
   const balance = netAmount - paidAmount;
 
@@ -1313,13 +1354,13 @@ export default function CentralCashCounter() {
         fetchPendingBills();
         fetchOpPharmacyPendingBills();
       } else {
-        fetchReceivedBills();
+        // fetchReceivedBills();
       }
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills();
       } else {
-        fetchIpAdvanceReceivedBills();
+        // fetchIpAdvanceReceivedBills();
       }
     }
   };
@@ -1333,13 +1374,13 @@ export default function CentralCashCounter() {
         fetchPendingBills();
         fetchOpPharmacyPendingBills();
       } else {
-        fetchReceivedBills();
+        // fetchReceivedBills();
       }
     } else if (activeMenuItem === "IP Advance") {
       if (type === "pending") {
         fetchIpAdvancePendingBills();
       } else {
-        fetchIpAdvanceReceivedBills();
+        // fetchIpAdvanceReceivedBills();
       }
     }
   };
@@ -1355,13 +1396,13 @@ export default function CentralCashCounter() {
         fetchPendingBills();
         fetchOpPharmacyPendingBills();
       } else {
-        fetchReceivedBills();
+        // fetchReceivedBills();
       }
     } else if (activeMenuItem === "IP Advance") {
       if (selectedType === "pending") {
         fetchIpAdvancePendingBills();
       } else {
-        fetchIpAdvanceReceivedBills();
+        // fetchIpAdvanceReceivedBills();
       }
     }
   }, [
@@ -1737,9 +1778,9 @@ export default function CentralCashCounter() {
                                     title="Print"
                                     onClick={() => setRpPrintVoucher(r)}
                                     style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
+                                      background:"#0d9488", color:"white", border:"none",
+                                      padding:"5px 8px", borderRadius:4, cursor:"pointer",
+                                      display:"flex", alignItems:"center",
                                     }}
                                   >
                                     🖨️
@@ -1770,31 +1811,13 @@ export default function CentralCashCounter() {
                                 >
                                   <label
                                     style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
+                                      background:"#dc2626", color:"white", border:"none",
+                                      padding:"5px 8px", borderRadius:4, cursor:"pointer",
+                                      display:"flex", alignItems:"center",
                                     }}
                                   >
-                                    Room No
-                                  </label>
-                                  <input
-                                    type="text"
-                                    placeholder="Enter room no"
-                                    value={rpDescFields.room_no || ""}
-                                    onChange={(e) =>
-                                      setRpDescFields((p) => ({
-                                        ...p,
-                                        room_no: e.target.value,
-                                      }))
-                                    }
-                                    style={{
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: 4,
-                                      padding: "8px 12px",
-                                      fontSize: 14,
-                                      minWidth: 120,
-                                    }}
-                                  />
+                                    🗑️
+                                  </button>
                                 </div>
                               </TableCell>
                             </tr>
