@@ -3,7 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
 import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping } from './apiRequest';
 import { PAGE_PERMISSIONS } from './FrontendPageMapping';
-import { FiSave, FiSearch, FiUser, FiCheck, FiShield, FiLock, FiSettings, FiActivity } from 'react-icons/fi';
+import { FiSave, FiSearch, FiUser, FiCheck, FiShield, FiLock, FiSettings, FiActivity, FiArrowLeft } from 'react-icons/fi';
 
 // --- Animations ---
 const fadeInUp = keyframes`
@@ -32,11 +32,10 @@ const PageContainer = styled.div`
   flex-direction: column;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 
-  @media (max-width: 768px) {
-    padding: 16px;
-    height: auto;
-    min-height: calc(100vh - 64px);
-    overflow: auto;
+  @media (max-width: 850px) {
+    padding: 12px;
+    height: 100vh;
+    overflow: hidden;
   }
 `;
 
@@ -62,11 +61,9 @@ const Container = styled.div`
     z-index: 0;
   }
 
-  @media (max-width: 768px) {
-    padding: 16px;
-    height: auto;
-    min-height: calc(100vh - 64px);
-    overflow: auto;
+  @media (max-width: 850px) {
+    padding: 16px 12px;
+    height: calc(100vh - 64px);
   }
 `;
 
@@ -85,7 +82,7 @@ const HeaderContainer = styled.div`
     margin: 0;
     letter-spacing: -0.5px;
     
-    @media (max-width: 768px) {
+    @media (max-width: 850px) {
       font-size: 1.5rem;
     }
   }
@@ -102,11 +99,15 @@ const HeaderContainer = styled.div`
     border: 1px solid #e2e8f0;
     color: #0d9488;
 
-    @media (max-width: 768px) {
+    @media (max-width: 850px) {
       width: 40px;
       height: 40px;
       svg { width: 20px; height: 20px; }
     }
+  }
+
+  @media (max-width: 850px) {
+    margin-bottom: 12px;
   }
 `;
 
@@ -118,7 +119,7 @@ const ContentLayout = styled.div`
 
   @media (max-width: 850px) {
     flex-direction: column;
-    min-height: auto;
+    gap: 0;
   }
 `;
 
@@ -139,9 +140,10 @@ const ListPanel = styled.div`
 
   @media (max-width: 850px) {
     width: 100%;
-    min-height: 300px;
-    max-height: 400px;
-    flex-shrink: 0;
+    min-height: auto;
+    max-height: none;
+    flex: 1;
+    display: ${props => props.visible ? 'flex' : 'none'};
   }
 `;
 
@@ -349,27 +351,32 @@ const DetailPanel = styled.div`
 
   @media (max-width: 850px) {
     width: 100%;
-    min-height: 500px;
-    flex: none;
+    min-height: auto;
+    flex: 1;
+    display: ${props => props.visible ? 'flex' : 'none'};
   }
 `;
 
 const DetailHeader = styled.div`
-  padding: 28px 32px;
+  padding: 24px 32px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.8);
   display: flex;
   justify-content: space-between;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 10;
+  gap: 16px;
 
-  @media (max-width: 768px) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+  @media (max-width: 1100px) {
+    flex-wrap: wrap;
     padding: 20px;
+  }
+
+  @media (max-width: 550px) {
+    padding: 16px;
+    gap: 12px;
   }
 `;
 
@@ -401,9 +408,31 @@ const UserHeaderInfo = styled.div`
     }
   }
 
-  @media (max-width: 768px) {
+  .mobile-back-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    border: none;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+  }
+
+  @media (max-width: 850px) {
     h3 {
       font-size: 1.2rem;
+    }
+    .mobile-back-btn {
+      display: flex !important;
     }
   }
 `;
@@ -453,6 +482,10 @@ const PermissionsContent = styled.div`
     border-radius: 10px; 
     border: 1px solid rgba(255,255,255,0.5);
   }
+
+  @media (max-width: 550px) {
+    padding: 16px;
+  }
 `;
 
 const SectionTitle = styled.h4`
@@ -480,6 +513,11 @@ const PermissionsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
+
+  @media (max-width: 550px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 `;
 
 const PermissionCard = styled.div`
@@ -499,6 +537,11 @@ const PermissionCard = styled.div`
     transform: translateY(-4px);
     box-shadow: ${props => props.active ? '0 16px 32px rgba(20, 184, 166, 0.15)' : '0 10px 24px rgba(0,0,0,0.06)'};
     background: ${props => props.active ? 'linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%)' : 'rgba(255, 255, 255, 0.9)'};
+  }
+
+  @media (max-width: 550px) {
+    padding: 16px;
+    border-radius: 16px;
   }
 `;
 
@@ -698,6 +741,54 @@ const FilterBtn = styled.button`
   }
 `;
 
+// --- Mobile Tab Navigation ---
+const MobileTabContainer = styled.div`
+  display: none;
+  background: white;
+  border-radius: 16px;
+  padding: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  flex-shrink: 0;
+
+  @media (max-width: 850px) {
+    display: flex;
+    gap: 8px;
+  }
+`;
+
+const MobileTabBtn = styled.button`
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  
+  background: ${props => props.active ? 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' : 'transparent'};
+  color: ${props => props.active ? 'white' : '#64748b'};
+  box-shadow: ${props => props.active ? '0 8px 20px rgba(13, 148, 136, 0.25)' : 'none'};
+
+  svg {
+    transition: transform 0.2s ease;
+  }
+
+  &:hover {
+    color: ${props => props.active ? 'white' : '#0f172a'};
+    svg {
+      transform: scale(1.1);
+    }
+  }
+`;
+
 // --- Loader ---
 const Spinner = styled.div`
   width: 24px;
@@ -717,6 +808,7 @@ const UserPermissionManager = () => {
   const [selectedEmpId, setSelectedEmpId] = useState(null);
   const [selectedEmpName, setSelectedEmpName] = useState("");
   const [selectedEmpRole, setSelectedEmpRole] = useState("");
+  const [activeMobileTab, setActiveMobileTab] = useState("directory"); // "directory" or "permissions"
 
   const [permissions, setPermissions] = useState([]);
   const [selectedSubPerms, setSelectedSubPerms] = useState({}); // { pageId: ["READ", "WRITE"] }
@@ -1005,9 +1097,32 @@ const UserPermissionManager = () => {
         <h2>Access Control Center</h2>
       </HeaderContainer>
 
+      <MobileTabContainer>
+        <MobileTabBtn 
+          active={activeMobileTab === "directory"} 
+          onClick={() => setActiveMobileTab("directory")}
+        >
+          <FiSearch size={16} />
+          Directory
+        </MobileTabBtn>
+        <MobileTabBtn 
+          active={activeMobileTab === "permissions"} 
+          onClick={() => {
+            if (!selectedEmpId) {
+              toast.info("Please select an employee first");
+              return;
+            }
+            setActiveMobileTab("permissions");
+          }}
+        >
+          <FiShield size={16} />
+          Access Policies
+        </MobileTabBtn>
+      </MobileTabContainer>
+
       <ContentLayout>
         {/* Left Panel: User List */}
-        <ListPanel>
+        <ListPanel visible={activeMobileTab === "directory"}>
           <SearchContainer>
             <SearchInputWrapper>
               <FiSearch />
@@ -1034,6 +1149,7 @@ const UserPermissionManager = () => {
                     setSelectedEmpId(emp.employeeId);
                     setSelectedEmpName(emp.employeeName);
                     setSelectedEmpRole(emp.designation || "Staff");
+                    setActiveMobileTab("permissions");
                   }}
                 >
                   <Avatar active={selectedEmpId === emp.employeeId}>
@@ -1063,12 +1179,21 @@ const UserPermissionManager = () => {
         </ListPanel>
 
         {/* Right Panel: Permissions Details */}
-        <DetailPanel>
+        <DetailPanel visible={activeMobileTab === "permissions"}>
           {selectedEmpId ? (
             <>
               <DetailHeader>
                 <UserHeaderInfo style={{ flexShrink: 0 }}>
-                  <h3>{selectedEmpName}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button 
+                      className="mobile-back-btn"
+                      onClick={() => setActiveMobileTab("directory")}
+                      title="Back to Directory"
+                    >
+                      <FiArrowLeft size={18} />
+                    </button>
+                    <h3>{selectedEmpName}</h3>
+                  </div>
                   <span>
                     ID: <strong>{selectedEmpId}</strong>
                   </span>
