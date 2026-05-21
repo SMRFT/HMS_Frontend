@@ -59,6 +59,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -646,6 +647,17 @@ function App() {
                   <Route
                     path="/StockTransfer"
                     element={<StockTransfer />}
+                  />
+                )}
+
+             {hasPagePermission(
+                "/PurchaseReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseReturn"
+                    element={<PurchaseReturn />}
                   />
                 )}
 
