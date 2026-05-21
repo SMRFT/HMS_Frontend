@@ -338,12 +338,24 @@ const ReportsDashboard = () => {
             icon: <ShieldCheck size={24} />,
             component: AdvanceRegistrationInsurence,
             color: colors.primary
+        },
+        {
+            id: "pharmacy_expiry",
+            title: "Pharmacy Expiry Report",
+            description: "Analyze stock expiry dates, track upcoming batch expiries, and export sheets",
+            icon: <ClipboardList size={24} />,
+            path: "/PharmacyExpiryReport",
+            color: colors.primary
         }
     ];
 
     const handleCardClick = (report) => {
-        setSelectedReport(report);
-        setIsConfigModalVisible(true);
+        if (report.path) {
+            navigate(report.path);
+        } else {
+            setSelectedReport(report);
+            setIsConfigModalVisible(true);
+        }
     };
 
     const handleGenerateReport = () => {
