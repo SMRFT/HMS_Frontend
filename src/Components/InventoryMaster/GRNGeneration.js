@@ -369,7 +369,12 @@ const OcrPanel = ({ onOcrResult, disabled }) => {
       streamRef.current = stream
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.play()
+        const playPromise = videoRef.current.play()
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.warn("Camera auto-play was interrupted or prevented:", error)
+          })
+        }
       }
       setCamActive(true)
     } catch (err) {

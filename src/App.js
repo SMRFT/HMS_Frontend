@@ -129,6 +129,8 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import AccountsReports from "./Components/Reports/AccountsReports";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
+import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
+import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -287,6 +289,8 @@ function App() {
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
+      "/PharmacyExpiryReport": "Pharmacy Expiry Report",
+      "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -816,6 +820,16 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/AccountsReports" element={<AccountsReports />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyExpiryReport" element={<PharmacyExpiryReport />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyStockDashboard" element={<PharmacyStockDashboard />} />}
 
               {/* Velavan */}
               {hasPagePermission(
