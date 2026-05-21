@@ -159,19 +159,19 @@ const PrintTable = styled.table`
 const PTh = styled.th`
   background: linear-gradient(135deg, #00897b, #00695c);
   color: white;
-  padding: 0.6rem 0.85rem;
+  padding: 0.6rem 0.75rem;
   text-align: left;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   letter-spacing: 0.3px;
   white-space: nowrap;
 `;
 
 const PTd = styled.td`
-  padding: 0.5rem 0.85rem;
+  padding: 0.45rem 0.75rem;
   border-bottom: 1px solid #e0f2f1;
   color: #333;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   background: ${(p) => (p.alt ? "#f8fffe" : "white")};
   vertical-align: middle;
 `;
@@ -185,7 +185,7 @@ const TotalRow = styled.tr`
   }
 `;
 
-// ─── Badges (self-contained, no imports needed) ───────────────────────────────
+// ─── Badges ───────────────────────────────────────────────────────────────────
 
 const TATBadge = styled.span`
   display: inline-flex;
@@ -215,9 +215,9 @@ const TATBadge = styled.span`
 `;
 
 const StatusBadge = styled.span`
-  padding: 0.25rem 0.65rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 20px;
-  font-size: 0.7rem;
+  font-size: 0.67rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -226,6 +226,8 @@ const StatusBadge = styled.span`
   ${(p) => {
     if (!p.hasReport)
       return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
+    if (p.dispatched)
+      return `background:linear-gradient(135deg,#b3e5fc,#81d4fa);color:#01579b;`;
     if (p.approved)
       return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
     return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
@@ -261,6 +263,56 @@ const EmptyState = styled.div`
   padding: 3rem 2rem;
   color: #bbb;
   font-size: 1rem;
+`;
+
+// ─── Patient Info Cell ────────────────────────────────────────────────────────
+
+const PatientStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 120px;
+`;
+
+const PatientName = styled.span`
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #00695c;
+  line-height: 1.2;
+`;
+
+const PatientMeta = styled.span`
+  font-size: 0.7rem;
+  color: #666;
+`;
+
+// ─── Time Stack Cell ──────────────────────────────────────────────────────────
+
+const TimeStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 115px;
+`;
+
+const TimeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.69rem;
+  line-height: 1.3;
+`;
+
+const TimeLabel = styled.span`
+  font-weight: 700;
+  color: ${(p) => p.color || "#555"};
+  min-width: 14px;
+  flex-shrink: 0;
+`;
+
+const TimeValue = styled.span`
+  color: #444;
+  font-variant-numeric: tabular-nums;
 `;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -310,6 +362,44 @@ const TAT_FILTER_OPTIONS = [
   },
 ];
 
+const SLOT_FILTER_OPTIONS = [
+  {
+    value: "all",
+    label: "All",
+    bg: "#e0f2f1",
+    color: "#00695c",
+    borderColor: "#00897b",
+  },
+  {
+    value: "on_time",
+    label: "✅ On Time",
+    bg: "#c8e6c9",
+    color: "#1b5e20",
+    borderColor: "#43a047",
+  },
+  {
+    value: "late",
+    label: "🔴 Late",
+    bg: "#ffcdd2",
+    color: "#b71c1c",
+    borderColor: "#e53935",
+  },
+  {
+    value: "not_arrived",
+    label: "⏳ Not Arrived",
+    bg: "#eeeeee",
+    color: "#757575",
+    borderColor: "#9e9e9e",
+  },
+  {
+    value: "no_slot",
+    label: "— No Slot",
+    bg: "#fff9c4",
+    color: "#f57f17",
+    borderColor: "#fb8c00",
+  },
+];
+
 const tatIcon = (status) => {
   switch (status) {
     case "completed":
@@ -326,50 +416,39 @@ const tatIcon = (status) => {
       return "—";
   }
 };
-// Formats total seconds → "00:00:00"  (or "—" if null)
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
 const formatTATDuration = (seconds) => {
   if (seconds === null || seconds === undefined) return "—";
-  const total = Math.abs(Math.round(seconds)); // ← now expects SECONDS
+  const total = Math.abs(Math.round(seconds));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
-const formatTATDisplay = (tat_info) => {
-  if (!tat_info || tat_info.status === "unknown") return "—";
-  const timeStr = formatTATDuration(tat_info.elapsed_minutes);
-  switch (tat_info.status) {
-    case "completed":
-      return `✅ Done ${timeStr}`;
-    case "completed_late":
-      return `⚠️ Done ${timeStr} (Late)`;
-    case "overdue":
-      return `🔴 Overdue ${timeStr}`;
-    case "on_track":
-      return `🟢 ${timeStr} elapsed`;
-    case "waiting":
-      return `⏳ Awaiting check-in`;
-    default:
-      return timeStr;
-  }
-};
-
 const formatSlotDisplay = (dt) => {
-  if (!dt) return "—";
+  if (!dt) return null;
   try {
     const s = String(dt);
     const hasOffset = s.includes("+") || s.endsWith("Z");
     const d = hasOffset ? new Date(s) : new Date(s + "Z");
-    return d.toLocaleString("en-IN", {
+    const date = d.toLocaleDateString("en-IN", {
       timeZone: "Asia/Kolkata",
       day: "2-digit",
       month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
+      year: "2-digit",
     });
+    const time = d
+      .toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
+    return `${date} ${time}`;
   } catch {
     return dt;
   }
@@ -399,7 +478,8 @@ const printCountHTML = (countData, fromDate, toDate, billTypeLabel) => {
   w.document.write(`
     <html><head><title>Count Report</title>
     <style>
-      body{font-family:Arial,sans-serif;padding:24px;font-size:13px;}
+      @page { size: A4 portrait; margin: 15mm; }
+      body{font-family:Arial,sans-serif;padding:0;font-size:13px;}
       h2{color:#00695c;margin-bottom:4px;}
       p{color:#666;margin-top:0;}
       table{width:100%;border-collapse:collapse;margin-top:12px;}
@@ -413,7 +493,12 @@ const printCountHTML = (countData, fromDate, toDate, billTypeLabel) => {
     <table>
       <thead><tr><th>Sl.No</th><th>Item Name</th><th>Count</th></tr></thead>
       <tbody>
-        ${countData.map((r) => `<tr><td>${r.slNo}</td><td>${r.itemName}</td><td><b>${r.count}</b></td></tr>`).join("")}
+        ${countData
+          .map(
+            (r) =>
+              `<tr><td>${r.slNo}</td><td>${r.itemName}</td><td><b>${r.count}</b></td></tr>`,
+          )
+          .join("")}
         <tr class="total"><td colspan="2">Total</td><td>${countData.reduce((a, r) => a + r.count, 0)}</td></tr>
       </tbody>
     </table>
@@ -423,100 +508,359 @@ const printCountHTML = (countData, fromDate, toDate, billTypeLabel) => {
   w.print();
 };
 
-// Compact print format: "20 May 26" on line 1, "04:19:32 PM" on line 2
-const formatSlotPrint = (dt) => {
-  if (!dt) return "—";
-  try {
-    const s = String(dt);
-    const hasOffset = s.includes("+") || s.endsWith("Z");
-    const d = hasOffset ? new Date(s) : new Date(s + "Z");
-    const date = d.toLocaleDateString("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "2-digit",
-      month: "short",
-      year: "2-digit",
-    });
-    const time = d
-      .toLocaleTimeString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      })
-      .toUpperCase();
-    return `${date}\n${time}`;
-  } catch {
-    return dt;
-  }
-};
+// ─── TAT Print (A4 Landscape) ─────────────────────────────────────────────────
 
 const printTATHTML = (rows, fromDate, toDate, billTypeLabel, filterLabel) => {
+  const fmt = (dt) => {
+    if (!dt) return null;
+    try {
+      const s = String(dt);
+      const d =
+        s.includes("+") || s.endsWith("Z") ? new Date(s) : new Date(s + "Z");
+      const date = d.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "2-digit",
+      });
+      const time = d
+        .toLocaleTimeString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+        .toUpperCase();
+      return `${date} ${time}`;
+    } catch {
+      return null;
+    }
+  };
+
+  const fmtDate = (dt) => {
+    if (!dt) return "—";
+    try {
+      const s = String(dt);
+      const d =
+        s.includes("+") || s.endsWith("Z") ? new Date(s) : new Date(s + "Z");
+      return d.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dt;
+    }
+  };
+
+  const fmtTAT = (seconds) => {
+    if (seconds == null) return "—";
+    const total = Math.abs(Math.round(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const timeCell = (inDt, scanDt, apprDt, dispDt) => {
+    const row = (lbl, val) =>
+      `<div class="t-row"><span class="t-lbl">${lbl}</span><span class="${val ? "t-val" : "t-nil"}">${val || "—"}</span></div>`;
+    return `
+      ${row("In:", fmt(inDt))}
+      ${row("Scan:", fmt(scanDt))}
+      <div class="t-div"></div>
+      ${row("Appr:", fmt(apprDt))}
+      ${row("Disp:", fmt(dispDt))}
+    `;
+  };
+
+  const now = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const tatStatusLabel = {
+    completed: "Completed",
+    completed_late: "Completed Late",
+    overdue: "Overdue",
+    on_track: "On Track",
+    waiting: "Waiting",
+  };
+
+  const tatStatusIcon = {
+    completed: "&#10003;",
+    completed_late: "&#8252;",
+    overdue: "&#10005;",
+    on_track: "&#9654;",
+    waiting: "&#9675;",
+  };
+
   const w = window.open("", "_blank");
   w.document.write(`
-    <html><head><title>TAT Report</title>
-    <style>
-      body{font-family:Arial,sans-serif;padding:24px;font-size:11px;}
-      h2{color:#00695c;margin-bottom:4px;}
-      p{color:#666;margin-top:0;}
-      table{width:100%;border-collapse:collapse;margin-top:12px;}
-      th{background:#00897b;color:white;padding:6px 8px;text-align:left;white-space:nowrap;}
-      td{padding:5px 8px;border-bottom:1px solid #e0f2f1;vertical-align:middle;white-space:nowrap;}
-      tr:nth-child(even) td{background:#f8fffe;}
-    </style></head><body>
-    <h2>⏱ TAT Report — ${filterLabel}</h2>
-    <p>📅 ${fromDate} → ${toDate} &nbsp;|&nbsp; 🏷 ${billTypeLabel} &nbsp;|&nbsp; Records: ${rows.length}</p>
-    <table>
-      <thead><tr>
-        <th>Sl.No</th>
-        <th>Bill No</th>
-        <th>UHID</th>
-        <th>Patient</th>
-        <th>Age</th>
-        <th>Gender</th>
-        <th>Item</th>
-        <th>Scan Type</th>
-        <th>Bill Date</th>
-        <th>Referred By</th>
-        <th>Payment</th>
-        <th>Patient In</th>
-        <th>Scan Started</th>
-        <th>Waiting Time</th>
-        <th>Dispatch</th>
-        <th>Status</th>
-        <th>TAT (Elapsed)</th>
-        <th>TAT Limit</th>
-      </tr></thead>
-      <tbody>
-        ${rows
-          .map(
-            (r, i) => `
+    <html>
+    <head>
+      <title>TAT Report - ${filterLabel}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm 14mm 12mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+
+        .rpt-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          border-bottom: 3px solid #00695c;
+          padding-bottom: 7px;
+          margin-bottom: 8px;
+        }
+        .rpt-header h2 { font-size: 17px; font-weight: 700; color: #00695c; margin-bottom: 3px; }
+        .rpt-header p  { font-size: 11.5px; color: #444; }
+        .rpt-right     { text-align: right; font-size: 11.5px; color: #555; line-height: 1.7; }
+        .rpt-right strong { display: block; font-size: 13px; font-weight: 700; color: #222; }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th {
+          background: #00695c;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          padding: 6px 5px;
+          border: 1px solid #004d40;
+          text-align: left;
+          vertical-align: bottom;
+          line-height: 1.3;
+          overflow: hidden;
+          word-wrap: break-word;
+          white-space: normal;
+        }
+        td {
+          padding: 6px 5px;
+          border: 1px solid #b2dfdb;
+          vertical-align: top;
+          font-size: 11.5px;
+          line-height: 1.45;
+          overflow: hidden;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          white-space: normal;
+          max-width: 0;
+        }
+        tr:nth-child(even) td { background: #f0faf8; }
+        tr:nth-child(odd)  td { background: #fff; }
+
+        .p-name    { font-weight: 700; font-size: 11.5px; color: #00695c; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .p-meta    { font-size: 10.5px; color: #444; display: block; margin-top: 1px; }
+        .p-uhid    { font-size: 10px; color: #999; display: block; margin-top: 1px; }
+        .item-name { font-weight: 700; font-size: 11.5px; color: #111; display: block; word-break: break-word; }
+        .bill-no   { font-weight: 700; font-size: 11.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bill-dt   { font-size: 10.5px; color: #888; display: block; margin-top: 2px; }
+        .ref       { font-size: 11px; color: #0277bd; font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sl        { font-weight: 700; color: #555; text-align: center; }
+        .tat-lim   { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+        .t-row { display: flex; gap: 3px; align-items: baseline; margin-bottom: 2px; overflow: hidden; }
+        .t-lbl { font-weight: 700; font-size: 10px; width: 34px; flex-shrink: 0; color: #555; white-space: nowrap; }
+        .t-val { font-size: 10.5px; color: #222; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .t-nil { font-size: 10.5px; color: #bbb; }
+        .t-div { border-top: 1px dashed #aed6d1; margin: 2px 0; }
+
+        .badge {
+          display: inline-block; padding: 2px 5px; border-radius: 4px;
+          font-size: 10px; font-weight: 700; white-space: nowrap;
+          max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+        }
+        .b-green  { background:#c8e6c9; color:#1b5e20; }
+        .b-orange { background:#ffe0b2; color:#bf360c; }
+        .b-red    { background:#ffcdd2; color:#b71c1c; }
+        .b-blue   { background:#e3f2fd; color:#0d47a1; }
+        .b-grey   { background:#eee;    color:#555;    }
+        .b-paid   { background:#e8f5e9; color:#2e7d32; }
+        .b-pend   { background:#fff9c4; color:#e65100; }
+        .b-disp   { background:#e1f5fe; color:#01579b; }
+        .b-appr   { background:#c8e6c9; color:#2e7d32; }
+        .b-scan   { background:#ede7f6; color:#4a148c; }
+
+        .rpt-footer {
+          margin-top: 8px; border-top: 1.5px solid #b2dfdb; padding-top: 5px;
+          display: flex; justify-content: space-between; align-items: center;
+          font-size: 11px; color: #777;
+        }
+        .legend-label { font-weight: 700; color: #333; margin-right: 4px; }
+
+        @media print {
+          * { background: transparent !important; color: #000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .rpt-header { border-bottom: 2px solid #000 !important; }
+          .rpt-header h2 { font-size: 15px !important; }
+          th { background: transparent !important; color: #000 !important; border: 1px solid #999 !important; font-size: 9px !important; border-bottom: 2px solid #000 !important; }
+          td { background: #fff !important; border: 1px solid #999 !important; font-size: 10.5px !important; }
+          tr:nth-child(even) td { background: #f5f5f5 !important; }
+          .badge { background: none !important; border: none !important; padding: 0 !important; border-radius: 0 !important; font-size: 10.5px !important; font-weight: 700 !important; color: #000 !important; }
+          .t-div { border-top: 1px solid #bbb !important; }
+          .rpt-footer { border-top: 1px solid #000 !important; }
+          tr { page-break-inside: avoid; }
+          thead { display: table-header-group; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="rpt-header">
+        <div>
+          <h2>TAT Report - ${filterLabel}</h2>
+          <p>Date: ${fromDate} to ${toDate} &nbsp;|&nbsp; Type: ${billTypeLabel} &nbsp;|&nbsp; Total Records: ${rows.length}</p>
+        </div>
+        <div class="rpt-right">
+          <strong>Printed: ${now}</strong>
+          <span>Confidential - For Filing Only</span>
+        </div>
+      </div>
+
+      <table>
+        <colgroup>
+          <col style="width:2.5%">
+          <col style="width:12%">
+          <col style="width:9%">
+          <col style="width:8%">
+          <col style="width:7%">
+          <col style="width:5%">
+          <col style="width:15%">
+          <col style="width:13%">
+          <col style="width:6%">
+          <col style="width:8%">
+          <col style="width:8%">
+          <col style="width:7%">
+        </colgroup>
+        <thead>
           <tr>
-            <td>${i + 1}</td>
-            <td>${r.investBillNo || "—"}</td>
-            <td>${r.uhid || "—"}</td>
-            <td>${r.patientName || "—"}</td>
-            <td>${r.age || "—"}</td>
-            <td>${r.gender || "—"}</td>
-            <td>${r.itemName || "—"}</td>
-            <td>${r.scan_type || "—"}</td>
-            <td>${formatDateOnly(r.investBillDate)}</td>
-            <td>${r.referredBy || "—"}</td>
-            <td>${r.paymentStatus || "—"}</td>
-            <td>${r.report?.patientIn_DateTime ? formatSlotDisplay(r.report.patientIn_DateTime) : "—"}</td>
-            <td>${r.report?.scan_started_DateTime ? formatSlotDisplay(r.report.scan_started_DateTime) : "—"}</td>
-            <td>${r.tat_info?.waiting_seconds != null ? formatTATDuration(r.tat_info.waiting_seconds) : "—"}</td>
-            <td>${r.report?.dispatch_DateTime ? formatSlotDisplay(r.report.dispatch_DateTime) : "—"}</td>
-            <td>${!r.hasReport ? "Pending" : r.report?.is_approved ? "Approved" : "Reported"}</td>
-            <td>${r.tat_info && r.tat_info.status !== "unknown" ? r.tat_info.label : "—"}</td>
-            <td>${r.tat_info?.tat_seconds != null ? formatTATDuration(r.tat_info.tat_seconds) : "—"}</td>
+            <th>#</th>
+            <th>Patient<br>Age / Gender / UHID</th>
+            <th>Item / Scan Type</th>
+            <th>Bill No.<br>Bill Date</th>
+            <th>Referred By</th>
+            <th>Pay</th>
+            <th>In &rarr; Scan<br>&rarr; Approved<br>&rarr; Dispatch</th>
+            <th>Slot /<br>Punctuality</th>
+            <th>Waiting</th>
+            <th>Status</th>
+            <th>TAT Actual</th>
+            <th>TAT Limit</th>
           </tr>
-        `,
-          )
-          .join("")}
-      </tbody>
-    </table>
-    </body></html>
+        </thead>
+        <tbody>
+          ${rows
+            .map((r, i) => {
+              const ts = r.tat_info?.status || "";
+              const tatLabel = tatStatusLabel[ts] || "—";
+
+              const statusLabel = !r.hasReport
+                ? "Pending"
+                : r.report?.is_Dispatched
+                  ? "Dispatched"
+                  : r.report?.is_approved
+                    ? "Approved"
+                    : "Reported";
+
+              const statusCls = !r.hasReport
+                ? "b-blue"
+                : r.report?.is_Dispatched
+                  ? "b-disp"
+                  : r.report?.is_approved
+                    ? "b-appr"
+                    : "b-orange";
+
+              const tatCls =
+                {
+                  completed: "b-green",
+                  completed_late: "b-orange",
+                  overdue: "b-red",
+                  on_track: "b-blue",
+                  waiting: "b-grey",
+                }[ts] || "b-grey";
+
+              const payCls = r.paymentStatus === "Paid" ? "b-paid" : "b-pend";
+              const payLbl = r.paymentStatus === "Paid" ? "Paid" : "Pending";
+
+              return `
+                <tr>
+                  <td class="sl">${i + 1}</td>
+                  <td>
+                    <span class="p-name">${r.patientName || "-"}</span>
+                    <span class="p-meta">${[r.age, r.gender].filter(Boolean).join(" / ") || "-"}</span>
+                    <span class="p-uhid">${r.uhid || ""}</span>
+                  </td>
+                  <td>
+                    <span class="item-name">${r.itemName || "-"}</span>
+                    ${r.scan_type ? `<span class="badge b-scan" style="margin-top:3px;display:inline-block">${r.scan_type}</span>` : ""}
+                  </td>
+                  <td>
+                    <span class="bill-no">${r.investBillNo || "-"}</span>
+                    <span class="bill-dt">${fmtDate(r.investBillDate)}</span>
+                  </td>
+                  <td><span class="ref">${r.referredBy || "-"}</span></td>
+                  <td><span class="badge ${payCls}">${payLbl}</span></td>
+                  <td>${timeCell(r.report?.patientIn_DateTime, r.report?.scan_started_DateTime, r.report?.approved_date, r.report?.dispatch_DateTime)}</td>
+                  <td>
+                    ${
+                      r.report?.slot_DateTime
+                        ? `<div class="t-row" style="margin-bottom:3px"><span class="t-lbl" style="width:auto;margin-right:2px">&#128336;</span><span class="t-val">${fmt(r.report.slot_DateTime)}</span></div>
+                         ${
+                           r.tat_info?.slot_info
+                             ? `<span class="badge ${r.tat_info.slot_info.status === "on_time" ? "b-green" : r.tat_info.slot_info.status === "late" ? "b-red" : "b-grey"}">${r.tat_info.slot_info.status === "on_time" ? "&#10003;" : r.tat_info.slot_info.status === "late" ? "&#10005;" : "&#9675;"} ${r.tat_info.slot_info.label}</span>`
+                             : ""
+                         }`
+                        : `<span style="color:#ccc">—</span>`
+                    }
+                  </td>
+                  <td>
+                    ${
+                      r.tat_info?.waiting_seconds != null
+                        ? `<span class="badge b-grey">${fmtTAT(r.tat_info.waiting_seconds)}</span>`
+                        : `<span style="color:#ccc">—</span>`
+                    }
+                  </td>
+                  <td><span class="badge ${statusCls}">${statusLabel}</span></td>
+                  <td>
+                    ${
+                      r.tat_info && ts !== "unknown"
+                        ? `<span class="badge ${tatCls}">${tatStatusIcon[ts] || ""} ${fmtTAT(r.tat_info.elapsed_seconds)}</span>`
+                        : `<span style="color:#ccc">—</span>`
+                    }
+                  </td>
+                  <td class="tat-lim">
+                    ${
+                      r.tat_info?.tat_seconds != null
+                        ? fmtTAT(r.tat_info.tat_seconds)
+                        : `<span style="color:#ccc">—</span>`
+                    }
+                  </td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+
+      <div class="rpt-footer">
+        <div>
+          <span class="legend-label">TAT:</span>
+          <span class="badge b-green">&#10003; Completed</span>&nbsp;
+          <span class="badge b-orange">&#8252; Completed Late</span>&nbsp;
+          <span class="badge b-red">&#10005; Overdue</span>&nbsp;
+          <span class="badge b-blue">&#9654; On Track</span>&nbsp;
+          <span class="badge b-grey">&#9675; Waiting</span>
+          &nbsp;&nbsp;
+          <span class="legend-label">Slot:</span>
+          <span class="badge b-green">&#10003; On Time</span>&nbsp;
+          <span class="badge b-red">&#10005; Late</span>&nbsp;
+          <span class="badge b-grey">&#9675; Not Arrived</span>
+        </div>
+        <span>Page 1 of 1 &nbsp;-&nbsp; Generated by Radiology System</span>
+      </div>
+    </body>
+    </html>
   `);
   w.document.close();
   w.print();
@@ -535,6 +879,7 @@ const RDPrint = () => {
 
   const [tab, setTab] = useState("count");
   const [tatFilter, setTatFilter] = useState("all");
+  const [slotFilter, setSlotFilter] = useState("all");
 
   // ── Count data ─────────────────────────────────────────────────────────────
   const countData = useMemo(() => {
@@ -550,7 +895,7 @@ const RDPrint = () => {
     }));
   }, [rows]);
 
-  // ── TAT filtered rows ──────────────────────────────────────────────────────
+  // ── TAT filtered rows — must be declared BEFORE slotFilteredRows/slotCounts
   const tatRows = useMemo(() => {
     if (tatFilter === "all") return rows;
     return rows.filter((r) => r.tat_info?.status === tatFilter);
@@ -565,6 +910,32 @@ const RDPrint = () => {
     });
     return counts;
   }, [rows]);
+
+  // ── Slot filtered rows (depends on tatRows — declared after it) ────────────
+  const slotFilteredRows = useMemo(() => {
+    if (slotFilter === "all") return tatRows;
+    if (slotFilter === "no_slot")
+      return tatRows.filter((r) => !r.report?.slot_DateTime);
+    return tatRows.filter((r) => r.tat_info?.slot_info?.status === slotFilter);
+  }, [tatRows, slotFilter]);
+
+  // ── Slot counts ────────────────────────────────────────────────────────────
+  const slotCounts = useMemo(() => {
+    const counts = { all: tatRows.length };
+    SLOT_FILTER_OPTIONS.forEach(({ value }) => {
+      if (value === "all") return;
+      if (value === "no_slot")
+        counts[value] = tatRows.filter((r) => !r.report?.slot_DateTime).length;
+      else
+        counts[value] = tatRows.filter(
+          (r) => r.tat_info?.slot_info?.status === value,
+        ).length;
+    });
+    return counts;
+  }, [tatRows]);
+
+  // ── Final display rows: both TAT + slot filters applied ───────────────────
+  const displayRows = slotFilteredRows;
 
   const activeFilterLabel =
     TAT_FILTER_OPTIONS.find((o) => o.value === tatFilter)?.label || "All";
@@ -615,7 +986,7 @@ const RDPrint = () => {
                 color="white"
                 onClick={() =>
                   printTATHTML(
-                    tatRows,
+                    displayRows,
                     fromDate,
                     toDate,
                     billTypeLabel,
@@ -690,6 +1061,7 @@ const RDPrint = () => {
         {/* ── TAT TAB ────────────────────────────────────────────────────── */}
         {tab === "tat" && (
           <>
+            {/* TAT status filter */}
             <TATFilterRow>
               <span
                 style={{ fontSize: "0.78rem", fontWeight: 700, color: "#555" }}
@@ -713,46 +1085,121 @@ const RDPrint = () => {
               ))}
             </TATFilterRow>
 
+            {/* Slot arrival filter */}
+            <TATFilterRow>
+              <span
+                style={{ fontSize: "0.78rem", fontWeight: 700, color: "#555" }}
+              >
+                Slot Arrival:
+              </span>
+              {SLOT_FILTER_OPTIONS.map((opt) => (
+                <TATFilterBtn
+                  key={opt.value}
+                  active={slotFilter === opt.value}
+                  bg={opt.bg}
+                  color={opt.color}
+                  borderColor={opt.borderColor}
+                  onClick={() => setSlotFilter(opt.value)}
+                >
+                  {opt.label}
+                  <span style={{ marginLeft: "0.3rem", opacity: 0.75 }}>
+                    ({slotCounts[opt.value] ?? 0})
+                  </span>
+                </TATFilterBtn>
+              ))}
+            </TATFilterRow>
+
             <TableWrapper>
               <PrintTable>
                 <thead>
                   <tr>
-                    <PTh>Sl.No</PTh>
-                    <PTh>Bill No</PTh>
-                    <PTh>UHID</PTh>
-                    <PTh>Patient</PTh>
-                    <PTh>Age</PTh>
-                    <PTh>Gender</PTh>
-                    <PTh>Item</PTh>
-                    <PTh>Scan Type</PTh>
-                    <PTh>Bill Date</PTh>
-                    <PTh>Referred By</PTh>
-                    <PTh>Payment</PTh>
-                    <PTh>Patient In</PTh>
-                    <PTh>Scan Started</PTh> {/* ← ADD */}
-                    <PTh>Waiting Time</PTh> {/* ← ADD */}
-                    <PTh>Dispatch</PTh>
-                    <PTh>Status</PTh>
-                    <PTh>TAT (Elapsed)</PTh>
-                    <PTh>TAT Limit</PTh>
+                    <PTh style={{ width: "3%" }}>#</PTh>
+                    <PTh style={{ width: "13%" }}>Patient</PTh>
+                    <PTh style={{ width: "11%" }}>Item / Scan Type</PTh>
+                    <PTh style={{ width: "9%" }}>Bill No / Date</PTh>
+                    <PTh style={{ width: "8%" }}>Referred By</PTh>
+                    <PTh style={{ width: "6%" }}>Payment</PTh>
+                    <PTh style={{ width: "20%" }}>
+                      Patient In → Scan → Dispatch / Approved
+                    </PTh>
+                    <PTh style={{ width: "8%" }}>Slot / Punctuality</PTh>
+                    <PTh style={{ width: "7%" }}>Waiting</PTh>
+                    <PTh style={{ width: "6%" }}>Status</PTh>
+                    <PTh style={{ width: "9%" }}>TAT Actual</PTh>
+                    <PTh style={{ width: "8%" }}>TAT Limit</PTh>
                   </tr>
                 </thead>
                 <tbody>
-                  {tatRows.length > 0 ? (
-                    tatRows.map((r, i) => (
+                  {displayRows.length > 0 ? (
+                    displayRows.map((r, i) => (
                       <tr key={`${r.investBillNo}-${r.item_id}-${i}`}>
+                        {/* Sl No */}
                         <PTd alt={i % 2 === 1}>{i + 1}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.investBillNo || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.uhid || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.patientName || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.age || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.gender || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.itemName || "—"}</PTd>
-                        <PTd alt={i % 2 === 1}>{r.scan_type || "—"}</PTd>
+
+                        {/* Patient */}
                         <PTd alt={i % 2 === 1}>
-                          {formatDateOnly(r.investBillDate)}
+                          <PatientStack>
+                            <PatientName>{r.patientName || "—"}</PatientName>
+                            <PatientMeta>
+                              {[r.age, r.gender].filter(Boolean).join(" / ") ||
+                                "—"}
+                            </PatientMeta>
+                            <PatientMeta style={{ color: "#888" }}>
+                              {r.uhid || ""}
+                            </PatientMeta>
+                          </PatientStack>
                         </PTd>
-                        <PTd alt={i % 2 === 1}>{r.referredBy || "—"}</PTd>
+
+                        {/* Item + Scan Type */}
+                        <PTd alt={i % 2 === 1}>
+                          <span style={{ fontWeight: 600 }}>
+                            {r.itemName || "—"}
+                          </span>
+                          {r.scan_type && (
+                            <ScanTypeBadge
+                              type={r.scan_type}
+                              style={{
+                                display: "block",
+                                marginLeft: 0,
+                                marginTop: "0.2rem",
+                              }}
+                            >
+                              {r.scan_type}
+                            </ScanTypeBadge>
+                          )}
+                        </PTd>
+
+                        {/* Bill No + Date */}
+                        <PTd alt={i % 2 === 1}>
+                          <span
+                            style={{ fontWeight: 600, fontSize: "0.78rem" }}
+                          >
+                            {r.investBillNo || "—"}
+                          </span>
+                          <br />
+                          <span style={{ fontSize: "0.7rem", color: "#888" }}>
+                            {formatDateOnly(r.investBillDate)}
+                          </span>
+                        </PTd>
+
+                        {/* Referred By */}
+                        <PTd alt={i % 2 === 1}>
+                          {r.referredBy ? (
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#0277bd",
+                                fontWeight: 600,
+                              }}
+                            >
+                              👨‍⚕️ {r.referredBy}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#bbb" }}>—</span>
+                          )}
+                        </PTd>
+
+                        {/* Payment */}
                         <PTd alt={i % 2 === 1}>
                           <StatusBadge
                             hasReport={r.paymentStatus === "Paid"}
@@ -764,15 +1211,97 @@ const RDPrint = () => {
                           </StatusBadge>
                         </PTd>
 
-                        {/* Patient In */}
+                        {/* Combined Time Column */}
                         <PTd alt={i % 2 === 1} style={{ whiteSpace: "nowrap" }}>
-                          {formatSlotDisplay(r.report?.patientIn_DateTime)}
+                          <TimeStack>
+                            <TimeRow>
+                              <TimeLabel color="#1565c0">▶ In:</TimeLabel>
+                              <TimeValue>
+                                {r.report?.patientIn_DateTime ? (
+                                  formatSlotDisplay(r.report.patientIn_DateTime)
+                                ) : (
+                                  <span style={{ color: "#bbb" }}>—</span>
+                                )}
+                              </TimeValue>
+                            </TimeRow>
+                            <TimeRow>
+                              <TimeLabel color="#e65100">🔬 Scan:</TimeLabel>
+                              <TimeValue>
+                                {r.report?.scan_started_DateTime ? (
+                                  formatSlotDisplay(
+                                    r.report.scan_started_DateTime,
+                                  )
+                                ) : (
+                                  <span style={{ color: "#bbb" }}>—</span>
+                                )}
+                              </TimeValue>
+                            </TimeRow>
+                            <div
+                              style={{
+                                borderTop: "1px dashed #b2dfdb",
+                                margin: "0.15rem 0",
+                              }}
+                            />
+                            <TimeRow>
+                              <TimeLabel color="#0277bd">📤 Disp:</TimeLabel>
+                              <TimeValue>
+                                {r.report?.dispatch_DateTime ? (
+                                  formatSlotDisplay(r.report.dispatch_DateTime)
+                                ) : (
+                                  <span style={{ color: "#bbb" }}>—</span>
+                                )}
+                              </TimeValue>
+                            </TimeRow>
+                            <TimeRow>
+                              <TimeLabel color="#2e7d32">✓ Appr:</TimeLabel>
+                              <TimeValue style={{ color: "#2e7d32" }}>
+                                {r.report?.approved_date ? (
+                                  formatSlotDisplay(r.report.approved_date)
+                                ) : (
+                                  <span style={{ color: "#bbb" }}>—</span>
+                                )}
+                              </TimeValue>
+                            </TimeRow>
+                          </TimeStack>
                         </PTd>
 
-                        {/* Scan Started */}
-                        <PTd alt={i % 2 === 1} style={{ whiteSpace: "nowrap" }}>
-                          {r.report?.scan_started_DateTime ? (
-                            formatSlotDisplay(r.report.scan_started_DateTime)
+                        {/* Slot / Punctuality */}
+                        <PTd alt={i % 2 === 1}>
+                          {r.report?.slot_DateTime ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.2rem",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "0.72rem",
+                                  fontWeight: 600,
+                                  color: "#4527a0",
+                                }}
+                              >
+                                🕐 {formatSlotDisplay(r.report.slot_DateTime)}
+                              </span>
+                              {r.tat_info?.slot_info && (
+                                <span
+                                  style={{
+                                    fontSize: "0.68rem",
+                                    fontWeight: 700,
+                                    color:
+                                      r.tat_info.slot_info.status === "on_time"
+                                        ? "#1b5e20"
+                                        : "#b71c1c",
+                                  }}
+                                >
+                                  {r.tat_info.slot_info.status === "on_time"
+                                    ? "✅"
+                                    : "🔴"}{" "}
+                                  {r.tat_info.slot_info.label}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span style={{ color: "#bbb" }}>—</span>
                           )}
@@ -789,16 +1318,15 @@ const RDPrint = () => {
                           )}
                         </PTd>
 
-                        {/* Dispatch */}
-                        <PTd alt={i % 2 === 1} style={{ whiteSpace: "nowrap" }}>
-                          {formatSlotDisplay(r.report?.dispatch_DateTime)}
-                        </PTd>
-
                         {/* Status */}
                         <PTd alt={i % 2 === 1}>
                           {!r.hasReport ? (
                             <StatusBadge hasReport={false}>
                               ⏳ Pending
+                            </StatusBadge>
+                          ) : r.report?.is_Dispatched ? (
+                            <StatusBadge hasReport approved dispatched>
+                              📤 Dispatched
                             </StatusBadge>
                           ) : r.report?.is_approved ? (
                             <StatusBadge hasReport approved>
@@ -809,14 +1337,14 @@ const RDPrint = () => {
                           )}
                         </PTd>
 
-                        {/* TAT Elapsed */}
+                        {/* TAT Actual */}
                         <PTd alt={i % 2 === 1} style={{ whiteSpace: "nowrap" }}>
                           {r.tat_info && r.tat_info.status !== "unknown" ? (
                             <TATBadge status={r.tat_info.status}>
-                              {" "}
-                              {/* ← r not row */}
-                              {tatIcon(r.tat_info.status)} {r.tat_info.label}{" "}
-                              {/* ← r not row */}
+                              {tatIcon(r.tat_info.status)}{" "}
+                              {r.tat_info.elapsed_seconds != null
+                                ? formatTATDuration(r.tat_info.elapsed_seconds)
+                                : r.tat_info.label}
                             </TATBadge>
                           ) : (
                             <span style={{ color: "#bbb" }}>—</span>
@@ -843,8 +1371,8 @@ const RDPrint = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={18}>
-                        <EmptyState>No records for this TAT status</EmptyState>
+                      <td colSpan={12}>
+                        <EmptyState>No records for this filter</EmptyState>
                       </td>
                     </tr>
                   )}

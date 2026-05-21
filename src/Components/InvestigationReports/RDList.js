@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
@@ -288,7 +288,8 @@ const SearchInput = styled.input`
   }
 `;
 const SearchSelect = styled.select`
-  width: 100%;
+  width: max-content;
+  min-width: max-content;
   padding: 0.4rem 0.5rem;
   border: 1.5px solid #e0e0e0;
   border-radius: 7px;
@@ -444,6 +445,16 @@ const StatusBadge = styled.span`
       return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
     return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
   }}
+  ${(props) => {
+    if (!props.hasReport)
+      return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
+    if (props.dispatched)
+      // ← ADD THIS
+      return `background:linear-gradient(135deg,#b3e5fc,#81d4fa);color:#01579b;`; // ← ADD
+    if (props.approved)
+      return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
+    return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
+  }}
 `;
 const SlotBadge = styled.span`
   padding: 0.22rem 0.55rem;
@@ -468,33 +479,6 @@ const ReferredByBadge = styled.span`
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   white-space: nowrap;
-`;
-const CheckInBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.22rem 0.6rem;
-  border-radius: 10px;
-  white-space: nowrap;
-  ${(p) =>
-    p.checked
-      ? `background: linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#2e7d32;`
-      : `background: linear-gradient(135deg,#f5f5f5,#eeeeee); color:#9e9e9e;`}
-`;
-
-const DispatchBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 0.22rem 0.6rem;
-  border-radius: 10px;
-  white-space: nowrap;
-  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-  color: #1565c0;
 `;
 // ── Scan Type Badge ────────────────────────────────────────────────────────
 const ScanTypeBadge = styled.span`
@@ -549,19 +533,21 @@ const TATBadge = styled.span`
     }
   }}
 `;
-const ScanStartedBadge = styled.span`
+const SlotPunctualityBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.72rem;
+  gap: 0.22rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.22rem 0.6rem;
+  padding: 0.22rem 0.55rem;
   border-radius: 10px;
   white-space: nowrap;
   ${(p) =>
-    p.started
-      ? `background: linear-gradient(135deg, #fff3e0, #ffe0b2); color: #e65100;`
-      : `background: linear-gradient(135deg, #f5f5f5, #eeeeee); color: #9e9e9e;`}
+    p.status === "on_time"
+      ? `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#1b5e20;`
+      : p.status === "late"
+        ? `background:linear-gradient(135deg,#ffcdd2,#ef9a9a);color:#b71c1c;`
+        : `background:#f5f5f5;color:#9e9e9e;`}
 `;
 
 const tatIcon = (status) => {
@@ -612,20 +598,16 @@ const ANCInfoValue = styled.span`
   font-weight: 600;
   color: #333;
 `;
+// Replace the existing EmptyState styled component with:
 const EmptyState = styled.div`
   text-align: center;
-  padding: 4rem 2rem;
+  padding: 3rem 2rem;
   color: #999;
-  &::before {
-    content: "📭";
-    font-size: 4rem;
-    display: block;
-    margin-bottom: 1rem;
-  }
   p {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 500;
     color: #666;
+    margin-top: 0.75rem;
   }
 `;
 
@@ -1159,6 +1141,154 @@ const SlotInfoValue = styled.span`
   flex: 1;
 `;
 
+const WfPillBase = css`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition:
+    opacity 0.15s,
+    filter 0.15s;
+  font-family: inherit;
+
+  &:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    filter: none;
+  }
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+`;
+
+// Icon circle inside the pill
+export const WfIcon = styled.span`
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  background: ${(p) => p.bg || "rgba(0,0,0,0.12)"};
+  color: white;
+`;
+
+// Timestamp text inside the pill
+export const WfTime = styled.span`
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-left: auto;
+  letter-spacing: 0.2px;
+`;
+
+// ── Idle / not-yet state (gray outline button) ────────────────────────────────
+export const WfIdleBtn = styled.button`
+  ${WfPillBase}
+  background: white;
+  border-color: #e0e0e0;
+  color: #9e9e9e;
+
+  ${WfIcon} {
+    background: #e0e0e0;
+    color: #9e9e9e;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: #bdbdbd;
+    background: #fafafa;
+    color: #616161;
+    filter: none;
+  }
+`;
+
+// ── Patient checked in (green) ────────────────────────────────────────────────
+export const WfCheckedInBtn = styled.button`
+  ${WfPillBase}
+  background: #f1f8e9;
+  border-color: #c5e1a5;
+  color: #33691e;
+
+  ${WfIcon} {
+    background: #558b2f;
+  }
+
+  &:active:not(:disabled) {
+    filter: brightness(0.92);
+  }
+`;
+
+// ── Scan started (amber) ──────────────────────────────────────────────────────
+export const WfScanActiveBtn = styled.button`
+  ${WfPillBase}
+  background: #fff8e1;
+  border-color: #ffe082;
+  color: #e65100;
+
+  ${WfIcon} {
+    background: #f57c00;
+  }
+
+  &:active:not(:disabled) {
+    filter: brightness(0.92);
+  }
+`;
+
+// ── Dispatch ready (blue, clickable) ─────────────────────────────────────────
+export const WfDispatchReadyBtn = styled.button`
+  ${WfPillBase}
+  background: #e3f2fd;
+  border-color: #90caf9;
+  color: #0d47a1;
+
+  ${WfIcon} {
+    background: #1976d2;
+  }
+
+  &:hover:not(:disabled) {
+    background: #bbdefb;
+    border-color: #64b5f6;
+    filter: none;
+  }
+`;
+
+// ── Dispatched (teal, non-clickable display) ──────────────────────────────────
+export const WfDispatchedPill = styled.div`
+  ${WfPillBase}
+  cursor: default;
+  background: #e0f2f1;
+  border-color: #80cbc4;
+  color: #004d40;
+
+  ${WfIcon} {
+    background: #00796b;
+  }
+`;
+
+// ── Locked variant (faded done state when record is approved/locked) ──────────
+export const WfLockedPill = styled.div`
+  ${WfPillBase}
+  cursor: default;
+  opacity: 0.55;
+  background: ${(p) => p.bg || "#f5f5f5"};
+  border-color: ${(p) => p.borderColor || "#e0e0e0"};
+  color: ${(p) => p.color || "#757575"};
+
+  ${WfIcon} {
+    background: ${(p) => p.iconBg || "#bdbdbd"};
+  }
+`;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDate = (date) => {
@@ -1171,15 +1301,27 @@ const getToday = () => new Date().toISOString().split("T")[0];
 const formatSlotDisplay = (slotDateTime) => {
   if (!slotDateTime) return null;
   try {
-    const d = new Date(slotDateTime);
-    return d.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const [datePart, timePart] = slotDateTime.split("T");
+    const [year, month, day] = datePart.split("-");
+    const [hour, minute] = timePart.split(":");
+    const h = parseInt(hour, 10);
+    const ampm = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year}, ${String(h12).padStart(2, "0")}:${minute} ${ampm}`;
   } catch {
     return slotDateTime;
   }
@@ -1201,6 +1343,13 @@ const formatLMPDate = (val) => {
   } catch {
     return val;
   }
+};
+const useLiveTime = () => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 };
 
 const ANCDisplayBlock = ({ row }) => {
@@ -3019,6 +3168,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDList = ({ investBillNo: investBillNoFilter }) => {
+  useLiveTime();
   const [rows, setRows] = useState([]);
   const [selectedRow, setSelectedRow] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3048,6 +3198,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
   const [searchScanType, setSearchScanType] = useState("");
   const [billTypes, setBillTypes] = useState([]);
+  const [searchSlotStatus, setSearchSlotStatus] = useState("");
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -3226,9 +3377,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     return rows.filter((row) => {
       const statusLabel = !row.hasReport
         ? "pending"
-        : row.report?.is_approved
-          ? "approved"
-          : "reported";
+        : row.report?.is_Dispatched
+          ? "dispatched"
+          : row.report?.is_approved
+            ? "approved"
+            : "reported";
       return (
         (!searchBillNo ||
           (row.investBillNo || "")
@@ -3247,6 +3400,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         (!searchStatus || statusLabel === searchStatus) &&
         (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
         (!searchScanType || (row.scan_type || "") === searchScanType) &&
+        (!searchSlotStatus ||
+          (() => {
+            const s = row.tat_info?.slot_info?.status;
+            return searchSlotStatus === "no_slot"
+              ? !row.report?.slot_DateTime
+              : s === searchSlotStatus;
+          })()) &&
         (!searchReferredBy || row.referredBy === searchReferredBy)
       );
     });
@@ -3260,6 +3420,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchReferredBy,
     searchPaymentStatus,
     searchScanType,
+    searchSlotStatus,
   ]);
 
   // ── Print dropdown ─────────────────────────────────────────────────────────
@@ -3445,6 +3606,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
                 ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info, // ← from backend
                 report: {
                   ...r.report,
                   is_Dispatched: true,
@@ -3633,6 +3795,241 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     billTypes.find((b) => b.value === selectedBillType)?.label || "Radiology";
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  const formatTATDuration = (seconds) => {
+    if (seconds === null || seconds === undefined) return "—";
+    const total = Math.abs(Math.round(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const getLiveTAT = (row) => {
+    const tat = row.tat_info;
+    if (!tat || tat.status === "unknown") return tat;
+    if (tat.status === "completed" || tat.status === "completed_late")
+      return tat;
+
+    // If patient not checked in yet
+    if (!row.report?.patientIn_DateTime) {
+      return { ...tat, status: "waiting", label: "Awaiting check-in" };
+    }
+
+    // If checked in but scan not started yet → show waiting for scan
+    if (!row.report?.scan_started_DateTime) {
+      return { ...tat, status: "waiting", label: "Awaiting scan start" };
+    }
+
+    // Scan started → live countdown/countup from scan_started_DateTime
+    const startTime = new Date(row.report.scan_started_DateTime).getTime();
+    const nowTime = Date.now();
+    const elapsed_seconds = Math.floor((nowTime - startTime) / 1000);
+    const tat_seconds = tat.tat_seconds || 0;
+    const remaining = tat_seconds - elapsed_seconds;
+
+    const fmtDuration = (s) => {
+      const abs = Math.abs(Math.round(s));
+      const h = Math.floor(abs / 3600);
+      const m = Math.floor((abs % 3600) / 60);
+      const sec = abs % 60;
+      const parts = [];
+      if (h) parts.push(`${h}h`);
+      if (m || h) parts.push(`${m}m`);
+      parts.push(`${sec}s`);
+      return parts.join(" ");
+    };
+
+    const status = remaining > 0 ? "on_track" : "overdue";
+    const label =
+      status === "on_track"
+        ? `${fmtDuration(remaining)} left`
+        : `Overdue by ${fmtDuration(-remaining)}`;
+
+    return { ...tat, elapsed_seconds, status, label };
+  };
+  const formatTimeOnly = (isoString) => {
+    if (!isoString) return "";
+    try {
+      const timePart = isoString.split("T")[1];
+      if (!timePart) return "";
+      const timeOnly = timePart.split("+")[0].split("-")[0];
+      const [hour, minute, second] = timeOnly.split(":");
+      const h = parseInt(hour, 10);
+      const ampm = h >= 12 ? "pm" : "am";
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      const sec = second ? second.split(".")[0] : "00"; // strip milliseconds
+      return `${String(h12).padStart(2, "0")}:${minute}:${sec} ${ampm}`;
+    } catch {
+      return "";
+    }
+  };
+
+  /*
+──────────────────────────────────────────────
+PATIENT IN  <Td>
+──────────────────────────────────────────────
+*/
+  const PatientInCell = ({ row, handlePatientCheckIn }) => {
+    const checkedIn = !!row.report?.patientIn_DateTime;
+    const scanStarted = !!row.report?.scan_started_DateTime;
+    const paymentPending = row.paymentStatus !== "Paid";
+    const isApproved = !!row.report?.is_approved;
+
+    if (isApproved && checkedIn) {
+      // Locked — show green pill, no interaction
+      return (
+        <Td>
+          <WfLockedPill
+            bg="#f1f8e9"
+            borderColor="#c5e1a5"
+            color="#558b2f"
+            iconBg="#558b2f"
+          >
+            <WfIcon bg="#558b2f">✓</WfIcon>
+            Arrived
+            <WfTime>{formatTimeOnly(row.report.patientIn_DateTime)}</WfTime>
+          </WfLockedPill>
+        </Td>
+      );
+    }
+
+    if (checkedIn) {
+      return (
+        <Td>
+          <WfCheckedInBtn
+            onClick={() => handlePatientCheckIn(row)}
+            disabled={scanStarted}
+            title={
+              scanStarted
+                ? "Locked — scan already started"
+                : "Click to undo check-in"
+            }
+          >
+            <WfIcon bg="#558b2f">✓</WfIcon>
+            Arrived
+            <WfTime>{formatTimeOnly(row.report.patientIn_DateTime)}</WfTime>
+          </WfCheckedInBtn>
+        </Td>
+      );
+    }
+
+    return (
+      <Td>
+        <WfIdleBtn
+          onClick={() => handlePatientCheckIn(row)}
+          disabled={paymentPending}
+          title={paymentPending ? "Payment pending" : "Mark patient as arrived"}
+        >
+          <WfIcon>☐</WfIcon>
+          Check in
+        </WfIdleBtn>
+      </Td>
+    );
+  };
+
+  /*
+──────────────────────────────────────────────
+SCAN STARTED  <Td>
+──────────────────────────────────────────────
+*/
+  const ScanStartedCell = ({ row, handleScanStarted }) => {
+    const scanStarted = !!row.report?.scan_started_DateTime;
+    const checkedIn = !!row.report?.patientIn_DateTime;
+    const isApproved = !!row.report?.is_approved;
+
+    if (isApproved && scanStarted) {
+      return (
+        <Td>
+          <WfLockedPill
+            bg="#fff8e1"
+            borderColor="#ffe082"
+            color="#e65100"
+            iconBg="#f57c00"
+          >
+            <WfIcon bg="#f57c00">🔬</WfIcon>
+            Scanned
+            <WfTime>{formatTimeOnly(row.report.scan_started_DateTime)}</WfTime>
+          </WfLockedPill>
+        </Td>
+      );
+    }
+
+    if (scanStarted) {
+      return (
+        <Td>
+          <WfScanActiveBtn
+            onClick={() => handleScanStarted(row)}
+            title="Click to clear scan start"
+          >
+            <WfIcon bg="#f57c00">🔬</WfIcon>
+            Scanning
+            <WfTime>{formatTimeOnly(row.report.scan_started_DateTime)}</WfTime>
+          </WfScanActiveBtn>
+        </Td>
+      );
+    }
+
+    return (
+      <Td>
+        <WfIdleBtn
+          onClick={() => handleScanStarted(row)}
+          disabled={!checkedIn}
+          title={!checkedIn ? "Check in patient first" : "Mark scan as started"}
+        >
+          <WfIcon>☐</WfIcon>
+          Start scan
+        </WfIdleBtn>
+      </Td>
+    );
+  };
+
+  /*
+──────────────────────────────────────────────
+DISPATCH  <Td>
+──────────────────────────────────────────────
+*/
+  const DispatchCell = ({ row, handleDispatch }) => {
+    const isApproved = !!row.report?.is_approved;
+    const isDispatched = !!row.report?.is_Dispatched;
+
+    if (isDispatched) {
+      return (
+        <Td>
+          <WfDispatchedPill>
+            <WfIcon bg="#00796b">✓</WfIcon>
+            Dispatched
+            <WfTime>{formatTimeOnly(row.report.dispatch_DateTime)}</WfTime>
+          </WfDispatchedPill>
+        </Td>
+      );
+    }
+
+    if (isApproved) {
+      return (
+        <Td>
+          <WfDispatchReadyBtn
+            onClick={() => handleDispatch(row)}
+            title="Dispatch report"
+          >
+            <WfIcon bg="#1976d2">📤</WfIcon>
+            Dispatch
+          </WfDispatchReadyBtn>
+        </Td>
+      );
+    }
+
+    return (
+      <Td>
+        <WfIdleBtn
+          disabled
+          title={!row.hasReport ? "No report yet" : "Approve report first"}
+        >
+          <WfIcon>☐</WfIcon>
+          Dispatch
+        </WfIdleBtn>
+      </Td>
+    );
+  };
 
   return (
     <PageWrapper>
@@ -3838,7 +4235,22 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       <option value="Pending">⏳ Pending</option>
                     </SearchSelect>
                   </SearchTh>
-                  <SearchTh />
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchSlotStatus}
+                      onChange={(e) => setSearchSlotStatus(e.target.value)}
+                      style={{
+                        width: "auto",
+                        minWidth: "max-content",
+                      }}
+                    >
+                      <option value="">All Arrivals</option>
+                      <option value="on_time">✅ On Time</option>
+                      <option value="late">🔴 Late</option>
+                      <option value="not_arrived">⏳ Not Arrived</option>
+                      <option value="no_slot">— No Slot</option>
+                    </SearchSelect>
+                  </SearchTh>
                   <SearchTh />
                   <SearchTh /> {/* Patient In */}
                   <SearchTh /> {/* Dispatch */}
@@ -3851,6 +4263,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       <option value="pending">⏳ Pending</option>
                       <option value="reported">⏱ Reported</option>
                       <option value="approved">✓ Approved</option>
+                      <option value="dispatched">📤 Dispatched</option>
                     </SearchSelect>
                   </SearchTh>
                   <SearchTh />
@@ -3892,15 +4305,23 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         )}
                       </Td>
                       <Td>
-                        {row.tat_info && row.tat_info.status !== "unknown" ? (
-                          <TATBadge status={row.tat_info.status}>
-                            {tatIcon(row.tat_info.status)} {row.tat_info.label}
-                          </TATBadge>
-                        ) : (
-                          <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
-                            —
-                          </span>
-                        )}
+                        {(() => {
+                          const liveTat = getLiveTAT(row);
+                          if (!liveTat || liveTat.status === "unknown") {
+                            return (
+                              <span
+                                style={{ color: "#bbb", fontSize: "0.8rem" }}
+                              >
+                                —
+                              </span>
+                            );
+                          }
+                          return (
+                            <TATBadge status={liveTat.status}>
+                              {tatIcon(liveTat.status)} {liveTat.label}
+                            </TATBadge>
+                          );
+                        })()}
                       </Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
@@ -3924,144 +4345,52 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       </Td>
                       <Td>
                         {row.report?.slot_DateTime ? (
-                          <SlotBadge>
-                            🕐 {formatSlotDisplay(row.report.slot_DateTime)}
-                          </SlotBadge>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            <SlotBadge>
+                              🕐 {formatSlotDisplay(row.report.slot_DateTime)}
+                            </SlotBadge>
+                            {row.tat_info?.slot_info && (
+                              <SlotPunctualityBadge
+                                status={row.tat_info.slot_info.status}
+                              >
+                                {row.tat_info.slot_info.status === "on_time"
+                                  ? "✅"
+                                  : row.tat_info.slot_info.status === "late"
+                                    ? "🔴"
+                                    : "⏳"}{" "}
+                                {row.tat_info.slot_info.label}
+                              </SlotPunctualityBadge>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —
                           </span>
                         )}
                       </Td>
-                      {/* ── Patient In ── */}
-                      <Td>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          <IconBtn
-                            bg={
-                              row.report?.patientIn_DateTime
-                                ? "linear-gradient(135deg,#66bb6a,#43a047)"
-                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
-                            }
-                            onClick={() => handlePatientCheckIn(row)}
-                            disabled={row.paymentStatus !== "Paid"}
-                            data-tip={
-                              row.paymentStatus !== "Paid"
-                                ? "Payment Pending"
-                                : row.report?.patientIn_DateTime
-                                  ? "Click to clear check-in"
-                                  : "Mark patient as arrived"
-                            }
-                          >
-                            {row.report?.patientIn_DateTime ? "✅" : "☐"}
-                          </IconBtn>
-                          {row.report?.patientIn_DateTime && (
-                            <CheckInBadge checked>
-                              🕐{" "}
-                              {formatSlotDisplay(row.report.patientIn_DateTime)}
-                            </CheckInBadge>
-                          )}
-                        </div>
-                      </Td>
-
-                      {/* ── Scan Started ── */}
-                      <Td>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                          }}
-                        >
-                          <IconBtn
-                            bg={
-                              row.report?.scan_started_DateTime
-                                ? "linear-gradient(135deg,#ffa726,#fb8c00)"
-                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
-                            }
-                            onClick={() => handleScanStarted(row)}
-                            disabled={
-                              !row.report?.patientIn_DateTime || // must check in first
-                              row.report?.is_approved // ← ADD: lock after approval
-                            }
-                            data-tip={
-                              !row.report?.patientIn_DateTime
-                                ? "Check in patient first"
-                                : row.report?.is_approved
-                                  ? "Scan locked (approved)" // ← ADD
-                                  : row.report?.scan_started_DateTime
-                                    ? "Click to clear scan start"
-                                    : "Mark scan as started"
-                            }
-                          >
-                            {row.report?.scan_started_DateTime ? "🔬" : "☐"}
-                          </IconBtn>
-                          {row.report?.scan_started_DateTime && (
-                            <ScanStartedBadge started>
-                              🕐{" "}
-                              {formatSlotDisplay(
-                                row.report.scan_started_DateTime,
-                              )}
-                            </ScanStartedBadge>
-                          )}
-                        </div>
-                      </Td>
-
-                      {/* ── Dispatch ── */}
-                      <Td>
-                        {row.report?.is_Dispatched ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              gap: "0.25rem",
-                            }}
-                          >
-                            <DispatchBadge>📤 Dispatched</DispatchBadge>
-                            {row.report?.dispatch_DateTime && (
-                              <span
-                                style={{ fontSize: "0.65rem", color: "#888" }}
-                              >
-                                {formatSlotDisplay(
-                                  row.report.dispatch_DateTime,
-                                )}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <IconBtn
-                            bg={
-                              row.report?.is_approved
-                                ? "linear-gradient(135deg,#29b6f6,#0288d1)"
-                                : "linear-gradient(135deg,#e0e0e0,#bdbdbd)"
-                            }
-                            onClick={() => handleDispatch(row)}
-                            disabled={
-                              !row.report?.is_approved ||
-                              row.report?.is_Dispatched
-                            }
-                            data-tip={
-                              !row.report?.is_approved
-                                ? "Approve report first"
-                                : "Dispatch Report"
-                            }
-                          >
-                            📤
-                          </IconBtn>
-                        )}
-                      </Td>
+                      <PatientInCell
+                        row={row}
+                        handlePatientCheckIn={handlePatientCheckIn}
+                      />
+                      <ScanStartedCell
+                        row={row}
+                        handleScanStarted={handleScanStarted}
+                      />
+                      <DispatchCell row={row} handleDispatch={handleDispatch} />
                       <Td>
                         {!row.hasReport ? (
                           <StatusBadge hasReport={false}>
                             ⏳ Pending
+                          </StatusBadge>
+                        ) : row.report?.is_Dispatched ? (
+                          <StatusBadge hasReport approved dispatched>
+                            📤 Dispatched
                           </StatusBadge>
                         ) : row.report?.is_approved ? (
                           <StatusBadge hasReport approved>
@@ -4077,13 +4406,18 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             <IconBtn
                               bg="linear-gradient(135deg,#7c4dff,#651fff)"
                               onClick={() => handleOpenSlot(row)}
-                              disabled={row.report?.is_approved}
+                              disabled={
+                                row.report?.is_approved ||
+                                !!row.report?.scan_started_DateTime
+                              }
                               data-tip={
                                 row.report?.is_approved
                                   ? "Slot locked (approved)"
-                                  : row.report?.slot_DateTime
-                                    ? "Update Slot"
-                                    : "Set Slot"
+                                  : row.report?.scan_started_DateTime
+                                    ? "Slot locked (scan started)"
+                                    : row.report?.slot_DateTime
+                                      ? "Update Slot"
+                                      : "Set Slot"
                               }
                             >
                               🕐
@@ -4194,8 +4528,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   ))
                 ) : (
                   <tr>
-                    <Td colSpan="14">
+                    <Td colSpan="18" style={{ padding: 0, border: "none" }}>
                       <EmptyState>
+                        <div
+                          style={{ fontSize: "3rem", marginBottom: "0.5rem" }}
+                        >
+                          📭
+                        </div>
                         <p>
                           {rows.length > 0
                             ? "No results match your search criteria"
