@@ -583,6 +583,8 @@ const EMPTY_MODAL = {
   sellingDiscountedAmt: "",
   sellingCost: "",
   unitSellingCost: "",
+  purchaseCostBeforeGst: "",
+  sellingCostBeforeGst: "",
 };
 
 const EMPTY_FORM = {
@@ -910,17 +912,21 @@ const Invoice = () => {
     u.sellingSgstAmt = cgstAmt;
 
     // selling cost = base + taxes - discount
-    let sCost = base + parseFloat(cgstAmt) * 2;
+    // selling cost = base - discount + taxes  (discount on base BEFORE GST)
+    const sellingBase = base; // sUnitCost × qty, no GST
     const sDiscP = parseFloat(u.sellingDiscountPercent) || 0;
     const sDiscA = parseFloat(u.sellingDiscountedAmt) || 0;
+    let sellingDiscount = 0;
     if (sDiscP > 0) {
-      const da = (sCost * sDiscP) / 100;
-      u.sellingDiscountedAmt = da.toFixed(2);
-      sCost -= da;
+      sellingDiscount = (sellingBase * sDiscP) / 100;
+      u.sellingDiscountedAmt = sellingDiscount.toFixed(2);
     } else if (sDiscA > 0) {
-      u.sellingDiscountPercent = ((sDiscA / sCost) * 100).toFixed(2);
-      sCost -= sDiscA;
+      sellingDiscount = sDiscA;
+      u.sellingDiscountPercent =
+        sellingBase > 0 ? ((sDiscA / sellingBase) * 100).toFixed(2) : "0.00";
     }
+    let sCost = sellingBase - sellingDiscount + parseFloat(cgstAmt) * 2;
+    u.sellingCostBeforeGst = (sellingBase - sellingDiscount).toFixed(2);
     u.sellingCost = sCost.toFixed(2);
     u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
     return u;
@@ -929,20 +935,23 @@ const Invoice = () => {
   // ─── Helper: recalc selling cost from selling tax + selling discount ───────
   const calcSellingCost = (u, qty) => {
     const sellingBase = (parseFloat(u.unitPrice) || 0) * qty;
-    let sCost =
-      sellingBase +
-      (parseFloat(u.sellingCgstAmt) || 0) +
-      (parseFloat(u.sellingSgstAmt) || 0);
     const sDiscP = parseFloat(u.sellingDiscountPercent) || 0;
     const sDiscA = parseFloat(u.sellingDiscountedAmt) || 0;
+    let sellingDiscount = 0;
     if (sDiscP > 0) {
-      const da = (sCost * sDiscP) / 100;
-      u.sellingDiscountedAmt = da.toFixed(2);
-      sCost -= da;
+      sellingDiscount = (sellingBase * sDiscP) / 100;
+      u.sellingDiscountedAmt = sellingDiscount.toFixed(2);
     } else if (sDiscA > 0) {
-      u.sellingDiscountPercent = ((sDiscA / sCost) * 100).toFixed(2);
-      sCost -= sDiscA;
+      sellingDiscount = sDiscA;
+      u.sellingDiscountPercent =
+        sellingBase > 0 ? ((sDiscA / sellingBase) * 100).toFixed(2) : "0.00";
     }
+    let sCost =
+      sellingBase -
+      sellingDiscount +
+      (parseFloat(u.sellingCgstAmt) || 0) +
+      (parseFloat(u.sellingSgstAmt) || 0);
+    u.sellingCostBeforeGst = (sellingBase - sellingDiscount).toFixed(2);
     u.sellingCost = sCost.toFixed(2);
     u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
     return u;
@@ -1003,12 +1012,15 @@ const Invoice = () => {
         let cost = base + parseFloat(cgstAmt) * 2;
         const disc = parseFloat(u.purchaseDiscountPercent) || 0;
         if (disc > 0) {
-          const da = (cost * disc) / 100;
+          const da =
+            disc > 0 ? (base * disc) / 100 : parseFloat(u.discountedAmt) || 0;
           u.discountedAmt = da.toFixed(2);
-          cost -= da;
+          let cost = base - da + parseFloat(cgstAmt) * 2;
         }
         u.purchaseCost = cost.toFixed(2);
         u.unitCostWithGst = qty > 0 ? (cost / qty).toFixed(2) : "0.00";
+        u.purchaseCostBeforeGst = (base - (parseFloat(u.discountedAmt) || 0)) // ← use `base` which is defined above in handleTaxChange
+          .toFixed(2);
         // re-derive selling unit cost from updated unitCostWithGst
         deriveSellingUnitCost(u);
         // recalc selling cost
@@ -1124,33 +1136,60 @@ const Invoice = () => {
       }
 
       // ── Purchase cost ──
+      // REPLACE WITH — discounts applied on base (before GST), then GST added:
+      const baseCostBeforeGst = base; // unitPrice × qty, no GST
       let cost =
-        base + (parseFloat(u.cgstAmt) || 0) + (parseFloat(u.sgstAmt) || 0);
+        baseCostBeforeGst +
+        (parseFloat(u.cgstAmt) || 0) +
+        (parseFloat(u.sgstAmt) || 0);
       if (name === "purchaseDiscountPercent") {
         const discP = parseFloat(value) || 0;
-        const da = discP > 0 ? (cost * discP) / 100 : 0;
+        const da = discP > 0 ? (baseCostBeforeGst * discP) / 100 : 0;
         u.discountedAmt = da.toFixed(2);
-        cost -= da;
+        cost =
+          baseCostBeforeGst -
+          da +
+          (parseFloat(u.cgstAmt) || 0) +
+          (parseFloat(u.sgstAmt) || 0);
       } else if (name === "discountedAmt") {
         const da = parseFloat(value) || 0;
-        if (da > 0 && cost > 0) {
-          u.purchaseDiscountPercent = ((da / cost) * 100).toFixed(2);
-          cost -= da;
+        if (da > 0 && baseCostBeforeGst > 0) {
+          u.purchaseDiscountPercent = ((da / baseCostBeforeGst) * 100).toFixed(
+            2,
+          );
+          cost =
+            baseCostBeforeGst -
+            da +
+            (parseFloat(u.cgstAmt) || 0) +
+            (parseFloat(u.sgstAmt) || 0);
         }
       } else {
         const ed = parseFloat(u.discountedAmt) || 0;
         const ep = parseFloat(u.purchaseDiscountPercent) || 0;
         if (ep > 0) {
-          const da = (cost * ep) / 100;
+          const da = (baseCostBeforeGst * ep) / 100;
           u.discountedAmt = da.toFixed(2);
-          cost -= da;
+          cost =
+            baseCostBeforeGst -
+            da +
+            (parseFloat(u.cgstAmt) || 0) +
+            (parseFloat(u.sgstAmt) || 0);
         } else if (ed > 0) {
-          u.purchaseDiscountPercent = ((ed / cost) * 100).toFixed(2);
-          cost -= ed;
+          u.purchaseDiscountPercent = ((ed / baseCostBeforeGst) * 100).toFixed(
+            2,
+          );
+          cost =
+            baseCostBeforeGst -
+            ed +
+            (parseFloat(u.cgstAmt) || 0) +
+            (parseFloat(u.sgstAmt) || 0);
         }
       }
       u.purchaseCost = cost.toFixed(2);
       u.unitCostWithGst = qty > 0 ? (cost / qty).toFixed(2) : "0.00";
+      u.purchaseCostBeforeGst = (
+        baseCostBeforeGst - (parseFloat(u.discountedAmt) || 0)
+      ).toFixed(2);
 
       // ── When unitPrice / quantity / mrp changes, re-derive sellingUnitCost ──
       if (name === "unitPrice" || name === "quantity" || name === "mrp") {
@@ -1167,29 +1206,52 @@ const Invoice = () => {
           base +
           (parseFloat(u.sellingCgstAmt) || 0) +
           (parseFloat(u.sellingSgstAmt) || 0);
+        // sellingBase here = base (unitPrice × qty), GST amounts already in u.sellingCgstAmt / sellingSgstAmt
+        const sellingBaseAmt = base; // pre-GST selling base
         if (name === "sellingDiscountPercent") {
           const sDiscP = parseFloat(value) || 0;
-          const da = sDiscP > 0 ? (sCost * sDiscP) / 100 : 0;
+          const da = sDiscP > 0 ? (sellingBaseAmt * sDiscP) / 100 : 0;
           u.sellingDiscountedAmt = da.toFixed(2);
-          sCost -= da;
+          sCost =
+            sellingBaseAmt -
+            da +
+            (parseFloat(u.sellingCgstAmt) || 0) +
+            (parseFloat(u.sellingSgstAmt) || 0);
         } else if (name === "sellingDiscountedAmt") {
           const da = parseFloat(value) || 0;
-          if (da > 0 && sCost > 0) {
-            u.sellingDiscountPercent = ((da / sCost) * 100).toFixed(2);
-            sCost -= da;
+          if (da > 0 && sellingBaseAmt > 0) {
+            u.sellingDiscountPercent = ((da / sellingBaseAmt) * 100).toFixed(2);
+            sCost =
+              sellingBaseAmt -
+              da +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           }
         } else {
           const sed = parseFloat(u.sellingDiscountedAmt) || 0;
           const sep = parseFloat(u.sellingDiscountPercent) || 0;
           if (sep > 0) {
-            const da = (sCost * sep) / 100;
+            const da = (sellingBaseAmt * sep) / 100;
             u.sellingDiscountedAmt = da.toFixed(2);
-            sCost -= da;
+            sCost =
+              sellingBaseAmt -
+              da +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           } else if (sed > 0) {
-            u.sellingDiscountPercent = ((sed / sCost) * 100).toFixed(2);
-            sCost -= sed;
+            u.sellingDiscountPercent = ((sed / sellingBaseAmt) * 100).toFixed(
+              2,
+            );
+            sCost =
+              sellingBaseAmt -
+              sed +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           }
         }
+        u.sellingCostBeforeGst = (
+          sellingBaseAmt - (parseFloat(u.sellingDiscountedAmt) || 0)
+        ).toFixed(2);
         u.sellingCost = sCost.toFixed(2);
         u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
       }
@@ -1199,6 +1261,55 @@ const Invoice = () => {
   };
 
   const handleAddItem = () => {
+    // Mandatory field checks
+    if (!modalForm.name) {
+      toast.error("Item Name is required");
+      return;
+    }
+    if (!modalForm.batch_no) {
+      toast.error("Batch Number is required");
+      return;
+    }
+    if (!modalForm.expiry) {
+      toast.error("Expiry Date is required");
+      return;
+    }
+    if (!modalForm.quantity) {
+      toast.error("Quantity is required");
+      return;
+    }
+    if (!modalForm.sellingPricingMode) {
+      toast.error("Pricing Mode is required");
+      return;
+    }
+
+    const pctField =
+      modalForm.sellingPricingMode === "markup"
+        ? modalForm.sellingMarkupPercent
+        : modalForm.sellingMarkdownPercent;
+    if (!pctField) {
+      toast.error(
+        modalForm.sellingPricingMode === "markup"
+          ? "Markup % is required"
+          : "Markdown % is required",
+      );
+      return;
+    }
+    if (!modalForm.sellingUnitCost) {
+      toast.error("Selling Unit Cost is required");
+      return;
+    }
+
+    // ── NEW: Warn if Selling Unit Cost exceeds MRP ──
+    const sellingUnitCost = parseFloat(modalForm.sellingUnitCost) || 0;
+    const mrp = parseFloat(modalForm.mrp) || 0;
+
+    if (mrp > 0 && sellingUnitCost > mrp) {
+      toast.error(
+        `Selling Unit Cost ₹${sellingUnitCost.toFixed(2)} cannot exceed MRP ₹${mrp.toFixed(2)}`,
+      );
+      return; // hard stop — no override
+    }
     if (editingItem) {
       setItems((prev) =>
         prev.map((i) =>
@@ -1210,7 +1321,6 @@ const Invoice = () => {
     }
     setModalForm(EMPTY_MODAL);
   };
-
   const handleDeleteItem = (id) =>
     setItems((prev) => prev.filter((i) => i.id !== id));
 
@@ -1634,6 +1744,7 @@ const Invoice = () => {
                         name="invoiceDate"
                         value={formData.invoiceDate}
                         onChange={handleFormChange}
+                        max={new Date().toISOString().split("T")[0]}
                         style={{ fontSize: "0.82rem" }}
                       />
                     </InputWrapper>
@@ -2359,9 +2470,9 @@ const Invoice = () => {
                   marginBottom: 10,
                 }}
               >
-                <GridRow cols="repeat(4,1fr)" mb="0">
+                <GridRow cols="repeat(5,1fr)" mb="0">
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Discount %</Lbl>
+                    <Lbl>Dis. %</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2373,7 +2484,7 @@ const Invoice = () => {
                     />
                   </InputWrapper>
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Discounted Amt ₹</Lbl>
+                    <Lbl>Dis. Amt ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2384,8 +2495,21 @@ const Invoice = () => {
                       style={{ fontSize: "0.82rem" }}
                     />
                   </InputWrapper>
+                  {/* ADD this 5th field: */}
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Purchase Cost ₹</Lbl>
+                    <Input
+                      readOnly
+                      value={modalForm.purchaseCostBeforeGst}
+                      style={{
+                        fontSize: "0.82rem",
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                      }}
+                    />
+                  </InputWrapper>
+                  <InputWrapper style={{ margin: 0 }}>
+                    <Lbl>Pur. Cost (with GST) ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2430,12 +2554,14 @@ const Invoice = () => {
                 }}
               >
                 <GridRow
-                  cols="repeat(4,1fr)"
+                  cols="repeat(3,1fr)"
                   mb={parseFloat(modalForm.mrp) > 0 ? "6px" : "0"}
                 >
                   {/* Pricing Mode */}
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Pricing Mode</Lbl>
+                    <Lbl>
+                      Pricing Mode <RequiredMark>*</RequiredMark>
+                    </Lbl>
                     <Select
                       name="sellingPricingMode"
                       value={modalForm.sellingPricingMode}
@@ -2451,7 +2577,7 @@ const Invoice = () => {
                   {modalForm.sellingPricingMode === "markup" ? (
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>
-                        Markup % &nbsp;
+                        Markup % &nbsp;<RequiredMark>*</RequiredMark>
                         <span
                           style={{
                             color: "#16a34a",
@@ -2480,7 +2606,7 @@ const Invoice = () => {
                   ) : (
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>
-                        Markdown % &nbsp;
+                        Markdown % &nbsp;<RequiredMark>*</RequiredMark>
                         <span
                           style={{
                             color: "#16a34a",
@@ -2508,7 +2634,9 @@ const Invoice = () => {
 
                   {/* Selling Unit Cost — editable override */}
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Selling Unit Cost ₹</Lbl>
+                    <Lbl>
+                      Selling Unit Cost ₹ <RequiredMark>*</RequiredMark>
+                    </Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2525,7 +2653,7 @@ const Invoice = () => {
                     />
                   </InputWrapper>
 
-                  {/* Reference: Purchase Unit Cost */}
+                  {/* Reference: Purchase Unit Cost
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Ref: Purchase Unit Cost ₹</Lbl>
                     <Input
@@ -2539,7 +2667,7 @@ const Invoice = () => {
                         color: "#64748b",
                       }}
                     />
-                  </InputWrapper>
+                  </InputWrapper> */}
                 </GridRow>
 
                 {/* Info strip when MRP is available */}
@@ -2560,7 +2688,7 @@ const Invoice = () => {
                     <span style={{ fontWeight: 700 }}>ℹ️</span>
                     MRP ₹{parseFloat(modalForm.mrp).toFixed(2)} is available.
                     Switch to <strong>MRP − %</strong> mode to calculate selling
-                    price as a markdown from MRP. In{" "}
+                    price as a markdown from MRP.
                     <strong>Unit Cost + %</strong> mode, selling price is
                     calculated as a markup on the purchase unit cost.
                   </div>
@@ -2653,7 +2781,7 @@ const Invoice = () => {
                   marginBottom: 10,
                 }}
               >
-                <GridRow cols="repeat(4,1fr)" mb="0">
+                <GridRow cols="repeat(5,1fr)" mb="0">
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Discount %</Lbl>
                     <Input
@@ -2680,6 +2808,18 @@ const Invoice = () => {
                   </InputWrapper>
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Selling Cost ₹</Lbl>
+                    <Input
+                      readOnly
+                      value={modalForm.sellingCostBeforeGst}
+                      style={{
+                        fontSize: "0.82rem",
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                      }}
+                    />
+                  </InputWrapper>
+                  <InputWrapper style={{ margin: 0 }}>
+                    <Lbl>Selling Cost (with GST) ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
