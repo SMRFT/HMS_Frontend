@@ -133,6 +133,8 @@ import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
 import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
+import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+import PurchaseRequisitionApproval from "./Components/InventoryMaster/Purchaserequisitionapproval";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -722,6 +724,29 @@ function App() {
                   <Route
                     path="/PharmacyItemMaster"
                     element={<PharmacyItemMaster />}
+                  />
+                )}
+
+                
+              {hasPagePermission(
+                "/PurchaseRequisition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseRequisition"
+                    element={<PurchaseRequisition />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseRequisitionApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseRequisitionApproval"
+                    element={<PurchaseRequisitionApproval />}
                   />
                 )}
 
