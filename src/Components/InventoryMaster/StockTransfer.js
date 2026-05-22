@@ -268,6 +268,45 @@ const StockWarn = styled(StockInfoNote)`
   color: #d97706;
 `;
 
+// ─── Remarks Textarea ─────────────────────────────────────────────────────────
+const Textarea = styled.textarea`
+  width: 100%;
+  padding: 9px 11px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  color: #374151;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+  background: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+  &::placeholder { color: #9ca3af; }
+  &.error { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+`;
+const RequiredNote = styled.div`
+  font-size: 0.72rem;
+  color: #dc2626;
+  margin-top: 4px;
+`;
+
+// ─── Info Chip (approved_by / rejected_by) ────────────────────────────────────
+const InfoChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: ${({ $color }) => $color || "#6b7280"};
+  background: ${({ $bg }) => $bg || "#f3f4f6"};
+  border: 1px solid ${({ $border }) => $border || "#e5e7eb"};
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+`;
+
 // ─── Kebab Menu ───────────────────────────────────────────────────────────────
 const KebabWrapper = styled.div`
   position: relative;
@@ -428,7 +467,7 @@ const ModalBox = styled.div`
   background: white;
   border-radius: 12px;
   padding: 30px 34px;
-  max-width: 440px;
+  max-width: 460px;
   width: 90%;
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);
   animation: ${fadeIn} 0.18s ease forwards;
@@ -440,7 +479,7 @@ const ModalTitle = styled.h3`
   color: #111827;
 `;
 const ModalText = styled.p`
-  margin: 0 0 22px;
+  margin: 0 0 16px;
   font-size: 0.875rem;
   color: #6b7280;
   line-height: 1.6;
@@ -449,7 +488,86 @@ const ModalBtns = styled.div`
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  margin-top: 20px;
 `;
+const ModalLabel = styled.label`
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+const ModalTextarea = styled.textarea`
+  width: 100%;
+  padding: 9px 11px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  color: #374151;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  background: white;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+  &::placeholder { color: #9ca3af; }
+  &.error { border-color: #dc2626; }
+`;
+
+// ─── Reject Modal (with reason) ───────────────────────────────────────────────
+const RejectModal = ({ transfer, onConfirm, onClose }) => {
+  const [reason, setReason] = useState("");
+  const [touched, setTouched] = useState(false);
+
+  const handleConfirm = () => {
+    setTouched(true);
+    if (!reason.trim()) return;
+    onConfirm(reason.trim());
+  };
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={(e) => e.stopPropagation()}>
+        <ModalTitle>✕ Cancel Stock Transfer</ModalTitle>
+        <ModalText>
+          Cancel transfer <strong>{transfer.transfer_ref_number}</strong>?
+          This will mark it as Rejected and cannot be undone.
+        </ModalText>
+        <div>
+          <ModalLabel>
+            Rejection Reason <span style={{ color: "#dc2626" }}>*</span>
+          </ModalLabel>
+          <ModalTextarea
+            className={touched && !reason.trim() ? "error" : ""}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Enter reason for cancelling this transfer…"
+          />
+          {touched && !reason.trim() && (
+            <div style={{ color: "#dc2626", fontSize: "0.75rem", marginTop: 4 }}>
+              Rejection reason is required.
+            </div>
+          )}
+        </div>
+        <ModalBtns>
+          <button onClick={onClose} style={{
+            padding: "9px 20px", borderRadius: 7, border: "1.5px solid #d1d5db",
+            background: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600,
+          }}>Cancel</button>
+          <button onClick={handleConfirm} style={{
+            padding: "9px 20px", borderRadius: 7, border: "none",
+            background: "#dc2626", color: "white",
+            cursor: "pointer", fontSize: "0.85rem", fontWeight: 700,
+          }}>Yes, Cancel Transfer</button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  );
+};
 
 const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, onClose }) => (
   <ModalOverlay onClick={onClose}>
@@ -549,6 +667,7 @@ function filterTransfersByOutlet(transfers, outletCode, isDrugPurchase) {
   }
   return transfers.filter((t) => t.to_outlet === outletCode);
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BUILD PRINT HTML
 // ─────────────────────────────────────────────────────────────────────────────
@@ -592,6 +711,10 @@ const buildPrintHtml = (slip, items, getOutletName) => {
             <td style="text-align:right">${rate ? total.toFixed(2) : "-"}</td>
           </tr>`;
       }).join("");
+
+  const remarksRow = slip.remarks
+    ? `<div style="font-size:11px;margin-bottom:8px">Remarks : ${slip.remarks}</div>`
+    : `<div style="font-size:11px;margin-bottom:8px">Remarks :</div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -648,7 +771,7 @@ const buildPrintHtml = (slip, items, getOutletName) => {
   <div class="rule" style="margin-top:6px">${RULE}</div>
   <div class="rule" style="margin-bottom:6px">${RULE}</div>
   <div style="font-size:11px;margin-bottom:2px">Prepared By : ${slip.created_by || "-"}</div>
-  <div style="font-size:11px;margin-bottom:8px">Remarks :</div>
+  ${remarksRow}
   <div class="rule">${RULE2}</div>
   <div class="rule" style="margin-bottom:6px">${RULE2}</div>
   <div class="footer-row">
@@ -739,7 +862,7 @@ const SlipContent = ({ slip, items, getOutletName }) => {
       <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 6, overflowX: "hidden" }}>{RULE}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
       <div style={{ fontSize: 11, marginBottom: 2 }}>Prepared By : {slip.created_by || "-"}</div>
-      <div style={{ fontSize: 11, marginBottom: 8 }}>Remarks :</div>
+      <div style={{ fontSize: 11, marginBottom: 8 }}>Remarks : {slip.remarks || ""}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE2}</div>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold" }}>
@@ -903,9 +1026,11 @@ const StockTransfer = () => {
   const [showForm, setShowForm]   = useState(false);
 
   const [fromOutlet, setFromOutlet] = useState(isDrugPurchase ? null : outletCode);
+  const [toOutlet, setToOutlet]     = useState(null);
 
-  // FIX: null = not yet chosen (shows placeholder); "" = Drug Purchase chosen
-  const [toOutlet, setToOutlet] = useState(null);
+  // ── NEW: Remarks state ─────────────────────────────────────────────────────
+  const [remarks, setRemarks]           = useState("");
+  const [remarksTouched, setRemarksTouched] = useState(false);
 
   const [addedItems, setAddedItems] = useState([]);
 
@@ -972,30 +1097,23 @@ const StockTransfer = () => {
   }, [HmsBaseUrl]);
 
   // ── Fetch transfers ────────────────────────────────────────────────────────
-const fetchTransfers = useCallback(async (extra = {}) => {
-  try {
-    const params = new URLSearchParams();
-    if (extra.from_date) params.append("from_date", extra.from_date);
-    if (extra.to_date)   params.append("to_date",   extra.to_date);
-    const qs  = params.toString();
-    const res = await apiRequest(
-      `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
-    );
-    const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
-    const all  = Array.isArray(rows) ? rows : [];
-
-    // ADD THIS:
-    console.log("outletCode:", outletCode);
-    console.log("isDrugPurchase:", isDrugPurchase);
-    console.log("all transfers:", all.map(t => ({ ref: t.transfer_ref_number, to: t.to_outlet })));
-
-    const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
-    console.log("filtered:", filtered);
-    setTransfers(filtered);
-  } catch {
-    toast.error("Failed to fetch transfers");
-  }
-}, [HmsBaseUrl, outletCode, isDrugPurchase]);
+  const fetchTransfers = useCallback(async (extra = {}) => {
+    try {
+      const params = new URLSearchParams();
+      if (extra.from_date) params.append("from_date", extra.from_date);
+      if (extra.to_date)   params.append("to_date",   extra.to_date);
+      const qs  = params.toString();
+      const res = await apiRequest(
+        `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
+      );
+      const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+      const all  = Array.isArray(rows) ? rows : [];
+      const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
+      setTransfers(filtered);
+    } catch {
+      toast.error("Failed to fetch transfers");
+    }
+  }, [HmsBaseUrl, outletCode, isDrugPurchase]);
 
   // ── Search medicines ───────────────────────────────────────────────────────
   const searchMedicines = useCallback(async (query) => {
@@ -1069,15 +1187,13 @@ const fetchTransfers = useCallback(async (extra = {}) => {
     setTransferQty("");
   };
 
-  // Maps outlet code → select <option> value
   const toSelectVal = (code) => {
-    if (code === null || code === undefined) return "";        // placeholder
-    if (code === "") return DRUG_PURCHASE_VALUE;              // Drug Purchase
+    if (code === null || code === undefined) return "";
+    if (code === "") return DRUG_PURCHASE_VALUE;
     return code;
   };
 
   const handleFromOutletChange = (selectVal) => {
-    // "" means placeholder selected (no outlet chosen yet)
     const code = selectVal === ""
       ? null
       : selectVal === DRUG_PURCHASE_VALUE
@@ -1088,14 +1204,8 @@ const fetchTransfers = useCallback(async (extra = {}) => {
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
   };
 
-  // FIX: "" = placeholder (not chosen); DRUG_PURCHASE_VALUE → store as ""
   const handleToOutletChange = (selectVal) => {
-    if (selectVal === "") {
-      // Placeholder option — treat as "not yet chosen"
-      setToOutlet(null);
-      return;
-    }
-    // DRUG_PURCHASE_VALUE maps to "" (empty outlet_code = Drug Purchase)
+    if (selectVal === "") { setToOutlet(null); return; }
     const code = selectVal === DRUG_PURCHASE_VALUE ? "" : selectVal;
     setToOutlet(code);
   };
@@ -1131,25 +1241,29 @@ const fetchTransfers = useCallback(async (extra = {}) => {
   const handleRemoveItem = (idx) =>
     setAddedItems(addedItems.filter((_, i) => i !== idx));
 
+  // ── UPDATED: handleSave includes remarks ───────────────────────────────────
   const handleSave = async () => {
     if (fromOutlet === null) { toast.error("Please select From Outlet"); return; }
-
-    // FIX: null = not chosen; "" = Drug Purchase (valid). Only block null.
     if (toOutlet === null || toOutlet === undefined) {
       toast.error("Please select To Outlet"); return;
     }
-
-    // FIX: single clean same-outlet check; works for "", "OLET001", etc.
     if (fromOutlet === toOutlet) {
       toast.error("From Outlet and To Outlet cannot be the same"); return;
     }
-
     if (addedItems.length === 0) { toast.error("Add at least one medicine"); return; }
+
+    // Remarks mandatory validation
+    setRemarksTouched(true);
+    if (!remarks.trim()) {
+      toast.error("Remarks are required");
+      return;
+    }
 
     try {
       const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
-        from_outlet: fromOutlet,   // "" = Drug Purchase, "OLET001" = real outlet
-        to_outlet:   toOutlet,     // "" = Drug Purchase, "OLET001" = real outlet
+        from_outlet: fromOutlet,
+        to_outlet:   toOutlet,
+        remarks:     remarks.trim(),    // ← NEW
         items: addedItems.map((i) => ({
           stock_id:          i.stock_id,
           item_id:           i.item_id,
@@ -1174,9 +1288,10 @@ const fetchTransfers = useCallback(async (extra = {}) => {
 
   const handleCancelForm = () => {
     setFromOutlet(isDrugPurchase ? null : outletCode);
-    // FIX: reset to null (not chosen), not "" (which would mean Drug Purchase)
     setToOutlet(null);
     setAddedItems([]);
+    setRemarks("");                  // ← NEW
+    setRemarksTouched(false);        // ← NEW
     setMedicineSearch(""); setSelectedMedicine(null);
     setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
     setShowForm(false);
@@ -1219,7 +1334,7 @@ const fetchTransfers = useCallback(async (extra = {}) => {
     } catch { toast.error("Failed to approve transfer"); }
   };
 
-  // ── Reject ─────────────────────────────────────────────────────────────────
+  // ── Reject (NOW accepts reason from RejectModal) ──────────────────────────
   const handleRejectClick = (t) => {
     const status = t.is_verified || "Draft";
     if (status === "Approved") { toast.error("Approved transfers cannot be cancelled"); return; }
@@ -1227,13 +1342,18 @@ const fetchTransfers = useCallback(async (extra = {}) => {
     setConfirmModal({ type: "reject", transfer: t });
   };
 
-  const handleRejectConfirm = async () => {
+  // ── UPDATED: receives reason string from RejectModal ──────────────────────
+  const handleRejectConfirm = async (reason) => {
     const transfer = confirmModal?.transfer || {};
     setConfirmModal(null);
     try {
       const res = await apiRequest(
         `${HmsBaseUrl}stock-transfer-action/`, "POST",
-        { action: "reject", transfer_ref_number: transfer.transfer_ref_number }
+        {
+          action:               "reject",
+          transfer_ref_number:  transfer.transfer_ref_number,
+          rejected_reason:      reason,   // ← NEW
+        }
       );
       if (res?.success) {
         toast.success("Transfer cancelled");
@@ -1251,15 +1371,25 @@ const fetchTransfers = useCallback(async (extra = {}) => {
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ];
 
-  // FIX: exclude whichever outlet is already chosen as fromOutlet
   const toOutletOptions = [
     { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
     ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
   ].filter((o) => {
-    if (fromOutlet === null) return true;  // nothing chosen yet — show all
+    if (fromOutlet === null) return true;
     const code = o.value === DRUG_PURCHASE_VALUE ? "" : o.value;
-    return code !== fromOutlet;            // hide whichever is already the source
+    return code !== fromOutlet;
   });
+
+  // ── Date/time formatter ────────────────────────────────────────────────────
+  const fmtDateTime = (d) => {
+    if (!d) return "-";
+    try {
+      return new Date(d).toLocaleString("en-GB", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return "-"; }
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -1481,6 +1611,20 @@ const fetchTransfers = useCallback(async (extra = {}) => {
                 </div>
               )}
 
+              {/* ── NEW: Remarks Field ────────────────────────────────────── */}
+              <div style={{ marginBottom: 22 }}>
+                <SectionTitle>📝 Remarks</SectionTitle>
+                <Textarea
+                  className={remarksTouched && !remarks.trim() ? "error" : ""}
+                  value={remarks}
+                  onChange={(e) => { setRemarks(e.target.value); setRemarksTouched(true); }}
+                  placeholder="Enter remarks for this stock transfer… (required)"
+                />
+                {remarksTouched && !remarks.trim() && (
+                  <RequiredNote>⚠ Remarks are required before saving.</RequiredNote>
+                )}
+              </div>
+
               <ButtonContainer>
                 <Button secondary type="button" onClick={handleCancelForm}>Cancel</Button>
                 <Button type="button" onClick={handleSave}>💾 Save Transfer</Button>
@@ -1532,13 +1676,15 @@ const fetchTransfers = useCallback(async (extra = {}) => {
                   <Th>From</Th>
                   <Th>To</Th>
                   <Th>Items</Th>
+                  <Th>Remarks</Th>
+                  <Th>Approved / Rejected Info</Th>
                   <Th style={{ textAlign: "center" }}>Actions</Th>
                 </tr>
               </thead>
               <tbody>
                 {transfers.length === 0 ? (
                   <Tr>
-                    <Td colSpan="7" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
+                    <Td colSpan="9" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
                       📭 No transfer records found
                     </Td>
                   </Tr>
@@ -1566,6 +1712,68 @@ const fetchTransfers = useCallback(async (extra = {}) => {
                             {items.length} item{items.length !== 1 ? "s" : ""}
                           </span>
                         </Td>
+
+                        {/* ── NEW: Remarks column ────────────────────────── */}
+                        <Td style={{ maxWidth: 180 }}>
+                          {t.remarks ? (
+                            <span style={{
+                              fontSize: "0.8rem", color: "#374151",
+                              display: "-webkit-box", WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical", overflow: "hidden",
+                            }} title={t.remarks}>
+                              {t.remarks}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                          )}
+                        </Td>
+
+                        {/* ── NEW: Approved / Rejected Info column ──────── */}
+                        <Td style={{ minWidth: 160 }}>
+                          {status === "Approved" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {t.approved_by && (
+                                <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
+                                  ✔ {t.approved_by}
+                                </InfoChip>
+                              )}
+                              {t.approved_date && (
+                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                  {fmtDateTime(t.approved_date)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {status === "Rejected" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {t.rejected_by && (
+                                <InfoChip $color="#991b1b" $bg="#fee2e2" $border="#fca5a5">
+                                  ✕ {t.rejected_by}
+                                </InfoChip>
+                              )}
+                              {t.rejected_date && (
+                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                  {fmtDateTime(t.rejected_date)}
+                                </span>
+                              )}
+                              {t.rejected_reason && (
+                                <span style={{
+                                  fontSize: "0.75rem", color: "#991b1b",
+                                  background: "#fff1f2", border: "1px solid #fecaca",
+                                  borderRadius: 4, padding: "2px 6px",
+                                  display: "-webkit-box", WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical", overflow: "hidden",
+                                }} title={t.rejected_reason}>
+                                  {t.rejected_reason}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {status === "Draft" && (
+                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                          )}
+                        </Td>
+
                         <Td style={{ textAlign: "center" }}>
                           <RowKebabMenu
                             transfer={t}
@@ -1586,7 +1794,7 @@ const fetchTransfers = useCallback(async (extra = {}) => {
 
       </Container>
 
-      {/* Confirm Modals */}
+      {/* ── Approve Confirm Modal ─────────────────────────────────────────── */}
       {confirmModal?.type === "approve" && (
         <ConfirmModal
           title="✔ Approve Stock Transfer"
@@ -1597,12 +1805,11 @@ const fetchTransfers = useCallback(async (extra = {}) => {
           onClose={() => setConfirmModal(null)}
         />
       )}
+
+      {/* ── Reject Modal (with reason input) ─────────────────────────────── */}
       {confirmModal?.type === "reject" && (
-        <ConfirmModal
-          title="✕ Cancel Stock Transfer"
-          message={`Cancel transfer ${confirmModal.transfer.transfer_ref_number}? This will mark it as Rejected and cannot be undone.`}
-          confirmLabel="Yes, Cancel"
-          confirmColor="#dc2626"
+        <RejectModal
+          transfer={confirmModal.transfer}
           onConfirm={handleRejectConfirm}
           onClose={() => setConfirmModal(null)}
         />

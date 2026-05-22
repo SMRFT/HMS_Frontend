@@ -18,12 +18,13 @@ import {
 } from "lucide-react";
 import { colors } from "./GlobalStyles";
 import Favilogo from "./Images/smrft_logo.png";
+import PharmacyNotification from "./InventoryMaster/PharmacyNotification";
 
 // ─── Animations ──────────────────────────────────────────────────────────────
 const fadeSlideDown = keyframes`
   from { opacity: 0; transform: translateY(-10px) scale(0.97); }
   to   { opacity: 1; transform: translateY(0)     scale(1);    }
-`;
+`
 
 const pulseDot = keyframes`
   0%, 100% { transform: scale(1);   opacity: 1; }
@@ -79,10 +80,6 @@ const HeaderContainer = styled.header`
   }
 `;
 
-
-/* Offset helper — add this class to your main layout wrapper */
-/* e.g. <main style={{ paddingTop: "62px" }}> */
-
 // ── Left: Branding ────────────────────────────────────────────────────────────
 
 const BrandingSection = styled.div`
@@ -91,7 +88,7 @@ const BrandingSection = styled.div`
   gap: 12px;
   flex-shrink: 1;
   min-width: 0;
-  
+
   @media (max-width: 480px) {
     gap: 8px;
   }
@@ -232,7 +229,9 @@ const DateText = styled.div`
   letter-spacing: 0.2px;
   line-height: 1.2;
 `;
+
 // ── Outlet Display ────────────────────────────────────────────────────────────
+
 const OutletSection = styled.div`
   display: flex;
   align-items: center;
@@ -308,7 +307,7 @@ const SwitchBtn = styled.button`
     color: white;
     border-color: ${colors.primary};
   }
-  
+
   svg {
     width: 10px;
     height: 10px;
@@ -636,22 +635,31 @@ const SessionStatus = styled.div`
   color: #22c55e;
 `;
 
+// ── Notification Wrapper ──────────────────────────────────────────────────────
+// Gives PharmacyNotification a relative positioning context so its panel
+// anchors correctly inside the fixed header.
+
+const NotifWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, hasMultipleOutlets }) => {
   const [time, setTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [hasNotif] = useState(true);
   const [sessionStart] = useState(new Date());
   const [sessionDuration, setSessionDuration] = useState("0m");
   const dropdownRef = useRef(null);
 
-  const employeeId = localStorage.getItem("employeeId") || "EMP001";
-  const employeeName = localStorage.getItem("name") || "Hospital Staff";
-  const userRole = localStorage.getItem("role") || "Member";
+  const employeeId   = localStorage.getItem("employeeId")  || "EMP001";
+  const employeeName = localStorage.getItem("name")         || "Hospital Staff";
+  const userRole     = localStorage.getItem("role")         || "Member";
 
-  // Live Clock
+  // Live Clock + session duration
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
@@ -663,7 +671,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
     return () => clearInterval(timer);
   }, [sessionStart]);
 
-  // Close dropdown outside click
+  // Close user dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -674,7 +682,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ESC key close
+  // ESC key closes user dropdown
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") setDropdownOpen(false);
@@ -683,7 +691,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Fullscreen toggle
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(console.error);
@@ -728,7 +735,8 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
   return (
     <HeaderContainer $isCollapsed={isSidebarCollapsed}>
-      {/* Sidebar Toggle */}
+
+      {/* ── Sidebar Toggle ── */}
       <IconBtn
         onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -739,8 +747,11 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
       {/* ── Left: Branding ── */}
       <BrandingSection>
-        <img src={Favilogo} alt="Logo" style={{ height: "30px", width: "auto", objectFit: "contain", borderRadius: "4px" }} />
-
+        <img
+          src={Favilogo}
+          alt="Logo"
+          style={{ height: "30px", width: "auto", objectFit: "contain", borderRadius: "4px" }}
+        />
         <BrandTextGroup>
           <HospitalName>
             <span>Shanmuga</span>&nbsp;Hospital Limited
@@ -762,7 +773,10 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           </OutletIconBox>
           <OutletTextGroup>
             <OutletLabel>Active Outlet</OutletLabel>
-            <OutletName>{localStorage.getItem("selected_outlet_name") || localStorage.getItem("selected_outlet")}</OutletName>
+            <OutletName>
+              {localStorage.getItem("selected_outlet_name") ||
+                localStorage.getItem("selected_outlet")}
+            </OutletName>
           </OutletTextGroup>
           {hasMultipleOutlets && (
             <SwitchBtn onClick={onSwitchOutlet}>
@@ -785,6 +799,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
       {/* ── Right: Actions ── */}
       <ActionSection>
+
         {/* Refresh */}
         <IconBtn onClick={handleRefresh} title="Refresh Page" $hideOnMobile>
           <RefreshCw size={17} />
@@ -799,15 +814,14 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           {isFullscreen ? <Minimize size={17} /> : <Maximize size={17} />}
         </IconBtn>
 
-        {/* Notifications */}
-        {/* <IconBtn title="Notifications">
-          <Bell size={17} />
-          {hasNotif && <NotifBadge />}
-        </IconBtn> */}
+        {/* ── Pharmacy Stock Notifications ── */}
+        <NotifWrapper>
+          <PharmacyNotification />
+        </NotifWrapper>
 
         <HeaderDivider />
 
-        {/* User Dropdown */}
+        {/* ── User Dropdown ── */}
         <UserProfileWrapper ref={dropdownRef}>
           <UserProfileBtn
             $open={dropdownOpen}
@@ -827,10 +841,8 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
             </ChevronBox>
           </UserProfileBtn>
 
-          {/* ── Dropdown Panel ── */}
           {dropdownOpen && (
             <DropdownMenu role="menu">
-              {/* User Card */}
               <DropdownProfileHeader>
                 <DropdownBigAvatar>
                   {employeeName.charAt(0).toUpperCase()}
@@ -844,7 +856,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
                 </DropdownUserBlock>
               </DropdownProfileHeader>
 
-              {/* Menu Items */}
               <DropdownSection>
                 <DropdownItem onClick={() => setDropdownOpen(false)}>
                   <User /> My Profile
@@ -856,7 +867,12 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
                   <HelpCircle /> Help & Support
                 </DropdownItem>
                 {hasMultipleOutlets && (
-                  <DropdownItem onClick={() => { setDropdownOpen(false); onSwitchOutlet(); }}>
+                  <DropdownItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      onSwitchOutlet();
+                    }}
+                  >
                     <MapPin /> Switch Outlet
                   </DropdownItem>
                 )}
@@ -870,7 +886,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
                 </DropdownItem>
               </DropdownSection>
 
-              {/* Session Info Footer */}
               <SessionInfo>
                 <SessionText>
                   <Clock size={11} /> Logged in at {loginTime}
@@ -880,6 +895,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
             </DropdownMenu>
           )}
         </UserProfileWrapper>
+
       </ActionSection>
     </HeaderContainer>
   );
