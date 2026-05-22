@@ -115,14 +115,13 @@ const BrandIconWrap = styled.div`
 
 const BrandTextGroup = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
 
-  @media (max-width: 640px) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1px;
+  @media (max-width: 768px) {
+    display: none;
   }
 `;
 
@@ -746,7 +745,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           <HospitalName>
             <span>Shanmuga</span>&nbsp;Hospital Limited
           </HospitalName>
-          <BrandDivider />
           <HospitalAddress>
             <MapPin size={11} />
             51/24, Saradha College Road, Salem – 636007
