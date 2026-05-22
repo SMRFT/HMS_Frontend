@@ -122,6 +122,7 @@ import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import RDPrint from "./Components/InvestigationReports/RDPrint";
+import JRDReport from "./Components/InvestigationReports/JRDReport";
 
 
 // Layout wrapper
@@ -273,6 +274,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
@@ -743,6 +745,16 @@ function App() {
                   <Route
                     path="/RDPrint"
                     element={<RDPrint />}
+                  />
+                )}
+                {hasPagePermission(
+                "/JRDReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/JRDReport"
+                    element={<JRDReport />}
                   />
                 )}
 

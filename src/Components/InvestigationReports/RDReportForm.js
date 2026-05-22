@@ -1299,6 +1299,21 @@ const buildSectionsFromFormat = (formatArr) => {
   });
 };
 
+const calcGAFromLMP = (lmpDateStr) => {
+  if (!lmpDateStr) return "";
+  try {
+    const lmp = new Date(lmpDateStr);
+    const today = new Date();
+    const diffMs = today - lmp;
+    if (diffMs < 0) return "";
+    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const weeks = Math.floor(totalDays / 7);
+    const days = totalDays % 7;
+    return `${weeks}W${days}D`;
+  } catch {
+    return "";
+  }
+};
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDReportForm = () => {
@@ -1342,8 +1357,8 @@ const RDReportForm = () => {
   const [ancFields, setAncFields] = useState({
     guh: "",
     lmp: "",
-    ga_weeks: "",
-    ga_days: "",
+    ga_lmp: "", // stored as "6W5D"
+    ga_usg: "", // new: GA by USG, stored as "6W5D"
     edd_usg: "",
   });
 
@@ -1658,48 +1673,42 @@ const RDReportForm = () => {
                       }
                     />
                   </ANCFieldGroup>
+
                   <ANCFieldGroup>
                     <ANCLabel>LMP</ANCLabel>
                     <ANCInput
                       type="date"
                       value={ancFields.lmp}
-                      onChange={(e) =>
-                        setAncFields((p) => ({ ...p, lmp: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const lmp = e.target.value;
+                        const ga_lmp = calcGAFromLMP(lmp);
+                        setAncFields((p) => ({ ...p, lmp, ga_lmp }));
+                      }}
                     />
                   </ANCFieldGroup>
+
                   <ANCFieldGroup>
-                    <ANCLabel>GA (By LMP) — Weeks</ANCLabel>
+                    <ANCLabel>GA (By LMP)</ANCLabel>
                     <ANCInput
-                      type="number"
-                      min="0"
-                      max="45"
-                      placeholder="weeks"
-                      value={ancFields.ga_weeks}
+                      placeholder="e.g. 12W3D"
+                      value={ancFields.ga_lmp}
                       onChange={(e) =>
-                        setAncFields((p) => ({
-                          ...p,
-                          ga_weeks: e.target.value,
-                        }))
+                        setAncFields((p) => ({ ...p, ga_lmp: e.target.value }))
                       }
                     />
                   </ANCFieldGroup>
+
                   <ANCFieldGroup>
-                    <ANCLabel>GA (By LMP) — Days</ANCLabel>
+                    <ANCLabel>GA (By USG)</ANCLabel>
                     <ANCInput
-                      type="number"
-                      min="0"
-                      max="6"
-                      placeholder="days"
-                      value={ancFields.ga_days}
+                      placeholder="e.g. 12W4D"
+                      value={ancFields.ga_usg}
                       onChange={(e) =>
-                        setAncFields((p) => ({
-                          ...p,
-                          ga_days: e.target.value,
-                        }))
+                        setAncFields((p) => ({ ...p, ga_usg: e.target.value }))
                       }
                     />
                   </ANCFieldGroup>
+
                   <ANCFieldGroup>
                     <ANCLabel>EDD (By USG)</ANCLabel>
                     <ANCInput

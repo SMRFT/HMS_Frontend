@@ -326,28 +326,24 @@ const IconBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 1.4rem;
   transition:
     transform 0.15s,
-    box-shadow 0.15s,
-    filter 0.15s;
+    opacity 0.15s;
   flex-shrink: 0;
-  background: ${(p) => p.bg || "#eee"};
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  background: transparent;
+  box-shadow: none;
   &:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-    filter: brightness(1.1);
+    transform: translateY(-2px) scale(1.15);
+    opacity: 0.8;
   }
   &:active:not(:disabled) {
     transform: translateY(0) scale(1);
   }
   &:disabled {
-    opacity: 0.28;
+    opacity: 0.25;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
-    filter: none;
   }
   &::after {
     content: attr(data-tip);
@@ -1326,7 +1322,21 @@ const formatSlotDisplay = (slotDateTime) => {
     return slotDateTime;
   }
 };
-
+const calcGAFromLMP = (lmpDateStr) => {
+  if (!lmpDateStr) return "";
+  try {
+    const lmp = new Date(lmpDateStr);
+    const today = new Date();
+    const diffMs = today - lmp;
+    if (diffMs < 0) return "";
+    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const weeks = Math.floor(totalDays / 7);
+    const days = totalDays % 7;
+    return `${weeks}W${days}D`;
+  } catch {
+    return "";
+  }
+};
 // ─── ANC helpers ──────────────────────────────────────────────────────────────
 const getANCFields = (row) => row?.report?.valuedetails?.anc_fields || null;
 
@@ -1366,9 +1376,11 @@ const ANCDisplayBlock = ({ row }) => {
       </ANCInfoChip>
       <ANCInfoChip>
         <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
-        <ANCInfoValue>
-          {anc.ga_weeks || "—"}w {anc.ga_days || "—"}d
-        </ANCInfoValue>
+        <ANCInfoValue>{anc.ga_lmp || "—"}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>GA (By USG)</ANCInfoLabel>
+        <ANCInfoValue>{anc.ga_usg || "—"}</ANCInfoValue>
       </ANCInfoChip>
       <ANCInfoChip>
         <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
@@ -1395,6 +1407,7 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
         onChange={(e) => onChange((p) => ({ ...p, guh: e.target.value }))}
       />
     </ANCInfoChip>
+
     <ANCInfoChip>
       <ANCInfoLabel>LMP</ANCInfoLabel>
       <input
@@ -1408,15 +1421,17 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
           boxSizing: "border-box",
         }}
         value={ancFields.lmp || ""}
-        onChange={(e) => onChange((p) => ({ ...p, lmp: e.target.value }))}
+        onChange={(e) => {
+          const lmp = e.target.value;
+          const ga_lmp = calcGAFromLMP(lmp);
+          onChange((p) => ({ ...p, lmp, ga_lmp }));
+        }}
       />
     </ANCInfoChip>
+
     <ANCInfoChip>
-      <ANCInfoLabel>GA Weeks</ANCInfoLabel>
+      <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
       <input
-        type="number"
-        min="0"
-        max="45"
         style={{
           padding: "0.4rem 0.6rem",
           border: "1.5px solid #b2dfdb",
@@ -1425,17 +1440,15 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
           width: "100%",
           boxSizing: "border-box",
         }}
-        placeholder="weeks"
-        value={ancFields.ga_weeks || ""}
-        onChange={(e) => onChange((p) => ({ ...p, ga_weeks: e.target.value }))}
+        placeholder="e.g. 12W3D"
+        value={ancFields.ga_lmp || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_lmp: e.target.value }))}
       />
     </ANCInfoChip>
+
     <ANCInfoChip>
-      <ANCInfoLabel>GA Days</ANCInfoLabel>
+      <ANCInfoLabel>GA (By USG)</ANCInfoLabel>
       <input
-        type="number"
-        min="0"
-        max="6"
         style={{
           padding: "0.4rem 0.6rem",
           border: "1.5px solid #b2dfdb",
@@ -1444,11 +1457,12 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
           width: "100%",
           boxSizing: "border-box",
         }}
-        placeholder="days"
-        value={ancFields.ga_days || ""}
-        onChange={(e) => onChange((p) => ({ ...p, ga_days: e.target.value }))}
+        placeholder="e.g. 12W4D"
+        value={ancFields.ga_usg || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_usg: e.target.value }))}
       />
     </ANCInfoChip>
+
     <ANCInfoChip>
       <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
       <input
@@ -2342,8 +2356,14 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       (ancData.guh || ancData.lmp || ancData.ga_weeks || ancData.edd_usg)
     ) {
       const ancRowH = 16;
-      const ancCellW = contentWidth / 4;
-      const ancLabels = ["GUH", "LMP", "GA (By LMP)", "EDD (By USG)"];
+      const ancCellW = contentWidth / 5;
+      const ancLabels = [
+        "GUH",
+        "LMP",
+        "GA (By LMP)",
+        "GA (By USG)",
+        "EDD (By USG)",
+      ];
       const ancVals = [
         ancData.guh || "—",
         ancData.lmp
@@ -2359,9 +2379,8 @@ const handlePrintReport = async (row, withLetterpad = true) => {
               }
             })()
           : "—",
-        ancData.ga_weeks || ancData.ga_days
-          ? `${ancData.ga_weeks || "0"}w ${ancData.ga_days || "0"}d`
-          : "—",
+        ancData.ga_lmp || "—",
+        ancData.ga_usg || "—",
         ancData.edd_usg
           ? (() => {
               try {
@@ -2848,8 +2867,8 @@ const EditModal = ({ row, onClose, onSave }) => {
       row.report?.valuedetails?.anc_fields || {
         guh: "",
         lmp: "",
-        ga_weeks: "",
-        ga_days: "",
+        ga_lmp: "",
+        ga_usg: "",
         edd_usg: "",
       },
   );
@@ -3468,13 +3487,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     });
   };
   const handlePatientCheckIn = async (row) => {
-    // Toggle: if already checked in, clear it; otherwise set to now
     const alreadyIn = !!row.report?.patientIn_DateTime;
     const patientIn_DateTime = alreadyIn ? null : new Date().toISOString();
 
     try {
       if (!row.report) {
-        // No record yet — POST to create a skeleton via checkin endpoint
         const result = await apiRequest(
           `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
           "PATCH",
@@ -3489,6 +3506,23 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           toast.error(result.error || "Failed to check in");
           return;
         }
+        toast.success(
+          alreadyIn ? "Check-in cleared." : "Patient checked in! ✓",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: {
+                    ...(r.report || {}),
+                    ...result.data,
+                  },
+                }
+              : r,
+          ),
+        );
       } else {
         const result = await apiRequest(
           `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
@@ -3499,25 +3533,24 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           toast.error(result.error || "Failed to check in");
           return;
         }
+        toast.success(
+          alreadyIn ? "Check-in cleared." : "Patient checked in! ✓",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: {
+                    ...r.report,
+                    ...result.data,
+                  },
+                }
+              : r,
+          ),
+        );
       }
-
-      toast.success(alreadyIn ? "Check-in cleared." : "Patient checked in! ✓");
-      setRows((prev) =>
-        prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.item_id === row.item_id
-            ? {
-                ...r,
-                report: r.report
-                  ? { ...r.report, patientIn_DateTime }
-                  : {
-                      patientIn_DateTime,
-                      has_report: false,
-                      is_approved: false,
-                    },
-              }
-            : r,
-        ),
-      );
     } catch {
       toast.error("An unexpected error occurred.");
     }
@@ -3545,6 +3578,23 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           toast.error(result.error || "Failed to mark scan start");
           return;
         }
+        toast.success(
+          alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: {
+                    ...(r.report || {}),
+                    ...result.data,
+                  },
+                }
+              : r,
+          ),
+        );
       } else {
         const result = await apiRequest(
           `${HMSURL}scan-reports/scan-started/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
@@ -3555,27 +3605,24 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           toast.error(result.error || "Failed to update scan start");
           return;
         }
+        toast.success(
+          alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: {
+                    ...r.report,
+                    ...result.data,
+                  },
+                }
+              : r,
+          ),
+        );
       }
-
-      toast.success(
-        alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
-      );
-      setRows((prev) =>
-        prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.item_id === row.item_id
-            ? {
-                ...r,
-                report: r.report
-                  ? { ...r.report, scan_started_DateTime }
-                  : {
-                      scan_started_DateTime,
-                      has_report: false,
-                      is_approved: false,
-                    },
-              }
-            : r,
-        ),
-      );
     } catch {
       toast.error("An unexpected error occurred.");
     }
@@ -3959,7 +4006,16 @@ SCAN STARTED  <Td>
         <Td>
           <WfScanActiveBtn
             onClick={() => handleScanStarted(row)}
-            title="Click to clear scan start"
+            disabled={
+              !checkedIn || (row.hasReport && row.report?.impression?.trim())
+            }
+            title={
+              !checkedIn
+                ? "Check in patient first"
+                : row.hasReport && row.report?.impression?.trim()
+                  ? "Report already submitted"
+                  : "Click to clear scan start"
+            }
           >
             <WfIcon bg="#f57c00">🔬</WfIcon>
             Scanning
@@ -4404,7 +4460,6 @@ DISPATCH  <Td>
                         <ActionRow>
                           {row.ipNumber && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#7c4dff,#651fff)"
                               onClick={() => handleOpenSlot(row)}
                               disabled={
                                 row.report?.is_approved ||
@@ -4424,7 +4479,6 @@ DISPATCH  <Td>
                             </IconBtn>
                           )}
                           <IconBtn
-                            bg="linear-gradient(135deg,#00897b,#00695c)"
                             onClick={() => handleGoToReport(row)}
                             disabled={
                               row.paymentStatus !== "Paid" ||
@@ -4454,7 +4508,6 @@ DISPATCH  <Td>
                             📋
                           </IconBtn>
                           <IconBtn
-                            bg="linear-gradient(135deg,#26a69a,#00897b)"
                             onClick={() => handlePreview(row)}
                             disabled={!row.hasReport}
                             data-tip="Preview Report"
@@ -4463,7 +4516,6 @@ DISPATCH  <Td>
                           </IconBtn>
                           {canApprove && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#66bb6a,#43a047)"
                               onClick={() => handleApprove(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
@@ -4479,7 +4531,6 @@ DISPATCH  <Td>
                           )}
                           {canEdit && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#42a5f5,#1e88e5)"
                               onClick={() => handleEdit(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
@@ -4497,7 +4548,6 @@ DISPATCH  <Td>
                             onMouseLeave={hidePrintDropdown}
                           >
                             <IconBtn
-                              bg="linear-gradient(135deg,#ff7043,#e64a19)"
                               disabled={!row.report?.is_approved}
                               data-tip={
                                 row.report?.is_approved
@@ -4512,7 +4562,6 @@ DISPATCH  <Td>
                           </PrintDropdownWrapper>
                           {canDelete && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#ef5350,#e53935)"
                               onClick={() => handleDelete(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
