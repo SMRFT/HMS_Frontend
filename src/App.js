@@ -59,6 +59,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -131,6 +132,7 @@ import AccountsReports from "./Components/Reports/AccountsReports";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
+import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -690,6 +692,28 @@ function App() {
                   />
                 )}
 
+             {hasPagePermission(
+                "/PurchaseReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseReturn"
+                    element={<PurchaseReturn />}
+                  />
+                )}
+
+               {hasPagePermission(
+                "/PharmacyNotification",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PharmacyNotification"
+                    element={<PharmacyNotification />}
+                  />
+              )}
+
               {hasPagePermission(
                 "/PharmacyItemMaster",
                 allowedActions,
@@ -939,6 +963,7 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+              
               {hasPagePermission(
                 "/OTMedicineBilling",
                 allowedActions,
@@ -949,21 +974,7 @@ function App() {
                   element={<OTMedicineBilling />}
                 />
               )}
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
-              {hasPagePermission(
-                "/OTMedicineBilling",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
+
               {hasPagePermission(
                 "/ShiftBasisReport",
                 allowedActions,
