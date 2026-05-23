@@ -707,7 +707,9 @@ const BillsReport = () => {
         <div class="bill-row"><div class="bill-label">Bill Number</div><div class="bill-value">: ${bill.investBillNo || bill.EstBillNo || ""}</div></div>
         <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
         <div class="bill-row"><div class="bill-label">Bill Date</div><div class="bill-value">: ${fmtDT(bill.investBillDate || bill.EstBillDate)}</div></div>
-        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.age}Y / ${bill.gender}</div></div>
+        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${
+          bill.age && bill.age_type ? `${bill.age}/${bill.age_type}` : "-"
+        } / ${bill.gender}</div></div>
         <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
       </div>
       <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
@@ -1036,14 +1038,60 @@ const BillsReport = () => {
                       )}
                     </StickyTd>
                     {/* ── Scrollable body cells ── */}
-                    <Td>{bill.age}</Td>
+                    <Td>
+                      {bill.age && bill.age_type
+                        ? `${bill.age}/${bill.age_type}`
+                        : "-"}
+                    </Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
                     <Td>{bill.paymentMethod}</Td>
                     <Td>{bill.doctor}</Td>
                     <Td>{bill.created_by}</Td>
-                    <Td>{bill.lastmodified_by}</Td>
-                    <RemarksTd>{bill.editRemarks}</RemarksTd>
+                    <Td>
+                      {bill.history && bill.history.length > 0
+                        ? bill.history[bill.history.length - 1].modified_by ||
+                          "—"
+                        : "—"}
+                    </Td>
+                    <RemarksTd>
+                      {bill.history && bill.history.length > 0
+                        ? bill.history.map((h, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                marginBottom:
+                                  i < bill.history.length - 1 ? 6 : 0,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  color: colors.textMain,
+                                }}
+                              >
+                                {h.editRemarks || "—"}
+                              </span>
+                              {h.modified_by && (
+                                <span
+                                  style={{
+                                    display: "block",
+                                    fontSize: "0.7rem",
+                                    color: colors.textMuted,
+                                  }}
+                                >
+                                  by {h.modified_by} ·{" "}
+                                  {h.modified_date
+                                    ? new Date(
+                                        h.modified_date + "Z",
+                                      ).toLocaleDateString("en-IN")
+                                    : ""}
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        : "—"}
+                    </RemarksTd>
                     <Td>{bill.paymentStatus}</Td>
                     <Td>
                       <ActionGroup>

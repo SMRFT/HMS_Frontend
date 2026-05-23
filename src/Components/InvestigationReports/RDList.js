@@ -2033,7 +2033,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       { label: "Patient Name", value: row.patientName || "N/A" },
       {
         label: "Age / Gender",
-        value: `${row.age || "N/A"} / ${row.gender || "N/A"}`,
+        value: `${row.age}${row.age_type} / ${row.gender || "N/A"}`,
       },
       { label: "Referred By", value: row.referredBy || "SELF" },
     ];
@@ -2358,7 +2358,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       const ancRowH = 16;
       const ancCellW = contentWidth / 5;
       const ancLabels = [
-        "GUH",
+        "NO OF CHILDREN",
         "LMP",
         "GA (By LMP)",
         "GA (By USG)",
@@ -2782,7 +2782,7 @@ const Modal = ({ row, onClose }) => {
             <InfoChip>
               <InfoChipLabel>Age / Gender</InfoChipLabel>
               <InfoChipValue>
-                {row.age || "N/A"} / {row.gender || "N/A"}
+                {row.age} {row.age_type} / {row.gender || "N/A"}
               </InfoChipValue>
             </InfoChip>
             <InfoChip>
@@ -2932,7 +2932,7 @@ const EditModal = ({ row, onClose, onSave }) => {
             <InfoChip>
               <InfoChipLabel>Age / Gender</InfoChipLabel>
               <InfoChipValue>
-                {row.age || "N/A"} / {row.gender || "N/A"}
+                {row.age} {row.age_type}/ {row.gender || "N/A"}
               </InfoChipValue>
             </InfoChip>
           </InfoBanner>
@@ -3276,6 +3276,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
         age: row.age,
+        age_type: row.age_type,
         gender: row.gender,
         referredBy: row.referredBy || "",
         report: row.report || null,
@@ -3480,6 +3481,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         middleName: "",
         lastName: "",
         age: row.age,
+        age_type: row.age_type,
         gender: row.gender,
         investBillDate: row.investBillDate,
         referredBy: row.referredBy,
@@ -4350,7 +4352,9 @@ DISPATCH  <Td>
                       <Td>{row.uhid}</Td>
                       <Td>{row.ipNumber || "—"}</Td>
                       <Td>{row.patientName}</Td>
-                      <Td>{row.age || "N/A"}</Td>
+                      <Td>
+                        {row.age} {row.age_type}
+                      </Td>
                       <Td>{row.gender || "N/A"}</Td>
                       <Td>
                         <span>{row.itemName || "—"}</span>
