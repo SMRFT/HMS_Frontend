@@ -133,8 +133,10 @@ import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
 import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
-import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
-import PurchaseRequisitionApproval from "./Components/InventoryMaster/Purchaserequisitionapproval";
+import MedicineRequisition from "./Components/InventoryMaster/MedicineRequisitionForm";
+import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinerequisitionapproval";
+import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
+import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -729,24 +731,46 @@ function App() {
 
                 
               {hasPagePermission(
-                "/PurchaseRequisition",
+                "/MedicineRequisition",
                 allowedActions,
                 dynamicPermissions,
               ) && (
                   <Route
-                    path="/PurchaseRequisition"
-                    element={<PurchaseRequisition />}
+                    path="/MedicineRequisition"
+                    element={<MedicineRequisition />}
                   />
                 )}
 
               {hasPagePermission(
-                "/PurchaseRequisitionApproval",
+                "/MedicineRequisitionApproval",
                 allowedActions,
                 dynamicPermissions,
               ) && (
                   <Route
-                    path="/PurchaseRequisitionApproval"
-                    element={<PurchaseRequisitionApproval />}
+                    path="/MedicineRequisitionApproval"
+                    element={<MedicineRequisitionApproval />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrder",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrder"
+                    element={<PurchaseOrder />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrderApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrderApproval"
+                    element={<PurchaseOrderApproval />}
                   />
                 )}
 

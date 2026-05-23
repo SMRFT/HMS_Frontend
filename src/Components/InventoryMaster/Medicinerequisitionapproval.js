@@ -204,7 +204,7 @@ const ApproveModal = ({ pr, onConfirm, onClose, loading }) => (
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════ */
-const PurchaseRequisitionApproval = () => {
+const MedicineRequisitionApproval = () => {
   const [prList,       setPrList]       = useState([])
   const [loading,      setLoading]      = useState(false)
   const [actionLoading,setActionLoading]= useState(false)
@@ -229,7 +229,7 @@ const PurchaseRequisitionApproval = () => {
       if (fromDate)   params.append("from_date", fromDate)
       if (toDate)     params.append("to_date",   toDate)
       const qs = params.toString()
-      const r  = await apiRequest(`${baseUrl}purchase-requisition/${qs ? "?"+qs : ""}`, "GET")
+      const r  = await apiRequest(`${baseUrl}medicine-requisition/${qs ? "?"+qs : ""}`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setPrList(Array.isArray(rows) ? rows : [])
     } catch { toast.error("Failed to load requisitions") }
@@ -242,7 +242,7 @@ const PurchaseRequisitionApproval = () => {
   const handleApproveConfirm = async () => {
     setActionLoading(true)
     try {
-      const r = await apiRequest(`${baseUrl}purchase-requisition-action/`, "POST", {
+      const r = await apiRequest(`${baseUrl}medicine-requisition-action/`, "POST", {
         pr_number: approvePr.pr_number,
         action:    "approve",
       })
@@ -262,7 +262,7 @@ const PurchaseRequisitionApproval = () => {
   const handleRejectConfirm = async (reason) => {
     setActionLoading(true)
     try {
-      const r = await apiRequest(`${baseUrl}purchase-requisition-action/`, "POST", {
+      const r = await apiRequest(`${baseUrl}medicine-requisition-action/`, "POST", {
         pr_number:       rejectPr.pr_number,
         action:          "reject",
         rejected_reason: reason,
@@ -307,7 +307,7 @@ const PurchaseRequisitionApproval = () => {
       <Header>
         <div>
           <HTitle>🏥 PR Approval Dashboard</HTitle>
-          <HSubtitle>Review, approve and reject purchase requisitions</HSubtitle>
+          <HSubtitle>Review, approve and reject medicine requisitions</HSubtitle>
         </div>
         <RefreshBtn onClick={fetchList} disabled={loading}>
           {loading ? <Spinner/> : "🔄"} Refresh
@@ -608,4 +608,4 @@ const PurchaseRequisitionApproval = () => {
   )
 }
 
-export default PurchaseRequisitionApproval
+export default MedicineRequisitionApproval

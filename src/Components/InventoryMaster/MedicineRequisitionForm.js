@@ -148,7 +148,7 @@ const EditReasonModal = ({ onConfirm, onClose }) => {
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════════════ */
-const PurchaseRequisition = () => {
+const MedicineRequisition = () => {
   const [tab,        setTab]        = useState("form")   // "form" | "list"
   const [prList,     setPrList]     = useState([])
   const [editPr,     setEditPr]     = useState(null)     // null = new, object = editing
@@ -187,7 +187,7 @@ const PurchaseRequisition = () => {
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await apiRequest(`${baseUrl}purchase-requisition/`, "GET")
+      const r = await apiRequest(`${baseUrl}medicine-requisition/`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setPrList(Array.isArray(rows) ? rows : [])
     } catch { toast.error("Failed to load requisitions") }
@@ -200,7 +200,7 @@ const PurchaseRequisition = () => {
   const searchMedicines = useCallback(async query => {
     if (!query || query.length < 2) { setMedResults([]); setShowMedDrop(false); return }
     try {
-      const r = await apiRequest(`${baseUrl}purchase-requisition-medicine-search/?q=${encodeURIComponent(query)}`, "GET")
+      const r = await apiRequest(`${baseUrl}medicine-requisition-medicine-search/?q=${encodeURIComponent(query)}`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setMedResults(Array.isArray(rows) ? rows : [])
       setShowMedDrop(rows.length > 0)
@@ -269,8 +269,8 @@ const PurchaseRequisition = () => {
     try {
       const isEdit = !!editPr
       const url    = isEdit
-        ? `${baseUrl}purchase-requisition/${editPr.pr_number}/`
-        : `${baseUrl}purchase-requisition/`
+        ? `${baseUrl}medicine-requisition/${editPr.pr_number}/`
+        : `${baseUrl}medicine-requisition/`
       const method = isEdit ? "PUT" : "POST"
       const r      = await apiRequest(url, method, payload)
       if (r?.success) {
@@ -337,7 +337,7 @@ const PurchaseRequisition = () => {
       <Header>
         <HLeft>
           <HTitle>📋 Purchase Requisition</HTitle>
-          <HSubtitle>Raise &amp; manage medicine purchase requests</HSubtitle>
+          <HSubtitle>Raise &amp; manage medicine medicine requests</HSubtitle>
         </HLeft>
         <TabRow>
           <Tab $a={tab==="form"} onClick={()=>{ resetForm(); setTab("form") }}>+ New Request</Tab>
@@ -539,4 +539,4 @@ const PurchaseRequisition = () => {
   )
 }
 
-export default PurchaseRequisition
+export default MedicineRequisition
