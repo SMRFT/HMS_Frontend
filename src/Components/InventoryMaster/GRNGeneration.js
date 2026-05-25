@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import {
   PageWrapper, Container, SectionTitle, Input, Select, Button,
   Table, Th, Td, Tr, Label, FormRow, TextArea, FormContent,
@@ -7,7 +7,7 @@ import {
 } from "../GlobalStyles"
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
-import { Plus, Trash2, X, ShoppingCart, Lock } from "lucide-react"
+import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
 import styled from "styled-components"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
@@ -130,7 +130,6 @@ const CheckRow = styled.label`
   font-weight: 600;
   & input { cursor: pointer; }
 `
-/* MRP info strip at top of right panel */
 const MrpStrip = styled.div`
   display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;
 `
@@ -141,6 +140,75 @@ const MrpCard = styled.div`
 const MrpLabel = styled.div`font-size: 0.62rem; color: ${colors.textMuted}; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;`
 const MrpValue = styled.div`font-size: 0.88rem; font-weight: 700; color: ${colors.textMain};`
 const LastLine  = styled.div`font-size: 0.62rem; color: ${colors.primary}; font-weight: 600; margin-top: 2px;`
+
+/* ─── OCR-specific styled components ───────────────────────────────────── */
+const OcrCard = styled.div`
+  background: linear-gradient(135deg, #f0f9ff 0%, #f0fdf4 100%);
+  border: 2px dashed ${p => p.active ? colors.primary : colors.border};
+  border-radius: 10px; padding: 16px; margin-bottom: 14px;
+  transition: border-color 0.2s;
+`
+const OcrCardHeader = styled.div`
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 0.85rem; color: ${colors.primary};
+  margin-bottom: 12px;
+`
+const OcrMethodRow = styled.div`
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+`
+const OcrMethodBtn = styled.button`
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 7px; font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; border: 2px solid;
+  border-color: ${p => p.active ? colors.primary : colors.border};
+  background:   ${p => p.active ? colors.primary : "white"};
+  color:        ${p => p.active ? "white" : colors.textMuted};
+  &:hover { border-color: ${colors.primary}; background: ${p => p.active ? colors.primaryDark : "#f0f9ff"}; color: ${p => p.active ? "white" : colors.primary}; }
+`
+const DropZone = styled.div`
+  border: 2px dashed ${p => p.dragging ? colors.primary : "#cbd5e1"};
+  border-radius: 8px; padding: 28px 16px; text-align: center;
+  background: ${p => p.dragging ? "#f0f9ff" : "white"}; cursor: pointer;
+  transition: all 0.2s;
+  &:hover { border-color: ${colors.primary}; background: #f0f9ff; }
+`
+const DropZoneText = styled.div`font-size: 0.82rem; color: ${colors.textMuted}; margin-top: 6px;`
+const CameraBox = styled.div`
+  position: relative; border-radius: 8px; overflow: hidden;
+  background: #000; width: 100%;
+`
+const CameraVideo = styled.video`
+  width: 100%; max-height: 320px; object-fit: cover; display: block;
+`
+const CameraCanvas = styled.canvas`display: none;`
+const PreviewImg = styled.img`
+  width: 100%; max-height: 260px; object-fit: contain;
+  border-radius: 6px; border: 1px solid ${colors.border};
+`
+const OcrBadge = styled.span`
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #dcfce7; color: #166534; font-size: 0.68rem; font-weight: 700;
+  padding: 2px 7px; border-radius: 20px; margin-left: 6px;
+`
+const OcrWarnBox = styled.div`
+  background: #fef9c3; border: 1px solid #fde68a; border-radius: 6px;
+  padding: 8px 12px; font-size: 0.76rem; color: #92400e; margin-bottom: 8px;
+`
+const OcrSuccessBox = styled.div`
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px;
+  padding: 8px 12px; font-size: 0.76rem; color: #166534; margin-bottom: 8px;
+  display: flex; align-items: flex-start; gap: 6px;
+`
+const SpinnerSpan = styled.span`
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+  @keyframes spin { to { transform: rotate(360deg); } }
+`
+const OcrFieldBadge = styled.span`
+  background: #dbeafe; color: #1d4ed8; font-size: 0.62rem; font-weight: 700;
+  padding: 1px 5px; border-radius: 10px; margin-left: 4px; vertical-align: middle;
+`
 
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
@@ -164,6 +232,11 @@ const MONTHS = [
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
 
+// ─── FIX: "DRUG PURCHASE" is always the first fixed option in the dropdown.
+// It is NOT fetched from the API — it's hardcoded here so it always appears
+// regardless of what the outlets API returns.
+const FIXED_PURCHASE_CATEGORIES = ["DRUG PURCHASE"]
+
 const EMPTY_GRN = {
   purchase_category:"",vendor_id:"",date:todayStr(),
   invoice_no:"",invoice_date:todayStr(),payment_mode:"CHEQUE",
@@ -179,53 +252,31 @@ const EMPTY_ITEM = {
   expiry_month:"",expiry_year:"",expiry:"",
   packing:"",unit:"",quantity:"0",free:"0",
   item_value:"0.00",packing_price:"",unit_price:"0.00",
-  // Purchase tax
   purchase_tax_label:"RATE OF 5%",purchase_tax_rate:"5",
   cgst_percent:"2.50",sgst_percent:"2.50",
   cgst_amt:"0.00",sgst_amt:"0.00",
   purchase_discount:"0",purchase_discount_amt:"0.00",
-  deduct_discount_for_tax: true,           // ← "Deduct discount for tax calc" checkbox
+  deduct_discount_for_tax: true,
   purchase_cost:"0.00",
-  // MRP / selling
   mrp:"",
-  max_packing_mrp:"0.00",                  // ← Max Packing MRP
-  selling_discount:"0",                    // ← Selling Discount %
-  selling_price:"0.00",                    // ← Price (MRP / (1+tax) when tax-inclusive)
-  tax_inclusive: true,                     // ← Tax Inclusive checkbox (selling)
+  max_packing_mrp:"0.00",
+  selling_discount:"0",
+  selling_price:"0.00",
+  tax_inclusive: true,
   selling_tax_label:"RATE OF 5%",selling_tax_rate:"5",
   selling_cgst_percent:"2.50",selling_sgst_percent:"2.50",
   selling_cgst_amt:"0.00",selling_sgst_amt:"0.00",
 }
 
-/* ─── Recalc helper ──────────────────────────────────────────────────────
-  Screenshot logic confirmed (Packing=1, Unit=3, Qty=3, PackingPrice=402.25,
-  Discount=4%, Tax=5%, MRP=527.95):
-
-  PURCHASE SIDE:
-  ─ item_value       = packing × unit × packing_price  = 3 × 402.25 = 1206.75
-  ─ disc_amt         = item_value × disc%              = 1206.75 × 4% = 48.27
-  ─ taxable_base     = item_value − disc_amt (when deduct_discount_for_tax=true)
-                     = 1206.75 − 48.27 = 1158.48
-  ─ cgst_pct         = tax_rate / 2                   = 2.5%
-  ─ cgst_amt (total) = taxable_base × cgst_pct        = 1158.48 × 2.5% = 28.962
-  ─ DISPLAY per-pack = total / qty                    = 28.962 / 3 = 9.654 ✓
-  ─ purchase_cost (total) = taxable_base + cgst + sgst= 1158.48 + 28.962 + 28.962 = 1216.404
-  ─ purchase_cost per-pack shown in CostBar = 1216.404 / 3 = 405.468 ✓
-
-  SELLING SIDE (screenshot: MRP=527.95, Tax Inclusive checked):
-  ─ selling_price    = MRP / (1 + tax_rate/100)       = 527.95 / 1.05 = 502.81 ✓
-  ─ selling_cgst_amt = selling_price × cgst_pct       = 502.81 × 2.5% = 12.5703 ✓
-  ─ ip_price is user-editable (shown as 522.12 in screenshot)
-────────────────────────────────────────────────────────────────────────── */
+/* ─── Recalc helper ────────────────────────────────────────────────────── */
 function recalcItem(item) {
   const packing      = parseFloat(item.packing)          || 0
   const unit         = parseFloat(item.unit)             || 0
   const packingPrice = parseFloat(item.packing_price)    || 0
   const taxRate      = parseFloat(item.purchase_tax_rate)|| 0
   const discount     = parseFloat(item.purchase_discount)|| 0
-  const deductDisc   = item.deduct_discount_for_tax !== false  // default true
+  const deductDisc   = item.deduct_discount_for_tax !== false
 
-  // ── PURCHASE ──
   const quantity   = packing * unit
   const item_value = quantity * packingPrice
   const unit_price = quantity > 0 ? item_value / quantity : 0
@@ -234,35 +285,27 @@ function recalcItem(item) {
   const taxable_base = deductDisc ? (item_value - disc_amt) : item_value
 
   const cgst_pct       = taxRate / 2
-  const cgst_amt_total = taxable_base * (cgst_pct / 100)   // total across all qty
+  const cgst_amt_total = taxable_base * (cgst_pct / 100)
   const sgst_amt_total = taxable_base * (cgst_pct / 100)
 
-  // Per-pack values shown in the tax box (matching screenshot display)
   const cgst_amt_display = quantity > 0 ? cgst_amt_total / quantity : cgst_amt_total
   const sgst_amt_display = quantity > 0 ? sgst_amt_total / quantity : sgst_amt_total
 
-  // Purchase cost shown per-pack (total / qty)
   const purchase_cost_total   = taxable_base + cgst_amt_total + sgst_amt_total
   const purchase_cost_display = quantity > 0 ? purchase_cost_total / quantity : purchase_cost_total
 
-  // ── SELLING ──
   const sellingTaxRate  = parseFloat(item.selling_tax_rate) || 0
   const sellingCgstPct  = sellingTaxRate / 2
   const mrp             = parseFloat(item.mrp) || 0
-  const taxInclusive    = item.tax_inclusive !== false  // default true
+  const taxInclusive    = item.tax_inclusive !== false
   const sellingDisc     = parseFloat(item.selling_discount) || 0
 
-  // Price = base price before selling discount
-  // If tax-inclusive: selling_price = MRP / (1 + tax_rate/100)
-  // If not:           selling_price = MRP
   let selling_price = taxInclusive && sellingTaxRate > 0
     ? mrp / (1 + sellingTaxRate / 100)
     : mrp
 
-  // Apply selling discount
   selling_price = selling_price * (1 - sellingDisc / 100)
 
-  // Selling CGST/SGST calculated on selling_price (base price)
   const selling_cgst_amt = selling_price * (sellingCgstPct / 100)
   const selling_sgst_amt = selling_price * (sellingCgstPct / 100)
 
@@ -273,16 +316,13 @@ function recalcItem(item) {
     unit_price:            unit_price.toFixed(4),
     cgst_percent:          cgst_pct.toFixed(2),
     sgst_percent:          cgst_pct.toFixed(2),
-    // Store totals for GRN-level aggregation (used in PharmacyStock too)
     cgst_amt:              cgst_amt_total.toFixed(2),
     sgst_amt:              sgst_amt_total.toFixed(2),
-    // Display per-pack in the tax box
     cgst_amt_display:      cgst_amt_display.toFixed(3),
     sgst_amt_display:      sgst_amt_display.toFixed(3),
     purchase_discount_amt: disc_amt.toFixed(2),
     purchase_cost:         purchase_cost_total.toFixed(3),
     purchase_cost_display: purchase_cost_display.toFixed(3),
-    // Selling
     selling_tax_label:     item.selling_tax_label || item.purchase_tax_label,
     selling_tax_rate:      item.selling_tax_rate  || item.purchase_tax_rate,
     selling_cgst_percent:  sellingCgstPct.toFixed(2),
@@ -293,7 +333,6 @@ function recalcItem(item) {
   }
 }
 
-/* ─── Expiry validation: block if within 6 months ───────────────────────── */
 function isExpiryTooShort(month, year) {
   if (!month || !year) return false
   const expDate = new Date(parseInt(year), parseInt(month) - 1, 1)
@@ -302,7 +341,325 @@ function isExpiryTooShort(month, year) {
   return expDate <= sixMonthsLater
 }
 
-/* ─── Component ─────────────────────────────────────────────────────────── */
+/* ─── OCR Panel Component ───────────────────────────────────────────────── */
+const OcrPanel = ({ onOcrResult, disabled }) => {
+  const [ocrMode,    setOcrMode]    = useState("upload")
+  const [dragging,   setDragging]   = useState(false)
+  const [previewSrc, setPreviewSrc] = useState(null)
+  const [ocrFile,    setOcrFile]    = useState(null)
+  const [scanning,   setScanning]   = useState(false)
+  const [camActive,  setCamActive]  = useState(false)
+  const [camError,   setCamError]   = useState("")
+  const [captured,   setCaptured]   = useState(null)
+  const [ocrStatus,  setOcrStatus]  = useState(null)
+  const [ocrMsg,     setOcrMsg]     = useState("")
+  const [warnings,   setWarnings]   = useState([])
+
+  const fileInputRef  = useRef(null)
+  const videoRef      = useRef(null)
+  const canvasRef     = useRef(null)
+  const streamRef     = useRef(null)
+
+  const startCamera = useCallback(async () => {
+    setCamError("")
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        const playPromise = videoRef.current.play()
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.warn("Camera auto-play was interrupted or prevented:", error)
+          })
+        }
+      }
+      setCamActive(true)
+    } catch (err) {
+      setCamError("Camera access denied or not available on this device.")
+    }
+  }, [])
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+    setCamActive(false)
+  }, [])
+
+  useEffect(() => {
+    if (ocrMode === "camera") startCamera()
+    else stopCamera()
+    return () => stopCamera()
+  }, [ocrMode]) // eslint-disable-line
+
+  const captureFrame = useCallback(() => {
+    const video  = videoRef.current
+    const canvas = canvasRef.current
+    if (!video || !canvas) return
+
+    canvas.width  = video.videoWidth  || 640
+    canvas.height = video.videoHeight || 480
+    const ctx = canvas.getContext("2d")
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    canvas.toBlob(blob => {
+      if (!blob) { toast.error("Could not capture frame"); return }
+      const url = URL.createObjectURL(blob)
+      setCaptured(blob)
+      setPreviewSrc(url)
+      setOcrFile(new File([blob], "camera_capture.png", { type: "image/png" }))
+      stopCamera()
+    }, "image/png", 0.95)
+  }, [stopCamera])
+
+  const retakePhoto = () => {
+    setCaptured(null)
+    setPreviewSrc(null)
+    setOcrFile(null)
+    setOcrStatus(null)
+    setOcrMsg("")
+    setWarnings([])
+    startCamera()
+  }
+
+  const handleFileSelect = (file) => {
+    if (!file) return
+    const allowed = ["image/jpeg","image/png","image/jpg","image/webp","application/pdf"]
+    if (!allowed.includes(file.type)) {
+      toast.error("Unsupported file type. Use JPG, PNG, WEBP or PDF.")
+      return
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("File too large — max 15 MB.")
+      return
+    }
+    setOcrFile(file)
+    setOcrStatus(null); setOcrMsg(""); setWarnings([])
+    if (file.type !== "application/pdf") {
+      setPreviewSrc(URL.createObjectURL(file))
+    } else {
+      setPreviewSrc(null)
+    }
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault(); setDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    handleFileSelect(file)
+  }
+
+  const runOcr = async () => {
+    if (!ocrFile) { toast.error("No file selected or captured."); return }
+    setScanning(true); setOcrStatus(null); setOcrMsg(""); setWarnings([])
+    try {
+      const formData = new FormData()
+      formData.append("file", ocrFile)
+
+      const res = await fetch(`${baseUrl}grn-ocr/`, {
+        method: "POST",
+        body: formData,
+      })
+
+      const json = await res.json()
+
+      if (!res.ok || !json.success) {
+        setOcrStatus("error")
+        setOcrMsg(json.error || "OCR scan failed. Try a clearer image.")
+        return
+      }
+
+      const warns = json.warnings || []
+      setWarnings(warns)
+      setOcrStatus("success")
+      setOcrMsg(
+        `OCR complete — ${json.data?.items?.length || 0} item(s) detected.` +
+        (warns.length ? " See warnings below." : "")
+      )
+      onOcrResult(json.data)
+    } catch (err) {
+      setOcrStatus("error")
+      setOcrMsg("Network error while scanning. Please try again.")
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const resetOcr = () => {
+    setOcrFile(null); setPreviewSrc(null); setCaptured(null)
+    setOcrStatus(null); setOcrMsg(""); setWarnings([])
+    if (ocrMode === "camera") retakePhoto()
+  }
+
+  if (disabled) return null
+
+  return (
+    <OcrCard active={dragging}>
+      <OcrCardHeader>
+        <ScanLine size={16} />
+        Auto-Fill via OCR Scan
+        <span style={{fontSize:"0.7rem",fontWeight:400,color:colors.textMuted,marginLeft:4}}>
+          Upload or scan a hard copy invoice to auto-fill fields (you can edit after)
+        </span>
+      </OcrCardHeader>
+
+      <OcrMethodRow>
+        <OcrMethodBtn
+          active={ocrMode === "upload"}
+          onClick={() => { setOcrMode("upload"); resetOcr() }}
+          type="button"
+        >
+          <Upload size={14}/> Upload Document
+        </OcrMethodBtn>
+        <OcrMethodBtn
+          active={ocrMode === "camera"}
+          onClick={() => { setOcrMode("camera"); resetOcr() }}
+          type="button"
+        >
+          <Camera size={14}/> Use Camera
+        </OcrMethodBtn>
+      </OcrMethodRow>
+
+      {ocrMode === "upload" && (
+        <>
+          {!ocrFile ? (
+            <DropZone
+              dragging={dragging}
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+            >
+              <Upload size={28} color={dragging ? colors.primary : "#94a3b8"} />
+              <DropZoneText>
+                <strong>Click to upload</strong> or drag &amp; drop<br/>
+                <span style={{fontSize:"0.72rem"}}>JPG, PNG, WEBP, PDF — max 15 MB</span>
+              </DropZoneText>
+            </DropZone>
+          ) : (
+            <div>
+              {previewSrc && (
+                <div style={{marginBottom:8}}>
+                  <PreviewImg src={previewSrc} alt="Invoice preview" />
+                </div>
+              )}
+              {!previewSrc && ocrFile && (
+                <div style={{padding:"10px 0",fontSize:"0.8rem",color:colors.textMuted}}>
+                  📄 {ocrFile.name} ({(ocrFile.size/1024).toFixed(0)} KB)
+                </div>
+              )}
+            </div>
+          )}
+          <input
+            ref={fileInputRef} type="file"
+            accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf"
+            style={{display:"none"}}
+            onChange={e => handleFileSelect(e.target.files?.[0])}
+          />
+        </>
+      )}
+
+      {ocrMode === "camera" && (
+        <div>
+          {camError && (
+            <OcrWarnBox style={{marginBottom:8}}>
+              <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{camError}
+            </OcrWarnBox>
+          )}
+          {!captured && (
+            <CameraBox>
+              <CameraVideo ref={videoRef} autoPlay playsInline muted />
+              <div style={{
+                position:"absolute",bottom:0,left:0,right:0,
+                background:"rgba(0,0,0,0.5)",padding:"8px",
+                display:"flex",justifyContent:"center",gap:8
+              }}>
+                {camActive ? (
+                  <Button
+                    onClick={captureFrame}
+                    style={{fontSize:"0.8rem",padding:"6px 16px",background:"white",color:colors.primary}}
+                    type="button"
+                  >
+                    <Camera size={13}/>&nbsp;Capture
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={startCamera}
+                    style={{fontSize:"0.8rem",padding:"6px 16px"}}
+                    type="button"
+                  >
+                    Start Camera
+                  </Button>
+                )}
+              </div>
+            </CameraBox>
+          )}
+          {captured && previewSrc && (
+            <div>
+              <PreviewImg src={previewSrc} alt="Captured invoice" />
+              <div style={{marginTop:6,display:"flex",gap:6}}>
+                <Button secondary onClick={retakePhoto} style={{fontSize:"0.78rem",padding:"5px 12px"}} type="button">
+                  <RefreshCw size={12}/>&nbsp;Retake
+                </Button>
+              </div>
+            </div>
+          )}
+          <CameraCanvas ref={canvasRef} />
+        </div>
+      )}
+
+      {ocrStatus === "success" && (
+        <OcrSuccessBox>
+          <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
+          <span>{ocrMsg}</span>
+        </OcrSuccessBox>
+      )}
+      {ocrStatus === "error" && (
+        <OcrWarnBox>
+          <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>{ocrMsg}
+        </OcrWarnBox>
+      )}
+      {warnings.length > 0 && (
+        <OcrWarnBox>
+          <strong>⚠️ Warnings:</strong>
+          <ul style={{margin:"4px 0 0 16px",padding:0,fontSize:"0.73rem"}}>
+            {warnings.map((w,i) => <li key={i}>{w}</li>)}
+          </ul>
+        </OcrWarnBox>
+      )}
+
+      <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+        {ocrFile && (
+          <Button
+            onClick={runOcr}
+            disabled={scanning}
+            style={{fontSize:"0.8rem",padding:"7px 16px"}}
+            type="button"
+          >
+            {scanning
+              ? <><SpinnerSpan/>&nbsp; Scanning…</>
+              : <><ScanLine size={13}/>&nbsp; Scan &amp; Auto-Fill</>}
+          </Button>
+        )}
+        {(ocrFile || ocrStatus) && (
+          <Button secondary onClick={resetOcr} style={{fontSize:"0.8rem",padding:"7px 12px"}} type="button">
+            <X size={12}/>&nbsp;Clear
+          </Button>
+        )}
+      </div>
+
+      <div style={{marginTop:8,fontSize:"0.69rem",color:colors.textMuted}}>
+        💡 After scanning, all fields are editable. Review and correct any errors before saving.
+      </div>
+    </OcrCard>
+  )
+}
+
+
+/* ─── Main Component ────────────────────────────────────────────────────── */
 const GRNGeneration = () => {
   const [vendors,     setVendors]     = useState([])
   const [medicines,   setMedicines]   = useState([])
@@ -320,6 +677,7 @@ const GRNGeneration = () => {
   const [editStatus,  setEditStatus]  = useState("")
   const [search,      setSearch]      = useState("")
   const [loading,     setLoading]     = useState(false)
+  const [ocrApplied,  setOcrApplied]  = useState(false)
 
   /* ── Fetchers ── */
   const fetchVendors   = useCallback(async () => {
@@ -332,11 +690,17 @@ const GRNGeneration = () => {
     try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data)?r.data:[]) } catch {}
   },[])
 
+  // ── FIX: fetchOutlets strips any "DRUG PURCHASE" variant from the API list.
+  // "DRUG PURCHASE" is always shown as a fixed hardcoded option in the dropdown,
+  // so we must not also load it from the API (would cause duplicates).
   const fetchOutlets = useCallback(async () => {
     try {
       const r = await apiRequest(`${baseUrl}get_active_outlets/`, "GET")
       if (r?.success && Array.isArray(r?.data?.data)) {
-        setOutlets([...r.data.data])
+        const filtered = r.data.data.filter(
+          (o) => (o.outlet_name || "").trim().toLowerCase() !== "drug purchase"
+        )
+        setOutlets(filtered)
         setGrnData(prev => ({ ...prev, purchase_category: "" }))
       } else {
         setOutlets([])
@@ -350,7 +714,6 @@ const GRNGeneration = () => {
   useEffect(()=>{ fetchVendors(); fetchMedicines(); fetchGRNList(); fetchOutlets() },
     [fetchVendors, fetchMedicines, fetchGRNList, fetchOutlets])
 
-  /* ── Fetch last stock record for selected item ── */
   const fetchLastStock = useCallback(async (item_id) => {
     if (!item_id) { setLastStock(null); return }
     try {
@@ -382,7 +745,7 @@ const GRNGeneration = () => {
     }
     const t = items.reduce((a,i)=>{
       a.tax  += parseFloat(i.item_value)||0
-      a.cgst += parseFloat(i.cgst_amt)||0      // use stored totals
+      a.cgst += parseFloat(i.cgst_amt)||0
       a.sgst += parseFloat(i.sgst_amt)||0
       a.disc += parseFloat(i.purchase_discount_amt)||0
       a.tot  += parseFloat(i.purchase_cost)||0
@@ -409,6 +772,71 @@ const GRNGeneration = () => {
     const round = parseFloat(grnData.round_amount)||0
     setGrnData(p=>({...p, net_invoice_amount:(tot+round).toFixed(2)}))
   },[grnData.round_amount]) // eslint-disable-line
+
+  /* ── OCR result handler ── */
+  const handleOcrResult = useCallback((data) => {
+    if (!data) return
+
+    setGrnData(prev => {
+      const updated = { ...prev }
+      if (data.invoice_no)       updated.invoice_no       = data.invoice_no
+      if (data.invoice_date)     updated.invoice_date     = data.invoice_date.split("T")[0]
+      if (data.payment_mode)     updated.payment_mode     = data.payment_mode
+      if (data.taxable_amount && parseFloat(data.taxable_amount) > 0)
+        updated.taxable_amount   = parseFloat(data.taxable_amount).toFixed(2)
+      if (data.cgst && parseFloat(data.cgst) > 0)
+        updated.cgst             = parseFloat(data.cgst).toFixed(2)
+      if (data.sgst && parseFloat(data.sgst) > 0)
+        updated.sgst             = parseFloat(data.sgst).toFixed(2)
+      if (data.total_discount && parseFloat(data.total_discount) > 0)
+        updated.total_discount   = parseFloat(data.total_discount).toFixed(2)
+      if (data.total_amount && parseFloat(data.total_amount) > 0)
+        updated.total_amount     = parseFloat(data.total_amount).toFixed(2)
+      if (data.net_invoice_amount && parseFloat(data.net_invoice_amount) > 0)
+        updated.net_invoice_amount = parseFloat(data.net_invoice_amount).toFixed(2)
+      return updated
+    })
+
+    if (data.vendor_name) {
+      const nameLower = data.vendor_name.toLowerCase()
+      const matched = vendors.find(v =>
+        (v.name || "").toLowerCase().includes(nameLower) ||
+        nameLower.includes((v.name || "").toLowerCase())
+      )
+      if (matched) {
+        setVendorInfo(matched)
+        setGrnData(prev => ({ ...prev, vendor_id: String(matched.vendor_id) }))
+        toast.info(`Vendor matched: ${matched.name}`)
+      } else {
+        toast.warn(`Vendor "${data.vendor_name}" not found in list — please select manually.`)
+      }
+    }
+
+    if (Array.isArray(data.items) && data.items.length > 0) {
+      const ocrItems = data.items.map(it => {
+        const nameLower = (it.name || "").toLowerCase()
+        const matched = medicines.find(m =>
+          `${m.item_name} ${m.item_last_name||""}`.toLowerCase().includes(nameLower) ||
+          nameLower.includes(m.item_name?.toLowerCase() || "")
+        )
+        const resolved = matched
+          ? { ...it, item_id: matched.item_id, name: `${matched.item_name} ${matched.item_last_name||""}`.trim(), hsn: matched.hsn || it.hsn }
+          : it
+
+        const withPacking = {
+          ...resolved,
+          packing: resolved.packing || "1",
+          unit:    resolved.unit    || resolved.quantity || "1",
+        }
+        return recalcItem({ ...EMPTY_ITEM, ...withPacking, id: Date.now() + Math.random(), _fromOcr: true })
+      })
+
+      setItems(prev => [...prev, ...ocrItems])
+      toast.success(`${ocrItems.length} item(s) added from OCR — please review and edit as needed.`)
+    }
+
+    setOcrApplied(true)
+  }, [vendors, medicines])
 
   /* ── Handlers ── */
   const handleVendorChange = (e) => {
@@ -465,6 +893,14 @@ const GRNGeneration = () => {
   }
 
   const removeItem = (id) => { if(isVerified) return; setItems(p=>p.filter(i=>i.id!==id)) }
+
+  const updateItem = (id, field, value) => {
+    setItems(prev => prev.map(it => {
+      if (it.id !== id) return it
+      const updated = { ...it, [field]: value }
+      return recalcItem(updated)
+    }))
+  }
 
   /* ── Save / Update Draft ── */
   const saveGRN = async () => {
@@ -540,6 +976,7 @@ const GRNGeneration = () => {
     try{ setItems(JSON.parse(grn.items||"[]")) } catch { setItems([]) }
     setEditDraftNo(grn.draft_number||"")
     setEditStatus(grn.status||"Draft")
+    setOcrApplied(false)
     setActiveTab("create")
     window.scrollTo({top:0,behavior:"smooth"})
   }
@@ -547,6 +984,7 @@ const GRNGeneration = () => {
   const resetForm = () => {
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
     setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
+    setOcrApplied(false)
   }
 
   /* ── Helpers ── */
@@ -566,14 +1004,11 @@ const GRNGeneration = () => {
     return [v.address_line1, v.address_line2, v.city, v.state, v.pincode].filter(Boolean).join(", ")
   }
 
-  /* ── Last stock display values ── */
   const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
   const lastPurchaseCost  = lastStock
     ? `₹ ${(parseFloat(lastStock.CGST_Amt||0) + parseFloat(lastStock.SGST_Amt||0) + parseFloat(lastStock.mrp||0)).toFixed(2)}`
     : "—"
-  // Last MRP = mrp stored in stock
   const lastMRP           = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
-  // Last Selling Price = selling_price field if present, else fall back to mrp
   const lastSellingPrice  = lastStock
     ? `₹ ${parseFloat(lastStock.selling_price || lastStock.mrp || 0).toFixed(2)}`
     : "—"
@@ -610,10 +1045,29 @@ const GRNGeneration = () => {
                 </VerifiedBanner>
               )}
 
+              {!isVerified && (
+                <OcrPanel
+                  onOcrResult={handleOcrResult}
+                  disabled={isVerified}
+                />
+              )}
+
+              {ocrApplied && !isVerified && (
+                <OcrSuccessBox style={{marginBottom:12}}>
+                  <CheckCircle size={14} style={{marginTop:1,flexShrink:0}}/>
+                  <span>
+                    Fields have been pre-filled from OCR scan.
+                    <strong> Review and correct all values before saving.</strong>
+                    You can fully edit everything below.
+                  </span>
+                </OcrSuccessBox>
+              )}
+
               {/* ── Inward Details ── */}
               <Card>
                 <CardHeader>
                   📋 Inward Details
+                  {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR Auto-filled</OcrBadge>}
                   {isEdit && (
                     <span style={{display:"flex",alignItems:"center",gap:5}}>
                       <DraftBadge>Draft: {editDraftNo}</DraftBadge>
@@ -626,6 +1080,11 @@ const GRNGeneration = () => {
                   <GridRow cols="repeat(3,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Purchase Category *</Lbl>
+                      {/*
+                        FIX: "DRUG PURCHASE" is always the first option, hardcoded here.
+                        API outlets are appended below it (with any "DRUG PURCHASE" variant
+                        already stripped in fetchOutlets so there's no duplicate).
+                      */}
                       <Select
                         name="purchase_category"
                         value={grnData.purchase_category}
@@ -633,16 +1092,17 @@ const GRNGeneration = () => {
                         disabled={isVerified}
                         style={{fontSize:"0.8rem"}}
                       >
-                        <option value="">-- Select Outlet --</option>
-                        {outlets.length === 0 ? (
-                          <option disabled>No outlets available</option>
-                        ) : (
-                          outlets.map((o, i) => (
-                            <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
-                              {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
-                            </option>
-                          ))
-                        )}
+                        <option value="">-- Select Category --</option>
+
+                        {/* ── Fixed hardcoded option — always present ── */}
+                        <option value="DRUG PURCHASE">DRUG PURCHASE</option>
+
+                        {/* ── Dynamic options from API (Drug Purchase already stripped) ── */}
+                        {outlets.map((o, i) => (
+                          <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
+                            {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
+                          </option>
+                        ))}
                       </Select>
                     </InputWrapper>
 
@@ -655,7 +1115,10 @@ const GRNGeneration = () => {
                     </InputWrapper>
 
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Vendor *</Lbl>
+                      <Lbl>
+                        Vendor *
+                        {ocrApplied && grnData.vendor_id && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
                       <Select name="vendor_id" value={grnData.vendor_id} onChange={handleVendorChange}
                         disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         <option value="">-- Select Vendor --</option>
@@ -685,17 +1148,25 @@ const GRNGeneration = () => {
                       <ReadOnlyInput value="Invoice" readOnly style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Invoice No *</Lbl>
+                      <Lbl>
+                        Invoice No *
+                        {ocrApplied && grnData.invoice_no && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
                       <Input name="invoice_no" value={grnData.invoice_no} onChange={handleGrnChange}
                         disabled={isVerified} placeholder="e.g. INV-52412" style={{fontSize:"0.8rem"}} />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Invoice Date</Lbl>
-                      <Input type="date" name="invoice_date" value={grnData.invoice_date}
-                        onChange={handleGrnChange} disabled={isVerified} max={todayStr()} style={{fontSize:"0.8rem"}} />
+                      <ReadOnlyInput
+                        type="date" name="invoice_date" value={grnData.invoice_date}
+                        readOnly disabled style={{fontSize:"0.8rem", background:"#f1f5f9", cursor:"not-allowed"}}
+                      />
                     </InputWrapper>
                     <InputWrapper style={{margin:0}}>
-                      <Lbl>Payment Mode</Lbl>
+                      <Lbl>
+                        Payment Mode
+                        {ocrApplied && <OcrFieldBadge>OCR</OcrFieldBadge>}
+                      </Lbl>
                       <Select name="payment_mode" value={grnData.payment_mode} onChange={handleGrnChange}
                         disabled={isVerified} style={{fontSize:"0.8rem"}}>
                         {PAYMENT_MODES.map(m=><option key={m} value={m}>{m}</option>)}
@@ -708,7 +1179,7 @@ const GRNGeneration = () => {
               {/* ── Item Entry ── */}
               {!isVerified && (
                 <Card>
-                  <CardHeader>💊 Item Entry</CardHeader>
+                  <CardHeader>💊 Item Entry <span style={{fontWeight:400,fontSize:"0.72rem",color:colors.textMuted,marginLeft:4}}>(Manual — or edit OCR items in table below)</span></CardHeader>
                   <CardBody>
                     {isItemEntryEnabled ? (
                       <ItemPanel>
@@ -716,7 +1187,6 @@ const GRNGeneration = () => {
                         <Panel>
                           <PanelTitle>Item &amp; Cost Details</PanelTitle>
 
-                          {/* Medicine search */}
                           <GridRow cols="2fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Medicine Name *</Lbl>
@@ -746,7 +1216,6 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
-                          {/* Batch + Expiry */}
                           <GridRow cols="1fr 1fr 1fr" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Batch No. *</Lbl>
@@ -776,7 +1245,6 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
-                          {/* Expiry preview + warning */}
                           {(curItem.expiry_month || curItem.expiry_year) && (
                             <div style={{marginBottom:6,marginTop:-4}}>
                               <div style={{fontSize:"0.72rem",color:colors.primary}}>
@@ -788,7 +1256,6 @@ const GRNGeneration = () => {
                             </div>
                           )}
 
-                          {/* Packing / Unit / Qty / Free */}
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:7}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing</Lbl>
@@ -811,7 +1278,6 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
-                          {/* Packing Price / Item Value / Unit Price / MRP */}
                           <GridRow cols="repeat(4,1fr)" style={{marginBottom:0}}>
                             <InputWrapper style={{margin:0}}>
                               <Lbl>Packing Price ₹</Lbl>
@@ -829,7 +1295,6 @@ const GRNGeneration = () => {
                             </InputWrapper>
                           </GridRow>
 
-                        {/* Purchase Tax */}
                           <TaxBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#0369a1",marginBottom:7}}>PURCHASE TAX</div>
                             <GridRow cols="1.4fr 1fr 1fr" style={{marginBottom:7}}>
@@ -841,7 +1306,6 @@ const GRNGeneration = () => {
                                 </Select>
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
-                                {/* Display per-pack value matching screenshot */}
                                 <Lbl>CGST ({curItem.cgst_percent}%)</Lbl>
                                 <CalcInput value={`₹ ${curItem.cgst_amt_display || curItem.cgst_amt}`} readOnly />
                               </InputWrapper>
@@ -861,7 +1325,6 @@ const GRNGeneration = () => {
                                 <CalcInput value={`₹ ${curItem.purchase_discount_amt}`} readOnly />
                               </InputWrapper>
                             </GridRow>
-                            {/* Deduct discount for tax calc checkbox */}
                             <CheckRow>
                               <input
                                 type="checkbox"
@@ -871,7 +1334,6 @@ const GRNGeneration = () => {
                               />
                               Deduct discount for tax calc
                             </CheckRow>
-                            {/* Purchase Cost shown per-pack */}
                             <CostBar>
                               <span>Purchase Cost</span>
                               <strong style={{fontSize:"0.9rem"}}>
@@ -885,14 +1347,13 @@ const GRNGeneration = () => {
                         {/* ── RIGHT: Tax Details ── */}
                         <Panel>
                           <PanelTitle>Tax Details</PanelTitle>
-                            <InputWrapper style={{margin:0}}>
-                              <Lbl>MRP ₹</Lbl>
-                              <Input type="number" name="mrp" value={curItem.mrp}
-                                onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
-                              <LastHint>Last MRP: {lastMRP}</LastHint>
-                            </InputWrapper>
+                          <InputWrapper style={{margin:0}}>
+                            <Lbl>MRP ₹</Lbl>
+                            <Input type="number" name="mrp" value={curItem.mrp}
+                              onChange={handleItemChange} placeholder="0.00" min="0" style={{fontSize:"0.8rem"}} />
+                            <LastHint>Last MRP: {lastMRP}</LastHint>
+                          </InputWrapper>
 
-                          {/* Selling Tax */}
                           <GreenBox>
                             <div style={{fontSize:"0.68rem",fontWeight:700,color:"#15803d",marginBottom:7}}>
                               SELLING TAX
@@ -906,7 +1367,6 @@ const GRNGeneration = () => {
                                 </Select>
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
-                                {/* Selling CGST is on selling_price (Price), matching screenshot */}
                                 <Lbl>CGST ({curItem.selling_cgst_percent||"2.50"}%)</Lbl>
                                 <CalcInput value={`₹ ${parseFloat(curItem.selling_cgst_amt||0).toFixed(4)}`} readOnly />
                               </InputWrapper>
@@ -915,7 +1375,6 @@ const GRNGeneration = () => {
                                 <CalcInput value={`₹ ${parseFloat(curItem.selling_sgst_amt||0).toFixed(4)}`} readOnly />
                               </InputWrapper>
                             </GridRow>
-                            {/* Tax Inclusive checkbox */}
                             <CheckRow style={{marginBottom:6}}>
                               <input
                                 type="checkbox"
@@ -925,7 +1384,6 @@ const GRNGeneration = () => {
                               />
                               Tax Inclusive
                             </CheckRow>
-                            {/* Selling Discount / Price / IP Price */}
                             <GridRow cols="1fr 1fr 1fr" style={{marginBottom:0}}>
                               <InputWrapper style={{margin:0}}>
                                 <Lbl>Selling Discount (%)</Lbl>
@@ -933,7 +1391,6 @@ const GRNGeneration = () => {
                                   onChange={handleItemChange} placeholder="0" min="0" max="100" style={{fontSize:"0.8rem"}} />
                               </InputWrapper>
                               <InputWrapper style={{margin:0}}>
-                                {/* Price = MRP / (1+tax%) when inclusive, after selling discount */}
                                 <Lbl>Price (auto)</Lbl>
                                 <CalcInput value={`₹ ${curItem.selling_price}`} readOnly />
                                 <LastHint>Last Selling Price: {lastSellingPrice}</LastHint>
@@ -997,10 +1454,21 @@ const GRNGeneration = () => {
               )}
 
               {/* ── Items Table ── */}
-              {items.length>0&&(
+              {items.length > 0 && (
                 <Card>
-                  <CardHeader>📦 Items Added ({items.length})</CardHeader>
+                  <CardHeader>
+                    📦 Items Added ({items.length})
+                    {items.some(i => i._fromOcr) && (
+                      <OcrBadge><ScanLine size={10}/>Contains OCR items — review editable fields</OcrBadge>
+                    )}
+                  </CardHeader>
                   <CardBody style={{padding:"8px 6px"}}>
+                    {items.some(i => i._fromOcr) && !isVerified && (
+                      <OcrWarnBox style={{marginBottom:8}}>
+                        <AlertCircle size={13} style={{verticalAlign:"middle",marginRight:4}}/>
+                        OCR items below are editable. Click any cell value to update batch, expiry, MRP, prices etc. before saving.
+                      </OcrWarnBox>
+                    )}
                     <ScrollTable>
                       <Table>
                         <thead><tr>
@@ -1025,41 +1493,93 @@ const GRNGeneration = () => {
                           {!isVerified && <Th style={{fontSize:"0.72rem"}}></Th>}
                         </tr></thead>
                         <tbody>
-                          {items.map((it,idx)=>(
-                            <Tr key={it.id}>
-                              <Td style={{fontSize:"0.75rem"}}>{idx+1}</Td>
-                              <Td style={{fontWeight:600,minWidth:100,fontSize:"0.75rem"}}>{it.name}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.hsn||"—"}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.batch||"—"}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.expiry||"—"}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.packing||"—"}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.unit||"—"}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.packing_price||0).toFixed(2)}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.purchase_tax_rate}%</Td>
-                              {/* Table shows total CGST/SGST (not per-pack) */}
-                              <Td style={{fontSize:"0.75rem"}}>₹{it.cgst_amt}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>₹{it.sgst_amt}</Td>
-                              <Td style={{fontSize:"0.75rem"}}>{it.purchase_discount}%</Td>
-                              <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>
-                                ₹{it.purchase_cost_display || it.purchase_cost}
-                              </Td>
-                              <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.mrp||0).toFixed(2)}</Td>
-                              <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
-                                ₹{parseFloat(it.selling_price||0).toFixed(2)}
-                              </Td>
-                              <Td style={{fontSize:"0.75rem"}}>
-                                ₹{parseFloat(it.ip_price||0).toFixed(2)}
-                              </Td>
-                              {!isVerified && (
-                                <Td>
-                                  <Trash2 size={13} color={colors.danger} style={{cursor:"pointer"}} onClick={()=>removeItem(it.id)} />
+                          {items.map((it, idx) => {
+                            const isOcr = !!it._fromOcr
+                            return (
+                              <Tr key={it.id} style={isOcr ? {background:"#f0f9ff"} : {}}>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {idx+1}
+                                  {isOcr && <OcrBadge style={{marginLeft:3,fontSize:"0.58rem"}}>OCR</OcrBadge>}
                                 </Td>
-                              )}
-                            </Tr>
-                          ))}
+                                <Td style={{fontWeight:600,minWidth:100,fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input
+                                      value={it.name}
+                                      onChange={e => updateItem(it.id, "name", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",minWidth:120}}
+                                    />
+                                  ) : it.name}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.hsn||"—"}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input
+                                      value={it.batch}
+                                      onChange={e => updateItem(it.id, "batch", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:80}}
+                                      placeholder="Batch"
+                                    />
+                                  ) : (it.batch||"—")}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input
+                                      value={it.expiry}
+                                      onChange={e => updateItem(it.id, "expiry", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:70}}
+                                      placeholder="MM/YYYY"
+                                    />
+                                  ) : (it.expiry||"—")}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input type="number" value={it.packing}
+                                      onChange={e => updateItem(it.id, "packing", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} min="0"/>
+                                  ) : (it.packing||"—")}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input type="number" value={it.unit}
+                                      onChange={e => updateItem(it.id, "unit", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:55}} min="0"/>
+                                  ) : (it.unit||"—")}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.quantity}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.free}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input type="number" value={it.packing_price}
+                                      onChange={e => updateItem(it.id, "packing_price", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:75}} min="0"/>
+                                  ) : `₹${parseFloat(it.packing_price||0).toFixed(2)}`}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>₹{parseFloat(it.item_value||0).toFixed(2)}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_tax_rate}%</Td>
+                                <Td style={{fontSize:"0.75rem"}}>₹{it.cgst_amt}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>₹{it.sgst_amt}</Td>
+                                <Td style={{fontSize:"0.75rem"}}>{it.purchase_discount}%</Td>
+                                <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.75rem"}}>
+                                  ₹{it.purchase_cost_display || it.purchase_cost}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem"}}>
+                                  {isOcr && !isVerified ? (
+                                    <Input type="number" value={it.mrp}
+                                      onChange={e => updateItem(it.id, "mrp", e.target.value)}
+                                      style={{fontSize:"0.75rem",padding:"2px 5px",width:70}} min="0"/>
+                                  ) : `₹${parseFloat(it.mrp||0).toFixed(2)}`}
+                                </Td>
+                                <Td style={{fontSize:"0.75rem",color:"#15803d",fontWeight:600}}>
+                                  ₹{parseFloat(it.selling_price||0).toFixed(2)}
+                                </Td>
+                                {!isVerified && (
+                                  <Td>
+                                    <Trash2 size={13} color={colors.danger} style={{cursor:"pointer"}} onClick={()=>removeItem(it.id)} />
+                                  </Td>
+                                )}
+                              </Tr>
+                            )
+                          })}
                         </tbody>
                       </Table>
                     </ScrollTable>
@@ -1070,7 +1590,9 @@ const GRNGeneration = () => {
               {/* ── Financial Summary ── */}
               {items.length>0&&(
                 <Card>
-                  <CardHeader>💰 Financial Summary</CardHeader>
+                  <CardHeader>💰 Financial Summary
+                    {ocrApplied && <OcrBadge><ScanLine size={10}/>OCR</OcrBadge>}
+                  </CardHeader>
                   <CardBody>
                     <SummaryStrip>
                       {[

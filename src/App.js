@@ -59,6 +59,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -124,6 +125,17 @@ import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import RDPrint from "./Components/InvestigationReports/RDPrint";
 import JRDReport from "./Components/InvestigationReports/JRDReport";
 
+import DischargeBills from "./Components/Accounts/DischargeBills";
+import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
+import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
+import CashierWiseDetailedReport from "./Components/Accounts/CashierWiseDetailedReport";
+import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrationInsurence";
+import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
+import AccountsReports from "./Components/Reports/AccountsReports";
+import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
+import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
+import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
+import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -224,6 +236,7 @@ function App() {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
                 localStorage.setItem("selected_outlet", outlet.outlet_code);
+                localStorage.setItem("outlet_code", outlet.outlet_code);
                 localStorage.setItem(
                   "selected_outlet_name",
                   outlet.outlet_name,
@@ -282,6 +295,8 @@ function App() {
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
+      "/PharmacyExpiryReport": "Pharmacy Expiry Report",
+      "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -295,7 +310,13 @@ function App() {
       "/Oppharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
       "/CashCounterManager": "Cash Counter Manager",
-      "/BillWiseReport": "BillWiseReport"
+      "/BillWiseReport": "BillWiseReport",
+      "/DischargeBills": "Discharge Bills",
+      "/DischargeBillsDetailed": "Discharge Bills Detailed",
+      "/CashierWiseReport": "Cashier Wise Report",
+      "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
+      "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
+      "/AdvanceRegistration": "Advance Registration"
     };
 
     const path = location.pathname;
@@ -352,10 +373,17 @@ function App() {
           }
           onSelect={(outlet) => {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
+            localStorage.setItem("outlet_code", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
             setShowOutletModal(false);
-            // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
-            window.location.reload();
+
+            const userRole = getUserRole(allowedActions);
+            const targetPath = userRole === "Pharmacist" ? "/OPPharmacy" : "/Dashboard";
+
+            navigate(targetPath);
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
           }}
         />
       )}
@@ -540,6 +568,16 @@ function App() {
                     element={<InsuranceProvider />}
                   />
                 )}
+                {hasPagePermission(
+                "/InsuranceClaim",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/InsuranceClaim"
+                    element={<InsuranceClaim />}
+                  />
+                )}
 
               {/* Nursing Station */}
               {hasPagePermission(
@@ -657,6 +695,28 @@ function App() {
                     element={<StockTransfer />}
                   />
                 )}
+
+             {hasPagePermission(
+                "/PurchaseReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseReturn"
+                    element={<PurchaseReturn />}
+                  />
+                )}
+
+               {hasPagePermission(
+                "/PharmacyNotification",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PharmacyNotification"
+                    element={<PharmacyNotification />}
+                  />
+              )}
 
               {hasPagePermission(
                 "/PharmacyItemMaster",
@@ -803,6 +863,21 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/FrontOfficeReports" element={<FrontOfficeReports />} />}
+              {hasPagePermission(
+                "/AccountsReports",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/AccountsReports" element={<AccountsReports />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyExpiryReport" element={<PharmacyExpiryReport />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyStockDashboard" element={<PharmacyStockDashboard />} />}
 
               {/* Velavan */}
               {hasPagePermission(
@@ -912,26 +987,19 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+              
               {hasPagePermission(
                 "/OTMedicineBilling",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
+                <Route
+                  path="/OTMedicineBilling"
+                  element={<OTMedicineBilling />}
+                />
+              )}
+
               {hasPagePermission(
-                "/OTMedicineBilling",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
                 "/ShiftBasisReport",
                 allowedActions,
                 dynamicPermissions,
@@ -985,6 +1053,26 @@ function App() {
                     element={<CashCounterManager />}
                   />
                 )}
+
+              {/* Accounts Reports */}
+              {hasPagePermission("/DischargeBills", allowedActions, dynamicPermissions) && (
+                <Route path="/DischargeBills" element={<DischargeBills />} />
+              )}
+              {hasPagePermission("/DischargeBillsDetailed", allowedActions, dynamicPermissions) && (
+                <Route path="/DischargeBillsDetailed" element={<DischargeBillsDetailed />} />
+              )}
+              {hasPagePermission("/CashierWiseReport", allowedActions, dynamicPermissions) && (
+                <Route path="/CashierWiseReport" element={<CashierWiseReport />} />
+              )}
+              {hasPagePermission("/CashierWiseDetailedReport", allowedActions, dynamicPermissions) && (
+                <Route path="/CashierWiseDetailedReport" element={<CashierWiseDetailedReport />} />
+              )}
+              {hasPagePermission("/AdvanceRegistrationInsurence", allowedActions, dynamicPermissions) && (
+                <Route path="/AdvanceRegistrationInsurence" element={<AdvanceRegistrationInsurence />} />
+              )}
+              {hasPagePermission("/AdvanceRegistration", allowedActions, dynamicPermissions) && (
+                <Route path="/AdvanceRegistration" element={<AdvanceRegistration />} />
+              )}
 
 
             </Routes>

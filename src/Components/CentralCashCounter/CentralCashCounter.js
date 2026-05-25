@@ -340,15 +340,21 @@ const ModalOverlay = styled.div`
   animation: fadeIn 0.2s ease;
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 `;
 
 const ModalContainer = styled.div`
   background: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.08);
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
@@ -356,8 +362,14 @@ const ModalContainer = styled.div`
   animation: slideUp 0.25s ease;
 
   @keyframes slideUp {
-    from { transform: translateY(24px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 `;
 
@@ -381,7 +393,7 @@ const ModalTitle = styled.h3`
 `;
 
 const CloseButton = styled.button`
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
   border: none;
   font-size: 18px;
   cursor: pointer;
@@ -392,7 +404,7 @@ const CloseButton = styled.button`
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(255,255,255,0.35);
+    background: rgba(255, 255, 255, 0.35);
   }
 `;
 
@@ -482,13 +494,15 @@ const Input = styled.input`
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   background: #fafafa;
 
   &:focus {
     outline: none;
     border-color: #0d9488;
-    box-shadow: 0 0 0 3px rgba(13,148,136,0.12);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     background: #fff;
   }
 
@@ -519,9 +533,12 @@ const SummaryRow = styled.div`
   justify-content: space-between;
   align-items: center;
   font-size: 14px;
-  color: ${props => props.highlight ? '#0d9488' : props.danger ? '#dc2626' : '#374151'};
-  font-weight: ${props => props.bold ? '700' : '500'};
-  ${props => props.separator && `
+  color: ${(props) =>
+    props.highlight ? "#0d9488" : props.danger ? "#dc2626" : "#374151"};
+  font-weight: ${(props) => (props.bold ? "700" : "500")};
+  ${(props) =>
+    props.separator &&
+    `
     border-top: 1px solid #e5e7eb;
     padding-top: 8px;
     margin-top: 2px;
@@ -548,11 +565,11 @@ const SaveButton = styled.button`
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(13,148,136,0.25);
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+    box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
   }
 
   &:disabled {
@@ -605,8 +622,15 @@ const ShiftRunningBanner = styled.div`
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.5; transform: scale(1.3); }
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.3);
+    }
   }
 `;
 
@@ -636,8 +660,22 @@ export default function CentralCashCounter() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedBill, setSelectedBill] = useState(null);
 
-  const [selectedMethods, setSelectedMethods] = useState({ cash: false, card: false, cheque: false });
-  const [payments, setPayments] = useState({ cash: "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+  const [selectedMethods, setSelectedMethods] = useState({
+    cash: false,
+    card: false,
+    cheque: false,
+  });
+  const [payments, setPayments] = useState({
+    cash: "",
+    cheque: "",
+    chequeNo: "",
+    card: "",
+    cardNo: "",
+  });
+
+  // ✅ NEW: Remarks state for OPPharmacy payment
+  const [remarks, setRemarks] = useState("");
+
   const [activeShift, setActiveShift] = useState(null);
 
   // ── Receipt / Payment state ──────────────────────────────────────────────────
@@ -653,9 +691,13 @@ export default function CentralCashCounter() {
   const [rpSaving, setRpSaving] = useState(false);
   const [rpLoading, setRpLoading] = useState(false);
   const [rpShowVoucherModal, setRpShowVoucherModal] = useState(false);
-  const [rpShowVoucherForm, setRpShowVoucherForm]   = useState(false);
+  const [rpShowVoucherForm, setRpShowVoucherForm] = useState(false);
   const [rpVoucherLoading, setRpVoucherLoading] = useState(false);
-  const [rpPrintVoucher, setRpPrintVoucher]     = useState(null);
+  const [rpPrintVoucher, setRpPrintVoucher] = useState(null);
+
+  // ── Return Bills state ────────────────────────────────────────────────────────
+  const [returnPendingBills, setReturnPendingBills] = useState([]);
+  const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
   // ── Previous Vouchers Modal state ────────────────────────────────────────────
   const [pvFromDate, setPvFromDate] = useState(() => {
@@ -665,15 +707,15 @@ export default function CentralCashCounter() {
   });
   const [pvToDate, setPvToDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [pvVoucherType, setPvVoucherType] = useState("All");
-  const [pvData, setPvData]             = useState([]);
-  const [pvPage, setPvPage]             = useState(1);
+  const [pvData, setPvData] = useState([]);
+  const [pvPage, setPvPage] = useState(1);
   const [pvShowEntries, setPvShowEntries] = useState(10);
   const [pvTotalReceipt, setPvTotalReceipt] = useState(0);
   const [pvTotalPayment, setPvTotalPayment] = useState(0);
 
   // ── Receipt / Payment derived ────────────────────────────────────────────────
   const rpSelectedHead = Array.isArray(rpAccountHeads)
-    ? (rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null)
+    ? rpAccountHeads.find((h) => h["S.No"] === rpSelectedSNo) || null
     : null;
   const rpSelectedHeadName = rpSelectedHead ? rpSelectedHead.account_head : "";
 
@@ -701,7 +743,11 @@ export default function CentralCashCounter() {
   const rpFetchRecords = async () => {
     setRpLoading(true);
     try {
-      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", {});
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_receipt_payments/`,
+        "POST",
+        {},
+      );
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -716,7 +762,8 @@ export default function CentralCashCounter() {
   };
 
   const rpHandleSave = async () => {
-    if (!rpSelectedSNo) return rpShowAlert("error", "Please select an Account Head.");
+    if (!rpSelectedSNo)
+      return rpShowAlert("error", "Please select an Account Head.");
     if (!rpAmount || isNaN(rpAmount) || parseFloat(rpAmount) <= 0)
       return rpShowAlert("error", "Please enter a valid Amount.");
 
@@ -725,7 +772,10 @@ export default function CentralCashCounter() {
     if (rpSelectedHeadName === "ROOM ACCESS CARD") {
       if (!rpDescFields.patient_name || !rpDescFields.room_no)
         return rpShowAlert("error", "Please fill in Patient Name and Room No.");
-      description = { patient_name: rpDescFields.patient_name, room_no: rpDescFields.room_no };
+      description = {
+        patient_name: rpDescFields.patient_name,
+        room_no: rpDescFields.room_no,
+      };
     } else if (rpSelectedHeadName === "MISCELLANEOUS INCOME") {
       description = { description: rpDescFields.description || "" };
     }
@@ -741,16 +791,20 @@ export default function CentralCashCounter() {
 
     setRpSaving(true);
     try {
-      const res = await apiRequest(`${HmsBaseUrl}post_receipt_payments/`, "POST", payload);
+      const res = await apiRequest(
+        `${HmsBaseUrl}post_receipt_payments/`,
+        "POST",
+        payload,
+      );
       if (res?.success || res?.id || res?._id || res?.voucher_no) {
         rpShowAlert("success", "Payment collected successfully!");
 
         const newRecord = {
-          _id:               res?._id        || res?.id        || `temp-${Date.now()}`,
-          voucher_no:        res?.voucher_no || "—",
-          voucher_date:      res?.voucher_date || new Date().toISOString(),
-          receipt_type:      payload.receipt_type,
-          account_head:      payload.account_head,
+          _id: res?._id || res?.id || `temp-${Date.now()}`,
+          voucher_no: res?.voucher_no || "—",
+          voucher_date: res?.voucher_date || new Date().toISOString(),
+          receipt_type: payload.receipt_type,
+          account_head: payload.account_head,
           account_head_details: {
             no: payload.account_head,
             name: rpSelectedHeadName,
@@ -764,9 +818,11 @@ export default function CentralCashCounter() {
 
         setRpAmount("");
         setRpDescFields(
-          rpSelectedHeadName === "ROOM ACCESS CARD" ? { patient_name: "", room_no: "" }
-            : rpSelectedHeadName === "MISCELLANEOUS INCOME" ? { description: "" }
-              : {}
+          rpSelectedHeadName === "ROOM ACCESS CARD"
+            ? { patient_name: "", room_no: "" }
+            : rpSelectedHeadName === "MISCELLANEOUS INCOME"
+              ? { description: "" }
+              : {},
         );
 
         rpFetchRecords();
@@ -796,7 +852,11 @@ export default function CentralCashCounter() {
         to_date: toDate,
         voucher_type: vType === "All" ? "" : vType,
       };
-      const res = await apiRequest(`${HmsBaseUrl}get_receipt_payments/`, "POST", payload);
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_receipt_payments/`,
+        "POST",
+        payload,
+      );
       let list = [];
       if (Array.isArray(res)) list = res;
       else if (Array.isArray(res?.data?.data)) list = res.data.data;
@@ -804,7 +864,8 @@ export default function CentralCashCounter() {
       else if (Array.isArray(res?.results)) list = res.results;
       setPvData(list);
       setPvPage(1);
-      let totalR = 0, totalP = 0;
+      let totalR = 0,
+        totalP = 0;
       list.forEach((r) => {
         const amt = parseFloat(r.amount || 0);
         if (r.receipt_type === "Receipt") totalR += amt;
@@ -821,29 +882,64 @@ export default function CentralCashCounter() {
   };
 
   const pvExportExcel = () => {
-    const headers = ["Date", "Time", "Shift Reference", "Account Name", "Voucher No", "Receipt No", "Payment", "Description"];
+    const headers = [
+      "Date",
+      "Time",
+      "Shift Reference",
+      "Account Name",
+      "Voucher No",
+      "Receipt No",
+      "Payment",
+      "Description",
+    ];
     const rows = pvData.map((r) => {
       const d = r.voucher_date ? new Date(r.voucher_date) : null;
-      const dateStr = d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
-      const timeStr = d ? d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+      const dateStr = d
+        ? d.toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+        : "—";
+      const timeStr = d
+        ? d.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
+        : "—";
       const desc = r.description
-        ? typeof r.description === "object" ? Object.values(r.description).filter(Boolean).join(", ") : r.description
+        ? typeof r.description === "object"
+          ? Object.values(r.description).filter(Boolean).join(", ")
+          : r.description
         : "—";
       return [
-        dateStr, timeStr,
+        dateStr,
+        timeStr,
         r.shiftno || r.shift_reference || "—",
-        r.account_head_details?.name || r.account_head_name || r.account_head || "—",
+        r.account_head_details?.name ||
+        r.account_head_name ||
+        r.account_head ||
+        "—",
         r.voucher_no || "—",
-        r.receipt_type === "Receipt" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
-        r.receipt_type === "Payment" ? parseFloat(r.amount || 0).toFixed(2) : "0.00",
+        r.receipt_type === "Receipt"
+          ? parseFloat(r.amount || 0).toFixed(2)
+          : "0.00",
+        r.receipt_type === "Payment"
+          ? parseFloat(r.amount || 0).toFixed(2)
+          : "0.00",
         desc,
       ];
     });
-    const csv = [headers, ...rows].map(row => row.map(c => '"' + c + '"').join(",")).join("\n");
+    const csv = [headers, ...rows]
+      .map((row) => row.map((c) => '"' + c + '"').join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "previous_vouchers.csv"; a.click();
+    a.href = url;
+    a.download = "previous_vouchers.csv";
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -857,9 +953,8 @@ export default function CentralCashCounter() {
   const sidebarItems = [
     { label: "Pending Bills", id: "pending-bills" },
     { label: "IP Advance", id: "ip-advance" },
-    { label: "Sales Returns", id: "sales-returns" },
+    { label: "Returns Bills", id: "Returns Bills" },
     { label: "Receipt / Payment", id: "receipt-payment" },
-
   ];
 
   const refreshActiveShift = useCallback(async () => {
@@ -880,7 +975,6 @@ export default function CentralCashCounter() {
       } else if (res && !res.success) {
         setActiveShift(prev => (prev ? null : prev));
       }
-
     } catch (err) {
       console.error("Failed to refresh active shift:", err);
     }
@@ -896,17 +990,13 @@ export default function CentralCashCounter() {
 
 
 
-
   const formatBillData = (billsArray) => {
     return billsArray.map((item, index) => {
-
       // unique fallback id
       const id = item.id ?? `temp-${index}-${Date.now()}`;
 
       // ✅ use bill_date only
-      const billDateObj = item.bill_date
-        ? new Date(item.bill_date)
-        : null;
+      const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
 
       const billDate = billDateObj
         ? billDateObj.toLocaleDateString("en-IN", {
@@ -921,11 +1011,10 @@ export default function CentralCashCounter() {
         ? billDateObj.toLocaleTimeString("en-IN", {
           hour: "2-digit",
           minute: "2-digit",
-          hour12: true,          // 👈 IMPORTANT
+          hour12: true, // 👈 IMPORTANT
           timeZone: "Asia/Kolkata",
         })
         : "-";
-
 
       return {
         id,
@@ -946,7 +1035,6 @@ export default function CentralCashCounter() {
     });
   };
 
-
   // ✅ IP Advance formatter — flattens each pending_payment into its own table row
   const formatIpAdvanceData = (admissionsArray, statusFilter = "pending") => {
     const rows = [];
@@ -964,7 +1052,12 @@ export default function CentralCashCounter() {
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
           bill_date: billDateObj
-            ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+            ? billDateObj.toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              timeZone: "Asia/Kolkata",
+            })
             : "-",
           bill_no: payment.bill_no || "-",
           uhid_no: admission.uhid || "-",
@@ -992,11 +1085,17 @@ export default function CentralCashCounter() {
 
   const balance = netAmount - paidAmount;
 
+  // ✅ UPDATED: reset remarks when opening the modal
   const openPaymentModal = (bill) => {
-    setSelectedBill(bill);
+    // For return bills, ensure the source flag is set so submitPayment routes correctly
+    const enrichedBill = activeMenuItem === "Returns Bills"
+      ? { ...bill, source: "ReturnBill" }
+      : bill;
+    setSelectedBill(enrichedBill);
     const totalAmt = parseFloat(bill?.total || 0);
     setSelectedMethods({ cash: true, card: false, cheque: false });
     setPayments({ cash: totalAmt > 0 ? String(totalAmt) : "", cheque: "", chequeNo: "", card: "", cardNo: "" });
+    setRemarks(""); // ✅ reset remarks on open
     setShowPaymentModal(true);
   };
 
@@ -1008,8 +1107,8 @@ export default function CentralCashCounter() {
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
-        ? response.data
-        : [];
+          ? response.data
+          : [];
 
       const formatted = billsArray.map((item, index) => {
         const dateObj = item.date ? new Date(item.date) : null;
@@ -1069,10 +1168,10 @@ export default function CentralCashCounter() {
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response)
-        ? response
-        : [];
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
 
       const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
         ? response.data.allowed_bill_type_details
@@ -1138,7 +1237,7 @@ export default function CentralCashCounter() {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Fetch IP advance received bills (stub) ────────────────────────────────────
@@ -1155,7 +1254,82 @@ export default function CentralCashCounter() {
     }
   }, []);
 
+  // ── Fetch Return Bills ────────────────────────────────────────────────────────
+  const fetchReturnBills = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
+      // API returns { status, count, data: [...] }
+      // res.data is the response body, so the array is at res.data.data
+      const data = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
+
+      const formatDate = (raw) => {
+        const d = raw ? new Date(raw) : null;
+        return d ? d.toLocaleDateString("en-IN", {
+          day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
+        }) : "-";
+      };
+
+      const formatTime = (raw) => {
+        const d = raw ? new Date(raw) : null;
+        return d ? d.toLocaleTimeString("en-IN", {
+          hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
+        }) : "-";
+      };
+
+      const pending = [];
+      const received = [];
+
+      data.forEach((item, idx) => {
+        // Use return_bill_date as primary date field
+        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
+
+        const row = {
+          id: item._id || `ret-${idx}`,
+          date: formatDate(dateRaw),
+          time: formatTime(dateRaw),
+          return_bill_no: item.return_bill_no || item.return_bill_no || "-",
+          return_bill_date: formatDate(dateRaw),
+          bill_no: item.bill_no || "-",
+          bill_type_name: item.bill_type_name || item.collection_name || "-",
+          uhid_no: item.uhid || item.UHID || "-",
+          patient: item.patient_name || "-",
+          return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+          total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+          document_status: item.document_status || item.status || "-",
+          counter_name: item.counter_name || "-",
+          collection_name: item.collection_name || "-",
+          raw: item,
+        };
+
+        const st = (row.document_status || "").toLowerCase();
+        if (st === "pending") pending.push(row);
+        else received.push(row);
+      });
+
+      setReturnPendingBills(pending);
+      setReturnReceivedBills(received);
+    } catch (err) {
+      console.error("Return bills fetch error:", err);
+      showToast("error", "Unable to load Return Bills.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const submitPayment = async () => {
+    // ── Return Bills: delegate to dedicated handler ───────────────────────────
+    if (selectedBill?.source === "ReturnBill") {
+      await submitReturnPayment();
+      return;
+    }
+
     const activeMethods = [];
     if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
       activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
@@ -1199,6 +1373,7 @@ export default function CentralCashCounter() {
       return;
     }
 
+    // ✅ UPDATED: OPPharmacy payment — now includes remarks if filled
     if (selectedBill.source === "OPPharmacy") {
       const payload = {
         Bill_id: selectedBill.Bill_id,
@@ -1206,6 +1381,8 @@ export default function CentralCashCounter() {
         payment_details,
         shiftno: activeShift?.shiftno || "",
         counter_id: cashCounterId,
+        // ✅ remarks: only sent if user typed something
+        ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
       };
       try {
         const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);
@@ -1246,7 +1423,7 @@ export default function CentralCashCounter() {
     };
 
     try {
-      const res = await apiRequest(`${HmsBaseUrl}update_mainblock_pedingbills/`, "POST", payload);
+      const res = await apiRequest(`${HmsBaseUrl}update_mainblock_pendingbills/`, "POST", payload);
       const billRes = res?.data || res;
       if (billRes?.success || billRes?.status === "success") {
         setShowPaymentModal(false);
@@ -1261,33 +1438,99 @@ export default function CentralCashCounter() {
     }
   };
 
+  // ── Submit payment for Return Bills ──────────────────────────────────────────
+  const submitReturnPayment = async () => {
+    const activeMethods = [];
+    if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
+      activeMethods.push({ method: "Cash", Paid_amount: parseFloat(payments.cash) });
+    }
+    if (selectedMethods.card && parseFloat(payments.card) > 0) {
+      activeMethods.push({ method: "Card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+    }
+    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
+      activeMethods.push({ method: "Cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
+    }
+
+    if (activeMethods.length === 0) {
+      showToast("error", "Please enter at least one payment amount.");
+      return;
+    }
+
+    let payment_details;
+    if (activeMethods.length === 1) {
+      payment_details = activeMethods[0];
+    } else {
+      payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
+    }
+
+    const pendingAmount = Math.max(netAmount - paidAmount, 0);
+
+    const payload = {
+      uhid: selectedBill.uhid_no,
+      bill_no: selectedBill.bill_no,          // original bill_no  ← NEW
+      return_bill_no: selectedBill.return_bill_no,
+      bill_type: selectedBill.raw?.bill_type,   // integer bill_type from the raw document
+      counter_id: cashCounterId,
+      shiftno: activeShift?.shiftno || "",
+      payment_details,
+      ...(pendingAmount > 0 ? { pendingAmount } : {}),
+      ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
+    };
+
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}collectpayment_return_bills/`, "POST", payload);
+      const result = res?.data || res;
+      if (result?.status === "success") {
+        setShowPaymentModal(false);
+        fetchReturnBills();
+        showToast("success", "Return bill payment processed successfully!");
+      } else {
+        showToast("error", result?.message || result?.error || "Payment failed. Please try again.");
+      }
+    } catch (err) {
+      console.error("submitReturnPayment error:", err);
+      showToast("error", "Payment failed. Please check your connection.");
+    }
+  };
+
   // ── Filter bills ──────────────────────────────────────────────────────────────
   const filterBills = useCallback(() => {
     let bills = [];
     if (activeMenuItem === "Pending Bills") {
       bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : receivedBills;
     } else if (activeMenuItem === "IP Advance") {
-      bills = selectedType === "pending" ? ipAdvancePendingBills : ipAdvanceReceivedBills;
+      bills =
+        selectedType === "pending"
+          ? ipAdvancePendingBills
+          : ipAdvanceReceivedBills;
+    } else if (activeMenuItem === "Returns Bills") {
+      bills =
+        selectedType === "pending" ? returnPendingBills : returnReceivedBills;
     }
 
     let filtered = bills;
     if (billType !== "ALL") {
       filtered = filtered.filter((bill) =>
-        bill.bill_type.toString().toLowerCase().includes(billType.toLowerCase())
+        bill.bill_type
+          .toString()
+          .toLowerCase()
+          .includes(billType.toLowerCase()),
       );
     }
     if (searchTerm) {
       filtered = filtered.filter(
         (bill) =>
-          bill.patient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bill.uhid_no.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          bill.bill_no.toLowerCase().includes(searchTerm.toLowerCase())
+          (bill.patient || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (bill.uhid_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (bill.bill_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (bill.return_bill_no || "").toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
     setFilteredBills(filtered);
   }, [
     activeMenuItem, selectedType, pendingBills, opPharmacyBills,
     receivedBills, ipAdvancePendingBills, ipAdvanceReceivedBills,
+    returnPendingBills, returnReceivedBills,
     billType, searchTerm,
   ]);
 
@@ -1301,6 +1544,8 @@ export default function CentralCashCounter() {
       fetchOpPharmacyPendingBills();
     } else if (itemLabel === "IP Advance") {
       fetchIpAdvancePendingBills();
+    } else if (itemLabel === "Returns Bills") {
+      fetchReturnBills();
     } else if (itemLabel === "Receipt / Payment") {
       rpFetchAccountHeads();
       rpFetchRecords();
@@ -1321,6 +1566,8 @@ export default function CentralCashCounter() {
       } else {
         fetchIpAdvanceReceivedBills();
       }
+    } else if (activeMenuItem === "Returns Bills") {
+      fetchReturnBills();
     }
   };
 
@@ -1341,6 +1588,8 @@ export default function CentralCashCounter() {
       } else {
         fetchIpAdvanceReceivedBills();
       }
+    } else if (activeMenuItem === "Returns Bills") {
+      fetchReturnBills();
     }
   };
 
@@ -1363,18 +1612,26 @@ export default function CentralCashCounter() {
       } else {
         fetchIpAdvanceReceivedBills();
       }
+    } else if (activeMenuItem === "Returns Bills") {
+      fetchReturnBills();
     }
   }, [
     activeMenuItem, selectedType,
     fetchPendingBills, fetchOpPharmacyPendingBills,
     fetchReceivedBills, fetchIpAdvancePendingBills, fetchIpAdvanceReceivedBills,
+    fetchReturnBills,
   ]);
 
   useEffect(() => {
     filterBills();
   }, [filterBills]);
 
-  const colSpan = selectedType === "received" ? 11 : 8;
+  const colSpan =
+    activeMenuItem === "Returns Bills"
+      ? 10   // ← was 9, now 10 columns
+      : selectedType === "received"
+        ? 11
+        : 8;
 
   return (
     <Container>
@@ -1390,12 +1647,24 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>STARTING TIME</Label>
                 <span>:</span>
-                <Value style={shiftBelongsHere ? { color: "#0d9488", fontWeight: 600 } : {}}>
+                <Value
+                  style={
+                    shiftBelongsHere
+                      ? { color: "#0d9488", fontWeight: 600 }
+                      : {}
+                  }
+                >
                   {activeShift?.StartingTime
-                    ? new Date(String(activeShift.StartingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                    ? new Date(
+                      String(activeShift.StartingTime).replace(" ", "T"),
+                    ).toLocaleString("en-IN", {
                       timeZone: "Asia/Kolkata",
-                      day: "2-digit", month: "2-digit", year: "numeric",
-                      hour: "2-digit", minute: "2-digit", second: "2-digit",
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
                       hour12: true,
                     })
                     : "—"}
@@ -1404,15 +1673,29 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>CLOSING TIME</Label>
                 <span>:</span>
-                <Value style={!shiftBelongsHere && activeShift?.closingTime ? { color: "#dc2626", fontWeight: 600 } : {}}>
+                <Value
+                  style={
+                    !shiftBelongsHere && activeShift?.closingTime
+                      ? { color: "#dc2626", fontWeight: 600 }
+                      : {}
+                  }
+                >
                   {activeShift?.closingTime
-                    ? new Date(String(activeShift.closingTime).replace(" ", "T")).toLocaleString("en-IN", {
+                    ? new Date(
+                      String(activeShift.closingTime).replace(" ", "T"),
+                    ).toLocaleString("en-IN", {
                       timeZone: "Asia/Kolkata",
-                      day: "2-digit", month: "2-digit", year: "numeric",
-                      hour: "2-digit", minute: "2-digit", second: "2-digit",
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
                       hour12: true,
                     })
-                    : shiftBelongsHere ? "Running…" : "—"}
+                    : shiftBelongsHere
+                      ? "Running…"
+                      : "—"}
                 </Value>
               </InfoRow>
               <InfoRow>
@@ -1428,7 +1711,10 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift
-                    ? "₹ " + parseFloat(activeShift.OpeningBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    ? "₹ " +
+                    parseFloat(
+                      activeShift.OpeningBalance || 0,
+                    ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
@@ -1437,18 +1723,27 @@ export default function CentralCashCounter() {
                 <span>:</span>
                 <Amount>
                   {activeShift?.ClosingBalance
-                    ? "₹ " + parseFloat(activeShift.ClosingBalance).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                    ? "₹ " +
+                    parseFloat(activeShift.ClosingBalance).toLocaleString(
+                      "en-IN",
+                      { minimumFractionDigits: 2 },
+                    )
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
               <InfoRow>
                 <Label>SHIFT STATUS</Label>
                 <span>:</span>
-                <Value style={{
-                  color: activeShift?.ShiftStatus === "active" ? "#10b981" : "#6b7280",
-                  fontWeight: 600,
-                  textTransform: "capitalize",
-                }}>
+                <Value
+                  style={{
+                    color:
+                      activeShift?.ShiftStatus === "active"
+                        ? "#10b981"
+                        : "#6b7280",
+                    fontWeight: 600,
+                    textTransform: "capitalize",
+                  }}
+                >
                   {activeShift?.ShiftStatus || "—"}
                 </Value>
               </InfoRow>
@@ -1468,13 +1763,16 @@ export default function CentralCashCounter() {
               <InfoRow>
                 <Label>DATE</Label>
                 <span>:</span>
-                <Value>{activeShift?.date || new Date().toLocaleDateString("en-IN")}</Value>
+                <Value>
+                  {activeShift?.date || new Date().toLocaleDateString("en-IN")}
+                </Value>
               </InfoRow>
 
               {shiftBelongsHere && (
                 <ShiftRunningBanner>
                   <span className="dot" />
-                  Shift Running — Cashier&nbsp;<strong>{activeShift.CashierID}</strong>
+                  Shift Running — Cashier&nbsp;
+                  <strong>{activeShift.CashierID}</strong>
                 </ShiftRunningBanner>
               )}
 
@@ -1543,438 +1841,439 @@ export default function CentralCashCounter() {
                   const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
 
                   return (
-                  <>
-                    <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:16 }}>
-                      <Button onClick={rpOpenVoucherModal} style={{ gap:6 }}>
-                        <Search size={14} /> View Previous Vouchers
-                      </Button>
-                      <button
-                        onClick={() => setRpShowVoucherForm(prev => !prev)}
-                        style={{
-                          background: "#f97316", color: "white", border: "none",
-                          borderRadius: 4, padding: "8px 16px", fontSize: 14,
-                          fontWeight: 500, cursor: "pointer",
-                        }}
-                      >
-                        {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
-                      </button>
-                    </div>
-
-                    {rpAlert && (
-                      <div style={{
-                        padding:"10px 14px", borderRadius:4, marginBottom:14, fontSize:14,
-                        backgroundColor: rpAlert.type === "error" ? "#fef2f2" : "#f0fdf4",
-                        color: rpAlert.type === "error" ? "#dc2626" : "#166534",
-                        border: `1px solid ${rpAlert.type === "error" ? "#fecaca" : "#bbf7d0"}`,
-                      }}>
-                        {rpAlert.type === "error" ? "⚠️" : "✅"} {rpAlert.msg}
+                    <>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 16 }}>
+                        <Button onClick={rpOpenVoucherModal} style={{ gap: 6 }}>
+                          <Search size={14} /> View Previous Vouchers
+                        </Button>
+                        <button
+                          onClick={() => setRpShowVoucherForm(prev => !prev)}
+                          style={{
+                            display: "flex",
+                            justifyContent: "flex-end",
+                            gap: 10,
+                            marginBottom: 16,
+                          }}
+                        >
+                          {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
+                        </button>
                       </div>
-                    )}
 
-                    {rpShowVoucherForm && (
-                      <div style={{
-                        background:"#f0fafa", border:"1px solid #e5e7eb",
-                        borderRadius:6, padding:"14px 16px", marginBottom:16,
-                      }}>
-                        <div style={{ display:"flex", flexWrap:"wrap", alignItems:"flex-end", gap:16 }}>
-                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Receipt Type</label>
-                            <div style={{ display:"flex", gap:14, alignItems:"center", padding:"7px 0" }}>
-                              {["Receipt","Payment"].map((t) => (
-                                <label key={t} style={{ display:"flex", alignItems:"center", gap:6, fontSize:14, cursor:"pointer" }}>
-                                  <input
-                                    type="radio" name="rpReceiptType" value={t}
-                                    checked={rpReceiptType === t}
-                                    onChange={() => setRpReceiptType(t)}
-                                    style={{ accentColor:"#0d9488", width:15, height:15 }}
-                                  />
-                                  {t}
-                                </label>
-                              ))}
+                      {rpAlert && (
+                        <div style={{
+                          padding: "10px 14px", borderRadius: 4, marginBottom: 14, fontSize: 14,
+                          backgroundColor: rpAlert.type === "error" ? "#fef2f2" : "#f0fdf4",
+                          color: rpAlert.type === "error" ? "#dc2626" : "#166534",
+                          border: `1px solid ${rpAlert.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                        }}>
+                          {rpAlert.type === "error" ? "⚠️" : "✅"} {rpAlert.msg}
+                        </div>
+                      )}
+
+                      {rpShowVoucherForm && (
+                        <div style={{
+                          background: "#f0fafa", border: "1px solid #e5e7eb",
+                          borderRadius: 6, padding: "14px 16px", marginBottom: 16,
+                        }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 16 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Receipt Type</label>
+                              <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
+                                {["Receipt", "Payment"].map((t) => (
+                                  <label key={t} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, cursor: "pointer" }}>
+                                    <input
+                                      type="radio" name="rpReceiptType" value={t}
+                                      checked={rpReceiptType === t}
+                                      onChange={() => setRpReceiptType(t)}
+                                      style={{ accentColor: "#0d9488", width: 15, height: 15 }}
+                                    />
+                                    {t}
+                                  </label>
+                                ))}
+                              </div>
                             </div>
-                          </div>
 
-                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Account Head</label>
-                            <Select
-                              value={rpSelectedSNo}
-                              onChange={(e) => {
-                                setRpSelectedSNo(e.target.value);
-                                const head = Array.isArray(rpAccountHeads) ? rpAccountHeads.find(h => h["S.No"] === e.target.value) : null;
-                                const name = head?.account_head || "";
-                                setRpDescFields(
-                                  name === "ROOM ACCESS CARD" ? { patient_name:"", room_no:"" }
-                                  : name === "MISCELLANEOUS INCOME" ? { description:"" }
-                                  : {}
-                                );
-                              }}
-                              style={{ minWidth:200 }}
-                            >
-                              {(!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && <option value="">Loading...</option>}
-                              {Array.isArray(rpAccountHeads) && rpAccountHeads.map((h) => (
-                                <option key={h["S.No"]} value={h["S.No"]}>{h.account_head}</option>
-                              ))}
-                            </Select>
-                          </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Account Head</label>
+                              <Select
+                                value={rpSelectedSNo}
+                                onChange={(e) => {
+                                  setRpSelectedSNo(e.target.value);
+                                  const head = Array.isArray(rpAccountHeads) ? rpAccountHeads.find(h => h["S.No"] === e.target.value) : null;
+                                  const name = head?.account_head || "";
+                                  setRpDescFields(
+                                    name === "ROOM ACCESS CARD" ? { patient_name: "", room_no: "" }
+                                      : name === "MISCELLANEOUS INCOME" ? { description: "" }
+                                        : {}
+                                  );
+                                }}
+                                style={{ minWidth: 200 }}
+                              >
+                                {(!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && <option value="">Loading...</option>}
+                                {Array.isArray(rpAccountHeads) && rpAccountHeads.map((h) => (
+                                  <option key={h["S.No"]} value={h["S.No"]}>{h.account_head}</option>
+                                ))}
+                              </Select>
+                            </div>
 
-                          {rpSelectedHeadName === "ROOM ACCESS CARD" && (
-                            <>
-                              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                                <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Patient Name</label>
+                            {rpSelectedHeadName === "ROOM ACCESS CARD" && (
+                              <>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Patient Name</label>
+                                  <input
+                                    type="text" placeholder="Enter patient name"
+                                    value={rpDescFields.patient_name || ""}
+                                    onChange={(e) => setRpDescFields(p => ({ ...p, patient_name: e.target.value }))}
+                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 180 }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Room No</label>
+                                  <input
+                                    type="text" placeholder="Enter room no"
+                                    value={rpDescFields.room_no || ""}
+                                    onChange={(e) => setRpDescFields(p => ({ ...p, room_no: e.target.value }))}
+                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 120 }}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {rpSelectedHeadName === "MISCELLANEOUS INCOME" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Description</label>
                                 <input
-                                  type="text" placeholder="Enter patient name"
-                                  value={rpDescFields.patient_name || ""}
-                                  onChange={(e) => setRpDescFields(p => ({ ...p, patient_name: e.target.value }))}
-                                  style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:180 }}
+                                  type="text" placeholder="Enter description"
+                                  value={rpDescFields.description || ""}
+                                  onChange={(e) => setRpDescFields(p => ({ ...p, description: e.target.value }))}
+                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 220 }}
                                 />
                               </div>
-                              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                                <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Room No</label>
-                                <input
-                                  type="text" placeholder="Enter room no"
-                                  value={rpDescFields.room_no || ""}
-                                  onChange={(e) => setRpDescFields(p => ({ ...p, room_no: e.target.value }))}
-                                  style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:120 }}
-                                />
-                              </div>
-                            </>
-                          )}
+                            )}
 
-                          {rpSelectedHeadName === "MISCELLANEOUS INCOME" && (
-                            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                              <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Description</label>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Amount</label>
                               <input
-                                type="text" placeholder="Enter description"
-                                value={rpDescFields.description || ""}
-                                onChange={(e) => setRpDescFields(p => ({ ...p, description: e.target.value }))}
-                                style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:220 }}
+                                type="number" placeholder="0.00" min="0" step="0.01"
+                                value={rpAmount}
+                                onChange={(e) => setRpAmount(e.target.value)}
+                                style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 130 }}
                               />
                             </div>
-                          )}
 
-                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Amount</label>
-                            <input
-                              type="number" placeholder="0.00" min="0" step="0.01"
-                              value={rpAmount}
-                              onChange={(e) => setRpAmount(e.target.value)}
-                              style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:130 }}
-                            />
-                          </div>
-
-                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-                            <label style={{ fontSize:13 }}>&nbsp;</label>
-                            <Button onClick={rpHandleSave} disabled={rpSaving} style={{ gap:6 }}>
-                              {rpSaving ? <LoadingSpinner /> : "💾"}
-                              Save
-                            </Button>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              <label style={{ fontSize: 13 }}>&nbsp;</label>
+                              <Button onClick={rpHandleSave} disabled={rpSaving} style={{ gap: 6 }}>
+                                {rpSaving ? <LoadingSpinner /> : "💾"}
+                                Save
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <TableControls>
-                      <ControlGroup>
-                        <span>Show up to</span>
-                        <Select value={rpShowEntries} onChange={(e) => setRpShowEntries(e.target.value)}>
-                          {["10","25","50","100"].map(n => <option key={n} value={n}>{n}</option>)}
-                        </Select>
-                      </ControlGroup>
-                      <SearchWrapper>
-                        <span>Search:</span>
-                        <SearchInputWrapper>
-                          <SearchInput
-                            type="text" placeholder="Patient Name"
-                            value={rpSearchTerm}
-                            onChange={(e) => setRpSearchTerm(e.target.value)}
-                          />
-                          <MicButton><Mic size={14} /></MicButton>
-                        </SearchInputWrapper>
-                      </SearchWrapper>
-                    </TableControls>
+                      <TableControls>
+                        <ControlGroup>
+                          <span>Show up to</span>
+                          <Select value={rpShowEntries} onChange={(e) => setRpShowEntries(e.target.value)}>
+                            {["10", "25", "50", "100"].map(n => <option key={n} value={n}>{n}</option>)}
+                          </Select>
+                        </ControlGroup>
+                        <SearchWrapper>
+                          <span>Search:</span>
+                          <SearchInputWrapper>
+                            <SearchInput
+                              type="text" placeholder="Patient Name"
+                              value={rpSearchTerm}
+                              onChange={(e) => setRpSearchTerm(e.target.value)}
+                            />
+                            <MicButton><Mic size={14} /></MicButton>
+                          </SearchInputWrapper>
+                        </SearchWrapper>
+                      </TableControls>
 
-                    <Table>
-                      <thead>
-                        <tr>
-                          <TableHeader>Account Name ↕</TableHeader>
-                          <TableHeader>Voucher ↕</TableHeader>
-                          <TableHeader>Receipts ↕</TableHeader>
-                          <TableHeader>Payments ↕</TableHeader>
-                          <TableHeader>Description ↕</TableHeader>
-                          <TableHeader>Action</TableHeader>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rpLoading ? (
-                          <tr><TableCell center muted colSpan={6}>Loading...</TableCell></tr>
-                        ) : rpDisplayed.length === 0 ? (
-                          <tr><TableCell center muted colSpan={6}>No data available in table</TableCell></tr>
-                        ) : (
-                          rpDisplayed.map((r, idx) => (
-                            <tr key={r._id || r.voucher_no || idx}>
-                              <TableCell>{r.account_head_details?.name || r.account_head_name || r.account_head || "—"}</TableCell>
-                              <TableCell>{r.voucher_no || "—"}</TableCell>
-                              <TableCell>
-                                ₹{r.receipt_type === "Receipt"
-                                  ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits:2 })
-                                  : "0.00"}
-                              </TableCell>
-                              <TableCell>
-                                ₹{r.receipt_type === "Payment"
-                                  ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits:2 })
-                                  : "0.00"}
-                              </TableCell>
-                              <TableCell>
-                                {r.description
-                                  ? typeof r.description === "object"
-                                    ? Object.values(r.description).filter(Boolean).join(", ") || "—"
-                                    : r.description
-                                  : "—"}
-                              </TableCell>
-                              <TableCell center>
-                                <div style={{ display:"flex", gap:6, justifyContent:"center", alignItems:"center" }}>
-                                  <button
-                                    title="Print"
-                                    onClick={() => setRpPrintVoucher(r)}
+                      <Table>
+                        <thead>
+                          <tr>
+                            <TableHeader>Account Name ↕</TableHeader>
+                            <TableHeader>Voucher ↕</TableHeader>
+                            <TableHeader>Receipts ↕</TableHeader>
+                            <TableHeader>Payments ↕</TableHeader>
+                            <TableHeader>Description ↕</TableHeader>
+                            <TableHeader>Action</TableHeader>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rpLoading ? (
+                            <tr><TableCell center muted colSpan={6}>Loading...</TableCell></tr>
+                          ) : rpDisplayed.length === 0 ? (
+                            <tr><TableCell center muted colSpan={6}>No data available in table</TableCell></tr>
+                          ) : (
+                            rpDisplayed.map((r, idx) => (
+                              <tr key={r._id || r.voucher_no || idx}>
+                                <TableCell>{r.account_head_details?.name || r.account_head_name || r.account_head || "—"}</TableCell>
+                                <TableCell>{r.voucher_no || "—"}</TableCell>
+                                <TableCell>
+                                  ₹{r.receipt_type === "Receipt"
+                                    ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                                    : "0.00"}
+                                </TableCell>
+                                <TableCell>
+                                  ₹{r.receipt_type === "Payment"
+                                    ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                                    : "0.00"}
+                                </TableCell>
+                                <TableCell>
+                                  {r.description
+                                    ? typeof r.description === "object"
+                                      ? Object.values(r.description).filter(Boolean).join(", ") || "—"
+                                      : r.description
+                                    : "—"}
+                                </TableCell>
+                                <TableCell center>
+                                  <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
+                                    <button
+                                      title="Print"
+                                      onClick={() => setRpPrintVoucher(r)}
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: "#374151",
+                                      }}
+                                    >
+                                      🖨️
+                                    </button>
+                                    <button
+                                      title="Delete"
+                                      onClick={() => {
+                                        if (window.confirm(`Delete voucher ${r.voucher_no}?`)) {
+                                          console.log("Delete voucher:", r.voucher_no);
+                                        }
+                                      }}
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        fontSize: "1.1rem"
+                                      }}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                  <div
                                     style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
+                                      display: "flex",
+                                      flexDirection: "column",
+                                      gap: 4,
                                     }}
                                   >
-                                    🖨️
-                                  </button>
-                                  <button
-                                    title="Delete"
-                                    onClick={() => {
-                                      if (window.confirm(`Delete voucher ${r.voucher_no}?`)) {
-                                        console.log("Delete voucher:", r.voucher_no);
+                                    <label
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: "#374151",
+                                      }}
+                                    >
+                                      Room No
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="Enter room no"
+                                      value={rpDescFields.room_no || ""}
+                                      onChange={(e) =>
+                                        setRpDescFields((p) => ({
+                                          ...p,
+                                          room_no: e.target.value,
+                                        }))
                                       }
-                                    }}
-                                    style={{
-                                      background: "none",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      fontSize: "1.1rem"
-                                    }}
-                                  >
-                                    🗑️
-                                  </button>
-                                </div>
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 4,
-                                  }}
-                                >
-                                  <label
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "#374151",
-                                    }}
-                                  >
-                                    Room No
-                                  </label>
+                                      style={{
+                                        border: "1px solid #d1d5db",
+                                        borderRadius: 4,
+                                        padding: "8px 12px",
+                                        fontSize: 14,
+                                        minWidth: 120,
+                                      }}
+                                    />
+                                  </div>
+                                </TableCell>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </Table>
+
+                      <Pagination>
+                        <div>Showing {rpDisplayed.length} of {rpFilteredRecords.length} entries</div>
+                        <div>
+                          <PaginationButton style={{ marginRight: 8 }}>Previous</PaginationButton>
+                          <PaginationButton>Next</PaginationButton>
+                        </div>
+                      </Pagination>
+
+                      {/* ══ Previous Vouchers Modal ══ */}
+                      {rpShowVoucherModal && (
+                        <ModalOverlay onClick={() => setRpShowVoucherModal(false)}>
+                          <ModalContainer style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
+                            <ModalHeader style={{ background: "#0d6e6e", borderRadius: "8px 8px 0 0", padding: "14px 20px" }}>
+                              <ModalTitle style={{ fontSize: 16 }}>Previous Vouchers</ModalTitle>
+                              <CloseButton onClick={() => setRpShowVoucherModal(false)}>✕</CloseButton>
+                            </ModalHeader>
+
+                            <ModalBody style={{ padding: "0", overflowX: "hidden" }}>
+                              {/* Filter Bar */}
+                              <div style={{
+                                padding: "14px 20px", background: "#f9fafb",
+                                borderBottom: "1px solid #e5e7eb",
+                                display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
+                              }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
                                   <input
-                                    type="text"
-                                    placeholder="Enter room no"
-                                    value={rpDescFields.room_no || ""}
-                                    onChange={(e) =>
-                                      setRpDescFields((p) => ({
-                                        ...p,
-                                        room_no: e.target.value,
-                                      }))
-                                    }
-                                    style={{
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: 4,
-                                      padding: "8px 12px",
-                                      fontSize: 14,
-                                      minWidth: 120,
-                                    }}
+                                    type="date" value={pvFromDate}
+                                    onChange={(e) => setPvFromDate(e.target.value)}
+                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
                                   />
                                 </div>
-                              </TableCell>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </Table>
-
-                    <Pagination>
-                      <div>Showing {rpDisplayed.length} of {rpFilteredRecords.length} entries</div>
-                      <div>
-                        <PaginationButton style={{ marginRight:8 }}>Previous</PaginationButton>
-                        <PaginationButton>Next</PaginationButton>
-                      </div>
-                    </Pagination>
-
-                    {/* ══ Previous Vouchers Modal ══ */}
-                    {rpShowVoucherModal && (
-                      <ModalOverlay onClick={() => setRpShowVoucherModal(false)}>
-                        <ModalContainer style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
-                          <ModalHeader style={{ background: "#0d6e6e", borderRadius: "8px 8px 0 0", padding: "14px 20px" }}>
-                            <ModalTitle style={{ fontSize: 16 }}>Previous Vouchers</ModalTitle>
-                            <CloseButton onClick={() => setRpShowVoucherModal(false)}>✕</CloseButton>
-                          </ModalHeader>
-
-                          <ModalBody style={{ padding: "0", overflowX: "hidden" }}>
-                            {/* Filter Bar */}
-                            <div style={{
-                              padding: "14px 20px", background: "#f9fafb",
-                              borderBottom: "1px solid #e5e7eb",
-                              display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
-                            }}>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
-                                <input
-                                  type="date" value={pvFromDate}
-                                  onChange={(e) => setPvFromDate(e.target.value)}
-                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                                />
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
-                                <input
-                                  type="date" value={pvToDate}
-                                  onChange={(e) => setPvToDate(e.target.value)}
-                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                                />
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
-                                <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
-                                  {["All", "Receipt", "Payment"].map((t) => (
-                                    <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
-                                      <input
-                                        type="radio" name="pvVoucherType" value={t}
-                                        checked={pvVoucherType === t}
-                                        onChange={() => setPvVoucherType(t)}
-                                        style={{ accentColor: "#0d9488" }}
-                                      />
-                                      {t}
-                                    </label>
-                                  ))}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
+                                  <input
+                                    type="date" value={pvToDate}
+                                    onChange={(e) => setPvToDate(e.target.value)}
+                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
+                                  <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
+                                    {["All", "Receipt", "Payment"].map((t) => (
+                                      <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
+                                        <input
+                                          type="radio" name="pvVoucherType" value={t}
+                                          checked={pvVoucherType === t}
+                                          onChange={() => setPvVoucherType(t)}
+                                          style={{ accentColor: "#0d9488" }}
+                                        />
+                                        {t}
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <label style={{ fontSize: 13 }}>&nbsp;</label>
+                                  <button
+                                    onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
+                                    disabled={rpVoucherLoading}
+                                    style={{
+                                      background: "#0d9488", color: "white", border: "none",
+                                      borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600,
+                                      cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+                                    }}
+                                  >
+                                    {rpVoucherLoading ? "⏳" : "🔍"} Fetch
+                                  </button>
                                 </div>
                               </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <label style={{ fontSize: 13 }}>&nbsp;</label>
-                                <button
-                                  onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
-                                  disabled={rpVoucherLoading}
-                                  style={{
-                                    background: "#0d9488", color: "white", border: "none",
-                                    borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600,
-                                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6
-                                  }}
-                                >
-                                  {rpVoucherLoading ? "⏳" : "🔍"} Fetch
-                                </button>
-                              </div>
-                            </div>
 
-                            {/* Table Area */}
-                            <div style={{ padding: "14px 20px" }}>
-                              {rpVoucherLoading ? (
-                                <div style={{ textAlign: "center", padding: "40px 0" }}>
-                                  <LoadingSpinner />
-                                  <p style={{ marginTop: 10, color: "#6b7280" }}>Fetching vouchers...</p>
-                                </div>
-                              ) : (
-                                <>
-                                  <div style={{ overflowX: "auto", maxHeight: "45vh" }}>
-                                    <Table>
-                                      <thead>
-                                        <tr>
-                                          <TableHeader>Date</TableHeader>
-                                          <TableHeader>Time</TableHeader>
-                                          <TableHeader>Shift Ref</TableHeader>
-                                          <TableHeader>Account Name</TableHeader>
-                                          <TableHeader>Voucher No</TableHeader>
-                                          <TableHeader>Receipts</TableHeader>
-                                          <TableHeader>Payments</TableHeader>
-                                          <TableHeader>Description</TableHeader>
-                                          <TableHeader>Action</TableHeader>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {pvData.length === 0 ? (
+                              {/* Table Area */}
+                              <div style={{ padding: "14px 20px" }}>
+                                {rpVoucherLoading ? (
+                                  <div style={{ textAlign: "center", padding: "40px 0" }}>
+                                    <LoadingSpinner />
+                                    <p style={{ marginTop: 10, color: "#6b7280" }}>Fetching vouchers...</p>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div style={{ overflowX: "auto", maxHeight: "45vh" }}>
+                                      <Table>
+                                        <thead>
                                           <tr>
-                                            <TableCell center muted colSpan={9}>No vouchers found.</TableCell>
+                                            <TableHeader>Date</TableHeader>
+                                            <TableHeader>Time</TableHeader>
+                                            <TableHeader>Shift Ref</TableHeader>
+                                            <TableHeader>Account Name</TableHeader>
+                                            <TableHeader>Voucher No</TableHeader>
+                                            <TableHeader>Receipts</TableHeader>
+                                            <TableHeader>Payments</TableHeader>
+                                            <TableHeader>Description</TableHeader>
+                                            <TableHeader>Action</TableHeader>
                                           </tr>
-                                        ) : (
-                                          pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
-                                            const d = r.voucher_date ? new Date(r.voucher_date) : null;
-                                            const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
-                                            const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
-                                            const isReceipt = r.receipt_type === "Receipt";
-                                            const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-                                            return (
-                                              <tr key={r._id || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                                                <TableCell>{dateStr}</TableCell>
-                                                <TableCell>{timeStr}</TableCell>
-                                                <TableCell>{r.shiftno || "—"}</TableCell>
-                                                <TableCell>{r.account_head_details?.name || r.account_head || "—"}</TableCell>
-                                                <TableCell>{r.voucher_no || "—"}</TableCell>
-                                                <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
-                                                <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
-                                                <TableCell>{typeof r.description === 'object' ? Object.values(r.description).join(", ") : (r.description || "—")}</TableCell>
-                                                <TableCell center>
-                                                  <button
-                                                    onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
-                                                    style={{ background: "#0d9488", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
-                                                  >
-                                                    🖨️
-                                                  </button>
-                                                </TableCell>
-                                              </tr>
-                                            );
-                                          })
+                                        </thead>
+                                        <tbody>
+                                          {pvData.length === 0 ? (
+                                            <tr>
+                                              <TableCell center muted colSpan={9}>No vouchers found.</TableCell>
+                                            </tr>
+                                          ) : (
+                                            pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
+                                              const d = r.voucher_date ? new Date(r.voucher_date) : null;
+                                              const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
+                                              const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
+                                              const isReceipt = r.receipt_type === "Receipt";
+                                              const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+                                              return (
+                                                <tr key={r._id || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                                                  <TableCell>{dateStr}</TableCell>
+                                                  <TableCell>{timeStr}</TableCell>
+                                                  <TableCell>{r.shiftno || "—"}</TableCell>
+                                                  <TableCell>{r.account_head_details?.name || r.account_head || "—"}</TableCell>
+                                                  <TableCell>{r.voucher_no || "—"}</TableCell>
+                                                  <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
+                                                  <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
+                                                  <TableCell>{typeof r.description === 'object' ? Object.values(r.description).join(", ") : (r.description || "—")}</TableCell>
+                                                  <TableCell center>
+                                                    <button
+                                                      onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
+                                                      style={{ background: "#0d9488", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+                                                    >
+                                                      🖨️
+                                                    </button>
+                                                  </TableCell>
+                                                </tr>
+                                              );
+                                            })
+                                          )}
+                                        </tbody>
+                                        {pvData.length > 0 && (
+                                          <tfoot>
+                                            <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
+                                              <TableCell colSpan={5} style={{ textAlign: "right" }}>Total:</TableCell>
+                                              <TableCell>₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                                              <TableCell>₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                                              <TableCell colSpan={2} />
+                                            </tr>
+                                          </tfoot>
                                         )}
-                                      </tbody>
-                                      {pvData.length > 0 && (
-                                        <tfoot>
-                                          <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                                            <TableCell colSpan={5} style={{ textAlign: "right" }}>Total:</TableCell>
-                                            <TableCell>₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                                            <TableCell>₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                                            <TableCell colSpan={2} />
-                                          </tr>
-                                        </tfoot>
+                                      </Table>
+                                    </div>
+
+                                    {/* Pagination & Excel */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                                      <button
+                                        onClick={pvExportExcel}
+                                        style={{ background: "#f97316", color: "white", border: "none", padding: "7px 14px", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                                      >
+                                        📊 Excel Export
+                                      </button>
+
+                                      {pvData.length > pvShowEntries && (
+                                        <div style={{ display: "flex", gap: 5 }}>
+                                          <button disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Prev</button>
+                                          <span>Page {pvPage}</span>
+                                          <button disabled={pvPage * pvShowEntries >= pvData.length} onClick={() => setPvPage(p => p + 1)}>Next</button>
+                                        </div>
                                       )}
-                                    </Table>
-                                  </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </ModalBody>
 
-                                  {/* Pagination & Excel */}
-                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-                                    <button
-                                      onClick={pvExportExcel}
-                                      style={{ background: "#f97316", color: "white", border: "none", padding: "7px 14px", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-                                    >
-                                      📊 Excel Export
-                                    </button>
-
-                                    {pvData.length > pvShowEntries && (
-                                      <div style={{ display: "flex", gap: 5 }}>
-                                        <button disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Prev</button>
-                                        <span>Page {pvPage}</span>
-                                        <button disabled={pvPage * pvShowEntries >= pvData.length} onClick={() => setPvPage(p => p + 1)}>Next</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </ModalBody>
-
-                          <ModalFooterBar>
-                            <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
-                          </ModalFooterBar>
-                        </ModalContainer>
-                      </ModalOverlay>
-                    )}
+                            <ModalFooterBar>
+                              <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
+                            </ModalFooterBar>
+                          </ModalContainer>
+                        </ModalOverlay>
+                      )}
                     </>
                   );
                 })()}
@@ -2055,7 +2354,7 @@ export default function CentralCashCounter() {
                   <Table>
                     <thead>
                       <tr>
-                        {activeMenuItem !== "IP Advance" && (
+                        {activeMenuItem !== "IP Advance" && activeMenuItem !== "Returns Bills" && (
                           <>
                             <TableHeader>Date</TableHeader>
                             <TableHeader>Time</TableHeader>
@@ -2070,6 +2369,18 @@ export default function CentralCashCounter() {
                             <TableHeader>Amount (₹)</TableHeader>
                             <TableHeader>IP Number</TableHeader>
                             <TableHeader>IP Serial</TableHeader>
+                            <TableHeader>Status</TableHeader>
+                          </>
+                        ) : activeMenuItem === "Returns Bills" ? (
+                          <>
+                            <TableHeader>Date</TableHeader>
+                            <TableHeader>Time</TableHeader>
+                            <TableHeader>Return Bill No</TableHeader>
+                            <TableHeader>Bill No</TableHeader>
+                            <TableHeader>Bill Type</TableHeader>
+                            <TableHeader>UHID</TableHeader>
+                            <TableHeader>Patient Name</TableHeader>
+                            <TableHeader>Return Amount (₹)</TableHeader>
                             <TableHeader>Status</TableHeader>
                           </>
                         ) : (
@@ -2102,7 +2413,7 @@ export default function CentralCashCounter() {
                       ) : filteredBills.length > 0 ? (
                         filteredBills.slice(0, parseInt(showEntries)).map((bill) => (
                           <tr key={bill.id}>
-                            {activeMenuItem !== "IP Advance" && (
+                            {activeMenuItem !== "IP Advance" && activeMenuItem !== "Returns Bills" && (
                               <>
                                 <TableCell>{bill.date}</TableCell>
                                 <TableCell>{bill.time}</TableCell>
@@ -2131,6 +2442,26 @@ export default function CentralCashCounter() {
                                   </span>
                                 </TableCell>
                               </>
+                            ) : activeMenuItem === "Returns Bills" ? (
+                              <>
+                                <TableCell>{bill.date}</TableCell>
+                                <TableCell>{bill.time}</TableCell>
+                                <TableCell>{bill.return_bill_no}</TableCell>
+                                <TableCell>{bill.bill_no}</TableCell>
+                                <TableCell>{bill.bill_type_name}</TableCell>
+                                <TableCell>{bill.uhid_no}</TableCell>
+                                <TableCell>{bill.patient}</TableCell>
+                                <TableCell>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>
+                                  <span style={{
+                                    padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600,
+                                    background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
+                                    color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                                  }}>
+                                    {bill.document_status}
+                                  </span>
+                                </TableCell>
+                              </>
                             ) : (
                               <>
                                 <TableCell>{bill.bill_no}</TableCell>
@@ -2146,10 +2477,10 @@ export default function CentralCashCounter() {
                                     fontWeight: 600,
                                     background: bill.status?.toLowerCase() === "pending" ? "#fef3c7"
                                       : bill.status?.toLowerCase() === "billed" ? "#dbeafe"
-                                      : "#d1fae5",
+                                        : "#d1fae5",
                                     color: bill.status?.toLowerCase() === "pending" ? "#b45309"
                                       : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
-                                      : "#065f46",
+                                        : "#065f46",
                                   }}>
                                     {bill.status}
                                   </span>
@@ -2232,12 +2563,14 @@ export default function CentralCashCounter() {
         activeShiftData={activeShift}
       />
 
-
+      {/* ══════════════ PAYMENT MODAL ══════════════ */}
       {showPaymentModal && (
         <ModalOverlay>
           <ModalContainer style={{ maxWidth: 560 }}>
             <ModalHeader>
-              <ModalTitle>💳 Collect Payment</ModalTitle>
+              <ModalTitle>
+                {selectedBill?.source === "ReturnBill" ? "💰 Process Refund" : "💳 Collect Payment"}
+              </ModalTitle>
               <CloseButton onClick={() => setShowPaymentModal(false)}>✕</CloseButton>
             </ModalHeader>
 
@@ -2262,6 +2595,29 @@ export default function CentralCashCounter() {
                       <BillInfoValue>{selectedBill.uhid_no}</BillInfoValue>
                     </BillInfoItem>
                   </>
+                ) : selectedBill?.source === "ReturnBill" ? (
+                  <>
+                    <BillInfoItem>
+                      <BillInfoLabel>Return Bill No</BillInfoLabel>
+                      <BillInfoValue>{selectedBill.return_bill_no}</BillInfoValue>
+                    </BillInfoItem>
+                    <BillInfoItem>
+                      <BillInfoLabel>Original Bill No</BillInfoLabel>
+                      <BillInfoValue>{selectedBill.bill_no}</BillInfoValue>
+                    </BillInfoItem>
+                    <BillInfoItem>
+                      <BillInfoLabel>Patient</BillInfoLabel>
+                      <BillInfoValue>{selectedBill.patient}</BillInfoValue>
+                    </BillInfoItem>
+                    <BillInfoItem>
+                      <BillInfoLabel>UHID</BillInfoLabel>
+                      <BillInfoValue>{selectedBill.uhid_no}</BillInfoValue>
+                    </BillInfoItem>
+                    <BillInfoItem>
+                      <BillInfoLabel>Bill Type</BillInfoLabel>
+                      <BillInfoValue>{selectedBill.bill_type_name}</BillInfoValue>
+                    </BillInfoItem>
+                  </>
                 ) : (
                   <>
                     <BillInfoItem>
@@ -2281,7 +2637,7 @@ export default function CentralCashCounter() {
               </BillInfoCard>
 
               <NetAmountBanner>
-                <span>Net Amount</span>
+                <span>{selectedBill?.source === "ReturnBill" ? "Return Amount" : "Net Amount"}</span>
                 <span>₹ {netAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </NetAmountBanner>
 
@@ -2393,12 +2749,51 @@ export default function CentralCashCounter() {
                   <span>₹ {Math.max(balance, 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </SummaryRow>
               </SummaryCard>
+
+              {/* ✅ NEW: Remarks field — only shown for OPPharmacy bills */}
+              {selectedBill?.source === "OPPharmacy" && (
+                <PaymentSection style={{ marginTop: "14px" }}>
+                  <PaymentMethodLabel>📝 Remarks (Optional)</PaymentMethodLabel>
+                  <textarea
+                    placeholder="Enter remarks if any..."
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    rows={2}
+                    style={{
+                      border: "1.5px solid #e5e7eb",
+                      borderRadius: "8px",
+                      padding: "9px 14px",
+                      fontSize: "14px",
+                      width: "100%",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                      background: "#fafafa",
+                      transition: "border-color 0.2s, box-shadow 0.2s",
+                      outline: "none",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#0d9488";
+                      e.target.style.boxShadow = "0 0 0 3px rgba(13,148,136,0.12)";
+                      e.target.style.background = "#fff";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#e5e7eb";
+                      e.target.style.boxShadow = "none";
+                      e.target.style.background = "#fafafa";
+                    }}
+                  />
+                </PaymentSection>
+              )}
             </ModalBody>
 
             <ModalFooterBar>
               <CancelButton onClick={() => setShowPaymentModal(false)}>Cancel</CancelButton>
               <SaveButton disabled={paidAmount === 0} onClick={submitPayment}>
-                {balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment"}
+                {selectedBill?.source === "ReturnBill"
+                  ? (balance > 0 ? `Process Refund (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Process Refund")
+                  : (balance > 0 ? `Save (₹${balance.toLocaleString('en-IN', { maximumFractionDigits: 2 })} Pending)` : "Save Payment")
+                }
               </SaveButton>
             </ModalFooterBar>
           </ModalContainer>
@@ -2480,7 +2875,7 @@ export default function CentralCashCounter() {
                   <div key={label} style={{ display: "flex", fontFamily: "'Courier New', monospace", fontSize: 13, marginBottom: 6 }}>
                     <span style={{ width: 130, fontWeight: 600 }}>{label}</span>
                     <span style={{ width: 20 }}>:</span>
-                    <span>{accountName}</span>
+                    <span>{value}</span>
                   </div>
                 ))}
                 <hr style={{ border: "none", borderTop: "1px solid #ccc", margin: "12px 0" }} />
