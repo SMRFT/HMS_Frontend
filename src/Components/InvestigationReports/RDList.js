@@ -2035,7 +2035,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         label: "Age / Gender",
         value: `${row.age}${row.age_type} / ${row.gender || "N/A"}`,
       },
-      { label: "Referred By", value: row.referredBy || "SELF" },
+      { label: "Referred By", value: row.referredByName || "SELF" },
     ];
     const rightDetails = [
       { label: "Billed On", value: billDateFormatted },
@@ -3279,6 +3279,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age_type: row.age_type,
         gender: row.gender,
         referredBy: row.referredBy || "",
+        referredByName: row.referredByName || "",
         report: row.report || null,
         hasReport: !!row.hasReport,
         radiology_type: (row.radiology_format?.type || "").toUpperCase(),
@@ -3389,7 +3390,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   }, [rows]);
 
   const referredByOptions = useMemo(() => {
-    const names = rows.map((r) => r.referredBy).filter(Boolean);
+    const names = rows.map((r) => r.referredByName).filter(Boolean); // ← referredByName
     return [...new Set(names)].sort();
   }, [rows]);
 
@@ -3427,7 +3428,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? !row.report?.slot_DateTime
               : s === searchSlotStatus;
           })()) &&
-        (!searchReferredBy || row.referredBy === searchReferredBy)
+        (!searchReferredBy || row.referredByName === searchReferredBy) // ← referredByName
       );
     });
   }, [
@@ -4276,6 +4277,7 @@ DISPATCH  <Td>
                       onChange={(e) => setSearchReferredBy(e.target.value)}
                     >
                       <option value="">All Doctors</option>
+                      <option value="SELF">SELF</option> {/* ← hardcoded */}
                       {referredByOptions.map((name) => (
                         <option key={name} value={name}>
                           {name}
@@ -4385,8 +4387,10 @@ DISPATCH  <Td>
                       </Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
-                        {row.referredBy ? (
-                          <ReferredByBadge>👨‍⚕️ {row.referredBy}</ReferredByBadge>
+                        {row.referredByName ? (
+                          <ReferredByBadge>
+                            👨‍⚕️ {row.referredByName}
+                          </ReferredByBadge> // ← referredByName
                         ) : (
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —

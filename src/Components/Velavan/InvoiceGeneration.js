@@ -818,8 +818,8 @@ const Invoice = () => {
       totalPurchaseCost +
         (summary.taxOnFreeItems || 0) +
         (summary.courierTransportCharge || 0) +
-        (summary.localTax || 0) -
-        totalDiscount,
+        (summary.localTax || 0),
+      // discount is already baked into purchaseCost — do NOT subtract again
     );
     const netInvoiceAmount = round(base + (summary.roundAmount || 0));
     setSummary((prev) => ({
@@ -983,7 +983,10 @@ const Invoice = () => {
       const u = { ...prev };
       const qty = parseFloat(u.quantity) || 0;
       const base = (parseFloat(u.unitPrice) || 0) * qty;
-      const cgstAmt = base > 0 ? ((base * cgst) / 100).toFixed(2) : "0.00";
+      const discountedAmt = parseFloat(u.discountedAmt) || 0;
+      const taxableBase = base - discountedAmt;
+      const cgstAmt =
+        taxableBase > 0 ? ((taxableBase * cgst) / 100).toFixed(2) : "0.00";
       if (isSelling) {
         u.sellingTax = String(taxValue);
         u.sellingCgstPercent = String(cgst);
@@ -1129,67 +1132,58 @@ const Invoice = () => {
 
       // Recalc tax amounts when unitPrice or quantity changes
       if (name === "unitPrice" || name === "quantity") {
-        u.cgstAmt = ((base * cgstP) / 100).toFixed(2);
-        u.sgstAmt = ((base * sgstP) / 100).toFixed(2);
+        const existingDisc = parseFloat(u.discountedAmt) || 0;
+        const taxableBase = base - existingDisc;
+        u.cgstAmt = ((taxableBase * cgstP) / 100).toFixed(2);
+        u.sgstAmt = ((taxableBase * sgstP) / 100).toFixed(2);
         u.sellingCgstAmt = u.cgstAmt;
         u.sellingSgstAmt = u.sgstAmt;
       }
 
       // ── Purchase cost ──
       // REPLACE WITH — discounts applied on base (before GST), then GST added:
+      // ── Purchase cost — GST calculated on (base - discount) ──
       const baseCostBeforeGst = base; // unitPrice × qty, no GST
-      let cost =
-        baseCostBeforeGst +
-        (parseFloat(u.cgstAmt) || 0) +
-        (parseFloat(u.sgstAmt) || 0);
+
+      let discountAmt = 0;
       if (name === "purchaseDiscountPercent") {
         const discP = parseFloat(value) || 0;
-        const da = discP > 0 ? (baseCostBeforeGst * discP) / 100 : 0;
-        u.discountedAmt = da.toFixed(2);
-        cost =
-          baseCostBeforeGst -
-          da +
-          (parseFloat(u.cgstAmt) || 0) +
-          (parseFloat(u.sgstAmt) || 0);
+        discountAmt = discP > 0 ? (baseCostBeforeGst * discP) / 100 : 0;
+        u.discountedAmt = discountAmt.toFixed(2);
       } else if (name === "discountedAmt") {
-        const da = parseFloat(value) || 0;
-        if (da > 0 && baseCostBeforeGst > 0) {
-          u.purchaseDiscountPercent = ((da / baseCostBeforeGst) * 100).toFixed(
-            2,
-          );
-          cost =
-            baseCostBeforeGst -
-            da +
-            (parseFloat(u.cgstAmt) || 0) +
-            (parseFloat(u.sgstAmt) || 0);
+        discountAmt = parseFloat(value) || 0;
+        if (discountAmt > 0 && baseCostBeforeGst > 0) {
+          u.purchaseDiscountPercent = (
+            (discountAmt / baseCostBeforeGst) *
+            100
+          ).toFixed(2);
         }
       } else {
-        const ed = parseFloat(u.discountedAmt) || 0;
         const ep = parseFloat(u.purchaseDiscountPercent) || 0;
+        const ed = parseFloat(u.discountedAmt) || 0;
         if (ep > 0) {
-          const da = (baseCostBeforeGst * ep) / 100;
-          u.discountedAmt = da.toFixed(2);
-          cost =
-            baseCostBeforeGst -
-            da +
-            (parseFloat(u.cgstAmt) || 0) +
-            (parseFloat(u.sgstAmt) || 0);
+          discountAmt = (baseCostBeforeGst * ep) / 100;
+          u.discountedAmt = discountAmt.toFixed(2);
         } else if (ed > 0) {
+          discountAmt = ed;
           u.purchaseDiscountPercent = ((ed / baseCostBeforeGst) * 100).toFixed(
             2,
           );
-          cost =
-            baseCostBeforeGst -
-            ed +
-            (parseFloat(u.cgstAmt) || 0) +
-            (parseFloat(u.sgstAmt) || 0);
         }
       }
+
+      // GST must be on discounted base, not full base
+      const discountedBase = baseCostBeforeGst - discountAmt;
+      u.cgstAmt = ((discountedBase * cgstP) / 100).toFixed(2);
+      u.sgstAmt = ((discountedBase * sgstP) / 100).toFixed(2);
+      u.sellingCgstAmt = u.cgstAmt;
+      u.sellingSgstAmt = u.sgstAmt;
+
+      const cost =
+        discountedBase + parseFloat(u.cgstAmt) + parseFloat(u.sgstAmt);
       u.purchaseCost = cost.toFixed(2);
       u.unitCostWithGst = qty > 0 ? (cost / qty).toFixed(2) : "0.00";
-      u.purchaseCostBeforeGst = (
-        baseCostBeforeGst - (parseFloat(u.discountedAmt) || 0)
-      ).toFixed(2);
+      u.purchaseCostBeforeGst = discountedBase.toFixed(2);
 
       // ── When unitPrice / quantity / mrp changes, re-derive sellingUnitCost ──
       if (name === "unitPrice" || name === "quantity" || name === "mrp") {
@@ -1422,7 +1416,11 @@ const Invoice = () => {
         setTimeout(() => setShowInvoicePreview(false), 400);
       } else {
         const errs = result.data?.errors;
-        if (errs) {
+        if (result.data?.status === "duplicate") {
+          toast.error(
+            `Duplicate Invoice: ${result.data?.message || "This invoice already exists."}`,
+          );
+        } else if (errs) {
           Object.entries(errs).forEach(([f, m]) =>
             toast.error(`${f}: ${Array.isArray(m) ? m.join(", ") : m}`),
           );
@@ -2289,8 +2287,9 @@ const Invoice = () => {
                     style={{ fontSize: "0.82rem" }}
                   >
                     <option value="">Select item</option>
-                    {availableItems
+                    {[...availableItems]
                       .filter((i) => String(i.hsn ?? "").trim())
+                      .sort((a, b) => a.itemName.localeCompare(b.itemName))
                       .map((i) => (
                         <option key={i.itemName} value={i.itemName}>
                           {i.itemName}
@@ -2335,11 +2334,39 @@ const Invoice = () => {
                 <InputWrapper style={{ margin: 0 }}>
                   <Lbl>Expiry Date</Lbl>
                   <Input
-                    type="date"
+                    type="text"
                     name="expiry"
-                    value={modalForm.expiry}
-                    onChange={handleModalChange}
-                    style={{ fontSize: "0.82rem" }}
+                    value={modalForm.expiry || ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                        .replace(/[^0-9]/g, "")
+                        .slice(0, 6);
+                      let formatted = "";
+                      if (raw.length <= 2) {
+                        formatted = raw;
+                      } else {
+                        formatted = raw.slice(0, 2) + "-" + raw.slice(2);
+                      }
+                      handleModalChange({
+                        target: { name: "expiry", value: formatted },
+                      });
+                    }}
+                    onBlur={(e) => {
+                      const parts = e.target.value.split("-");
+                      if (parts.length === 2 && parts[0].length === 2) {
+                        let mm = parseInt(parts[0], 10);
+                        if (mm < 1) mm = 1;
+                        if (mm > 12) mm = 12;
+                        const corrected =
+                          String(mm).padStart(2, "0") + "-" + parts[1];
+                        handleModalChange({
+                          target: { name: "expiry", value: corrected },
+                        });
+                      }
+                    }}
+                    placeholder="MM-YYYY"
+                    maxLength={7}
+                    style={{ fontSize: "0.82rem", letterSpacing: "0.1em" }}
                   />
                 </InputWrapper>
               </GridRow>
@@ -3358,6 +3385,9 @@ const Invoice = () => {
                           HSN
                         </th>
                         <th rowSpan="2" style={thStyle("#1e3a5f")}>
+                          Batch No
+                        </th>
+                        <th rowSpan="2" style={thStyle("#1e3a5f")}>
                           Expiry
                         </th>
                         <th rowSpan="2" style={thStyle("#1e3a5f")}>
@@ -3422,6 +3452,7 @@ const Invoice = () => {
                               {it.name}
                             </td>
                             <td style={tdCenter}>{it.hsn}</td>
+                            <td style={tdCenter}>{it.batch_no || "—"}</td>
                             <td style={tdCenter}>{it.expiry || "—"}</td>
                             <td style={{ ...tdCenter, fontWeight: 700 }}>
                               {it.quantity}
@@ -3469,7 +3500,7 @@ const Invoice = () => {
                       {/* Totals row */}
                       <tr style={{ background: "#1e3a5f" }}>
                         <td
-                          colSpan="8"
+                          colSpan="9"
                           style={{
                             padding: "8px 10px",
                             fontWeight: 800,

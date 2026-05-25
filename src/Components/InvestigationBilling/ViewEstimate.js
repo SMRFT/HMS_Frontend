@@ -503,8 +503,11 @@ const EstimateBillsReport = () => {
               onChange={handleFilterChange}
             >
               <option value="">Select Doctor</option>
+              <option value="SELF">SELF</option> {/* ← hardcoded */}
               {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeName}>
+                <option key={d.employeeId} value={d.employeeId}>
+                  {" "}
+                  {/* ← value = employeeId */}
                   {d.employeeName}
                 </option>
               ))}
@@ -582,7 +585,7 @@ const EstimateBillsReport = () => {
                     </Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
-                    <Td>{bill.doctor}</Td>
+                    <Td>{bill.doctorName}</Td>
                     <Td>{bill.created_by}</Td>
                     <Td>
                       <ActionGroup>
