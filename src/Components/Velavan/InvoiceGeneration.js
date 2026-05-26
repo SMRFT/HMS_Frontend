@@ -2911,7 +2911,31 @@ const Invoice = () => {
                   {selectedItemForHistory.itemName ||
                     selectedItemForHistory.name}
                 </HistTitle>
-                <HistSubtitle>HSN: {selectedItemForHistory.hsn}</HistSubtitle>
+                <HistSubtitle>
+                  HSN: {selectedItemForHistory.hsn}
+                  {historyData.length > 0 &&
+                    (() => {
+                      const prices = historyData.map((h) =>
+                        parseFloat(
+                          (h.matched_item || selectedItemForHistory)
+                            .unitPrice || 0,
+                        ),
+                      );
+                      const mn = Math.min(...prices);
+                      const mx = Math.max(...prices);
+                      const avg =
+                        prices.reduce((a, b) => a + b, 0) / prices.length;
+                      return (
+                        <span style={{ marginLeft: 12, opacity: 0.9 }}>
+                          &nbsp;|&nbsp; Range: ₹{mn.toFixed(2)} – ₹
+                          {mx.toFixed(2)}
+                          &nbsp;|&nbsp; Avg: ₹{avg.toFixed(2)}
+                          &nbsp;|&nbsp; {prices.length} record
+                          {prices.length !== 1 ? "s" : ""}
+                        </span>
+                      );
+                    })()}
+                </HistSubtitle>
               </div>
               <CloseBtn
                 onClick={() => setShowHistoryModal(false)}
@@ -2947,15 +2971,13 @@ const Invoice = () => {
                     <tr>
                       {[
                         "Invoice No",
-                        "Date",
+                        "Invoice Date",
                         "Vendor",
                         "HSN",
                         "Item",
                         "Unit Price",
                         "Purchase Cost",
                         "Qty",
-                        "Free",
-                        "Stock",
                         "MRP",
                       ].map((h) => (
                         <th key={h}>{h}</th>
@@ -2963,42 +2985,76 @@ const Invoice = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyData.map((h, i) => {
-                      let it = selectedItemForHistory;
-                      try {
-                        const its = JSON.parse(h.items);
-                        const m = its.find(
-                          (x) => x.hsn === selectedItemForHistory.hsn,
-                        );
-                        if (m) it = m;
-                      } catch {}
-                      if (h.matched_item) it = h.matched_item;
-                      return (
-                        <tr key={i}>
-                          <td>{h.invoice_number}</td>
-                          <td>
-                            {new Date(h.date).toLocaleDateString("en-IN")}
-                          </td>
-                          <td>{h.vendor}</td>
-                          <td>{it.hsn || "—"}</td>
-                          <td style={{ fontWeight: 600 }}>
-                            {it.name || it.item_name || "—"}
-                          </td>
-                          <td
-                            style={{ color: colors.primary, fontWeight: 600 }}
-                          >
-                            ₹{parseFloat(it.unitPrice || 0).toFixed(2)}
-                          </td>
-                          <td>
-                            ₹{parseFloat(it.purchaseCost || 0).toFixed(2)}
-                          </td>
-                          <td>{it.quantity}</td>
-                          <td>{it.free}</td>
-                          <td>{it.totalstock || 0}</td>
-                          <td>₹{parseFloat(it.mrp || 0).toFixed(2)}</td>
-                        </tr>
+                    {(() => {
+                      // ── Resolve matched items first, then compute price stats ──
+                      const resolved = historyData.map((h) => {
+                        let it = selectedItemForHistory;
+                        try {
+                          const its = JSON.parse(h.items);
+                          const m = its.find(
+                            (x) => x.hsn === selectedItemForHistory.hsn,
+                          );
+                          if (m) it = m;
+                        } catch {}
+                        if (h.matched_item) it = h.matched_item;
+                        return { h, it };
+                      });
+
+                      const prices = resolved.map(({ it }) =>
+                        parseFloat(it.unitPrice || 0),
                       );
-                    })}
+                      const maxPrice = Math.max(...prices);
+                      const minPrice = Math.min(...prices);
+                      const hasRange = maxPrice > minPrice;
+
+                      return resolved.map(({ h, it }, i) => {
+                        const unitPrice = parseFloat(it.unitPrice || 0);
+                        const isHigh = hasRange && unitPrice === maxPrice;
+                        const isLow = hasRange && unitPrice === minPrice;
+
+                        return (
+                          <tr
+                            key={i}
+                            style={{
+                              background: isHigh
+                                ? "#fff1f2"
+                                : isLow
+                                  ? "#f0fdf4"
+                                  : "transparent",
+                            }}
+                          >
+                            <td>{h.invoice_no}</td>
+                            <td>
+                              {new Date(h.invoice_date).toLocaleDateString(
+                                "en-IN",
+                              )}
+                            </td>
+                            <td>{h.vendor_name}</td>
+                            <td>{it.hsn || "—"}</td>
+                            <td style={{ fontWeight: 600 }}>
+                              {it.name || it.item_name || "—"}
+                            </td>
+                            <td
+                              style={{
+                                fontWeight: 700,
+                                color: isHigh
+                                  ? "#dc2626"
+                                  : isLow
+                                    ? "#16a34a"
+                                    : colors.primary,
+                              }}
+                            >
+                              ₹{unitPrice.toFixed(2)}
+                            </td>
+                            <td>
+                              ₹{parseFloat(it.purchaseCost || 0).toFixed(2)}
+                            </td>
+                            <td>{it.quantity}</td>
+                            <td>₹{parseFloat(it.mrp || 0).toFixed(2)}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </HistTable>
               )}
