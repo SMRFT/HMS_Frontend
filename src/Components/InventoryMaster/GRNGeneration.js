@@ -8,7 +8,7 @@ import {
 import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import { Plus, Trash2, X, ShoppingCart, Lock, Camera, Upload, ScanLine, AlertCircle, CheckCircle, RefreshCw } from "lucide-react"
-import styled from "styled-components"
+import styled, { keyframes } from "styled-components"
 
 /* ─── Styled Components ─────────────────────────────────────────────────── */
 const PageHeader = styled.div`
@@ -210,6 +210,116 @@ const OcrFieldBadge = styled.span`
   padding: 1px 5px; border-radius: 10px; margin-left: 4px; vertical-align: middle;
 `
 
+/* ─── Edit Reason Modal ─────────────────────────────────────────────────── */
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+`
+const ModalOverlay = styled.div`
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 16px;
+`
+const ModalBox = styled.div`
+  background: white; border-radius: 10px; padding: 26px 30px;
+  max-width: 460px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: ${fadeIn} 0.18s ease forwards;
+`
+const ModalTitle = styled.h3`
+  margin: 0 0 6px; font-size: 1rem; font-weight: 700; color: #111827;
+`
+const ModalSubtitle = styled.p`
+  margin: 0 0 16px; font-size: 0.82rem; color: #6b7280; line-height: 1.5;
+`
+const ModalTextarea = styled.textarea`
+  width: 100%; padding: 9px 11px;
+  border: 1.5px solid ${p => p.error ? "#dc2626" : "#d1d5db"};
+  border-radius: 7px; font-size: 0.875rem; color: #374151;
+  outline: none; resize: vertical; min-height: 90px;
+  font-family: inherit; background: white; box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:focus {
+    border-color: ${p => p.error ? "#dc2626" : "#0d9488"};
+    box-shadow: 0 0 0 3px ${p => p.error ? "rgba(220,38,38,0.1)" : "rgba(13,148,136,0.1)"};
+  }
+  &::placeholder { color: #9ca3af; }
+`
+const ModalLabel = styled.label`
+  display: block; font-size: 0.75rem; font-weight: 700;
+  color: #374151; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em;
+`
+const ModalBtns = styled.div`
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;
+`
+const EditInfoBanner = styled.div`
+  display: flex; flex-direction: column; gap: 3px;
+  background: #fef9c3; border: 1px solid #fde68a; border-radius: 6px;
+  padding: 9px 13px; margin-bottom: 10px; font-size: 0.79rem; color: #92400e;
+`
+
+/* ─── Edit Reason Modal Component ───────────────────────────────────────── */
+const EditReasonModal = ({ draftNumber, onConfirm, onCancel }) => {
+  const [reason, setReason]     = useState("")
+  const [touched, setTouched]   = useState(false)
+
+  const handleSave = () => {
+    setTouched(true)
+    if (!reason.trim()) return
+    onConfirm(reason.trim())
+  }
+
+  return (
+    <ModalOverlay onClick={onCancel}>
+      <ModalBox onClick={e => e.stopPropagation()}>
+        <ModalTitle>✏️ Edit Reason Required</ModalTitle>
+        <ModalSubtitle>
+          You are editing an existing draft (<strong>{draftNumber}</strong>).
+          Please provide a reason for this edit before saving.
+        </ModalSubtitle>
+        <div>
+          <ModalLabel>
+            Reason for Edit <span style={{ color: "#dc2626" }}>*</span>
+          </ModalLabel>
+          <ModalTextarea
+            error={touched && !reason.trim()}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Describe why this GRN draft is being modified…"
+            autoFocus
+          />
+          {touched && !reason.trim() && (
+            <div style={{ color: "#dc2626", fontSize: "0.74rem", marginTop: 4 }}>
+              ⚠ Edit reason is required.
+            </div>
+          )}
+        </div>
+        <ModalBtns>
+          <button
+            onClick={onCancel}
+            style={{
+              padding: "8px 18px", borderRadius: 7,
+              border: "1.5px solid #d1d5db", background: "white",
+              cursor: "pointer", fontSize: "0.84rem", fontWeight: 600,
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: "8px 20px", borderRadius: 7, border: "none",
+              background: "#0d9488", color: "white",
+              cursor: "pointer", fontSize: "0.84rem", fontWeight: 700,
+            }}
+          >
+            Save Changes
+          </button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  )
+}
+
 /* ─── Constants ─────────────────────────────────────────────────────────── */
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
@@ -232,9 +342,6 @@ const MONTHS = [
 const getYears = () => { const y = new Date().getFullYear(); return Array.from({length:10},(_,i)=>String(y+i)) }
 const todayStr = () => new Date().toISOString().split("T")[0]
 
-// ─── FIX: "DRUG PURCHASE" is always the first fixed option in the dropdown.
-// It is NOT fetched from the API — it's hardcoded here so it always appears
-// regardless of what the outlets API returns.
 const FIXED_PURCHASE_CATEGORIES = ["DRUG PURCHASE"]
 
 const EMPTY_GRN = {
@@ -245,6 +352,8 @@ const EMPTY_GRN = {
   cgst:"0.00",sgst:"0.00",igst:"0.00",
   tax_paid_to_supplier:"0.00",total_discount:"0.00",
   round_amount:"0",total_amount:"0.00",net_invoice_amount:"0.00",
+  // edit audit fields (read-only, shown in UI when populated)
+  edited_by:"", edited_date:"", edited_reason:"",
 }
 
 const EMPTY_ITEM = {
@@ -679,6 +788,11 @@ const GRNGeneration = () => {
   const [loading,     setLoading]     = useState(false)
   const [ocrApplied,  setOcrApplied]  = useState(false)
 
+  // ── NEW: edit reason modal state ──────────────────────────────────────────
+  const [showEditReasonModal, setShowEditReasonModal] = useState(false)
+  // pendingPayload holds the ready-to-send payload while awaiting the reason
+  const pendingPayloadRef = useRef(null)
+
   /* ── Fetchers ── */
   const fetchVendors   = useCallback(async () => {
     try { const r = await apiRequest(`${baseUrl}vendors/`,"GET"); if(r.success) setVendors(Array.isArray(r.data)?r.data:[]) } catch {}
@@ -690,9 +804,6 @@ const GRNGeneration = () => {
     try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data)?r.data:[]) } catch {}
   },[])
 
-  // ── FIX: fetchOutlets strips any "DRUG PURCHASE" variant from the API list.
-  // "DRUG PURCHASE" is always shown as a fixed hardcoded option in the dropdown,
-  // so we must not also load it from the API (would cause duplicates).
   const fetchOutlets = useCallback(async () => {
     try {
       const r = await apiRequest(`${baseUrl}get_active_outlets/`, "GET")
@@ -902,17 +1013,10 @@ const GRNGeneration = () => {
     }))
   }
 
-  /* ── Save / Update Draft ── */
-  const saveGRN = async () => {
-    if(isVerified){ toast.warn("Verified GRN cannot be edited."); return }
-    if(!grnData.purchase_category){ toast.error("Purchase Category required"); return }
-    if(!grnData.vendor_id){ toast.error("Vendor required"); return }
-    if(!grnData.invoice_no){ toast.error("Invoice No required"); return }
-    if(items.length===0){ toast.error("Add at least one item"); return }
-
+  /* ─── buildPayload (shared between first save and reason-confirmed save) ─── */
+  const buildPayload = () => {
     const toDateTime = (d) => d ? (d.includes("T") ? d : `${d}T00:00:00`) : d
-
-    const payload = {
+    return {
       ...grnData,
       grn_type:     "INVOICE",
       status:       "Draft",
@@ -927,7 +1031,10 @@ const GRNGeneration = () => {
         payment_method: null, payment_details: null, paid_by: null,
       }]),
     }
+  }
 
+  /* ─── Actual API call (used both on first save and after reason confirmed) ─── */
+  const submitGRN = async (payload) => {
     const url    = isEdit ? `${baseUrl}grn/${editDraftNo}/` : `${baseUrl}grn/`
     const method = isEdit ? "PUT" : "POST"
 
@@ -941,12 +1048,48 @@ const GRNGeneration = () => {
           setEditDraftNo(r.data?.draft_number || "")
           setEditStatus(r.data?.status || "Draft")
           if(r.data?.grn_number !== undefined) setGrnData(p=>({...p, grn_number: r.data.grn_number}))
+        } else {
+          // Refresh edit audit fields from the response
+          if (r.data?.edited_by)     setGrnData(p => ({ ...p, edited_by:     r.data.edited_by }))
+          if (r.data?.edited_date)   setGrnData(p => ({ ...p, edited_date:   r.data.edited_date }))
+          if (r.data?.edited_reason) setGrnData(p => ({ ...p, edited_reason: r.data.edited_reason }))
         }
         fetchGRNList()
       } else {
         toast.error(r.error || "Failed to save GRN")
       }
     } catch { toast.error("Network error") } finally { setLoading(false) }
+  }
+
+  /* ── Save / Update Draft ── */
+  const saveGRN = async () => {
+    if(isVerified){ toast.warn("Verified GRN cannot be edited."); return }
+    if(!grnData.purchase_category){ toast.error("Purchase Category required"); return }
+    if(!grnData.vendor_id){ toast.error("Vendor required"); return }
+    if(!grnData.invoice_no){ toast.error("Invoice No required"); return }
+    if(items.length===0){ toast.error("Add at least one item"); return }
+
+    const payload = buildPayload()
+
+    if (isEdit) {
+      // Existing draft — must capture edit reason before submitting
+      pendingPayloadRef.current = payload
+      setShowEditReasonModal(true)
+    } else {
+      // Brand-new draft — no reason required
+      await submitGRN(payload)
+    }
+  }
+
+  /* ── Called when user confirms the edit reason modal ── */
+  const handleEditReasonConfirm = async (reason) => {
+    setShowEditReasonModal(false)
+    const payload = {
+      ...pendingPayloadRef.current,
+      edited_reason: reason,   // backend will set edited_by + edited_date
+    }
+    pendingPayloadRef.current = null
+    await submitGRN(payload)
   }
 
   /* ── Load GRN for edit / view ── */
@@ -971,6 +1114,10 @@ const GRNGeneration = () => {
       total_amount:         grn.total_amount||"0.00",
       net_invoice_amount:   grn.net_invoice_amount||"0.00",
       grn_number:           grn.grn_number||"",
+      // ── edit audit fields ──
+      edited_by:     grn.edited_by     || "",
+      edited_date:   grn.edited_date   || "",
+      edited_reason: grn.edited_reason || "",
     })
     setVendorInfo(vendors.find(x => String(x.vendor_id) === String(grn.vendor_id)) || null)
     try{ setItems(JSON.parse(grn.items||"[]")) } catch { setItems([]) }
@@ -985,6 +1132,8 @@ const GRNGeneration = () => {
     setGrnData(EMPTY_GRN); setItems([]); setCurItem(EMPTY_ITEM)
     setMedSearch(""); setEditDraftNo(""); setEditStatus(""); setVendorInfo(null); setLastStock(null)
     setOcrApplied(false)
+    pendingPayloadRef.current = null
+    setShowEditReasonModal(false)
   }
 
   /* ── Helpers ── */
@@ -1002,6 +1151,16 @@ const GRNGeneration = () => {
   const getVendorAddress = (v) => {
     if (!v) return ""
     return [v.address_line1, v.address_line2, v.city, v.state, v.pincode].filter(Boolean).join(", ")
+  }
+
+  const fmtDateTime = (d) => {
+    if (!d) return ""
+    try {
+      return new Date(d).toLocaleString("en-GB", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    } catch { return d }
   }
 
   const lastPurchasePrice = lastStock ? `₹ ${parseFloat(lastStock.mrp||0).toFixed(2)}` : "—"
@@ -1063,6 +1222,23 @@ const GRNGeneration = () => {
                 </OcrSuccessBox>
               )}
 
+              {/* ── NEW: Edit Audit Info Banner ── */}
+              {isEdit && !isVerified && grnData.edited_by && (
+                <EditInfoBanner>
+                  <div>
+                    <strong>Last Edited By:</strong> {grnData.edited_by}
+                    {grnData.edited_date && (
+                      <span style={{marginLeft:10,fontWeight:400}}>
+                        on {fmtDateTime(grnData.edited_date)}
+                      </span>
+                    )}
+                  </div>
+                  {grnData.edited_reason && (
+                    <div><strong>Reason:</strong> {grnData.edited_reason}</div>
+                  )}
+                </EditInfoBanner>
+              )}
+
               {/* ── Inward Details ── */}
               <Card>
                 <CardHeader>
@@ -1080,11 +1256,6 @@ const GRNGeneration = () => {
                   <GridRow cols="repeat(3,1fr)">
                     <InputWrapper style={{margin:0}}>
                       <Lbl>Purchase Category *</Lbl>
-                      {/*
-                        FIX: "DRUG PURCHASE" is always the first option, hardcoded here.
-                        API outlets are appended below it (with any "DRUG PURCHASE" variant
-                        already stripped in fetchOutlets so there's no duplicate).
-                      */}
                       <Select
                         name="purchase_category"
                         value={grnData.purchase_category}
@@ -1093,11 +1264,7 @@ const GRNGeneration = () => {
                         style={{fontSize:"0.8rem"}}
                       >
                         <option value="">-- Select Category --</option>
-
-                        {/* ── Fixed hardcoded option — always present ── */}
                         <option value="DRUG PURCHASE">DRUG PURCHASE</option>
-
-                        {/* ── Dynamic options from API (Drug Purchase already stripped) ── */}
                         {outlets.map((o, i) => (
                           <option key={o.outlet_id || i} value={o.outlet_name || o.outlet || o.name || ""}>
                             {o.outlet_name || o.outlet || o.name || "Unnamed Outlet"}
@@ -1679,12 +1846,14 @@ const GRNGeneration = () => {
                     <Th style={{fontSize:"0.72rem"}}>Payment</Th>
                     <Th style={{fontSize:"0.72rem"}}>Net Amount</Th>
                     <Th style={{fontSize:"0.72rem"}}>Status</Th>
+                    {/* ── NEW: last edit column ── */}
+                    <Th style={{fontSize:"0.72rem"}}>Last Edited</Th>
                     <Th style={{fontSize:"0.72rem"}}>Actions</Th>
                   </tr></thead>
                   <tbody>
                     {filtered.length===0?(
                       <tr>
-                        <td colSpan={12}>
+                        <td colSpan={13}>
                           <div style={{textAlign:"center",padding:"32px",color:colors.textMuted,fontSize:"0.85rem"}}>
                             No GRN records found.
                           </div>
@@ -1707,6 +1876,33 @@ const GRNGeneration = () => {
                         <Td style={{fontSize:"0.75rem"}}>{grn.payment_mode}</Td>
                         <Td style={{fontWeight:700,color:colors.primary,fontSize:"0.8rem"}}>₹{parseFloat(grn.net_invoice_amount||0).toFixed(2)}</Td>
                         <Td><StatusBadge status={grn.status}>{grn.status||"Draft"}</StatusBadge></Td>
+
+                        {/* ── NEW: last edit info ── */}
+                        <Td style={{fontSize:"0.72rem",maxWidth:140}}>
+                          {grn.edited_by ? (
+                            <div style={{display:"flex",flexDirection:"column",gap:1}}>
+                              <span style={{fontWeight:700,color:"#92400e"}}>{grn.edited_by}</span>
+                              {grn.edited_date && (
+                                <span style={{color:"#9ca3af",fontSize:"0.68rem"}}>{fmtDateTime(grn.edited_date)}</span>
+                              )}
+                              {grn.edited_reason && (
+                                <span
+                                  title={grn.edited_reason}
+                                  style={{
+                                    color:"#374151",fontSize:"0.68rem",
+                                    display:"-webkit-box",WebkitLineClamp:2,
+                                    WebkitBoxOrient:"vertical",overflow:"hidden",
+                                  }}
+                                >
+                                  {grn.edited_reason}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{color:"#d1d5db"}}>—</span>
+                          )}
+                        </Td>
+
                         <Td>
                           <div style={{display:"flex",gap:4}}>
                             {grn.status==="Verified" ? (
@@ -1729,6 +1925,19 @@ const GRNGeneration = () => {
           )}
         </FormContent>
       </Container>
+
+      {/* ── Edit Reason Modal ── */}
+      {showEditReasonModal && (
+        <EditReasonModal
+          draftNumber={editDraftNo}
+          onConfirm={handleEditReasonConfirm}
+          onCancel={() => {
+            setShowEditReasonModal(false)
+            pendingPayloadRef.current = null
+          }}
+        />
+      )}
+
     </PageWrapper>
   )
 }

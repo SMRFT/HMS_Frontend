@@ -122,6 +122,9 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import RDPrint from "./Components/InvestigationReports/RDPrint";
+import JRDReport from "./Components/InvestigationReports/JRDReport";
+
 import DischargeBills from "./Components/Accounts/DischargeBills";
 import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
 import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
@@ -133,6 +136,10 @@ import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
 import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
+import MedicineRequisition from "./Components/InventoryMaster/MedicineRequisitionForm";
+import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinerequisitionapproval";
+import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
+import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -284,6 +291,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
@@ -725,6 +733,51 @@ function App() {
                   />
                 )}
 
+                
+              {hasPagePermission(
+                "/MedicineRequisition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineRequisition"
+                    element={<MedicineRequisition />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/MedicineRequisitionApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineRequisitionApproval"
+                    element={<MedicineRequisitionApproval />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrder",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrder"
+                    element={<PurchaseOrder />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrderApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrderApproval"
+                    element={<PurchaseOrderApproval />}
+                  />
+                )}
+
               {/* Pharmacy */}
               {hasPagePermission(
                 "/IPPharmacy",
@@ -791,6 +844,26 @@ function App() {
                   <Route
                     path="/RDReportForm/:uhid/:subUhid"
                     element={<RDReportForm />}
+                  />
+                )}
+                {hasPagePermission(
+                "/RDList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/RDPrint"
+                    element={<RDPrint />}
+                  />
+                )}
+                {hasPagePermission(
+                "/JRDReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/JRDReport"
+                    element={<JRDReport />}
                   />
                 )}
 
