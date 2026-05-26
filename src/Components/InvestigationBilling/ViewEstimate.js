@@ -414,7 +414,9 @@ const EstimateBillsReport = () => {
         <div class="bill-row"><div class="bill-label">Estimate Number</div><div class="bill-value">: ${bill.EstBillNo || ""}</div></div>
         <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
         <div class="bill-row"><div class="bill-label">Estimate Date</div><div class="bill-value">: ${formatDateTime(bill.EstBillDate)}</div></div>
-        <div class="bill-row"><div class="bill-label">Name</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)}</div></div>
+        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${
+          bill.age && bill.age_type ? `${bill.age}/${bill.age_type}` : "-"
+        } / ${bill.gender}</div></div>
         <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
       </div>
       <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
@@ -501,8 +503,11 @@ const EstimateBillsReport = () => {
               onChange={handleFilterChange}
             >
               <option value="">Select Doctor</option>
+              <option value="SELF">SELF</option> {/* ← hardcoded */}
               {doctors.map((d) => (
-                <option key={d.employeeId} value={d.employeeName}>
+                <option key={d.employeeId} value={d.employeeId}>
+                  {" "}
+                  {/* ← value = employeeId */}
                   {d.employeeName}
                 </option>
               ))}
@@ -573,10 +578,14 @@ const EstimateBillsReport = () => {
                         bill.lastName,
                       )}
                     </Td>
-                    <Td>{bill.age}</Td>
+                    <Td>
+                      {bill.age && bill.age_type
+                        ? `${bill.age}/${bill.age_type}`
+                        : "-"}
+                    </Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
-                    <Td>{bill.doctor}</Td>
+                    <Td>{bill.doctorName}</Td>
                     <Td>{bill.created_by}</Td>
                     <Td>
                       <ActionGroup>

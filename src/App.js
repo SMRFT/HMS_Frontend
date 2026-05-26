@@ -122,6 +122,9 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import RDPrint from "./Components/InvestigationReports/RDPrint";
+import JRDReport from "./Components/InvestigationReports/JRDReport";
+
 import DischargeBills from "./Components/Accounts/DischargeBills";
 import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
 import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
@@ -288,6 +291,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
@@ -840,6 +844,26 @@ function App() {
                   <Route
                     path="/RDReportForm/:uhid/:subUhid"
                     element={<RDReportForm />}
+                  />
+                )}
+                {hasPagePermission(
+                "/RDList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/RDPrint"
+                    element={<RDPrint />}
+                  />
+                )}
+                {hasPagePermission(
+                "/JRDReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/JRDReport"
+                    element={<JRDReport />}
                   />
                 )}
 
