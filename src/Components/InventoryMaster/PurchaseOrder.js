@@ -9,7 +9,7 @@ const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 const fadeSlide = keyframes`from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}`
 const spin      = keyframes`to{transform:rotate(360deg)}`
 
-/* ── Tokens (teal medical — matches PharmacyCategory) ── */
+/* ── Tokens ── */
 const C = {
   primary : "#0d9488",
   pDark   : "#0f766e",
@@ -34,18 +34,18 @@ const Header = styled.div`
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
   box-shadow:0 4px 20px rgba(13,148,136,.25);
 `
-const HTitle  = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
-const HSub    = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
-const Body    = styled.div`max-width:1180px;margin:0 auto;padding:22px 20px;`
+const HTitle = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
+const HSub   = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
+const Body   = styled.div`max-width:1180px;margin:0 auto;padding:22px 20px;`
 
 /* ── Tabs ── */
 const TabRow = styled.div`display:flex;gap:4px;`
 const Tab    = styled.button`
   padding:7px 18px;border-radius:6px;font-size:.82rem;font-weight:700;
   cursor:pointer;font-family:inherit;border:none;transition:all .14s;
-  background:${p=>p.$a?"#fff":"rgba(255,255,255,.18)"};
-  color:${p=>p.$a?C.primary:"#fff"};
-  border:1px solid ${p=>p.$a?"transparent":"rgba(255,255,255,.3)"};
+  background:${p => p.$a ? "#fff" : "rgba(255,255,255,.18)"};
+  color:${p => p.$a ? C.primary : "#fff"};
+  border:1px solid ${p => p.$a ? "transparent" : "rgba(255,255,255,.3)"};
 `
 
 /* ── Card ── */
@@ -56,7 +56,7 @@ const CardBody = styled.div`padding:18px 20px;`
 
 /* ── Grid ── */
 const Grid = styled.div`
-  display:grid;grid-template-columns:${p=>p.$cols||"repeat(2,1fr)"};gap:12px;margin-bottom:14px;
+  display:grid;grid-template-columns:${p => p.$cols || "repeat(2,1fr)"};gap:12px;margin-bottom:14px;
   @media(max-width:760px){grid-template-columns:1fr 1fr!important;}
   @media(max-width:500px){grid-template-columns:1fr!important;}
 `
@@ -65,14 +65,14 @@ const Grid = styled.div`
 const FG  = styled.div`display:flex;flex-direction:column;gap:4px;`
 const Lbl = styled.label`font-size:.7rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.05em;`
 const Inp = styled.input`
-  padding:9px 12px;border:1.5px solid ${p=>p.$err?C.danger:C.border};
+  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
   border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
   box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s,box-shadow .14s;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
   &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
 `
 const Sel = styled.select`
-  padding:9px 12px;border:1.5px solid ${p=>p.$err?C.danger:C.border};
+  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
   border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
   box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
@@ -85,7 +85,7 @@ const Txta = styled.textarea`
   transition:border-color .14s;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
 `
-const Err = styled.span`font-size:.68rem;color:${C.danger};margin-top:2px;`
+const ErrMsg = styled.span`font-size:.68rem;color:${C.danger};margin-top:2px;`
 
 /* ── Autocomplete ── */
 const AutoWrap = styled.div`position:relative;`
@@ -138,15 +138,39 @@ const SecBtn   = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${
 const AmberBtn = styled(Btn)`background:${C.amber};color:#fff;&:hover:not(:disabled){background:${C.amberD};}`
 const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:6px;`
 
+/* ── Three-dot action menu ── */
+const MenuWrap = styled.div`position:relative;display:inline-block;`
+const DotBtn   = styled.button`
+  width:32px;height:32px;border-radius:7px;border:1.5px solid ${C.border};
+  background:#fff;color:${C.muted};font-size:1.1rem;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .13s,border-color .13s;
+  &:hover{background:${C.faint};border-color:${C.primary};color:${C.primary};}
+`
+const MenuList = styled.ul`
+  position:absolute;right:0;top:calc(100% + 4px);z-index:9999;
+  min-width:160px;background:#fff;border:1.5px solid ${C.border};
+  border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.13);
+  list-style:none;margin:0;padding:5px;
+  ${css`animation:${fadeSlide} .14s ease;`}
+`
+const MenuItem = styled.li`
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:6px;font-size:.8rem;font-weight:700;
+  cursor:pointer;color:${p => p.$danger ? C.danger : C.text};
+  transition:background .1s;
+  &:hover{background:${p => p.$danger ? "#fff1f2" : C.pLight};color:${p => p.$danger ? C.danger : C.primary};}
+`
+
 /* ── Badge ── */
 const Badge = styled.span`
   display:inline-flex;align-items:center;gap:4px;
   padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:800;
-  background:${p=>p.$s==="Approved"?"#dcfce7":p.$s==="Rejected"?"#fee2e2":p.$s==="Verified"?"#dbeafe":"#fef9c3"};
-  color:${p=>p.$s==="Approved"?"#166534":p.$s==="Rejected"?"#991b1b":p.$s==="Verified"?"#1d4ed8":"#92400e"};
-  border:1px solid ${p=>p.$s==="Approved"?"#86efac":p.$s==="Rejected"?"#fca5a5":p.$s==="Verified"?"#93c5fd":"#fde68a"};
+  background:${p => p.$s === "Approved" ? "#dcfce7" : p.$s === "Rejected" ? "#fee2e2" : p.$s === "Verified" ? "#dbeafe" : "#fef9c3"};
+  color:${p => p.$s === "Approved" ? "#166534" : p.$s === "Rejected" ? "#991b1b" : p.$s === "Verified" ? "#1d4ed8" : "#92400e"};
+  border:1px solid ${p => p.$s === "Approved" ? "#86efac" : p.$s === "Rejected" ? "#fca5a5" : p.$s === "Verified" ? "#93c5fd" : "#fde68a"};
   &::before{content:'';width:5px;height:5px;border-radius:50%;
-    background:${p=>p.$s==="Approved"?"#16a34a":p.$s==="Rejected"?"#dc2626":p.$s==="Verified"?"#2563eb":"#d97706"};}
+    background:${p => p.$s === "Approved" ? "#16a34a" : p.$s === "Rejected" ? "#dc2626" : p.$s === "Verified" ? "#2563eb" : "#d97706"};}
 `
 const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
 
@@ -167,6 +191,11 @@ const MTitle   = styled.h3`margin:0 0 7px;font-size:1rem;font-weight:800;color:$
 const MSub     = styled.p`margin:0 0 16px;font-size:.875rem;color:${C.muted};line-height:1.55;`
 const Spin     = styled.span`display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .6s linear infinite;`}`
 
+/* ── Helper: guarantee items is always a plain array ── */
+// Items come from MongoDB as a native array — no JSON.parse needed.
+// This guard only handles edge-cases where the field is unexpectedly absent.
+const safeItems = (raw) => (Array.isArray(raw) ? raw : [])
+
 /* ── Edit-reason modal ── */
 const EditReasonModal = ({ onConfirm, onClose }) => {
   const [r, setR] = useState("")
@@ -180,11 +209,12 @@ const EditReasonModal = ({ onConfirm, onClose }) => {
         <FG style={{ marginBottom: 18 }}>
           <Lbl>Reason <span style={{ color: C.danger }}>*</span></Lbl>
           <Txta
-            value={r} onChange={e => setR(e.target.value)}
+            value={r}
+            onChange={e => setR(e.target.value)}
             placeholder="e.g. Updated quantity per revised indent…"
             style={{ borderColor: t && !r.trim() ? C.danger : undefined }}
           />
-          {t && !r.trim() && <Err>Reason is required.</Err>}
+          {t && !r.trim() && <ErrMsg>Reason is required.</ErrMsg>}
         </FG>
         <BtnRow>
           <SecBtn onClick={onClose}>Cancel</SecBtn>
@@ -198,7 +228,14 @@ const EditReasonModal = ({ onConfirm, onClose }) => {
 /* ══════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════ */
-const EMPTY_LINE = () => ({ _id: Date.now() + Math.random(), item_id: "", medicine_name: "", quantity: "1" })
+
+// Each line item has a local _id (for React keys) that is never sent to backend.
+const EMPTY_LINE = () => ({
+  _id:           Date.now() + Math.random(),
+  item_id:       null,
+  medicine_name: "",
+  quantity:      "1",
+})
 
 export default function PurchaseOrder() {
   const [tab,         setTab]         = useState("form")
@@ -209,12 +246,14 @@ export default function PurchaseOrder() {
   const [loading,     setLoading]     = useState(false)
   const [showReason,  setShowReason]  = useState(false)
   const [pendingSave, setPendingSave] = useState(null)
+  const [viewPo,      setViewPo]      = useState(null)
+  const [openMenuId,  setOpenMenuId]  = useState(null)
+  const menuRef = useRef(null)
 
-  /* form */
-  const [vendorId,  setVendorId]  = useState("")
-  const [orderDate, setOrderDate] = useState("")          // read-only, server-set
-  const [lines,     setLines]     = useState([EMPTY_LINE()])
-  const [errs,      setErrs]      = useState({})
+  /* form state */
+  const [vendorId, setVendorId] = useState("")
+  const [lines,    setLines]    = useState([EMPTY_LINE()])
+  const [errs,     setErrs]     = useState({})
 
   /* list filters */
   const [searchQ,    setSearchQ]    = useState("")
@@ -222,18 +261,18 @@ export default function PurchaseOrder() {
   const [fromDate,   setFromDate]   = useState("")
   const [toDate,     setToDate]     = useState("")
 
-  /* view modal */
-  const [viewPo, setViewPo] = useState(null)
-
-  /* medicine autocomplete per row */
-  const [medSearch,  setMedSearch]  = useState({})
-  const [medResults, setMedResults] = useState({})
-  const [showDrop,   setShowDrop]   = useState({})
+  /* per-row medicine autocomplete */
+  const [medSearch,  setMedSearch]  = useState({})   // { [lineId]: inputText }
+  const [medResults, setMedResults] = useState({})   // { [lineId]: [...items] }
+  const [showDrop,   setShowDrop]   = useState({})   // { [lineId]: bool }
   const dropRef = useRef(null)
 
   /* close dropdowns on outside click */
   useEffect(() => {
-    const h = e => { if (dropRef.current && !dropRef.current.contains(e.target)) setShowDrop({}) }
+    const h = e => {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setShowDrop({})
+      if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null)
+    }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
   }, [])
@@ -241,71 +280,43 @@ export default function PurchaseOrder() {
   /* ── fetch vendors ── */
   const fetchVendors = useCallback(async () => {
     try {
-      const r = await apiRequest(`${BASE}vendors/`, "GET")
-      const list = Array.isArray(r?.data) ? r.data
-        : Array.isArray(r?.data?.data) ? r.data.data
-        : Array.isArray(r) ? r : []
-      setVendors(list)
+      const r    = await apiRequest(`${BASE}vendors/`, "GET")
+      const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
+      setVendors(Array.isArray(list) ? list : [])
     } catch { toast.error("Failed to load vendors") }
   }, [])
 
-  /* ── fetch PO list ── */
-/* ── fetch PO list ── */
-const fetchList = useCallback(async () => {
-  setLoading(true)
+  /* ── fetch PO list ──
+     items arrive as a native array from MongoDB — no parsing needed.  */
+  const fetchList = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (fromDate) params.append("from_date", fromDate)
+      if (toDate)   params.append("to_date",   toDate)
+      const qs = params.toString()
 
-  try {
-    const params = new URLSearchParams()
+      const r    = await apiRequest(`${BASE}purchase-order/${qs ? "?" + qs : ""}`, "GET")
+      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
 
-    if (fromDate) params.append("from_date", fromDate)
-    if (toDate) params.append("to_date", toDate)
-
-    const qs = params.toString()
-
-    const r = await apiRequest(
-      `${BASE}purchase-order/${qs ? "?" + qs : ""}`,
-      "GET"
-    )
-
-    const rows =
-      r?.data?.data ??
-      (Array.isArray(r?.data) ? r.data : [])
-
-    /* ✅ normalize items safely */
-    const normalized = (Array.isArray(rows) ? rows : []).map(po => {
-      let parsedItems = []
-
-      if (Array.isArray(po.items)) {
-        parsedItems = po.items
-      } else if (typeof po.items === "string") {
-        try {
-          const parsed = JSON.parse(po.items)
-          parsedItems = Array.isArray(parsed) ? parsed : []
-        } catch {
-          parsedItems = []
-        }
-      }
-
-      return {
+      // items is always a native array from the backend — just guarantee with safeItems()
+      const normalized = (Array.isArray(rows) ? rows : []).map(po => ({
         ...po,
-        items: parsedItems,
-      }
-    })
+        items: safeItems(po.items),
+      }))
 
-    /* ✅ ONLY this */
-    setPoList(normalized)
-
-  } catch (err) {
-    console.error(err)
-    toast.error("Failed to load purchase orders")
-  } finally {
-    setLoading(false)
-  }
-}, [fromDate, toDate])
+      setPoList(normalized)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to load purchase orders")
+    } finally {
+      setLoading(false)
+    }
+  }, [fromDate, toDate])
 
   useEffect(() => { fetchVendors(); fetchList() }, [fetchVendors, fetchList])
 
-  /* ── medicine search for a line ── */
+  /* ── medicine autocomplete ── */
   const searchMeds = useCallback(async (lineId, query) => {
     if (!query || query.length < 2) {
       setMedResults(p => ({ ...p, [lineId]: [] }))
@@ -320,36 +331,31 @@ const fetchList = useCallback(async () => {
     } catch { setMedResults(p => ({ ...p, [lineId]: [] })) }
   }, [])
 
-  /* ── line handlers ── */
-  const updateLine = (id, field, value) => {
+  /* ── line item handlers ── */
+  const updateLine = (id, field, value) =>
     setLines(prev => prev.map(l => l._id !== id ? l : { ...l, [field]: value }))
-  }
 
   const handleMedInput = (lineId, val) => {
-    setMedSearch(p => ({ ...p, [lineId]: val }))
+    setMedSearch(p  => ({ ...p, [lineId]: val }))
     updateLine(lineId, "medicine_name", val)
-    updateLine(lineId, "item_id", "")
+    updateLine(lineId, "item_id", null)
     searchMeds(lineId, val)
   }
 
   const selectMed = (lineId, med) => {
     const fullName = `${med.item_name || ""} ${med.item_last_name || ""}`.trim()
     setMedSearch(p => ({ ...p, [lineId]: fullName }))
-    setLines(prev => prev.map(l => l._id === lineId
-      ? { ...l, item_id: med.item_id, medicine_name: fullName }
-      : l
+    setLines(prev => prev.map(l =>
+      l._id === lineId ? { ...l, item_id: med.item_id, medicine_name: fullName } : l
     ))
     setShowDrop(p => ({ ...p, [lineId]: false }))
   }
 
-  const addLine = () => {
-    const nl = EMPTY_LINE()
-    setLines(p => [...p, nl])
-  }
+  const addLine = () => setLines(p => [...p, EMPTY_LINE()])
 
   const removeLine = id => {
     if (lines.length === 1) { toast.warning("At least one item is required"); return }
-    setLines(p => p.filter(l => l._id !== id))
+    setLines(p      => p.filter(l => l._id !== id))
     setMedSearch(p  => { const n = { ...p }; delete n[id]; return n })
     setMedResults(p => { const n = { ...p }; delete n[id]; return n })
     setShowDrop(p   => { const n = { ...p }; delete n[id]; return n })
@@ -360,22 +366,25 @@ const fetchList = useCallback(async () => {
     const e = {}
     if (!vendorId) e.vendorId = "Required"
     lines.forEach((l, i) => {
-      if (!l.medicine_name.trim()) e[`med_${i}`] = "Required"
-      if (!l.quantity || Number(l.quantity) < 1) e[`qty_${i}`] = "Min 1"
+      if (!l.medicine_name.trim())                e[`med_${i}`] = "Required"
+      if (!l.quantity || Number(l.quantity) < 1)  e[`qty_${i}`] = "Min 1"
     })
     setErrs(e)
     return Object.keys(e).length === 0
   }
 
-  /* ── payload ── */
+  /* ── build payload ──
+     items is sent as a plain JS array — DRF serialises it natively to MongoDB array.
+     Never JSON.stringify items. */
   const buildPayload = (editedReason) => {
     const vendorObj = vendors.find(v => String(v.vendor_id) === String(vendorId))
     return {
       vendor_id:   vendorId,
       vendor_name: vendorObj?.name || "",
       supplier:    vendorObj?.name || "",
+      // Native array — not JSON string
       items: lines.map(l => ({
-        item_id:       l.item_id || undefined,
+        item_id:       l.item_id || null,
         medicine_name: l.medicine_name.trim(),
         quantity:      Number(l.quantity) || 1,
       })),
@@ -417,86 +426,72 @@ const fetchList = useCallback(async () => {
     finally { setSaving(false) }
   }
 
-  /* ── edit ── */
-const handleEdit = po => {
-  if (po.status === "Approved" || po.status === "Rejected") {
-    toast.warning(`Cannot edit a ${po.status} Purchase Order`)
-    return
-  }
-
-  // Ensure items is always array
-  let items = []
-
-  if (Array.isArray(po.items)) {
-    items = po.items
-  } else if (typeof po.items === "string") {
-    try {
-      items = JSON.parse(po.items)
-    } catch {
-      items = []
+  /* ── load PO into edit form ──
+     po.items is already a native array from MongoDB — just use safeItems(). */
+  const handleEdit = po => {
+    if (po.status === "Approved" || po.status === "Rejected") {
+      toast.warning(`Cannot edit a ${po.status} Purchase Order`)
+      return
     }
+
+    const items = safeItems(po.items)
+
+    setEditPo(po)
+    setVendorId(String(po.vendor_id || ""))
+
+    const loadedLines = items.map(it => ({
+      _id:           Date.now() + Math.random(),
+      item_id:       it.item_id || null,
+      medicine_name: it.medicine_name || "",
+      quantity:      String(it.quantity || 1),
+    }))
+
+    setLines(loadedLines.length ? loadedLines : [EMPTY_LINE()])
+
+    // Pre-populate medSearch so inputs show existing medicine names
+    const ms = {}
+    loadedLines.forEach(l => { ms[l._id] = l.medicine_name })
+    setMedSearch(ms)
+
+    setErrs({})
+    setTab("form")
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
-
-  setEditPo(po)
-  setVendorId(String(po.vendor_id || ""))
-  setOrderDate(po.order_date || po.created_date || "")
-
-  const loadedLines = items.map(it => ({
-    _id: Date.now() + Math.random(),
-    item_id: it.item_id || "",
-    medicine_name: it.medicine_name || "",
-    quantity: String(it.quantity || 1),
-  }))
-
-  setLines(loadedLines.length ? loadedLines : [EMPTY_LINE()])
-
-  const ms = {}
-  loadedLines.forEach(l => {
-    ms[l._id] = l.medicine_name
-  })
-
-  setMedSearch(ms)
-  setErrs({})
-  setTab("form")
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  })
-}
 
   /* ── reset ── */
   const resetForm = () => {
     setEditPo(null)
-    setVendorId(""); setOrderDate("")
+    setVendorId("")
     setLines([EMPTY_LINE()])
     setMedSearch({}); setMedResults({}); setShowDrop({})
     setErrs({})
   }
 
-  /* ── filtered ── */
+  /* ── client-side filter for list tab ── */
   const filtered = poList.filter(r => {
     const q  = searchQ.toLowerCase()
-    const ok = !q ||
+    const okQ = !q ||
       (r.po_number   || "").toLowerCase().includes(q) ||
       (r.vendor_name || "").toLowerCase().includes(q) ||
       (r.supplier    || "").toLowerCase().includes(q)
-    return ok && (!filterStat || r.status === filterStat)
+    return okQ && (!filterStat || r.status === filterStat)
   })
 
+  /* ── date formatters ── */
   const fmtDT = d => {
-    try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" }
+    try { return d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—" }
     catch { return "—" }
   }
-  const fmtD = d => { try { return d ? new Date(d).toLocaleDateString("en-GB") : "—" } catch { return "—" } }
 
-  /* ── current datetime string for display (disabled field) ── */
-  const nowDisplay = new Date().toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
+  const nowDisplay = new Date().toLocaleString("en-GB", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  })
 
-  /* ─── RENDER ─── */
+  /* ═══════════════ RENDER ═══════════════ */
   return (
     <Wrap>
-      {/* Header */}
+
+      {/* ── Header ── */}
       <Header>
         <div>
           <HTitle>🛒 Purchase Order</HTitle>
@@ -510,51 +505,49 @@ const handleEdit = po => {
 
       <Body>
 
-        {/* ═══ FORM ═══════════════════════════════════════════════════════ */}
+        {/* ══════════ FORM TAB ══════════ */}
         {tab === "form" && (
           <>
-            {/* ── Header info card ── */}
+            {/* Vendor + Order date */}
             <AniCard>
               <CardHead>
                 {editPo ? `✏️ Edit Purchase Order — ${editPo.po_number}` : "📝 New Purchase Order"}
                 {editPo && <Badge $s={editPo.status}>{editPo.status}</Badge>}
               </CardHead>
               <CardBody>
-
-                {/* Vendor (common for whole PO) */}
                 <Grid $cols="1fr 1fr">
+                  {/* Vendor — single selection for the whole PO */}
                   <FG>
                     <Lbl>Vendor <span style={{ color: C.danger }}>*</span></Lbl>
-                    <Sel
-                      $err={!!errs.vendorId}
-                      value={vendorId}
-                      onChange={e => setVendorId(e.target.value)}
-                    >
+                    <Sel $err={!!errs.vendorId} value={vendorId} onChange={e => setVendorId(e.target.value)}>
                       <option value="">— Select Vendor —</option>
                       {vendors.map(v => (
-                        <option key={v.vendor_id} value={String(v.vendor_id)}>
-                          {v.name}
-                        </option>
+                        <option key={v.vendor_id} value={String(v.vendor_id)}>{v.name}</option>
                       ))}
                     </Sel>
-                    {errs.vendorId && <Err>{errs.vendorId}</Err>}
+                    {errs.vendorId && <ErrMsg>{errs.vendorId}</ErrMsg>}
                   </FG>
 
-                  {/* Order date — server-side datetime, shown read-only */}
+                  {/* Order date — server-stamped, displayed read-only */}
                   <FG>
                     <Lbl>Order Date &amp; Time</Lbl>
                     <Inp
                       value={editPo ? fmtDT(editPo.created_date) : nowDisplay}
                       disabled
-                      style={{ background: C.faint, color: C.muted, cursor: "not-allowed" }}
                     />
                   </FG>
                 </Grid>
 
+                {!editPo && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: -4, marginBottom: 4 }}>
+                    <span style={{ fontSize: ".72rem", color: C.muted, fontWeight: 600 }}>Initial status:</span>
+                    <Badge $s="Draft">Draft</Badge>
+                  </div>
+                )}
               </CardBody>
             </AniCard>
 
-            {/* ── Medicine line items card ── */}
+            {/* Medicine line items */}
             <AniCard>
               <CardHead>
                 💊 Medicine Items
@@ -585,7 +578,10 @@ const handleEdit = po => {
                                 $err={!!errs[`med_${idx}`]}
                                 value={medSearch[line._id] ?? line.medicine_name}
                                 onChange={e => handleMedInput(line._id, e.target.value)}
-                                onFocus={() => (medResults[line._id] || []).length && setShowDrop(p => ({ ...p, [line._id]: true }))}
+                                onFocus={() =>
+                                  (medResults[line._id] || []).length &&
+                                  setShowDrop(p => ({ ...p, [line._id]: true }))
+                                }
                                 placeholder="Search medicine…"
                                 style={{ minWidth: 200 }}
                               />
@@ -596,14 +592,18 @@ const handleEdit = po => {
                                     return (
                                       <DropRow key={m.item_id} onMouseDown={() => selectMed(line._id, m)}>
                                         <strong>{fullName}</strong>
-                                        {m.hsn && <span style={{ color: C.muted, marginLeft: 6, fontSize: ".72rem" }}>HSN: {m.hsn}</span>}
+                                        {m.hsn && (
+                                          <span style={{ color: C.muted, marginLeft: 6, fontSize: ".72rem" }}>
+                                            HSN: {m.hsn}
+                                          </span>
+                                        )}
                                       </DropRow>
                                     )
                                   })}
                                 </Drop>
                               )}
                             </AutoWrap>
-                            {errs[`med_${idx}`] && <Err>{errs[`med_${idx}`]}</Err>}
+                            {errs[`med_${idx}`] && <ErrMsg>{errs[`med_${idx}`]}</ErrMsg>}
                           </LTd>
 
                           {/* Quantity */}
@@ -615,7 +615,7 @@ const handleEdit = po => {
                               onChange={e => updateLine(line._id, "quantity", e.target.value)}
                               style={{ width: "100%" }}
                             />
-                            {errs[`qty_${idx}`] && <Err>{errs[`qty_${idx}`]}</Err>}
+                            {errs[`qty_${idx}`] && <ErrMsg>{errs[`qty_${idx}`]}</ErrMsg>}
                           </LTd>
 
                           <LTd>
@@ -640,7 +640,7 @@ const handleEdit = po => {
           </>
         )}
 
-        {/* ═══ LIST ═══════════════════════════════════════════════════════ */}
+        {/* ══════════ LIST TAB ══════════ */}
         {tab === "list" && (
           <Card>
             <CardHead>
@@ -650,6 +650,7 @@ const handleEdit = po => {
               </span>
             </CardHead>
 
+            {/* Filters */}
             <FBar>
               <FG style={{ flex: 1, minWidth: 200, margin: 0 }}>
                 <Lbl>Search</Lbl>
@@ -659,7 +660,9 @@ const handleEdit = po => {
                 <Lbl>Status</Lbl>
                 <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
                   <option value="">All Status</option>
-                  {["Draft", "Verified", "Approved", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
+                  {["Draft", "Verified", "Approved", "Rejected"].map(s =>
+                    <option key={s} value={s}>{s}</option>
+                  )}
                 </Sel>
               </FG>
               <FG style={{ margin: 0 }}>
@@ -701,57 +704,78 @@ const handleEdit = po => {
                   <tbody>
                     {filtered.map((po, idx) => {
                       const canEdit = po.status === "Draft" || po.status === "Verified"
+                      const items   = safeItems(po.items)
                       return (
                         <Trow key={po.po_number}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
                           <Td><Pill>{po.po_number}</Pill></Td>
                           <Td style={{ fontWeight: 700 }}>{po.vendor_name || po.vendor_id || "—"}</Td>
+
+                          {/* Item count badge */}
                           <Td>
                             <span style={{ background: "#dbeafe", color: "#1d4ed8", padding: "2px 9px", borderRadius: 10, fontSize: ".7rem", fontWeight: 800 }}>
-                              {(Array.isArray(po.items) ? po.items : []).length} item{(Array.isArray(po.items) ? po.items : []).length !== 1 ? "s" : ""}
+                              {items.length} item{items.length !== 1 ? "s" : ""}
                             </span>
                           </Td>
+
                           <Td style={{ fontSize: ".78rem", color: C.muted, whiteSpace: "nowrap" }}>{fmtDT(po.created_date)}</Td>
                           <Td><Badge $s={po.status}>{po.status}</Badge></Td>
+
+                          {/* Approved by */}
                           <Td style={{ fontSize: ".78rem" }}>
                             {po.status === "Approved" ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontWeight: 700, color: "#166534" }}>✔ {po.approved_by_name || po.approved_by || "—"}</span>
+                                <span style={{ fontWeight: 700, color: "#166534" }}>
+                                  ✔ {po.approved_by_name || po.approved_by || "—"}
+                                </span>
                                 <span style={{ color: C.muted, fontSize: ".72rem" }}>{fmtDT(po.approved_date)}</span>
                               </div>
                             ) : "—"}
                           </Td>
+
+                          {/* Rejected by */}
                           <Td style={{ fontSize: ".78rem" }}>
                             {po.status === "Rejected" ? (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <span style={{ fontWeight: 700, color: C.danger }}>✕ {po.rejected_by_name || po.rejected_by || "—"}</span>
+                                <span style={{ fontWeight: 700, color: C.danger }}>
+                                  ✕ {po.rejected_by_name || po.rejected_by || "—"}
+                                </span>
                                 <span style={{ color: C.muted, fontSize: ".72rem" }}>{fmtDT(po.rejected_date)}</span>
                                 {po.rejected_reason && (
-                                  <span
-                                    title={po.rejected_reason}
-                                    style={{ fontSize: ".7rem", color: C.danger, background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 4, padding: "2px 6px", maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
-                                  >
+                                  <span title={po.rejected_reason} style={{ fontSize: ".7rem", color: C.danger, background: "#fff1f2", border: "1px solid #fecaca", borderRadius: 4, padding: "2px 6px", maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
                                     {po.rejected_reason}
                                   </span>
                                 )}
                               </div>
                             ) : "—"}
                           </Td>
+
+                          {/* Actions — three-dot menu */}
                           <Td style={{ textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "nowrap" }}>
-                              <SecBtn style={{ padding: "5px 12px", fontSize: ".78rem" }} onClick={() => setViewPo(po)}>
-                                👁 View
-                              </SecBtn>
-                              {canEdit ? (
-                                <AmberBtn style={{ padding: "5px 14px", fontSize: ".78rem" }} onClick={() => handleEdit(po)}>
-                                  ✏️ Edit
-                                </AmberBtn>
-                              ) : (
-                                <span style={{ fontSize: ".72rem", color: C.muted, display: "flex", alignItems: "center", gap: 4 }}>
-                                  🔒 {po.status}
-                                </span>
+                            <MenuWrap ref={openMenuId === po.po_number ? menuRef : null}>
+                              <DotBtn
+                                title="Actions"
+                                onClick={() => setOpenMenuId(prev => prev === po.po_number ? null : po.po_number)}
+                              >
+                                ⋯
+                              </DotBtn>
+                              {openMenuId === po.po_number && (
+                                <MenuList>
+                                  <MenuItem onClick={() => { setViewPo(po); setOpenMenuId(null) }}>
+                                    👁 View
+                                  </MenuItem>
+                                  {canEdit ? (
+                                    <MenuItem onClick={() => { handleEdit(po); setOpenMenuId(null) }}>
+                                      ✏️ Edit
+                                    </MenuItem>
+                                  ) : (
+                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
+                                      🔒 {po.status}
+                                    </MenuItem>
+                                  )}
+                                </MenuList>
                               )}
-                            </div>
+                            </MenuWrap>
                           </Td>
                         </Trow>
                       )
@@ -764,6 +788,7 @@ const handleEdit = po => {
         )}
       </Body>
 
+      {/* Edit-reason modal */}
       {showReason && (
         <EditReasonModal
           onConfirm={handleReasonConfirm}
@@ -771,11 +796,10 @@ const handleEdit = po => {
         />
       )}
 
-      {/* ── View Medicine Items Modal ── */}
+      {/* View items modal */}
       {viewPo && (
         <MOverlay onClick={() => setViewPo(null)}>
           <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 580, width: "95%" }}>
-            {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div>
                 <MTitle style={{ marginBottom: 2 }}>💊 Medicine Items</MTitle>
@@ -790,7 +814,6 @@ const handleEdit = po => {
               </div>
             </div>
 
-            {/* Items table */}
             <div style={{ maxHeight: 340, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
               <LineTable style={{ fontSize: ".82rem" }}>
                 <thead>
@@ -801,11 +824,11 @@ const handleEdit = po => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(Array.isArray(viewPo.items) ? viewPo.items : []).length === 0 ? (
+                  {safeItems(viewPo.items).length === 0 ? (
                     <LTr>
                       <LTd colSpan={3} style={{ textAlign: "center", color: C.muted, padding: "20px" }}>No items found</LTd>
                     </LTr>
-                  ) : (Array.isArray(viewPo.items) ? viewPo.items : []).map((it, i) => (
+                  ) : safeItems(viewPo.items).map((it, i) => (
                     <LTr key={i}>
                       <LTd style={{ color: C.muted, fontSize: ".72rem", fontWeight: 700 }}>{i + 1}</LTd>
                       <LTd style={{ fontWeight: 600 }}>{it.medicine_name || "—"}</LTd>
@@ -816,16 +839,13 @@ const handleEdit = po => {
               </LineTable>
             </div>
 
-            {/* Summary */}
+            {/* Summary footer */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "8px 12px", background: C.pLight, borderRadius: 7, border: `1px solid ${C.pBorder}` }}>
               <span style={{ fontSize: ".78rem", color: C.pDark, fontWeight: 700 }}>
-                Total Items: {(Array.isArray(viewPo.items) ? viewPo.items : []).length}
+                Total Lines: {safeItems(viewPo.items).length}
               </span>
               <span style={{ fontSize: ".78rem", color: C.pDark, fontWeight: 700 }}>
-                Total Qty: {(Array.isArray(viewPo.items) ? viewPo.items : []).reduce(
-                (s, it) => s + (Number(it.quantity) || 0),
-                0
-                )}
+                Total Qty: {safeItems(viewPo.items).reduce((s, it) => s + (Number(it.quantity) || 0), 0)}
               </span>
             </div>
 
