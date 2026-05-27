@@ -130,6 +130,9 @@ import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import AccountsReports from "./Components/Reports/AccountsReports";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 
+import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
+import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -1012,7 +1015,14 @@ function App() {
                 <Route path="/AdvanceRegistration" element={<AdvanceRegistration />} />
               )}
 
+              {hasPagePermission("/RoomOccupencyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
+              )}
 
+              {hasPagePermission("/PreDayRoomOccupancyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
+              )}
+              
             </Routes>
           </ContentWrapper>
         </>

@@ -797,7 +797,7 @@ const FrontOfficeReports = () => {
         if (!searchTerm) return reportData;
         const lowerSearch = searchTerm.toLowerCase();
         return reportData.filter(item => {
-            return Object.values(item).some(val => 
+            return Object.values(item).some(val =>
                 val && val.toString().toLowerCase().includes(lowerSearch)
             );
         });
@@ -812,7 +812,7 @@ const FrontOfficeReports = () => {
     const getStats = () => {
         const data = getFilteredData();
         if (!data || data.length === 0) return [];
-        
+
         if (activeTab === 'referred_patients' || activeTab === 'op_patients') {
             return [
                 { label: 'Patients', value: data.length, icon: <Users size={16} />, color: '#0d9488', bg: '#f0fdfa' },
@@ -820,7 +820,7 @@ const FrontOfficeReports = () => {
             ];
         }
         if (activeTab === 'admission_register' || activeTab === 'doctor_wise_admission') {
-             return [
+            return [
                 { label: 'Admissions', value: data.length, icon: <Activity size={16} />, color: '#2563eb', bg: '#eff6ff' },
                 { label: 'Doctors', value: new Set(data.map(r => r.admittingDoctor)).size, icon: <UserCheck size={16} />, color: '#0d9488', bg: '#f0fdfa' }
             ];
@@ -899,7 +899,7 @@ const FrontOfficeReports = () => {
                         </StyledSelect>
                     </ModernInputWrapper>
                 )}
-                
+
                 <ModernInputWrapper>
                     <Label><Search size={18} /> Quick Search</Label>
                     <input
@@ -907,10 +907,10 @@ const FrontOfficeReports = () => {
                         placeholder="Search records..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ 
-                            width: "100%", 
-                            height: "38px", 
-                            borderRadius: "10px", 
+                        style={{
+                            width: "100%",
+                            height: "38px",
+                            borderRadius: "10px",
                             border: '1px solid #e2e8f0',
                             padding: '0 12px',
                             fontSize: '0.9rem',
@@ -918,7 +918,7 @@ const FrontOfficeReports = () => {
                         }}
                     />
                 </ModernInputWrapper>
-                
+
                 <ModernButton onClick={fetchReport} disabled={loading} style={{ marginBottom: '2px' }}>
                     {loading ? <Activity className="animate-spin" size={18} /> : <TrendingUp size={18} />}
                     {loading ? "Processing..." : "Generate Insights"}
@@ -943,8 +943,8 @@ const FrontOfficeReports = () => {
 
             <TileGrid className="no-print">
                 {items.map(item => (
-                    <ReportTile 
-                        key={item.key} 
+                    <ReportTile
+                        key={item.key}
                         active={activeTab === item.key}
                         onClick={() => setActiveTab(item.key)}
                     >
@@ -985,7 +985,7 @@ const FrontOfficeReports = () => {
                             Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, getFilteredData().length)} of {getFilteredData().length} entries
                         </div>
                         <div className="controls">
-                            <PageButton 
+                            <PageButton
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
                             >
@@ -994,7 +994,7 @@ const FrontOfficeReports = () => {
                             <PageButton active>
                                 Page {currentPage}
                             </PageButton>
-                            <PageButton 
+                            <PageButton
                                 onClick={() => setCurrentPage(p => p + 1)}
                                 disabled={currentPage * pageSize >= getFilteredData().length}
                             >
