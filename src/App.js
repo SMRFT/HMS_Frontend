@@ -141,6 +141,9 @@ import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinere
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 
+import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
+import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+
 // Layout wrapper
 const ContentWrapper = styled.div`
   margin-top: 15px;
@@ -1123,7 +1126,14 @@ function App() {
                 <Route path="/AdvanceRegistration" element={<AdvanceRegistration />} />
               )}
 
+              {hasPagePermission("/RoomOccupencyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
+              )}
 
+              {hasPagePermission("/PreDayRoomOccupancyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
+              )}
+              
             </Routes>
           </ContentWrapper>
         </>
