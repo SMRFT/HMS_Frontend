@@ -15,7 +15,7 @@ export const colors = {
   surface: "#ffffff",
   textMain: "#1e293b",
   textMuted: "#64748b",
-  border: "#e2e8f0",
+  border: "#c0dbff",
   danger: "#ef4444",
   success: "#22c55e",
   tabBg: "#e0f2f1",
@@ -155,7 +155,6 @@ export const Input = styled.input`
     width: 100%;
   }
 `;
-
 
 export const Select = styled.select`
   padding: 5px 28px 5px 8px;

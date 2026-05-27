@@ -59,6 +59,7 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -121,6 +122,9 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import RDPrint from "./Components/InvestigationReports/RDPrint";
+import JRDReport from "./Components/InvestigationReports/JRDReport";
+
 import DischargeBills from "./Components/Accounts/DischargeBills";
 import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
 import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
@@ -129,6 +133,13 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import AccountsReports from "./Components/Reports/AccountsReports";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
+import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
+import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
+import PharmacyNotification from "./Components/InventoryMaster/PharmacyNotification";
+import MedicineRequisition from "./Components/InventoryMaster/MedicineRequisitionForm";
+import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinerequisitionapproval";
+import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
+import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -232,6 +243,7 @@ function App() {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
                 localStorage.setItem("selected_outlet", outlet.outlet_code);
+                localStorage.setItem("outlet_code", outlet.outlet_code);
                 localStorage.setItem(
                   "selected_outlet_name",
                   outlet.outlet_name,
@@ -282,6 +294,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
@@ -289,6 +302,8 @@ function App() {
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
       "/Pharmacystock": "Pharmacy Stock",
+      "/PharmacyExpiryReport": "Pharmacy Expiry Report",
+      "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -365,10 +380,17 @@ function App() {
           }
           onSelect={(outlet) => {
             localStorage.setItem("selected_outlet", outlet.outlet_code);
+            localStorage.setItem("outlet_code", outlet.outlet_code);
             localStorage.setItem("selected_outlet_name", outlet.outlet_name);
             setShowOutletModal(false);
-            // Optional: refresh if needed, for now state update in Header will suffice or re-fetch data
-            window.location.reload();
+
+            const userRole = getUserRole(allowedActions);
+            const targetPath = userRole === "Pharmacist" ? "/OPPharmacy" : "/Dashboard";
+
+            navigate(targetPath);
+            setTimeout(() => {
+              window.location.reload();
+            }, 100);
           }}
         />
       )}
@@ -681,6 +703,28 @@ function App() {
                   />
                 )}
 
+             {hasPagePermission(
+                "/PurchaseReturn",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseReturn"
+                    element={<PurchaseReturn />}
+                  />
+                )}
+
+               {hasPagePermission(
+                "/PharmacyNotification",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PharmacyNotification"
+                    element={<PharmacyNotification />}
+                  />
+              )}
+
               {hasPagePermission(
                 "/PharmacyItemMaster",
                 allowedActions,
@@ -689,6 +733,51 @@ function App() {
                   <Route
                     path="/PharmacyItemMaster"
                     element={<PharmacyItemMaster />}
+                  />
+                )}
+
+                
+              {hasPagePermission(
+                "/MedicineRequisition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineRequisition"
+                    element={<MedicineRequisition />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/MedicineRequisitionApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineRequisitionApproval"
+                    element={<MedicineRequisitionApproval />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrder",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrder"
+                    element={<PurchaseOrder />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PurchaseOrderApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseOrderApproval"
+                    element={<PurchaseOrderApproval />}
                   />
                 )}
 
@@ -760,6 +849,26 @@ function App() {
                     element={<RDReportForm />}
                   />
                 )}
+                {hasPagePermission(
+                "/RDList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/RDPrint"
+                    element={<RDPrint />}
+                  />
+                )}
+                {hasPagePermission(
+                "/JRDReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/JRDReport"
+                    element={<JRDReport />}
+                  />
+                )}
 
               {/* Packages */}
               {hasPagePermission(
@@ -811,6 +920,16 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/AccountsReports" element={<AccountsReports />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyExpiryReport" element={<PharmacyExpiryReport />} />}
+              {hasPagePermission(
+                "/PharmacyExpiryReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PharmacyStockDashboard" element={<PharmacyStockDashboard />} />}
 
               {/* Velavan */}
               {hasPagePermission(
@@ -920,26 +1039,18 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
+              
               {hasPagePermission(
                 "/OTMedicineBilling",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
-              {hasPagePermission(
-                "/OTMedicineBilling",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                  <Route
-                    path="/OTMedicineBilling"
-                    element={<OTMedicineBilling />}
-                  />
-                )}
+                <Route
+                  path="/OTMedicineBilling"
+                  element={<OTMedicineBilling />}
+                />
+              )}
+
               {hasPagePermission(
                 "/ShiftBasisReport",
                 allowedActions,

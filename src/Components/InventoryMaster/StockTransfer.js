@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
 import {
   Container,
   PageWrapper,
-  FormContent,
   FormRow,
   InputWrapper,
   Label,
@@ -17,495 +16,1161 @@ import {
   Td,
   Tr,
 } from "../GlobalStyles";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
+
+// ─── Animations ───────────────────────────────────────────────────────────────
+const slideDown = keyframes`
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
+
+const fadeIn = keyframes`
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+`;
 
 // ─── Styled Components ────────────────────────────────────────────────────────
-
 const PageHeader = styled.div`
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
   color: white;
-  padding: 18px 24px;
-  border-radius: 8px 8px 0 0;
+  padding: 20px 28px;
+  border-radius: 10px 10px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(13,148,136,0.18);
 `;
-
 const PageTitle = styled.h1`
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
 `;
-
 const PageSubtitle = styled.p`
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   font-size: 0.8rem;
-  opacity: 0.8;
+  opacity: 0.82;
 `;
-
 const NewTransferBtn = styled.button`
   background: #f97316;
   color: white;
   border: none;
-  padding: 9px 18px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 7px;
+  font-size: 0.87rem;
+  font-weight: 700;
   cursor: pointer;
-  &:hover {
-    background: #ea6c0a;
-  }
+  transition: background 0.18s, transform 0.12s;
+  box-shadow: 0 2px 8px rgba(249,115,22,0.25);
+  &:hover { background: #ea6c0a; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
 `;
-
 const SectionTitle = styled.h4`
   color: #0d9488;
   margin: 0 0 16px;
   font-size: 0.95rem;
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
-
 const StatusBadge = styled.span`
-  display: inline-block;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
   border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: ${({ status }) =>
-    status === "Approved"
-      ? "#0d9488"
-      : status === "Pending"
-      ? "#f59e0b"
-      : "#6b7280"};
-  color: white;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: ${({ $status }) =>
+    $status === "Approved" ? "#dcfce7"
+    : $status === "Rejected" ? "#fee2e2"
+    : "#fef9c3"};
+  color: ${({ $status }) =>
+    $status === "Approved" ? "#166534"
+    : $status === "Rejected" ? "#991b1b"
+    : "#854d0e"};
+  border: 1px solid ${({ $status }) =>
+    $status === "Approved" ? "#86efac"
+    : $status === "Rejected" ? "#fca5a5"
+    : "#fde047"};
+  &::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: ${({ $status }) =>
+      $status === "Approved" ? "#16a34a"
+      : $status === "Rejected" ? "#dc2626"
+      : "#ca8a04"};
+  }
 `;
-
 const FilterRow = styled.div`
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: flex-end;
   flex-wrap: wrap;
   padding: 16px 24px;
   background: #f9fafb;
   border-bottom: 1px solid #e5e7eb;
 `;
-
 const FilterGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 150px;
 `;
-
 const FilterLabel = styled.label`
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.73rem;
+  font-weight: 700;
   color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 `;
-
-const FilterInput = styled.input`
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  color: #374151;
-  outline: none;
-  &:focus {
-    border-color: #0d9488;
-  }
-`;
-
 const FilterSelect = styled.select`
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
   font-size: 0.85rem;
   color: #374151;
   outline: none;
-  &:focus {
-    border-color: #0d9488;
-  }
+  background: white;
+  transition: border-color 0.15s;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
 `;
-
+const FilterInput = styled.input`
+  padding: 8px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: #374151;
+  outline: none;
+  background: white;
+  transition: border-color 0.15s;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+`;
 const SearchBtn = styled.button`
   background: #0d9488;
   color: white;
   border: none;
-  padding: 8px 18px;
-  border-radius: 6px;
+  padding: 9px 20px;
+  border-radius: 7px;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  height: 34px;
+  height: 36px;
   align-self: flex-end;
-  &:hover {
-    background: #0f766e;
-  }
+  transition: background 0.15s, transform 0.1s;
+  &:hover { background: #0f766e; }
 `;
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+const FormPanel = styled.div`
+  animation: ${slideDown} 0.3s ease forwards;
+  border-bottom: 2px solid #d1fae5;
+  background: #f8fffe;
 `;
-
-const ModalBox = styled.div`
-  background: white;
+const FormPanelBody = styled.div`
+  padding: 22px 26px;
+`;
+const MedicineBox = styled.div`
+  background: #f0fdfa;
+  border: 1.5px solid #a7f3d0;
   border-radius: 10px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 18px;
+  margin-bottom: 20px;
 `;
-
-const ModalHeader = styled.div`
-  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-  color: white;
-  padding: 16px 22px;
-  border-radius: 10px 10px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+const RelativeWrapper = styled.div`
+  position: relative;
 `;
-
-const ModalClose = styled.button`
-  background: transparent;
-  border: none;
-  color: white;
-  font-size: 1.3rem;
-  cursor: pointer;
-  line-height: 1;
-`;
-
-const ModalBody = styled.div`
-  padding: 22px;
-`;
-
 const SearchDropdown = styled.div`
   position: absolute;
   z-index: 999;
   background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  max-height: 200px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  max-height: 210px;
   overflow-y: auto;
   width: 100%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  top: calc(100% + 2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  top: calc(100% + 3px);
   left: 0;
 `;
-
 const DropdownItem = styled.div`
-  padding: 8px 12px;
+  padding: 9px 14px;
   font-size: 0.85rem;
   cursor: pointer;
   color: #374151;
-  &:hover {
-    background: #f0fdfa;
-    color: #0d9488;
-  }
+  border-bottom: 1px solid #f3f4f6;
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f0fdfa; color: #0d9488; }
 `;
-
-const RelativeWrapper = styled.div`
-  position: relative;
-`;
-
 const AddedItemsTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
 `;
-
 const ATh = styled.th`
   background: #f0fdfa;
   color: #0f766e;
-  padding: 8px 10px;
+  padding: 10px 12px;
   text-align: left;
-  font-weight: 600;
-  border-bottom: 2px solid #d1fae5;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid #a7f3d0;
 `;
-
 const ATd = styled.td`
-  padding: 7px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid #f3f4f6;
   color: #374151;
+  vertical-align: middle;
 `;
-
 const RemoveBtn = styled.button`
   background: #fee2e2;
   color: #dc2626;
   border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 5px;
+  font-size: 0.74rem;
+  font-weight: 700;
   cursor: pointer;
-  &:hover {
-    background: #fca5a5;
-  }
+  transition: background 0.15s;
+  &:hover { background: #fca5a5; }
+`;
+const BatchSelect = styled.select`
+  padding: 8px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: #374151;
+  width: 100%;
+  outline: none;
+  background: white;
+  &:focus { border-color: #0d9488; }
+`;
+const ReadonlyInput = styled(Input)`
+  background: #f3f4f6 !important;
+  cursor: not-allowed;
+  color: #6b7280;
+`;
+const StockInfoNote = styled.div`
+  font-size: 0.73rem;
+  color: #6b7280;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`;
+const StockWarn = styled(StockInfoNote)`
+  color: #d97706;
 `;
 
-const AddBtn = styled.button`
-  background: #d1fae5;
-  color: #059669;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  &:hover {
-    background: #6ee7b7;
-  }
+// ─── Remarks Textarea ─────────────────────────────────────────────────────────
+const Textarea = styled.textarea`
+  width: 100%;
+  padding: 9px 11px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  color: #374151;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+  background: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+  &:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.1); }
+  &::placeholder { color: #9ca3af; }
+  &.error { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+`;
+const RequiredNote = styled.div`
+  font-size: 0.72rem;
+  color: #dc2626;
+  margin-top: 4px;
 `;
 
-const ActionMenuWrapper = styled.div`
+// ─── Info Chip (approved_by / rejected_by) ────────────────────────────────────
+const InfoChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  color: ${({ $color }) => $color || "#6b7280"};
+  background: ${({ $bg }) => $bg || "#f3f4f6"};
+  border: 1px solid ${({ $border }) => $border || "#e5e7eb"};
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+`;
+
+// ─── Kebab Menu ───────────────────────────────────────────────────────────────
+const KebabWrapper = styled.div`
   position: relative;
   display: inline-block;
 `;
-
-const ActionMenuBtn = styled.button`
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 4px 8px;
+const KebabBtn = styled.button`
+  background: white;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.2rem;
   color: #6b7280;
-  &:hover {
-    background: #f3f4f6;
-  }
+  transition: background 0.15s, border-color 0.15s;
+  &:hover { background: #f3f4f6; border-color: #9ca3af; color: #111827; }
 `;
-
-const ActionMenu = styled.div`
+const KebabMenu = styled.div`
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
   background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  min-width: 130px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.13);
+  min-width: 175px;
+  z-index: 1000;
+  overflow: hidden;
+  animation: ${fadeIn} 0.15s ease forwards;
 `;
-
-const ActionMenuItem = styled.div`
-  padding: 8px 14px;
-  font-size: 0.82rem;
-  color: #374151;
-  cursor: pointer;
+const KebabItem = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: ${({ $disabled }) => ($disabled ? "not-allowed" : "pointer")};
+  color: ${({ $danger, $disabled }) =>
+    $disabled ? "#9ca3af" : $danger ? "#dc2626" : "#374151"};
+  opacity: ${({ $disabled }) => ($disabled ? 0.55 : 1)};
+  transition: background 0.12s;
   &:hover {
-    background: #f0fdfa;
-    color: #0d9488;
+    background: ${({ $danger, $disabled }) =>
+      $disabled ? "none" : $danger ? "#fff1f2" : "#f0fdfa"};
+    color: ${({ $danger, $disabled }) =>
+      $disabled ? undefined : $danger ? "#b91c1c" : "#0d9488"};
   }
 `;
-
-// ─── Print Slip Styles (injected at runtime) ──────────────────────────────────
-const PRINT_STYLES = `
-  @media print {
-    body * { visibility: hidden !important; }
-    #stock-transfer-slip, #stock-transfer-slip * { visibility: visible !important; }
-    #stock-transfer-slip {
-      position: fixed; left: 0; top: 0; width: 100%;
-      font-family: monospace; font-size: 12px; padding: 10px;
-    }
-  }
+const KebabDivider = styled.div`
+  height: 1px;
+  background: #f3f4f6;
+  margin: 2px 0;
 `;
 
-// ─── Financial Year Helper ─────────────────────────────────────────────────────
-function getCurrentFinYear() {
-  const today = new Date();
-  const fromYr = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-  return `${String(fromYr).slice(-2)}${String(fromYr + 1).slice(-2)}`;
+// ─── Print Modal ──────────────────────────────────────────────────────────────
+const PrintModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+`;
+const PrintModalBox = styled.div`
+  background: white;
+  border-radius: 12px;
+  width: 780px;
+  max-width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+  overflow: hidden;
+  animation: ${fadeIn} 0.2s ease forwards;
+`;
+const PrintModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 22px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+  flex-shrink: 0;
+`;
+const PrintModalTitle = styled.div`
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+`;
+const PrintModalActions = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+const PrintModalCloseBtn = styled.button`
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  padding: 7px 15px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: #fca5a5; }
+`;
+const PrintModalPrintBtn = styled.button`
+  background: #0d9488;
+  color: white;
+  border: none;
+  padding: 7px 17px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { background: #0f766e; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+`;
+const PrintModalBody = styled.div`
+  overflow-y: auto;
+  flex: 1;
+  padding: 24px 28px;
+  background: #f0f0f0;
+`;
+const SlipPaper = styled.div`
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.14);
+  padding: 28px 32px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  color: #111;
+  line-height: 1.55;
+  max-width: 680px;
+  margin: 0 auto;
+  min-height: 400px;
+`;
+
+// ─── Confirmation Modal ───────────────────────────────────────────────────────
+const ModalOverlay = styled.div`
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1050;
+  display: flex; align-items: center; justify-content: center;
+`;
+const ModalBox = styled.div`
+  background: white;
+  border-radius: 12px;
+  padding: 30px 34px;
+  max-width: 460px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: ${fadeIn} 0.18s ease forwards;
+`;
+const ModalTitle = styled.h3`
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111827;
+`;
+const ModalText = styled.p`
+  margin: 0 0 16px;
+  font-size: 0.875rem;
+  color: #6b7280;
+  line-height: 1.6;
+`;
+const ModalBtns = styled.div`
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+`;
+const ModalLabel = styled.label`
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+const ModalTextarea = styled.textarea`
+  width: 100%;
+  padding: 9px 11px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  color: #374151;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  background: white;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:focus { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+  &::placeholder { color: #9ca3af; }
+  &.error { border-color: #dc2626; }
+`;
+
+// ─── Reject Modal (with reason) ───────────────────────────────────────────────
+const RejectModal = ({ transfer, onConfirm, onClose }) => {
+  const [reason, setReason] = useState("");
+  const [touched, setTouched] = useState(false);
+
+  const handleConfirm = () => {
+    setTouched(true);
+    if (!reason.trim()) return;
+    onConfirm(reason.trim());
+  };
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ModalBox onClick={(e) => e.stopPropagation()}>
+        <ModalTitle>✕ Cancel Stock Transfer</ModalTitle>
+        <ModalText>
+          Cancel transfer <strong>{transfer.transfer_ref_number}</strong>?
+          This will mark it as Rejected and cannot be undone.
+        </ModalText>
+        <div>
+          <ModalLabel>
+            Rejection Reason <span style={{ color: "#dc2626" }}>*</span>
+          </ModalLabel>
+          <ModalTextarea
+            className={touched && !reason.trim() ? "error" : ""}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Enter reason for cancelling this transfer…"
+          />
+          {touched && !reason.trim() && (
+            <div style={{ color: "#dc2626", fontSize: "0.75rem", marginTop: 4 }}>
+              Rejection reason is required.
+            </div>
+          )}
+        </div>
+        <ModalBtns>
+          <button onClick={onClose} style={{
+            padding: "9px 20px", borderRadius: 7, border: "1.5px solid #d1d5db",
+            background: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600,
+          }}>Cancel</button>
+          <button onClick={handleConfirm} style={{
+            padding: "9px 20px", borderRadius: 7, border: "none",
+            background: "#dc2626", color: "white",
+            cursor: "pointer", fontSize: "0.85rem", fontWeight: 700,
+          }}>Yes, Cancel Transfer</button>
+        </ModalBtns>
+      </ModalBox>
+    </ModalOverlay>
+  );
+};
+
+const ConfirmModal = ({ title, message, confirmLabel, confirmColor, onConfirm, onClose }) => (
+  <ModalOverlay onClick={onClose}>
+    <ModalBox onClick={(e) => e.stopPropagation()}>
+      <ModalTitle>{title}</ModalTitle>
+      <ModalText>{message}</ModalText>
+      <ModalBtns>
+        <button onClick={onClose} style={{
+          padding: "9px 20px", borderRadius: 7, border: "1.5px solid #d1d5db",
+          background: "white", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600,
+        }}>Cancel</button>
+        <button onClick={onConfirm} style={{
+          padding: "9px 20px", borderRadius: 7, border: "none",
+          background: confirmColor || "#0d9488", color: "white",
+          cursor: "pointer", fontSize: "0.85rem", fontWeight: 700,
+        }}>{confirmLabel || "Confirm"}</button>
+      </ModalBtns>
+    </ModalBox>
+  </ModalOverlay>
+);
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const DRUG_PURCHASE_LABEL = "Drug Purchase";
+const DRUG_PURCHASE_VALUE = "__DRUG_PURCHASE__";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const isDrugPurchaseOutlet = (outlet) => {
+  const name = (outlet?.outlet_name || "").trim().toLowerCase();
+  return name === "drug purchase";
+};
+
+const normalizeTransferItems = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  if (typeof raw === "object") return [raw];
+  if (typeof raw === "string") {
+    try {
+      const p = JSON.parse(raw);
+      if (Array.isArray(p)) return p.filter(Boolean);
+      if (typeof p === "object") return [p];
+    } catch { /* continue */ }
+    try {
+      const matches = [...raw.matchAll(/OrderedDict\(\[(.*?)\]\)/gs)];
+      if (matches.length) {
+        return matches.map((match) => {
+          const content = match[1];
+          const pairs = [...content.matchAll(/\('([^']+)',\s*('?[^,)']+'?|[\d.]+)\)/g)];
+          const obj = {};
+          pairs.forEach(([, key, val]) => {
+            let v = val.trim();
+            if (v.startsWith("'") && v.endsWith("'")) v = v.slice(1, -1);
+            if (!isNaN(v) && v !== "") v = Number(v);
+            obj[key] = v;
+          });
+          return obj;
+        }).filter((item) => Object.keys(item).length > 0);
+      }
+    } catch { /* ignore */ }
+  }
+  return [];
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH CONTEXT
+// ─────────────────────────────────────────────────────────────────────────────
+function getAuthContext() {
+  const raw =
+    localStorage.getItem("auth-outlet-code") ||
+    localStorage.getItem("outletCode") ||
+    localStorage.getItem("outlet_code") ||
+    localStorage.getItem("Outlet-Code") ||
+    sessionStorage.getItem("auth-outlet-code") ||
+    sessionStorage.getItem("outletCode") ||
+    sessionStorage.getItem("outlet_code") ||
+    sessionStorage.getItem("Outlet-Code") ||
+    "";
+
+  const outletCode =
+    !raw || raw === "null" || raw === "None" || raw === "system" || raw === "undefined"
+      ? ""
+      : raw.trim();
+
+  const isDrugPurchase = outletCode === "";
+
+  return { outletCode, isDrugPurchase };
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-const StockTransfer = () => {
-  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSFER FILTER
+// ─────────────────────────────────────────────────────────────────────────────
+function filterTransfersByOutlet(transfers, outletCode, isDrugPurchase) {
+  if (isDrugPurchase) {
+    return transfers.filter((t) => {
+      const to = t.to_outlet ?? "";
+      return to === "" || to === null || to === undefined;
+    });
+  }
+  return transfers.filter((t) => t.to_outlet === outletCode);
+}
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [outlets, setOutlets] = useState([]);
-  const [transfers, setTransfers] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD PRINT HTML
+// ─────────────────────────────────────────────────────────────────────────────
+const buildPrintHtml = (slip, items, getOutletName) => {
+  const RULE  = "─".repeat(100);
+  const RULE2 = "═".repeat(100);
 
-  // Form state
-  const [fromOutlet, setFromOutlet] = useState("Drug Purchase");
-  const [toOutlet, setToOutlet] = useState("");
-  const [transferRefNumber, setTransferRefNumber] = useState("");
-  const [addedItems, setAddedItems] = useState([]);
+  const fmtExpiry = (d) => {
+    if (!d) return "-";
+    try { return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }); }
+    catch { return "-"; }
+  };
+  const fmtDate = (d) => {
+    try { return d ? new Date(d).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"); }
+    catch { return "-"; }
+  };
 
-  // Medicine search state
-  const [medicineSearch, setMedicineSearch] = useState("");
-  const [medicineResults, setMedicineResults] = useState([]);
-  const [showMedDropdown, setShowMedDropdown] = useState(false);
-  const [selectedMedicine, setSelectedMedicine] = useState(null);
-  const [batchInfo, setBatchInfo] = useState({ batch_number: "", hsn_code: "" });
-  const [transferQty, setTransferQty] = useState("");
-  const medicineSearchRef = useRef(null);
+  const totalQty = items.reduce(
+    (s, it) => s + Number(it.transferred_out_quantity || it.transfer_quantity || 0), 0
+  );
+  const totalAmt = items.reduce((s, it) => {
+    const qty  = Number(it.transferred_out_quantity || it.transfer_quantity || 0);
+    const rate = Number(it.Selling_Price || it.selling_price || it.mrp || 0);
+    return s + qty * rate;
+  }, 0);
 
-  // Filter state
-  const [filterFromOutlet, setFilterFromOutlet] = useState("All");
-  const [filterToOutlet, setFilterToOutlet] = useState("All");
-  const [filterFromDate, setFilterFromDate] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-04-01`;
+  const itemRows = items.length === 0
+    ? `<tr><td colspan="7" style="text-align:center;color:#999;padding:16px 0;">No items</td></tr>`
+    : items.map((item, idx) => {
+        const qty   = Number(item.transferred_out_quantity || item.transfer_quantity || 0);
+        const rate  = Number(item.Selling_Price || item.selling_price || item.mrp || 0);
+        const total = qty * rate;
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${item.item_name || `Item #${item.item_id}`}</td>
+            <td>${item.batch_number || "-"}</td>
+            <td>${fmtExpiry(item.expiry_date)}</td>
+            <td style="text-align:right">${qty}</td>
+            <td style="text-align:right">${rate ? rate.toFixed(2) : "-"}</td>
+            <td style="text-align:right">${rate ? total.toFixed(2) : "-"}</td>
+          </tr>`;
+      }).join("");
+
+  const remarksRow = slip.remarks
+    ? `<div style="font-size:11px;margin-bottom:8px">Remarks : ${slip.remarks}</div>`
+    : `<div style="font-size:11px;margin-bottom:8px">Remarks :</div>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Stock Transfer Slip — ${slip.transfer_ref_number}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Courier New", Courier, monospace; font-size: 12px; color: #111; line-height: 1.55; padding: 24px 32px; background: white; }
+    .center { text-align: center; }
+    .bold   { font-weight: bold; }
+    .rule   { white-space: pre; overflow: hidden; margin: 3px 0; font-size: 11px; }
+    .meta-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11.5px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+    thead th { font-weight: bold; padding: 3px 4px; text-align: left; border-bottom: 1px solid #333; }
+    thead th.right { text-align: right; }
+    tbody td { padding: 4px 4px; vertical-align: top; word-break: break-word; }
+    tbody td.right { text-align: right; }
+    .footer-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 6px; }
+    @page { margin: 16px; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="center bold" style="font-size:15px;margin-bottom:2px">SHANMUGA HOSPITAL LIMITED</div>
+  <div class="center" style="font-size:11px;margin-bottom:8px">04272706666</div>
+  <div class="rule">${RULE2}</div>
+  <div class="rule">${RULE2}</div>
+  <div class="center bold" style="font-size:13.5px;margin:6px 0">STOCK TRANSFER SLIP</div>
+  <div class="rule">${RULE2}</div>
+  <div class="rule" style="margin-bottom:10px">${RULE2}</div>
+  <div class="meta-row">
+    <span>Source&nbsp;&nbsp;&nbsp;&nbsp;: <strong>${getOutletName(slip.from_outlet ?? slip.outlet_code)}</strong></span>
+    <span>Date : <strong>${fmtDate(slip.created_date)}</strong></span>
+  </div>
+  <div class="meta-row" style="margin-bottom:10px">
+    <span>Destination : <strong>${getOutletName(slip.to_outlet)}</strong></span>
+    <span>Ref.&nbsp; : <strong>${slip.transfer_ref_number}</strong></span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28px">Sl</th>
+        <th>Particulars</th>
+        <th style="width:90px">Batch</th>
+        <th style="width:62px">Expiry</th>
+        <th class="right" style="width:44px">Qty</th>
+        <th class="right" style="width:76px">S.rate</th>
+        <th class="right" style="width:84px">Total</th>
+      </tr>
+    </thead>
+    <tbody>${itemRows}</tbody>
+  </table>
+  <div class="rule" style="margin-top:6px">${RULE}</div>
+  <div class="rule" style="margin-bottom:6px">${RULE}</div>
+  <div style="font-size:11px;margin-bottom:2px">Prepared By : ${slip.created_by || "-"}</div>
+  ${remarksRow}
+  <div class="rule">${RULE2}</div>
+  <div class="rule" style="margin-bottom:6px">${RULE2}</div>
+  <div class="footer-row">
+    <span>${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+    <span>${totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+  </div>
+  <div class="rule" style="margin-top:5px">${RULE}</div>
+  <div class="rule">${RULE}</div>
+  <script>window.onload = function() { window.print(); };</script>
+</body>
+</html>`;
+};
+
+// ─── Slip Content (modal preview) ────────────────────────────────────────────
+const SlipContent = ({ slip, items, getOutletName }) => {
+  const RULE  = "─".repeat(100);
+  const RULE2 = "═".repeat(100);
+
+  const totalQty = items.reduce(
+    (s, it) => s + Number(it.transferred_out_quantity || it.transfer_quantity || 0), 0
+  );
+  const totalAmt = items.reduce((s, it) => {
+    const qty  = Number(it.transferred_out_quantity || it.transfer_quantity || 0);
+    const rate = Number(it.Selling_Price || it.selling_price || it.mrp || 0);
+    return s + qty * rate;
+  }, 0);
+
+  const fmtExpiry = (d) => {
+    if (!d) return "-";
+    try { return new Date(d).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" }); }
+    catch { return "-"; }
+  };
+  const fmtDate = (d) => {
+    try { return d ? new Date(d).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"); }
+    catch { return "-"; }
+  };
+
+  const COL  = "28px 1fr 90px 62px 44px 76px 84px";
+  const mono = (extra = {}) => ({
+    fontFamily: "Courier New, monospace", fontSize: 11.5, lineHeight: 1.55, color: "#111", ...extra,
   });
-  const [filterToDate, setFilterToDate] = useState(() => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  });
 
-  // Action menu
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [printSlip, setPrintSlip] = useState(null);
+  return (
+    <div style={mono()}>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 15, marginBottom: 2 }}>SHANMUGA HOSPITAL LIMITED</div>
+      <div style={{ textAlign: "center", fontSize: 11, marginBottom: 8 }}>04272706666</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13.5, margin: "6px 0" }}>STOCK TRANSFER SLIP</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 10, overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3, fontSize: 11.5 }}>
+        <span>Source&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{getOutletName(slip.from_outlet ?? slip.outlet_code)}</strong></span>
+        <span>Date : <strong>{fmtDate(slip.created_date)}</strong></span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10, fontSize: 11.5 }}>
+        <span>Destination : <strong>{getOutletName(slip.to_outlet)}</strong></span>
+        <span>Ref.&nbsp; : <strong>{slip.transfer_ref_number}</strong></span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: COL, gap: "4px", fontWeight: "bold", fontSize: 11, marginBottom: 3 }}>
+        <span>Sl</span><span>Particulars</span><span>Batch</span><span>Expiry</span>
+        <span style={{ textAlign: "right" }}>Qty</span>
+        <span style={{ textAlign: "right" }}>S.rate</span>
+        <span style={{ textAlign: "right" }}>Total</span>
+      </div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
+      {items.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "12px 0", color: "#999", fontSize: 11 }}>No items</div>
+      ) : (
+        items.map((item, idx) => {
+          const qty   = Number(item.transferred_out_quantity || item.transfer_quantity || 0);
+          const rate  = Number(item.Selling_Price || item.selling_price || item.mrp || 0);
+          const total = qty * rate;
+          return (
+            <div key={idx} style={{ display: "grid", gridTemplateColumns: COL, gap: "4px", fontSize: 11, marginBottom: 4, alignItems: "start" }}>
+              <span>{idx + 1}</span>
+              <span style={{ wordBreak: "break-word" }}>{item.item_name || `Item #${item.item_id}`}</span>
+              <span>{item.batch_number || "-"}</span>
+              <span>{fmtExpiry(item.expiry_date)}</span>
+              <span style={{ textAlign: "right" }}>{qty}</span>
+              <span style={{ textAlign: "right" }}>{rate ? rate.toFixed(2) : "-"}</span>
+              <span style={{ textAlign: "right" }}>{rate ? total.toFixed(2) : "-"}</span>
+            </div>
+          );
+        })
+      )}
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 6, overflowX: "hidden" }}>{RULE}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE}</div>
+      <div style={{ fontSize: 11, marginBottom: 2 }}>Prepared By : {slip.created_by || "-"}</div>
+      <div style={{ fontSize: 11, marginBottom: 8 }}>Remarks : {slip.remarks || ""}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginBottom: 6, overflowX: "hidden" }}>{RULE2}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold" }}>
+        <span>{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+        <span>{totalQty}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{totalAmt > 0 ? totalAmt.toFixed(2) : ""}</span>
+      </div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", marginTop: 5, overflowX: "hidden" }}>{RULE}</div>
+      <div style={{ fontSize: 11, whiteSpace: "pre", overflowX: "hidden" }}>{RULE}</div>
+    </div>
+  );
+};
 
-  // ── Effects ────────────────────────────────────────────────────────────────
+// ─── Print Slip Modal ─────────────────────────────────────────────────────────
+const PrintSlipModal = ({ slip, getOutletName, onClose, HmsBaseUrl }) => {
+  const [items, setItems]     = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchOutlets();
-    fetchTransfers();
-    injectPrintStyles();
-  }, []);
+    let cancelled = false;
+    const fetchDetail = async () => {
+      setLoading(true);
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}stock-transfer/?transfer_ref_number=${encodeURIComponent(slip.transfer_ref_number)}`,
+          "GET"
+        );
+        if (cancelled) return;
+        const rows  = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+        const found = Array.isArray(rows)
+          ? rows.find((t) => t.transfer_ref_number === slip.transfer_ref_number)
+          : rows;
+        let enrichedItems = found?.items ?? slip?.items ?? [];
+        if ((!enrichedItems || enrichedItems.length === 0) && found?.items_details)
+          enrichedItems = found.items_details;
+        const finalItems = Array.isArray(enrichedItems)
+          ? enrichedItems
+          : normalizeTransferItems(enrichedItems);
+        setItems(finalItems);
+      } catch (err) {
+        console.warn("[PrintSlipModal] fallback:", err);
+        if (!cancelled) setItems(normalizeTransferItems(slip?.items ?? []));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchDetail();
+    return () => { cancelled = true; };
+  }, [slip.transfer_ref_number, slip.items, HmsBaseUrl]); // eslint-disable-line
 
-  useEffect(() => {
-    if (showModal) generateRefNumber();
-  }, [showModal]);
+  const handlePrint = () => {
+    const html = buildPrintHtml(slip, items, getOutletName);
+    const win  = window.open("", "_blank", "width=800,height=600");
+    if (!win) {
+      toast.error("Popup blocked — please allow popups for this site and try again.");
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  };
+
+  return (
+    <PrintModalOverlay onClick={onClose}>
+      <PrintModalBox onClick={(e) => e.stopPropagation()}>
+        <PrintModalHeader>
+          <PrintModalTitle>🖨️ Stock Transfer Slip — {slip.transfer_ref_number}</PrintModalTitle>
+          <PrintModalActions>
+            <PrintModalPrintBtn onClick={handlePrint} disabled={loading}>🖨️ Print</PrintModalPrintBtn>
+            <PrintModalCloseBtn onClick={onClose}>✕ Close</PrintModalCloseBtn>
+          </PrintModalActions>
+        </PrintModalHeader>
+        <PrintModalBody>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "60px 0", color: "#6b7280", fontFamily: "Courier New", fontSize: 13 }}>
+              ⏳ Loading slip details…
+            </div>
+          ) : (
+            <SlipPaper>
+              <SlipContent slip={slip} items={items} getOutletName={getOutletName} />
+            </SlipPaper>
+          )}
+        </PrintModalBody>
+      </PrintModalBox>
+    </PrintModalOverlay>
+  );
+};
+
+// ─── Kebab Row Menu ───────────────────────────────────────────────────────────
+const RowKebabMenu = ({ transfer, canApprove, onApprove, onReject, onPrint }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const status     = transfer.is_verified || "Draft";
+  const isApproved = status === "Approved";
+  const isRejected = status === "Rejected";
+  const isDraft    = status === "Draft";
 
   useEffect(() => {
     const handler = (e) => {
-      if (medicineSearchRef.current && !medicineSearchRef.current.contains(e.target)) {
-        setShowMedDropdown(false);
-      }
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  function injectPrintStyles() {
-    if (!document.getElementById("stock-transfer-print-style")) {
-      const style = document.createElement("style");
-      style.id = "stock-transfer-print-style";
-      style.innerHTML = PRINT_STYLES;
-      document.head.appendChild(style);
-    }
-  }
+  const handle = (fn) => { setOpen(false); fn(); };
 
-  // ── API Calls ──────────────────────────────────────────────────────────────
+  const approveDisabled = !isDraft || !canApprove;
+  const rejectDisabled  = isApproved || isRejected;
 
-  const fetchOutlets = async () => {
+  return (
+    <KebabWrapper ref={ref}>
+      <KebabBtn onClick={() => setOpen((v) => !v)} title="Actions">⋮</KebabBtn>
+      {open && (
+        <KebabMenu>
+          <KebabItem
+            $disabled={approveDisabled}
+            title={
+              isApproved ? "Already approved"
+              : isRejected ? "Cannot approve a cancelled transfer"
+              : !canApprove ? "Only the receiving outlet can approve"
+              : "Approve this transfer"
+            }
+            onClick={() => !approveDisabled && handle(onApprove)}
+          >
+            <span>✔</span> Approve
+          </KebabItem>
+          <KebabDivider />
+          <KebabItem onClick={() => handle(onPrint)}>
+            <span>🖨️</span> Print Slip
+          </KebabItem>
+          <KebabDivider />
+          <KebabItem
+            $danger
+            $disabled={rejectDisabled}
+            title={
+              isApproved ? "Approved transfers cannot be cancelled"
+              : isRejected ? "Already cancelled"
+              : "Cancel this transfer"
+            }
+            onClick={() => !rejectDisabled && handle(onReject)}
+          >
+            <span>✕</span> Cancel Transfer
+          </KebabItem>
+        </KebabMenu>
+      )}
+    </KebabWrapper>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+const StockTransfer = () => {
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  const { outletCode, isDrugPurchase } = getAuthContext();
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [outlets, setOutlets]     = useState([]);
+  const [transfers, setTransfers] = useState([]);
+  const [showForm, setShowForm]   = useState(false);
+
+  const [fromOutlet, setFromOutlet] = useState(isDrugPurchase ? null : outletCode);
+  const [toOutlet, setToOutlet]     = useState(null);
+
+  // ── NEW: Remarks state ─────────────────────────────────────────────────────
+  const [remarks, setRemarks]           = useState("");
+  const [remarksTouched, setRemarksTouched] = useState(false);
+
+  const [addedItems, setAddedItems] = useState([]);
+
+  const [medicineSearch, setMedicineSearch]   = useState("");
+  const [medicineResults, setMedicineResults] = useState([]);
+  const [showMedDropdown, setShowMedDropdown] = useState(false);
+  const [selectedMedicine, setSelectedMedicine] = useState(null);
+
+  const [availableBatches, setAvailableBatches] = useState([]);
+  const [selectedBatchIdx, setSelectedBatchIdx] = useState("");
+  const [transferQty, setTransferQty]           = useState("");
+
+  const [filterFromDate, setFilterFromDate] = useState(() => {
+    const d  = new Date();
+    const yr = d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+    return `${yr}-04-01`;
+  });
+  const [filterToDate, setFilterToDate] = useState(
+    () => new Date().toISOString().split("T")[0]
+  );
+
+  const [printSlip, setPrintSlip]       = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
+
+  const medicineSearchRef = useRef(null);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const selectedBatch =
+    selectedBatchIdx !== "" ? availableBatches[selectedBatchIdx] : null;
+
+  // ── Effects ────────────────────────────────────────────────────────────────
+  useEffect(() => { fetchOutlets(); }, []); // eslint-disable-line
+  useEffect(() => { fetchTransfers(); }, []); // eslint-disable-line
+
+  useEffect(() => {
+    const h = (e) => {
+      if (medicineSearchRef.current && !medicineSearchRef.current.contains(e.target))
+        setShowMedDropdown(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const getOutletName = useCallback((code) => {
+    if (code === null || code === undefined || code === "" || code === "null")
+      return DRUG_PURCHASE_LABEL;
+    const o = outlets.find((x) => x.outlet_code === code);
+    return o ? o.outlet_name : code;
+  }, [outlets]);
+
+  // ── Fetch outlets ──────────────────────────────────────────────────────────
+  const fetchOutlets = useCallback(async () => {
     try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}get_active_outlets/`,
-        "GET"
-      );
-      if (response && !response.error && Array.isArray(response.data)) {
-        setOutlets(response.data);
-      }
+      const r = await apiRequest(`${HmsBaseUrl}get_active_outlets/`, "GET");
+      const list = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : []);
+      const filtered = Array.isArray(list)
+        ? list.filter((o) => o.outlet_name && !isDrugPurchaseOutlet(o))
+        : [];
+      setOutlets(filtered);
     } catch {
       toast.error("Failed to fetch outlets");
     }
-  };
+  }, [HmsBaseUrl]);
 
-  const fetchTransfers = async (filters = {}) => {
+  // ── Fetch transfers ────────────────────────────────────────────────────────
+  const fetchTransfers = useCallback(async (extra = {}) => {
     try {
       const params = new URLSearchParams();
-      if (filters.from_outlet && filters.from_outlet !== "All")
-        params.append("from_outlet", filters.from_outlet);
-      if (filters.to_outlet && filters.to_outlet !== "All")
-        params.append("to_outlet", filters.to_outlet);
-      if (filters.from_date) params.append("from_date", filters.from_date);
-      if (filters.to_date) params.append("to_date", filters.to_date);
-
-      const url = `${HmsBaseUrl}stock-transfer/${params.toString() ? "?" + params.toString() : ""}`;
-      const response = await apiRequest(url, "GET");
-      if (response && !response.error && Array.isArray(response.data)) {
-        setTransfers(response.data);
-      } else {
-        setTransfers([]);
-      }
+      if (extra.from_date) params.append("from_date", extra.from_date);
+      if (extra.to_date)   params.append("to_date",   extra.to_date);
+      const qs  = params.toString();
+      const res = await apiRequest(
+        `${HmsBaseUrl}stock-transfer/${qs ? "?" + qs : ""}`, "GET"
+      );
+      const rows = res?.data?.data ?? (Array.isArray(res?.data) ? res.data : []);
+      const all  = Array.isArray(rows) ? rows : [];
+      const filtered = filterTransfersByOutlet(all, outletCode, isDrugPurchase);
+      setTransfers(filtered);
     } catch {
       toast.error("Failed to fetch transfers");
     }
-  };
+  }, [HmsBaseUrl, outletCode, isDrugPurchase]);
 
-  const generateRefNumber = async () => {
-    try {
-      const finYear = getCurrentFinYear();
-      const prefix = `${finYear}/`;
-      const response = await apiRequest(
-        `${HmsBaseUrl}stock-transfer/?ref_prefix=${finYear}`,
-        "GET"
-      );
-      let maxSeq = 0;
-      if (response && !response.error && Array.isArray(response.data)) {
-        response.data.forEach((t) => {
-          if (t.transfer_ref_number && t.transfer_ref_number.startsWith(prefix)) {
-            const seq = parseInt(t.transfer_ref_number.split("/")[1] || "0", 10);
-            if (seq > maxSeq) maxSeq = seq;
-          }
-        });
-      }
-      setTransferRefNumber(`${finYear}/${String(maxSeq + 1).padStart(6, "0")}`);
-    } catch {
-      const finYear = getCurrentFinYear();
-      setTransferRefNumber(`${finYear}/000001`);
-    }
-  };
-
-  const searchMedicines = async (query) => {
+  // ── Search medicines ───────────────────────────────────────────────────────
+  const searchMedicines = useCallback(async (query) => {
     if (!query || query.length < 2) {
-      setMedicineResults([]);
-      setShowMedDropdown(false);
-      return;
+      setMedicineResults([]); setShowMedDropdown(false); return;
     }
+    if (fromOutlet === null) { setMedicineResults([]); setShowMedDropdown(false); return; }
     try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}pharmacy-item/?search=${encodeURIComponent(query)}`,
-        "GET"
-      );
-      if (response && !response.error && Array.isArray(response.data)) {
-        setMedicineResults(response.data);
-        setShowMedDropdown(true);
-      } else {
-        setMedicineResults([]);
-        setShowMedDropdown(false);
-      }
+      const params = new URLSearchParams({ search: query });
+      params.append("outlet_code", fromOutlet);
+      const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
+      const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const seen = new Set();
+      const unique = raw.filter((s) => {
+        if (seen.has(s.item_id)) return false;
+        seen.add(s.item_id); return true;
+      });
+      setMedicineResults(unique);
+      setShowMedDropdown(unique.length > 0);
     } catch {
       setMedicineResults([]);
     }
-  };
+  }, [HmsBaseUrl, fromOutlet]);
 
-  const fetchBatchInfo = async (itemId) => {
+  // ── Fetch batches ──────────────────────────────────────────────────────────
+  const fetchBatchesForItem = useCallback(async (itemId) => {
+    if (fromOutlet === null) return;
     try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}pharmacy-stock/?item_id=${itemId}`,
-        "GET"
-      );
-      if (response && !response.error && Array.isArray(response.data) && response.data.length > 0) {
-        const stock = response.data[0];
-        setBatchInfo({
-          batch_number: stock.batch_number || "",
-          hsn_code: stock.hsn_code || "",
-        });
-      } else {
-        setBatchInfo({ batch_number: "", hsn_code: "" });
-      }
+      const params = new URLSearchParams({ item_id: itemId });
+      params.append("outlet_code", fromOutlet);
+      const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET");
+      const stocks = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+      const batches = stocks
+        .filter((s) => Number(s.available_qty ?? 0) > 0)
+        .map((s) => ({
+          stock_id:      s.stock_id,
+          batch_number:  s.batch_number || "-",
+          hsn_code:      s.hsn_code     || "",
+          outlet_code:   s.outlet_code  || "",
+          mrp:           s.mrp          || 0,
+          Selling_Price: s.Selling_Price || s.selling_price || s.mrp || 0,
+          available_qty: Number(s.available_qty ?? 0),
+          expiry_date:   s.expiry_date  || null,
+        }));
+      setAvailableBatches(batches);
+      setSelectedBatchIdx(batches.length === 1 ? 0 : "");
     } catch {
-      setBatchInfo({ batch_number: "", hsn_code: "" });
+      setAvailableBatches([]); setSelectedBatchIdx("");
     }
-  };
+  }, [HmsBaseUrl, fromOutlet]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
-
   const handleMedicineSearch = (e) => {
     const val = e.target.value;
     setMedicineSearch(val);
     setSelectedMedicine(null);
-    setBatchInfo({ batch_number: "", hsn_code: "" });
+    setAvailableBatches([]); setSelectedBatchIdx("");
     searchMedicines(val);
   };
 
@@ -513,163 +1178,464 @@ const StockTransfer = () => {
     setSelectedMedicine(med);
     setMedicineSearch(med.item_name);
     setShowMedDropdown(false);
-    fetchBatchInfo(med.item_id);
+    fetchBatchesForItem(med.item_id);
   };
 
-  const handleAddItem = () => {
-    if (!selectedMedicine) {
-      toast.error("Please select a medicine");
-      return;
-    }
-    if (!transferQty || isNaN(transferQty) || Number(transferQty) <= 0) {
-      toast.error("Enter a valid transfer quantity");
-      return;
-    }
-    const alreadyExists = addedItems.find(
-      (i) => i.item_id === selectedMedicine.item_id && i.batch_number === batchInfo.batch_number
-    );
-    if (alreadyExists) {
-      toast.warning("This medicine with same batch is already added");
-      return;
-    }
-    setAddedItems([
-      ...addedItems,
-      {
-        item_id: selectedMedicine.item_id,
-        item_name: selectedMedicine.item_name,
-        batch_number: batchInfo.batch_number,
-        hsn_code: batchInfo.hsn_code,
-        transfer_quantity: Number(transferQty),
-      },
-    ]);
-    setMedicineSearch("");
-    setSelectedMedicine(null);
-    setBatchInfo({ batch_number: "", hsn_code: "" });
+  const handleBatchChange = (e) => {
+    const v = e.target.value;
+    setSelectedBatchIdx(v === "" ? "" : Number(v));
     setTransferQty("");
   };
 
-  const handleRemoveItem = (index) => {
-    setAddedItems(addedItems.filter((_, i) => i !== index));
+  const toSelectVal = (code) => {
+    if (code === null || code === undefined) return "";
+    if (code === "") return DRUG_PURCHASE_VALUE;
+    return code;
   };
 
-  const handleSave = async () => {
-    if (!fromOutlet) {
-      toast.error("Please select From Outlet");
-      return;
+  const handleFromOutletChange = (selectVal) => {
+    const code = selectVal === ""
+      ? null
+      : selectVal === DRUG_PURCHASE_VALUE
+        ? ""
+        : selectVal;
+    setFromOutlet(code);
+    setMedicineSearch(""); setSelectedMedicine(null);
+    setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+  };
+
+  const handleToOutletChange = (selectVal) => {
+    if (selectVal === "") { setToOutlet(null); return; }
+    const code = selectVal === DRUG_PURCHASE_VALUE ? "" : selectVal;
+    setToOutlet(code);
+  };
+
+  const handleAddItem = () => {
+    if (!selectedMedicine)                         { toast.error("Please select a medicine"); return; }
+    if (selectedBatchIdx === "" || !selectedBatch) { toast.error("Please select a batch"); return; }
+    const qty = Number(transferQty);
+    if (!qty || qty <= 0)                          { toast.error("Enter a valid transfer quantity"); return; }
+    if (qty > selectedBatch.available_qty) {
+      toast.error(`Qty (${qty}) exceeds available stock (${selectedBatch.available_qty})`); return;
     }
-    if (!toOutlet) {
-      toast.error("Please select To Outlet");
-      return;
+    const duplicate = addedItems.find(
+      (i) => i.item_id === selectedMedicine.item_id && i.batch_number === selectedBatch.batch_number
+    );
+    if (duplicate) { toast.warning("This batch is already added"); return; }
+
+    setAddedItems([...addedItems, {
+      stock_id:          selectedBatch.stock_id,
+      item_id:           selectedMedicine.item_id,
+      item_name:         selectedMedicine.item_name,
+      batch_number:      selectedBatch.batch_number,
+      hsn_code:          selectedBatch.hsn_code,
+      outlet_code:       selectedBatch.outlet_code,
+      outlet_stock:      selectedBatch.available_qty,
+      transfer_quantity: qty,
+    }]);
+
+    setMedicineSearch(""); setSelectedMedicine(null);
+    setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+  };
+
+  const handleRemoveItem = (idx) =>
+    setAddedItems(addedItems.filter((_, i) => i !== idx));
+
+  // ── UPDATED: handleSave includes remarks ───────────────────────────────────
+  const handleSave = async () => {
+    if (fromOutlet === null) { toast.error("Please select From Outlet"); return; }
+    if (toOutlet === null || toOutlet === undefined) {
+      toast.error("Please select To Outlet"); return;
     }
     if (fromOutlet === toOutlet) {
-      toast.error("From and To outlets cannot be the same");
+      toast.error("From Outlet and To Outlet cannot be the same"); return;
+    }
+    if (addedItems.length === 0) { toast.error("Add at least one medicine"); return; }
+
+    // Remarks mandatory validation
+    setRemarksTouched(true);
+    if (!remarks.trim()) {
+      toast.error("Remarks are required");
       return;
     }
-    if (addedItems.length === 0) {
-      toast.error("Please add at least one medicine");
-      return;
-    }
+
     try {
-      const payload = {
+      const res = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", {
         from_outlet: fromOutlet,
-        to_outlet: toOutlet,
-        transfer_ref_number: transferRefNumber,
+        to_outlet:   toOutlet,
+        remarks:     remarks.trim(),    // ← NEW
         items: addedItems.map((i) => ({
-          item_id: i.item_id,
-          batch_number: i.batch_number,
+          stock_id:          i.stock_id,
+          item_id:           i.item_id,
+          batch_number:      i.batch_number,
           transfer_quantity: i.transfer_quantity,
+          outlet_code:       i.outlet_code !== undefined ? i.outlet_code : fromOutlet,
         })),
-        is_verified: "Draft",
-      };
-      const response = await apiRequest(`${HmsBaseUrl}stock-transfer/`, "POST", payload);
-      if (response && !response.error) {
-        toast.success("Stock Transfer saved successfully");
-        handleCancel();
+      });
+
+      if (res?.success) {
+        toast.success("Stock Transfer saved as Draft");
+        handleCancelForm();
         fetchTransfers();
       } else {
-        toast.error(response?.error || "Failed to save transfer");
+        const err = res?.error;
+        toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to save");
       }
     } catch {
       toast.error("Failed to save transfer");
     }
   };
 
-  const handleCancel = () => {
-    setFromOutlet("Drug Purchase");
-    setToOutlet("");
+  const handleCancelForm = () => {
+    setFromOutlet(isDrugPurchase ? null : outletCode);
+    setToOutlet(null);
     setAddedItems([]);
-    setMedicineSearch("");
-    setSelectedMedicine(null);
-    setBatchInfo({ batch_number: "", hsn_code: "" });
-    setTransferQty("");
-    setShowModal(false);
+    setRemarks("");                  // ← NEW
+    setRemarksTouched(false);        // ← NEW
+    setMedicineSearch(""); setSelectedMedicine(null);
+    setAvailableBatches([]); setSelectedBatchIdx(""); setTransferQty("");
+    setShowForm(false);
   };
 
-  const handleSearch = () => {
-    fetchTransfers({
-      from_outlet: filterFromOutlet,
-      to_outlet: filterToOutlet,
-      from_date: filterFromDate,
-      to_date: filterToDate,
-    });
+  const handleSearch = () =>
+    fetchTransfers({ from_date: filterFromDate, to_date: filterToDate });
+
+  // ── Permissions ────────────────────────────────────────────────────────────
+  const canApprove = useCallback((t) => {
+    if ((t.is_verified || "Draft") !== "Draft") return false;
+    if (isDrugPurchase) return true;
+    return t.to_outlet === outletCode;
+  }, [isDrugPurchase, outletCode]);
+
+  // ── Approve ────────────────────────────────────────────────────────────────
+  const handleApproveClick = (t) => {
+    const status = t.is_verified || "Draft";
+    if (status === "Approved") { toast.info("Already approved"); return; }
+    if (status === "Rejected") { toast.error("Rejected transfers cannot be approved"); return; }
+    if (!canApprove(t)) { toast.warning("Only the receiving outlet can approve"); return; }
+    setConfirmModal({ type: "approve", transfer: t });
   };
 
-  const handlePrintSlip = (transfer) => {
-    setPrintSlip(transfer);
-    setOpenMenuId(null);
-    setTimeout(() => {
-      window.print();
-    }, 300);
+  const handleApproveConfirm = async () => {
+    const transfer = confirmModal?.transfer || {};
+    setConfirmModal(null);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}stock-transfer-action/`, "POST",
+        { action: "approve", transfer_ref_number: transfer.transfer_ref_number }
+      );
+      if (res?.success) {
+        toast.success("Transfer approved successfully");
+        fetchTransfers();
+      } else {
+        const err = res?.error;
+        toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to approve");
+      }
+    } catch { toast.error("Failed to approve transfer"); }
   };
 
-  // ── Outlet Options ─────────────────────────────────────────────────────────
-  const outletOptions = [{ outlet_name: "Drug Purchase", outlet_code: "DRUG_PURCHASE" }, ...outlets];
+  // ── Reject (NOW accepts reason from RejectModal) ──────────────────────────
+  const handleRejectClick = (t) => {
+    const status = t.is_verified || "Draft";
+    if (status === "Approved") { toast.error("Approved transfers cannot be cancelled"); return; }
+    if (status === "Rejected") { toast.info("Already cancelled"); return; }
+    setConfirmModal({ type: "reject", transfer: t });
+  };
+
+  // ── UPDATED: receives reason string from RejectModal ──────────────────────
+  const handleRejectConfirm = async (reason) => {
+    const transfer = confirmModal?.transfer || {};
+    setConfirmModal(null);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}stock-transfer-action/`, "POST",
+        {
+          action:               "reject",
+          transfer_ref_number:  transfer.transfer_ref_number,
+          rejected_reason:      reason,   // ← NEW
+        }
+      );
+      if (res?.success) {
+        toast.success("Transfer cancelled");
+        fetchTransfers();
+      } else {
+        const err = res?.error;
+        toast.error(Array.isArray(err) ? err.join(", ") : err || "Failed to cancel");
+      }
+    } catch { toast.error("Failed to cancel transfer"); }
+  };
+
+  // ── Dropdown options ───────────────────────────────────────────────────────
+  const fromOutletOptions = [
+    { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
+    ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
+  ];
+
+  const toOutletOptions = [
+    { value: DRUG_PURCHASE_VALUE, label: DRUG_PURCHASE_LABEL },
+    ...outlets.map((o) => ({ value: o.outlet_code, label: o.outlet_name })),
+  ].filter((o) => {
+    if (fromOutlet === null) return true;
+    const code = o.value === DRUG_PURCHASE_VALUE ? "" : o.value;
+    return code !== fromOutlet;
+  });
+
+  // ── Date/time formatter ────────────────────────────────────────────────────
+  const fmtDateTime = (d) => {
+    if (!d) return "-";
+    try {
+      return new Date(d).toLocaleString("en-GB", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      });
+    } catch { return "-"; }
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
       <Container>
-        {/* ── Header ── */}
+
+        {/* Header */}
         <PageHeader>
           <div>
             <PageTitle>📦 Stock Transfer</PageTitle>
-            <PageSubtitle>Manage inter-outlet stock transfers</PageSubtitle>
+            <PageSubtitle>
+              {getOutletName(outletCode)} — inter-outlet stock transfers
+            </PageSubtitle>
           </div>
-          <NewTransferBtn onClick={() => setShowModal(true)}>+ New Transfer</NewTransferBtn>
+          {!showForm && (
+            <NewTransferBtn onClick={() => setShowForm(true)}>+ New Transfer</NewTransferBtn>
+          )}
         </PageHeader>
 
-        {/* ── Filters ── */}
+        {/* Form Panel */}
+        {showForm && (
+          <FormPanel>
+            <FormPanelBody>
+
+              <FormRow columns="1fr 1fr" style={{ marginBottom: 22 }}>
+                <InputWrapper>
+                  <Label required>From Outlet</Label>
+                  {isDrugPurchase ? (
+                    <FilterSelect
+                      style={{ width: "100%", padding: "9px 10px", fontSize: "0.9rem" }}
+                      value={toSelectVal(fromOutlet)}
+                      onChange={(e) => handleFromOutletChange(e.target.value)}
+                    >
+                      <option value="">-- Select From Outlet --</option>
+                      {fromOutletOptions.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </FilterSelect>
+                  ) : (
+                    <ReadonlyInput type="text" value={getOutletName(outletCode)} readOnly />
+                  )}
+                </InputWrapper>
+
+                <InputWrapper>
+                  <Label required>To Outlet</Label>
+                  <FilterSelect
+                    style={{ width: "100%", padding: "9px 10px", fontSize: "0.9rem" }}
+                    value={toSelectVal(toOutlet)}
+                    onChange={(e) => handleToOutletChange(e.target.value)}
+                  >
+                    <option value="">-- Select To Outlet --</option>
+                    {toOutletOptions.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </FilterSelect>
+                </InputWrapper>
+              </FormRow>
+
+              {/* Add Medicine */}
+              <MedicineBox>
+                <SectionTitle>💊 Add Medicine</SectionTitle>
+
+                {isDrugPurchase && fromOutlet === null && (
+                  <div style={{ color: "#d97706", fontSize: "0.82rem", marginBottom: 12 }}>
+                    ⚠ Please select a From Outlet first to search medicines.
+                  </div>
+                )}
+
+                <FormRow columns="2fr 1.1fr 0.9fr 1.1fr 0.8fr auto">
+
+                  <InputWrapper>
+                    <Label required>Product Name</Label>
+                    <RelativeWrapper ref={medicineSearchRef}>
+                      <Input
+                        type="text"
+                        value={medicineSearch}
+                        onChange={handleMedicineSearch}
+                        placeholder="Search medicine..."
+                        autoComplete="off"
+                        disabled={isDrugPurchase && fromOutlet === null}
+                      />
+                      {showMedDropdown && medicineResults.length > 0 && (
+                        <SearchDropdown>
+                          {medicineResults.map((med) => (
+                            <DropdownItem key={med.item_id} onMouseDown={() => handleSelectMedicine(med)}>
+                              <strong>{med.item_name}</strong>
+                              {med.available_qty !== undefined && (
+                                <span style={{ color: "#6b7280", marginLeft: 8, fontSize: "0.78rem" }}>
+                                  (Avail: {med.available_qty})
+                                </span>
+                              )}
+                            </DropdownItem>
+                          ))}
+                        </SearchDropdown>
+                      )}
+                    </RelativeWrapper>
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>HSN Code</Label>
+                    <ReadonlyInput type="text" value={selectedBatch?.hsn_code || ""} readOnly placeholder="Auto-filled" />
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label>Stock Available</Label>
+                    <ReadonlyInput
+                      type="text"
+                      value={selectedBatch != null ? selectedBatch.available_qty : ""}
+                      readOnly
+                      placeholder="Auto-filled"
+                    />
+                    {selectedBatch && selectedBatch.available_qty <= 10 && (
+                      <StockWarn>⚠ Low stock</StockWarn>
+                    )}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label required>Batch No.</Label>
+                    {availableBatches.length === 0 ? (
+                      <ReadonlyInput type="text" value="" readOnly placeholder="Auto-filled" />
+                    ) : availableBatches.length === 1 ? (
+                      <>
+                        <ReadonlyInput type="text" value={availableBatches[0].batch_number} readOnly />
+                        <StockInfoNote>Stock: {availableBatches[0].available_qty}</StockInfoNote>
+                      </>
+                    ) : (
+                      <>
+                        <BatchSelect value={selectedBatchIdx} onChange={handleBatchChange}>
+                          <option value="">-- Select Batch --</option>
+                          {availableBatches.map((b, i) => (
+                            <option key={b.stock_id || i} value={i}>
+                              {b.batch_number} (Avail: {b.available_qty})
+                            </option>
+                          ))}
+                        </BatchSelect>
+                        {selectedBatch && (
+                          <StockInfoNote>
+                            Stock: {selectedBatch.available_qty}
+                            {selectedBatch.expiry_date && (
+                              <span style={{ color: "#9ca3af" }}>
+                                &nbsp;· Exp: {new Date(selectedBatch.expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })}
+                              </span>
+                            )}
+                          </StockInfoNote>
+                        )}
+                      </>
+                    )}
+                  </InputWrapper>
+
+                  <InputWrapper>
+                    <Label required>Transfer Qty</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={selectedBatch?.available_qty || undefined}
+                      value={transferQty}
+                      onChange={(e) => setTransferQty(e.target.value)}
+                      placeholder="0"
+                    />
+                    {selectedBatch && transferQty && Number(transferQty) > selectedBatch.available_qty && (
+                      <StockWarn>Exceeds stock</StockWarn>
+                    )}
+                  </InputWrapper>
+
+                  <InputWrapper style={{ justifyContent: "flex-end" }}>
+                    <Label>&nbsp;</Label>
+                    <Button
+                      type="button"
+                      onClick={handleAddItem}
+                      style={{ padding: "8px 18px", fontSize: "0.85rem", whiteSpace: "nowrap" }}
+                    >
+                      + Add
+                    </Button>
+                  </InputWrapper>
+
+                </FormRow>
+              </MedicineBox>
+
+              {addedItems.length > 0 && (
+                <div style={{ marginBottom: 22 }}>
+                  <SectionTitle>🧾 Added Medicines ({addedItems.length})</SectionTitle>
+                  <AddedItemsTable>
+                    <thead>
+                      <tr>
+                        <ATh>#</ATh>
+                        <ATh>Product Name</ATh>
+                        <ATh>HSN</ATh>
+                        <ATh>Available Stock</ATh>
+                        <ATh>Batch</ATh>
+                        <ATh>Transfer Qty</ATh>
+                        <ATh>Action</ATh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {addedItems.map((item, idx) => (
+                        <tr key={idx}>
+                          <ATd style={{ color: "#6b7280" }}>{idx + 1}</ATd>
+                          <ATd style={{ fontWeight: 600, color: "#111827" }}>{item.item_name}</ATd>
+                          <ATd style={{ color: "#6b7280" }}>{item.hsn_code || "-"}</ATd>
+                          <ATd>{item.outlet_stock}</ATd>
+                          <ATd>
+                            <span style={{
+                              background: "#f0fdfa", color: "#0f766e",
+                              padding: "2px 8px", borderRadius: 4, fontSize: "0.78rem", fontWeight: 600,
+                            }}>
+                              {item.batch_number || "-"}
+                            </span>
+                          </ATd>
+                          <ATd style={{ color: "#0d9488", fontWeight: 700 }}>
+                            {item.transfer_quantity}
+                          </ATd>
+                          <ATd>
+                            <RemoveBtn onClick={() => handleRemoveItem(idx)}>✕ Remove</RemoveBtn>
+                          </ATd>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </AddedItemsTable>
+                </div>
+              )}
+
+              {/* ── NEW: Remarks Field ────────────────────────────────────── */}
+              <div style={{ marginBottom: 22 }}>
+                <SectionTitle>📝 Remarks</SectionTitle>
+                <Textarea
+                  className={remarksTouched && !remarks.trim() ? "error" : ""}
+                  value={remarks}
+                  onChange={(e) => { setRemarks(e.target.value); setRemarksTouched(true); }}
+                  placeholder="Enter remarks for this stock transfer… (required)"
+                />
+                {remarksTouched && !remarks.trim() && (
+                  <RequiredNote>⚠ Remarks are required before saving.</RequiredNote>
+                )}
+              </div>
+
+              <ButtonContainer>
+                <Button secondary type="button" onClick={handleCancelForm}>Cancel</Button>
+                <Button type="button" onClick={handleSave}>💾 Save Transfer</Button>
+              </ButtonContainer>
+
+            </FormPanelBody>
+          </FormPanel>
+        )}
+
+        {/* Date Filters */}
         <FilterRow>
-          <FilterGroup>
-            <FilterLabel>From Outlet</FilterLabel>
-            <FilterSelect
-              value={filterFromOutlet}
-              onChange={(e) => setFilterFromOutlet(e.target.value)}
-            >
-              <option value="All">All</option>
-              {outletOptions.map((o) => (
-                <option key={o.outlet_code || o.outlet_name} value={o.outlet_name}>
-                  {o.outlet_name}
-                </option>
-              ))}
-            </FilterSelect>
-          </FilterGroup>
-
-          <FilterGroup>
-            <FilterLabel>To Outlet</FilterLabel>
-            <FilterSelect
-              value={filterToOutlet}
-              onChange={(e) => setFilterToOutlet(e.target.value)}
-            >
-              <option value="All">All</option>
-              {outletOptions.map((o) => (
-                <option key={o.outlet_code || o.outlet_name} value={o.outlet_name}>
-                  {o.outlet_name}
-                </option>
-              ))}
-            </FilterSelect>
-          </FilterGroup>
-
           <FilterGroup>
             <FilterLabel>From Date</FilterLabel>
             <FilterInput
@@ -678,7 +1644,6 @@ const StockTransfer = () => {
               onChange={(e) => setFilterFromDate(e.target.value)}
             />
           </FilterGroup>
-
           <FilterGroup>
             <FilterLabel>To Date</FilterLabel>
             <FilterInput
@@ -687,13 +1652,20 @@ const StockTransfer = () => {
               onChange={(e) => setFilterToDate(e.target.value)}
             />
           </FilterGroup>
-
           <SearchBtn onClick={handleSearch}>🔍 Search</SearchBtn>
         </FilterRow>
 
-        {/* ── Transfer List Table ── */}
-        <div style={{ padding: "20px 24px 24px" }}>
-          <SectionTitle>Transfer Records</SectionTitle>
+        {/* Transfer Records Table */}
+        <div style={{ padding: "20px 26px 28px" }}>
+          <SectionTitle>
+            📋 Transfer Records — {getOutletName(outletCode)}
+            <span style={{
+              background: "#e5e7eb", color: "#6b7280",
+              fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: 600,
+            }}>
+              {transfers.length}
+            </span>
+          </SectionTitle>
           <TableWrapper>
             <Table>
               <thead>
@@ -703,289 +1675,156 @@ const StockTransfer = () => {
                   <Th>Ref No</Th>
                   <Th>From</Th>
                   <Th>To</Th>
-                  <Th>Action</Th>
+                  <Th>Items</Th>
+                  <Th>Remarks</Th>
+                  <Th>Approved / Rejected Info</Th>
+                  <Th style={{ textAlign: "center" }}>Actions</Th>
                 </tr>
               </thead>
               <tbody>
                 {transfers.length === 0 ? (
                   <Tr>
-                    <Td colSpan="6" style={{ textAlign: "center", color: "#9ca3af" }}>
-                      No transfer records found
+                    <Td colSpan="9" style={{ textAlign: "center", color: "#9ca3af", padding: "32px 0" }}>
+                      📭 No transfer records found
                     </Td>
                   </Tr>
                 ) : (
-                  transfers.map((t) => (
-                    <Tr key={t.id || t.transfer_ref_number}>
-                      <Td>
-                        <StatusBadge status={t.is_verified === "Draft" ? "Pending" : "Approved"}>
-                          {t.is_verified === "Draft" ? "Draft" : "Approved"}
-                        </StatusBadge>
-                      </Td>
-                      <Td>{t.created_date ? new Date(t.created_date).toLocaleDateString("en-GB") : "-"}</Td>
-                      <Td style={{ fontWeight: 600, color: "#0d9488" }}>{t.transfer_ref_number}</Td>
-                      <Td>{t.from_outlet}</Td>
-                      <Td>{t.to_outlet}</Td>
-                      <Td>
-                        <ActionMenuWrapper>
-                          <ActionMenuBtn
-                            onClick={() =>
-                              setOpenMenuId(openMenuId === (t.id || t.transfer_ref_number) ? null : (t.id || t.transfer_ref_number))
-                            }
-                          >
-                            ⋮
-                          </ActionMenuBtn>
-                          {openMenuId === (t.id || t.transfer_ref_number) && (
-                            <ActionMenu>
-                              <ActionMenuItem onClick={() => handlePrintSlip(t)}>
-                                🖨️ Print Slip
-                              </ActionMenuItem>
-                            </ActionMenu>
+                  transfers.map((t) => {
+                    const status = t.is_verified || "Draft";
+                    const items  = Array.isArray(t.items) ? t.items : [];
+                    return (
+                      <Tr key={t.transfer_ref_number || t.id}>
+                        <Td>
+                          <StatusBadge $status={status}>{status}</StatusBadge>
+                        </Td>
+                        <Td style={{ color: "#374151" }}>
+                          {t.created_date
+                            ? new Date(t.created_date).toLocaleDateString("en-GB")
+                            : "-"}
+                        </Td>
+                        <Td style={{ fontWeight: 700, color: "#0d9488", fontFamily: "monospace" }}>
+                          {t.transfer_ref_number}
+                        </Td>
+                        <Td>{getOutletName(t.from_outlet ?? t.outlet_code)}</Td>
+                        <Td>{getOutletName(t.to_outlet)}</Td>
+                        <Td>
+                          <span style={{ color: "#6b7280", fontSize: "0.82rem" }}>
+                            {items.length} item{items.length !== 1 ? "s" : ""}
+                          </span>
+                        </Td>
+
+                        {/* ── NEW: Remarks column ────────────────────────── */}
+                        <Td style={{ maxWidth: 180 }}>
+                          {t.remarks ? (
+                            <span style={{
+                              fontSize: "0.8rem", color: "#374151",
+                              display: "-webkit-box", WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical", overflow: "hidden",
+                            }} title={t.remarks}>
+                              {t.remarks}
+                            </span>
+                          ) : (
+                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
                           )}
-                        </ActionMenuWrapper>
-                      </Td>
-                    </Tr>
-                  ))
+                        </Td>
+
+                        {/* ── NEW: Approved / Rejected Info column ──────── */}
+                        <Td style={{ minWidth: 160 }}>
+                          {status === "Approved" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {t.approved_by && (
+                                <InfoChip $color="#166534" $bg="#dcfce7" $border="#86efac">
+                                  ✔ {t.approved_by}
+                                </InfoChip>
+                              )}
+                              {t.approved_date && (
+                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                  {fmtDateTime(t.approved_date)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {status === "Rejected" && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                              {t.rejected_by && (
+                                <InfoChip $color="#991b1b" $bg="#fee2e2" $border="#fca5a5">
+                                  ✕ {t.rejected_by}
+                                </InfoChip>
+                              )}
+                              {t.rejected_date && (
+                                <span style={{ fontSize: "0.72rem", color: "#6b7280" }}>
+                                  {fmtDateTime(t.rejected_date)}
+                                </span>
+                              )}
+                              {t.rejected_reason && (
+                                <span style={{
+                                  fontSize: "0.75rem", color: "#991b1b",
+                                  background: "#fff1f2", border: "1px solid #fecaca",
+                                  borderRadius: 4, padding: "2px 6px",
+                                  display: "-webkit-box", WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical", overflow: "hidden",
+                                }} title={t.rejected_reason}>
+                                  {t.rejected_reason}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {status === "Draft" && (
+                            <span style={{ color: "#d1d5db", fontSize: "0.78rem" }}>—</span>
+                          )}
+                        </Td>
+
+                        <Td style={{ textAlign: "center" }}>
+                          <RowKebabMenu
+                            transfer={t}
+                            canApprove={canApprove(t)}
+                            onApprove={() => handleApproveClick(t)}
+                            onReject={() => handleRejectClick(t)}
+                            onPrint={() => setPrintSlip(t)}
+                          />
+                        </Td>
+                      </Tr>
+                    );
+                  })
                 )}
               </tbody>
             </Table>
           </TableWrapper>
         </div>
+
       </Container>
 
-      {/* ── New Transfer Modal ── */}
-      {showModal && (
-        <ModalOverlay onClick={(e) => e.target === e.currentTarget && handleCancel()}>
-          <ModalBox>
-            <ModalHeader>
-              <div>
-                <PageTitle style={{ fontSize: "1rem" }}>📦 New Stock Transfer</PageTitle>
-                <p style={{ margin: "2px 0 0", fontSize: "0.78rem", opacity: 0.8 }}>
-                  Ref: {transferRefNumber}
-                </p>
-              </div>
-              <ModalClose onClick={handleCancel}>✕</ModalClose>
-            </ModalHeader>
-
-            <ModalBody>
-              {/* ── Outlets Row ── */}
-              <FormRow columns="1fr 1fr">
-                <InputWrapper>
-                  <Label required>From Outlet</Label>
-                  <FilterSelect
-                    style={{ width: "100%", padding: "9px 10px", fontSize: "0.9rem" }}
-                    value={fromOutlet}
-                    onChange={(e) => setFromOutlet(e.target.value)}
-                  >
-                    {outletOptions.map((o) => (
-                      <option key={o.outlet_code || o.outlet_name} value={o.outlet_name}>
-                        {o.outlet_name}
-                      </option>
-                    ))}
-                  </FilterSelect>
-                </InputWrapper>
-
-                <InputWrapper>
-                  <Label required>To Outlet</Label>
-                  <FilterSelect
-                    style={{ width: "100%", padding: "9px 10px", fontSize: "0.9rem" }}
-                    value={toOutlet}
-                    onChange={(e) => setToOutlet(e.target.value)}
-                  >
-                    <option value="">-- Select Outlet --</option>
-                    {outletOptions.map((o) => (
-                      <option key={o.outlet_code || o.outlet_name} value={o.outlet_name}>
-                        {o.outlet_name}
-                      </option>
-                    ))}
-                  </FilterSelect>
-                </InputWrapper>
-              </FormRow>
-
-              {/* ── Medicine Search Row ── */}
-              <div
-                style={{
-                  background: "#f0fdfa",
-                  border: "1px solid #d1fae5",
-                  borderRadius: 8,
-                  padding: 16,
-                  marginBottom: 20,
-                }}
-              >
-                <SectionTitle style={{ marginBottom: 12 }}>Add Medicine</SectionTitle>
-                <FormRow columns="2fr 1fr 1fr auto">
-                  {/* Medicine Search */}
-                  <InputWrapper>
-                    <Label required>Medicine</Label>
-                    <RelativeWrapper ref={medicineSearchRef}>
-                      <Input
-                        type="text"
-                        value={medicineSearch}
-                        onChange={handleMedicineSearch}
-                        placeholder="Search medicine..."
-                        autoComplete="off"
-                      />
-                      {showMedDropdown && medicineResults.length > 0 && (
-                        <SearchDropdown>
-                          {medicineResults.map((med) => (
-                            <DropdownItem
-                              key={med.item_id}
-                              onMouseDown={() => handleSelectMedicine(med)}
-                            >
-                              {med.item_name}
-                            </DropdownItem>
-                          ))}
-                        </SearchDropdown>
-                      )}
-                    </RelativeWrapper>
-                  </InputWrapper>
-
-                  {/* Batch Number */}
-                  <InputWrapper>
-                    <Label>Batch No.</Label>
-                    <Input
-                      type="text"
-                      value={batchInfo.batch_number}
-                      readOnly
-                      style={{ background: "#e5e7eb", cursor: "not-allowed" }}
-                      placeholder="Auto-filled"
-                    />
-                  </InputWrapper>
-
-                  {/* HSN Code */}
-                  <InputWrapper>
-                    <Label>HSN Code</Label>
-                    <Input
-                      type="text"
-                      value={batchInfo.hsn_code}
-                      readOnly
-                      style={{ background: "#e5e7eb", cursor: "not-allowed" }}
-                      placeholder="Auto-filled"
-                    />
-                  </InputWrapper>
-
-                  {/* Transfer Qty */}
-                  <InputWrapper>
-                    <Label required>Qty</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={transferQty}
-                      onChange={(e) => setTransferQty(e.target.value)}
-                      placeholder="0"
-                      style={{ width: 80 }}
-                    />
-                  </InputWrapper>
-                </FormRow>
-
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-                  <Button
-                    type="button"
-                    onClick={handleAddItem}
-                    style={{ padding: "7px 20px", fontSize: "0.85rem" }}
-                  >
-                    + Add
-                  </Button>
-                </div>
-              </div>
-
-              {/* ── Added Items Table ── */}
-              {addedItems.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <SectionTitle>Added Medicines</SectionTitle>
-                  <AddedItemsTable>
-                    <thead>
-                      <tr>
-                        <ATh>#</ATh>
-                        <ATh>Medicine</ATh>
-                        <ATh>Batch</ATh>
-                        <ATh>HSN</ATh>
-                        <ATh>Qty</ATh>
-                        <ATh>Action</ATh>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {addedItems.map((item, idx) => (
-                        <tr key={idx}>
-                          <ATd>{idx + 1}</ATd>
-                          <ATd style={{ fontWeight: 600 }}>{item.item_name}</ATd>
-                          <ATd>{item.batch_number || "-"}</ATd>
-                          <ATd>{item.hsn_code || "-"}</ATd>
-                          <ATd>{item.transfer_quantity}</ATd>
-                          <ATd>
-                            <RemoveBtn onClick={() => handleRemoveItem(idx)}>Remove</RemoveBtn>
-                          </ATd>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </AddedItemsTable>
-                </div>
-              )}
-
-              {/* ── Modal Buttons ── */}
-              <ButtonContainer>
-                <Button secondary type="button" onClick={handleCancel}>
-                  Cancel
-                </Button>
-                <Button type="button" onClick={handleSave}>
-                  Save Transfer
-                </Button>
-              </ButtonContainer>
-            </ModalBody>
-          </ModalBox>
-        </ModalOverlay>
+      {/* ── Approve Confirm Modal ─────────────────────────────────────────── */}
+      {confirmModal?.type === "approve" && (
+        <ConfirmModal
+          title="✔ Approve Stock Transfer"
+          message={`Approve ${confirmModal.transfer.transfer_ref_number}? Stock quantities will be updated and this cannot be undone.`}
+          confirmLabel="Approve"
+          confirmColor="#0d9488"
+          onConfirm={handleApproveConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
       )}
 
-      {/* ── Print Slip (hidden, only shown during print) ── */}
+      {/* ── Reject Modal (with reason input) ─────────────────────────────── */}
+      {confirmModal?.type === "reject" && (
+        <RejectModal
+          transfer={confirmModal.transfer}
+          onConfirm={handleRejectConfirm}
+          onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {/* Print Slip Modal */}
       {printSlip && (
-        <div id="stock-transfer-slip" style={{ display: "none" }}>
-          <div style={{ fontFamily: "monospace", fontSize: 12, padding: 10 }}>
-            <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 14, marginBottom: 4 }}>
-              SHANMUGA HOSPITAL LIMITED
-            </div>
-            <div style={{ textAlign: "center", marginBottom: 8 }}>04272706666</div>
-            <div style={{ textAlign: "center", fontWeight: "bold", marginBottom: 4 }}>
-              STOCK TRANSFER SLIP
-            </div>
-            <div>{"=".repeat(70)}</div>
-            <div style={{ marginTop: 6 }}>
-              <div>Source : {printSlip.from_outlet}</div>
-              <div>Date   : {printSlip.created_date ? new Date(printSlip.created_date).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB")}</div>
-              <div>Destination : {printSlip.to_outlet}</div>
-              <div>Ref.   : {printSlip.transfer_ref_number}</div>
-            </div>
-            <div style={{ marginTop: 6 }}>{"=".repeat(70)}</div>
-            <div style={{ marginTop: 4 }}>
-              <span style={{ display: "inline-block", width: 30 }}>Sl</span>
-              <span style={{ display: "inline-block", width: 180 }}>Particulars</span>
-              <span style={{ display: "inline-block", width: 80 }}>Batch</span>
-              <span style={{ display: "inline-block", width: 60 }}>Qty</span>
-            </div>
-            <div>{"-".repeat(70)}</div>
-            {(printSlip.items || []).map((item, idx) => (
-              <div key={idx}>
-                <span style={{ display: "inline-block", width: 30 }}>{idx + 1}</span>
-                <span style={{ display: "inline-block", width: 180 }}>
-                  {item.item_name || `Item #${item.item_id}`}
-                </span>
-                <span style={{ display: "inline-block", width: 80 }}>{item.batch_number || "-"}</span>
-                <span style={{ display: "inline-block", width: 60 }}>{item.transfer_quantity}</span>
-              </div>
-            ))}
-            <div style={{ marginTop: 6 }}>{"-".repeat(70)}</div>
-            <div style={{ marginTop: 4 }}>
-              Total Items : {(printSlip.items || []).length}
-            </div>
-            <div>
-              Total Qty   :{" "}
-              {(printSlip.items || []).reduce((s, i) => s + Number(i.transfer_quantity || 0), 0)}
-            </div>
-            <div style={{ marginTop: 6 }}>{"-".repeat(70)}</div>
-            <div style={{ marginTop: 6, fontSize: 11, color: "#666" }}>
-              Status: {printSlip.is_verified || "Draft"}
-            </div>
-          </div>
-        </div>
+        <PrintSlipModal
+          slip={printSlip}
+          getOutletName={getOutletName}
+          onClose={() => setPrintSlip(null)}
+          HmsBaseUrl={HmsBaseUrl}
+        />
       )}
+
     </PageWrapper>
   );
 };
