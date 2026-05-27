@@ -494,7 +494,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
             </FormGroup>
 
             <FormGroup>
-              <FormLabel>SUBMITTED TO ACCOUNT</FormLabel>
+              <FormLabel>HANDOVER AMOUNT</FormLabel>
               <FormInput
                 type="number" min="0" step="0.01"
                 value={formData.submittedToAccount || "0.00"}
