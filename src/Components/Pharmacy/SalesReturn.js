@@ -16,12 +16,12 @@ const slideDown = keyframes`
   to   { opacity: 1; transform: translateY(0); }
 `;
 
-// ─── Toast Notification ───────────────────────────────────────────────────────
 const slideUp = keyframes`
   from { opacity: 0; transform: translateY(-16px); }
   to   { opacity: 1; transform: translateY(0); }
 `;
 
+// ─── Toast Notification ───────────────────────────────────────────────────────
 const ToastContainer = styled.div`
   position: fixed;
   top: 28px;
@@ -511,6 +511,46 @@ const BillItemsTitle = styled.div`
   border-bottom: 1px solid #e0e0e0;
 `;
 
+const PartialReturnBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8e1;
+  border-left: 4px solid #f9a825;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  color: #5d4037;
+  border-bottom: 1px solid #ffe082;
+`;
+
+/* Small inline badge shown next to item name when partially returned */
+const PartialBadge = styled.span`
+  display: inline-block;
+  margin-left: 6px;
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+`;
+
+/* Shows how many units were already returned, in a muted red chip */
+const AlreadyReturnedBadge = styled.span`
+  display: inline-block;
+  background: #fbe9e7;
+  color: #bf360c;
+  border: 1px solid #ffab91;
+  border-radius: 10px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-weight: 700;
+`;
+
 const BillItemsTable = styled.table`
   width: 100%;
   border-collapse: collapse;
@@ -543,6 +583,99 @@ const ReturnQtyInput = styled.input`
   outline: none;
   text-align: center;
   &:focus { border-color: #00796b; }
+`;
+
+// ─── UHID Modal ───────────────────────────────────────────────────────────────
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ModalBox = styled.div`
+  background: #fff;
+  border-radius: 8px;
+  width: 680px;
+  max-width: 96vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+  overflow: hidden;
+`;
+
+const ModalHeader = styled.div`
+  background: #00695c;
+  color: #fff;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+const ModalCloseBtn = styled.button`
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  &:hover { opacity: 0.75; }
+`;
+
+const ModalBody = styled.div`
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+`;
+
+const ModalTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+`;
+
+const ModalTh = styled.th`
+  background: #f5f5f5;
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #444;
+  border-bottom: 2px solid #e0e0e0;
+  white-space: nowrap;
+`;
+
+const ModalTd = styled.td`
+  padding: 9px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+  vertical-align: middle;
+`;
+
+const SelectBillBtn = styled.button`
+  background: #00796b;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  &:hover { background: #004d40; }
+`;
+
+const ModalFooter = styled.div`
+  padding: 10px 20px;
+  border-top: 1px solid #e0e0e0;
+  font-size: 12px;
+  color: #888;
+  background: #fafafa;
 `;
 
 // ─── Donut Component ──────────────────────────────────────────────────────────
@@ -607,10 +740,16 @@ const SalesReturn = () => {
   const [searchFilter, setSearchFilter] = useState("");
   const formRef = useRef(null);
 
-  const [fetchingPatient, setFetchingPatient] = useState(false);
-  const [fetchingBill, setFetchingBill]       = useState(false);
-  const [billTypes, setBillTypes] = useState([]);
-  const [billItems, setBillItems] = useState([]);
+  const [fetchingPatient, setFetchingPatient]     = useState(false);
+  const [fetchingBill, setFetchingBill]           = useState(false);
+  const [billTypes, setBillTypes]                 = useState([]);
+  const [billItems, setBillItems]                 = useState([]);
+  const [partialReturnWarning, setPartialReturnWarning] = useState("");
+
+  // ── UHID Bills Modal State ──────────────────────────────────────────────────
+  const [showUhidModal, setShowUhidModal]     = useState(false);
+  const [uhidBills, setUhidBills]             = useState([]);
+  const [loadingUhidBills, setLoadingUhidBills] = useState(false);
 
   const { showToast, ToastPortal } = useToast();
 
@@ -662,62 +801,112 @@ const SalesReturn = () => {
     }
   };
 
+  // ── FIX #2: normalise partial UHID/bill — support typing after slash ─────────
+  // Accepts: "7878" → searches as-is (partial match on backend)
+  // Accepts: "S025/007878" → searches full string
+  // Accepts: "007878" (after slash part only) → backend handles partial match
+  const normalizeSearchValue = (val) => val?.trim() ?? "";
+
+  // ── Step 1: fetch patient info + open bill-selection modal ───────────────────
   const fetchPatientDetails = async (uhid) => {
-  if (!uhid) {
-    showToast("Please enter a UHID to search.", "warning");
-    return;
-  }
-
-  console.log("Fetching patient for UHID:", uhid);
-
-  try {
-    setFetchingPatient(true);
-    const res = await apiRequest(
-      `${HmsBaseUrl}salesreturn_get_patientdetails/?uhid=${encodeURIComponent(uhid)}`,
-      "GET"
-    );
-
-    const data = res.data;
-
-    if (data?.status === "success") {
-      const d = data.data;
-
-      setForm(prev => ({
-        ...prev,
-        uhidNo: d.uhid || "",
-        ipNumber: d.ip_number || "",
-        name: d.name || "",
-        gender: d.gender || "",
-        ageY: d.age?.years || "",
-        ageM: d.age?.months || "",
-        ageD: d.age?.days || "",
-      }));
-
-    } else {
-      
+    const uhidVal = normalizeSearchValue(uhid);
+    if (!uhidVal) {
+      showToast("Please enter a UHID to search.", "warning");
+      return;
     }
 
-  } catch (err) {
-    console.error("Fetch patient error:", err);
-    showToast("Server error while fetching patient details.", "error");
-  } finally {
-    setFetchingPatient(false);
-  }
-};
+    try {
+      setFetchingPatient(true);
+
+      // Fetch patient basic info
+      const res = await apiRequest(
+        `${HmsBaseUrl}salesreturn_get_patientdetails/?uhid=${encodeURIComponent(uhidVal)}`,
+        "GET"
+      );
+      const data = res.data;
+
+      if (data?.status === "success") {
+        const d = data.data;
+        setForm(prev => ({
+          ...prev,
+          uhidNo:   d.uhid     || uhidVal,
+          ipNumber: d.ip_number || "",
+          name:     d.name     || "",
+          gender:   d.gender   || "",
+          ageY:     d.age?.years  ?? "",
+          ageM:     d.age?.months ?? "",
+          ageD:     d.age?.days   ?? "",
+        }));
+      }
+
+      // Step 2: fetch all bills within 30 days for this UHID and show modal
+      await fetchUhidBills(uhidVal);
+
+    } catch (err) {
+      console.error("Fetch patient error:", err);
+      showToast("Server error while fetching patient details.", "error");
+    } finally {
+      setFetchingPatient(false);
+    }
+  };
+
+  // ── Fetch all bills for UHID within 30 days ──────────────────────────────────
+  const fetchUhidBills = async (uhidVal) => {
+    try {
+      setLoadingUhidBills(true);
+      setUhidBills([]);
+      setShowUhidModal(true);
+
+      const res = await apiRequest(
+        `${HmsBaseUrl}salesreturn_get_uhid_bills/?uhid=${encodeURIComponent(uhidVal)}`,
+        "GET"
+      );
+      const data = res.data;
+
+      if (data?.status === "success" && Array.isArray(data.data)) {
+        setUhidBills(data.data);
+        if (data.data.length === 0) {
+          showToast("No paid bills found within the last 30 days for this UHID.", "warning");
+        }
+      } else {
+        showToast(data?.message || "No bills found for this UHID.", "warning");
+        setUhidBills([]);
+      }
+    } catch (err) {
+      console.error("Fetch UHID bills error:", err);
+      showToast("Server error while fetching bills for this UHID.", "error");
+    } finally {
+      setLoadingUhidBills(false);
+    }
+  };
+
+  // ── User selects a bill from the modal ───────────────────────────────────────
+  const handleSelectBill = async (bill) => {
+    setShowUhidModal(false);
+    setForm(prev => ({
+      ...prev,
+      billNumber: bill.bill_no,
+      uhidNo:     bill.uhid || prev.uhidNo,
+    }));
+    // Auto-fetch bill details
+    await fetchBillDetails(bill.bill_no);
+  };
 
   // ─── Fetch Bill Details from hospital_pharmacybilling ────────────────────────
   const fetchBillDetails = async (billNo) => {
-    if (!billNo?.trim()) {
+    const billVal = normalizeSearchValue(billNo);
+    if (!billVal) {
       showToast("Please enter a Bill Number to search.", "warning");
       return;
     }
     try {
       setFetchingBill(true);
       setBillItems([]);
+      setPartialReturnWarning("");
       const res = await apiRequest(
         `${HmsBaseUrl}get_salesreturn_billdetails/`,
         "POST",
-        { bill_no: billNo.trim() }
+        { bill_no: billVal }
       );
       const data = res.data;
 
@@ -728,13 +917,21 @@ const SalesReturn = () => {
           billAmount:  d.net_amount  ?? d.total_amount ?? "",
           billType:    d.bill_type   ?? prev.billType,
           billName:    d.bill_name   ?? prev.billName,
-          uhidNo:      prev.uhidNo   || d.uhid        || "",
-          ipNumber:    prev.ipNumber || d.inpatient_number || "",
+          uhidNo:      prev.uhidNo   || d.uhid             || "",
+          ipNumber:    prev.ipNumber || d.inpatient_number  || "",
         }));
         const items = (d.items || []).map(item => ({ ...item, returnQty: "" }));
         setBillItems(items);
+
+        // ⚠️ Some items were already returned — show info banner
+        if (d.partially_returned) {
+          setPartialReturnWarning(
+            data.message || "Some items in this bill have already been returned and are excluded below."
+          );
+        }
       } else {
-        
+        // All errors from backend (30-day, fully returned, not found) shown as toast
+        showToast(data?.message || "Bill not found or not eligible for return.", "error");
       }
     } catch (err) {
       console.error("Fetch bill error:", err);
@@ -745,8 +942,36 @@ const SalesReturn = () => {
   };
 
   const handleReturnQtyChange = (index, value) => {
+    const enteredQty = parseFloat(value);
+    const item       = billItems[index];
+
+    if (!item) return;
+
+    const returnableQty = parseFloat(item.qty || 0); // remaining returnable qty from API
+
+    // ❌ Exceeds returnable qty → toast ONCE (outside setState) then clamp
+    if (!isNaN(enteredQty) && enteredQty > returnableQty) {
+      showToast(
+        `Return quantity cannot exceed ${returnableQty} for "${item.item_name || "this item"}" (Batch: ${item.batch_number || "—"}).`,
+        "error"
+      );
+      setBillItems(prev =>
+        prev.map((it, i) => i === index ? { ...it, returnQty: String(returnableQty) } : it)
+      );
+      return;
+    }
+
+    // ❌ Negative → silently reset to 0
+    if (!isNaN(enteredQty) && enteredQty < 0) {
+      setBillItems(prev =>
+        prev.map((it, i) => i === index ? { ...it, returnQty: "0" } : it)
+      );
+      return;
+    }
+
+    // ✅ Valid value
     setBillItems(prev =>
-      prev.map((item, i) => i === index ? { ...item, returnQty: value } : item)
+      prev.map((it, i) => i === index ? { ...it, returnQty: value } : it)
     );
   };
 
@@ -776,6 +1001,9 @@ const SalesReturn = () => {
 
   const handleFormReset = () => {
     setBillItems([]);
+    setUhidBills([]);
+    setShowUhidModal(false);
+    setPartialReturnWarning("");
     setForm({
       uhidNo: "", ipNumber: "", name: "",
       ageY: "", ageM: "", ageD: "",
@@ -824,26 +1052,39 @@ const SalesReturn = () => {
       return;
     }
 
-    const totalReturnAmount = billItems
-      .filter(item => Number(item.returnQty) > 0)
-      .reduce((sum, item) =>
-        sum + parseFloat(item.returnQty || 0) * parseFloat(item.price ?? item.rate ?? 0), 0);
-
+    // return_amount per line = return_qty × per-unit price
+    // item.billed_qty  = original qty on the bill (e.g. 5)   — from get_salesreturn_billdetails API
+    // item.qty         = remaining returnable qty (e.g. 4)    — after previous returns deducted
+    // item.calculated_price = pro-rated price for remaining qty (from API)
     const medicine_particulars = billItems
       .filter(item => Number(item.returnQty) > 0)
-      .map(item => ({
-        item_id:      item.item_id      ?? item.id ?? "",
-        batch_number: item.batch_number ?? "",
-        billed_qty:   item.qty          ?? item.billed_qty ?? 0,
-        return_qty:   Number(item.returnQty),
-        price:        item.price        ?? item.rate ?? 0,
-      }));
+      .map(item => {
+        const returnableQty   = parseFloat(item.qty ?? 0);               // remaining qty (for price calc)
+        const originalBilledQty = parseFloat(item.billed_qty ?? item.qty ?? 1); // ✅ original bill qty
+        const calculatedPrice = parseFloat(item.calculated_price ?? 0);  // pro-rated to remaining qty
+        const perUnitPrice    = returnableQty > 0 ? calculatedPrice / returnableQty : 0;
+        const returnQty       = Number(item.returnQty);
+        const returnAmount    = parseFloat((returnQty * perUnitPrice).toFixed(2));
+        return {
+          item_id:        item.item_id      ?? item.id ?? "",
+          batch_number:   item.batch_number ?? "",
+          billed_qty:     originalBilledQty, // ✅ always the original billed qty (5, 7 etc.)
+          return_qty:     returnQty,         // ✅ what the user is returning now
+          return_amount:  returnAmount,
+        };
+      });
+
+    const totalReturnAmount = medicine_particulars.reduce(
+      (sum, item) => sum + item.return_amount, 0
+    );
 
     const payload = {
       bill_no:               form.billNumber,
       uhid:                  form.uhidNo,
+      bill_type:             form.billType, 
       return_amount:         totalReturnAmount.toFixed(2),
       medicine_particulars,
+      payment_type:          form.paymentType, 
     };
 
     try {
@@ -882,6 +1123,59 @@ const SalesReturn = () => {
     <>
       <GlobalStyle />
       <ToastPortal />
+
+      {/* ── UHID Bills Selection Modal ────────────────────────────────────────── */}
+      {showUhidModal && (
+        <ModalOverlay onClick={() => setShowUhidModal(false)}>
+          <ModalBox onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              Select Bill — {form.uhidNo || form.name || "UHID Bills (Last 30 Days)"}
+              <ModalCloseBtn onClick={() => setShowUhidModal(false)}>✕</ModalCloseBtn>
+            </ModalHeader>
+            <ModalBody>
+              {loadingUhidBills ? (
+                <NoRecords>Loading bills…</NoRecords>
+              ) : uhidBills.length === 0 ? (
+                <NoRecords>No paid bills found within the last 30 days.</NoRecords>
+              ) : (
+                <ModalTable>
+                  <thead>
+                    <tr>
+                      <ModalTh>#</ModalTh>
+                      <ModalTh>Bill No</ModalTh>
+                      <ModalTh>Bill Date</ModalTh>
+                      <ModalTh>Billing Mode</ModalTh>
+                      <ModalTh>Net Amount (₹)</ModalTh>
+                      <ModalTh>Action</ModalTh>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {uhidBills.map((bill, idx) => (
+                      <tr key={idx}>
+                        <ModalTd>{idx + 1}</ModalTd>
+                        <ModalTd>{bill.bill_no}</ModalTd>
+                        <ModalTd>{formatDate(bill.bill_date)}</ModalTd>
+                        <ModalTd>{bill.billing_mode || "—"}</ModalTd>
+                        <ModalTd>₹ {parseFloat(bill.net_amount || 0).toFixed(2)}</ModalTd>
+                        <ModalTd>
+                          <SelectBillBtn onClick={() => handleSelectBill(bill)}>
+                            Select
+                          </SelectBillBtn>
+                        </ModalTd>
+                      </tr>
+                    ))}
+                  </tbody>
+                </ModalTable>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              Showing {uhidBills.length} bill(s) within the last 30 days &nbsp;·&nbsp;
+              Only <strong>Paid</strong> bills are eligible for return.
+            </ModalFooter>
+          </ModalBox>
+        </ModalOverlay>
+      )}
+
       <PageWrapper>
 
         {/* Breadcrumb */}
@@ -941,7 +1235,6 @@ const SalesReturn = () => {
               </LegendItem>
             </LegendList>
 
-            {/* + New Return toggles form open/close */}
             <NewReturnBtn
               $open={showForm}
               onClick={() => setShowForm(prev => !prev)}
@@ -950,42 +1243,38 @@ const SalesReturn = () => {
             </NewReturnBtn>
           </SummaryCard>
 
-          {/* ── Inline New Return Form — renders between summary and table ── */}
+          {/* ── Inline New Return Form ── */}
           {showForm && (
             <FormCard ref={formRef}>
               <FormBody>
                 <FormGrid>
 
+                  {/* UHID — triggers patient fetch + bill modal */}
                   <FormGroup>
-                        <Label>UHID No</Label>
-                        <InputRow>
-                            <FormInput
-                            value={form.uhidNo}
-                            onChange={e => handleFormChange("uhidNo", e.target.value)}
-                            onKeyDown={async (e) => {
-                                if (e.key === "Enter") {
-                                e.preventDefault();
-                                fetchPatientDetails(form.uhidNo);
-                                }
-                            }}
-                            onBlur={() => {
-                                if (form.uhidNo.trim()) {
-                                fetchPatientDetails(form.uhidNo);
-                                }
-                            }}
-                            placeholder="Enter UHID & press Enter"
-                            />
+                    <Label>UHID No</Label>
+                    <InputRow>
+                      <FormInput
+                        value={form.uhidNo}
+                        onChange={e => handleFormChange("uhidNo", e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            fetchPatientDetails(form.uhidNo);
+                          }
+                        }}
+                        placeholder="Enter UHID & press Enter"
+                      />
+                      <IconBtn
+                        type="button"
+                        onClick={() => fetchPatientDetails(form.uhidNo)}
+                        disabled={fetchingPatient}
+                        title="Fetch patient details & bills"
+                      >
+                        {fetchingPatient ? "⏳" : "🔍"}
+                      </IconBtn>
+                    </InputRow>
+                  </FormGroup>
 
-                            <IconBtn
-                            type="button"
-                            onClick={() => fetchPatientDetails(form.uhidNo)}
-                            disabled={fetchingPatient}
-                            title="Fetch patient details"
-                            >
-                            {fetchingPatient ? "⏳" : "🔍"}
-                            </IconBtn>
-                        </InputRow>
-                        </FormGroup>
                   <FormGroup>
                     <Label>IP Number</Label>
                     <InputRow>
@@ -1079,11 +1368,11 @@ const SalesReturn = () => {
                           <input
                             type="radio"
                             name="paymentType"
-                            value="Other"
+                            value="Credit"
                             checked={form.paymentType === "Other"}
-                            onChange={() => handleFormChange("paymentType", "Other")}
+                            onChange={() => handleFormChange("paymentType", "Credit")}
                           />
-                          Other
+                          Credit
                         </label>
                       </RadioGroup>
                       <ResetBtn type="button" onClick={handleFormReset}>
@@ -1096,8 +1385,6 @@ const SalesReturn = () => {
                   </FormGroup>
 
                 </FormGrid>
-
-               
 
                 {/* ── Bill Type | Bill Number | Bill Amount ── */}
                 <BillRow>
@@ -1149,43 +1436,106 @@ const SalesReturn = () => {
                   </FormGroup>
                 </BillRow>
 
-                {/* ── Bill Items Table (shown after bill search) ── */}
+                {/* ── Bill Items Table ── */}
                 {billItems.length > 0 && (
                   <BillItemsSection>
                     <BillItemsTitle>Bill Items</BillItemsTitle>
+                    {/* ⚠️ Partial return warning — shown when some items were already returned */}
+                    {partialReturnWarning && (
+                      <PartialReturnBanner>
+                        ⚠️ {partialReturnWarning}
+                      </PartialReturnBanner>
+                    )}
                     <BillItemsTable>
                       <thead>
                         <tr>
                           <BillItemsTh>#</BillItemsTh>
                           <BillItemsTh>Item Name</BillItemsTh>
                           <BillItemsTh>Batch No</BillItemsTh>
-                          <BillItemsTh>Qty</BillItemsTh>
-                          <BillItemsTh>Return Qty</BillItemsTh>
-                          <BillItemsTh>Unit Price (₹)</BillItemsTh>
+                          <BillItemsTh>Billed Qty</BillItemsTh>
+                          <BillItemsTh>Already Returned</BillItemsTh>
+                          <BillItemsTh>Returnable Qty</BillItemsTh>
+                          <BillItemsTh>Calculated Price (₹)</BillItemsTh>
                           <BillItemsTh>Return Qty</BillItemsTh>
                           <BillItemsTh>Return Amount (₹)</BillItemsTh>
                         </tr>
                       </thead>
                       <tbody>
-                        {billItems.map((item, index) => (
-                          <tr key={index}>
-                            <BillItemsTd>{index + 1}</BillItemsTd>
-                            <BillItemsTd>{item.item_name || "—"}</BillItemsTd>
-                            <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
-                            <BillItemsTd>{item.qty ?? "—"}</BillItemsTd>
-                         // <BillItemsTd>{parseFloat(item.price ?? item.rate ?? 0).toFixed(2)}</BillItemsTd>
-                            <BillItemsTd>
-                              <ReturnQtyInput
-                                type="number"
-                                min="0"
-                                max={item.qty}
-                                value={item.returnQty}
-                                placeholder="0"
-                                onChange={e => handleReturnQtyChange(index, e.target.value)}
-                              />
-                            </BillItemsTd>
-                          </tr>
-                        ))}
+                        {(() => {
+                          let totalRetQty = 0;
+                          let totalRetAmt = 0;
+                          const rows = billItems.map((item, index) => {
+                            const retQty         = parseFloat(item.returnQty || 0);
+                            const returnableQty  = parseFloat(item.qty || 0);          // remaining qty from API
+                            const billedQty      = parseFloat(item.billed_qty ?? item.qty ?? 0);
+                            const alreadyRet     = parseFloat(item.already_returned || 0);
+                            const calcPrice      = parseFloat(item.calculated_price ?? 0); // already pro-rated
+                            const perUnitPrice   = returnableQty > 0 ? calcPrice / returnableQty : 0;
+                            const retAmount      = retQty * perUnitPrice;
+                            totalRetQty += retQty;
+                            totalRetAmt += retAmount;
+                            const isPartial      = item.is_partial_return;
+                            return (
+                              <tr key={index} style={isPartial ? { background: "#fffde7" } : {}}>
+                                <BillItemsTd>{index + 1}</BillItemsTd>
+                                <BillItemsTd>
+                                  {item.item_name || "—"}
+                                  {isPartial && (
+                                    <PartialBadge>partial</PartialBadge>
+                                  )}
+                                </BillItemsTd>
+                                <BillItemsTd>{item.batch_number || "—"}</BillItemsTd>
+                                {/* Original billed qty */}
+                                <BillItemsTd>{billedQty || "—"}</BillItemsTd>
+                                {/* How many already returned */}
+                                <BillItemsTd>
+                                  {alreadyRet > 0
+                                    ? <AlreadyReturnedBadge>{alreadyRet}</AlreadyReturnedBadge>
+                                    : <span style={{ color: "#aaa" }}>—</span>
+                                  }
+                                </BillItemsTd>
+                                {/* Remaining qty available for return */}
+                                <BillItemsTd style={{ fontWeight: 600, color: "#00695c" }}>
+                                  {returnableQty}
+                                </BillItemsTd>
+                                {/* Pro-rated calculated price for the remaining qty */}
+                                <BillItemsTd>{calcPrice.toFixed(2)}</BillItemsTd>
+                                <BillItemsTd>
+                                  <ReturnQtyInput
+                                    type="number"
+                                    min="0"
+                                    max={returnableQty}
+                                    value={item.returnQty}
+                                    placeholder="0"
+                                    onChange={e => handleReturnQtyChange(index, e.target.value)}
+                                  />
+                                </BillItemsTd>
+                                <BillItemsTd>
+                                  {retQty > 0 ? retAmount.toFixed(2) : "—"}
+                                </BillItemsTd>
+                              </tr>
+                            );
+                          });
+                          return (
+                            <>
+                              {rows}
+                              {totalRetQty > 0 && (
+                                <tr style={{ background: "#f0faf8", fontWeight: 700 }}>
+                                  <BillItemsTd colSpan={6} style={{ textAlign: "right", color: "#00695c" }}>
+                                    Total Return
+                                  </BillItemsTd>
+                                  <BillItemsTd />
+                                  <BillItemsTd style={{ color: "#00695c" }}>
+                                    {totalRetQty}
+                                  </BillItemsTd>
+                                  <BillItemsTd style={{ color: "#00695c" }}>
+                                    ₹ {totalRetAmt.toFixed(2)}
+                                  </BillItemsTd>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })()}
                       </tbody>
                     </BillItemsTable>
                     <BillItemsFooter>

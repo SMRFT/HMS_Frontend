@@ -10,7 +10,7 @@ import apiRequest from "../../Auth/apiRequest";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
-  { key: "pharmacy_bill", label: "OP Pharmacy Bill", Icon: FaPills            },
+  { key: "pharmacy_bill", label: "Pharmacy Bill", Icon: FaPills            },
   { key: "view_estimate", label: "View Estimate",    Icon: FaFileInvoiceDollar },
   { key: "view_bills",    label: "View Bills",       Icon: FaListAlt           },
   { key: "medichart",     label: "Medichart",        Icon: FaChartBar          },

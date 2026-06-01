@@ -172,39 +172,6 @@ const DetailInner = styled.div`
   overflow: hidden;
 `;
 
-const DetailHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px 8px;
-  background: linear-gradient(90deg, #e6faf8, #f0faf8);
-  border-bottom: 1px solid #ccfbf1;
-`;
-
-const DetailTitle = styled.span`
-  font-weight: 700;
-  color: #0f766e;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`;
-
-const PatientMeta = styled.div`
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-`;
-
-const MetaBadge = styled.span`
-  background: #ccfbf1;
-  color: #0f766e;
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-`;
-
 const ItemTable = styled.table`
   width: 100%;
   border-collapse: collapse;
@@ -340,15 +307,6 @@ const StockBadge = styled.span`
   font-family: 'DM Mono', monospace;
 `;
 
-const PendingBadge = styled.span`
-  background: #fef9c3;
-  color: #b45309;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-`;
-
 const BillingStatusBadge = styled.span`
   display: inline-block;
   padding: 3px 10px;
@@ -378,6 +336,20 @@ const BillingStatusBadge = styled.span`
     $status === "Cancelled"  ? "#fca5a5" :
     $status === "Billed"     ? "#93c5fd" :
     "#e2e8f0"};
+`;
+
+const SubstituteBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 6px;
 `;
 
 const Legend = styled.div`
@@ -713,6 +685,17 @@ const SubstFieldLabel = styled.label`
   margin-bottom: 6px;
 `;
 
+const SubstOriginalInfo = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: #64748b;
+  span { font-weight: 600; color: #374151; }
+`;
+
 const SubstInputWrapper = styled.div`
   position: relative;
 `;
@@ -829,7 +812,11 @@ const SubstConfirmBtn = styled.button`
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
-// ─── Portal Dropdown — renders into document.body to escape overflow:hidden ────
+// ─── Helper: get stable Bill key ─────────────────────────────────────────────
+const getBillKey = (patient) =>
+  `bill-${patient?.Bill_id ?? patient?.bill_id ?? patient?.uhid}`;
+
+// ─── Portal Dropdown — renders into document.body to escape overflow:hidden ──
 const PortalDropdown = ({ menuKey, openActionMenu, pos, children }) => {
   if (openActionMenu !== menuKey || !pos) return null;
   return createPortal(
@@ -842,40 +829,38 @@ const PortalDropdown = ({ menuKey, openActionMenu, pos, children }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const MedicineChart = ({ onConvertToBill }) => {
-  const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD for input[type=date]
+  const todayStr = new Date().toLocaleDateString("en-CA");
 
-  const [medicineData, setMedicineData] = useState([]);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState(null);
-  const [expandedKey, setExpandedKey]   = useState(null);
-  const [openActionMenu, setOpenActionMenu] = useState(null); // { key, top, left }
-  const [fromDate, setFromDate]         = useState(todayStr);
-  const [toDate, setToDate]             = useState(todayStr);
-  const [printPatient, setPrintPatient] = useState(null); // patient to print
+  const [medicineData, setMedicineData]         = useState([]);
+  const [loading, setLoading]                   = useState(false);
+  const [error, setError]                       = useState(null);
+  const [expandedKey, setExpandedKey]           = useState(null);
+  const [openActionMenu, setOpenActionMenu]     = useState(null);
+  const [fromDate, setFromDate]                 = useState(todayStr);
+  const [toDate, setToDate]                     = useState(todayStr);
+  const [printPatient, setPrintPatient]         = useState(null);
 
   // ─── Substitute Modal State ───────────────────────────────────────────────
-  const [substituteModal, setSubstituteModal] = useState(null); // { patientIdx, itemIdx }
-  const [substSearch, setSubstSearch]         = useState("");
-  const [substSelected, setSubstSelected]     = useState(null); // chosen medicine object
-  const [substDropOpen, setSubstDropOpen]     = useState(false);
-  const [medicines, setMedicines]             = useState([]);   // from get_oppharmacy_stock
+  // FIX: store billId + originalItemId instead of array indices
+  const [substituteModal, setSubstituteModal]   = useState(null);
+  // substituteModal shape: { billId, originalItemId, originalItemName }
+  const [substSearch, setSubstSearch]           = useState("");
+  const [substSelected, setSubstSelected]       = useState(null);
+  const [substDropOpen, setSubstDropOpen]       = useState(false);
+  const [medicines, setMedicines]               = useState([]);
   const HmsBaseUrl = Hmsbaseurl;
 
-  // ─── Helper: fetch patient_details for a single UHID ─────────────────────
+  // ─── Helper: fetch patient_details ───────────────────────────────────────
   const fetchPatientDetails = async (uhid) => {
     try {
       const res = await apiRequest(
         `${Hmsbaseurl}patient_details/?uhid=${encodeURIComponent(uhid)}`,
         "GET"
       );
-      // API returns { success, data: [...] }
       const resBody = res.data ?? res;
       const list = res.success
-        ? Array.isArray(resBody?.data)
-          ? resBody.data
-          : Array.isArray(resBody)
-            ? resBody
-            : []
+        ? Array.isArray(resBody?.data) ? resBody.data
+          : Array.isArray(resBody) ? resBody : []
         : [];
       return list.length > 0 ? list[0] : null;
     } catch {
@@ -883,7 +868,7 @@ const MedicineChart = ({ onConvertToBill }) => {
     }
   };
 
-  // ─── Helper: fetch admissionstatus for a single UHID ──────────────────────
+  // ─── Helper: fetch admissionstatus ───────────────────────────────────────
   const fetchAdmissionDetails = async (uhid) => {
     try {
       const res = await apiRequest(
@@ -895,10 +880,6 @@ const MedicineChart = ({ onConvertToBill }) => {
       if (!admitted) return { admitted: false };
 
       const admData = res.data?.data ?? res.data ?? {};
-
-      // ── Resolve active room ────────────────────────────────────────────
-      // Primary: room_details (fields: roomNo, bedNo)
-      // Fallback: roomShitingDetails (fields: newRoomNo, newBedNo)
       const roomDetails     = admData?.room_details;
       const shiftingDetails = admData?.roomShitingDetails;
       const activeFromRoom  = Array.isArray(roomDetails)
@@ -914,11 +895,11 @@ const MedicineChart = ({ onConvertToBill }) => {
       }
 
       return {
-        admitted:         true,
-        ipNumber:         admData?.ipNumber         || "",
+        admitted:          true,
+        ipNumber:          admData?.ipNumber         || "",
         admissionDateTime: admData?.admissionDateTime || "",
-        admittingDoctor:  admData?.admittingDoctor   || "",
-        consultingDoctor: admData?.consultingDoctor  || "",
+        admittingDoctor:   admData?.admittingDoctor   || "",
+        consultingDoctor:  admData?.consultingDoctor  || "",
         roomLabel,
       };
     } catch {
@@ -926,7 +907,7 @@ const MedicineChart = ({ onConvertToBill }) => {
     }
   };
 
-  // ─── Calculate age string from dob ────────────────────────────────────────
+  // ─── Calculate age string ────────────────────────────────────────────────
   const calcAge = (dob) => {
     if (!dob) return "";
     const d = new Date(dob);
@@ -939,17 +920,17 @@ const MedicineChart = ({ onConvertToBill }) => {
     return `${years}Y ${months}M ${days}D`;
   };
 
-  // 🔹 Fetch patients + their medicine items, then enrich with patient & admission data
+  // ─── Fetch + enrich medicine chart ───────────────────────────────────────
   const fetchMedicineChart = async () => {
     try {
       setLoading(true);
       setError(null);
 
-          const response = await apiRequest(
-      `${Hmsbaseurl}pharmacy_medicinechart/`,
-      "POST",
-      {}
-    );
+      const response = await apiRequest(
+        `${Hmsbaseurl}pharmacy_medicinechart/`,
+        "POST",
+        {}
+      );
 
       if (!response.success) {
         setError(response.error || "Failed to load data.");
@@ -958,35 +939,29 @@ const MedicineChart = ({ onConvertToBill }) => {
 
       const rawList = response.data?.data || [];
 
-      // ── Enrich each patient in parallel ──────────────────────────────────
       const enriched = await Promise.all(
         rawList.map(async (patient) => {
           const uhid = patient.uhid;
           if (!uhid) return patient;
 
-          // Run both API calls concurrently
           const [pd, adm] = await Promise.all([
             fetchPatientDetails(uhid),
             fetchAdmissionDetails(uhid),
           ]);
 
-          // ── Merge patient_details fields ────────────────────────────────
           const pdMerge = pd
             ? {
-                // patient_details sub-object (used in UI)
                 patient_details: {
                   patient_name: `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
                   address:      pd.permanent_address || pd.area || "",
                   mobile:       pd.mobilePhone || pd.mobile || "",
                 },
-                // top-level fields used by convertWardRequest in OPPharmacy
-                patient_name:      `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
-                address:           pd.permanent_address || "",
-                place:             pd.area              || "",
-                mobile:            pd.mobilePhone       || pd.mobile || "",
-                customer_type:     pd.customer_type     || "",
-                age:               pd.dob ? calcAge(pd.dob) : pd.age ? String(pd.age) : "",
-                // doctor from latest billing entry
+                patient_name:  `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
+                address:       pd.permanent_address || "",
+                place:         pd.area              || "",
+                mobile:        pd.mobilePhone       || pd.mobile || "",
+                customer_type: pd.customer_type     || "",
+                age:           pd.dob ? calcAge(pd.dob) : pd.age ? String(pd.age) : "",
                 doctor_id: (() => {
                   if (!Array.isArray(pd.billing) || pd.billing.length === 0)
                     return patient.doctor_id || "";
@@ -1000,14 +975,13 @@ const MedicineChart = ({ onConvertToBill }) => {
               }
             : {};
 
-          // ── Merge admissionstatus fields ────────────────────────────────
           const admMerge = adm
             ? {
                 admission_status:   adm.admitted ? "ADMITTED" : "NOT ADMITTED",
-                inpatient_number:   adm.ipNumber            || patient.inpatient_number || "",
-                admission_datetime: adm.admissionDateTime   || "",
-                room_no:            adm.roomLabel           || patient.room_no || patient.ward_name || "",
-                ward_name:          adm.roomLabel           || patient.ward_name || patient.room_no || "",
+                inpatient_number:   adm.ipNumber          || patient.inpatient_number || "",
+                admission_datetime: adm.admissionDateTime || "",
+                room_no:            adm.roomLabel         || patient.room_no || patient.ward_name || "",
+                ward_name:          adm.roomLabel         || patient.ward_name || patient.room_no || "",
               }
             : {};
 
@@ -1026,31 +1000,29 @@ const MedicineChart = ({ onConvertToBill }) => {
 
   useEffect(() => { fetchMedicineChart(); }, []);
 
-  // ── Frontend date filter based on ward_request_date ───────────────────────
+  // ─── Frontend date filter ─────────────────────────────────────────────────
   const filteredData = medicineData.filter((patient) => {
     const raw = patient.ward_request_date || patient.created_date;
-    if (!raw) return true; // no date → always show
-    const wardDate = new Date(raw).toLocaleDateString("en-CA"); // YYYY-MM-DD
+    if (!raw) return true;
+    const wardDate = new Date(raw).toLocaleDateString("en-CA");
     if (fromDate && wardDate < fromDate) return false;
     if (toDate   && wardDate > toDate)   return false;
     return true;
   });
 
-  // Close action dropdown when clicking outside
+  // ─── Close action dropdown on outside click ───────────────────────────────
   useEffect(() => {
     const handleClickOutside = () => setOpenActionMenu(null);
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // Toggle expanded row
   const handleToggleMedicines = (key) => {
     setExpandedKey(prev => (prev === key ? null : key));
     setOpenActionMenu(null);
   };
 
-  // ✅ Convert to Bill — calls convert_to_bill API (sets billing_status = "Processing")
-  // finalize_bill (blocked_quantity update) is called by OPPharmacy AFTER successful PATCH save
+  // ─── Convert to Bill ──────────────────────────────────────────────────────
   const handleConvertToBillSafe = useCallback(async (patient) => {
     if (typeof onConvertToBill !== "function") return;
 
@@ -1066,7 +1038,6 @@ const MedicineChart = ({ onConvertToBill }) => {
 
     const billId = patient.Bill_id ?? patient.bill_id ?? null;
 
-    // Step 1 — set billing_status = "Processing" in DB
     try {
       const res = await apiRequest(`${HmsBaseUrl}convert_to_bill/`, "POST", { Bill_id: billId });
       if (!res.success) {
@@ -1076,7 +1047,7 @@ const MedicineChart = ({ onConvertToBill }) => {
       console.error("convert_to_bill API failed:", err);
     }
 
-    // Step 2 — optimistic UI: reflect "Processing" status in the list
+    // Optimistic: update billing_status — match by Bill_id (not index)
     setMedicineData(prev =>
       prev.map(p =>
         (p.Bill_id ?? p.bill_id) === billId
@@ -1085,7 +1056,6 @@ const MedicineChart = ({ onConvertToBill }) => {
       )
     );
 
-    // Step 3 — hand off to parent (switches to pharmacy bill tab)
     onConvertToBill({ ...patient, medicine_items: items });
   }, [onConvertToBill, HmsBaseUrl]);
 
@@ -1102,16 +1072,15 @@ const MedicineChart = ({ onConvertToBill }) => {
           : [];
         if (response.success) {
           const formatted = medicineArray.map((item) => ({
-            name: item.item_name || "",
-            item_id: item.item_id,
-            batch_number: item.batch_number || "N/A",
-            expiry_date: item.expiry_date || "N/A",
-            mrp: parseFloat(item.mrp || 0),
+            name:            item.item_name || "",
+            item_id:         item.item_id,
+            batch_number:    item.batch_number  || "N/A",
+            expiry_date:     item.expiry_date   || "N/A",
+            mrp:             parseFloat(item.mrp || 0),
             available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
-            category: item.category || "",
+            category:        item.category || "",
           }));
-          // Deduplicate by item_id — keep unique names
-          const seen = new Set();
+          const seen   = new Set();
           const unique = formatted.filter(m => {
             if (seen.has(m.item_id)) return false;
             seen.add(m.item_id);
@@ -1126,73 +1095,71 @@ const MedicineChart = ({ onConvertToBill }) => {
     fetchMedicines();
   }, [HmsBaseUrl]);
 
-  // ─── Open substitute modal ────────────────────────────────────────────────
-  const openSubstituteModal = (patientIdx, itemIdx) => {
-    setSubstituteModal({ patientIdx, itemIdx });
+  // ─── Open substitute modal — store billId + originalItemId (NOT array index)
+  const openSubstituteModal = (patient, item) => {
+    setSubstituteModal({
+      billId:           patient.Bill_id ?? patient.bill_id,
+      originalItemId:   item.item_id,
+      originalItemName: item.item_name || item.medicine_name || "",
+      originalItem:     item, // full item snapshot for payload building
+    });
     setSubstSearch("");
     setSubstSelected(null);
     setSubstDropOpen(false);
   };
 
-  // ─── Confirm substitution — replaces item in medicineData + persists via API ─
+  // ─── Confirm substitution — keyed on billId + originalItemId (no stale indices)
   const handleSubstituteConfirm = async () => {
     if (!substSelected || !substituteModal) return;
 
-    const { patientIdx, itemIdx } = substituteModal;
+    const { billId, originalItemId, originalItem } = substituteModal;
 
-    // Capture original patient + item BEFORE state update
-    const selectedPatient = medicineData[patientIdx];
-    const selectedItem    = selectedPatient?.medicine_items?.[itemIdx];
-
-    if (!selectedPatient || !selectedItem) {
-      console.error("Substitute: could not resolve patient/item at", patientIdx, itemIdx);
+    if (!originalItem) {
+      console.error("Substitute: original item snapshot missing");
       setSubstituteModal(null);
       return;
     }
 
-    // Build the substitute_item payload the API expects (mirrors medicine_particulars shape)
     const substituteItemPayload = {
       item_id:         substSelected.item_id,
       item_name:       substSelected.name,
-      batch_number:    substSelected.batch_number || selectedItem.batch_number || "",
-      qty:             selectedItem.qty      ?? selectedItem.quantity ?? 0,
-      quantity:        selectedItem.qty      ?? selectedItem.quantity ?? 0,
-      noOfDays:        selectedItem.noOfDays  || "",
-      dosage:          selectedItem.dosage    || "",
-      dose:            selectedItem.dose      || "",
-      doseUnit:        selectedItem.doseUnit  || "",
-      route:           selectedItem.route     || "",
-      remark:          selectedItem.remark    || "",
+      batch_number:    substSelected.batch_number || originalItem.batch_number || "",
+      qty:             originalItem.qty      ?? originalItem.quantity ?? 0,
+      quantity:        originalItem.qty      ?? originalItem.quantity ?? 0,
+      noOfDays:        originalItem.noOfDays  || "",
+      dosage:          originalItem.dosage    || "",
+      dose:            originalItem.dose      || "",
+      doseUnit:        originalItem.doseUnit  || "",
+      route:           originalItem.route     || "",
+      remark:          originalItem.remark    || "",
       is_substitute:   true,
-      substituted:     true,
-      // carry stock/price fields so Convert-to-Bill still works
       available_stock: substSelected.available_stock ?? 9999,
-      mrp:             substSelected.mrp ?? selectedItem.mrp ?? 0,
-      price:           substSelected.mrp ?? selectedItem.price ?? 0,
-      CGST_Percentage: selectedItem.CGST_Percentage ?? 0,
-      SGST_Percentage: selectedItem.SGST_Percentage ?? 0,
-      CGST_Amt:        selectedItem.CGST_Amt ?? 0,
-      SGST_Amt:        selectedItem.SGST_Amt ?? 0,
+      mrp:             substSelected.mrp ?? originalItem.mrp ?? 0,
+      price:           substSelected.mrp ?? originalItem.price ?? 0,
+      CGST_Percentage: originalItem.CGST_Percentage ?? 0,
+      SGST_Percentage: originalItem.SGST_Percentage ?? 0,
+      CGST_Amt:        originalItem.CGST_Amt ?? 0,
+      SGST_Amt:        originalItem.SGST_Amt ?? 0,
     };
 
-    // Optimistic UI update
+    // FIX: optimistic UI — match by billId + originalItemId, never by array index
     setMedicineData(prev =>
-      prev.map((patient, pIdx) => {
-        if (pIdx !== patientIdx) return patient;
-        const updatedItems = (patient.medicine_items || []).map((item, iIdx) =>
-          iIdx === itemIdx ? substituteItemPayload : item
+      prev.map(patient => {
+        if ((patient.Bill_id ?? patient.bill_id) !== billId) return patient;
+        const updatedItems = (patient.medicine_items || []).map(item =>
+          item.item_id === originalItemId ? substituteItemPayload : item
         );
         return { ...patient, medicine_items: updatedItems };
       })
     );
 
-    // Persist to backend — POST substitute_medicine
+    // Persist to backend
     try {
       const res = await apiRequest(`${HmsBaseUrl}substitute_medicine/`, "POST", {
-        Bill_id:          selectedPatient.Bill_id ?? selectedPatient.bill_id ?? null,
-        item_id:          selectedItem.item_id,
-        batch_number:     selectedItem.batch_number || "",
-        substitute_item:  substituteItemPayload,
+        Bill_id:         billId,
+        item_id:         originalItemId,
+        batch_number:    originalItem.batch_number || "",
+        substitute_item: substituteItemPayload,
       });
       if (!res.success) {
         console.error("Substitute API error:", res.error);
@@ -1203,11 +1170,13 @@ const MedicineChart = ({ onConvertToBill }) => {
 
     setSubstituteModal(null);
   };
-  // ─── Filtered suggestions (min 2 chars typed) ────────────────────────────
+
+  // ─── Filtered suggestions ─────────────────────────────────────────────────
   const substSuggestions = substSearch.length >= 2
     ? medicines.filter(m => m.name.toLowerCase().includes(substSearch.toLowerCase()))
     : [];
 
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
       <GlobalStyle />
@@ -1268,17 +1237,14 @@ const MedicineChart = ({ onConvertToBill }) => {
                   </td>
                 </tr>
               ) : (
-                filteredData.map((patient, idx) => {
-                  const patientKey = `${patient.uhid || "row"}-${idx}`;
+                filteredData.map((patient) => {
+                  // FIX: stable key based on Bill_id, not loop index
+                  const patientKey = getBillKey(patient);
                   const isExpanded = expandedKey === patientKey;
-
-                  // ✅ FIX: Always default to [] — never undefined
-                  const items = Array.isArray(patient?.medicine_items)
-                    ? patient.medicine_items
-                    : [];
+                  const items = Array.isArray(patient?.medicine_items) ? patient.medicine_items : [];
 
                   return (
-                    <React.Fragment key={`${patient.uhid || "row"}-${idx}`}>
+                    <React.Fragment key={patientKey}>
                       {/* ── Patient Row ── */}
                       <PatientRow
                         $active={isExpanded}
@@ -1305,7 +1271,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                           {patient.inpatient_number || patient.ip_number || "-"}
                         </td>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.8rem" }}>
-                          {patient.patient_details?.mobile || patient.ip_serial_no || patient.estimate_no || "-"}
+                          {patient.patient_details?.mobile || patient.mobile || "-"}
                         </td>
                         <td>
                           {patient.billing_status ? (
@@ -1334,13 +1300,9 @@ const MedicineChart = ({ onConvertToBill }) => {
                         <DetailPanel onClick={(e) => e.stopPropagation()}>
                           <DetailCell colSpan="9">
                             <DetailInner>
-
-
-                              {/* Medicine items table */}
                               <ItemTable>
                                 <ItemThead>
                                   <tr>
-                                   
                                     <th>Action</th>
                                     <th>Item Name</th>
                                     <th>Qty</th>
@@ -1353,7 +1315,6 @@ const MedicineChart = ({ onConvertToBill }) => {
                                 <tbody>
                                   {items.length > 0 ? (
                                     items.map((item, i) => {
-                                      // ✅ FIX: Guard against null/undefined item in array
                                       if (!item) return null;
 
                                       const wardReqRaw = patient.ward_request_date || patient.created_date;
@@ -1361,36 +1322,26 @@ const MedicineChart = ({ onConvertToBill }) => {
                                       let wardTimeStr = "-";
                                       if (wardReqRaw) {
                                         const d = new Date(wardReqRaw);
-                                        wardDateStr = d.toLocaleDateString("en-GB"); // DD/MM/YYYY
+                                        wardDateStr = d.toLocaleDateString("en-GB");
                                         wardTimeStr = d.toLocaleTimeString("en-IN", {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                          second: "2-digit",
-                                          hour12: true,
+                                          hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
                                         });
                                       }
 
                                       const stockLow = item.available_stock !== undefined && item.available_stock < 10;
+                                      const isSubstituted = item.is_substitute || item.substituted;
 
                                       const dotType =
-                                        item.is_substitute || item.substituted
-                                          ? "substitute"
-                                          : item.is_emergency
-                                          ? "emergency"
-                                          : item.is_insurance
-                                          ? "insurance"
-                                          : "regular";
+                                        isSubstituted        ? "substitute" :
+                                        item.is_emergency    ? "emergency"  :
+                                        item.is_insurance    ? "insurance"  :
+                                        "regular";
 
-                                      const menuKey = `${patientKey}-${i}`;
-
-                                      // Find the real index of this patient in medicineData
-                                      const patientDataIdx = medicineData.findIndex(
-                                        (p, pIdx) => `${p.uhid || "row"}-${pIdx}` === patientKey
-                                      );
+                                      // FIX: unique menu key using Bill_id + item_id + loop index
+                                      const menuKey = `${patientKey}-item-${item.item_id ?? i}-${i}`;
 
                                       return (
                                         <ItemRow key={`${item.item_id ?? i}-${i}`}>
-                                         
                                           <td>
                                             <ActionMenuWrapper>
                                               <ActionBtn
@@ -1403,8 +1354,8 @@ const MedicineChart = ({ onConvertToBill }) => {
                                                     const rect = e.currentTarget.getBoundingClientRect();
                                                     setOpenActionMenu({
                                                       key: menuKey,
-                                                      top: rect.bottom + window.scrollY + 4,
-                                                      left: rect.left + window.scrollX,
+                                                      top:  rect.bottom + window.scrollY + 4,
+                                                      left: rect.left   + window.scrollX,
                                                     });
                                                   }
                                                 }}
@@ -1414,13 +1365,18 @@ const MedicineChart = ({ onConvertToBill }) => {
                                               <PortalDropdown
                                                 menuKey={menuKey}
                                                 openActionMenu={openActionMenu?.key}
-                                                pos={openActionMenu?.key === menuKey ? { top: openActionMenu.top, left: openActionMenu.left } : null}
+                                                pos={
+                                                  openActionMenu?.key === menuKey
+                                                    ? { top: openActionMenu.top, left: openActionMenu.left }
+                                                    : null
+                                                }
                                               >
                                                 <DropdownItem
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     setOpenActionMenu(null);
-                                                    openSubstituteModal(patientDataIdx, i);
+                                                    // FIX: pass patient object + item object directly
+                                                    openSubstituteModal(patient, item);
                                                   }}
                                                 >
                                                   🔄 Substitute
@@ -1429,7 +1385,6 @@ const MedicineChart = ({ onConvertToBill }) => {
                                                   onClick={(e) => {
                                                     e.stopPropagation();
                                                     setOpenActionMenu(null);
-                                                    // ✅ FIX: Use safe handler — validates items before calling parent
                                                     handleConvertToBillSafe(patient);
                                                   }}
                                                 >
@@ -1439,7 +1394,11 @@ const MedicineChart = ({ onConvertToBill }) => {
                                             </ActionMenuWrapper>
                                           </td>
                                           <td style={{ fontWeight: 600, color: "#1e293b" }}>
+                                            <StatusDot $type={dotType} />
                                             {item.item_name || item.medicine_name || "-"}
+                                            {isSubstituted && (
+                                              <SubstituteBadge>🔄 Substituted</SubstituteBadge>
+                                            )}
                                           </td>
                                           <td>
                                             <QtyBadge>{item.qty ?? item.quantity ?? "-"}</QtyBadge>
@@ -1465,7 +1424,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                                     })
                                   ) : (
                                     <tr>
-                                      <td colSpan="8">
+                                      <td colSpan="7">
                                         <EmptyState style={{ padding: "24px" }}>
                                           No medicine items found for this patient.
                                         </EmptyState>
@@ -1474,7 +1433,6 @@ const MedicineChart = ({ onConvertToBill }) => {
                                   )}
                                 </tbody>
                               </ItemTable>
-
                             </DetailInner>
                           </DetailCell>
                         </DetailPanel>
@@ -1487,14 +1445,12 @@ const MedicineChart = ({ onConvertToBill }) => {
           </StyledTable>
         </TableCard>
 
-        {/* Legend — rendered once at the very bottom of the page */}
         <Legend>
           <LegendItem><StatusDot $type="substitute" /> Substitute Given</LegendItem>
-          <LegendItem><StatusDot $type="emergency" /> Emergency Medicine</LegendItem>
-          <LegendItem><StatusDot $type="insurance" /> Insurance</LegendItem>
-          <LegendItem><StatusDot $type="regular" /> Regular Medicine</LegendItem>
+          <LegendItem><StatusDot $type="emergency"  /> Emergency Medicine</LegendItem>
+          <LegendItem><StatusDot $type="insurance"  /> Insurance</LegendItem>
+          <LegendItem><StatusDot $type="regular"    /> Regular Medicine</LegendItem>
         </Legend>
-
       </Wrapper>
 
       {/* ── Substitute Modal ── */}
@@ -1502,11 +1458,16 @@ const MedicineChart = ({ onConvertToBill }) => {
         <SubstOverlay onClick={() => setSubstituteModal(null)}>
           <SubstModalBox onClick={e => e.stopPropagation()}>
             <SubstModalHeader>
-              <SubstModalTitle>Substituted Item</SubstModalTitle>
+              <SubstModalTitle>🔄 Substitute Item</SubstModalTitle>
               <SubstCloseX onClick={() => setSubstituteModal(null)}>✕</SubstCloseX>
             </SubstModalHeader>
             <SubstBody>
-              <SubstFieldLabel>Item Name</SubstFieldLabel>
+              {/* Show what is being replaced */}
+              <SubstOriginalInfo>
+                Replacing: <span>{substituteModal.originalItemName || `Item ID ${substituteModal.originalItemId}`}</span>
+              </SubstOriginalInfo>
+
+              <SubstFieldLabel>New Item Name</SubstFieldLabel>
               <SubstInputWrapper>
                 <SubstInput
                   type="text"
@@ -1539,7 +1500,6 @@ const MedicineChart = ({ onConvertToBill }) => {
                 )}
               </SubstInputWrapper>
 
-              {/* Selected item tag with delete */}
               {substSelected && (
                 <SubstSelectedTag>
                   💊 {substSelected.name}
@@ -1573,7 +1533,7 @@ const MedicineChart = ({ onConvertToBill }) => {
 
       {/* ── Print Modal ── */}
       {printPatient && (() => {
-        const p = printPatient;
+        const p     = printPatient;
         const items = Array.isArray(p?.medicine_items) ? p.medicine_items : [];
         const wardReqRaw = p.ward_request_date || p.created_date;
         let wardDateStr = "-", wardTimeStr = "-";
@@ -1629,7 +1589,7 @@ const MedicineChart = ({ onConvertToBill }) => {
                 ${items.map((item, i) => `
                   <tr>
                     <td>${i + 1}</td>
-                    <td>${item.item_name || item.medicine_name || "-"}</td>
+                    <td>${item.item_name || item.medicine_name || "-"}${item.is_substitute || item.substituted ? " (Substituted)" : ""}</td>
                     <td>${item.dosage || item.dose || "-"}</td>
                     <td>${item.qty ?? item.quantity ?? "-"}</td>
                     <td>${item.remark || ""}</td>
@@ -1665,33 +1625,27 @@ const MedicineChart = ({ onConvertToBill }) => {
 
                 <PrintMetaGrid>
                   <PrintMetaRow>
-                    <PrintMetaKey>UHID</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>UHID</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.uhid || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                   <PrintMetaRow>
-                    <PrintMetaKey>Age/Gender</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>Age/Gender</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.age || "-"} / {p.gender || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                   <PrintMetaRow>
-                    <PrintMetaKey>Name</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>Name</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.patient_details?.patient_name || p.patient_name || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                   <PrintMetaRow>
-                    <PrintMetaKey>Req Ref</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>Req Ref</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.Bill_id || p.bill_no || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                   <PrintMetaRow>
-                    <PrintMetaKey>Address</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>Address</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.patient_details?.address || p.address || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                   <PrintMetaRow>
-                    <PrintMetaKey>Ward Name</PrintMetaKey>
-                    <span>:</span>
+                    <PrintMetaKey>Ward Name</PrintMetaKey><span>:</span>
                     <PrintMetaVal>{p.ward_name || p.room_no || "-"}</PrintMetaVal>
                   </PrintMetaRow>
                 </PrintMetaGrid>
@@ -1713,7 +1667,12 @@ const MedicineChart = ({ onConvertToBill }) => {
                     {items.map((item, i) => (
                       <tr key={i}>
                         <PrintItemTd>{i + 1}</PrintItemTd>
-                        <PrintItemTd style={{ fontWeight: 600 }}>{item.item_name || item.medicine_name || "-"}</PrintItemTd>
+                        <PrintItemTd style={{ fontWeight: 600 }}>
+                          {item.item_name || item.medicine_name || "-"}
+                          {(item.is_substitute || item.substituted) && (
+                            <span style={{ marginLeft: 6, color: "#1d4ed8", fontSize: "0.75rem" }}>(Substituted)</span>
+                          )}
+                        </PrintItemTd>
                         <PrintItemTd>{item.dosage || item.dose || "-"}</PrintItemTd>
                         <PrintItemTd>{item.qty ?? item.quantity ?? "-"}</PrintItemTd>
                         <PrintItemTd>{item.remark || ""}</PrintItemTd>

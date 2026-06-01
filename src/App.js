@@ -120,6 +120,7 @@ import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
 
 
 // Layout wrapper
@@ -951,6 +952,14 @@ function App() {
                     element={<CashCounterManager />}
                   />
                 )}
+
+
+                {hasPagePermission(
+                "/DialysisDischargeSummary",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/DialysisDischargeSummary" element={<DialysisDischargeSummary />} />}
+
 
 
             </Routes>
