@@ -281,9 +281,9 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                                 <div style={{ fontWeight: "600", color: colors.primary }}>{data[0]?.ip_number || "N/A"}</div>
                             </InfoGroup>
                         </div>
-                        <Button onClick={() => setModal({ type: "create" })} style={{ height: "35px" }} success>
+                        {/* <Button onClick={() => setModal({ type: "create" })} style={{ height: "35px" }} success>
                             + New Advance
-                        </Button>
+                        </Button> */}
                     </PatientInfoBar>
 
                     <TableWrapper>
@@ -298,7 +298,7 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                                     <Th style={{ textAlign: "right" }}>Bill Adv</Th>
                                     <Th>Mode</Th>
                                     <Th>Status</Th>
-                                    <Th style={{ textAlign: "center" }}>Actions</Th>
+                                    {/* <Th style={{ textAlign: "center" }}>Actions</Th> */}
                                 </Tr>
                             </thead>
                             <tbody>
@@ -319,13 +319,13 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                                                 {entry.status}
                                             </StatusBadge>
                                         </Td>
-                                        <Td style={{ textAlign: "center" }}>
+                                        {/* <Td style={{ textAlign: "center" }}>
                                             <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
                                                 {entry.status !== 'Cancelled' && (
                                                     <Button secondary style={{ padding: "2px 8px", fontSize: "0.7rem" }} onClick={() => setModal({ type: 'cancel', entry })}>Cancel</Button>
                                                 )}
-                                            </div>
-                                        </Td>
+                                            </div> 
+                                        </Td>*/}
                                     </Tr>
                                 ))}
                             </tbody>
