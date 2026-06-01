@@ -3,227 +3,332 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
 
-/* ─────────────────────────────────────────────────────────────
-   DESIGN: Clean medical-grade utility — teal primary, warm
-   neutrals, tight typography, status-driven colour system.
-───────────────────────────────────────────────────────────── */
-
-const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
+const BASE = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
 /* ── Animations ── */
-const fadeSlide = keyframes`
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
-`
-const pulse = keyframes`
-  0%,100% { box-shadow: 0 0 0 0 rgba(13,148,136,0.35); }
-  50%      { box-shadow: 0 0 0 6px rgba(13,148,136,0); }
-`
+const fadeSlide = keyframes`from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}`
+const spin      = keyframes`to{transform:rotate(360deg)}`
+
+/* ── Tokens ── */
+const C = {
+  primary : "#0d9488",
+  pDark   : "#0f766e",
+  pLight  : "#f0fdfa",
+  pBorder : "#a7f3d0",
+  bg      : "#f0f4f8",
+  surface : "#ffffff",
+  border  : "#e2e8f0",
+  faint   : "#f8fafc",
+  text    : "#111827",
+  muted   : "#6b7280",
+  danger  : "#dc2626",
+  amber   : "#f97316",
+  amberD  : "#ea6c0a",
+}
 
 /* ── Layout ── */
-const Wrap       = styled.div`min-height:100vh;background:#f0f4f8;padding:0 0 40px;font-family:'DM Sans',system-ui,sans-serif;`
-const Header     = styled.div`background:linear-gradient(135deg,#0d9488 0%,#0f766e 100%);color:white;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;box-shadow:0 4px 20px rgba(13,148,136,0.25);`
-const HLeft      = styled.div``
-const HTitle     = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-0.02em;`
-const HSubtitle  = styled.p`margin:3px 0 0;font-size:0.75rem;opacity:0.82;`
-const Body       = styled.div`padding:20px 24px;max-width:1200px;margin:0 auto;`
-
-/* ── Card ── */
-const Card       = styled.div`background:white;border-radius:10px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,0.06);`
-const CardHead   = styled.div`background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:12px 18px;font-size:0.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`
-const CardBody   = styled.div`padding:18px;`
-
-/* ── Grid ── */
-const Grid       = styled.div`display:grid;grid-template-columns:${p=>p.cols||"repeat(3,1fr)"};gap:12px;margin-bottom:12px;@media(max-width:800px){grid-template-columns:1fr 1fr!important;}@media(max-width:520px){grid-template-columns:1fr!important;}`
-
-/* ── Form inputs ── */
-const FGroup     = styled.div`display:flex;flex-direction:column;gap:4px;`
-const Lbl        = styled.label`font-size:0.72rem;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.04em;`
-const Inp        = styled.input`padding:9px 11px;border:1.5px solid ${p=>p.$err?"#dc2626":"#d1d5db"};border-radius:7px;font-size:0.875rem;color:#111827;outline:none;width:100%;box-sizing:border-box;font-family:inherit;transition:border-color .15s,box-shadow .15s;&:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.1);}&:disabled{background:#f3f4f6;cursor:not-allowed;color:#6b7280;}`
-const Sel        = styled.select`padding:9px 11px;border:1.5px solid ${p=>p.$err?"#dc2626":"#d1d5db"};border-radius:7px;font-size:0.875rem;color:#111827;outline:none;width:100%;box-sizing:border-box;font-family:inherit;background:white;transition:border-color .15s;&:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.1);}&:disabled{background:#f3f4f6;cursor:not-allowed;}`
-const Txt        = styled.textarea`padding:9px 11px;border:1.5px solid #d1d5db;border-radius:7px;font-size:0.875rem;color:#111827;outline:none;width:100%;box-sizing:border-box;resize:vertical;min-height:68px;font-family:inherit;transition:border-color .15s;&:focus{border-color:#0d9488;box-shadow:0 0 0 3px rgba(13,148,136,.1);}`
-const ErrNote    = styled.span`font-size:0.7rem;color:#dc2626;margin-top:2px;`
-
-/* ── Autocomplete ── */
-const AutoWrap   = styled.div`position:relative;`
-const DropList   = styled.ul`position:absolute;top:100%;left:0;right:0;z-index:9999;background:white;border:1.5px solid #d1d5db;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;list-style:none;margin:0;padding:0;box-shadow:0 8px 20px rgba(0,0,0,.12);`
-const DropItem   = styled.li`padding:8px 12px;font-size:0.82rem;cursor:pointer;border-bottom:1px solid #f3f4f6;&:last-child{border-bottom:none;}&:hover{background:#f0fdfa;color:#0d9488;}`
-const DropSub    = styled.span`font-size:0.7rem;color:#6b7280;margin-left:6px;`
-
-/* ── Buttons ── */
-const Btn        = styled.button`display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border:none;border-radius:7px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit;transition:background .15s,transform .1s;&:active{transform:translateY(1px);}&:disabled{opacity:.55;cursor:not-allowed;}`
-const PrimaryBtn = styled(Btn)`background:#0d9488;color:white;&:hover:not(:disabled){background:#0f766e;}`
-const SecondBtn  = styled(Btn)`background:white;color:#374151;border:1.5px solid #d1d5db;&:hover:not(:disabled){background:#f9fafb;}`
-const OrangeBtn  = styled(Btn)`background:#f97316;color:white;&:hover:not(:disabled){background:#ea6c0a;}`
-const BtnRow     = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:6px;`
-
-/* ── Status badge ── */
-const Badge = styled.span`
-  display:inline-flex;align-items:center;gap:4px;
-  padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:700;letter-spacing:.02em;
-  background:${p=>p.$s==="Approved"?"#dcfce7":p.$s==="Rejected"?"#fee2e2":p.$s==="Verified"?"#dbeafe":"#fef9c3"};
-  color:${p=>p.$s==="Approved"?"#166534":p.$s==="Rejected"?"#991b1b":p.$s==="Verified"?"#1d4ed8":"#854d0e"};
-  border:1px solid ${p=>p.$s==="Approved"?"#86efac":p.$s==="Rejected"?"#fca5a5":p.$s==="Verified"?"#93c5fd":"#fde047"};
-  &::before{content:'';width:5px;height:5px;border-radius:50%;background:${p=>p.$s==="Approved"?"#16a34a":p.$s==="Rejected"?"#dc2626":p.$s==="Verified"?"#2563eb":"#ca8a04"};}
+const Wrap   = styled.div`min-height:100vh;background:${C.bg};padding-bottom:48px;font-family:'DM Sans',system-ui,sans-serif;`
+const Header = styled.div`
+  background:linear-gradient(135deg,${C.primary} 0%,${C.pDark} 100%);
+  color:#fff;padding:18px 28px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  box-shadow:0 4px 20px rgba(13,148,136,.25);
 `
-
-/* ── Table ── */
-const TblWrap    = styled.div`overflow-x:auto;`
-const Tbl        = styled.table`width:100%;border-collapse:collapse;font-size:0.8rem;`
-const Th         = styled.th`background:#f8fafc;color:#374151;padding:10px 12px;text-align:left;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #e2e8f0;white-space:nowrap;`
-const Td         = styled.td`padding:10px 12px;border-bottom:1px solid #f1f5f9;color:#374151;vertical-align:middle;`
-const Tr         = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
-
-/* ── Info pill ── */
-const Pill = styled.span`background:#f0fdfa;color:#0f766e;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;border:1px solid #a7f3d0;`
-
-/* ── Modal ── */
-const MOverlay   = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
-
-/* 
-  FIX: Use css`` helper when interpolating a keyframe into a styled-component.
-  In styled-components v4+, keyframes are injected on-demand and must be 
-  wrapped with css`` to work correctly inside template strings.
-*/
-const MBox = styled.div`
-  background:white;
-  border-radius:12px;
-  padding:28px 32px;
-  max-width:460px;
-  width:90%;
-  box-shadow:0 20px 60px rgba(0,0,0,.2);
-  ${css`animation:${fadeSlide} .18s ease forwards;`}
-`
-
-const MTitle     = styled.h3`margin:0 0 8px;font-size:1rem;font-weight:700;color:#111827;`
-const MText      = styled.p`margin:0 0 16px;font-size:0.875rem;color:#6b7280;line-height:1.6;`
-
-/* ── Search bar ── */
-const SearchWrap = styled.div`display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:14px 18px;`
+const HTitle = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
+const HSub   = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
+const Body   = styled.div`max-width:1000px;margin:0 auto;padding:22px 20px;`
 
 /* ── Tabs ── */
-const TabRow     = styled.div`display:flex;gap:4px;`
-const Tab        = styled.button`padding:7px 16px;border:none;border-radius:6px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;background:${p=>p.$a?"white":"rgba(255,255,255,.18)"};color:${p=>p.$a?colors.primary:"white"};border:${p=>p.$a?"none":"1px solid rgba(255,255,255,.3)"};`
-
-const colors = { primary:"#0d9488", danger:"#dc2626" }
-
-/* 
-  FIX: Same issue applied to the animated Card variant used in the form tab.
-  Instead of passing the keyframe directly in an inline style (which doesn't
-  work at all), we use a proper animated styled-component.
-*/
-const AnimatedCard = styled(Card)`
-  ${css`animation:${fadeSlide} .25s ease;`}
+const TabRow = styled.div`display:flex;gap:4px;`
+const Tab    = styled.button`
+  padding:7px 18px;border-radius:6px;font-size:.82rem;font-weight:700;
+  cursor:pointer;font-family:inherit;border:none;transition:all .14s;
+  background:${p => p.$a ? "#fff" : "rgba(255,255,255,.18)"};
+  color:${p => p.$a ? C.primary : "#fff"};
+  border:1px solid ${p => p.$a ? "transparent" : "rgba(255,255,255,.3)"};
 `
+
+/* ── Card ── */
+const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
+const AniCard  = styled(Card)`${css`animation:${fadeSlide} .22s ease;`}`
+const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;`
+const CardBody = styled.div`padding:18px 20px;`
+
+/* ── Grid ── */
+const Grid = styled.div`
+  display:grid;grid-template-columns:${p => p.$cols || "repeat(2,1fr)"};gap:12px;margin-bottom:14px;
+  @media(max-width:760px){grid-template-columns:1fr 1fr!important;}
+  @media(max-width:500px){grid-template-columns:1fr!important;}
+`
+
+/* ── Form controls ── */
+const FG     = styled.div`display:flex;flex-direction:column;gap:4px;`
+const Lbl    = styled.label`font-size:.7rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.05em;`
+const Inp    = styled.input`
+  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
+  border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
+  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s,box-shadow .14s;
+  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
+  &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
+`
+const Sel    = styled.select`
+  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
+  border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
+  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
+  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
+  &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
+`
+const Txta   = styled.textarea`
+  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;
+  font-size:.875rem;color:${C.text};outline:none;width:100%;
+  box-sizing:border-box;resize:vertical;min-height:64px;font-family:inherit;
+  transition:border-color .14s;
+  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
+`
+const ErrMsg = styled.span`font-size:.68rem;color:${C.danger};margin-top:2px;`
+
+/* ── Buttons ── */
+const Btn      = styled.button`
+  display:inline-flex;align-items:center;gap:6px;padding:9px 22px;border:none;border-radius:7px;
+  font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;
+  transition:background .13s,transform .1s;
+  &:active{transform:translateY(1px);}
+  &:disabled{opacity:.5;cursor:not-allowed;}
+`
+const PrimBtn  = styled(Btn)`background:${C.primary};color:#fff;&:hover:not(:disabled){background:${C.pDark};}`
+const SecBtn   = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};&:hover:not(:disabled){background:${C.faint};}`
+const AmberBtn = styled(Btn)`background:${C.amber};color:#fff;&:hover:not(:disabled){background:${C.amberD};}`
+const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:6px;`
+
+/* ── Three-dot action menu ── */
+const MenuWrap = styled.div`position:relative;display:inline-block;`
+const DotBtn   = styled.button`
+  width:32px;height:32px;border-radius:7px;border:1.5px solid ${C.border};
+  background:#fff;color:${C.muted};font-size:1.1rem;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .13s,border-color .13s;
+  &:hover{background:${C.pLight};border-color:${C.primary};color:${C.primary};}
+`
+const MenuList = styled.ul`
+  position:absolute;right:0;top:calc(100% + 4px);z-index:9999;
+  min-width:150px;background:#fff;border:1.5px solid ${C.border};
+  border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.13);
+  list-style:none;margin:0;padding:5px;
+  ${css`animation:${fadeSlide} .14s ease;`}
+`
+const MenuItem = styled.li`
+  display:flex;align-items:center;gap:8px;
+  padding:8px 12px;border-radius:6px;font-size:.8rem;font-weight:700;
+  cursor:pointer;color:${p => p.$danger ? C.danger : C.text};
+  transition:background .1s;
+  &:hover{background:${p => p.$danger ? "#fff1f2" : C.pLight};color:${p => p.$danger ? C.danger : C.primary};}
+`
+
+/* ── Badge ── */
+const Badge = styled.span`
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:800;
+  background:${p => p.$s==="Approved"?"#dcfce7":p.$s==="Rejected"?"#fee2e2":p.$s==="Verified"?"#dbeafe":"#fef9c3"};
+  color:${p => p.$s==="Approved"?"#166534":p.$s==="Rejected"?"#991b1b":p.$s==="Verified"?"#1d4ed8":"#92400e"};
+  border:1px solid ${p => p.$s==="Approved"?"#86efac":p.$s==="Rejected"?"#fca5a5":p.$s==="Verified"?"#93c5fd":"#fde68a"};
+  &::before{content:'';width:5px;height:5px;border-radius:50%;
+    background:${p => p.$s==="Approved"?"#16a34a":p.$s==="Rejected"?"#dc2626":p.$s==="Verified"?"#2563eb":"#d97706"};}
+`
+const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
+
+/* ── List table ── */
+const TblWrap = styled.div`overflow-x:auto;`
+const Tbl     = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
+const Th      = styled.th`background:${C.faint};color:${C.muted};padding:10px 12px;text-align:left;font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid ${C.border};white-space:nowrap;`
+const Td      = styled.td`padding:10px 12px;border-bottom:1px solid #f1f5f9;color:${C.text};vertical-align:middle;`
+const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
+
+/* ── Filter bar ── */
+const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
+
+/* ── Modal ── */
+const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
+const MBox     = styled.div`background:#fff;border-radius:12px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}`
+const MTitle   = styled.h3`margin:0 0 7px;font-size:1rem;font-weight:800;color:${C.text};`
+const MSub     = styled.p`margin:0 0 16px;font-size:.875rem;color:${C.muted};line-height:1.55;`
+const Spin     = styled.span`display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .6s linear infinite;`}`
 
 /* ── Edit-reason modal ── */
 const EditReasonModal = ({ onConfirm, onClose }) => {
-  const [reason, setReason] = useState("")
-  const [touched, setTouched] = useState(false)
-  const handleConfirm = () => { setTouched(true); if (!reason.trim()) return; onConfirm(reason.trim()) }
+  const [r, setR] = useState("")
+  const [t, setT] = useState(false)
+  const go = () => { setT(true); if (!r.trim()) return; onConfirm(r.trim()) }
   return (
     <MOverlay onClick={onClose}>
       <MBox onClick={e => e.stopPropagation()}>
-        <MTitle>✏️ Edit Requisition</MTitle>
-        <MText>Please provide a reason for editing this requisition.</MText>
-        <FGroup style={{ marginBottom: 18 }}>
-          <Lbl>Reason for Edit <span style={{ color: "#dc2626" }}>*</span></Lbl>
-          <Txt
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            placeholder="Describe what you changed and why…"
-            style={{ borderColor: touched && !reason.trim() ? "#dc2626" : undefined }}
+        <MTitle>✏️ Reason for Edit</MTitle>
+        <MSub>Describe what changed and why — recorded for audit.</MSub>
+        <FG style={{ marginBottom: 18 }}>
+          <Lbl>Reason <span style={{ color: C.danger }}>*</span></Lbl>
+          <Txta
+            value={r} onChange={e => setR(e.target.value)}
+            placeholder="e.g. Updated dosage per revised prescription…"
+            style={{ borderColor: t && !r.trim() ? C.danger : undefined }}
           />
-          {touched && !reason.trim() && <ErrNote>Reason is required.</ErrNote>}
-        </FGroup>
-        <BtnRow style={{ justifyContent: "flex-end" }}>
-          <SecondBtn onClick={onClose}>Cancel</SecondBtn>
-          <PrimaryBtn onClick={handleConfirm}>Confirm &amp; Save</PrimaryBtn>
+          {t && !r.trim() && <ErrMsg>Reason is required.</ErrMsg>}
+        </FG>
+        <BtnRow>
+          <SecBtn onClick={onClose}>Cancel</SecBtn>
+          <PrimBtn onClick={go}>Confirm &amp; Save</PrimBtn>
         </BtnRow>
       </MBox>
     </MOverlay>
   )
 }
 
-/* ══════════════════════════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════════════════════════ */
-const MedicineRequisition = () => {
-  const [tab,        setTab]        = useState("form")   // "form" | "list"
-  const [prList,     setPrList]     = useState([])
-  const [editPr,     setEditPr]     = useState(null)     // null = new, object = editing
-  const [saving,     setSaving]     = useState(false)
-  const [loading,    setLoading]    = useState(false)
-  const [showReason, setShowReason] = useState(false)    // edit-reason modal
-  const [pendingSave,setPendingSave]= useState(null)     // payload waiting for reason
+/* ── View detail modal ── */
+const ViewModal = ({ pr, onClose }) => {
+  const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
+  const DRow   = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;`
+  const DField = styled.div`background:${C.faint};border-radius:7px;padding:9px 12px;border:1px solid ${C.border};`
+  const DLbl   = styled.div`font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${C.muted};margin-bottom:3px;`
+  const DVal   = styled.div`font-size:.85rem;font-weight:600;color:${C.text};word-break:break-word;`
+  const DSec   = styled.div`font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${C.primary};margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid ${C.border};`
+  return (
+    <MOverlay onClick={onClose}>
+      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: "95%", padding: "0", overflow: "hidden" }}>
+        {/* header */}
+        <div style={{ background: `linear-gradient(135deg,${C.primary},${C.pDark})`, color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "1rem" }}>{pr.mr_number}</div>
+            <div style={{ fontSize: ".75rem", opacity: .82, marginTop: 2 }}>{pr.medicine_name}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Badge $s={pr.status}>{pr.status}</Badge>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,.2)", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+          </div>
+        </div>
+        <div style={{ padding: "20px 22px", maxHeight: "75vh", overflowY: "auto" }}>
+          <DSec>📋 Requisition Details</DSec>
+          <DRow>
+            <DField><DLbl>PR Number</DLbl><DVal><Pill>{pr.mr_number}</Pill></DVal></DField>
+            <DField><DLbl>Status</DLbl><DVal><Badge $s={pr.status}>{pr.status}</Badge></DVal></DField>
+          </DRow>
+          <DRow>
+            <DField style={{ gridColumn: "1/-1" }}><DLbl>Medicine Name</DLbl><DVal>{pr.medicine_name || "—"}</DVal></DField>
+          </DRow>
+          <DRow>
+            <DField style={{ gridColumn: "1/-1" }}><DLbl>Chemical Composition</DLbl><DVal>{pr.chemical_composition || "—"}</DVal></DField>
+          </DRow>
+          <DRow>
+            <DField><DLbl>Consultant Name</DLbl><DVal>{pr.consultant_name || "—"}</DVal></DField>
+            <DField><DLbl>Request Date</DLbl><DVal>{fmtDT(pr.request_date)}</DVal></DField>
+          </DRow>
+          {pr.remarks && (
+            <DRow>
+              <DField style={{ gridColumn: "1/-1" }}><DLbl>Remarks</DLbl><DVal style={{ fontWeight: 400, color: C.muted }}>{pr.remarks}</DVal></DField>
+            </DRow>
+          )}
+          {pr.status === "Approved" && (
+            <>
+              <DSec>✔ Approval Info</DSec>
+              <DRow>
+                <DField><DLbl>Approved By</DLbl><DVal style={{ color: "#166534" }}>{pr.approved_by || "—"}</DVal></DField>
+                <DField><DLbl>Approved Date</DLbl><DVal>{fmtDT(pr.approved_date)}</DVal></DField>
+              </DRow>
+            </>
+          )}
+          {pr.status === "Rejected" && (
+            <>
+              <DSec>✕ Rejection Info</DSec>
+              <DRow>
+                <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by || "—"}</DVal></DField>
+                <DField><DLbl>Rejected Date</DLbl><DVal>{fmtDT(pr.rejected_date)}</DVal></DField>
+              </DRow>
+              <DRow>
+                <DField style={{ gridColumn: "1/-1" }}><DLbl>Rejection Reason</DLbl><DVal style={{ color: C.danger, fontWeight: 400 }}>{pr.rejected_reason || "—"}</DVal></DField>
+              </DRow>
+            </>
+          )}
+          {pr.edited_by && (
+            <>
+              <DSec>✏️ Last Edit</DSec>
+              <DRow>
+                <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by}</DVal></DField>
+                <DField><DLbl>Edited Date</DLbl><DVal>{fmtDT(pr.edited_date)}</DVal></DField>
+              </DRow>
+              <DRow>
+                <DField style={{ gridColumn: "1/-1" }}><DLbl>Edit Reason</DLbl><DVal style={{ fontWeight: 400, color: C.muted }}>{pr.edited_reason || "—"}</DVal></DField>
+              </DRow>
+            </>
+          )}
+          <DSec>📅 Audit Trail</DSec>
+          <DRow>
+            <DField><DLbl>Created By</DLbl><DVal>{pr.created_by || "—"}</DVal></DField>
+            <DField><DLbl>Created Date</DLbl><DVal>{fmtDT(pr.created_date)}</DVal></DField>
+          </DRow>
+          <BtnRow style={{ marginTop: 14 }}>
+            <SecBtn onClick={onClose}>Close</SecBtn>
+          </BtnRow>
+        </div>
+      </MBox>
+    </MOverlay>
+  )
+}
 
-  /* ── Medicine search ── */
-  const [medSearch,    setMedSearch]    = useState("")
-  const [medResults,   setMedResults]   = useState([])
-  const [showMedDrop,  setShowMedDrop]  = useState(false)
-  const medSearchRef = useRef(null)
+/* ── Today's date helper ── */
+const todayStr = () => new Date().toISOString().slice(0, 10)
+
+/* ══════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════ */
+export default function MedicineRequisition() {
+  const [tab,         setTab]         = useState("form")
+  const [prList,      setPrList]      = useState([])
+  const [editPr,      setEditPr]      = useState(null)
+  const [saving,      setSaving]      = useState(false)
+  const [loading,     setLoading]     = useState(false)
+  const [showReason,  setShowReason]  = useState(false)
+  const [pendingSave, setPendingSave] = useState(null)
+  const [viewPr,      setViewPr]      = useState(null)
+  const [openMenuId,  setOpenMenuId]  = useState(null)
+  const menuRef = useRef(null)
 
   /* ── Form fields ── */
   const emptyForm = {
-    medicine_name:"", item_id:"", chemical_composition:"",
-    consultant_name:"", request_date: new Date().toISOString().slice(0,16),
-    remarks:"",
+    medicine_name:        "",
+    chemical_composition: "",
+    consultant_name:      "",
+    request_date:         new Date().toISOString().slice(0, 16),
+    remarks:              "",
   }
-  const [form,  setForm]  = useState(emptyForm)
-  const [errs,  setErrs]  = useState({})
+  const [form, setForm] = useState(emptyForm)
+  const [errs, setErrs] = useState({})
 
-  /* ── Search / filter ── */
+  /* ── List filters ── */
   const [searchQ,    setSearchQ]    = useState("")
   const [filterStat, setFilterStat] = useState("")
+  const [fromDate,   setFromDate]   = useState(todayStr)
+  const [toDate,     setToDate]     = useState(todayStr)
 
-  /* ── Close medicine dropdown on outside click ── */
+  /* ── Close menu on outside click ── */
   useEffect(() => {
-    const h = e => { if (medSearchRef.current && !medSearchRef.current.contains(e.target)) setShowMedDrop(false) }
+    const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null) }
     document.addEventListener("mousedown", h)
     return () => document.removeEventListener("mousedown", h)
   }, [])
 
-  /* ── Fetch PR list ── */
+  /* ── Fetch list ── */
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await apiRequest(`${baseUrl}medicine-requisition/`, "GET")
+      const params = new URLSearchParams()
+      if (fromDate) params.append("from_date", fromDate)
+      if (toDate)   params.append("to_date",   toDate)
+      const qs = params.toString()
+      const r  = await apiRequest(`${BASE}medicine-requisition/${qs ? "?" + qs : ""}`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setPrList(Array.isArray(rows) ? rows : [])
     } catch { toast.error("Failed to load requisitions") }
-    finally  { setLoading(false) }
-  }, [])
+    finally { setLoading(false) }
+  }, [fromDate, toDate])
 
   useEffect(() => { fetchList() }, [fetchList])
-
-  /* ── Medicine autocomplete ── */
-  const searchMedicines = useCallback(async query => {
-    if (!query || query.length < 2) { setMedResults([]); setShowMedDrop(false); return }
-    try {
-      const r = await apiRequest(`${baseUrl}medicine-requisition-medicine-search/?q=${encodeURIComponent(query)}`, "GET")
-      const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
-      setMedResults(Array.isArray(rows) ? rows : [])
-      setShowMedDrop(rows.length > 0)
-    } catch { setMedResults([]) }
-  }, [])
-
-  const handleMedSearch = e => {
-    const v = e.target.value
-    setMedSearch(v)
-    setForm(p => ({ ...p, medicine_name: v, item_id: "", chemical_composition: "" }))
-    searchMedicines(v)
-  }
-
-  const selectMedicine = med => {
-    setMedSearch(`${med.item_name}`)
-    setForm(p => ({
-      ...p,
-      medicine_name:        med.item_name,
-      item_id:              med.item_id,
-      chemical_composition: med.chemical_composition || "",
-    }))
-    setShowMedDrop(false)
-  }
 
   /* ── Validate ── */
   const validate = () => {
@@ -235,10 +340,9 @@ const MedicineRequisition = () => {
     return Object.keys(e).length === 0
   }
 
-  /* ── Prepare payload ── */
+  /* ── Build payload ── */
   const buildPayload = (editedReason) => ({
     medicine_name:        form.medicine_name.trim(),
-    item_id:              form.item_id || undefined,
     chemical_composition: form.chemical_composition.trim(),
     consultant_name:      form.consultant_name.trim(),
     request_date:         form.request_date,
@@ -250,7 +354,6 @@ const MedicineRequisition = () => {
   const handleSubmit = () => {
     if (!validate()) { toast.error("Please fill all required fields"); return }
     if (editPr) {
-      // Need edit reason — open modal first
       setPendingSave(buildPayload(null))
       setShowReason(true)
     } else {
@@ -268,39 +371,33 @@ const MedicineRequisition = () => {
     setSaving(true)
     try {
       const isEdit = !!editPr
-      const url    = isEdit
-        ? `${baseUrl}medicine-requisition/${editPr.pr_number}/`
-        : `${baseUrl}medicine-requisition/`
+      const url    = isEdit ? `${BASE}medicine-requisition/${editPr.mr_number}/` : `${BASE}medicine-requisition/`
       const method = isEdit ? "PUT" : "POST"
       const r      = await apiRequest(url, method, payload)
       if (r?.success) {
-        toast.success(isEdit ? "Requisition updated" : `Draft created: ${r.data?.pr_number}`)
-        resetForm()
-        fetchList()
-        setTab("list")
+        toast.success(isEdit ? "Requisition updated" : `Draft created: ${r.data?.mr_number}`)
+        resetForm(); fetchList(); setTab("list")
       } else {
         const err = r?.error
-        toast.error(Array.isArray(err) ? err.join(", ") : (typeof err === "string" ? err : "Save failed"))
+        toast.error(Array.isArray(err) ? err.join(", ") : typeof err === "string" ? err : "Save failed")
       }
     } catch { toast.error("Network error") }
     finally { setSaving(false) }
   }
 
-  /* ── Edit ── */
+  /* ── Load into edit form ── */
   const handleEdit = pr => {
     if (pr.status === "Approved" || pr.status === "Rejected") {
       toast.warning(`Cannot edit a ${pr.status} requisition`)
       return
     }
     setEditPr(pr)
-    setMedSearch(pr.medicine_name || "")
     setForm({
       medicine_name:        pr.medicine_name        || "",
-      item_id:              pr.item_id              || "",
       chemical_composition: pr.chemical_composition || "",
       consultant_name:      pr.consultant_name      || "",
-      request_date:         pr.request_date ? pr.request_date.slice(0,16) : "",
-      remarks:              pr.remarks || "",
+      request_date:         pr.request_date ? pr.request_date.slice(0, 16) : "",
+      remarks:              pr.remarks              || "",
     })
     setErrs({})
     setTab("form")
@@ -311,169 +408,157 @@ const MedicineRequisition = () => {
   const resetForm = () => {
     setEditPr(null)
     setForm(emptyForm)
-    setMedSearch("")
-    setMedResults([])
     setErrs({})
   }
 
   /* ── Filtered list ── */
   const filtered = prList.filter(r => {
     const q = searchQ.toLowerCase()
-    const matchQ = !q ||
-      (r.pr_number      || "").toLowerCase().includes(q) ||
-      (r.medicine_name  || "").toLowerCase().includes(q) ||
-      (r.consultant_name|| "").toLowerCase().includes(q)
-    const matchS = !filterStat || r.status === filterStat
-    return matchQ && matchS
+    const okQ = !q ||
+      (r.mr_number       || "").toLowerCase().includes(q) ||
+      (r.medicine_name   || "").toLowerCase().includes(q) ||
+      (r.consultant_name || "").toLowerCase().includes(q)
+    return okQ && (!filterStat || r.status === filterStat)
   })
 
-  /* ── Date formatter ── */
-  const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—" } catch { return "—" } }
+  const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
 
-  /* ─────────────────────────────────── RENDER ── */
+  /* ─────────────────────── RENDER ── */
   return (
     <Wrap>
       {/* Header */}
       <Header>
-        <HLeft>
-          <HTitle>📋 Purchase Requisition</HTitle>
-          <HSubtitle>Raise &amp; manage medicine medicine requests</HSubtitle>
-        </HLeft>
+        <div>
+          <HTitle>📋 Medicine Requisition</HTitle>
+          <HSub>Raise &amp; manage medicine purchase requests</HSub>
+        </div>
         <TabRow>
-          <Tab $a={tab==="form"} onClick={()=>{ resetForm(); setTab("form") }}>+ New Request</Tab>
-          <Tab $a={tab==="list"} onClick={()=>setTab("list")}>📄 My Requisitions</Tab>
+          <Tab $a={tab === "form"} onClick={() => { resetForm(); setTab("form") }}>+ New Request</Tab>
+          <Tab $a={tab === "list"} onClick={() => setTab("list")}>📄 My Requisitions</Tab>
         </TabRow>
       </Header>
 
       <Body>
-        {/* ═══ FORM TAB ════════════════════════════════════════════════════ */}
+        {/* ═══ FORM TAB ═══════════════════════════════════════════ */}
         {tab === "form" && (
-          // FIX: replaced inline style animation with AnimatedCard styled-component
-          <AnimatedCard>
+          <AniCard>
             <CardHead>
-              {editPr ? `✏️ Edit Requisition — ${editPr.pr_number}` : "📝 New Purchase Requisition"}
+              {editPr ? `✏️ Edit Requisition — ${editPr.mr_number}` : "📝 New Purchase Requisition"}
               {editPr && <Badge $s={editPr.status}>{editPr.status}</Badge>}
             </CardHead>
             <CardBody>
 
-              {/* Medicine */}
-              <Grid cols="2fr 1fr">
-                <FGroup>
-                  <Lbl>Medicine Name <span style={{color:"#dc2626"}}>*</span></Lbl>
-                  <AutoWrap ref={medSearchRef}>
-                    <Inp
-                      $err={!!errs.medicine_name}
-                      value={medSearch}
-                      onChange={handleMedSearch}
-                      onFocus={() => medResults.length && setShowMedDrop(true)}
-                      placeholder="Search medicine…"
-                    />
-                    {showMedDrop && medResults.length > 0 && (
-                      <DropList>
-                        {medResults.map(m => (
-                          <DropItem key={m.item_id} onMouseDown={() => selectMedicine(m)}>
-                            <strong>{m.item_name}</strong>
-                            {m.chemical_composition && <DropSub>{m.chemical_composition.slice(0,50)}</DropSub>}
-                          </DropItem>
-                        ))}
-                      </DropList>
-                    )}
-                  </AutoWrap>
-                  {errs.medicine_name && <ErrNote>{errs.medicine_name}</ErrNote>}
-                </FGroup>
-
+              {/* Medicine Name */}
+              <Grid $cols="1fr">
+                <FG>
+                  <Lbl>Medicine Name <span style={{ color: C.danger }}>*</span></Lbl>
+                  <Inp
+                    $err={!!errs.medicine_name}
+                    value={form.medicine_name}
+                    onChange={e => setForm(p => ({ ...p, medicine_name: e.target.value }))}
+                    placeholder="Enter medicine name"
+                  />
+                  {errs.medicine_name && <ErrMsg>{errs.medicine_name}</ErrMsg>}
+                </FG>
               </Grid>
 
-              {/* Chemical composition — auto-filled or manual */}
-              <Grid cols="1fr">
-                <FGroup>
+              {/* Chemical Composition */}
+              <Grid $cols="1fr">
+                <FG>
                   <Lbl>Chemical Composition</Lbl>
                   <Inp
                     value={form.chemical_composition}
-                    onChange={e => setForm(p=>({...p,chemical_composition:e.target.value}))}
-                    placeholder="Auto-filled from medicine selection, or enter manually"
+                    onChange={e => setForm(p => ({ ...p, chemical_composition: e.target.value }))}
+                    placeholder="Enter chemical composition (optional)"
                   />
-                </FGroup>
+                </FG>
               </Grid>
 
               {/* Consultant & Date */}
-              <Grid cols="1fr 1fr">
-                <FGroup>
-                  <Lbl>Consultant Name <span style={{color:"#dc2626"}}>*</span></Lbl>
+              <Grid $cols="1fr 1fr">
+                <FG>
+                  <Lbl>Consultant Name <span style={{ color: C.danger }}>*</span></Lbl>
                   <Inp
                     $err={!!errs.consultant_name}
                     value={form.consultant_name}
-                    onChange={e => setForm(p=>({...p,consultant_name:e.target.value}))}
+                    onChange={e => setForm(p => ({ ...p, consultant_name: e.target.value }))}
                     placeholder="Dr. Name"
                   />
-                  {errs.consultant_name && <ErrNote>{errs.consultant_name}</ErrNote>}
-                </FGroup>
-
-                <FGroup>
-                  <Lbl>Request Date &amp; Time <span style={{color:"#dc2626"}}>*</span></Lbl>
+                  {errs.consultant_name && <ErrMsg>{errs.consultant_name}</ErrMsg>}
+                </FG>
+                <FG>
+                  <Lbl>Request Date &amp; Time <span style={{ color: C.danger }}>*</span></Lbl>
                   <Inp
                     $err={!!errs.request_date}
                     type="datetime-local"
                     value={form.request_date}
-                    onChange={e => setForm(p=>({...p,request_date:e.target.value}))}
+                    onChange={e => setForm(p => ({ ...p, request_date: e.target.value }))}
                   />
-                  {errs.request_date && <ErrNote>{errs.request_date}</ErrNote>}
-                </FGroup>
+                  {errs.request_date && <ErrMsg>{errs.request_date}</ErrMsg>}
+                </FG>
               </Grid>
 
               {/* Remarks */}
-              <Grid cols="1fr" style={{marginBottom:0}}>
-                <FGroup>
+              <Grid $cols="1fr" style={{ marginBottom: 0 }}>
+                <FG>
                   <Lbl>Remarks</Lbl>
-                  <Txt
+                  <Txta
                     value={form.remarks}
-                    onChange={e => setForm(p=>({...p,remarks:e.target.value}))}
+                    onChange={e => setForm(p => ({ ...p, remarks: e.target.value }))}
                     placeholder="Any additional notes…"
                   />
-                </FGroup>
+                </FG>
               </Grid>
 
-              <BtnRow style={{marginTop:18}}>
-                <SecondBtn onClick={resetForm} disabled={saving}>✕ Clear</SecondBtn>
-                <PrimaryBtn onClick={handleSubmit} disabled={saving}>
+              <BtnRow style={{ marginTop: 18 }}>
+                <SecBtn onClick={resetForm} disabled={saving}>✕ Clear</SecBtn>
+                <PrimBtn onClick={handleSubmit} disabled={saving}>
                   {saving ? "Saving…" : editPr ? "💾 Update Requisition" : "💾 Save as Draft"}
-                </PrimaryBtn>
+                </PrimBtn>
               </BtnRow>
             </CardBody>
-          </AnimatedCard>
+          </AniCard>
         )}
 
-        {/* ═══ LIST TAB ════════════════════════════════════════════════════ */}
+        {/* ═══ LIST TAB ════════════════════════════════════════════ */}
         {tab === "list" && (
           <Card>
             <CardHead>
               📄 Requisition Records
-              <span style={{background:"#e5e7eb",color:"#6b7280",fontSize:"0.72rem",padding:"1px 8px",borderRadius:12,fontWeight:600}}>
+              <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".72rem", padding: "1px 8px", borderRadius: 12, fontWeight: 600 }}>
                 {prList.length}
               </span>
             </CardHead>
 
             {/* Filters */}
-            <SearchWrap>
-              <FGroup style={{flex:1,minWidth:200,margin:0}}>
+            <FBar>
+              <FG style={{ flex: 1, minWidth: 200, margin: 0 }}>
                 <Lbl>Search</Lbl>
-                <Inp value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="PR No, Medicine, Consultant…" />
-              </FGroup>
-              <FGroup style={{minWidth:160,margin:0}}>
+                <Inp value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="PR No, Medicine, Consultant…" />
+              </FG>
+              <FG style={{ minWidth: 150, margin: 0 }}>
                 <Lbl>Status</Lbl>
-                <Sel value={filterStat} onChange={e=>setFilterStat(e.target.value)}>
+                <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
                   <option value="">All Status</option>
-                  {["Draft","Verified","Approved","Rejected"].map(s=><option key={s} value={s}>{s}</option>)}
+                  {["Draft", "Verified", "Approved", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
                 </Sel>
-              </FGroup>
-              <Btn onClick={fetchList} style={{background:"#0d9488",color:"white",alignSelf:"flex-end"}}>🔄 Refresh</Btn>
-            </SearchWrap>
+              </FG>
+              <FG style={{ margin: 0 }}>
+                <Lbl>From Date</Lbl>
+                <Inp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+              </FG>
+              <FG style={{ margin: 0 }}>
+                <Lbl>To Date</Lbl>
+                <Inp type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
+              </FG>
+              <PrimBtn onClick={fetchList} style={{ alignSelf: "flex-end" }}>🔄 Refresh</PrimBtn>
+            </FBar>
 
             <TblWrap>
               {loading ? (
-                <div style={{textAlign:"center",padding:"40px",color:"#9ca3af",fontSize:"0.85rem"}}>Loading…</div>
+                <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
               ) : filtered.length === 0 ? (
-                <div style={{textAlign:"center",padding:"40px",color:"#9ca3af",fontSize:"0.85rem"}}>📭 No requisitions found</div>
+                <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>📭 No requisitions found</div>
               ) : (
                 <Tbl>
                   <thead>
@@ -484,40 +569,53 @@ const MedicineRequisition = () => {
                       <Th>Composition</Th>
                       <Th>Consultant</Th>
                       <Th>Req Date</Th>
-                      <Th>Qty</Th>
                       <Th>Status</Th>
                       <Th>Remarks</Th>
-                      <Th style={{textAlign:"center"}}>Action</Th>
+                      <Th style={{ textAlign: "center" }}>Action</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((r, idx) => {
                       const canEdit = r.status === "Draft" || r.status === "Verified"
                       return (
-                        <Tr key={r.pr_number}>
-                          <Td style={{color:"#9ca3af",fontSize:"0.72rem"}}>{idx+1}</Td>
-                          <Td><Pill>{r.pr_number}</Pill></Td>
-                          <Td style={{fontWeight:600,maxWidth:160,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.medicine_name}</Td>
-                          <Td style={{maxWidth:140,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",color:"#6b7280",fontSize:"0.78rem"}}>{r.chemical_composition||"—"}</Td>
-                          <Td style={{whiteSpace:"nowrap"}}>{r.consultant_name||"—"}</Td>
-                          <Td style={{whiteSpace:"nowrap",fontSize:"0.78rem"}}>{fmtDT(r.request_date)}</Td>
+                        <Trow key={r.mr_number}>
+                          <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                          <Td><Pill>{r.mr_number}</Pill></Td>
+                          <Td style={{ fontWeight: 700, maxWidth: 160, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.medicine_name}</Td>
+                          <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: C.muted, fontSize: ".78rem" }}>{r.chemical_composition || "—"}</Td>
+                          <Td style={{ whiteSpace: "nowrap" }}>{r.consultant_name || "—"}</Td>
+                          <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
                           <Td><Badge $s={r.status}>{r.status}</Badge></Td>
-                          <Td style={{maxWidth:120,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontSize:"0.78rem",color:"#6b7280"}}>{r.remarks||"—"}</Td>
-                          <Td style={{textAlign:"center"}}>
-                            {canEdit ? (
-                              <OrangeBtn
-                                style={{padding:"5px 14px",fontSize:"0.78rem"}}
-                                onClick={() => handleEdit(r)}
+                          <Td style={{ maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: ".78rem", color: C.muted }}>{r.remarks || "—"}</Td>
+
+                          {/* Three-dot menu */}
+                          <Td style={{ textAlign: "center" }}>
+                            <MenuWrap ref={openMenuId === r.mr_number ? menuRef : null}>
+                              <DotBtn
+                                title="Actions"
+                                onClick={() => setOpenMenuId(prev => prev === r.mr_number ? null : r.mr_number)}
                               >
-                                ✏️ Edit
-                              </OrangeBtn>
-                            ) : (
-                              <span style={{fontSize:"0.72rem",color:"#9ca3af",display:"flex",alignItems:"center",gap:4,justifyContent:"center"}}>
-                                🔒 {r.status}
-                              </span>
-                            )}
+                                ⋯
+                              </DotBtn>
+                              {openMenuId === r.mr_number && (
+                                <MenuList>
+                                  <MenuItem onClick={() => { setViewPr(r); setOpenMenuId(null) }}>
+                                    👁 View
+                                  </MenuItem>
+                                  {canEdit ? (
+                                    <MenuItem onClick={() => { handleEdit(r); setOpenMenuId(null) }}>
+                                      ✏️ Edit
+                                    </MenuItem>
+                                  ) : (
+                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
+                                      🔒 {r.status}
+                                    </MenuItem>
+                                  )}
+                                </MenuList>
+                              )}
+                            </MenuWrap>
                           </Td>
-                        </Tr>
+                        </Trow>
                       )
                     })}
                   </tbody>
@@ -535,8 +633,9 @@ const MedicineRequisition = () => {
           onClose={() => { setShowReason(false); setPendingSave(null) }}
         />
       )}
+
+      {/* View detail modal */}
+      {viewPr && <ViewModal pr={viewPr} onClose={() => setViewPr(null)} />}
     </Wrap>
   )
 }
-
-export default MedicineRequisition

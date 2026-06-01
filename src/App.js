@@ -140,6 +140,9 @@ import MedicineRequisition from "./Components/InventoryMaster/MedicineRequisitio
 import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinerequisitionapproval";
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
+import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+
+
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -323,7 +326,8 @@ function App() {
       "/CashierWiseReport": "Cashier Wise Report",
       "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
       "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
-      "/AdvanceRegistration": "Advance Registration"
+      "/AdvanceRegistration": "Advance Registration",
+     
     };
 
     const path = location.pathname;
@@ -648,7 +652,17 @@ function App() {
                     element={<RoomServiceDescription />}
                   />
                 )}
-
+              {hasPagePermission(
+                "/PurchaseRequisition",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseRequisition"
+                    element={<PurchaseRequisition />}
+                 
+                  />
+                )}
               {/* Inventory */}
               {hasPagePermission(
                 "/VendorManagement",
