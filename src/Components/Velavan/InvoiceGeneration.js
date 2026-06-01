@@ -583,6 +583,8 @@ const EMPTY_MODAL = {
   sellingDiscountedAmt: "",
   sellingCost: "",
   unitSellingCost: "",
+  purchaseCostBeforeGst: "",
+  sellingCostBeforeGst: "",
 };
 
 const EMPTY_FORM = {
@@ -816,8 +818,8 @@ const Invoice = () => {
       totalPurchaseCost +
         (summary.taxOnFreeItems || 0) +
         (summary.courierTransportCharge || 0) +
-        (summary.localTax || 0) -
-        totalDiscount,
+        (summary.localTax || 0),
+      // discount is already baked into purchaseCost — do NOT subtract again
     );
     const netInvoiceAmount = round(base + (summary.roundAmount || 0));
     setSummary((prev) => ({
@@ -910,17 +912,21 @@ const Invoice = () => {
     u.sellingSgstAmt = cgstAmt;
 
     // selling cost = base + taxes - discount
-    let sCost = base + parseFloat(cgstAmt) * 2;
+    // selling cost = base - discount + taxes  (discount on base BEFORE GST)
+    const sellingBase = base; // sUnitCost × qty, no GST
     const sDiscP = parseFloat(u.sellingDiscountPercent) || 0;
     const sDiscA = parseFloat(u.sellingDiscountedAmt) || 0;
+    let sellingDiscount = 0;
     if (sDiscP > 0) {
-      const da = (sCost * sDiscP) / 100;
-      u.sellingDiscountedAmt = da.toFixed(2);
-      sCost -= da;
+      sellingDiscount = (sellingBase * sDiscP) / 100;
+      u.sellingDiscountedAmt = sellingDiscount.toFixed(2);
     } else if (sDiscA > 0) {
-      u.sellingDiscountPercent = ((sDiscA / sCost) * 100).toFixed(2);
-      sCost -= sDiscA;
+      sellingDiscount = sDiscA;
+      u.sellingDiscountPercent =
+        sellingBase > 0 ? ((sDiscA / sellingBase) * 100).toFixed(2) : "0.00";
     }
+    let sCost = sellingBase - sellingDiscount + parseFloat(cgstAmt) * 2;
+    u.sellingCostBeforeGst = (sellingBase - sellingDiscount).toFixed(2);
     u.sellingCost = sCost.toFixed(2);
     u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
     return u;
@@ -929,20 +935,23 @@ const Invoice = () => {
   // ─── Helper: recalc selling cost from selling tax + selling discount ───────
   const calcSellingCost = (u, qty) => {
     const sellingBase = (parseFloat(u.unitPrice) || 0) * qty;
-    let sCost =
-      sellingBase +
-      (parseFloat(u.sellingCgstAmt) || 0) +
-      (parseFloat(u.sellingSgstAmt) || 0);
     const sDiscP = parseFloat(u.sellingDiscountPercent) || 0;
     const sDiscA = parseFloat(u.sellingDiscountedAmt) || 0;
+    let sellingDiscount = 0;
     if (sDiscP > 0) {
-      const da = (sCost * sDiscP) / 100;
-      u.sellingDiscountedAmt = da.toFixed(2);
-      sCost -= da;
+      sellingDiscount = (sellingBase * sDiscP) / 100;
+      u.sellingDiscountedAmt = sellingDiscount.toFixed(2);
     } else if (sDiscA > 0) {
-      u.sellingDiscountPercent = ((sDiscA / sCost) * 100).toFixed(2);
-      sCost -= sDiscA;
+      sellingDiscount = sDiscA;
+      u.sellingDiscountPercent =
+        sellingBase > 0 ? ((sDiscA / sellingBase) * 100).toFixed(2) : "0.00";
     }
+    let sCost =
+      sellingBase -
+      sellingDiscount +
+      (parseFloat(u.sellingCgstAmt) || 0) +
+      (parseFloat(u.sellingSgstAmt) || 0);
+    u.sellingCostBeforeGst = (sellingBase - sellingDiscount).toFixed(2);
     u.sellingCost = sCost.toFixed(2);
     u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
     return u;
@@ -974,7 +983,10 @@ const Invoice = () => {
       const u = { ...prev };
       const qty = parseFloat(u.quantity) || 0;
       const base = (parseFloat(u.unitPrice) || 0) * qty;
-      const cgstAmt = base > 0 ? ((base * cgst) / 100).toFixed(2) : "0.00";
+      const discountedAmt = parseFloat(u.discountedAmt) || 0;
+      const taxableBase = base - discountedAmt;
+      const cgstAmt =
+        taxableBase > 0 ? ((taxableBase * cgst) / 100).toFixed(2) : "0.00";
       if (isSelling) {
         u.sellingTax = String(taxValue);
         u.sellingCgstPercent = String(cgst);
@@ -1003,12 +1015,15 @@ const Invoice = () => {
         let cost = base + parseFloat(cgstAmt) * 2;
         const disc = parseFloat(u.purchaseDiscountPercent) || 0;
         if (disc > 0) {
-          const da = (cost * disc) / 100;
+          const da =
+            disc > 0 ? (base * disc) / 100 : parseFloat(u.discountedAmt) || 0;
           u.discountedAmt = da.toFixed(2);
-          cost -= da;
+          let cost = base - da + parseFloat(cgstAmt) * 2;
         }
         u.purchaseCost = cost.toFixed(2);
         u.unitCostWithGst = qty > 0 ? (cost / qty).toFixed(2) : "0.00";
+        u.purchaseCostBeforeGst = (base - (parseFloat(u.discountedAmt) || 0)) // ← use `base` which is defined above in handleTaxChange
+          .toFixed(2);
         // re-derive selling unit cost from updated unitCostWithGst
         deriveSellingUnitCost(u);
         // recalc selling cost
@@ -1117,40 +1132,58 @@ const Invoice = () => {
 
       // Recalc tax amounts when unitPrice or quantity changes
       if (name === "unitPrice" || name === "quantity") {
-        u.cgstAmt = ((base * cgstP) / 100).toFixed(2);
-        u.sgstAmt = ((base * sgstP) / 100).toFixed(2);
+        const existingDisc = parseFloat(u.discountedAmt) || 0;
+        const taxableBase = base - existingDisc;
+        u.cgstAmt = ((taxableBase * cgstP) / 100).toFixed(2);
+        u.sgstAmt = ((taxableBase * sgstP) / 100).toFixed(2);
         u.sellingCgstAmt = u.cgstAmt;
         u.sellingSgstAmt = u.sgstAmt;
       }
 
       // ── Purchase cost ──
-      let cost =
-        base + (parseFloat(u.cgstAmt) || 0) + (parseFloat(u.sgstAmt) || 0);
+      // REPLACE WITH — discounts applied on base (before GST), then GST added:
+      // ── Purchase cost — GST calculated on (base - discount) ──
+      const baseCostBeforeGst = base; // unitPrice × qty, no GST
+
+      let discountAmt = 0;
       if (name === "purchaseDiscountPercent") {
         const discP = parseFloat(value) || 0;
-        const da = discP > 0 ? (cost * discP) / 100 : 0;
-        u.discountedAmt = da.toFixed(2);
-        cost -= da;
+        discountAmt = discP > 0 ? (baseCostBeforeGst * discP) / 100 : 0;
+        u.discountedAmt = discountAmt.toFixed(2);
       } else if (name === "discountedAmt") {
-        const da = parseFloat(value) || 0;
-        if (da > 0 && cost > 0) {
-          u.purchaseDiscountPercent = ((da / cost) * 100).toFixed(2);
-          cost -= da;
+        discountAmt = parseFloat(value) || 0;
+        if (discountAmt > 0 && baseCostBeforeGst > 0) {
+          u.purchaseDiscountPercent = (
+            (discountAmt / baseCostBeforeGst) *
+            100
+          ).toFixed(2);
         }
       } else {
-        const ed = parseFloat(u.discountedAmt) || 0;
         const ep = parseFloat(u.purchaseDiscountPercent) || 0;
+        const ed = parseFloat(u.discountedAmt) || 0;
         if (ep > 0) {
-          const da = (cost * ep) / 100;
-          u.discountedAmt = da.toFixed(2);
-          cost -= da;
+          discountAmt = (baseCostBeforeGst * ep) / 100;
+          u.discountedAmt = discountAmt.toFixed(2);
         } else if (ed > 0) {
-          u.purchaseDiscountPercent = ((ed / cost) * 100).toFixed(2);
-          cost -= ed;
+          discountAmt = ed;
+          u.purchaseDiscountPercent = ((ed / baseCostBeforeGst) * 100).toFixed(
+            2,
+          );
         }
       }
+
+      // GST must be on discounted base, not full base
+      const discountedBase = baseCostBeforeGst - discountAmt;
+      u.cgstAmt = ((discountedBase * cgstP) / 100).toFixed(2);
+      u.sgstAmt = ((discountedBase * sgstP) / 100).toFixed(2);
+      u.sellingCgstAmt = u.cgstAmt;
+      u.sellingSgstAmt = u.sgstAmt;
+
+      const cost =
+        discountedBase + parseFloat(u.cgstAmt) + parseFloat(u.sgstAmt);
       u.purchaseCost = cost.toFixed(2);
       u.unitCostWithGst = qty > 0 ? (cost / qty).toFixed(2) : "0.00";
+      u.purchaseCostBeforeGst = discountedBase.toFixed(2);
 
       // ── When unitPrice / quantity / mrp changes, re-derive sellingUnitCost ──
       if (name === "unitPrice" || name === "quantity" || name === "mrp") {
@@ -1167,29 +1200,52 @@ const Invoice = () => {
           base +
           (parseFloat(u.sellingCgstAmt) || 0) +
           (parseFloat(u.sellingSgstAmt) || 0);
+        // sellingBase here = base (unitPrice × qty), GST amounts already in u.sellingCgstAmt / sellingSgstAmt
+        const sellingBaseAmt = base; // pre-GST selling base
         if (name === "sellingDiscountPercent") {
           const sDiscP = parseFloat(value) || 0;
-          const da = sDiscP > 0 ? (sCost * sDiscP) / 100 : 0;
+          const da = sDiscP > 0 ? (sellingBaseAmt * sDiscP) / 100 : 0;
           u.sellingDiscountedAmt = da.toFixed(2);
-          sCost -= da;
+          sCost =
+            sellingBaseAmt -
+            da +
+            (parseFloat(u.sellingCgstAmt) || 0) +
+            (parseFloat(u.sellingSgstAmt) || 0);
         } else if (name === "sellingDiscountedAmt") {
           const da = parseFloat(value) || 0;
-          if (da > 0 && sCost > 0) {
-            u.sellingDiscountPercent = ((da / sCost) * 100).toFixed(2);
-            sCost -= da;
+          if (da > 0 && sellingBaseAmt > 0) {
+            u.sellingDiscountPercent = ((da / sellingBaseAmt) * 100).toFixed(2);
+            sCost =
+              sellingBaseAmt -
+              da +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           }
         } else {
           const sed = parseFloat(u.sellingDiscountedAmt) || 0;
           const sep = parseFloat(u.sellingDiscountPercent) || 0;
           if (sep > 0) {
-            const da = (sCost * sep) / 100;
+            const da = (sellingBaseAmt * sep) / 100;
             u.sellingDiscountedAmt = da.toFixed(2);
-            sCost -= da;
+            sCost =
+              sellingBaseAmt -
+              da +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           } else if (sed > 0) {
-            u.sellingDiscountPercent = ((sed / sCost) * 100).toFixed(2);
-            sCost -= sed;
+            u.sellingDiscountPercent = ((sed / sellingBaseAmt) * 100).toFixed(
+              2,
+            );
+            sCost =
+              sellingBaseAmt -
+              sed +
+              (parseFloat(u.sellingCgstAmt) || 0) +
+              (parseFloat(u.sellingSgstAmt) || 0);
           }
         }
+        u.sellingCostBeforeGst = (
+          sellingBaseAmt - (parseFloat(u.sellingDiscountedAmt) || 0)
+        ).toFixed(2);
         u.sellingCost = sCost.toFixed(2);
         u.unitSellingCost = qty > 0 ? (sCost / qty).toFixed(2) : "0.00";
       }
@@ -1199,6 +1255,55 @@ const Invoice = () => {
   };
 
   const handleAddItem = () => {
+    // Mandatory field checks
+    if (!modalForm.name) {
+      toast.error("Item Name is required");
+      return;
+    }
+    if (!modalForm.batch_no) {
+      toast.error("Batch Number is required");
+      return;
+    }
+    if (!modalForm.expiry) {
+      toast.error("Expiry Date is required");
+      return;
+    }
+    if (!modalForm.quantity) {
+      toast.error("Quantity is required");
+      return;
+    }
+    if (!modalForm.sellingPricingMode) {
+      toast.error("Pricing Mode is required");
+      return;
+    }
+
+    const pctField =
+      modalForm.sellingPricingMode === "markup"
+        ? modalForm.sellingMarkupPercent
+        : modalForm.sellingMarkdownPercent;
+    if (!pctField) {
+      toast.error(
+        modalForm.sellingPricingMode === "markup"
+          ? "Markup % is required"
+          : "Markdown % is required",
+      );
+      return;
+    }
+    if (!modalForm.sellingUnitCost) {
+      toast.error("Selling Unit Cost is required");
+      return;
+    }
+
+    // ── NEW: Warn if Selling Unit Cost exceeds MRP ──
+    const sellingUnitCost = parseFloat(modalForm.sellingUnitCost) || 0;
+    const mrp = parseFloat(modalForm.mrp) || 0;
+
+    if (mrp > 0 && sellingUnitCost > mrp) {
+      toast.error(
+        `Selling Unit Cost ₹${sellingUnitCost.toFixed(2)} cannot exceed MRP ₹${mrp.toFixed(2)}`,
+      );
+      return; // hard stop — no override
+    }
     if (editingItem) {
       setItems((prev) =>
         prev.map((i) =>
@@ -1210,7 +1315,6 @@ const Invoice = () => {
     }
     setModalForm(EMPTY_MODAL);
   };
-
   const handleDeleteItem = (id) =>
     setItems((prev) => prev.filter((i) => i.id !== id));
 
@@ -1312,7 +1416,11 @@ const Invoice = () => {
         setTimeout(() => setShowInvoicePreview(false), 400);
       } else {
         const errs = result.data?.errors;
-        if (errs) {
+        if (result.data?.status === "duplicate") {
+          toast.error(
+            `Duplicate Invoice: ${result.data?.message || "This invoice already exists."}`,
+          );
+        } else if (errs) {
           Object.entries(errs).forEach(([f, m]) =>
             toast.error(`${f}: ${Array.isArray(m) ? m.join(", ") : m}`),
           );
@@ -1634,6 +1742,7 @@ const Invoice = () => {
                         name="invoiceDate"
                         value={formData.invoiceDate}
                         onChange={handleFormChange}
+                        max={new Date().toISOString().split("T")[0]}
                         style={{ fontSize: "0.82rem" }}
                       />
                     </InputWrapper>
@@ -2178,8 +2287,9 @@ const Invoice = () => {
                     style={{ fontSize: "0.82rem" }}
                   >
                     <option value="">Select item</option>
-                    {availableItems
+                    {[...availableItems]
                       .filter((i) => String(i.hsn ?? "").trim())
+                      .sort((a, b) => a.itemName.localeCompare(b.itemName))
                       .map((i) => (
                         <option key={i.itemName} value={i.itemName}>
                           {i.itemName}
@@ -2224,11 +2334,39 @@ const Invoice = () => {
                 <InputWrapper style={{ margin: 0 }}>
                   <Lbl>Expiry Date</Lbl>
                   <Input
-                    type="date"
+                    type="text"
                     name="expiry"
-                    value={modalForm.expiry}
-                    onChange={handleModalChange}
-                    style={{ fontSize: "0.82rem" }}
+                    value={modalForm.expiry || ""}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                        .replace(/[^0-9]/g, "")
+                        .slice(0, 6);
+                      let formatted = "";
+                      if (raw.length <= 2) {
+                        formatted = raw;
+                      } else {
+                        formatted = raw.slice(0, 2) + "-" + raw.slice(2);
+                      }
+                      handleModalChange({
+                        target: { name: "expiry", value: formatted },
+                      });
+                    }}
+                    onBlur={(e) => {
+                      const parts = e.target.value.split("-");
+                      if (parts.length === 2 && parts[0].length === 2) {
+                        let mm = parseInt(parts[0], 10);
+                        if (mm < 1) mm = 1;
+                        if (mm > 12) mm = 12;
+                        const corrected =
+                          String(mm).padStart(2, "0") + "-" + parts[1];
+                        handleModalChange({
+                          target: { name: "expiry", value: corrected },
+                        });
+                      }
+                    }}
+                    placeholder="MM-YYYY"
+                    maxLength={7}
+                    style={{ fontSize: "0.82rem", letterSpacing: "0.1em" }}
                   />
                 </InputWrapper>
               </GridRow>
@@ -2359,9 +2497,9 @@ const Invoice = () => {
                   marginBottom: 10,
                 }}
               >
-                <GridRow cols="repeat(4,1fr)" mb="0">
+                <GridRow cols="repeat(5,1fr)" mb="0">
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Discount %</Lbl>
+                    <Lbl>Dis. %</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2373,7 +2511,7 @@ const Invoice = () => {
                     />
                   </InputWrapper>
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Discounted Amt ₹</Lbl>
+                    <Lbl>Dis. Amt ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2384,8 +2522,21 @@ const Invoice = () => {
                       style={{ fontSize: "0.82rem" }}
                     />
                   </InputWrapper>
+                  {/* ADD this 5th field: */}
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Purchase Cost ₹</Lbl>
+                    <Input
+                      readOnly
+                      value={modalForm.purchaseCostBeforeGst}
+                      style={{
+                        fontSize: "0.82rem",
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                      }}
+                    />
+                  </InputWrapper>
+                  <InputWrapper style={{ margin: 0 }}>
+                    <Lbl>Pur. Cost (with GST) ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2430,12 +2581,14 @@ const Invoice = () => {
                 }}
               >
                 <GridRow
-                  cols="repeat(4,1fr)"
+                  cols="repeat(3,1fr)"
                   mb={parseFloat(modalForm.mrp) > 0 ? "6px" : "0"}
                 >
                   {/* Pricing Mode */}
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Pricing Mode</Lbl>
+                    <Lbl>
+                      Pricing Mode <RequiredMark>*</RequiredMark>
+                    </Lbl>
                     <Select
                       name="sellingPricingMode"
                       value={modalForm.sellingPricingMode}
@@ -2451,7 +2604,7 @@ const Invoice = () => {
                   {modalForm.sellingPricingMode === "markup" ? (
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>
-                        Markup % &nbsp;
+                        Markup % &nbsp;<RequiredMark>*</RequiredMark>
                         <span
                           style={{
                             color: "#16a34a",
@@ -2480,7 +2633,7 @@ const Invoice = () => {
                   ) : (
                     <InputWrapper style={{ margin: 0 }}>
                       <Lbl>
-                        Markdown % &nbsp;
+                        Markdown % &nbsp;<RequiredMark>*</RequiredMark>
                         <span
                           style={{
                             color: "#16a34a",
@@ -2508,7 +2661,9 @@ const Invoice = () => {
 
                   {/* Selling Unit Cost — editable override */}
                   <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Selling Unit Cost ₹</Lbl>
+                    <Lbl>
+                      Selling Unit Cost ₹ <RequiredMark>*</RequiredMark>
+                    </Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2525,7 +2680,7 @@ const Invoice = () => {
                     />
                   </InputWrapper>
 
-                  {/* Reference: Purchase Unit Cost */}
+                  {/* Reference: Purchase Unit Cost
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Ref: Purchase Unit Cost ₹</Lbl>
                     <Input
@@ -2539,7 +2694,7 @@ const Invoice = () => {
                         color: "#64748b",
                       }}
                     />
-                  </InputWrapper>
+                  </InputWrapper> */}
                 </GridRow>
 
                 {/* Info strip when MRP is available */}
@@ -2560,7 +2715,7 @@ const Invoice = () => {
                     <span style={{ fontWeight: 700 }}>ℹ️</span>
                     MRP ₹{parseFloat(modalForm.mrp).toFixed(2)} is available.
                     Switch to <strong>MRP − %</strong> mode to calculate selling
-                    price as a markdown from MRP. In{" "}
+                    price as a markdown from MRP.
                     <strong>Unit Cost + %</strong> mode, selling price is
                     calculated as a markup on the purchase unit cost.
                   </div>
@@ -2653,7 +2808,7 @@ const Invoice = () => {
                   marginBottom: 10,
                 }}
               >
-                <GridRow cols="repeat(4,1fr)" mb="0">
+                <GridRow cols="repeat(5,1fr)" mb="0">
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Discount %</Lbl>
                     <Input
@@ -2680,6 +2835,18 @@ const Invoice = () => {
                   </InputWrapper>
                   <InputWrapper style={{ margin: 0 }}>
                     <Lbl>Selling Cost ₹</Lbl>
+                    <Input
+                      readOnly
+                      value={modalForm.sellingCostBeforeGst}
+                      style={{
+                        fontSize: "0.82rem",
+                        background: "#f1f5f9",
+                        color: "#64748b",
+                      }}
+                    />
+                  </InputWrapper>
+                  <InputWrapper style={{ margin: 0 }}>
+                    <Lbl>Selling Cost (with GST) ₹</Lbl>
                     <Input
                       type="number"
                       step="0.01"
@@ -2744,7 +2911,31 @@ const Invoice = () => {
                   {selectedItemForHistory.itemName ||
                     selectedItemForHistory.name}
                 </HistTitle>
-                <HistSubtitle>HSN: {selectedItemForHistory.hsn}</HistSubtitle>
+                <HistSubtitle>
+                  HSN: {selectedItemForHistory.hsn}
+                  {historyData.length > 0 &&
+                    (() => {
+                      const prices = historyData.map((h) =>
+                        parseFloat(
+                          (h.matched_item || selectedItemForHistory)
+                            .unitPrice || 0,
+                        ),
+                      );
+                      const mn = Math.min(...prices);
+                      const mx = Math.max(...prices);
+                      const avg =
+                        prices.reduce((a, b) => a + b, 0) / prices.length;
+                      return (
+                        <span style={{ marginLeft: 12, opacity: 0.9 }}>
+                          &nbsp;|&nbsp; Range: ₹{mn.toFixed(2)} – ₹
+                          {mx.toFixed(2)}
+                          &nbsp;|&nbsp; Avg: ₹{avg.toFixed(2)}
+                          &nbsp;|&nbsp; {prices.length} record
+                          {prices.length !== 1 ? "s" : ""}
+                        </span>
+                      );
+                    })()}
+                </HistSubtitle>
               </div>
               <CloseBtn
                 onClick={() => setShowHistoryModal(false)}
@@ -2780,15 +2971,13 @@ const Invoice = () => {
                     <tr>
                       {[
                         "Invoice No",
-                        "Date",
+                        "Invoice Date",
                         "Vendor",
                         "HSN",
                         "Item",
                         "Unit Price",
                         "Purchase Cost",
                         "Qty",
-                        "Free",
-                        "Stock",
                         "MRP",
                       ].map((h) => (
                         <th key={h}>{h}</th>
@@ -2796,42 +2985,76 @@ const Invoice = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {historyData.map((h, i) => {
-                      let it = selectedItemForHistory;
-                      try {
-                        const its = JSON.parse(h.items);
-                        const m = its.find(
-                          (x) => x.hsn === selectedItemForHistory.hsn,
-                        );
-                        if (m) it = m;
-                      } catch {}
-                      if (h.matched_item) it = h.matched_item;
-                      return (
-                        <tr key={i}>
-                          <td>{h.invoice_number}</td>
-                          <td>
-                            {new Date(h.date).toLocaleDateString("en-IN")}
-                          </td>
-                          <td>{h.vendor}</td>
-                          <td>{it.hsn || "—"}</td>
-                          <td style={{ fontWeight: 600 }}>
-                            {it.name || it.item_name || "—"}
-                          </td>
-                          <td
-                            style={{ color: colors.primary, fontWeight: 600 }}
-                          >
-                            ₹{parseFloat(it.unitPrice || 0).toFixed(2)}
-                          </td>
-                          <td>
-                            ₹{parseFloat(it.purchaseCost || 0).toFixed(2)}
-                          </td>
-                          <td>{it.quantity}</td>
-                          <td>{it.free}</td>
-                          <td>{it.totalstock || 0}</td>
-                          <td>₹{parseFloat(it.mrp || 0).toFixed(2)}</td>
-                        </tr>
+                    {(() => {
+                      // ── Resolve matched items first, then compute price stats ──
+                      const resolved = historyData.map((h) => {
+                        let it = selectedItemForHistory;
+                        try {
+                          const its = JSON.parse(h.items);
+                          const m = its.find(
+                            (x) => x.hsn === selectedItemForHistory.hsn,
+                          );
+                          if (m) it = m;
+                        } catch {}
+                        if (h.matched_item) it = h.matched_item;
+                        return { h, it };
+                      });
+
+                      const prices = resolved.map(({ it }) =>
+                        parseFloat(it.unitPrice || 0),
                       );
-                    })}
+                      const maxPrice = Math.max(...prices);
+                      const minPrice = Math.min(...prices);
+                      const hasRange = maxPrice > minPrice;
+
+                      return resolved.map(({ h, it }, i) => {
+                        const unitPrice = parseFloat(it.unitPrice || 0);
+                        const isHigh = hasRange && unitPrice === maxPrice;
+                        const isLow = hasRange && unitPrice === minPrice;
+
+                        return (
+                          <tr
+                            key={i}
+                            style={{
+                              background: isHigh
+                                ? "#fff1f2"
+                                : isLow
+                                  ? "#f0fdf4"
+                                  : "transparent",
+                            }}
+                          >
+                            <td>{h.invoice_no}</td>
+                            <td>
+                              {new Date(h.invoice_date).toLocaleDateString(
+                                "en-IN",
+                              )}
+                            </td>
+                            <td>{h.vendor_name}</td>
+                            <td>{it.hsn || "—"}</td>
+                            <td style={{ fontWeight: 600 }}>
+                              {it.name || it.item_name || "—"}
+                            </td>
+                            <td
+                              style={{
+                                fontWeight: 700,
+                                color: isHigh
+                                  ? "#dc2626"
+                                  : isLow
+                                    ? "#16a34a"
+                                    : colors.primary,
+                              }}
+                            >
+                              ₹{unitPrice.toFixed(2)}
+                            </td>
+                            <td>
+                              ₹{parseFloat(it.purchaseCost || 0).toFixed(2)}
+                            </td>
+                            <td>{it.quantity}</td>
+                            <td>₹{parseFloat(it.mrp || 0).toFixed(2)}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </HistTable>
               )}
@@ -3218,6 +3441,9 @@ const Invoice = () => {
                           HSN
                         </th>
                         <th rowSpan="2" style={thStyle("#1e3a5f")}>
+                          Batch No
+                        </th>
+                        <th rowSpan="2" style={thStyle("#1e3a5f")}>
                           Expiry
                         </th>
                         <th rowSpan="2" style={thStyle("#1e3a5f")}>
@@ -3282,6 +3508,7 @@ const Invoice = () => {
                               {it.name}
                             </td>
                             <td style={tdCenter}>{it.hsn}</td>
+                            <td style={tdCenter}>{it.batch_no || "—"}</td>
                             <td style={tdCenter}>{it.expiry || "—"}</td>
                             <td style={{ ...tdCenter, fontWeight: 700 }}>
                               {it.quantity}
@@ -3329,7 +3556,7 @@ const Invoice = () => {
                       {/* Totals row */}
                       <tr style={{ background: "#1e3a5f" }}>
                         <td
-                          colSpan="8"
+                          colSpan="9"
                           style={{
                             padding: "8px 10px",
                             fontWeight: 800,
