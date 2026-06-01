@@ -122,6 +122,8 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
+
 import RDPrint from "./Components/InvestigationReports/RDPrint";
 import JRDReport from "./Components/InvestigationReports/JRDReport";
 
@@ -1144,10 +1146,14 @@ function App() {
                 <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
               )}
 
-              {hasPagePermission("/PreDayRoomOccupancyReport", allowedActions, dynamicPermissions) && (
-                <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
-              )}
-              
+                {hasPagePermission(
+                "/DialysisDischargeSummary",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/DialysisDischargeSummary" element={<DialysisDischargeSummary />} />}
+
+
+
             </Routes>
           </ContentWrapper>
         </>

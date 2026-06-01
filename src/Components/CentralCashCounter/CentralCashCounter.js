@@ -699,6 +699,10 @@ export default function CentralCashCounter() {
   const [returnPendingBills, setReturnPendingBills] = useState([]);
   const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
+  // ── Return Bills state ────────────────────────────────────────────────────────
+  const [returnPendingBills, setReturnPendingBills] = useState([]);
+  const [returnReceivedBills, setReturnReceivedBills] = useState([]);
+
   // ── Previous Vouchers Modal state ────────────────────────────────────────────
   const [pvFromDate, setPvFromDate] = useState(() => {
     const d = new Date();
@@ -1048,6 +1052,15 @@ export default function CentralCashCounter() {
 
       filteredPayments.forEach((payment) => {
         const billDateObj = payment.bill_date ? new Date(payment.bill_date) : null;
+
+        // ✅ Resolve raw integer bill_type (may have a space-prefixed key in some records)
+        const rawBillType =
+          payment.bill_type != null
+            ? payment.bill_type
+            : payment[" bill_type"] != null
+            ? payment[" bill_type"]
+            : null;
+
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
@@ -1069,7 +1082,8 @@ export default function CentralCashCounter() {
           status: payment.status || "-",
           total: payment.advance_amount || 0,
           source: "IP",
-          bill_type: "IP Advance",
+          bill_type: "IP Advance",       // display label (kept for UI)
+          bill_type_id: rawBillType,     // ✅ raw integer — sent to backend for CashCounterCollection
         });
       });
     });
@@ -1164,7 +1178,7 @@ export default function CentralCashCounter() {
 
   const fetchOpPharmacyPendingBills = useCallback(async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}OPPharmacy_pending_bills/`, "GET");
+      const response = await apiRequest(`${HmsBaseUrl}cashcounter_pending_bills/`, "GET");
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
@@ -1255,73 +1269,73 @@ export default function CentralCashCounter() {
   }, []);
 
   // ── Fetch Return Bills ────────────────────────────────────────────────────────
-  const fetchReturnBills = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
-      // API returns { status, count, data: [...] }
-      // res.data is the response body, so the array is at res.data.data
-      const data = Array.isArray(res?.data?.data)
-        ? res.data.data
-        : Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res)
-            ? res
-            : [];
+ const fetchReturnBills = useCallback(async () => {
+  setLoading(true);
+  try {
+    const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
+    // API returns { status, count, data: [...] }
+    // res.data is the response body, so the array is at res.data.data
+    const data = Array.isArray(res?.data?.data)
+      ? res.data.data
+      : Array.isArray(res?.data)
+      ? res.data
+      : Array.isArray(res)
+      ? res
+      : [];
 
-      const formatDate = (raw) => {
-        const d = raw ? new Date(raw) : null;
-        return d ? d.toLocaleDateString("en-IN", {
-          day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
-        }) : "-";
+    const formatDate = (raw) => {
+      const d = raw ? new Date(raw) : null;
+      return d ? d.toLocaleDateString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
+      }) : "-";
+    };
+
+    const formatTime = (raw) => {
+      const d = raw ? new Date(raw) : null;
+      return d ? d.toLocaleTimeString("en-IN", {
+        hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
+      }) : "-";
+    };
+
+    const pending = [];
+    const received = [];
+
+    data.forEach((item, idx) => {
+      // Use return_bill_date as primary date field
+      const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
+
+      const row = {
+        id: item._id || `ret-${idx}`,
+        date: formatDate(dateRaw),
+        time: formatTime(dateRaw),
+        return_bill_no: item.return_bill_no || item.return_bill_no || "-",
+        return_bill_date: formatDate(dateRaw),
+        bill_no: item.bill_no || "-",
+        bill_type_name: item.bill_type_name || item.collection_name || "-",
+        uhid_no: item.uhid || item.UHID || "-",
+        patient: item.patient_name || "-",
+        return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+        total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+        document_status: item.document_status || item.status || "-",
+        counter_name: item.counter_name || "-",
+        collection_name: item.collection_name || "-",
+        raw: item,
       };
 
-      const formatTime = (raw) => {
-        const d = raw ? new Date(raw) : null;
-        return d ? d.toLocaleTimeString("en-IN", {
-          hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
-        }) : "-";
-      };
+      const st = (row.document_status || "").toLowerCase();
+      if (st === "pending") pending.push(row);
+      else received.push(row);
+    });
 
-      const pending = [];
-      const received = [];
-
-      data.forEach((item, idx) => {
-        // Use return_bill_date as primary date field
-        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
-
-        const row = {
-          id: item._id || `ret-${idx}`,
-          date: formatDate(dateRaw),
-          time: formatTime(dateRaw),
-          return_bill_no: item.return_bill_no || item.return_bill_no || "-",
-          return_bill_date: formatDate(dateRaw),
-          bill_no: item.bill_no || "-",
-          bill_type_name: item.bill_type_name || item.collection_name || "-",
-          uhid_no: item.uhid || item.UHID || "-",
-          patient: item.patient_name || "-",
-          return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          document_status: item.document_status || item.status || "-",
-          counter_name: item.counter_name || "-",
-          collection_name: item.collection_name || "-",
-          raw: item,
-        };
-
-        const st = (row.document_status || "").toLowerCase();
-        if (st === "pending") pending.push(row);
-        else received.push(row);
-      });
-
-      setReturnPendingBills(pending);
-      setReturnReceivedBills(received);
-    } catch (err) {
-      console.error("Return bills fetch error:", err);
-      showToast("error", "Unable to load Return Bills.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    setReturnPendingBills(pending);
+    setReturnReceivedBills(received);
+  } catch (err) {
+    console.error("Return bills fetch error:", err);
+    showToast("error", "Unable to load Return Bills.");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const submitPayment = async () => {
     // ── Return Bills: delegate to dedicated handler ───────────────────────────
@@ -1357,9 +1371,11 @@ export default function CentralCashCounter() {
 
     if (activeMenuItem === "IP Advance") {
       const payload = {
-        ipNumber: selectedBill.ipNumber,
+        ipNumber:   selectedBill.ipNumber,
+        advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
+        bill_type:  selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
         payment_details,
-        shiftno: activeShift?.shiftno || "",
+        shiftno:    activeShift?.shiftno || "",
       };
       const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
       const ipRes = res?.data || res;
@@ -1466,12 +1482,12 @@ export default function CentralCashCounter() {
     const pendingAmount = Math.max(netAmount - paidAmount, 0);
 
     const payload = {
-      uhid: selectedBill.uhid_no,
-      bill_no: selectedBill.bill_no,          // original bill_no  ← NEW
-      return_bill_no: selectedBill.return_bill_no,
-      bill_type: selectedBill.raw?.bill_type,   // integer bill_type from the raw document
-      counter_id: cashCounterId,
-      shiftno: activeShift?.shiftno || "",
+      uhid:            selectedBill.uhid_no,
+      bill_no:         selectedBill.bill_no,          // original bill_no  ← NEW
+      return_bill_no:  selectedBill.return_bill_no,
+      bill_type:       selectedBill.raw?.bill_type,   // integer bill_type from the raw document
+      counter_id:      cashCounterId,
+      shiftno:         activeShift?.shiftno || "",
       payment_details,
       ...(pendingAmount > 0 ? { pendingAmount } : {}),
       ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
@@ -1627,11 +1643,11 @@ export default function CentralCashCounter() {
   }, [filterBills]);
 
   const colSpan =
-    activeMenuItem === "Returns Bills"
-      ? 10   // ← was 9, now 10 columns
-      : selectedType === "received"
-        ? 11
-        : 8;
+  activeMenuItem === "Returns Bills"
+    ? 10   // ← was 9, now 10 columns
+    : selectedType === "received"
+    ? 11
+    : 8;
 
   return (
     <Container>
@@ -2372,18 +2388,18 @@ export default function CentralCashCounter() {
                             <TableHeader>Status</TableHeader>
                           </>
                         ) : activeMenuItem === "Returns Bills" ? (
-                          <>
-                            <TableHeader>Date</TableHeader>
-                            <TableHeader>Time</TableHeader>
-                            <TableHeader>Return Bill No</TableHeader>
-                            <TableHeader>Bill No</TableHeader>
-                            <TableHeader>Bill Type</TableHeader>
-                            <TableHeader>UHID</TableHeader>
-                            <TableHeader>Patient Name</TableHeader>
-                            <TableHeader>Return Amount (₹)</TableHeader>
-                            <TableHeader>Status</TableHeader>
-                          </>
-                        ) : (
+                           <>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader>Time</TableHeader>
+                  <TableHeader>Return Bill No</TableHeader>
+                  <TableHeader>Bill No</TableHeader>
+                  <TableHeader>Bill Type</TableHeader>
+                  <TableHeader>UHID</TableHeader>
+                  <TableHeader>Patient Name</TableHeader>
+                  <TableHeader>Return Amount (₹)</TableHeader>
+                  <TableHeader>Status</TableHeader>
+                </>
+                                      ) : (
                           <>
                             <TableHeader>Bill No</TableHeader>
                             <TableHeader>Bill Type</TableHeader>
@@ -2444,24 +2460,24 @@ export default function CentralCashCounter() {
                               </>
                             ) : activeMenuItem === "Returns Bills" ? (
                               <>
-                                <TableCell>{bill.date}</TableCell>
-                                <TableCell>{bill.time}</TableCell>
-                                <TableCell>{bill.return_bill_no}</TableCell>
-                                <TableCell>{bill.bill_no}</TableCell>
-                                <TableCell>{bill.bill_type_name}</TableCell>
-                                <TableCell>{bill.uhid_no}</TableCell>
-                                <TableCell>{bill.patient}</TableCell>
-                                <TableCell>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-                                <TableCell>
-                                  <span style={{
-                                    padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600,
-                                    background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
-                                    color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
-                                  }}>
-                                    {bill.document_status}
-                                  </span>
-                                </TableCell>
-                              </>
+    <TableCell>{bill.date}</TableCell>
+    <TableCell>{bill.time}</TableCell>
+    <TableCell>{bill.return_bill_no}</TableCell>
+    <TableCell>{bill.bill_no}</TableCell>
+    <TableCell>{bill.bill_type_name}</TableCell>
+    <TableCell>{bill.uhid_no}</TableCell>
+    <TableCell>{bill.patient}</TableCell>
+    <TableCell>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+    <TableCell>
+      <span style={{
+        padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600,
+        background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
+        color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+      }}>
+        {bill.document_status}
+      </span>
+    </TableCell>
+  </>
                             ) : (
                               <>
                                 <TableCell>{bill.bill_no}</TableCell>
