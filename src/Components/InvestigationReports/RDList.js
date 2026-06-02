@@ -2029,7 +2029,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
     const leftDetails = [
       { label: "Bill No", value: row.investBillNo || "N/A" },
-      { label: "UHID", value: row.uhid || "N/A" },
+      ...(row.uhid && row.uhid !== "na"
+        ? [{ label: "UHID", value: row.uhid }]
+        : []),
       { label: "Patient Name", value: row.patientName || "N/A" },
       {
         label: "Age / Gender",
@@ -3465,27 +3467,29 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   // ── Action Handlers ────────────────────────────────────────────────────────
 
   const handleGoToReport = (row) => {
-    const parts = (row.uhid || "").split("/");
-    const uhidBase = parts[0] || "";
-    const subUhid = parts[1] || "";
+    const uhidFull = row.uhid || "";
+    const parts = uhidFull.split("/");
+    const uhidBase = parts[0] || "na";
+    const subUhid = parts[1] || "na";
+
     navigate(`/RDReportForm/${uhidBase}/${subUhid}`, {
       state: {
-        uhid: uhidBase,
-        subUhid,
+        uhid: uhidFull,
+        subUhid: "",
         itemName: row.itemName,
         item_id: row.item_id,
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
         billTypeNo: row.billTypeNo || selectedBillType,
-        salutation: "",
-        firstName: row.patientName,
-        middleName: "",
-        lastName: "",
+        salutation: row.salutation || "",
+        firstName: row.firstName || "",
+        middleName: row.middleName || "",
+        lastName: row.lastName || "",
         age: row.age,
         age_type: row.age_type,
         gender: row.gender,
         investBillDate: row.investBillDate,
-        referredBy: row.referredBy,
+        referredBy: row.referredBy || "",
       },
     });
   };

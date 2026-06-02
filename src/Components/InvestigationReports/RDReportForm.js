@@ -1611,24 +1611,44 @@ const RDReportForm = () => {
           <InfoSection>
             <InfoTitle>Patient Information</InfoTitle>
             <InfoText>
-              Filling report for <strong>{patientName}</strong> — UHID:{" "}
-              <strong>
-                {uhid}/{subUhid}
-              </strong>{" "}
-              | IP Number: <strong>{ipNumber}</strong> | Age:{" "}
-              <strong>{age}</strong> | Gender: <strong>{gender}</strong> | Bill
-              No: <strong>{investBillNo}</strong>
+              Filling report for{" "}
+              <strong>{patientName || "Walk-in Patient"}</strong>
+              {uhid && uhid !== "na" && (
+                <>
+                  {" "}
+                  — UHID:{" "}
+                  <strong>
+                    {uhid}
+                    {subUhid && subUhid !== "na" ? `/${subUhid}` : ""}
+                  </strong>
+                </>
+              )}
+              {ipNumber && (
+                <>
+                  {" "}
+                  | IP Number: <strong>{ipNumber}</strong>
+                </>
+              )}{" "}
+              | Age: <strong>{age}</strong> | Gender: <strong>{gender}</strong>{" "}
+              | Bill No: <strong>{investBillNo}</strong>
               {itemName && (
                 <>
                   {" "}
                   | Item: <strong>{itemName}</strong>
                 </>
-              )}{" "}
-              | Bill Date:{" "}
-              <strong>
-                {investBillDate ? investBillDate.split("T")[0] : ""}
-              </strong>{" "}
-              | Referred By: <strong>{referredBy}</strong>
+              )}
+              {investBillDate && (
+                <>
+                  {" "}
+                  | Bill Date: <strong>{investBillDate.split("T")[0]}</strong>
+                </>
+              )}
+              {referredBy && (
+                <>
+                  {" "}
+                  | Referred By: <strong>{referredBy}</strong>
+                </>
+              )}
             </InfoText>
           </InfoSection>
 
