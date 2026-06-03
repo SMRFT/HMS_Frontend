@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import HospitalHeader from "../Images/Header.png";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -265,7 +266,7 @@ const Select = styled.select`
   appearance: none;
   cursor: pointer;
   outline: none;
-  &:focus { border-color:#3182ce; box-shadow:0 0 0 2px rgba(49,130,206,0.15); }
+  &:focus { border-color:#10A596; box-shadow:0 0 0 2px rgba(16,165,150,0.15); }
 `;
 
 const Input = styled.input`
@@ -276,13 +277,13 @@ const Input = styled.input`
   font-size: 13px;
   color: #2d3748;
   outline: none;
-  &:focus { border-color:#3182ce; box-shadow:0 0 0 2px rgba(49,130,206,0.15); }
+  &:focus { border-color:#10A596; box-shadow:0 0 0 2px rgba(16,165,150,0.15); }
 `;
 
 const SearchBtn = styled.button`
   height: 34px;
   padding: 0 20px;
-  background: #2b6cb0;
+  background: #10A596;
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -293,8 +294,8 @@ const SearchBtn = styled.button`
   align-items: center;
   gap: 6px;
   transition: background 0.18s;
-  &:hover  { background: #2c5282; }
-  &:active { background: #1a365d; }
+  &:hover  { background: #0d8f82; }
+  &:active { background: #0b7a70; }
 `;
 
 // ─── Table Card ────────────────────────────────────────────────────────────────
@@ -328,9 +329,9 @@ const ShowEntries = styled.div`
 `;
 
 const SelectedBadge = styled.div`
-  background: #ebf8ff;
-  border: 1px solid #bee3f8;
-  color: #2b6cb0;
+  background: #e6f7f5;
+  border: 1px solid #b3e8e4;
+  color: #10A596;
   font-size: 12px;
   font-weight: 600;
   border-radius: 5px;
@@ -368,7 +369,7 @@ const Th = styled.th`
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
-  &:hover { color: #2b6cb0; }
+  &:hover { color: #10A596; }
 `;
 
 const Tr = styled.tr`
@@ -505,60 +506,43 @@ const ModalBox = styled.div`
   background: #ffffff;
   border-radius: 14px;
   width: 90%;
-  max-width: 440px;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.22), 0 0 0 1px rgba(15,118,110,0.08);
+  max-width: 420px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.04);
   overflow: hidden;
   animation: ${fadeIn} 0.25s cubic-bezier(0.22,1,0.36,1);
+  padding: 32px 28px 24px;
+  text-align: center;
 `;
 
-const ModalTopBar = styled.div`
-  padding: 18px 24px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  position: relative;
-
-  ${({ variant }) => variant === "delete" ? `
-    background: linear-gradient(130deg, #991b1b 0%, #dc2626 100%);
-  ` : `
-    background: linear-gradient(130deg, #1e40af 0%, #2563eb 100%);
-  `}
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -30px; right: -30px;
-    width: 100px; height: 100px;
-    background: rgba(255,255,255,0.07);
-    border-radius: 50%;
-    pointer-events: none;
-  }
-`;
+const ModalTopBar = styled.div``;  /* kept for compatibility, no longer used */
 
 const ModalIcon = styled.div`
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.18);
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: 2.5px solid ${({ variant }) => variant === "delete" ? "#ef4444" : "#f59e0b"};
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+  font-size: 24px;
+  margin: 0 auto 16px;
+  color: ${({ variant }) => variant === "delete" ? "#ef4444" : "#f59e0b"};
+  background: ${({ variant }) => variant === "delete" ? "#fff5f5" : "#fffbeb"};
 `;
 
 const ModalHeading = styled.div`
-  color: #fff;
-  font-size: 15px;
+  color: #1a202c;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  margin-bottom: 8px;
 `;
 
 const ModalSubHeading = styled.div`
-  color: rgba(255,255,255,0.75);
-  font-size: 12px;
-  margin-top: 2px;
+  color: #6b7280;
+  font-size: 13px;
+  margin-bottom: 18px;
+  line-height: 1.5;
 `;
 
 const ModalBody = styled.div`
-  padding: 22px 24px 20px;
+  padding: 0;
 `;
 
 const ConfirmText = styled.p`
@@ -566,21 +550,23 @@ const ConfirmText = styled.p`
   color: #374151;
   line-height: 1.6;
   margin-bottom: 6px;
+  text-align: left;
 `;
 
 const BillRef = styled.span`
   font-weight: 700;
-  color: #1e40af;
+  color: #10A596;
   font-family: monospace;
-  background: #eff6ff;
+  background: #e6f7f5;
   padding: 1px 7px;
   border-radius: 5px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #b3e8e4;
 `;
 
 const ReasonSection = styled.div`
-  margin-top: 16px;
+  margin-top: 14px;
   animation: ${fadeIn} 0.2s ease;
+  text-align: left;
 `;
 
 const ReasonLabel = styled.label`
@@ -613,8 +599,8 @@ const ReasonTextarea = styled.textarea`
   background: #f9fafb;
 
   &:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    border-color: #10A596;
+    box-shadow: 0 0 0 3px rgba(16,165,150,0.12);
     background: #fff;
   }
 
@@ -631,15 +617,15 @@ const ReasonError = styled.div`
 `;
 
 const ModalFooter = styled.div`
-  padding: 14px 24px 20px;
+  padding: 20px 0 0;
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: center;
 `;
 
 const ModalBtn = styled.button`
-  height: 36px;
-  padding: 0 20px;
+  height: 38px;
+  padding: 0 28px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -649,23 +635,25 @@ const ModalBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 90px;
+  justify-content: center;
 
   ${({ variant }) => variant === "cancel" ? `
-    background: #f1f5f9;
+    background: #e2e8f0;
     color: #475569;
-    border: 1px solid #e2e8f0;
-    &:hover { background: #e2e8f0; }
+    border: 1px solid #cbd5e0;
+    &:hover { background: #cbd5e0; }
   ` : variant === "confirm" ? `
-    background: linear-gradient(135deg, #1e40af, #2563eb);
+    background: #10A596;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
-    &:hover { background: linear-gradient(135deg, #1d3faa, #1e40af); }
+    box-shadow: 0 2px 8px rgba(16,165,150,0.25);
+    &:hover { background: #0d8f82; }
     &:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
   ` : variant === "danger" ? `
-    background: linear-gradient(135deg, #991b1b, #dc2626);
+    background: #ef4444;
     color: #fff;
-    box-shadow: 0 2px 8px rgba(220,38,38,0.25);
-    &:hover { background: linear-gradient(135deg, #7f1d1d, #991b1b); }
+    box-shadow: 0 2px 8px rgba(239,68,68,0.25);
+    &:hover { background: #dc2626; }
     &:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
   ` : `
     background: #f1f5f9;
@@ -818,7 +806,6 @@ const BILL_TYPE_LABELS = {
 const billTypeLabel = (code) => BILL_TYPE_LABELS[code] || `Bill Type ${code}`;
 
 const SEARCH_BY_OPTIONS = [
-  { label: "Bill Date",    value: "bill_date"    },
   { label: "Patient Name", value: "patient_name" },
   { label: "UHID",         value: "uhid"         },
   { label: "Bill Number",  value: "bill_no"      },
@@ -882,7 +869,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
 
   const [fromDate,       setFromDate]       = useState(today());
   const [toDate,         setToDate]         = useState(today());
-  const [searchBy,       setSearchBy]       = useState(SEARCH_BY_OPTIONS[0].value);
+  const [searchBy,       setSearchBy]       = useState("patient_name");
   const [searchText,     setSearchText]     = useState("");
 
   const [billTypeFilter, setBillTypeFilter] = useState("ALL");
@@ -923,7 +910,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     win.document.write(`
       <html>
         <head>
-          <title>Pharmacy OP GST Invoice</title>
+          <title>Pharmacy Medicine Invoice</title>
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: Arial, sans-serif; padding: 20px; font-size: 12.5px; color: #111; }
@@ -1001,7 +988,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
 
     try {
       const response = await apiRequest(
-        `${HmsBaseUrl}oppharmacy_deletebill/`,
+        `${HmsBaseUrl}pharmacy_deletebill/`,
         "POST",
         {
           bill_id: deleteModalBill.Bill_id,
@@ -1156,11 +1143,23 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
   const SortIcon = ({ col }) =>
     sortKey !== col
       ? <span style={{ opacity:0.3 }}> ↕</span>
-      : <span style={{ color:"#2b6cb0" }}>{sortDir === "asc" ? " ↑" : " ↓"}</span>;
+      : <span style={{ color:"#10A596" }}>{sortDir === "asc" ? " ↑" : " ↓"}</span>;
 
-  const paidCount    = allBills.filter((b) => b.billing_status === "Paid").length;
-  const billedCount  = allBills.filter((b) => b.billing_status === "Billed").length;
-  const deletedCount = allBills.filter((b) => b.is_deleted === true || (b.billing_status || "").toLowerCase() === "deleted").length;
+  // Compute counts from date-filtered bills (before text search)
+  const dateFiltered = allBills.filter((b) => {
+    if (fromDate || toDate) {
+      const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
+      if (billDay) {
+        if (fromDate && billDay < fromDate) return false;
+        if (toDate   && billDay > toDate)   return false;
+      }
+    }
+    return true;
+  });
+
+  const paidCount    = dateFiltered.filter((b) => b.billing_status === "Paid").length;
+  const billedCount  = dateFiltered.filter((b) => b.billing_status === "Billed").length;
+  const deletedCount = dateFiltered.filter((b) => b.is_deleted === true || (b.billing_status || "").toLowerCase() === "deleted").length;
 
   const getPageNums = () => {
     const pages = [];
@@ -1193,20 +1192,6 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
 
         {/* ── Filter Bar ── */}
         <FilterCard>
-          <FieldGroup>
-            <Label>Bill Type</Label>
-            <Select
-              value={billTypeFilter}
-              onChange={(e) => { setBillTypeFilter(e.target.value); setCurrentPage(1); }}
-              style={{ minWidth: 200 }}
-            >
-              <option value="ALL">All Types</option>
-              {billTypeCodes.map((code) => (
-                <option key={code} value={code}>{billTypeLabel(code)}</option>
-              ))}
-            </Select>
-          </FieldGroup>
-
           <FieldGroup>
             <Label>From</Label>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
@@ -1252,7 +1237,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
             <StatPill color="#276749" bg="#c6f6d5" border="#9ae6b4">Paid: {paidCount}</StatPill>
             <StatPill color="#744210" bg="#fefcbf" border="#f6e05e">Billed: {billedCount}</StatPill>
             <StatPill color="#991b1b" bg="#fee2e2" border="#fca5a5">Deleted: {deletedCount}</StatPill>
-            <StatPill color="#2b6cb0" bg="#ebf8ff" border="#bee3f8">Total: {allBills.length}</StatPill>
+            <StatPill color="#2b6cb0" bg="#ebf8ff" border="#bee3f8">Total: {dateFiltered.length}</StatPill>
           </div>
         )}
 
@@ -1306,7 +1291,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                     <Th onClick={() => handleSort("payment_method")}>Payment Mode <SortIcon col="payment_method" /></Th>
                     <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" /></Th>
                     <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" /></Th>
-                    <Th onClick={() => handleSort("total_amount")}>Bill Amount <SortIcon col="total_amount" /></Th>
+                    <Th onClick={() => handleSort("net_amount")}>Bill Amount <SortIcon col="net_amount" /></Th>
                     <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" /></Th>
                     <Th onClick={() => handleSort("inpatient_number")}>IP Number <SortIcon col="inpatient_number" /></Th>
                     <Th onClick={() => handleSort("ip_serial_number")}>IP Serial No <SortIcon col="ip_serial_number" /></Th>
@@ -1326,7 +1311,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                       <Td>{formatDate(bill.bill_date)}</Td>
                       <Td>{formatTime(bill.bill_date)}</Td>
 
-                      <Td style={{ color:"#2b6cb0", fontWeight:500 }}>
+                      <Td style={{ color:"#10A596", fontWeight:500 }}>
                         {bill.uhid || "—"}
                       </Td>
 
@@ -1340,7 +1325,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                           <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
                             {bill.payment_entries.map((e, i) => (
                               <Badge key={i} variant={paymentVariant(e.method)}>
-                                {e.method}{e.amount != null ? ` ₹${e.amount}` : ""}
+                                {e.method}
                               </Badge>
                             ))}
                           </div>
@@ -1363,10 +1348,10 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                         {bill.bill_number || "—"}
                       </Td>
 
-                      {/* Bill Amount — show net_amount when status is Billed, else "—" */}
+                      {/* Bill Amount — always show net_amount */}
                       <Td>
-                        <AmountCell style={{ color: isBilledBill ? "#2d3748" : "#a0aec0" }}>
-                          {isBilledBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                        <AmountCell style={{ color: "#2d3748" }}>
+                          ₹ {bill.net_amount.toFixed(2)}
                         </AmountCell>
                       </Td>
 
@@ -1397,7 +1382,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
 
                       <Td>
                         <ActionGroup>
-                          {!isPaid(bill) && (
+                          {!isDeleted(bill) && !isPaid(bill) && (
                             <IconBtn
                               variant="edit"
                               title="Edit"
@@ -1407,23 +1392,18 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                             </IconBtn>
                           )}
 
-                          <IconBtn
-                            variant="delete"
-                            title="Delete"
-                            onClick={() => openDeleteModal(bill)}
-                          >
-                            🗑️
-                          </IconBtn>
+                          {!isDeleted(bill) && (
+                            <IconBtn
+                              variant="delete"
+                              title="Delete"
+                              onClick={() => openDeleteModal(bill)}
+                            >
+                              🗑️
+                            </IconBtn>
+                          )}
 
                           <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>
                             🖨️
-                          </IconBtn>
-                          <IconBtn
-                            variant="copy"
-                            title="Duplicate"
-                            onClick={() => alert(`Duplicate: ${bill.bill_number}`)}
-                          >
-                            📋
                           </IconBtn>
                         </ActionGroup>
                       </Td>
@@ -1476,89 +1456,42 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
         <ModalOverlay onClick={closeEditModal}>
           <ModalBox onClick={(e) => e.stopPropagation()}>
 
-            <ModalTopBar>
-              <ModalIcon>✏️</ModalIcon>
-              <div>
-                <ModalHeading>Edit Bill</ModalHeading>
-                <ModalSubHeading>
-                  {editStep === 1 ? "Confirm your intent" : "Provide an edit reason"}
-                </ModalSubHeading>
-              </div>
-            </ModalTopBar>
+            <ModalIcon variant="edit">!</ModalIcon>
+            <ModalHeading>Edit Bill Confirmation</ModalHeading>
+            <ModalSubHeading>
+              Please provide a valid reason for editing this bill
+            </ModalSubHeading>
 
             <ModalBody>
-              <StepDots>
-                <StepDot active={true} />
-                <StepLine active={editStep === 2} />
-                <StepDot active={editStep === 2} />
-              </StepDots>
-
-              {editStep === 1 && (
-                <>
-                  <ConfirmText>
-                    Are you sure you want to edit bill{" "}
-                    <BillRef>{editModalBill.bill_number || editModalBill.bill_no || "—"}</BillRef>
-                    {" "}for patient{" "}
-                    <strong>{editModalBill.patient_name || "—"}</strong>?
-                  </ConfirmText>
-                  <ConfirmText style={{ color: "#6b7280", fontSize: 12.5, marginTop: 6 }}>
-                    This will load the bill details into the billing form for modification.
-                    All existing entries will be replaced.
-                  </ConfirmText>
-                </>
-              )}
-
-              {editStep === 2 && (
-                <>
-                  <ConfirmText>
-                    Editing bill{" "}
-                    <BillRef>{editModalBill.bill_number || editModalBill.bill_no || "—"}</BillRef>.
-                    Please provide a reason for this edit.
-                  </ConfirmText>
-                  <ReasonSection>
-                    <ReasonLabel>
-                      Reason for Edit <span>*</span>
-                    </ReasonLabel>
-                    <ReasonTextarea
-                      autoFocus
-                      placeholder="e.g. Wrong quantity entered, incorrect medicine selected..."
-                      value={editReason}
-                      onChange={(e) => {
-                        setEditReason(e.target.value);
-                        if (e.target.value.trim()) setReasonError(false);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && e.ctrlKey) handleEditProceed();
-                      }}
-                    />
-                    {reasonError && (
-                      <ReasonError>
-                        ⚠ Reason is required to proceed with the edit.
-                      </ReasonError>
-                    )}
-                  </ReasonSection>
-                </>
-              )}
+              <ReasonSection>
+                <ReasonTextarea
+                  autoFocus
+                  placeholder="Reason for Edit"
+                  value={editReason}
+                  onChange={(e) => {
+                    setEditReason(e.target.value);
+                    if (e.target.value.trim()) setReasonError(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && e.ctrlKey) handleEditProceed();
+                  }}
+                  style={{ minHeight: 56, resize: "none" }}
+                />
+                {reasonError && (
+                  <ReasonError>
+                    ⚠ Reason is required to proceed with the edit.
+                  </ReasonError>
+                )}
+              </ReasonSection>
             </ModalBody>
 
             <ModalFooter>
-              <ModalBtn variant="cancel" onClick={closeEditModal}>
-                ✕ Cancel
+              <ModalBtn variant="confirm" onClick={handleEditProceed} disabled={!editReason.trim()}>
+                OK
               </ModalBtn>
-
-              {editStep === 1 ? (
-                <ModalBtn variant="confirm" onClick={handleEditConfirm}>
-                  ✓ Yes, Edit
-                </ModalBtn>
-              ) : (
-                <ModalBtn
-                  variant="confirm"
-                  onClick={handleEditProceed}
-                  disabled={!editReason.trim()}
-                >
-                  → Proceed to Edit
-                </ModalBtn>
-              )}
+              <ModalBtn variant="cancel" onClick={closeEditModal}>
+                Cancel
+              </ModalBtn>
             </ModalFooter>
 
           </ModalBox>
@@ -1570,35 +1503,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
         <ModalOverlay onClick={!deleteLoading ? closeDeleteModal : undefined}>
           <ModalBox onClick={(e) => e.stopPropagation()}>
 
-            <ModalTopBar variant="delete">
-              <ModalIcon>🗑️</ModalIcon>
-              <div>
-                <ModalHeading>Delete Bill</ModalHeading>
-                <ModalSubHeading>This action cannot be undone</ModalSubHeading>
-              </div>
-            </ModalTopBar>
+            <ModalIcon variant="delete">!</ModalIcon>
+            <ModalHeading>Delete Bill Confirmation</ModalHeading>
+            <ModalSubHeading>
+              Please provide a valid reason for deleting this bill
+            </ModalSubHeading>
 
             <ModalBody>
-              <ConfirmText>
-                You are about to permanently delete bill{" "}
-                <BillRef style={{ color:"#991b1b", background:"#fff5f5", borderColor:"#fecaca" }}>
-                  {deleteModalBill.bill_number || deleteModalBill.bill_no || "—"}
-                </BillRef>{" "}
-                for patient <strong>{deleteModalBill.patient_name || "—"}</strong>.
-              </ConfirmText>
-
-              <DeleteWarningBox>
-                ⚠️ Deleting this bill will also release the blocked stock quantities for all
-                medicines in this bill back into available inventory.
-              </DeleteWarningBox>
-
               <ReasonSection>
-                <ReasonLabel>
-                  Reason for Deletion <span>*</span>
-                </ReasonLabel>
                 <ReasonTextarea
                   autoFocus
-                  placeholder="e.g. Bill created by mistake, patient cancelled order..."
+                  placeholder="Reason for Deletion"
                   value={deleteReason}
                   onChange={(e) => {
                     setDeleteReason(e.target.value);
@@ -1609,30 +1524,23 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && e.ctrlKey) handleDeleteConfirm();
                   }}
+                  style={{ minHeight: 56, resize: "none" }}
                 />
                 {deleteReasonError && (
-                  <ReasonError>
-                    ⚠ Reason is required to proceed with the deletion.
-                  </ReasonError>
+                  <ReasonError>⚠ Reason is required to proceed with the deletion.</ReasonError>
                 )}
                 {deleteError && (
-                  <ReasonError style={{ marginTop: 8, fontSize: 12.5 }}>
-                    ⚠ {deleteError}
-                  </ReasonError>
+                  <ReasonError style={{ marginTop: 8, fontSize: 12.5 }}>⚠ {deleteError}</ReasonError>
                 )}
               </ReasonSection>
             </ModalBody>
 
             <ModalFooter>
-              <ModalBtn variant="cancel" onClick={closeDeleteModal} disabled={deleteLoading}>
-                ✕ Cancel
+              <ModalBtn variant="danger" onClick={handleDeleteConfirm} disabled={deleteLoading || !deleteReason.trim()}>
+                {deleteLoading ? "Deleting…" : "OK"}
               </ModalBtn>
-              <ModalBtn
-                variant="danger"
-                onClick={handleDeleteConfirm}
-                disabled={deleteLoading || !deleteReason.trim()}
-              >
-                {deleteLoading ? "Deleting…" : "🗑️ Confirm Delete"}
+              <ModalBtn variant="cancel" onClick={closeDeleteModal} disabled={deleteLoading}>
+                Cancel
               </ModalBtn>
             </ModalFooter>
 
@@ -1659,7 +1567,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
           >
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "12px 20px", background: "linear-gradient(130deg,#1e40af,#2563eb)",
+              padding: "12px 20px", background: "linear-gradient(130deg,#0d8f82,#10A596)",
               borderRadius: "10px 10px 0 0",
             }}>
               <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>🖨️ Print Preview — GST Invoice</span>
@@ -1670,13 +1578,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
             </div>
 
             <div id="print-area" style={{ padding: "24px 32px", fontFamily: "Arial, sans-serif", fontSize: 12.5, color: "#111" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 10 }}>
-                <div style={{
-                  width: 56, height: 56, borderRadius: "50%", background: "#e0f2fe",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 22, flexShrink: 0,
-                }}>🏥</div>
-                <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <img
+                  src={HospitalHeader}
+                  alt="Shanmuga Hospital Limited"
+                  style={{ height: 64, objectFit: "contain" }}
+                  onError={(e) => {
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "block";
+                  }}
+                />
+                <div style={{ display: "none" }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: "#005b8e", letterSpacing: 0.5 }}>
                     SHANMUGA HOSPITAL LIMITED
                   </div>
@@ -1685,21 +1597,26 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                   </div>
                   <div style={{ fontSize: 11.5, color: "#444" }}>Ph No: 04272706666</div>
                 </div>
-                <div style={{ marginLeft: "auto", textAlign: "right" }}>
+
+                </div>
+                                <div style={{ textAlign: "center", marginBottom: 12 }}>
                   <div style={{
-                    background: "#1a365d", color: "#fff", fontWeight: 700,
+                     color: "#000000", fontWeight: 700,
                     fontSize: 11, padding: "4px 12px", borderRadius: 4, letterSpacing: 0.5,
                   }}>
-                    PHARMACY OP GST INVOICE
+                    PHARMACY MEDICINE INVOICE
                   </div>
-                </div>
               </div>
 
               <hr style={{ borderColor: "#cbd5e0", margin: "8px 0" }} />
 
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 8 }}>
-                <span>SLS 7788 20,21 3993 20B 3848 21B &nbsp;|&nbsp; CIN: L85110TZ2020PLC033974</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
+                <span>SLS 7788 20,21 3993 20B 3848 21B </span>
+                
                 <span>GST NO: 33ABDCS8326A1ZP &nbsp;&nbsp; No. RM/3G/012</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 10 }}>
+              <span> CIN: L85110TZ2020PLC033974</span>
               </div>
 
               <div style={{ display: "flex", gap: 24, marginBottom: 12 }}>
@@ -1773,31 +1690,36 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                 </tbody>
               </table>
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div style={{ fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4 }}>
+                {/* Left: Payment Mode */}
+                <div style={{ fontSize: 12.5, alignSelf: "flex-end", paddingBottom: 2 }}>
                   <span style={{ fontWeight: 600 }}>Payment Mode :</span>{" "}
                   {printBill.payment_method || "—"}
                 </div>
-                <table style={{ borderCollapse: "collapse", minWidth: 240 }}>
-                  {[
-                    ["Total :", printBill.total_amount?.toFixed(2)],
-                    ["Discount Amt:", printBill.overall_discount_amount?.toFixed(2) ?? "0.00"],
-                    ["Net Amount (Payable) :", printBill.net_amount?.toFixed(2)],
-                    ["Amount Collected :", "0.00"],
-                  ].map(([label, val]) => (
-                    <tr key={label}>
-                      <td style={{ padding: "3px 10px 3px 0", textAlign: "right", fontWeight: label.includes("Net") ? 700 : 500, fontSize: 12.5, color: "#333" }}>{label}</td>
-                      <td style={{ padding: "3px 0", textAlign: "right", fontWeight: label.includes("Net") ? 700 : 500, fontSize: 12.5, minWidth: 70 }}>{val}</td>
-                    </tr>
-                  ))}
+                {/* Right: Summary totals */}
+                <table style={{ borderCollapse: "collapse", minWidth: 260 }}>
+                  <tbody>
+                    {[
+                      ["Total :", printBill.total_amount?.toFixed(2)],
+                      ["Discount Amt:", printBill.overall_discount_amount?.toFixed(2) ?? "0.00"],
+                      ["Net Amount (Payable) :", printBill.net_amount?.toFixed(2)],
+                      ["Amount Collected :", "0.00"],
+                    ].map(([label, val]) => (
+                      <tr key={label}>
+                        <td style={{ padding: "2px 12px 2px 0", textAlign: "right", fontWeight: label.includes("Net") ? 700 : 500, fontSize: 12.5, color: "#333", whiteSpace: "nowrap" }}>{label}</td>
+                        <td style={{ padding: "2px 0", textAlign: "right", fontWeight: label.includes("Net") ? 700 : 500, fontSize: 12.5, minWidth: 70 }}>{val ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
 
               <hr style={{ borderColor: "#cbd5e0", margin: "12px 0 8px" }} />
 
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
-                <span>E &amp; OE &nbsp;&nbsp;&nbsp; Prepared by : {printBill.prepared_by || "—"}</span>
+                <span>Prepared by : {printBill.prepared_by || "—"}</span>
                 <span style={{ fontStyle: "italic" }}>"Goods once sold will not taken back"</span>
+                
                 <span>(Sign-pharmacist)</span>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -125,15 +125,13 @@ const StyledToastContainer = styled(ToastContainer)`
  *                                 switch to the "OP Pharmacy Bill" tab and pass
  *                                 the estimate data into OPPharmacy for loading.
  */
-const ViewEstimate = ({ onConvertEstimate }) => {
+const ViewEstimate = ({ onConvertEstimate, refreshTrigger }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const [estimates, setEstimates] = useState([]);
-  const [loading, setLoading] = useState(true); // true only on first load
-  const intervalRef = useRef(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchEstimates = async (isInitial = false) => {
-    // Show spinner only on the very first fetch; background refreshes are silent
     if (isInitial) setLoading(true);
     try {
       const res = await apiRequest(`${HmsBaseUrl}get_estimate_bills/`, "GET");
@@ -141,42 +139,19 @@ const ViewEstimate = ({ onConvertEstimate }) => {
       setEstimates(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching estimates:", error);
-      // Only toast on the initial load so background errors aren't noisy
       if (isInitial) toast.error("Failed to load estimates.");
     } finally {
       if (isInitial) setLoading(false);
     }
   };
 
-  const startPolling = () => {
-    // Clear any existing interval before starting a new one
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => fetchEstimates(false), 5000); // poll every 5 s
-  };
-
+  // Fetch on mount (isInitial=true shows spinner) and whenever parent increments
+  // refreshTrigger (i.e. after a Save Estimate action in OPPharmacy).
+  // No polling — no continuous loop.
   useEffect(() => {
-    // Initial fetch (shows loading spinner)
     fetchEstimates(true);
-    startPolling();
-
-    // Refetch immediately when the user returns to this browser tab
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        fetchEstimates(false); // silent refresh
-        startPolling();        // reset timer so next poll is 5 s from now
-      } else {
-        // Pause polling while the tab is hidden to save resources
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, []); // runs once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
 
   const handleConvert = (estimate) => {
     if (!estimate.Bill_id) {
