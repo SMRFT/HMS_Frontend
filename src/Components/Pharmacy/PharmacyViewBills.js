@@ -34,7 +34,7 @@ const shrinkProgress = keyframes`
   to   { width: 0%; }
 `;
 
-// ─── Toast Container (fixed, outside any modal, top-right) ────────────────────
+// ─── Toast Container ───────────────────────────────────────────────────────────
 const ToastContainer = styled.div`
   position: fixed;
   top: 20px;
@@ -139,7 +139,7 @@ const ToastProgress = styled.div`
 `;
 
 // ─── Toast hook ────────────────────────────────────────────────────────────────
-const TOAST_DURATION = 4500; // ms — display limit per requirement
+const TOAST_DURATION = 4500;
 
 let _toastId = 0;
 
@@ -155,13 +155,6 @@ function useToast() {
     }, 370);
   }, []);
 
-  /**
-   * show({ type, title, message, code })
-   *   type    : "success" | "error" | "warning" | "info"
-   *   title   : short heading
-   *   message : backend message string  ← always from backend
-   *   code    : backend code string (optional)
-   */
   const show = useCallback(({ type = "info", title, message, code }) => {
     const id = ++_toastId;
     setToasts((prev) => [...prev, { id, type, title, message, code, exiting: false }]);
@@ -172,7 +165,6 @@ function useToast() {
   return { toasts, show, dismiss };
 }
 
-// ─── Toast Icon map ────────────────────────────────────────────────────────────
 const TOAST_ICONS = {
   success: "✅",
   error:   "❌",
@@ -187,7 +179,6 @@ const TOAST_TITLES = {
   info:    "Info",
 };
 
-// ─── ToastRenderer component ───────────────────────────────────────────────────
 function ToastRenderer({ toasts, dismiss }) {
   return (
     <ToastContainer>
@@ -211,6 +202,42 @@ function ToastRenderer({ toasts, dismiss }) {
   );
 }
 
+// ─── Tab System ────────────────────────────────────────────────────────────────
+const TabBar = styled.div`
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border-bottom: 2px solid #e2e8f0;
+`;
+
+const Tab = styled.button`
+  padding: 9px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: ${({ active }) => (active ? "#10A596" : "#718096")};
+  border-bottom: 2px solid ${({ active }) => (active ? "#10A596" : "transparent")};
+  margin-bottom: -2px;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+
+  &:hover { color: #10A596; background: #f0faf9; }
+`;
+
+const TabCount = styled.span`
+  background: ${({ active }) => (active ? "#10A596" : "#e2e8f0")};
+  color: ${({ active }) => (active ? "#fff" : "#718096")};
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  transition: all 0.18s;
+`;
+
 // ─── Layout ────────────────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   padding: 18px 24px;
@@ -226,7 +253,6 @@ const PageTitle = styled.h2`
   letter-spacing: 0.3px;
 `;
 
-// ─── Filter Bar ────────────────────────────────────────────────────────────────
 const FilterCard = styled.div`
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -298,7 +324,6 @@ const SearchBtn = styled.button`
   &:active { background: #0b7a70; }
 `;
 
-// ─── Table Card ────────────────────────────────────────────────────────────────
 const TableCard = styled.div`
   background: #fff;
   border: 1px solid #e2e8f0;
@@ -355,6 +380,13 @@ const Table = styled.table`
   min-width: 1400px;
 `;
 
+// Sales Return table is narrower
+const ReturnTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+`;
+
 const Thead = styled.thead`background: #edf2f7;`;
 
 const Th = styled.th`
@@ -372,11 +404,22 @@ const Th = styled.th`
   &:hover { color: #10A596; }
 `;
 
+// Sales return thead with different accent
+const ReturnTh = styled(Th)`
+  background: #fdf2f8;
+  color: #702459;
+  &:hover { color: #b83280; }
+`;
+
 const Tr = styled.tr`
   border-bottom: 1px solid #edf2f7;
   transition: background 0.12s;
   &:hover { background: #f7fafc; }
   &:last-child { border-bottom: none; }
+`;
+
+const ReturnTr = styled(Tr)`
+  &:hover { background: #fdf2f8; }
 `;
 
 const Td = styled.td`
@@ -386,7 +429,6 @@ const Td = styled.td`
   white-space: nowrap;
 `;
 
-// ─── Badges ────────────────────────────────────────────────────────────────────
 const Badge = styled.span`
   display: inline-block;
   padding: 3px 10px;
@@ -404,12 +446,14 @@ const Badge = styled.span`
       case "paid":     return "background:#c6f6d5; color:#276749; border:1px solid #9ae6b4;";
       case "billed":   return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
       case "deleted":  return "background:#fee2e2; color:#991b1b; border:1px solid #fca5a5;";
+      case "pending":  return "background:#fef3c7; color:#92400e; border:1px solid #fcd34d;";
+      case "refund":   return "background:#fce7f3; color:#9d174d; border:1px solid #f9a8d4;";
+      case "sales-returned": return "background:#ede9fe; color:#5b21b6; border:1px solid #c4b5fd; font-weight:700;";
       default:         return "background:#e2e8f0; color:#4a5568; border:1px solid #cbd5e0;";
     }
   }}
 `;
 
-// ─── Action Buttons ────────────────────────────────────────────────────────────
 const ActionGroup = styled.div`display:flex; gap:5px; align-items:center;`;
 
 const IconBtn = styled.button`
@@ -430,12 +474,12 @@ const IconBtn = styled.button`
       case "delete": return "background:#fff5f5; border-color:#fed7d7; color:#c53030; &:hover{background:#fed7d7;}";
       case "print":  return "background:#f0fff4; border-color:#c6f6d5; color:#276749; &:hover{background:#c6f6d5;}";
       case "copy":   return "background:#faf5ff; border-color:#e9d8fd; color:#6b46c1; &:hover{background:#e9d8fd;}";
+      case "view":   return "background:#fdf2f8; border-color:#fbcfe8; color:#9d174d; &:hover{background:#fbcfe8;}";
       default:       return "background:#f7fafc; border-color:#e2e8f0; color:#4a5568;";
     }
   }}
 `;
 
-// ─── Pagination ────────────────────────────────────────────────────────────────
 const PaginationBar = styled.div`
   display: flex;
   align-items: center;
@@ -466,7 +510,6 @@ const PageBtn = styled.button`
   &:disabled { opacity:0.45; cursor:not-allowed; }
 `;
 
-// ─── Misc ──────────────────────────────────────────────────────────────────────
 const Spinner = styled.div`
   width:32px; height:32px;
   border:3px solid #e2e8f0; border-top-color:#2b6cb0;
@@ -489,7 +532,7 @@ const StatPill = styled.span`
   border:1px solid ${({ border }) => border};
 `;
 
-// ─── Edit Confirmation Modal Styled Components ─────────────────────────────────
+// ─── Sales Return Detail Modal ─────────────────────────────────────────────────
 const ModalOverlay = styled.div`
   position: fixed;
   inset: 0;
@@ -514,17 +557,17 @@ const ModalBox = styled.div`
   text-align: center;
 `;
 
-const ModalTopBar = styled.div``;  /* kept for compatibility, no longer used */
+const ModalTopBar = styled.div``;
 
 const ModalIcon = styled.div`
   width: 56px; height: 56px;
   border-radius: 50%;
-  border: 2.5px solid ${({ variant }) => variant === "delete" ? "#ef4444" : "#f59e0b"};
+  border: 2.5px solid ${({ variant }) => variant === "delete" ? "#ef4444" : variant === "return" ? "#b83280" : "#f59e0b"};
   display: flex; align-items: center; justify-content: center;
   font-size: 24px;
   margin: 0 auto 16px;
-  color: ${({ variant }) => variant === "delete" ? "#ef4444" : "#f59e0b"};
-  background: ${({ variant }) => variant === "delete" ? "#fff5f5" : "#fffbeb"};
+  color: ${({ variant }) => variant === "delete" ? "#ef4444" : variant === "return" ? "#b83280" : "#f59e0b"};
+  background: ${({ variant }) => variant === "delete" ? "#fff5f5" : variant === "return" ? "#fdf2f8" : "#fffbeb"};
 `;
 
 const ModalHeading = styled.div`
@@ -541,9 +584,7 @@ const ModalSubHeading = styled.div`
   line-height: 1.5;
 `;
 
-const ModalBody = styled.div`
-  padding: 0;
-`;
+const ModalBody = styled.div`padding: 0;`;
 
 const ConfirmText = styled.p`
   font-size: 13.5px;
@@ -577,11 +618,7 @@ const ReasonLabel = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 7px;
-
-  span {
-    color: #dc2626;
-    margin-left: 2px;
-  }
+  span { color: #dc2626; margin-left: 2px; }
 `;
 
 const ReasonTextarea = styled.textarea`
@@ -597,13 +634,11 @@ const ReasonTextarea = styled.textarea`
   outline: none;
   transition: border-color 0.18s, box-shadow 0.18s;
   background: #f9fafb;
-
   &:focus {
     border-color: #10A596;
     box-shadow: 0 0 0 3px rgba(16,165,150,0.12);
     background: #fff;
   }
-
   &::placeholder { color: #9ca3af; font-style: italic; }
 `;
 
@@ -682,7 +717,6 @@ const StepLine = styled.div`
   transition: background 0.2s;
 `;
 
-// ─── Delete Modal specific styled components ───────────────────────────────────
 const DeleteWarningBox = styled.div`
   background: #fff5f5;
   border: 1px solid #fed7d7;
@@ -696,7 +730,75 @@ const DeleteWarningBox = styled.div`
   align-items: flex-start;
 `;
 
-// ─── Pure helpers (no state) ───────────────────────────────────────────────────
+// ─── Return Detail Modal (wide) ────────────────────────────────────────────────
+const ReturnDetailOverlay = styled(ModalOverlay)``;
+
+const ReturnDetailBox = styled.div`
+  background: #fff;
+  border-radius: 14px;
+  width: 95%;
+  max-width: 700px;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+  animation: ${fadeIn} 0.25s cubic-bezier(0.22,1,0.36,1);
+  display: flex;
+  flex-direction: column;
+`;
+
+const ReturnDetailHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: linear-gradient(130deg, #9d174d, #b83280);
+  border-radius: 14px 14px 0 0;
+`;
+
+const ReturnDetailBody = styled.div`
+  padding: 22px 24px;
+  flex: 1;
+`;
+
+const InfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+  margin-bottom: 18px;
+`;
+
+const InfoRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const InfoLabel = styled.span`
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+`;
+
+const InfoValue = styled.span`
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+`;
+
+const SectionTitle = styled.div`
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a5568;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+`;
+
+// ─── Pure helpers ──────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
 
 const formatDate = (iso) => {
@@ -718,9 +820,9 @@ const formatTime = (iso) => {
 
 const parsePaymentMethod = (raw) => {
   if (!raw) return null;
-  // Extract all method values from an OrderedDict string like:
-  // "OrderedDict([('method', 'cash'), ('Paid_amount', 255)])"
-  // or multiple: "OrderedDict([('method', 'cash'), ...]), OrderedDict([('method', 'upi'), ...])"
+  if (typeof raw === "object" && raw !== null) {
+    return raw.method || null;
+  }
   const allMethods = [];
   const re = /['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/gi;
   let m;
@@ -732,12 +834,16 @@ const parsePaymentMethod = (raw) => {
   return null;
 };
 
-// Parse all payment entries from payment_details for display
 const parsePaymentEntries = (raw) => {
   if (!raw) return [];
-  // Match all (key, value) pairs from OrderedDict strings
+  // Handle object (JSON from MongoDB)
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    if (raw.method) {
+      return [{ method: raw.method, amount: raw.Paid_amount || null }];
+    }
+    return [];
+  }
   const entries = [];
-  // Find each OrderedDict block
   const blocks = raw.match(/OrderedDict\(\[([^\]]+)\]\)/gi) || [raw];
   for (const block of blocks) {
     const method = block.match(/['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/i);
@@ -813,38 +919,128 @@ const SEARCH_BY_OPTIONS = [
 
 const ENTRIES_OPTIONS = [10, 25, 50, 100];
 
-const formatBillData = (bills, employeeName = "") =>
-  bills.map((b) => ({
-    id:             b.Bill_id,
-    Bill_id:        b.Bill_id,
-    bill_date:      b.bill_date      || b.created_date || "",
-    uhid:           b.uhid           || "",
-    patient_name:   b.patient_name   || "",
-    payment_method: parsePaymentMethod(b.payment_details) || null,
-    payment_details: b.payment_details || null,
-    payment_entries: parsePaymentEntries(b.payment_details),
-    billing_mode:   b.billing_mode    || "",
-    billing_status: b.billing_status || "",
-    is_deleted:     b.is_deleted     || false,
-    delete_reason:  b.delete_reason  || "",
-    bill_number:    b.bill_no        || "",
-    bill_no:        b.bill_no        || "",
-    bill_type:      b.bill_type      || "",
-    estimate_no:    b.estimate_no    || null,
-    total_amount:   parseFloat(b.total_amount ?? 0),
-    net_amount:     parseFloat(b.net_amount   ?? 0),
-    discount:       parseFloat(b.overall_discount_amount ?? 0),
-    overall_discount_type:   b.overall_discount_type  || "percent",
-    overall_discount_value:  b.overall_discount_value ?? 0,
-    overall_discount_amount: parseFloat(b.overall_discount_amount ?? 0),
-    doctor_id:      b.doctor_id      || "",
-    inpatient_number: b.inpatient_number || "",
-    ip_serial_number: b.shiftno || b.ip_serial_number || "",   // shiftno used as IP Serial
-    room_no:        b.room_no        || "",
-    employee_name:  b.employee_name  || employeeName || "",
-    cashier_id:     b.cashier_id     || "",
-    medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
-  }));
+// ─── Extract sales return rows from edit_history inside medicine_particulars ──
+// Each item in a bill can carry multiple edit_history entries with action="sales_return".
+// We synthesise one return row per unique return_bill_no per original bill.
+const extractReturnRows = (bill, employeeName) => {
+  const meds = parseMedicineParticulars(bill.medicine_particulars);
+  // Collect all sales_return edit_history entries across all items
+  const returnMap = {}; // keyed by return_bill_no
+  meds.forEach((item) => {
+    (item.edit_history || []).forEach((h) => {
+      if (h.action !== "sales_return") return;
+      const key = h.return_bill_no || `${bill.bill_no}_ret`;
+      if (!returnMap[key]) {
+        returnMap[key] = {
+          return_bill_no:  h.return_bill_no || "",
+          return_date:     h.return_date    || "",
+          edited_by:       h.edited_by      || "",
+          items:           [],
+        };
+      }
+      returnMap[key].items.push({
+        item_name:   item.item_name   || `Item #${item.item_id}`,
+        batch_number: item.batch_number || "",
+        old_qty:     h.old_qty    ?? 0,
+        return_qty:  h.return_qty ?? 0,
+        price:       parseFloat(item.price ?? 0),
+        return_amount: parseFloat(h.return_qty ?? 0) * parseFloat(item.price ?? 0),
+      });
+    });
+  });
+
+  // Resolve parent bill's payment info once — return rows inherit it
+  const parentPaymentMethod  = parsePaymentMethod(bill.payment_details) || null;
+  const parentPaymentEntries = parsePaymentEntries(bill.payment_details);
+  const parentBillingStatus  = bill.billing_status || "Sales Returned";
+
+  return Object.values(returnMap).map((ret) => {
+    const totalReturnAmt = ret.items.reduce((s, i) => s + i.return_amount, 0);
+    return {
+      // Mark as a return row so the table can render differently
+      _isReturn:      true,
+      id:             `ret_${bill.Bill_id}_${ret.return_bill_no}`,
+      Bill_id:        bill.Bill_id,
+      // Use the return date as bill_date so it sorts/filters properly
+      bill_date:      ret.return_date || bill.bill_date || bill.created_date || "",
+      uhid:           bill.uhid           || "",
+      patient_name:   bill.patient_name   || "",
+      // Inherit parent bill's payment so Payment Mode column shows correctly
+      payment_method:  parentPaymentMethod,
+      payment_details: bill.payment_details || null,
+      payment_entries: parentPaymentEntries,
+      billing_mode:   bill.billing_mode    || "",
+      // Show parent status (e.g. "Paid") alongside "Sales Returned" badge
+      billing_status:      "Sales Returned",
+      parent_billing_status: parentBillingStatus,
+      is_deleted:     false,
+      delete_reason:  "",
+      bill_number:    ret.return_bill_no  || "",
+      bill_no:        ret.return_bill_no  || "",
+      original_bill_no: bill.bill_no      || "",
+      bill_type:      bill.bill_type      || "",
+      estimate_no:    null,
+      total_amount:   totalReturnAmt,
+      net_amount:     totalReturnAmt,
+      discount:       0,
+      overall_discount_type:   null,
+      overall_discount_value:  0,
+      overall_discount_amount: 0,
+      doctor_id:      bill.doctor_id      || "",
+      doctor_name:    bill.doctor_name    || "",
+      inpatient_number: bill.inpatient_number || "",
+      ip_serial_number: "",
+      room_no:        bill.room_no        || "",
+      employee_name:  employeeName         || ret.edited_by || "",
+      cashier_id:     ret.edited_by       || "",
+      medicine_particulars: ret.items,
+    };
+  });
+};
+
+const formatBillData = (bills, employeeName = "") => {
+  const rows = [];
+  bills.forEach((b) => {
+    // Main bill row
+    rows.push({
+      id:             b.Bill_id,
+      Bill_id:        b.Bill_id,
+      _isReturn:      false,
+      bill_date:      b.bill_date      || b.created_date || "",
+      uhid:           b.uhid           || "",
+      patient_name:   b.patient_name   || "",
+      payment_method: parsePaymentMethod(b.payment_details) || null,
+      payment_details: b.payment_details || null,
+      payment_entries: parsePaymentEntries(b.payment_details),
+      billing_mode:   b.billing_mode    || "",
+      billing_status: b.billing_status || "",
+      is_deleted:     b.is_deleted     || false,
+      delete_reason:  b.delete_reason  || "",
+      bill_number:    b.bill_no        || "",
+      bill_no:        b.bill_no        || "",
+      original_bill_no: "",
+      bill_type:      b.bill_type      || "",
+      estimate_no:    b.estimate_no    || null,
+      total_amount:   parseFloat(b.total_amount ?? 0),
+      net_amount:     parseFloat(b.net_amount   ?? 0),
+      discount:       parseFloat(b.overall_discount_amount ?? 0),
+      overall_discount_type:   b.overall_discount_type  || "percent",
+      overall_discount_value:  b.overall_discount_value ?? 0,
+      overall_discount_amount: parseFloat(b.overall_discount_amount ?? 0),
+      doctor_id:      b.doctor_id      || "",
+      doctor_name:    b.doctor_name    || "",
+      inpatient_number: b.inpatient_number || "",
+      ip_serial_number: b.shiftno || b.ip_serial_number || "",
+      room_no:        b.room_no        || "",
+      employee_name:  b.employee_name  || employeeName || "",
+      cashier_id:     b.cashier_id     || "",
+      medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
+    });
+    // Inline return rows derived from edit_history
+    extractReturnRows(b, b.employee_name || employeeName).forEach((r) => rows.push(r));
+  });
+  return rows;
+};
 
 const thStyle = {
   padding: "7px 8px",
@@ -863,35 +1059,44 @@ const tdStyle = {
   color: "#2d3748",
 };
 
+// ─── Return Status Badge helper ────────────────────────────────────────────────
+const returnStatusVariant = (status) => {
+  if (!status) return "default";
+  const s = status.toLowerCase();
+  if (s === "paid")    return "paid";
+  if (s === "pending") return "pending";
+  if (s === "refund")  return "refund";
+  return "default";
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) {
   const { toasts, show: showToast, dismiss: dismissToast } = useToast();
 
+  // ── Bills State ───────────────────────────────────────────────────────────
   const [fromDate,       setFromDate]       = useState(today());
   const [toDate,         setToDate]         = useState(today());
   const [searchBy,       setSearchBy]       = useState("patient_name");
   const [searchText,     setSearchText]     = useState("");
-
   const [billTypeFilter, setBillTypeFilter] = useState("ALL");
   const [billTypeCodes,  setBillTypeCodes]  = useState([]);
-
   const [allBills,       setAllBills]       = useState([]);
   const [loading,        setLoading]        = useState(false);
   const [error,          setError]          = useState("");
-
   const [tableSearch,    setTableSearch]    = useState("");
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage,    setCurrentPage]    = useState(1);
   const [sortKey,        setSortKey]        = useState("bill_date");
   const [sortDir,        setSortDir]        = useState("desc");
 
-  // ── Edit Confirmation Modal ───────────────────────────────────────────────
+  // ── Returns State (removed — returns merged into bills table) ───────────
+
+  // ── Bill Modals ───────────────────────────────────────────────────────────
   const [editModalBill,  setEditModalBill]  = useState(null);
   const [editStep,       setEditStep]       = useState(1);
   const [editReason,     setEditReason]     = useState("");
   const [reasonError,    setReasonError]    = useState(false);
 
-  // ── Delete Confirmation Modal ─────────────────────────────────────────────
   const [deleteModalBill,   setDeleteModalBill]   = useState(null);
   const [deleteReason,      setDeleteReason]      = useState("");
   const [deleteReasonError, setDeleteReasonError] = useState(false);
@@ -900,9 +1105,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
 
   const [printBill, setPrintBill] = useState(null);
 
-  const handlePrint = (bill) => {
-    setPrintBill(bill);
-  };
+  // ── Print ─────────────────────────────────────────────────────────────────
+  const handlePrint = (bill) => setPrintBill(bill);
 
   const handlePrintNow = () => {
     const content = document.getElementById("print-area").innerHTML;
@@ -932,157 +1136,82 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     win.print();
   };
 
-  // ── Edit Modal Handlers ───────────────────────────────────────────────────
-  const openEditModal = (bill) => {
-    setEditModalBill(bill);
-    setEditStep(1);
-    setEditReason("");
-    setReasonError(false);
-  };
-
-  const closeEditModal = () => {
-    setEditModalBill(null);
-    setEditStep(1);
-    setEditReason("");
-    setReasonError(false);
-  };
-
-  const handleEditConfirm = () => {
-    setEditStep(2);
-    setReasonError(false);
-  };
-
+  // ── Edit Modal ────────────────────────────────────────────────────────────
+  const openEditModal = (bill) => { setEditModalBill(bill); setEditStep(1); setEditReason(""); setReasonError(false); };
+  const closeEditModal = () => { setEditModalBill(null); setEditStep(1); setEditReason(""); setReasonError(false); };
+  const handleEditConfirm = () => { setEditStep(2); setReasonError(false); };
   const handleEditProceed = () => {
-    if (!editReason.trim()) {
-      setReasonError(true);
-      return;
-    }
+    if (!editReason.trim()) { setReasonError(true); return; }
     if (onEditBill) onEditBill({ ...editModalBill, editReason: editReason.trim() });
     if (onSwitchToPharmacy) onSwitchToPharmacy();
     closeEditModal();
   };
 
-  // ── Delete Modal Handlers ─────────────────────────────────────────────────
-  const openDeleteModal = (bill) => {
-    setDeleteModalBill(bill);
-    setDeleteReason("");
-    setDeleteReasonError(false);
-    setDeleteError("");
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteModalBill(null);
-    setDeleteReason("");
-    setDeleteReasonError(false);
-    setDeleteError("");
-  };
+  // ── Delete Modal ──────────────────────────────────────────────────────────
+  const openDeleteModal = (bill) => { setDeleteModalBill(bill); setDeleteReason(""); setDeleteReasonError(false); setDeleteError(""); };
+  const closeDeleteModal = () => { setDeleteModalBill(null); setDeleteReason(""); setDeleteReasonError(false); setDeleteError(""); };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteReason.trim()) {
-      setDeleteReasonError(true);
-      return;
-    }
-
+    if (!deleteReason.trim()) { setDeleteReasonError(true); return; }
     setDeleteLoading(true);
     setDeleteError("");
-
     try {
       const response = await apiRequest(
         `${HmsBaseUrl}pharmacy_deletebill/`,
         "POST",
-        {
-          bill_id: deleteModalBill.Bill_id,
-          delete_reason: deleteReason.trim(),
-        }
+        { bill_id: deleteModalBill.Bill_id, delete_reason: deleteReason.trim() }
       );
-
-      // ── apiRequest wraps the Django JSON body inside response.data ──────────
-      // response.status  → HTTP status code (200, 400, 404, 500 …)  ← NOT "success"
-      // response.data    → actual Django JSON  { status, message, code, data }
-      const body = response?.data ?? response;   // fallback if apiRequest returns body directly
-
+      const body = response?.data ?? response;
       if (body.status === "success") {
-        // ✅ Backend success codes:
-        //    BILL_DELETED_SUCCESS → message: "Bill Number {bill_no} deleted successfully."
-        setAllBills((prev) =>
-          prev.filter((b) => b.Bill_id !== deleteModalBill.Bill_id)
-        );
+        setAllBills((prev) => prev.filter((b) => b.Bill_id !== deleteModalBill.Bill_id));
         closeDeleteModal();
-        showToast({
-          type:    "success",
-          message: body.message,   // ← exact backend message
-          code:    body.code,      // ← BILL_DELETED_SUCCESS
-        });
+        showToast({ type: "success", message: body.message, code: body.code });
       } else {
-        // ✅ Backend error codes:
-        //    BILL_ID_MISSING         → "Bill ID is required to delete the bill."
-        //    DELETE_REASON_MISSING   → "Please provide a reason for deleting the bill."
-        //    BILL_NOT_FOUND          → "No bill found for Bill ID: {bill_id}."
-        //    BILL_ALREADY_DELETED    → "Bill Number {bill_no} is already deleted."
-        //    INTERNAL_SERVER_ERROR   → "Something went wrong while deleting the bill. Please try again."
         setDeleteError(body.message || "Delete failed. Please try again.");
-        showToast({
-          type:    "error",
-          message: body.message,   // ← exact backend message
-          code:    body.code,      // ← e.g. BILL_NOT_FOUND
-        });
+        showToast({ type: "error", message: body.message, code: body.code });
       }
     } catch (err) {
-      console.error("Delete API error:", err);
-      // Network / unexpected errors — use backend message if available
-      const errMsg =
-        err?.response?.data?.message ||
-        "Something went wrong while deleting. Please try again.";
+      const errMsg = err?.response?.data?.message || "Something went wrong while deleting. Please try again.";
       const errCode = err?.response?.data?.code || "NETWORK_ERROR";
       setDeleteError(errMsg);
-      showToast({
-        type:    "error",
-        message: errMsg,
-        code:    errCode,
-      });
+      showToast({ type: "error", message: errMsg, code: errCode });
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
+  // ── Fetch bills (returns are embedded via edit_history) ──────────────────
   const fetchBills = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await apiRequest(
-        `${HmsBaseUrl}pharmacy_view_bills/`,
-        "GET"
-      );
-
+      const response = await apiRequest(`${HmsBaseUrl}pharmacy_view_bills/`, "GET");
       const body = response?.data ?? response;
-      const billsArray = Array.isArray(body?.data) ? body.data : (Array.isArray(response?.data) ? response.data : []);
-      const employeeName = body?.employee_name || "";
-      console.log("Raw pending bills data:", body);
 
+      const billsArray  = Array.isArray(body?.data) ? body.data : [];
+      const employeeName = body?.employee_name || "";
+      // formatBillData now inlines return rows derived from edit_history
       const formatted = formatBillData(billsArray, employeeName);
       setAllBills(formatted);
       setCurrentPage(1);
-
-      const codes = [...new Set(billsArray.map((b) => b.bill_type).filter(Boolean))];
+      const codes = [...new Set(billsArray.map((b) => String(b.bill_type)).filter(Boolean))];
       setBillTypeCodes(codes);
 
+      console.log("View bills data:", body);
     } catch (err) {
-      console.error("Pending bills error:", err);
+      console.error("View bills error:", err);
       setError("Unable to connect to HMS server");
       setAllBills([]);
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromDate, toDate, searchBy, searchText]);
 
   useEffect(() => { fetchBills(); }, []); // eslint-disable-line
 
-  // ── Client-side filtering ────────────────────────────────────────────────
+  // ── Bills filtering/sorting/pagination ────────────────────────────────────
   const filtered = allBills.filter((b) => {
     if (billTypeFilter !== "ALL" && b.bill_type !== billTypeFilter) return false;
-
     if (fromDate || toDate) {
       const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
       if (billDay) {
@@ -1090,7 +1219,6 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
         if (toDate   && billDay > toDate)   return false;
       }
     }
-
     if (searchText && searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       const fieldMap = {
@@ -1102,7 +1230,6 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
       const val = fieldMap[searchBy] ?? "";
       if (!val.includes(q)) return false;
     }
-
     if (tableSearch) {
       const q = tableSearch.toLowerCase();
       return (
@@ -1113,14 +1240,11 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
         (b.billing_status || "").toLowerCase().includes(q)
       );
     }
-
     return true;
   });
 
-  // ── Sort ─────────────────────────────────────────────────────────────────
   const sorted = [...filtered].sort((a, b) => {
-    let av = a[sortKey] ?? "";
-    let bv = b[sortKey] ?? "";
+    let av = a[sortKey] ?? ""; let bv = b[sortKey] ?? "";
     if (typeof av === "string") av = av.toLowerCase();
     if (typeof bv === "string") bv = bv.toLowerCase();
     if (av < bv) return sortDir === "asc" ? -1 : 1;
@@ -1128,24 +1252,15 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     return 0;
   });
 
-  // ── Paginate ──────────────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(sorted.length / entriesPerPage));
-  const paginated  = sorted.slice(
-    (currentPage - 1) * entriesPerPage,
-    currentPage * entriesPerPage
-  );
+  const paginated  = sorted.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
   const handleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("asc"); }
   };
 
-  const SortIcon = ({ col }) =>
-    sortKey !== col
-      ? <span style={{ opacity:0.3 }}> ↕</span>
-      : <span style={{ color:"#10A596" }}>{sortDir === "asc" ? " ↑" : " ↓"}</span>;
-
-  // Compute counts from date-filtered bills (before text search)
+  // ── Stats ─────────────────────────────────────────────────────────────────
   const dateFiltered = allBills.filter((b) => {
     if (fromDate || toDate) {
       const billDay = b.bill_date ? b.bill_date.split("T")[0] : null;
@@ -1157,15 +1272,16 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     return true;
   });
 
-  const paidCount    = dateFiltered.filter((b) => b.billing_status === "Paid").length;
-  const billedCount  = dateFiltered.filter((b) => b.billing_status === "Billed").length;
-  const deletedCount = dateFiltered.filter((b) => b.is_deleted === true || (b.billing_status || "").toLowerCase() === "deleted").length;
+  const paidCount         = dateFiltered.filter((b) => !b._isReturn && b.billing_status === "Paid").length;
+  const billedCount       = dateFiltered.filter((b) => !b._isReturn && b.billing_status === "Billed").length;
+  const deletedCount      = dateFiltered.filter((b) => !b._isReturn && (b.is_deleted === true || (b.billing_status || "").toLowerCase() === "deleted")).length;
+  const salesReturnCount  = dateFiltered.filter((b) => b._isReturn).length;
 
-  const getPageNums = () => {
+  const getPageNums = (current, total) => {
     const pages = [];
     const delta = 2;
-    for (let i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= delta)
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || Math.abs(i - current) <= delta)
         pages.push(i);
       else if (pages[pages.length - 1] !== "...")
         pages.push("...");
@@ -1173,327 +1289,264 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     return pages;
   };
 
-  const isPaid = (bill) =>
-    (bill.billing_status || "").toLowerCase() === "paid";
+  const isPaid    = (bill) => (bill.billing_status || "").toLowerCase() === "paid";
+  const isDeleted = (bill) => (bill.billing_status || "").toLowerCase() === "deleted" || bill.is_deleted === true;
 
-  const isDeleted = (bill) =>
-    (bill.billing_status || "").toLowerCase() === "deleted" || bill.is_deleted === true;
+  const SortIcon = ({ col, currentKey, dir }) =>
+    currentKey !== col
+      ? <span style={{ opacity:0.3 }}> ↕</span>
+      : <span style={{ color:"#10A596" }}>{dir === "asc" ? " ↑" : " ↓"}</span>;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <GlobalStyle />
-
-      {/* ── Toast Renderer — rendered at root level, always above everything ── */}
       <ToastRenderer toasts={toasts} dismiss={dismissToast} />
 
       <PageWrapper>
         <PageTitle>Pharmacy OP Bills — View Bills</PageTitle>
 
-        {/* ── Filter Bar ── */}
-        <FilterCard>
-          <FieldGroup>
-            <Label>From</Label>
-            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </FieldGroup>
-
-          <FieldGroup>
-            <Label>To</Label>
-            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </FieldGroup>
-
-          <FieldGroup>
-            <Label>Search By</Label>
-            <Select
-              value={searchBy}
-              onChange={(e) => setSearchBy(e.target.value)}
-              style={{ minWidth: 150 }}
-            >
-              {SEARCH_BY_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </Select>
-          </FieldGroup>
-
-          <FieldGroup style={{ flex:1, minWidth:180 }}>
-            <Label>Search Value</Label>
-            <Input
-              type="text"
-              placeholder={`Search by ${SEARCH_BY_OPTIONS.find(s => s.value === searchBy)?.label}...`}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && fetchBills()}
-            />
-          </FieldGroup>
-
-          <SearchBtn onClick={fetchBills}>
-            <span>🔍</span> Search
-          </SearchBtn>
-        </FilterCard>
-
-        {/* ── Stats Row ── */}
+        {/* ── Summary Stats ── */}
         {!loading && allBills.length > 0 && (
-          <div style={{ display:"flex", gap:10, marginBottom:12 }}>
-            <StatPill color="#276749" bg="#c6f6d5" border="#9ae6b4">Paid: {paidCount}</StatPill>
-            <StatPill color="#744210" bg="#fefcbf" border="#f6e05e">Billed: {billedCount}</StatPill>
-            <StatPill color="#991b1b" bg="#fee2e2" border="#fca5a5">Deleted: {deletedCount}</StatPill>
-            <StatPill color="#2b6cb0" bg="#ebf8ff" border="#bee3f8">Total: {dateFiltered.length}</StatPill>
+          <div style={{ display:"flex", gap:10, marginBottom:12, flexWrap:"wrap" }}>
+            <StatPill color="#276749" bg="#c6f6d5" border="#9ae6b4">✅ Paid: {paidCount}</StatPill>
+            <StatPill color="#744210" bg="#fefcbf" border="#f6e05e">🧾 Billed: {billedCount}</StatPill>
+            <StatPill color="#991b1b" bg="#fee2e2" border="#fca5a5">🗑️ Deleted: {deletedCount}</StatPill>
+            <StatPill color="#5b21b6" bg="#ede9fe" border="#c4b5fd">🔄 Sales Returned: {salesReturnCount}</StatPill>
+            <StatPill color="#2b6cb0" bg="#ebf8ff" border="#bee3f8">📋 Total: {dateFiltered.length}</StatPill>
           </div>
         )}
 
-        {/* ── Table ── */}
-        <TableCard>
-          <TableToolbar>
-            <ShowEntries>
-              Show
-              <Select
-                value={entriesPerPage}
-                onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                style={{ width:64 }}
-              >
-                {ENTRIES_OPTIONS.map((n) => <option key={n}>{n}</option>)}
-              </Select>
-              entries
-            </ShowEntries>
+        {/* ═══════════════════════════════════════════════════════════════
+            BILLS TABLE (includes inline Sales Returned rows)
+        ════════════════════════════════════════════════════════════════ */}
+            {/* Filter Bar */}
+            <FilterCard>
+              <FieldGroup>
+                <Label>From</Label>
+                <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label>To</Label>
+                <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </FieldGroup>
+              <FieldGroup>
+                <Label>Search By</Label>
+                <Select value={searchBy} onChange={(e) => setSearchBy(e.target.value)} style={{ minWidth: 150 }}>
+                  {SEARCH_BY_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </Select>
+              </FieldGroup>
+              <FieldGroup style={{ flex:1, minWidth:180 }}>
+                <Label>Search Value</Label>
+                <Input
+                  type="text"
+                  placeholder={`Search by ${SEARCH_BY_OPTIONS.find(s => s.value === searchBy)?.label}...`}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchBills()}
+                />
+              </FieldGroup>
+              <SearchBtn onClick={fetchBills}><span>🔍</span> Search</SearchBtn>
+            </FilterCard>
 
-            <SelectedBadge>{filtered.length} SELECTED</SelectedBadge>
+            {/* Table */}
+            <TableCard>
+              <TableToolbar>
+                <ShowEntries>
+                  Show
+                  <Select value={entriesPerPage} onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }} style={{ width:64 }}>
+                    {ENTRIES_OPTIONS.map((n) => <option key={n}>{n}</option>)}
+                  </Select>
+                  entries
+                </ShowEntries>
+                <SelectedBadge>{filtered.length} SELECTED</SelectedBadge>
+                <TableSearch>
+                  Search:
+                  <Input
+                    type="text"
+                    value={tableSearch}
+                    onChange={(e) => { setTableSearch(e.target.value); setCurrentPage(1); }}
+                    placeholder="Filter table..."
+                  />
+                </TableSearch>
+              </TableToolbar>
 
-            <TableSearch>
-              Search:
-              <Input
-                type="text"
-                value={tableSearch}
-                onChange={(e) => { setTableSearch(e.target.value); setCurrentPage(1); }}
-                placeholder="Filter table..."
-              />
-            </TableSearch>
-          </TableToolbar>
+              {error && (
+                <div style={{ padding:"12px 16px", background:"#fff5f5", color:"#c53030", fontSize:13 }}>
+                  ⚠ {error}
+                </div>
+              )}
 
-          {error && (
-            <div style={{ padding:"12px 16px", background:"#fff5f5", color:"#c53030", fontSize:13 }}>
-              ⚠ {error}
-            </div>
-          )}
+              {loading ? (
+                <Spinner />
+              ) : filtered.length === 0 ? (
+                <EmptyMsg>No bills found for the selected criteria.</EmptyMsg>
+              ) : (
+                <TableWrapper>
+                  <Table>
+                    <Thead>
+                      <tr>
+                        <Th onClick={() => handleSort("bill_date")}>Bill Date <SortIcon col="bill_date" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("bill_date")}>Bill Time <SortIcon col="bill_date" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("uhid")}>UHID No <SortIcon col="uhid" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("patient_name")}>Patient Name <SortIcon col="patient_name" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("payment_method")}>Payment Mode <SortIcon col="payment_method" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("net_amount")}>Bill Amount <SortIcon col="net_amount" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("inpatient_number")}>IP Number <SortIcon col="inpatient_number" currentKey={sortKey} dir={sortDir} /></Th>
 
-          {loading ? (
-            <Spinner />
-          ) : filtered.length === 0 ? (
-            <EmptyMsg>No bills found for the selected criteria.</EmptyMsg>
-          ) : (
-            <TableWrapper>
-              <Table>
-                <Thead>
-                  <tr>
-                    <Th onClick={() => handleSort("bill_date")}>Bill Date <SortIcon col="bill_date" /></Th>
-                    <Th onClick={() => handleSort("bill_date")}>Bill Time <SortIcon col="bill_date" /></Th>
-                    <Th onClick={() => handleSort("uhid")}>UHID No <SortIcon col="uhid" /></Th>
-                    <Th onClick={() => handleSort("patient_name")}>Patient Name <SortIcon col="patient_name" /></Th>
-                    <Th onClick={() => handleSort("payment_method")}>Payment Mode <SortIcon col="payment_method" /></Th>
-                    <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" /></Th>
-                    <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" /></Th>
-                    <Th onClick={() => handleSort("net_amount")}>Bill Amount <SortIcon col="net_amount" /></Th>
-                    <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" /></Th>
-                    <Th onClick={() => handleSort("inpatient_number")}>IP Number <SortIcon col="inpatient_number" /></Th>
-                    <Th onClick={() => handleSort("ip_serial_number")}>IP Serial No <SortIcon col="ip_serial_number" /></Th>
-                    <Th onClick={() => handleSort("total_amount")}>Total Amount <SortIcon col="total_amount" /></Th>
-                    <Th onClick={() => handleSort("employee_name")}>Username <SortIcon col="employee_name" /></Th>
-                    <Th>Actions</Th>
-                  </tr>
-                </Thead>
-                <tbody>
-                  {paginated.map((bill, idx) => {
-                    const status = (bill.billing_status || "").toLowerCase();
-                    const isPaidBill    = status === "paid";
-                    const isBilledBill  = status === "billed";
+                        <Th onClick={() => handleSort("total_amount")}>Total Amount <SortIcon col="total_amount" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th onClick={() => handleSort("employee_name")}>Username <SortIcon col="employee_name" currentKey={sortKey} dir={sortDir} /></Th>
+                        <Th>Actions</Th>
+                      </tr>
+                    </Thead>
+                    <tbody>
+                      {paginated.map((bill, idx) => {
+                        const status      = (bill.billing_status || "").toLowerCase();
+                        const isPaidBill  = status === "paid";
+                        return (
+                          <Tr key={bill.id ?? idx}>
+                            <Td>{formatDate(bill.bill_date)}</Td>
+                            <Td>{formatTime(bill.bill_date)}</Td>
+                            <Td style={{ color:"#10A596", fontWeight:500 }}>{bill.uhid || "—"}</Td>
+                            <Td style={{ fontWeight:500 }}>{bill.patient_name || "—"}</Td>
+                            <Td>
+                              {bill.payment_entries && bill.payment_entries.length > 0 ? (
+                                <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                                  {bill.payment_entries.map((e, i) => (
+                                    <Badge key={i} variant={paymentVariant(e.method)}>{e.method}</Badge>
+                                  ))}
+                                </div>
+                              ) : bill.payment_method ? (
+                                <Badge variant={paymentVariant(bill.payment_method)}>{bill.payment_method}</Badge>
+                              ) : (
+                                <Badge variant="notpaid">⏳ Not Yet Paid</Badge>
+                              )}
+                            </Td>
+                            <Td>
+                              {bill._isReturn ? (
+                                <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
+                                  {bill.parent_billing_status && (
+                                    <Badge variant={
+                                      bill.parent_billing_status.toLowerCase() === "paid"    ? "paid"    :
+                                      bill.parent_billing_status.toLowerCase() === "billed"  ? "billed"  :
+                                      bill.parent_billing_status.toLowerCase() === "deleted" ? "deleted" : "default"
+                                    }>
+                                      {bill.parent_billing_status}
+                                    </Badge>
+                                  )}
+                                  <Badge variant="sales-returned">🔄 Sales Returned</Badge>
+                                </div>
+                              ) : (
+                                <Badge variant={
+                                  isDeleted(bill) ? "deleted" :
+                                  isPaid(bill)    ? "paid"    : "billed"
+                                }>
+                                  {isDeleted(bill) ? "🗑️ Deleted" : bill.billing_status || "—"}
+                                </Badge>
+                              )}
+                            </Td>
+                            <Td style={{ fontFamily:"monospace", fontSize:12 }}>
+                              {bill.bill_number || "—"}
+                              {bill._isReturn && bill.original_bill_no && (
+                                <div style={{ fontSize:10, color:"#9ca3af", marginTop:2 }}>
+                                  Orig: {bill.original_bill_no}
+                                </div>
+                              )}
+                            </Td>
+                            <Td><AmountCell style={{ color: "#2d3748" }}>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
+                            <Td>
+                              {bill._isReturn ? (
+                                <AmountCell style={{ color:"#9d174d", fontWeight:600 }}>
+                                  − ₹ {bill.net_amount.toFixed(2)}
+                                </AmountCell>
+                              ) : (
+                                <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
+                                  {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                                </AmountCell>
+                              )}
+                            </Td>
+                            <Td style={{ color:"#744210", fontWeight: bill.inpatient_number ? 500 : 400 }}>{bill.inpatient_number || "—"}</Td>
 
-                    return (
-                    <Tr key={bill.id ?? idx}>
-                      <Td>{formatDate(bill.bill_date)}</Td>
-                      <Td>{formatTime(bill.bill_date)}</Td>
+                            <Td><AmountCell>₹ {bill.total_amount.toFixed(2)}</AmountCell></Td>
+                            <Td style={{ color:"#4a5568", fontSize:12 }}>{bill.employee_name || "—"}</Td>
+                            <Td>
+                              <ActionGroup>
+                                {bill._isReturn ? (
+                                  <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
+                                ) : (
+                                  <>
+                                    {!isDeleted(bill) && !isPaid(bill) && (
+                                      <IconBtn variant="edit" title="Edit" onClick={() => openEditModal(bill)}>✏️</IconBtn>
+                                    )}
+                                    {!isDeleted(bill) && (
+                                      <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
+                                    )}
+                                    <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
+                                  </>
+                                )}
+                              </ActionGroup>
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </TableWrapper>
+              )}
 
-                      <Td style={{ color:"#10A596", fontWeight:500 }}>
-                        {bill.uhid || "—"}
-                      </Td>
+              {!loading && filtered.length > 0 && (
+                <PaginationBar>
+                  <PaginationInfo>
+                    Showing {Math.min((currentPage - 1) * entriesPerPage + 1, filtered.length)} to{" "}
+                    {Math.min(currentPage * entriesPerPage, filtered.length)} of {filtered.length} entries
+                    {filtered.length < allBills.length && ` (filtered from ${allBills.length} total)`}
+                  </PaginationInfo>
+                  <PaginationBtns>
+                    <PageBtn onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</PageBtn>
+                    {getPageNums(currentPage, totalPages).map((p, i) =>
+                      p === "..." ? (
+                        <PageBtn key={`e${i}`} disabled>…</PageBtn>
+                      ) : (
+                        <PageBtn key={p} active={p === currentPage} onClick={() => setCurrentPage(p)}>{p}</PageBtn>
+                      )
+                    )}
+                    <PageBtn onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</PageBtn>
+                  </PaginationBtns>
+                </PaginationBar>
+              )}
+            </TableCard>
 
-                      <Td style={{ fontWeight:500 }}>
-                        {bill.patient_name || "—"}
-                      </Td>
-
-                      {/* Payment Mode — show each method badge; if multiple, show all */}
-                      <Td>
-                        {bill.payment_entries && bill.payment_entries.length > 0 ? (
-                          <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                            {bill.payment_entries.map((e, i) => (
-                              <Badge key={i} variant={paymentVariant(e.method)}>
-                                {e.method}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : bill.payment_method ? (
-                          <Badge variant={paymentVariant(bill.payment_method)}>
-                            {bill.payment_method}
-                          </Badge>
-                        ) : (
-                          <Badge variant="notpaid">⏳ Not Yet Paid</Badge>
-                        )}
-                      </Td>
-
-                      <Td>
-                        <Badge variant={isDeleted(bill) ? "deleted" : isPaid(bill) ? "paid" : "billed"}>
-                          {isDeleted(bill) ? "🗑️ Deleted" : bill.billing_status || "—"}
-                        </Badge>
-                      </Td>
-
-                      <Td style={{ fontFamily:"monospace", fontSize:12 }}>
-                        {bill.bill_number || "—"}
-                      </Td>
-
-                      {/* Bill Amount — always show net_amount */}
-                      <Td>
-                        <AmountCell style={{ color: "#2d3748" }}>
-                          ₹ {bill.net_amount.toFixed(2)}
-                        </AmountCell>
-                      </Td>
-
-                      {/* Amount Collected — show net_amount when status is Paid, else "—" */}
-                      <Td>
-                        <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
-                          {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
-                        </AmountCell>
-                      </Td>
-
-                      {/* IP Number */}
-                      <Td style={{ color:"#744210", fontWeight: bill.inpatient_number ? 500 : 400 }}>
-                        {bill.inpatient_number || "—"}
-                      </Td>
-
-                      {/* IP Serial Number */}
-                      <Td style={{ fontFamily:"monospace", fontSize:12 }}>
-                        {bill.ip_serial_number || "—"}
-                      </Td>
-
-                      {/* Total Amount — always shown */}
-                      <Td><AmountCell>₹ {bill.total_amount.toFixed(2)}</AmountCell></Td>
-
-                      {/* Username */}
-                      <Td style={{ color:"#4a5568", fontSize:12 }}>
-                        {bill.employee_name || "—"}
-                      </Td>
-
-                      <Td>
-                        <ActionGroup>
-                          {!isDeleted(bill) && !isPaid(bill) && (
-                            <IconBtn
-                              variant="edit"
-                              title="Edit"
-                              onClick={() => openEditModal(bill)}
-                            >
-                              ✏️
-                            </IconBtn>
-                          )}
-
-                          {!isDeleted(bill) && (
-                            <IconBtn
-                              variant="delete"
-                              title="Delete"
-                              onClick={() => openDeleteModal(bill)}
-                            >
-                              🗑️
-                            </IconBtn>
-                          )}
-
-                          <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>
-                            🖨️
-                          </IconBtn>
-                        </ActionGroup>
-                      </Td>
-                    </Tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-            </TableWrapper>
-          )}
-
-          {/* ── Pagination ── */}
-          {!loading && filtered.length > 0 && (
-            <PaginationBar>
-              <PaginationInfo>
-                Showing {Math.min((currentPage - 1) * entriesPerPage + 1, filtered.length)} to{" "}
-                {Math.min(currentPage * entriesPerPage, filtered.length)} of {filtered.length} entries
-                {filtered.length < allBills.length && ` (filtered from ${allBills.length} total)`}
-              </PaginationInfo>
-              <PaginationBtns>
-                <PageBtn
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </PageBtn>
-                {getPageNums().map((p, i) =>
-                  p === "..." ? (
-                    <PageBtn key={`e${i}`} disabled>…</PageBtn>
-                  ) : (
-                    <PageBtn key={p} active={p === currentPage} onClick={() => setCurrentPage(p)}>
-                      {p}
-                    </PageBtn>
-                  )
-                )}
-                <PageBtn
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </PageBtn>
-              </PaginationBtns>
-            </PaginationBar>
-          )}
-        </TableCard>
       </PageWrapper>
 
       {/* ── Edit Confirmation Modal ── */}
       {editModalBill && (
         <ModalOverlay onClick={closeEditModal}>
           <ModalBox onClick={(e) => e.stopPropagation()}>
-
             <ModalIcon variant="edit">!</ModalIcon>
             <ModalHeading>Edit Bill Confirmation</ModalHeading>
-            <ModalSubHeading>
-              Please provide a valid reason for editing this bill
-            </ModalSubHeading>
-
+            <ModalSubHeading>Please provide a valid reason for editing this bill</ModalSubHeading>
             <ModalBody>
               <ReasonSection>
                 <ReasonTextarea
                   autoFocus
                   placeholder="Reason for Edit"
                   value={editReason}
-                  onChange={(e) => {
-                    setEditReason(e.target.value);
-                    if (e.target.value.trim()) setReasonError(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.ctrlKey) handleEditProceed();
-                  }}
+                  onChange={(e) => { setEditReason(e.target.value); if (e.target.value.trim()) setReasonError(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) handleEditProceed(); }}
                   style={{ minHeight: 56, resize: "none" }}
                 />
-                {reasonError && (
-                  <ReasonError>
-                    ⚠ Reason is required to proceed with the edit.
-                  </ReasonError>
-                )}
+                {reasonError && <ReasonError>⚠ Reason is required to proceed with the edit.</ReasonError>}
               </ReasonSection>
             </ModalBody>
-
             <ModalFooter>
-              <ModalBtn variant="confirm" onClick={handleEditProceed} disabled={!editReason.trim()}>
-                OK
-              </ModalBtn>
-              <ModalBtn variant="cancel" onClick={closeEditModal}>
-                Cancel
-              </ModalBtn>
+              <ModalBtn variant="confirm" onClick={handleEditProceed} disabled={!editReason.trim()}>OK</ModalBtn>
+              <ModalBtn variant="cancel" onClick={closeEditModal}>Cancel</ModalBtn>
             </ModalFooter>
-
           </ModalBox>
         </ModalOverlay>
       )}
@@ -1502,48 +1555,30 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
       {deleteModalBill && (
         <ModalOverlay onClick={!deleteLoading ? closeDeleteModal : undefined}>
           <ModalBox onClick={(e) => e.stopPropagation()}>
-
             <ModalIcon variant="delete">!</ModalIcon>
             <ModalHeading>Delete Bill Confirmation</ModalHeading>
-            <ModalSubHeading>
-              Please provide a valid reason for deleting this bill
-            </ModalSubHeading>
-
+            <ModalSubHeading>Please provide a valid reason for deleting this bill</ModalSubHeading>
             <ModalBody>
               <ReasonSection>
                 <ReasonTextarea
                   autoFocus
                   placeholder="Reason for Deletion"
                   value={deleteReason}
-                  onChange={(e) => {
-                    setDeleteReason(e.target.value);
-                    if (e.target.value.trim()) setDeleteReasonError(false);
-                    setDeleteError("");
-                  }}
+                  onChange={(e) => { setDeleteReason(e.target.value); if (e.target.value.trim()) setDeleteReasonError(false); setDeleteError(""); }}
                   disabled={deleteLoading}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.ctrlKey) handleDeleteConfirm();
-                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && e.ctrlKey) handleDeleteConfirm(); }}
                   style={{ minHeight: 56, resize: "none" }}
                 />
-                {deleteReasonError && (
-                  <ReasonError>⚠ Reason is required to proceed with the deletion.</ReasonError>
-                )}
-                {deleteError && (
-                  <ReasonError style={{ marginTop: 8, fontSize: 12.5 }}>⚠ {deleteError}</ReasonError>
-                )}
+                {deleteReasonError && <ReasonError>⚠ Reason is required to proceed with the deletion.</ReasonError>}
+                {deleteError && <ReasonError style={{ marginTop: 8, fontSize: 12.5 }}>⚠ {deleteError}</ReasonError>}
               </ReasonSection>
             </ModalBody>
-
             <ModalFooter>
               <ModalBtn variant="danger" onClick={handleDeleteConfirm} disabled={deleteLoading || !deleteReason.trim()}>
                 {deleteLoading ? "Deleting…" : "OK"}
               </ModalBtn>
-              <ModalBtn variant="cancel" onClick={closeDeleteModal} disabled={deleteLoading}>
-                Cancel
-              </ModalBtn>
+              <ModalBtn variant="cancel" onClick={closeDeleteModal} disabled={deleteLoading}>Cancel</ModalBtn>
             </ModalFooter>
-
           </ModalBox>
         </ModalOverlay>
       )}
@@ -1554,15 +1589,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#fff",
-              borderRadius: 10,
-              width: "90%",
-              maxWidth: 720,
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
-              display: "flex",
-              flexDirection: "column",
+              background: "#fff", borderRadius: 10, width: "90%", maxWidth: 720,
+              maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
+              display: "flex", flexDirection: "column",
             }}
           >
             <div style={{
@@ -1583,40 +1612,29 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                   src={HospitalHeader}
                   alt="Shanmuga Hospital Limited"
                   style={{ height: 64, objectFit: "contain" }}
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "block";
-                  }}
+                  onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "block"; }}
                 />
                 <div style={{ display: "none" }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: "#005b8e", letterSpacing: 0.5 }}>
-                    SHANMUGA HOSPITAL LIMITED
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "#444", marginTop: 2 }}>
-                    51/24, Saradha College Road, Salem - 636007
-                  </div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: "#005b8e", letterSpacing: 0.5 }}>SHANMUGA HOSPITAL LIMITED</div>
+                  <div style={{ fontSize: 11.5, color: "#444", marginTop: 2 }}>51/24, Saradha College Road, Salem - 636007</div>
                   <div style={{ fontSize: 11.5, color: "#444" }}>Ph No: 04272706666</div>
                 </div>
+              </div>
 
+              <div style={{ textAlign: "center", marginBottom: 12 }}>
+                <div style={{ color: "#000000", fontWeight: 700, fontSize: 11, padding: "4px 12px", borderRadius: 4, letterSpacing: 0.5 }}>
+                  PHARMACY MEDICINE INVOICE
                 </div>
-                                <div style={{ textAlign: "center", marginBottom: 12 }}>
-                  <div style={{
-                     color: "#000000", fontWeight: 700,
-                    fontSize: 11, padding: "4px 12px", borderRadius: 4, letterSpacing: 0.5,
-                  }}>
-                    PHARMACY MEDICINE INVOICE
-                  </div>
               </div>
 
               <hr style={{ borderColor: "#cbd5e0", margin: "8px 0" }} />
 
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 2 }}>
                 <span>SLS 7788 20,21 3993 20B 3848 21B </span>
-                
                 <span>GST NO: 33ABDCS8326A1ZP &nbsp;&nbsp; No. RM/3G/012</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555", marginBottom: 10 }}>
-              <span> CIN: L85110TZ2020PLC033974</span>
+                <span> CIN: L85110TZ2020PLC033974</span>
               </div>
 
               <div style={{ display: "flex", gap: 24, marginBottom: 12 }}>
@@ -1657,13 +1675,13 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                 <tbody>
                   {printBill.medicine_particulars && printBill.medicine_particulars.length > 0 ? (
                     printBill.medicine_particulars.map((med, i) => {
-                      const qty   = parseFloat(med.qty   ?? med.quantity ?? 0);
-                      const price = parseFloat(med.price ?? med.rate     ?? 0);
-                      const amt   = qty * price;
-                      const cgstPct  = parseFloat(med.cgst_percentage ?? med.cgst_pct ?? 2.5);
-                      const sgstPct  = parseFloat(med.sgst_percentage ?? med.sgst_pct ?? 2.5);
-                      const cgstAmt  = parseFloat(med.cgst_amount ?? (amt * cgstPct / 100).toFixed(2));
-                      const sgstAmt  = parseFloat(med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
+                      const qty      = parseFloat(med.qty   ?? med.quantity ?? 0);
+                      const price    = parseFloat(med.price ?? med.rate     ?? 0);
+                      const amt      = qty * price;
+                      const cgstPct  = parseFloat(med.CGST_Percentage ?? med.cgst_percentage ?? med.cgst_pct ?? 2.5);
+                      const sgstPct  = parseFloat(med.SGST_Percentage ?? med.sgst_percentage ?? med.sgst_pct ?? 2.5);
+                      const cgstAmt  = parseFloat(med.CGST_Amt ?? med.cgst_amount ?? (amt * cgstPct / 100).toFixed(2));
+                      const sgstAmt  = parseFloat(med.SGST_Amt ?? med.sgst_amount ?? (amt * sgstPct / 100).toFixed(2));
                       return (
                         <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
                           <td style={tdStyle}>{med.item_name ?? med.medicine_name ?? `Item #${med.item_id ?? i + 1}`}</td>
@@ -1682,21 +1700,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                     })
                   ) : (
                     <tr>
-                      <td colSpan={11} style={{ ...tdStyle, textAlign: "center", color: "#999" }}>
-                        No medicine details available
-                      </td>
+                      <td colSpan={11} style={{ ...tdStyle, textAlign: "center", color: "#999" }}>No medicine details available</td>
                     </tr>
                   )}
                 </tbody>
               </table>
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4 }}>
-                {/* Left: Payment Mode */}
                 <div style={{ fontSize: 12.5, alignSelf: "flex-end", paddingBottom: 2 }}>
                   <span style={{ fontWeight: 600 }}>Payment Mode :</span>{" "}
                   {printBill.payment_method || "—"}
                 </div>
-                {/* Right: Summary totals */}
                 <table style={{ borderCollapse: "collapse", minWidth: 260 }}>
                   <tbody>
                     {[
@@ -1719,15 +1733,11 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#555" }}>
                 <span>Prepared by : {printBill.prepared_by || "—"}</span>
                 <span style={{ fontStyle: "italic" }}>"Goods once sold will not taken back"</span>
-                
                 <span>(Sign-pharmacist)</span>
               </div>
             </div>
 
-            <div style={{
-              display: "flex", gap: 10, justifyContent: "flex-end",
-              padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0",
-            }}>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0" }}>
               <ModalBtn variant="cancel" onClick={() => setPrintBill(null)}>✕ Close</ModalBtn>
               <ModalBtn variant="confirm" onClick={handlePrintNow}>🖨️ Print</ModalBtn>
             </div>
