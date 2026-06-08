@@ -316,6 +316,70 @@ const PageButton = styled.button`
   }
 `;
 
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        background: white;
+        width: 100%;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
+
 const PreDayRoomOccupancyReport = () => {
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState([]);
@@ -645,14 +709,17 @@ const PreDayRoomOccupancyReport = () => {
  
             <style>{`
                 @media print {
-                    .no-print { display: none !important; }
-                    ${PageWrapper} { padding: 0; background: white; }
-                    ${GlassCard} { box-shadow: none; border: none; padding: 0; transform: none !important; }
-                    body { font-size: 11pt; color: black; }
-                    table { width: 100% !important; border-collapse: collapse; margin-top: 20px; }
-                    th { background: #eee !important; color: black !important; border: 1px solid #000 !important; }
-                    td { border: 1px solid #000 !important; padding: 8px !important; color: black !important; }
-                    h1 { margin-bottom: 20px; }
+                    @page { size: landscape; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; }
                 }
                 .animate-spin {
                     animation: spin 1s linear infinite;
@@ -662,6 +729,76 @@ const PreDayRoomOccupancyReport = () => {
                     to { transform: rotate(360deg); }
                 }
             `}</style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
+                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
+                    <div className="report-title">Previous Day Room Occupancy Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "30%" }}><strong>Target Date:</strong> {targetDate ? targetDate.format('DD-MM-YYYY') : "N/A"}</td>
+                            <td style={{ width: "30%" }}><strong>Doctor:</strong> {selectedDoctor === "all" ? "All Doctors" : selectedDoctor}</td>
+                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Occupying Patients:</strong> {getFilteredData().length}</td>
+                            <td><strong>Room Category:</strong> {selectedCategory || "All Categories"}</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th>Room/Bed</th>
+                            <th>Category/Block</th>
+                            <th>Patient Details</th>
+                            <th>Admission Date</th>
+                            <th>Discharge Date</th>
+                            <th>Admitting Doctor</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {getFilteredData().length > 0 ? (
+                            getFilteredData().map((r, idx) => (
+                                <tr key={idx}>
+                                    <td>Room {r.roomNo} / Bed {r.bedNo}</td>
+                                    <td>
+                                        <div>{r.roomCategory}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                                            {r.block} {r.floor !== 'N/A' && `(Floor ${r.floor})`}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style={{ fontWeight: "bold" }}>{r.patientName}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "#666" }}>UHID: {r.uhid} | IP: {r.ipNumber} | {r.age}/{r.gender}</div>
+                                    </td>
+                                    <td>{r.admissionDateTime ? dayjs(r.admissionDateTime).format('DD-MM-YYYY HH:mm') : 'N/A'}</td>
+                                    <td>{r.dischargeDateTime ? dayjs(r.dischargeDateTime).format('DD-MM-YYYY HH:mm') : 'N/A'}</td>
+                                    <td>{r.admittingDoctor}</td>
+                                    <td>{r.status}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="7" style={{ textAlign: "center", padding: "15px" }}>No occupancy history found.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Ward In-Charge</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };

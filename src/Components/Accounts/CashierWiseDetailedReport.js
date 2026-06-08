@@ -60,6 +60,70 @@ const InfoValue = styled.span`
     color: ${colors.textMain};
 `;
 
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        background: white;
+        width: 100%;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
+
 const CashierWiseDetailedReport = ({ startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
@@ -266,16 +330,109 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
                 {`
                 @media print {
                     @page { size: landscape; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
                     body { background: white !important; }
-                    .no-print { display: none !important; }
-                    .shift-header { box-shadow: none; border: 1px solid #eee; margin-bottom: 20px; }
-                    ${TableWrapper} { box-shadow: none; border: 1px solid #000; }
-                    ${Table} { width: 100%; border-collapse: collapse; }
-                    ${Th}, ${Td} { border: 1px solid #000; padding: 6px; font-size: 10px; }
-                    ${Th} { background: #f0f0f0 !important; color: black !important; }
                 }
                 `}
             </style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
+                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
+                    <div className="report-title">Cashier Wise Detailed Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Shift:</strong> {selectedShiftId === "all" ? "All Shifts" : selectedShiftId}</td>
+                            <td><strong>Cashier:</strong> {selectedShift ? selectedShift.User : "All"}</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
+                        </tr>
+                        {selectedShift && (
+                            <tr>
+                                <td colSpan="2">
+                                    <strong>Shift Start:</strong> {selectedShift.StartTime} | <strong>Shift End:</strong> {selectedShift.EndTime || "Active"}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                    <strong>Shift Total Coll:</strong> ₹{parseFloat(selectedShift.collected_Amount || 0).toFixed(2)}
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Shift No</th>
+                            <th>Bill No</th>
+                            <th>O/P No</th>
+                            <th>Patient Name</th>
+                            <th style={{ textAlign: "right" }}>Collected</th>
+                            <th style={{ textAlign: "right" }}>Return</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reportData.length > 0 ? (
+                            reportData.map((row, index) => (
+                                <tr key={index}>
+                                    <td>{index + 1}</td>
+                                    <td>{row.shiftno}</td>
+                                    <td>{row.bill_no}</td>
+                                    <td>{row.uhid || "—"}</td>
+                                    <td>{row.patient_name || "—"}</td>
+                                    <td style={{ textAlign: "right" }}>
+                                        {row.display_amount >= 0 ? `₹${row.display_amount.toFixed(2)}` : "—"}
+                                    </td>
+                                    <td style={{ textAlign: "right" }}>
+                                        {row.display_amount < 0 ? `₹${Math.abs(row.display_amount).toFixed(2)}` : "—"}
+                                    </td>
+                                    <td>{row.type_name || row.type}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="8" style={{ textAlign: "center", padding: "15px" }}>No data available.</td>
+                            </tr>
+                        )}
+                        {reportData.length > 0 && (
+                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                                <td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</td>
+                                <td style={{ textAlign: "right" }}>
+                                    ₹{reportData.reduce((a, b) => a + (b.display_amount >= 0 ? b.display_amount : 0), 0).toFixed(2)}
+                                </td>
+                                <td style={{ textAlign: "right" }}>
+                                    ₹{reportData.reduce((a, b) => a + (b.display_amount < 0 ? Math.abs(b.display_amount) : 0), 0).toFixed(2)}
+                                </td>
+                                <td></td>
+                            </tr>
+                        )}
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };
