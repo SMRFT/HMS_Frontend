@@ -122,6 +122,11 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
+import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
+
+import RDPrint from "./Components/InvestigationReports/RDPrint";
+import JRDReport from "./Components/InvestigationReports/JRDReport";
+
 import DischargeBills from "./Components/Accounts/DischargeBills";
 import DischargeBillsDetailed from "./Components/Accounts/DischargeBillsDetailed";
 import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
@@ -142,6 +147,9 @@ import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry"
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 
 
+
+import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
+import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -293,6 +301,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
@@ -880,6 +889,26 @@ function App() {
                     element={<RDReportForm />}
                   />
                 )}
+                {hasPagePermission(
+                "/RDList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/RDPrint"
+                    element={<RDPrint />}
+                  />
+                )}
+                {hasPagePermission(
+                "/JRDReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/JRDReport"
+                    element={<JRDReport />}
+                  />
+                )}
 
               {/* Packages */}
               {hasPagePermission(
@@ -1136,6 +1165,17 @@ function App() {
               {hasPagePermission("/AdvanceRegistration", allowedActions, dynamicPermissions) && (
                 <Route path="/AdvanceRegistration" element={<AdvanceRegistration />} />
               )}
+
+              {hasPagePermission("/RoomOccupencyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
+              )}
+
+                {hasPagePermission(
+                "/DialysisDischargeSummary",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/DialysisDischargeSummary" element={<DialysisDischargeSummary />} />}
+
 
 
             </Routes>

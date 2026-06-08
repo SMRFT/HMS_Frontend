@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaUser, FaFileInvoice } from "react-icons/fa";
+import { FaPrint, FaUser } from "react-icons/fa";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -12,7 +12,6 @@ import {
     FormRow,
     InputWrapper,
     Label,
-    Input,
     Select,
     Button,
     TableWrapper,
@@ -32,12 +31,13 @@ const SummaryCard = styled.div`
     display: flex;
     flex-direction: column;
     gap: 10px;
+    margin-bottom: 20px;
     animation: ${fadeIn} 0.4s ease-out;
 `;
 
 const InfoGrid = styled.div`
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
     width: 100%;
 `;
@@ -55,16 +55,16 @@ const InfoLabel = styled.span`
 `;
 
 const InfoValue = styled.span`
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: ${colors.textMain};
 `;
 
-const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) => {
+const CashierWiseDetailedReport = ({ startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [shifts, setShifts] = useState([]);
-    const [selectedShift, setSelectedShift] = useState(null);
+    const [selectedShiftId, setSelectedShiftId] = useState("all");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -89,8 +89,8 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
             });
             if (response.success && response.data && Array.isArray(response.data.data)) {
                 setShifts(response.data.data);
-                if (response.data.data.length > 0 && !selectedShift) {
-                    setSelectedShift(response.data.data[0]);
+                if (response.data.data.length === 0) {
+                    setSelectedShiftId("all");
                 }
             }
         } catch (error) {
@@ -99,12 +99,16 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
     };
 
     const fetchReport = async () => {
-        if (!selectedShift) return;
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}shift_basis_accounts_report/`, "POST", {
-                shiftno: selectedShift.shiftno
-            });
+            const payload = {
+                from_date: fromDate,
+                to_date: toDate
+            };
+            if (selectedShiftId !== "all") {
+                payload.shiftno = selectedShiftId;
+            }
+            const response = await apiRequest(`${HmsBaseUrl}shift_basis_accounts_report/`, "POST", payload);
             if (response.success && response.data && Array.isArray(response.data.data)) {
                 setReportData(response.data.data);
             }
@@ -116,12 +120,14 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
     };
 
     useEffect(() => {
-        if (selectedShift) fetchReport();
-    }, [selectedShift]);
+        fetchReport();
+    }, [selectedShiftId, shifts]);
 
     const handlePrint = () => {
         window.print();
     };
+
+    const selectedShift = shifts.find(sh => sh.shiftno === selectedShiftId);
 
     return (
         <PageWrapper>
@@ -154,13 +160,10 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
                 <InputWrapper>
                     <Label>Select Shift</Label>
                     <Select 
-                        value={selectedShift?.shiftno || ""}
-                        onChange={(e) => {
-                            const s = shifts.find(sh => sh.shiftno === e.target.value);
-                            setSelectedShift(s);
-                        }}
+                        value={selectedShiftId}
+                        onChange={(e) => setSelectedShiftId(e.target.value)}
                     >
-                        <option value="">Select a shift</option>
+                        <option value="all">All Shifts</option>
                         {shifts.map(s => (
                             <option key={s.shiftno} value={s.shiftno}>
                                 {s.shiftno} - {s.User} ({s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"})
@@ -174,7 +177,7 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
             </FormRow>
 
             {selectedShift && (
-                <SummaryCard className="shift-header">
+                <SummaryCard className="shift-header no-print">
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "10px" }}>
                         <FaUser color={colors.primary} />
                         <h4 style={{ margin: 0 }}>Shift Details: {selectedShift.shiftno}</h4>
@@ -196,23 +199,31 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
                 <Table>
                     <thead>
                         <Tr>
-                            <Th>S/no</Th>
+                            <Th style={{ width: "60px" }}>S/no</Th>
+                            <Th>Shift No</Th>
                             <Th>Bill No</Th>
                             <Th>O/P No</Th>
                             <Th>Patient Name</Th>
-                            <Th style={{ textAlign: "right" }}>Collected</Th>
-                            <Th style={{ textAlign: "right" }}>Return</Th>
+                            <Th style={{ textAlign: "right", width: "120px" }}>Collected</Th>
+                            <Th style={{ textAlign: "right", width: "120px" }}>Return</Th>
                             <Th>Type</Th>
                         </Tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
+                        {loading ? (
+                            <Tr>
+                                <Td colSpan="8" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
+                                    Loading report data...
+                                </Td>
+                            </Tr>
+                        ) : reportData.length > 0 ? (
                             reportData.map((row, index) => (
                                 <Tr key={index}>
                                     <Td>{index + 1}</Td>
+                                    <Td style={{ fontWeight: "600" }}>{row.shiftno}</Td>
                                     <Td style={{ fontWeight: "700", color: colors.primary }}>{row.bill_no}</Td>
-                                    <Td>{row.uhid}</Td>
-                                    <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
+                                    <Td>{row.uhid || "—"}</Td>
+                                    <Td style={{ fontWeight: "600" }}>{row.patient_name || "—"}</Td>
                                     <Td style={{ textAlign: "right", color: row.display_amount >= 0 ? colors.success : colors.textMain }}>
                                         {row.display_amount >= 0 ? `₹${row.display_amount.toFixed(2)}` : "—"}
                                     </Td>
@@ -220,22 +231,24 @@ const CashierWiseDetailedReport = ({ isModalView = false, startDate, endDate }) 
                                         {row.display_amount < 0 ? `₹${Math.abs(row.display_amount).toFixed(2)}` : "—"}
                                     </Td>
                                     <Td>
-                                        <span style={{ fontSize: "0.65rem", padding: "2px 6px", borderRadius: "4px", background: "#f1f5f9", fontWeight: "700" }}>{row.type}</span>
+                                        <span style={{ fontSize: "0.65rem", padding: "2px 6px", borderRadius: "4px", background: "#f1f5f9", color: colors.textMain, fontWeight: "700" }}>
+                                            {row.type_name || row.type}
+                                        </span>
                                     </Td>
                                 </Tr>
                             ))
                         ) : (
                             <Tr>
-                                <Td colSpan="7" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
-                                    {loading ? "Loading data..." : "No itemized data available for this shift."}
+                                <Td colSpan="8" style={{ textAlign: "center", padding: "20px", color: colors.textMuted }}>
+                                    No itemized data available for this shift.
                                 </Td>
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {!loading && reportData.length > 0 && (
                         <tfoot>
                             <Tr style={{ fontWeight: "bold", background: "#f8fafc" }}>
-                                <Td colSpan="4" style={{ textAlign: "right" }}>Grand Total:</Td>
+                                <Td colSpan="5" style={{ textAlign: "right" }}>Grand Total:</Td>
                                 <Td style={{ textAlign: "right", color: colors.success }}>
                                     ₹{reportData.reduce((a, b) => a + (b.display_amount >= 0 ? b.display_amount : 0), 0).toFixed(2)}
                                 </Td>

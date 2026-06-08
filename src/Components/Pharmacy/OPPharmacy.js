@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import { FaTrashAlt, FaPills, FaSearch, FaPrint, FaSave, FaTimes } from "react-icons/fa";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import {
   PageWrapper,
   colors,
@@ -33,6 +33,21 @@ import {
 } from "../GlobalStyles";
 
 // ─── Local Styled Components ─────────────────────────────────────────────────
+
+const blinkDot = keyframes`
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(0.7); }
+`;
+
+const BlinkDot = styled.span`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  display: inline-block;
+  flex-shrink: 0;
+  animation: ${blinkDot} 1s ease-in-out infinite;
+`;
 
 const Card = styled.div`
   background: #ffffff;
@@ -503,6 +518,12 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
   const [uhidSearchResults, setUhidSearchResults] = useState([]);
   const [uhidSearchLoading, setUhidSearchLoading] = useState(false);
 
+  // IP Number Search Modal
+  const [showIPModal, setShowIPModal] = useState(false);
+  const [ipSearchInput, setIpSearchInput] = useState("");
+  const [ipSearchResults, setIpSearchResults] = useState([]);
+  const [ipSearchLoading, setIpSearchLoading] = useState(false);
+
   // Overall discount state
   const [overallDiscountType, setOverallDiscountType] = useState("percent");
   const [overallDiscountValue, setOverallDiscountValue] = useState("");
@@ -753,6 +774,129 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     setTimeout(() => handleUHIDSearch(currentUhid.trim()), 0);
   }
 };
+  // ── IP Number Search ─────────────────────────────────────────────────────
+  const handleIPSearch = async (directIPVal) => {
+    const ipVal = (directIPVal !== undefined ? directIPVal : ipSearchInput).trim();
+    if (!ipVal) {
+      toast.warning("Please enter an IP number to search.");
+      return;
+    }
+
+    setIpSearchLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}searchby_ip/?ip_number=${encodeURIComponent(ipVal)}`,
+        "GET"
+      );
+
+      // Response shape: res = { success, status, data: { success, data: [...] } }
+      // So the array lives at res.data.data
+      let allAdmissions = [];
+      try {
+        const arr = res?.data?.data;
+        if (Array.isArray(arr)) {
+          allAdmissions = arr;
+        } else if (Array.isArray(res?.data)) {
+          allAdmissions = res.data;
+        } else if (Array.isArray(res)) {
+          allAdmissions = res;
+        }
+      } catch (_) { allAdmissions = []; }
+
+      // ── Client-side filter ─────────────────────────────────────────────────
+      // Full IP typed  (contains "/") → "S026/500008" must match ipNumber fully
+      // Suffix typed   (no "/")       → "500008" matches ANY prefix: S026/500008, S027/500008 …
+      const query = ipVal.toLowerCase().trim();
+      const isFullIP = query.includes("/");
+
+      const filtered = allAdmissions.filter((adm) => {
+        const ip = (adm.ipNumber || "").toLowerCase().trim();
+        if (!ip) return false;
+        if (isFullIP) {
+          // Full IP: "s026/500008" — match exactly
+          return ip === query;
+        } else {
+          // Suffix only: "500008" — match numeric part after the last "/"
+          const slashIdx = ip.lastIndexOf("/");
+          const suffix = slashIdx !== -1 ? ip.slice(slashIdx + 1) : ip;
+          return suffix.includes(query);
+        }
+      });
+
+      if (filtered.length === 0) {
+        setIpSearchResults([]);
+        toast.info("No admissions found for the given IP number.");
+      } else {
+        // ── Always show results in the modal list (single or multiple) ──
+        // User must click a row to confirm and auto-fill — no silent auto-fill
+        setIpSearchResults(filtered);
+      }
+    } catch (err) {
+      console.error("IP search failed", err);
+      setIpSearchResults([]);
+      toast.error("IP search failed. Please try again.");
+    } finally {
+      setIpSearchLoading(false);
+    }
+  };
+
+  const handleIPSelect = (adm) => {
+    const salutation = adm.salutation || "";
+    const firstName  = adm.firstName  || "";
+    const lastName   = adm.lastName   || "";
+    const fullName   = `${salutation} ${firstName} ${lastName}`.trim();
+
+    const activeRoom  = Array.isArray(adm.room_details)
+      ? adm.room_details.find(r => r.is_roomActive === true) : null;
+    const activeShift = Array.isArray(adm.roomShitingDetails)
+      ? adm.roomShitingDetails.find(r => r.is_roomActive === true) : null;
+    const roomDisplay = activeRoom
+      ? `${activeRoom.roomNo} / Bed ${activeRoom.bedNo}`
+      : activeShift
+        ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}`
+        : "";
+    const roomNo = activeRoom?.roomNo || activeShift?.newRoomNo || adm.room_no || "";
+
+    setFormData(prev => ({
+      ...prev,
+      inpatientNo: adm.ipNumber || "",
+      uhid:        adm.uhid     || prev.uhid,
+      name:        fullName     || prev.name,
+      doctor_id:   adm.admittingDoctor || adm.consultingDoctor || prev.doctor_id,
+      roomNo,
+    }));
+
+    if (adm.mobilePhone || adm.mobile) setMobilePhone(adm.mobilePhone || adm.mobile || "");
+    if (adm.permanent_address)         setAddress(adm.permanent_address);
+    if (adm.area || adm.city)          setPlace(adm.area || adm.city || "");
+    if (adm.customerType)              setPatientType(adm.customerType);
+    if (adm.age)                       setPatientAge(`${adm.age}Y`);
+
+    setAdmissionStatus(adm.is_admitted && !adm.is_discharged ? "ADMITTED" : "NOT ADMITTED");
+    if (roomDisplay) setAdmissionRoomNo(roomDisplay);
+    if (adm.admissionDateTime) {
+      const dt = new Date(adm.admissionDateTime);
+      setAdmissionDateTime(dt.toLocaleString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+        hour: "2-digit", minute: "2-digit", hour12: true
+      }));
+    }
+    if (adm.uhid) fetchAdmissionStatus(adm.uhid);
+    setShowIPModal(false);
+  };
+
+  const openIPModal = () => {
+    const currentIP = formData.inpatientNo || "";
+    setIpSearchInput(currentIP);
+    setIpSearchResults([]);
+    setShowIPModal(true);
+    // If IP is already typed in the field, kick off search automatically
+    // so user sees results immediately without pressing Search again
+    if (currentIP.trim()) {
+      setTimeout(() => handleIPSearch(currentIP.trim()), 0);
+    }
+  };
+
   const handleLastUHIDClick = () => {
     if (formData.uhid) {
       const ok = window.confirm("Replace current UHID with last billed UHID?");
@@ -797,21 +941,10 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
   const isMedicineSearchEnabled = Boolean(formData.doctor_id);
 
-  useEffect(() => {
-  if (!HmsBaseUrl) return;
-
-  const fetchMedicines = async () => {
+  const fetchMedicines = useCallback(async () => {
+    if (!HmsBaseUrl) return;
     try {
-      // ❌ DO NOT send branch/outlet manually
-      // apiRequest already sends:
-      // Authorization, Branch-Code, Outlet-Code
-      // + auth-* fields in body
-
-      const response = await apiRequest(
-        `${HmsBaseUrl}get_oppharmacy_stock/`,
-        "POST"
-      );
-
+      const response = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "POST");
       const medicineArray = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data)
@@ -820,52 +953,34 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
       if (response.success) {
         const formattedMedicines = medicineArray.map((item) => ({
-          name:
-            item.item_name ||
-            `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
-
+          name: item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim(),
           item_id: item.item_id,
           batch_number: item.batch_number || "N/A",
           grn_number: item.grn_number || "",
           expiry_date: item.expiry_date || "N/A",
-
           mrp: parseFloat(item.mrp || 0),
           price: parseFloat(item.price || item.mrp || 0),
-
           hsn_code: item.hsn_code || "—",
-
           cgst_rate: item.CGST_Percentage || 0,
           cgst_amount: item.CGST_Amt || 0,
           sgst_rate: item.SGST_Percentage || 0,
           sgst_amount: item.SGST_Amt || 0,
-
           category: item.category || "",
-
           reorder_level: item.reorder_level || 0,
           total_stock: Number(item.total_stock ?? 0),
-          available_stock:
-            item.available_stock != null
-              ? Number(item.available_stock)
-              : 0,
-
+          available_stock: item.available_stock != null ? Number(item.available_stock) : 0,
           is_low_stock: item.is_low_stock === true,
-          is_nil_stock:
-            item.available_stock != null
-              ? Number(item.available_stock) <= 0
-              : false,
-
+          is_nil_stock: item.available_stock != null ? Number(item.available_stock) <= 0 : false,
           high_risk: item.high_risk === true,
           look_alike: item.look_alike === true,
           sound_alike: item.sound_alike === true,
-
           chemical_composition: item.chemical_composition || "—",
+          composition_name: item.composition_name || "—",
           shelf_no: item.shelf_no || "—",
           rack_no: item.rack_no || "—",
-
           quantity: 0,
           total: 0,
         }));
-
         setMedicines(formattedMedicines);
       } else {
         console.error("API failed:", response.error);
@@ -873,10 +988,11 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
     } catch (error) {
       console.error("Error fetching medicines:", error);
     }
-  };
+  }, [HmsBaseUrl]);
 
-  fetchMedicines();
-}, [HmsBaseUrl]);
+  useEffect(() => {
+    fetchMedicines();
+  }, [fetchMedicines]);
 
 
   useEffect(() => {
@@ -1163,6 +1279,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
           setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
+          fetchMedicines();
         } else {
           const backendErr = finalizeRes.data?.error || finalizeRes.error;
           toast.error(backendErr || "Finalize bill failed.", { autoClose: 2000 });
@@ -1172,12 +1289,17 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
       }
 
       // ── Normal save path (Direct bill / Estimate / Edit bill) ─────────────
-      const finalItems = addedMedicines.map((m) => ({
-        item_id: Number(m.item_id),
-        batch_number: String(m.batch_number),
-        qty: Number(m.quantity),
-        price: parseFloat(m.price || 0),
-      }));
+      const finalItems = addedMedicines.map((m) => {
+        const qty = Number(m.quantity);
+        const price = parseFloat(m.price || 0);
+        return {
+          item_id: Number(m.item_id),
+          batch_number: String(m.batch_number),
+          qty,
+          price,
+          calculated_price: parseFloat((qty * price).toFixed(2)),
+        };
+      });
 
       const overallDiscAmtFinal =
         overallDiscountType === "amount"
@@ -1267,6 +1389,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
           toast.success(backendMsg || `Estimate saved! #${response.data?.estimate_no || ""}`, { autoClose: 2000 });
           resetForm();
           setTodayBillDate();
+          fetchMedicines();
         } else {
           toast.success(backendMsg || `Bill saved successfully! #${response.data?.bill_no || ""}`, { autoClose: 2000 });
           const savedBillNo = response.data?.bill_no || response.bill_no || "";
@@ -1290,6 +1413,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
           setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
+          fetchMedicines();
         }
       } else {
         const backendErr = response.data?.error || response.error;
@@ -2160,13 +2284,41 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
 
             <InputWrapper>
               <Label>Inpatient No</Label>
-              <Input
-                type="text"
-                name="inpatientNo"
-                placeholder="Enter Inpatient No"
-                value={formData.inpatientNo}
-                onChange={handleChange}
-              />
+              <div style={{ display: "flex", gap: 0 }}>
+                <Input
+                  type="text"
+                  name="inpatientNo"
+                  placeholder="Type IP No, press Enter to search"
+                  value={formData.inpatientNo}
+                  onChange={handleChange}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") { e.preventDefault(); openIPModal(); }
+                  }}
+                  onBlur={() => {
+                    // Auto-search when user leaves the field if an IP is typed
+                    if (formData.inpatientNo?.trim()) openIPModal();
+                  }}
+                  style={{ borderRadius: "10px 0 0 10px", borderRight: "none", flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={openIPModal}
+                  title="Search admissions by IP number"
+                  style={{
+                    padding: "0 14px",
+                    background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                    color: "#fff",
+                    border: "1px solid #0f766e",
+                    borderRadius: "0 10px 10px 0",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  <FaSearch />
+                </button>
+              </div>
             </InputWrapper>
 
             <InputWrapper>
@@ -2372,31 +2524,30 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                   const discAmt = medicine.discount_type === "amount"
                     ? discVal
                     : itemGross * (discVal / 100);
+                  const addedNameColor = isNilStock
+                    ? "#b91c1c"
+                    : medicine.high_risk
+                      ? "#b91c1c"
+                      : medicine.look_alike
+                        ? "#92400e"
+                        : medicine.sound_alike
+                          ? "#166534"
+                          : isLowStock
+                            ? "#c2410c"
+                            : undefined;
                   return (
-                    <Tr key={index} style={{
-                      background: isNilStock
-                        ? "#fee2e2"
-                        : isLowStock
-                          ? "#fff7ed"
-                          : undefined
-                    }}>
+                    <Tr key={index}>
                       <Td>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                          {medicine.name}
+                          <span style={{ color: addedNameColor, fontWeight: addedNameColor ? 700 : 500 }}>{medicine.name}</span>
                           {Number(medicine.available_stock) <= 0 && (
                             <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b91c1c" }}>(NIL)</span>
                           )}
                           {medicine.is_low_stock && Number(medicine.available_stock) > 0 && (
-                            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
-                          )}
-                          {medicine.high_risk && (
-                            <span title="High Risk Medicine" style={{ width: 9, height: 9, borderRadius: "50%", background: "#ef4444", display: "inline-block", flexShrink: 0 }} />
-                          )}
-                          {medicine.look_alike && (
-                            <span title="Look-Alike Medicine" style={{ width: 9, height: 9, borderRadius: "50%", background: "#eab308", display: "inline-block", flexShrink: 0 }} />
-                          )}
-                          {medicine.sound_alike && (
-                            <span title="Sound-Alike Medicine" style={{ width: 9, height: 9, borderRadius: "50%", background: "#22c55e", display: "inline-block", flexShrink: 0 }} />
+                            <>
+                              <BlinkDot />
+                              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#b45309" }}>(LOW)</span>
+                            </>
                           )}
                         </div>
                       </Td>
@@ -2680,7 +2831,6 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                         <Th>MRP</Th>
                         <Th>Avail. Stock</Th>
                         <Th>HSN Code</Th>
-                        <Th>Classification</Th>
                         <Th>Chemical Composition</Th>
                         <Th>Shelf No</Th>
                         <Th>Rack No</Th>
@@ -2690,17 +2840,24 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                       {displayedModalMedicines.map((medicine, index) => {
                         const isNilStock = medicine.is_nil_stock;
                         const isLowStock = !isNilStock && medicine.is_low_stock;
+                        // Determine item name text color from risk flags (priority: high_risk > look_alike > sound_alike)
+                        const nameColor = isNilStock
+                          ? "#b91c1c"
+                          : medicine.high_risk
+                            ? "#b91c1c"
+                            : medicine.look_alike
+                              ? "#92400e"
+                              : medicine.sound_alike
+                                ? "#166534"
+                                : isLowStock
+                                  ? "#c2410c"
+                                  : undefined;
                         return (
                           <Tr
                             key={getMedicineKey(medicine) || index}
                             style={{
                               cursor: isNilStock ? "not-allowed" : "pointer",
                               opacity: isNilStock ? 0.55 : 1,
-                              background: isNilStock
-                                ? "#fff5f5"
-                                : isLowStock
-                                  ? "#fff7ed"
-                                  : undefined,
                             }}
                             onClick={() => { if (!isNilStock) handleMedicineSelect(medicine); }}
                           >
@@ -2716,32 +2873,24 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                             </Td>
                             <Td style={{ fontWeight: 500 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                {medicine.name}
+                                <span style={{ color: nameColor, fontWeight: nameColor ? 700 : 500 }}>{medicine.name}</span>
                                 {medicine.dosage && <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({medicine.dosage})</span>}
                                 {!isNilStock && isLowStock && (
+                                  <>
+                                    <BlinkDot />
+                                    <span style={{
+                                      fontSize: "0.7rem", fontWeight: 700, color: "#b45309",
+                                      background: "#fff7ed", border: "1px solid #fdba74",
+                                      borderRadius: 4, padding: "1px 6px"
+                                    }}>LOW STOCK</span>
+                                  </>
+                                )}
+                                {!isNilStock && isLowStock && medicine.reorder_level != null && (
                                   <span style={{
-                                    fontSize: "0.7rem", fontWeight: 700, color: "#b45309",
-                                    background: "#fff7ed", border: "1px solid #fdba74",
+                                    fontSize: "0.7rem", fontWeight: 700, color: "#0f766e",
+                                    background: "#f0fdfa", border: "1px solid #99f6e4",
                                     borderRadius: 4, padding: "1px 6px"
-                                  }}>LOW STOCK</span>
-                                )}
-                                {medicine.high_risk && (
-                                  <span title="High Risk Medicine" style={{
-                                    width: 10, height: 10, borderRadius: "50%",
-                                    background: "#ef4444", display: "inline-block", flexShrink: 0
-                                  }} />
-                                )}
-                                {medicine.look_alike && (
-                                  <span title="Look-Alike Medicine" style={{
-                                    width: 10, height: 10, borderRadius: "50%",
-                                    background: "#eab308", display: "inline-block", flexShrink: 0
-                                  }} />
-                                )}
-                                {medicine.sound_alike && (
-                                  <span title="Sound-Alike Medicine" style={{
-                                    width: 10, height: 10, borderRadius: "50%",
-                                    background: "#22c55e", display: "inline-block", flexShrink: 0
-                                  }} />
+                                  }}>RL{medicine.reorder_level}</span>
                                 )}
                               </div>
                             </Td>
@@ -2763,8 +2912,7 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
                               </StockBadge>
                             </Td>
                             <Td>{medicine.hsn_code || "—"}</Td>
-                            <Td>{medicine.classification || "PHARMACY"}</Td>
-                            <Td>{medicine.chemical_composition || "—"}</Td>
+                            <Td>{medicine.composition_name || "—"}</Td>
                             <Td>{medicine.shelf_no || "—"}</Td>
                             <Td>{medicine.rack_no || "—"}</Td>
                           </Tr>
@@ -2779,13 +2927,12 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
               {/* ── Legend ── */}
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                 {[
-                  { color: "#ef4444", label: "High Risk Medicine" },
-                  { color: "#94a3b8", label: "RoI Reached Medicine" },
-                  { color: "#eab308", label: "LA (Look-Alike Medicine)" },
-                  { color: "#22c55e", label: "SA (Sound-Alike Medicine)" },
+                  { color: "#b91c1c", label: "High Risk Medicine" },
+                  { color: "#92400e", label: "LA (Look-Alike Medicine)" },
+                  { color: "#166534", label: "SA (Sound-Alike Medicine)" },
                 ].map(({ color, label }) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+                    <span style={{ fontSize: "0.75rem", color, fontWeight: 700 }}>A</span>
                     <span style={{ fontSize: "0.75rem", color: "#475569", fontWeight: 500 }}>{label}</span>
                   </div>
                 ))}
@@ -2865,6 +3012,133 @@ const OPPharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLo
             </ConfirmBtns>
           </ConfirmBox>
         </ConfirmModalOverlay>
+      )}
+
+      {/* ── IP Number Search Modal ── */}
+      {showIPModal && (
+        <ModalOverlay onClick={() => setShowIPModal(false)}>
+          <ModalContainer style={{ maxWidth: 760 }} onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>Search by IP Number</ModalTitle>
+              <CloseButton onClick={() => setShowIPModal(false)}>×</CloseButton>
+            </ModalHeader>
+            <ModalBody>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 220px" }}>
+                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "#475569" }}>
+                    IP Number <span style={{ fontWeight: 400, color: "#94a3b8" }}>(full e.g. S026/500009 or partial e.g. 500009)</span>
+                  </label>
+                  <div style={{ display: "flex", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #e2e8f0" }}>
+                    <Input
+                      type="text"
+                      placeholder="e.g. 500009 or S026/500009"
+                      value={ipSearchInput}
+                      onChange={e => setIpSearchInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleIPSearch()}
+                      autoFocus
+                      style={{ borderRadius: "10px 0 0 10px", borderRight: "none", flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleIPSearch()}
+                      style={{
+                        padding: "0 20px", background: "linear-gradient(135deg, #0f766e, #0d9488)",
+                        color: "#fff", border: "1px solid #0f766e", borderRadius: "0 10px 10px 0",
+                        cursor: "pointer", fontWeight: 600, fontSize: "0.88rem",
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      <FaSearch /> Search
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {ipSearchLoading ? (
+                <NoResults style={{ color: "#0f766e" }}>
+                  🔍 Searching admissions for "<strong>{ipSearchInput}</strong>"…
+                </NoResults>
+              ) : ipSearchResults.length === 0 ? (
+                <NoResults>No admissions found. Enter an IP number above and press Search.</NoResults>
+              ) : (
+                <>
+                  <ModalResultCount>
+                    {ipSearchResults.length} admission{ipSearchResults.length !== 1 ? "s" : ""} found — click a row to select
+                  </ModalResultCount>
+                  <TableWrapper>
+                    <Table>
+                      <thead>
+                        <tr>
+                          <Th>Select</Th>
+                          <Th>IP Number</Th>
+                          <Th>UHID</Th>
+                          <Th>Patient Name</Th>
+                          <Th>Mobile</Th>
+                          <Th>Room / Bed</Th>
+                          <Th>Status</Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ipSearchResults.map((adm, i) => {
+                          const salutation = adm.salutation || "";
+                          const fullName   = `${salutation} ${adm.firstName || ""} ${adm.lastName || ""}`.trim();
+                          const mobile     = adm.mobilePhone || adm.mobile || "—";
+                          const activeRoom = Array.isArray(adm.room_details)
+                            ? adm.room_details.find(r => r.is_roomActive) : null;
+                          const activeShift = Array.isArray(adm.roomShitingDetails)
+                            ? adm.roomShitingDetails.find(r => r.is_roomActive) : null;
+                          const roomLabel = activeRoom
+                            ? `${activeRoom.roomNo} / Bed ${activeRoom.bedNo}`
+                            : activeShift
+                              ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}`
+                              : "—";
+                          const isAdmitted = adm.is_admitted && !adm.is_discharged;
+                          return (
+                            <Tr
+                              key={i}
+                              style={{ cursor: "pointer" }}
+                              onClick={() => handleIPSelect(adm)}
+                            >
+                              <Td>
+                                <div style={{
+                                  width: 28, height: 28, borderRadius: "50%",
+                                  background: isAdmitted ? "#0f766e" : "#94a3b8",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  color: "#fff", fontSize: "0.9rem",
+                                }} title={isAdmitted ? "Admitted" : "Discharged"}>✓</div>
+                              </Td>
+                              <Td style={{ fontWeight: 700, color: "#0f766e", fontFamily: "monospace" }}>{adm.ipNumber || "—"}</Td>
+                              <Td style={{ fontWeight: 600 }}>{adm.uhid || "—"}</Td>
+                              <Td>{fullName || "—"}</Td>
+                              <Td>{mobile}</Td>
+                              <Td style={{ fontSize: "0.83rem" }}>{roomLabel}</Td>
+                              <Td>
+                                <span style={{
+                                  fontSize: "0.75rem", fontWeight: 700, padding: "2px 10px", borderRadius: 20,
+                                  background: isAdmitted ? "#f0fdf4" : "#fef2f2",
+                                  color: isAdmitted ? "#15803d" : "#dc2626",
+                                  border: `1px solid ${isAdmitted ? "#bbf7d0" : "#fecaca"}`,
+                                }}>
+                                  {isAdmitted ? "Admitted" : "Discharged"}
+                                </span>
+                              </Td>
+                            </Tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  </TableWrapper>
+                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#0f766e" }} />
+                    <span style={{ fontSize: "0.8rem", color: "#475569" }}>Admitted</span>
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", background: "#94a3b8", marginLeft: 12 }} />
+                    <span style={{ fontSize: "0.8rem", color: "#475569" }}>Discharged</span>
+                  </div>
+                </>
+              )}
+            </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
       )}
 
       {/* ── UHID Search Modal ── */}

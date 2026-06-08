@@ -351,7 +351,7 @@ const TableWrapper = styled.div`overflow-x: auto;`;
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 1400px;
 `;
 
 const Thead = styled.thead`background: #edf2f7;`;
@@ -730,13 +730,38 @@ const formatTime = (iso) => {
 
 const parsePaymentMethod = (raw) => {
   if (!raw) return null;
-  const singleQ = raw.match(/\(\s*'method'\s*,\s*'([^']+)'\s*\)/i);
-  if (singleQ) return singleQ[1];
-  const doubleQ = raw.match(/\(\s*"method"\s*,\s*"([^"]+)"\s*\)/i);
-  if (doubleQ) return doubleQ[1];
-  const colonStyle = raw.match(/['"]method['"]\s*:\s*['"]([^'"]+)['"]/i);
-  if (colonStyle) return colonStyle[1];
+  // Extract all method values from an OrderedDict string like:
+  // "OrderedDict([('method', 'cash'), ('Paid_amount', 255)])"
+  // or multiple: "OrderedDict([('method', 'cash'), ...]), OrderedDict([('method', 'upi'), ...])"
+  const allMethods = [];
+  const re = /['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/gi;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    allMethods.push(m[1]);
+  }
+  if (allMethods.length > 1) return "Multiple (" + allMethods.join(", ") + ")";
+  if (allMethods.length === 1) return allMethods[0];
   return null;
+};
+
+// Parse all payment entries from payment_details for display
+const parsePaymentEntries = (raw) => {
+  if (!raw) return [];
+  // Match all (key, value) pairs from OrderedDict strings
+  const entries = [];
+  // Find each OrderedDict block
+  const blocks = raw.match(/OrderedDict\(\[([^\]]+)\]\)/gi) || [raw];
+  for (const block of blocks) {
+    const method = block.match(/['"]method['"]\s*[,:\s]+['"]([^'"]+)['"]/i);
+    const amount = block.match(/['"]Paid_amount['"]\s*[,:\s]+([0-9.]+)/i);
+    if (method) {
+      entries.push({
+        method: method[1],
+        amount: amount ? parseFloat(amount[1]) : null,
+      });
+    }
+  }
+  return entries;
 };
 
 const parseMedicineParticulars = (raw) => {
@@ -801,7 +826,7 @@ const SEARCH_BY_OPTIONS = [
 
 const ENTRIES_OPTIONS = [10, 25, 50, 100];
 
-const formatBillData = (bills) =>
+const formatBillData = (bills, employeeName = "") =>
   bills.map((b) => ({
     id:             b.Bill_id,
     Bill_id:        b.Bill_id,
@@ -810,6 +835,7 @@ const formatBillData = (bills) =>
     patient_name:   b.patient_name   || "",
     payment_method: parsePaymentMethod(b.payment_details) || null,
     payment_details: b.payment_details || null,
+    payment_entries: parsePaymentEntries(b.payment_details),
     billing_mode:   b.billing_mode    || "",
     billing_status: b.billing_status || "",
     is_deleted:     b.is_deleted     || false,
@@ -826,7 +852,10 @@ const formatBillData = (bills) =>
     overall_discount_amount: parseFloat(b.overall_discount_amount ?? 0),
     doctor_id:      b.doctor_id      || "",
     inpatient_number: b.inpatient_number || "",
+    ip_serial_number: b.shiftno || b.ip_serial_number || "",   // shiftno used as IP Serial
     room_no:        b.room_no        || "",
+    employee_name:  b.employee_name  || employeeName || "",
+    cashier_id:     b.cashier_id     || "",
     medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
   }));
 
@@ -1035,14 +1064,16 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     setError("");
     try {
       const response = await apiRequest(
-        `${HmsBaseUrl}OPPharmacy_pending_bills/`,
+        `${HmsBaseUrl}pharmacy_view_bills/`,
         "GET"
       );
 
-      const billsArray = Array.isArray(response?.data) ? response.data : [];
-      console.log("Raw pending bills data:", response?.data);
+      const body = response?.data ?? response;
+      const billsArray = Array.isArray(body?.data) ? body.data : (Array.isArray(response?.data) ? response.data : []);
+      const employeeName = body?.employee_name || "";
+      console.log("Raw pending bills data:", body);
 
-      const formatted = formatBillData(billsArray);
+      const formatted = formatBillData(billsArray, employeeName);
       setAllBills(formatted);
       setCurrentPage(1);
 
@@ -1271,17 +1302,26 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                     <Th onClick={() => handleSort("bill_date")}>Bill Date <SortIcon col="bill_date" /></Th>
                     <Th onClick={() => handleSort("bill_date")}>Bill Time <SortIcon col="bill_date" /></Th>
                     <Th onClick={() => handleSort("uhid")}>UHID No <SortIcon col="uhid" /></Th>
-                    <Th onClick={() => handleSort("patient_name")}>Patient <SortIcon col="patient_name" /></Th>
+                    <Th onClick={() => handleSort("patient_name")}>Patient Name <SortIcon col="patient_name" /></Th>
                     <Th onClick={() => handleSort("payment_method")}>Payment Mode <SortIcon col="payment_method" /></Th>
                     <Th onClick={() => handleSort("billing_status")}>Status <SortIcon col="billing_status" /></Th>
                     <Th onClick={() => handleSort("bill_number")}>Bill Number <SortIcon col="bill_number" /></Th>
                     <Th onClick={() => handleSort("total_amount")}>Bill Amount <SortIcon col="total_amount" /></Th>
-                    <Th onClick={() => handleSort("net_amount")}>Net Amount <SortIcon col="net_amount" /></Th>
+                    <Th onClick={() => handleSort("net_amount")}>Amount Collected <SortIcon col="net_amount" /></Th>
+                    <Th onClick={() => handleSort("inpatient_number")}>IP Number <SortIcon col="inpatient_number" /></Th>
+                    <Th onClick={() => handleSort("ip_serial_number")}>IP Serial No <SortIcon col="ip_serial_number" /></Th>
+                    <Th onClick={() => handleSort("total_amount")}>Total Amount <SortIcon col="total_amount" /></Th>
+                    <Th onClick={() => handleSort("employee_name")}>Username <SortIcon col="employee_name" /></Th>
                     <Th>Actions</Th>
                   </tr>
                 </Thead>
                 <tbody>
-                  {paginated.map((bill, idx) => (
+                  {paginated.map((bill, idx) => {
+                    const status = (bill.billing_status || "").toLowerCase();
+                    const isPaidBill    = status === "paid";
+                    const isBilledBill  = status === "billed";
+
+                    return (
                     <Tr key={bill.id ?? idx}>
                       <Td>{formatDate(bill.bill_date)}</Td>
                       <Td>{formatTime(bill.bill_date)}</Td>
@@ -1294,8 +1334,17 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                         {bill.patient_name || "—"}
                       </Td>
 
+                      {/* Payment Mode — show each method badge; if multiple, show all */}
                       <Td>
-                        {bill.payment_method ? (
+                        {bill.payment_entries && bill.payment_entries.length > 0 ? (
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                            {bill.payment_entries.map((e, i) => (
+                              <Badge key={i} variant={paymentVariant(e.method)}>
+                                {e.method}{e.amount != null ? ` ₹${e.amount}` : ""}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : bill.payment_method ? (
                           <Badge variant={paymentVariant(bill.payment_method)}>
                             {bill.payment_method}
                           </Badge>
@@ -1314,8 +1363,37 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                         {bill.bill_number || "—"}
                       </Td>
 
+                      {/* Bill Amount — show net_amount when status is Billed, else "—" */}
+                      <Td>
+                        <AmountCell style={{ color: isBilledBill ? "#2d3748" : "#a0aec0" }}>
+                          {isBilledBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                        </AmountCell>
+                      </Td>
+
+                      {/* Amount Collected — show net_amount when status is Paid, else "—" */}
+                      <Td>
+                        <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
+                          {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                        </AmountCell>
+                      </Td>
+
+                      {/* IP Number */}
+                      <Td style={{ color:"#744210", fontWeight: bill.inpatient_number ? 500 : 400 }}>
+                        {bill.inpatient_number || "—"}
+                      </Td>
+
+                      {/* IP Serial Number */}
+                      <Td style={{ fontFamily:"monospace", fontSize:12 }}>
+                        {bill.ip_serial_number || "—"}
+                      </Td>
+
+                      {/* Total Amount — always shown */}
                       <Td><AmountCell>₹ {bill.total_amount.toFixed(2)}</AmountCell></Td>
-                      <Td><AmountCell>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
+
+                      {/* Username */}
+                      <Td style={{ color:"#4a5568", fontSize:12 }}>
+                        {bill.employee_name || "—"}
+                      </Td>
 
                       <Td>
                         <ActionGroup>
@@ -1350,7 +1428,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                         </ActionGroup>
                       </Td>
                     </Tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </Table>
             </TableWrapper>

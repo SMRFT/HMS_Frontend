@@ -18,7 +18,7 @@ function setforlocaldev() {
   console.log("🔧 Development token is empty - will redirect to login");
   const selectedBranch = "SHB001";
   localStorage.setItem("selected_branch", selectedBranch);
-  const selectedOutlet = "OLET003";
+  const selectedOutlet = "OLET002";
   localStorage.setItem("selected_outlet", selectedOutlet);
   return dev_token;
 }
