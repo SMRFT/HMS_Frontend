@@ -537,13 +537,6 @@ export default function PurchaseOrder() {
                     />
                   </FG>
                 </Grid>
-
-                {!editPo && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: -4, marginBottom: 4 }}>
-                    <span style={{ fontSize: ".72rem", color: C.muted, fontWeight: 600 }}>Initial status:</span>
-                    <Badge $s="Draft">Draft</Badge>
-                  </div>
-                )}
               </CardBody>
             </AniCard>
 

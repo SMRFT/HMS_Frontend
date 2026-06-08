@@ -144,6 +144,8 @@ import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinere
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
+import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 
 
 
@@ -733,6 +735,28 @@ function App() {
                   <Route
                     path="/PurchaseReturn"
                     element={<PurchaseReturn />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PhysicalStockEntry",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PhysicalStockEntry"
+                    element={<PhysicalStockEntry />}
+                  />
+                )}
+
+               {hasPagePermission(
+                "/PhysicalStockApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PhysicalStockApproval"
+                    element={<PhysicalStockApproval />}
                   />
                 )}
 
