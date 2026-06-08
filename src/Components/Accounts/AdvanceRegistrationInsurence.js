@@ -164,15 +164,80 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                 {`
                 @media print {
                     @page { size: portrait; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
                     body { background: white !important; }
-                    .no-print { display: none !important; }
-                    ${TableWrapper} { box-shadow: none; border: 1px solid #000; }
-                    ${Table} { width: 100%; border-collapse: collapse; }
-                    ${Th}, ${Td} { border: 1px solid #000; padding: 10px; font-size: 11px; }
-                    ${Th} { background: #f0f0f0 !important; color: black !important; }
                 }
                 `}
             </style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
+                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
+                    <div className="report-title">Advance Registration (Insurance) Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td colSpan="2"><strong>Type:</strong> Insurance Admissions</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>IP No</th>
+                            <th>Patient Name</th>
+                            <th>UHID</th>
+                            <th>Gender/Age</th>
+                            <th>Insurance Company</th>
+                            <th>Admission Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reportData.length > 0 ? (
+                            reportData.map((adm, index) => (
+                                <tr key={index}>
+                                    <td>{index + 1}</td>
+                                    <td>{adm.ipNumber}</td>
+                                    <td>{adm.firstName} {adm.lastName}</td>
+                                    <td>{adm.uhid}</td>
+                                    <td>{adm.gender} / {adm.age} yrs</td>
+                                    <td>{adm.insuranceCompanyName || adm.company_code || "N/A"}</td>
+                                    <td>{adm.admissionDateTime ? dayjs(adm.admissionDateTime).format("DD/MM/YYYY") : "N/A"}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="7" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };
@@ -184,5 +249,69 @@ const FilterSection = styled.div`
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
+
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        background: white;
+        width: 100%;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
 
 export default AdvanceRegistrationInsurence;

@@ -133,6 +133,7 @@ import CashierWiseReport from "./Components/Accounts/CashierWiseReport";
 import CashierWiseDetailedReport from "./Components/Accounts/CashierWiseDetailedReport";
 import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrationInsurence";
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
+import BillCancelReport from "./Components/Accounts/BillCancelReport";
 import AccountsReports from "./Components/Reports/AccountsReports";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
@@ -150,6 +151,10 @@ import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEnt
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+
+import Complaints from "./Components/ComplaintsTickets/complaints";
+import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -331,6 +336,7 @@ function App() {
       "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
       "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
       "/AdvanceRegistration": "Advance Registration",
+      "/BillCancelReport": "Bill Cancel Report",
      
     };
 
@@ -1156,6 +1162,9 @@ function App() {
               {hasPagePermission("/CashierWiseReport", allowedActions, dynamicPermissions) && (
                 <Route path="/CashierWiseReport" element={<CashierWiseReport />} />
               )}
+              {hasPagePermission("/BillCancelReport", allowedActions, dynamicPermissions) && (
+                <Route path="/BillCancelReport" element={<BillCancelReport />} />
+              )}
               {hasPagePermission("/CashierWiseDetailedReport", allowedActions, dynamicPermissions) && (
                 <Route path="/CashierWiseDetailedReport" element={<CashierWiseDetailedReport />} />
               )}
@@ -1169,6 +1178,9 @@ function App() {
               {hasPagePermission("/RoomOccupencyReport", allowedActions, dynamicPermissions) && (
                 <Route path="/RoomOccupencyReport" element={<RoomOccupencyReport />} />
               )}
+              {hasPagePermission("/PreDayRoomOccupancyReport", allowedActions, dynamicPermissions) && (
+                <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
+              )}
 
                 {hasPagePermission(
                 "/DialysisDischargeSummary",
@@ -1176,7 +1188,17 @@ function App() {
                 dynamicPermissions,
               ) && <Route path="/DialysisDischargeSummary" element={<DialysisDischargeSummary />} />}
 
+              {hasPagePermission(
+                "/complaints",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/complaints" element={<Complaints />} />}
 
+              {hasPagePermission(
+                "/complaintsadmin",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />}
 
             </Routes>
           </ContentWrapper>
