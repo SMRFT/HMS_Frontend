@@ -696,8 +696,8 @@ export default function CentralCashCounter() {
   const [rpPrintVoucher, setRpPrintVoucher] = useState(null);
 
   // ── Return Bills state ────────────────────────────────────────────────────────
-  const [returnPendingBills, setReturnPendingBills] = useState([]);
-  const [returnReceivedBills, setReturnReceivedBills] = useState([]);
+  // const [returnPendingBills, setReturnPendingBills] = useState([]);
+  // const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
   // ── Return Bills state ────────────────────────────────────────────────────────
   // const [returnPendingBills, setReturnPendingBills] = useState([]);

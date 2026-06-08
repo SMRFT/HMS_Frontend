@@ -89,6 +89,69 @@ const StatusBadge = styled.span`
     text-transform: uppercase;
 `;
 
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        background: white;
+        width: 100%;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     const [filterMode, setFilterMode] = useState("ip");
@@ -245,6 +308,9 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                         <Button onClick={fetchData} disabled={loading} style={{ height: "35px", minWidth: "100px" }}>
                             {loading ? "..." : "Search"}
                         </Button>
+                        <Button onClick={() => window.print()} secondary style={{ height: "35px" }}>
+                            Print
+                        </Button>
                     </div>
                 </FormRow>
             </div>
@@ -361,6 +427,96 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 </ModalOverlay>
             )}
 
+            <style>
+                {`
+                @media print {
+                    @page { size: landscape; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; }
+                }
+                `}
+            </style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
+                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
+                    <div className="report-title">IP Advance Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "30%" }}><strong>Patient:</strong> {data[0]?.patient_name || "N/A"}</td>
+                            <td style={{ width: "30%" }}><strong>IP No:</strong> {data[0]?.ip_number || "N/A"}</td>
+                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>UHID:</strong> {data[0]?.uhid || "N/A"}</td>
+                            <td><strong>Search Period:</strong> {dayjs(fromDate).format("DD/MM/YYYY")} to {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Bill No</th>
+                            <th>Type/Advance ID</th>
+                            <th style={{ textAlign: "right" }}>Total Amount</th>
+                            <th style={{ textAlign: "right" }}>IP Adv</th>
+                            <th style={{ textAlign: "right" }}>Bill Adv</th>
+                            <th>Mode</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.length > 0 ? (
+                            data.map((entry, idx) => (
+                                <tr key={idx}>
+                                    <td>{dayjs(entry.bill_date).format("DD/MM/YYYY")}</td>
+                                    <td>{entry.bill_no}</td>
+                                    <td>{entry.advance_id}</td>
+                                    <td style={{ textAlign: "right" }}>₹{(entry.advance_amount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{(entry.ip_advance || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{(entry.billing_advance || 0).toFixed(2)}</td>
+                                    <td>{entry.payment_mode}</td>
+                                    <td>{entry.status}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="8" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
+                            </tr>
+                        )}
+                        {data.length > 0 && (
+                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                                <td colSpan="3" style={{ textAlign: "right" }}>Grand Total:</td>
+                                <td style={{ textAlign: "right" }}>₹{totals.total.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{totals.ip.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{totals.billing.toFixed(2)}</td>
+                                <td colSpan="2"></td>
+                            </tr>
+                        )}
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };
