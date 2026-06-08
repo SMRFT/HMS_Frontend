@@ -82,6 +82,7 @@ import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
+import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
 
 import Items from "./Components/Stores/Items";
 import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
@@ -121,6 +122,7 @@ import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
+import MarketingReport from "./Components/Reports/MarketingReport";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
 
@@ -336,6 +338,7 @@ function App() {
       "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
       "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
       "/AdvanceRegistration": "Advance Registration",
+
       "/BillCancelReport": "Bill Cancel Report",
      
     };
@@ -350,6 +353,20 @@ function App() {
       document.title = `${title} - Shanmuga Hospital`;
     }
   }, [location.pathname]);
+
+  // Global hotkey to open Outlet Selection Modal on F12
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F12') {
+        e.preventDefault();
+        if (userOutlets && userOutlets.length > 1) {
+          setShowOutletModal(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [userOutlets]);
 
   // Routes where sidebar is hidden (login page and mobile reg)
   const hideSidebarRoutes = ["/", "/MobileRegistration"];
@@ -589,7 +606,7 @@ function App() {
                     element={<InsuranceProvider />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/InsuranceClaim",
                 allowedActions,
                 dynamicPermissions,
@@ -617,6 +634,13 @@ function App() {
                 dynamicPermissions,
               ) && (
                   <Route path="/LabWardRequest" element={<LabWardRequest />} />
+                )}
+              {hasPagePermission(
+                "/LaundryAdmin",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/LaundryAdmin" element={<LaundryAdmin />} />
                 )}
 
               {/* Rooms */}
@@ -670,7 +694,7 @@ function App() {
                   <Route
                     path="/PurchaseRequisition"
                     element={<PurchaseRequisition />}
-                 
+
                   />
                 )}
               {/* Inventory */}
@@ -727,7 +751,7 @@ function App() {
                   />
                 )}
 
-             {hasPagePermission(
+              {hasPagePermission(
                 "/PurchaseReturn",
                 allowedActions,
                 dynamicPermissions,
@@ -769,7 +793,7 @@ function App() {
                     path="/PharmacyNotification"
                     element={<PharmacyNotification />}
                   />
-              )}
+                )}
 
               {hasPagePermission(
                 "/PharmacyItemMaster",
@@ -782,7 +806,7 @@ function App() {
                   />
                 )}
 
-                
+
               {hasPagePermission(
                 "/MedicineRequisition",
                 allowedActions,
@@ -895,7 +919,7 @@ function App() {
                     element={<RDReportForm />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/RDList",
                 allowedActions,
                 dynamicPermissions,
@@ -905,7 +929,7 @@ function App() {
                     element={<RDPrint />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/JRDReport",
                 allowedActions,
                 dynamicPermissions,
@@ -961,6 +985,10 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/FrontOfficeReports" element={<FrontOfficeReports />} />}
+              {hasPagePermission(
+                "/MarketingReport",
+                ["FrontOfficeReports_read"]
+              ) && <Route path="/MarketingReport" element={<MarketingReport />} />}
               {hasPagePermission(
                 "/AccountsReports",
                 allowedActions,
@@ -1085,17 +1113,17 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
-              
+
               {hasPagePermission(
                 "/OTMedicineBilling",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route
-                  path="/OTMedicineBilling"
-                  element={<OTMedicineBilling />}
-                />
-              )}
+                  <Route
+                    path="/OTMedicineBilling"
+                    element={<OTMedicineBilling />}
+                  />
+                )}
 
               {hasPagePermission(
                 "/ShiftBasisReport",
@@ -1182,7 +1210,7 @@ function App() {
                 <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
               )}
 
-                {hasPagePermission(
+              {hasPagePermission(
                 "/DialysisDischargeSummary",
                 allowedActions,
                 dynamicPermissions,
