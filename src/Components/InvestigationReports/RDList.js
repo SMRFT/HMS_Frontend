@@ -437,16 +437,8 @@ const StatusBadge = styled.span`
   ${(props) => {
     if (!props.hasReport)
       return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
-    if (props.approved)
-      return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
-    return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
-  }}
-  ${(props) => {
-    if (!props.hasReport)
-      return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
     if (props.dispatched)
-      // ← ADD THIS
-      return `background:linear-gradient(135deg,#b3e5fc,#81d4fa);color:#01579b;`; // ← ADD
+      return `background:linear-gradient(135deg,#b3e5fc,#81d4fa);color:#01579b;`;
     if (props.approved)
       return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
     return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
@@ -476,7 +468,6 @@ const ReferredByBadge = styled.span`
   border-radius: 20px;
   white-space: nowrap;
 `;
-// ── Scan Type Badge ────────────────────────────────────────────────────────
 const ScanTypeBadge = styled.span`
   display: inline-block;
   font-size: 0.6rem;
@@ -502,7 +493,6 @@ const ScanTypeBadge = styled.span`
   }}
 `;
 
-// ── TAT Badge ──────────────────────────────────────────────────────────────
 const TATBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -562,6 +552,7 @@ const tatIcon = (status) => {
       return "—";
   }
 };
+
 // ─── ANC Info Row ─────────────────────────────────────────────────────────────
 const ANCInfoRow = styled.div`
   display: grid;
@@ -594,7 +585,7 @@ const ANCInfoValue = styled.span`
   font-weight: 600;
   color: #333;
 `;
-// Replace the existing EmptyState styled component with:
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 3rem 2rem;
@@ -1153,19 +1144,16 @@ const WfPillBase = css`
     opacity 0.15s,
     filter 0.15s;
   font-family: inherit;
-
   &:disabled {
     opacity: 0.38;
     cursor: not-allowed;
     filter: none;
   }
-
   &:hover:not(:disabled) {
     filter: brightness(0.95);
   }
 `;
 
-// Icon circle inside the pill
 export const WfIcon = styled.span`
   width: 20px;
   height: 20px;
@@ -1179,7 +1167,6 @@ export const WfIcon = styled.span`
   color: white;
 `;
 
-// Timestamp text inside the pill
 export const WfTime = styled.span`
   font-size: 11px;
   font-weight: 500;
@@ -1188,18 +1175,15 @@ export const WfTime = styled.span`
   letter-spacing: 0.2px;
 `;
 
-// ── Idle / not-yet state (gray outline button) ────────────────────────────────
 export const WfIdleBtn = styled.button`
   ${WfPillBase}
   background: white;
   border-color: #e0e0e0;
   color: #9e9e9e;
-
   ${WfIcon} {
     background: #e0e0e0;
     color: #9e9e9e;
   }
-
   &:hover:not(:disabled) {
     border-color: #bdbdbd;
     background: #fafafa;
@@ -1208,49 +1192,40 @@ export const WfIdleBtn = styled.button`
   }
 `;
 
-// ── Patient checked in (green) ────────────────────────────────────────────────
 export const WfCheckedInBtn = styled.button`
   ${WfPillBase}
   background: #f1f8e9;
   border-color: #c5e1a5;
   color: #33691e;
-
   ${WfIcon} {
     background: #558b2f;
   }
-
   &:active:not(:disabled) {
     filter: brightness(0.92);
   }
 `;
 
-// ── Scan started (amber) ──────────────────────────────────────────────────────
 export const WfScanActiveBtn = styled.button`
   ${WfPillBase}
   background: #fff8e1;
   border-color: #ffe082;
   color: #e65100;
-
   ${WfIcon} {
     background: #f57c00;
   }
-
   &:active:not(:disabled) {
     filter: brightness(0.92);
   }
 `;
 
-// ── Dispatch ready (blue, clickable) ─────────────────────────────────────────
 export const WfDispatchReadyBtn = styled.button`
   ${WfPillBase}
   background: #e3f2fd;
   border-color: #90caf9;
   color: #0d47a1;
-
   ${WfIcon} {
     background: #1976d2;
   }
-
   &:hover:not(:disabled) {
     background: #bbdefb;
     border-color: #64b5f6;
@@ -1258,20 +1233,17 @@ export const WfDispatchReadyBtn = styled.button`
   }
 `;
 
-// ── Dispatched (teal, non-clickable display) ──────────────────────────────────
 export const WfDispatchedPill = styled.div`
   ${WfPillBase}
   cursor: default;
   background: #e0f2f1;
   border-color: #80cbc4;
   color: #004d40;
-
   ${WfIcon} {
     background: #00796b;
   }
 `;
 
-// ── Locked variant (faded done state when record is approved/locked) ──────────
 export const WfLockedPill = styled.div`
   ${WfPillBase}
   cursor: default;
@@ -1279,7 +1251,6 @@ export const WfLockedPill = styled.div`
   background: ${(p) => p.bg || "#f5f5f5"};
   border-color: ${(p) => p.borderColor || "#e0e0e0"};
   color: ${(p) => p.color || "#757575"};
-
   ${WfIcon} {
     background: ${(p) => p.iconBg || "#bdbdbd"};
   }
@@ -1337,11 +1308,9 @@ const calcGAFromLMP = (lmpDateStr) => {
     return "";
   }
 };
-// ─── ANC helpers ──────────────────────────────────────────────────────────────
+
 const getANCFields = (row) => row?.report?.valuedetails?.anc_fields || null;
-
 const isANCRow = (row) => row.radiology_type === "ANC" || !!getANCFields(row);
-
 const formatLMPDate = (val) => {
   if (!val) return "—";
   try {
@@ -1407,7 +1376,6 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
         onChange={(e) => onChange((p) => ({ ...p, guh: e.target.value }))}
       />
     </ANCInfoChip>
-
     <ANCInfoChip>
       <ANCInfoLabel>LMP</ANCInfoLabel>
       <input
@@ -1428,7 +1396,6 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
         }}
       />
     </ANCInfoChip>
-
     <ANCInfoChip>
       <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
       <input
@@ -1445,7 +1412,6 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
         onChange={(e) => onChange((p) => ({ ...p, ga_lmp: e.target.value }))}
       />
     </ANCInfoChip>
-
     <ANCInfoChip>
       <ANCInfoLabel>GA (By USG)</ANCInfoLabel>
       <input
@@ -1462,7 +1428,6 @@ const ANCEditBlock = ({ row, ancFields, onChange }) => (
         onChange={(e) => onChange((p) => ({ ...p, ga_usg: e.target.value }))}
       />
     </ANCInfoChip>
-
     <ANCInfoChip>
       <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
       <input
@@ -1705,28 +1670,31 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
   );
 };
 
-// ─── TablePreview (read-only) ─────────────────────────────────────────────────
+// ─── TablePreview (read-only) — ALL rows as data rows ─────────────────────────
 
 const TablePreview = ({ entry }) => {
   const { rows, cols } = parseTableDimensions(entry.table_id);
   const grid = extractTableCells(entry, rows, cols);
   if (!grid.length) return null;
-  const headerRow = grid[0];
-  const dataRows = grid.slice(1);
   return (
     <ReportTable>
-      <thead>
-        <tr>
-          {headerRow.map((cell, ci) => (
-            <ReportTh key={ci}>{cell}</ReportTh>
-          ))}
-        </tr>
-      </thead>
       <tbody>
-        {dataRows.map((row, ri) => (
+        {grid.map((row, ri) => (
           <tr key={ri}>
             {row.map((cell, ci) => (
-              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+              <ReportTd
+                key={ci}
+                isHeader={ci === 0}
+                alt={ri % 2 === 1}
+                style={
+                  ri === 0
+                    ? {
+                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                        fontWeight: 700,
+                      }
+                    : {}
+                }
+              >
                 <span
                   dangerouslySetInnerHTML={{ __html: buildInitialHTML(cell) }}
                 />
@@ -1739,26 +1707,21 @@ const TablePreview = ({ entry }) => {
   );
 };
 
-// ─── TableEditor (editable) ───────────────────────────────────────────────────
-
-// ─── Sanitize: keep only <b> tags, strip everything else ─────────────────────
+// ─── Sanitize ─────────────────────────────────────────────────────────────────
 const sanitizeCellHTML = (html) => {
   if (!html) return "";
-  return (
-    html
-      .replace(/<font[^>]*>/gi, "")
-      .replace(/<\/font>/gi, "")
-      .replace(/<span[^>]*>/gi, "")
-      .replace(/<\/span>/gi, "")
-      .replace(/<strong>/gi, "<b>")
-      .replace(/<\/strong>/gi, "</b>")
-      // Remove any remaining tags except <b> and </b>
-      .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
-      .trim()
-  );
+  return html
+    .replace(/<font[^>]*>/gi, "")
+    .replace(/<\/font>/gi, "")
+    .replace(/<span[^>]*>/gi, "")
+    .replace(/<\/span>/gi, "")
+    .replace(/<strong>/gi, "<b>")
+    .replace(/<\/strong>/gi, "</b>")
+    .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
+    .trim();
 };
 
-// ─── TableEditor ──────────────────────────────────────────────────────────────
+// ─── TableEditor — ALL rows editable ─────────────────────────────────────────
 
 const TableEditor = ({ entry, onChange }) => {
   const { rows, cols } = parseTableDimensions(entry.table_id);
@@ -1766,9 +1729,8 @@ const TableEditor = ({ entry, onChange }) => {
   const cellRefs = useRef({});
 
   useEffect(() => {
-    // Set initial HTML for all data rows (ri >= 1), all columns
+    // Set initial HTML for ALL rows (including row 0)
     grid.forEach((row, ri) => {
-      if (ri === 0) return; // header row is static <th>
       row.forEach((cell, ci) => {
         const el = cellRefs.current[`${ri}-${ci}`];
         if (el) {
@@ -1776,10 +1738,8 @@ const TableEditor = ({ entry, onChange }) => {
         }
       });
     });
-
-    // Commit initial state so unedited tables are still submitted
-    const sanitizedGrid = grid.map((row, ri) =>
-      ri === 0 ? row : row.map((cell) => sanitizeCellHTML(cell)),
+    const sanitizedGrid = grid.map((row) =>
+      row.map((cell) => sanitizeCellHTML(cell)),
     );
     const serialized = serializeTableCells(sanitizedGrid);
     onChange({ ...serialized, table_id: entry.table_id });
@@ -1842,33 +1802,35 @@ const TableEditor = ({ entry, onChange }) => {
     }
   };
 
-  const headerRow = grid[0] || [];
-  const dataRows = grid.slice(1);
-
   return (
     <ReportTable>
-      <thead>
-        <tr>
-          {headerRow.map((cell, ci) => (
-            <ReportTh key={ci}>{cell}</ReportTh>
-          ))}
-        </tr>
-      </thead>
       <tbody>
-        {dataRows.map((row, ri) => (
+        {grid.map((row, ri) => (
           <tr key={ri}>
             {row.map((cell, ci) => (
-              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+              <ReportTd
+                key={ci}
+                isHeader={ci === 0}
+                alt={ri % 2 === 1}
+                style={
+                  ri === 0
+                    ? {
+                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                        fontWeight: 700,
+                      }
+                    : {}
+                }
+              >
                 <EditableCell
                   ref={(el) => {
-                    cellRefs.current[`${ri + 1}-${ci}`] = el;
+                    cellRefs.current[`${ri}-${ci}`] = el;
                   }}
                   contentEditable
                   suppressContentEditableWarning
                   onKeyDown={(e) =>
-                    handleCellKeyDown(e, ri + 1, ci, e.currentTarget)
+                    handleCellKeyDown(e, ri, ci, e.currentTarget)
                   }
-                  onInput={(e) => handleCellInput(ri + 1, ci, e.currentTarget)}
+                  onInput={(e) => handleCellInput(ri, ci, e.currentTarget)}
                   onPaste={(e) => {
                     e.preventDefault();
                     document.execCommand(
@@ -1891,31 +1853,52 @@ const TableEditor = ({ entry, onChange }) => {
 
 // ─── buildSectionsFromValueDetails ───────────────────────────────────────────
 
-const buildSectionsFromValueDetails = (valuedetails, titleMap = null) => {
+// This function already does this correctly — verify the tableNameMap logic:
+const buildSectionsFromValueDetails = (
+  valuedetails,
+  titleMap = null,
+  formatTitles = null,
+) => {
   if (!valuedetails || !Array.isArray(valuedetails.value)) return [];
+
+  const tableNameMap = {};
+  if (formatTitles) {
+    formatTitles.forEach((f) => {
+      // table entries in format_titles have table_id + table_name
+      if (f.table_id && f.table_name) {
+        tableNameMap[f.table_id] = f.table_name;
+      }
+    });
+  }
+
   return valuedetails.value.map((v) => {
     if (isTableEntry(v)) {
+      // Prefer table_name on the saved entry, fall back to format lookup
+      const tableName = v.table_name || tableNameMap[v.table_id] || "";
       return {
-        title_id: v.table_id,
-        title: "Study Table",
+        title_id: v.title_id || v.table_id,
+        title: tableName || "Study Table",
+        tableName,
         value: v,
         isTable: true,
       };
     }
     return {
       title_id: v.title_id,
-      title: (titleMap && titleMap[v.title_id]) || v.title || v.title_id,
+      title: (titleMap && titleMap[v.title_id]) || v.title_id || "",
+      tableName: "",
       value: v.title_value || "",
       isTable: false,
     };
   });
 };
-
 // ─── PreviewSectionItem ───────────────────────────────────────────────────────
 
 const PreviewSectionItem = ({ section, index }) => {
   const [expanded, setExpanded] = useState(true);
-  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  const displayTitle = section.isTable
+    ? section.tableName || "Study Table"
+    : section.title;
   return (
     <SectionCard expanded={expanded}>
       <SectionCardHeader
@@ -1949,7 +1932,9 @@ const PreviewSectionItem = ({ section, index }) => {
 
 const EditSectionItem = ({ section, index, onChange }) => {
   const [expanded, setExpanded] = useState(true);
-  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  const displayTitle = section.isTable
+    ? section.tableName || "Study Table"
+    : section.title;
   return (
     <SectionCard expanded={expanded}>
       <SectionCardHeader
@@ -2007,8 +1992,14 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const sections = buildSectionsFromValueDetails(
       report.valuedetails,
       row._titleMap,
+      row.radiology_format?.format_titles, // ← add this
     );
     const impression = report.impression || "";
+    const pnaDetails = row._pnaDetails || [];
+    const disclaimerList = row._desclaimer || [];
+
+    const doc = new jsPDF();
+    let pageCount = 1;
 
     const leftMargin = 10;
     const rightMargin = leftMargin + 190;
@@ -2050,9 +2041,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         ? [{ label: "IP Number", value: row.ipNumber || "N/A" }]
         : []),
     ];
-
-    const doc = new jsPDF();
-    let pageCount = 1;
 
     const wrapText = (text, maxWidth) => {
       if (!text) return [];
@@ -2229,7 +2217,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     };
 
     const addSignatures = (yPos) => {
-      if (!signatureData) return 0;
+      if (!signatureData) return yPos;
       const sigX = rightMargin - 68;
       let sy = yPos + 3;
       if (signatureData.signatureBase64) {
@@ -2271,14 +2259,28 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           sy,
           { align: "center" },
         );
+        sy += 3;
       }
       doc.setFont("helvetica", "normal");
+      return sy;
     };
 
     const checkNewPage = (yPos, needed) => {
       const pageH = doc.internal.pageSize.height;
-      const footerStart = pageH - footerHeight - 5;
+      const footerStart = pageH - footerHeight - 8;
       if (yPos + needed >= footerStart) {
+        if (withLetterpad) {
+          doc.addImage(
+            FooterImage,
+            "PNG",
+            0,
+            pageH - footerHeight,
+            doc.internal.pageSize.width,
+            footerHeight,
+          );
+        }
+        // ← Remove the stale "Page N of ..." text here entirely
+        //    The final loop will stamp correct "Page X of Y" on every page
         doc.addPage();
         pageCount++;
         addHeaderFooter();
@@ -2308,7 +2310,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const headingStr = row.heading ? row.heading.toUpperCase() : "";
     const subHeading = row.sub_heading || "";
 
-    // ── Department (single line, large) ────────────────────────────────────────
+    // ── Department ────────────────────────────────────────────────────────────
     if (department) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(13);
@@ -2317,16 +2319,27 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       yPos += 7;
     }
 
-    // ── Heading with word wrap + underline ─────────────────────────────────────
+    // ── PNA Details (centered, between department and heading) ────────────────
+    if (pnaDetails && pnaDetails.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(60, 60, 60);
+      pnaDetails.forEach((pna) => {
+        const pnaText = `PNA: ${pna.pna}   Registration date: ${pna.registration_date}`;
+        doc.text(pnaText, centerX, yPos, { align: "center" });
+        yPos += 4.5;
+      });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // ── Heading with underline ─────────────────────────────────────────────────
     if (headingStr) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-
       const headingLines = doc.splitTextToSize(headingStr, contentWidth - 10);
       headingLines.forEach((line, li) => {
         doc.text(line, centerX, yPos + li * 6, { align: "center" });
-        // Underline each line
         const lineW = doc.getTextWidth(line);
         doc.line(
           centerX - lineW / 2,
@@ -2339,7 +2352,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     }
 
     // ── Sub heading ────────────────────────────────────────────────────────────
-    // ── Sub heading ────────────────────────────────────────────────────────────
     if (subHeading) {
       doc.setFont("helvetica", "italic");
       doc.setFontSize(8.5);
@@ -2351,7 +2363,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     }
     yPos += 2;
 
-    // ── ANC Fields Row (below sub_heading, only for ANC type) ──────────────────
+    // ── ANC Fields Row ─────────────────────────────────────────────────────────
     const ancData = row.report?.valuedetails?.anc_fields;
     if (
       ancData &&
@@ -2398,13 +2410,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           : "—",
       ];
 
-      // Background fill
       doc.setFillColor(232, 245, 233);
       doc.rect(leftMargin, yPos, contentWidth, ancRowH, "F");
-      // Outer border
       doc.setDrawColor(178, 223, 219);
       doc.rect(leftMargin, yPos, contentWidth, ancRowH, "S");
-      // Left accent line
       doc.setDrawColor(0, 105, 92);
       doc.setLineWidth(1.2);
       doc.line(leftMargin, yPos, leftMargin, yPos + ancRowH);
@@ -2413,16 +2422,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
       ancLabels.forEach((label, i) => {
         const cellX = leftMargin + i * ancCellW;
-        // Divider between cells
-        if (i > 0) {
-          doc.line(cellX, yPos, cellX, yPos + ancRowH);
-        }
-        // Label
+        if (i > 0) doc.line(cellX, yPos, cellX, yPos + ancRowH);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.setTextColor(0, 105, 92);
         doc.text(label, cellX + ancCellW / 2, yPos + 5, { align: "center" });
-        // Value
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
         doc.setTextColor(40, 40, 40);
@@ -2441,7 +2445,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     if (sections.length > 0) {
       sections.forEach((section, idx) => {
         if (section.isTable) {
-          // ── TABLE SECTION ────────────────────────────────────────────────────
+          // ── TABLE SECTION — ALL rows as data rows ─────────────────────────
           const entry = section.value;
           const { rows: tRows, cols } = parseTableDimensions(entry.table_id);
           const grid = extractTableCells(entry, tRows, cols);
@@ -2454,12 +2458,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           const fontSize = 8.5;
 
           doc.setFontSize(fontSize);
-
           const colWidth = contentWidth / cols;
 
-          // ── Pre-calculate row heights based on wrapped content ───────────────
-          const rowHeights = grid.map((row, ri) => {
-            if (ri === 0) return minRowH;
+          // Pre-calculate row heights
+          const rowHeights = grid.map((row) => {
             let maxLines = 1;
             row.forEach((cell) => {
               const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
@@ -2472,122 +2474,109 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             return Math.max(minRowH, maxLines * lineH + cellPadY * 2);
           });
 
-          const totalTableHeight = rowHeights.reduce((a, b) => a + b, 0) + 6;
+          // ── Table name heading ─────────────────────────────────────────────
+          const tableName = section.tableName || "";
+          const tableNameHeight = tableName ? 10 : 0;
+
+          const totalTableHeight =
+            rowHeights.reduce((a, b) => a + b, 0) + tableNameHeight + 6;
           yPos = checkNewPage(yPos, totalTableHeight);
 
+          // Render table name if present
+          if (tableName) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8.5);
+            doc.setTextColor(0, 105, 92);
+            doc.text(tableName.toUpperCase(), leftMargin, yPos);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            yPos += 6;
+          }
+
           grid.forEach((row, ri) => {
-            const isHeader = ri === 0;
             const rowH = rowHeights[ri];
             yPos = checkNewPage(yPos, rowH + 2);
 
-            // Row background
-            if (isHeader) {
-              doc.setFillColor(0, 137, 123);
-            } else {
-              doc.setFillColor(
-                ri % 2 === 1 ? 240 : 248,
-                ri % 2 === 1 ? 250 : 253,
-                ri % 2 === 1 ? 248 : 252,
-              );
-            }
+            // ALL rows get the same mild alternating background
+            doc.setFillColor(
+              ri % 2 === 0 ? 240 : 248,
+              ri % 2 === 0 ? 248 : 252,
+              ri % 2 === 0 ? 245 : 250,
+            );
             doc.rect(leftMargin, yPos, contentWidth, rowH, "F");
 
-            // Cells
             row.forEach((cell, ci) => {
               const x = leftMargin + ci * colWidth;
-
-              // Cell border
-              doc.setDrawColor(180, 220, 215);
+              doc.setDrawColor(200, 225, 220);
               doc.rect(x, yPos, colWidth, rowH, "S");
 
-              const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
+              doc.setFontSize(fontSize);
+              const maxW = colWidth - cellPadX * 2;
+              const segments = parseHtmlSegments(cell);
 
-              if (isHeader) {
-                // Header: bold, white, centered
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(fontSize);
-                doc.setTextColor(255, 255, 255);
-                const textY = yPos + rowH / 2 + fontSize * 0.18;
-                doc.text(plain, x + colWidth / 2, textY, { align: "center" });
-              } else {
-                // Data rows: render with bold support, centered
-                doc.setFontSize(fontSize);
-                const maxW = colWidth - cellPadX * 2;
-
-                // Parse bold segments and build wrapped lines
-                const segments = parseHtmlSegments(cell);
-
-                // Build word list with bold flags
-                const words = [];
-                segments.forEach(({ text, bold }) => {
-                  const parts = text.split("\n");
-                  parts.forEach((part, pi) => {
-                    if (pi > 0) words.push({ text: "\n", bold: false });
-                    part.split(" ").forEach((w, wi) => {
-                      if (w) words.push({ text: w, bold });
-                    });
+              const words = [];
+              segments.forEach(({ text, bold }) => {
+                const parts = text.split("\n");
+                parts.forEach((part, pi) => {
+                  if (pi > 0) words.push({ text: "\n", bold: false });
+                  part.split(" ").forEach((w) => {
+                    if (w) words.push({ text: w, bold });
                   });
                 });
+              });
 
-                // Word-wrap into lines preserving bold info per segment
-                const wrappedLines = []; // [{segments: [{text, bold}]}]
-                let curLine = [];
-                let curLineW = 0;
+              const wrappedLines = [];
+              let curLine = [];
+              let curLineW = 0;
+              const pushLine = () => {
+                wrappedLines.push(curLine);
+                curLine = [];
+                curLineW = 0;
+              };
 
-                const pushLine = () => {
-                  wrappedLines.push(curLine);
-                  curLine = [];
-                  curLineW = 0;
-                };
-
-                words.forEach((word) => {
-                  if (word.text === "\n") {
-                    pushLine();
-                    return;
-                  }
-                  doc.setFont("helvetica", word.bold ? "bold" : "normal");
-                  const spaceW = curLine.length > 0 ? doc.getTextWidth(" ") : 0;
-                  const wordW = doc.getTextWidth(word.text);
-                  if (curLineW + spaceW + wordW > maxW && curLine.length > 0)
-                    pushLine();
-                  const spacedText =
-                    curLine.length > 0 ? " " + word.text : word.text;
-                  const last = curLine[curLine.length - 1];
-                  if (last && last.bold === word.bold) {
-                    last.text +=
-                      curLine.length > 0 ? " " + word.text : word.text;
-                    last.w += doc.getTextWidth(spacedText);
-                  } else {
-                    curLine.push({
-                      text: spacedText,
-                      bold: word.bold,
-                      w: doc.getTextWidth(spacedText),
-                    });
-                  }
-                  curLineW += doc.getTextWidth(spacedText);
-                });
-                if (curLine.length > 0) pushLine();
-
-                // Remove empty lines
-                const nonEmpty = wrappedLines.filter(
-                  (l) => l.length > 0 && l.some((s) => s.text.trim()),
-                );
-
-                const blockH = nonEmpty.length * lineH;
-                const startY = yPos + (rowH - blockH) / 2 + lineH * 0.75;
-
-                nonEmpty.forEach((lineSegs, li) => {
-                  // Calculate total line width for centering
-                  const totalW = lineSegs.reduce((acc, s) => acc + s.w, 0);
-                  let cx = x + (colWidth - totalW) / 2; // center align
-                  lineSegs.forEach(({ text, bold }) => {
-                    doc.setFont("helvetica", bold ? "bold" : "normal");
-                    doc.setTextColor(40, 40, 40);
-                    doc.text(text, cx, startY + li * lineH);
-                    cx += doc.getTextWidth(text);
+              words.forEach((word) => {
+                if (word.text === "\n") {
+                  pushLine();
+                  return;
+                }
+                doc.setFont("helvetica", word.bold ? "bold" : "normal");
+                const spaceW = curLine.length > 0 ? doc.getTextWidth(" ") : 0;
+                const wordW = doc.getTextWidth(word.text);
+                if (curLineW + spaceW + wordW > maxW && curLine.length > 0)
+                  pushLine();
+                const spacedText =
+                  curLine.length > 0 ? " " + word.text : word.text;
+                const last = curLine[curLine.length - 1];
+                if (last && last.bold === word.bold) {
+                  last.text += curLine.length > 0 ? " " + word.text : word.text;
+                  last.w += doc.getTextWidth(spacedText);
+                } else {
+                  curLine.push({
+                    text: spacedText,
+                    bold: word.bold,
+                    w: doc.getTextWidth(spacedText),
                   });
+                }
+                curLineW += doc.getTextWidth(spacedText);
+              });
+              if (curLine.length > 0) pushLine();
+
+              const nonEmpty = wrappedLines.filter(
+                (l) => l.length > 0 && l.some((s) => s.text.trim()),
+              );
+              const blockH = nonEmpty.length * lineH;
+              const startY = yPos + (rowH - blockH) / 2 + lineH * 0.75;
+
+              nonEmpty.forEach((lineSegs, li) => {
+                const totalW = lineSegs.reduce((acc, s) => acc + s.w, 0);
+                let cx = x + (colWidth - totalW) / 2;
+                lineSegs.forEach(({ text, bold }) => {
+                  doc.setFont("helvetica", bold ? "bold" : "normal");
+                  doc.setTextColor(40, 40, 40);
+                  doc.text(text, cx, startY + li * lineH);
+                  cx += doc.getTextWidth(text);
                 });
-              }
+              });
             });
 
             doc.setTextColor(0, 0, 0);
@@ -2598,7 +2587,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.setDrawColor(0, 0, 0);
           yPos += 5;
         } else {
-          // ── TEXT SECTION ─────────────────────────────────────────────────────
+          // ── TEXT SECTION ──────────────────────────────────────────────────
           const plainValue = htmlToPlainText(section.value);
           if (!plainValue) return;
 
@@ -2609,11 +2598,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(0, 105, 92);
-          doc.text(
-            `${idx + 1}. ${section.title.toUpperCase()}`,
-            leftMargin,
-            yPos,
-          );
+          doc.text(section.title.toUpperCase(), leftMargin, yPos);
           doc.setTextColor(0, 0, 0);
           yPos += 6;
 
@@ -2636,37 +2621,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return doc.internal.pageSize.height - footerHeight - 5 - currentY;
     };
 
-    const measureImpressionHeight = () => {
-      if (!impression) return 0;
-      const plainImpression = htmlToPlainText(impression);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      const impressionLines = doc.splitTextToSize(
-        plainImpression,
-        contentWidth - 9,
-      );
-      return 7 + impressionLines.length * 5.2 + 2;
-    };
-
-    const impressionH = measureImpressionHeight();
-    const endOfReportH = 6;
-    const sigH = signatureData ? 32 : 0;
-    const totalFinalH = impressionH + endOfReportH + sigH;
-    const available = getAvailableSpace(yPos);
-
-    if (totalFinalH > available) {
-      doc.addPage();
-      pageCount++;
-      addHeaderFooter();
-      let ny = contentYStart;
-      ny = addPatientInfo(ny);
-      ny += 10;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(leftMargin, ny - 4, rightMargin, ny - 4);
-      doc.setDrawColor(0, 0, 0);
-      yPos = ny;
-    }
-
+    yPos = checkNewPage(yPos, 12);
     if (impression) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -2719,20 +2674,111 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     });
     yPos += 6;
 
-    addSignatures(yPos);
+    // ── Signatures ─────────────────────────────────────────────────────────────
+    const afterSigY = addSignatures(yPos);
+    yPos = afterSigY + 8;
 
+    // ── Disclaimer — after signature ──────────────────────────────────────────
+    if (disclaimerList && disclaimerList.length > 0) {
+      disclaimerList.forEach((disc) => {
+        const titleText = disc.title || "DISCLAIMER";
+        const rawText = htmlToPlainText(disc.title_value || "");
+        const bodyText = rawText
+          .replace(/\r?\n+/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+        if (!bodyText) return;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+
+        const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
+        const discH = 6 + 5 + bodyLines.length * 4.5 + 6;
+        yPos = checkNewPage(yPos, discH + 10);
+
+        // Separator
+        doc.setDrawColor(180, 180, 180);
+        doc.line(leftMargin, yPos, rightMargin, yPos);
+        doc.setDrawColor(0, 0, 0);
+        yPos += 5;
+
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(titleText, leftMargin, yPos);
+        const titleW = doc.getTextWidth(titleText);
+        doc.line(leftMargin, yPos + 1, leftMargin + titleW, yPos + 1);
+        yPos += 6;
+
+        // ── Justified body text ───────────────────────────────────────────────
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(50, 50, 50);
+
+        bodyLines.forEach((line, lineIdx) => {
+          yPos = checkNewPage(yPos, 5);
+
+          const isLastLine = lineIdx === bodyLines.length - 1;
+
+          // Last line or very short line — left align, no justification
+          if (isLastLine || doc.getTextWidth(line) < contentWidth * 0.6) {
+            doc.text(line, leftMargin, yPos);
+          } else {
+            // Justify: distribute extra space evenly between words
+            const words = line.split(" ").filter((w) => w.length > 0);
+            if (words.length <= 1) {
+              doc.text(line, leftMargin, yPos);
+            } else {
+              const totalWordsWidth = words.reduce(
+                (sum, w) => sum + doc.getTextWidth(w),
+                0,
+              );
+              const totalSpace = contentWidth - totalWordsWidth;
+              const spacePerGap = totalSpace / (words.length - 1);
+              let x = leftMargin;
+              words.forEach((word, wi) => {
+                doc.text(word, x, yPos);
+                x += doc.getTextWidth(word) + spacePerGap;
+              });
+            }
+          }
+          yPos += 4.5;
+        });
+
+        doc.setTextColor(0, 0, 0);
+        yPos += 4;
+      });
+    }
+    // ── Page numbers ───────────────────────────────────────────────────────────
     const finalPageCount = pageCount;
     for (let i = 1; i <= finalPageCount; i++) {
       doc.setPage(i);
       const pageH = doc.internal.pageSize.height;
+
+      if (withLetterpad) {
+        // Redraw footer image on EVERY page to cover any content overflow
+        doc.addImage(
+          FooterImage,
+          "PNG",
+          0,
+          pageH - footerHeight,
+          doc.internal.pageSize.width,
+          footerHeight,
+        );
+      }
+
+      // Draw page number ABOVE the footer (not inside it)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
       doc.text(
         `Page ${i} of ${finalPageCount}`,
         leftMargin + contentWidth / 2,
-        pageH - footerHeight - 2,
+        pageH - footerHeight - 3, // sits just above footer
         { align: "center" },
       );
+      doc.setTextColor(0, 0, 0);
     }
 
     const pdfBlob = doc.output("blob");
@@ -2750,8 +2796,12 @@ const Modal = ({ row, onClose }) => {
   const report = row.report;
   const sections = useMemo(
     () =>
-      buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
-    [report],
+      buildSectionsFromValueDetails(
+        report?.valuedetails,
+        report?._titleMap,
+        row.radiology_format?.format_titles, // ← add this
+      ),
+    [report, row.radiology_format],
   );
   return (
     <StyledModalOverlay onClick={onClose}>
@@ -2815,7 +2865,6 @@ const Modal = ({ row, onClose }) => {
             )}
           </InfoBanner>
           {isANCRow(row) && <ANCDisplayBlock row={row} />}
-
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -2860,7 +2909,11 @@ const Modal = ({ row, onClose }) => {
 const EditModal = ({ row, onClose, onSave }) => {
   const report = row.report;
   const [sections, setSections] = useState(() =>
-    buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
+    buildSectionsFromValueDetails(
+      report?.valuedetails,
+      report?._titleMap,
+      row.radiology_format?.format_titles, // ← add this
+    ),
   );
   const [impression, setImpression] = useState(report?.impression || "");
   const [saving, setSaving] = useState(false);
@@ -2945,7 +2998,6 @@ const EditModal = ({ row, onClose, onSave }) => {
               onChange={setEditAncFields}
             />
           )}
-
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -3215,7 +3267,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchPatient, setSearchPatient] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const [searchReferredBy, setSearchReferredBy] = useState("");
-  const [titleMapCache, setTitleMapCache] = useState({});
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
   const [searchScanType, setSearchScanType] = useState("");
   const [billTypes, setBillTypes] = useState([]);
@@ -3228,16 +3279,12 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const canApprove = allowedActions.includes("HMS-API-RDA-RW");
   const canDelete = allowedActions.includes("HMS-API-RDD-RW");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-
-  // ADD fetch inside useEffect (separate from fetchData):
   useEffect(() => {
     const fetchBillTypes = async () => {
       try {
         const result = await apiRequest(`${HMSURL}hard-bill-types/`, "GET");
         if (result.success && Array.isArray(result.data)) {
           setBillTypes(result.data);
-          // set default only if nothing saved in localStorage
           const saved = localStorage.getItem("rdlist_billType");
           if (!saved && result.data.length > 0) {
             setSelectedBillType(result.data[0].value);
@@ -3285,9 +3332,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         report: row.report || null,
         hasReport: !!row.hasReport,
         radiology_type: (row.radiology_format?.type || "").toUpperCase(),
-        scan_type: (row.scan_type || "").toUpperCase(), // ← ADD
-        tat_info: row.tat_info || null, // ← ADD
-        radiology_format: row.radiology_format || null, // ← ADD (needed for other uses)
+        scan_type: (row.scan_type || "").toUpperCase(),
+        tat_info: row.tat_info || null,
+        radiology_format: row.radiology_format || null,
       }));
       setRows(merged);
     } catch {
@@ -3310,7 +3357,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         result.data.format.forEach((f) => {
           if (f.title_id) titleMap[f.title_id] = f.title;
         });
-        return titleMap;
+        return {
+          titleMap,
+          pnaDetails: result.data.pna_details || [],
+          desclaimer: result.data.desclaimer || [],
+          department: result.data.department || "",
+          heading: result.data.heading || "",
+          sub_heading: result.data.sub_heading || "",
+        };
       }
     } catch (e) {
       console.warn("Could not fetch format titles:", e);
@@ -3318,17 +3372,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     return null;
   };
 
-  const getTitleMap = useCallback(
-    async (row) => {
-      const cacheKey = `${row.billTypeNo}-${row.item_id}-${row.gender}`;
-      if (titleMapCache[cacheKey]) return titleMapCache[cacheKey];
-      const map = await fetchFormatAndBuildSections(row, HMSURL);
-      if (map) setTitleMapCache((prev) => ({ ...prev, [cacheKey]: map }));
-      return map;
-    },
-    [titleMapCache, HMSURL],
-  );
-  // Add this handler inside RDList component
   const handleOpenPrint = () => {
     navigate("/RDPrint", {
       state: {
@@ -3341,33 +3384,37 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       },
     });
   };
+  const buildTitleMapFromRow = (row) => {
+    const rf = row.radiology_format || {};
+    const titleMap = {};
+    (rf.format_titles || []).forEach((f) => {
+      if (f.title_id) titleMap[f.title_id] = f.title;
+    });
+    return {
+      titleMap: Object.keys(titleMap).length ? titleMap : null,
+      pnaDetails: rf.pna_details || [],
+      desclaimer: rf.desclaimer || [],
+      department: rf.department || "",
+      heading: rf.heading || "",
+      sub_heading: rf.sub_heading || "",
+    };
+  };
 
-  const handlePrintWithTitleMap = useCallback(
-    async (row, withLetterpad) => {
-      const titleMap = await getTitleMap(row);
-      let department = "",
-        heading = "",
-        sub_heading = "";
-      try {
-        const result = await apiRequest(
-          `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
-          "GET",
-        );
-        if (result.success && result.data) {
-          department = result.data.department || "";
-          heading = result.data.heading || "";
-          sub_heading = result.data.sub_heading || "";
-        }
-      } catch (e) {
-        console.warn("Could not fetch format for print:", e);
-      }
-      handlePrintReport(
-        { ...row, _titleMap: titleMap, department, heading, sub_heading },
-        withLetterpad,
-      );
-    },
-    [getTitleMap, HMSURL],
-  );
+  const handlePrintWithTitleMap = useCallback((row, withLetterpad) => {
+    const formatData = buildTitleMapFromRow(row);
+    handlePrintReport(
+      {
+        ...row,
+        _titleMap: formatData.titleMap,
+        _pnaDetails: formatData.pnaDetails,
+        _desclaimer: formatData.desclaimer,
+        department: formatData.department,
+        heading: formatData.heading,
+        sub_heading: formatData.sub_heading,
+      },
+      withLetterpad,
+    );
+  }, []);
 
   // ── Filters ────────────────────────────────────────────────────────────────
 
@@ -3386,13 +3433,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setSearchReferredBy("");
     setSearchScanType("");
   };
+
   const scanTypeOptions = useMemo(() => {
     const types = rows.map((r) => r.scan_type).filter(Boolean);
     return [...new Set(types)].sort();
   }, [rows]);
 
   const referredByOptions = useMemo(() => {
-    const names = rows.map((r) => r.referredByName).filter(Boolean); // ← referredByName
+    const names = rows.map((r) => r.referredByName).filter(Boolean);
     return [...new Set(names)].sort();
   }, [rows]);
 
@@ -3430,7 +3478,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? !row.report?.slot_DateTime
               : s === searchSlotStatus;
           })()) &&
-        (!searchReferredBy || row.referredByName === searchReferredBy) // ← referredByName
+        (!searchReferredBy || row.referredByName === searchReferredBy)
       );
     });
   }, [
@@ -3471,7 +3519,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     const parts = uhidFull.split("/");
     const uhidBase = parts[0] || "na";
     const subUhid = parts[1] || "na";
-
     navigate(`/RDReportForm/${uhidBase}/${subUhid}`, {
       state: {
         uhid: uhidFull,
@@ -3493,10 +3540,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       },
     });
   };
+
   const handlePatientCheckIn = async (row) => {
     const alreadyIn = !!row.report?.patientIn_DateTime;
     const patientIn_DateTime = alreadyIn ? null : new Date().toISOString();
-
     try {
       if (!row.report) {
         const result = await apiRequest(
@@ -3522,10 +3569,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? {
                   ...r,
                   tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: {
-                    ...(r.report || {}),
-                    ...result.data,
-                  },
+                  report: { ...(r.report || {}), ...result.data },
                 }
               : r,
           ),
@@ -3549,10 +3593,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? {
                   ...r,
                   tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: {
-                    ...r.report,
-                    ...result.data,
-                  },
+                  report: { ...r.report, ...result.data },
                 }
               : r,
           ),
@@ -3568,7 +3609,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     const scan_started_DateTime = alreadyStarted
       ? null
       : new Date().toISOString();
-
     try {
       if (!row.report) {
         const result = await apiRequest(
@@ -3594,10 +3634,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? {
                   ...r,
                   tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: {
-                    ...(r.report || {}),
-                    ...result.data,
-                  },
+                  report: { ...(r.report || {}), ...result.data },
                 }
               : r,
           ),
@@ -3621,10 +3658,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               ? {
                   ...r,
                   tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: {
-                    ...r.report,
-                    ...result.data,
-                  },
+                  report: { ...r.report, ...result.data },
                 }
               : r,
           ),
@@ -3660,7 +3694,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
                 ...r,
-                tat_info: result.data?.tat_info ?? r.tat_info, // ← from backend
+                tat_info: result.data?.tat_info ?? r.tat_info,
                 report: {
                   ...r.report,
                   is_Dispatched: true,
@@ -3705,23 +3739,25 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     );
   };
 
-  const handlePreview = async (row) => {
-    const titleMap = await getTitleMap(row);
-    const enrichedRow = {
+  const handlePreview = (row) => {
+    const formatData = buildTitleMapFromRow(row);
+    setSelectedRow({
       ...row,
-      report: row.report ? { ...row.report, _titleMap: titleMap } : row.report,
-    };
-    setSelectedRow(enrichedRow);
+      report: row.report
+        ? { ...row.report, _titleMap: formatData.titleMap }
+        : row.report,
+    });
     setIsModalOpen(true);
   };
 
-  const handleEdit = async (row) => {
-    const titleMap = await getTitleMap(row);
-    const enrichedRow = {
+  const handleEdit = (row) => {
+    const formatData = buildTitleMapFromRow(row);
+    setEditingRow({
       ...row,
-      report: row.report ? { ...row.report, _titleMap: titleMap } : row.report,
-    };
-    setEditingRow(enrichedRow);
+      report: row.report
+        ? { ...row.report, _titleMap: formatData.titleMap }
+        : row.report,
+    });
     setIsEditModalOpen(true);
   };
 
@@ -3760,17 +3796,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     try {
       const apiSections = newSections.map((s) => {
         if (s.isTable) {
-          // Send raw table entry: { table_id, row1col1, row1col2, ... }
-          return s.value;
+          const { table_name, title, ...rowData } = s.value;
+          return rowData;
         }
-        // Send text entry: { title_id, title, title_value }
         return {
           title_id: s.title_id,
-          title: s.title,
-          title_value: s.value, // s.value holds the HTML string
+          title_value: s.value,
         };
       });
-
       const result = await apiRequest(
         `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.item_id)}/`,
         "PATCH",
@@ -3782,7 +3815,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       );
       if (!result.success) throw new Error(result.error);
       toast.success("Report updated successfully!");
-
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === editingRow.investBillNo &&
@@ -3848,7 +3880,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const pageLabel =
     billTypes.find((b) => b.value === selectedBillType)?.label || "Radiology";
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   const formatTATDuration = (seconds) => {
     if (seconds === null || seconds === undefined) return "—";
     const total = Math.abs(Math.round(seconds));
@@ -3863,18 +3894,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     if (!tat || tat.status === "unknown") return tat;
     if (tat.status === "completed" || tat.status === "completed_late")
       return tat;
-
-    // If patient not checked in yet
-    if (!row.report?.patientIn_DateTime) {
+    if (!row.report?.patientIn_DateTime)
       return { ...tat, status: "waiting", label: "Awaiting check-in" };
-    }
-
-    // If checked in but scan not started yet → show waiting for scan
-    if (!row.report?.scan_started_DateTime) {
+    if (!row.report?.scan_started_DateTime)
       return { ...tat, status: "waiting", label: "Awaiting scan start" };
-    }
 
-    // Scan started → live countdown/countup from scan_started_DateTime
     const startTime = new Date(row.report.scan_started_DateTime).getTime();
     const nowTime = Date.now();
     const elapsed_seconds = Math.floor((nowTime - startTime) / 1000);
@@ -3898,9 +3922,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       status === "on_track"
         ? `${fmtDuration(remaining)} left`
         : `Overdue by ${fmtDuration(-remaining)}`;
-
     return { ...tat, elapsed_seconds, status, label };
   };
+
   const formatTimeOnly = (isoString) => {
     if (!isoString) return "";
     try {
@@ -3911,18 +3935,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       const h = parseInt(hour, 10);
       const ampm = h >= 12 ? "pm" : "am";
       const h12 = h % 12 === 0 ? 12 : h % 12;
-      const sec = second ? second.split(".")[0] : "00"; // strip milliseconds
+      const sec = second ? second.split(".")[0] : "00";
       return `${String(h12).padStart(2, "0")}:${minute}:${sec} ${ampm}`;
     } catch {
       return "";
     }
   };
 
-  /*
-──────────────────────────────────────────────
-PATIENT IN  <Td>
-──────────────────────────────────────────────
-*/
   const PatientInCell = ({ row, handlePatientCheckIn }) => {
     const checkedIn = !!row.report?.patientIn_DateTime;
     const scanStarted = !!row.report?.scan_started_DateTime;
@@ -3930,7 +3949,6 @@ PATIENT IN  <Td>
     const isApproved = !!row.report?.is_approved;
 
     if (isApproved && checkedIn) {
-      // Locked — show green pill, no interaction
       return (
         <Td>
           <WfLockedPill
@@ -3946,7 +3964,6 @@ PATIENT IN  <Td>
         </Td>
       );
     }
-
     if (checkedIn) {
       return (
         <Td>
@@ -3966,7 +3983,6 @@ PATIENT IN  <Td>
         </Td>
       );
     }
-
     return (
       <Td>
         <WfIdleBtn
@@ -3981,11 +3997,6 @@ PATIENT IN  <Td>
     );
   };
 
-  /*
-──────────────────────────────────────────────
-SCAN STARTED  <Td>
-──────────────────────────────────────────────
-*/
   const ScanStartedCell = ({ row, handleScanStarted }) => {
     const scanStarted = !!row.report?.scan_started_DateTime;
     const checkedIn = !!row.report?.patientIn_DateTime;
@@ -4007,7 +4018,6 @@ SCAN STARTED  <Td>
         </Td>
       );
     }
-
     if (scanStarted) {
       return (
         <Td>
@@ -4031,7 +4041,6 @@ SCAN STARTED  <Td>
         </Td>
       );
     }
-
     return (
       <Td>
         <WfIdleBtn
@@ -4046,11 +4055,6 @@ SCAN STARTED  <Td>
     );
   };
 
-  /*
-──────────────────────────────────────────────
-DISPATCH  <Td>
-──────────────────────────────────────────────
-*/
   const DispatchCell = ({ row, handleDispatch }) => {
     const isApproved = !!row.report?.is_approved;
     const isDispatched = !!row.report?.is_Dispatched;
@@ -4066,7 +4070,6 @@ DISPATCH  <Td>
         </Td>
       );
     }
-
     if (isApproved) {
       return (
         <Td>
@@ -4080,7 +4083,6 @@ DISPATCH  <Td>
         </Td>
       );
     }
-
     return (
       <Td>
         <WfIdleBtn
@@ -4098,7 +4100,6 @@ DISPATCH  <Td>
     <PageWrapper>
       <Container>
         <ContentCard>
-          {/* Top bar */}
           <TopBar>
             <PageTitle>{pageLabel} Investigations</PageTitle>
             <FilterContainer>
@@ -4159,7 +4160,6 @@ DISPATCH  <Td>
             </Button>
           </TopBar>
 
-          {/* Stats */}
           <StatsRow>
             <StatCard bg="#f0faf8" accent="#00897b">
               <StatIcon>📋</StatIcon>
@@ -4259,7 +4259,6 @@ DISPATCH  <Td>
                   </SearchTh>
                   <SearchTh />
                   <SearchTh />
-                  {/* search row — Item column gets the scan type dropdown */}
                   <SearchTh>
                     <SearchSelect
                       value={searchScanType}
@@ -4281,7 +4280,7 @@ DISPATCH  <Td>
                       onChange={(e) => setSearchReferredBy(e.target.value)}
                     >
                       <option value="">All Doctors</option>
-                      <option value="SELF">SELF</option> {/* ← hardcoded */}
+                      <option value="SELF">SELF</option>
                       {referredByOptions.map((name) => (
                         <option key={name} value={name}>
                           {name}
@@ -4303,10 +4302,7 @@ DISPATCH  <Td>
                     <SearchSelect
                       value={searchSlotStatus}
                       onChange={(e) => setSearchSlotStatus(e.target.value)}
-                      style={{
-                        width: "auto",
-                        minWidth: "max-content",
-                      }}
+                      style={{ width: "auto", minWidth: "max-content" }}
                     >
                       <option value="">All Arrivals</option>
                       <option value="on_time">✅ On Time</option>
@@ -4316,8 +4312,8 @@ DISPATCH  <Td>
                     </SearchSelect>
                   </SearchTh>
                   <SearchTh />
-                  <SearchTh /> {/* Patient In */}
-                  <SearchTh /> {/* Dispatch */}
+                  <SearchTh />
+                  <SearchTh />
                   <SearchTh>
                     <SearchSelect
                       value={searchStatus}
@@ -4373,7 +4369,7 @@ DISPATCH  <Td>
                       <Td>
                         {(() => {
                           const liveTat = getLiveTAT(row);
-                          if (!liveTat || liveTat.status === "unknown") {
+                          if (!liveTat || liveTat.status === "unknown")
                             return (
                               <span
                                 style={{ color: "#bbb", fontSize: "0.8rem" }}
@@ -4381,7 +4377,6 @@ DISPATCH  <Td>
                                 —
                               </span>
                             );
-                          }
                           return (
                             <TATBadge status={liveTat.status}>
                               {tatIcon(liveTat.status)} {liveTat.label}
@@ -4394,7 +4389,7 @@ DISPATCH  <Td>
                         {row.referredByName ? (
                           <ReferredByBadge>
                             👨‍⚕️ {row.referredByName}
-                          </ReferredByBadge> // ← referredByName
+                          </ReferredByBadge>
                         ) : (
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —
@@ -4496,7 +4491,7 @@ DISPATCH  <Td>
                               row.paymentStatus !== "Paid" ||
                               row.report?.is_approved ||
                               !row.report?.patientIn_DateTime ||
-                              !row.report?.scan_started_DateTime || // ← ADD: must be scan started
+                              !row.report?.scan_started_DateTime ||
                               (row.hasReport && !row.ipNumber) ||
                               (row.hasReport &&
                                 row.ipNumber &&
@@ -4507,7 +4502,7 @@ DISPATCH  <Td>
                                 ? "Payment Pending"
                                 : !row.report?.patientIn_DateTime
                                   ? "Patient not checked in yet"
-                                  : !row.report?.scan_started_DateTime // ← ADD
+                                  : !row.report?.scan_started_DateTime
                                     ? "Scan not started yet"
                                     : row.report?.is_approved
                                       ? "Already Approved"
@@ -4611,7 +4606,6 @@ DISPATCH  <Td>
         </ContentCard>
       </Container>
 
-      {/* Print dropdown portal */}
       {activePrintRowId &&
         activePrintRow &&
         createPortal(

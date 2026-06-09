@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
@@ -766,6 +766,66 @@ const ANCInput = styled.input`
   }
 `;
 
+// ── Modal styled components ───────────────────────────────────────────────
+const FetusModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+`;
+const FetusModalBox = styled.div`
+  background: white;
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  min-width: 320px;
+  animation: ${slideUp} 0.3s ease;
+`;
+const FetusModalTitle = styled.h2`
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #00695c;
+  margin: 0 0 0.4rem;
+`;
+const FetusModalSubtitle = styled.p`
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+`;
+const FetusOptionGrid = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+`;
+const FetusOptionBtn = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 2rem;
+  border: 2.5px solid #b2dfdb;
+  border-radius: 16px;
+  background: #f8fffe;
+  cursor: pointer;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #00695c;
+  transition: all 0.15s;
+  span {
+    font-size: 0.9rem;
+  }
+  &:hover {
+    background: #e0f2f1;
+    border-color: #00897b;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 137, 123, 0.2);
+  }
+`;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const formatDisplayDate = (d) =>
@@ -851,6 +911,7 @@ const serializeTableCells = (grid) => {
   });
   return out;
 };
+
 // ─── Sanitize: keep only <b> tags, strip everything else ─────────────────────
 const sanitizeCellHTML = (html) => {
   if (!html) return "";
@@ -869,6 +930,18 @@ const sanitizeCellHTML = (html) => {
 };
 
 // ─── TableEditor ──────────────────────────────────────────────────────────────
+// CHANGE 1: Accept `tableName` prop to display in the section header.
+// CHANGE 2: Row 0 (first data row, index 0 in grid) is now fully editable —
+//           it is rendered as <ReportTd> with an <EditableCell> just like all
+//           other data rows. There is no static header row rendered via <ReportTh>
+//           anymore; the column-header row is derived separately from the API
+//           `table_name` field or the first row depending on your data contract.
+//
+// NOTE: In the original code, `grid[0]` was treated as the *column header* row
+// and rendered as <ReportTh> (non-editable). Now ALL rows in `grid` (ri 0..N)
+// are rendered as editable <EditableCell> inside <ReportTd>. If your API always
+// sends a header row as row1 and data starting at row2, this means the header
+// row text is now editable, which is the requested behaviour.
 
 const TableEditor = ({ entry, onChange }) => {
   const { rows, cols } = parseTableDimensions(entry.table_id);
@@ -876,9 +949,8 @@ const TableEditor = ({ entry, onChange }) => {
   const cellRefs = useRef({});
 
   useEffect(() => {
-    // Set initial HTML for all data rows (ri >= 1), all columns
+    // Initialise ALL rows (including ri === 0 — previously skipped)
     grid.forEach((row, ri) => {
-      if (ri === 0) return; // header row is static <th>
       row.forEach((cell, ci) => {
         const el = cellRefs.current[`${ri}-${ci}`];
         if (el) {
@@ -888,8 +960,8 @@ const TableEditor = ({ entry, onChange }) => {
     });
 
     // Commit initial state so unedited tables are still submitted
-    const sanitizedGrid = grid.map((row, ri) =>
-      ri === 0 ? row : row.map((cell) => sanitizeCellHTML(cell)),
+    const sanitizedGrid = grid.map((row) =>
+      row.map((cell) => sanitizeCellHTML(cell)),
     );
     const serialized = serializeTableCells(sanitizedGrid);
     onChange({ ...serialized, table_id: entry.table_id });
@@ -952,33 +1024,30 @@ const TableEditor = ({ entry, onChange }) => {
     }
   };
 
-  const headerRow = grid[0] || [];
-  const dataRows = grid.slice(1);
-
+  // ALL rows are now data rows — no separate static header row
   return (
     <ReportTable>
-      <thead>
-        <tr>
-          {headerRow.map((cell, ci) => (
-            <ReportTh key={ci}>{cell}</ReportTh>
-          ))}
-        </tr>
-      </thead>
       <tbody>
-        {dataRows.map((row, ri) => (
+        {grid.map((row, ri) => (
           <tr key={ri}>
             {row.map((cell, ci) => (
-              <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
+              <ReportTd
+                key={ci}
+                // First column of every row gets the "header" background tint
+                isHeader={ci === 0}
+                // Alternate row shading starting from ri === 1
+                alt={ri % 2 === 1}
+              >
                 <EditableCell
                   ref={(el) => {
-                    cellRefs.current[`${ri + 1}-${ci}`] = el;
+                    cellRefs.current[`${ri}-${ci}`] = el;
                   }}
                   contentEditable
                   suppressContentEditableWarning
                   onKeyDown={(e) =>
-                    handleCellKeyDown(e, ri + 1, ci, e.currentTarget)
+                    handleCellKeyDown(e, ri, ci, e.currentTarget)
                   }
-                  onInput={(e) => handleCellInput(ri + 1, ci, e.currentTarget)}
+                  onInput={(e) => handleCellInput(ri, ci, e.currentTarget)}
                   onPaste={(e) => {
                     e.preventDefault();
                     document.execCommand(
@@ -998,6 +1067,7 @@ const TableEditor = ({ entry, onChange }) => {
     </ReportTable>
   );
 };
+
 // ─── Section Accordion Item ───────────────────────────────────────────────────
 
 const SectionItem = ({ section, index, onChange, shortcuts }) => {
@@ -1008,8 +1078,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
   const suppressRef = useRef(false);
   const lastHTMLRef = useRef("");
 
-  // For table sections: initial cell setup handled inside TableEditor
-  // For text sections: set innerHTML once on mount
   useEffect(() => {
     if (section.isTable) return;
     if (!editorRef.current) return;
@@ -1043,7 +1111,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
-      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1059,7 +1126,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       markEl.remove();
       sel.removeAllRanges();
       sel.addRange(range);
-      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1099,7 +1165,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
         sel.removeAllRanges();
         sel.addRange(newRange);
 
-        // suppressRef.current = true;
         const html = el.innerHTML;
         lastHTMLRef.current = html;
         onChange(index, html);
@@ -1161,7 +1226,13 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
     }
   };
 
-  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  // CHANGE 1: Display `table_name` from the entry (if available) instead of
+  // the generic "Study Table" fallback. Falls back to "Study Table" only when
+  // `table_name` is absent so existing data without the field still works.
+  // In SectionItem, replace the displayTitle line:
+  const displayTitle = section.isTable
+    ? section.tableEntry?.table_name?.trim() || section.title || "Table"
+    : section.title;
 
   return (
     <SectionCard expanded={expanded}>
@@ -1171,7 +1242,10 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       >
         <SectionTitleRow>
           <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{displayTitle}</SectionName>
+          {/* Show 📊 icon only for table sections */}
+          <SectionName>
+            {section.isTable ? `📊 ${displayTitle}` : displayTitle}
+          </SectionName>
         </SectionTitleRow>
         <ChevronIcon expanded={expanded}>▼</ChevronIcon>
       </SectionCardHeader>
@@ -1248,7 +1322,6 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
     if (!el) return;
     const html = el.innerHTML;
     lastHTMLRef.current = html;
-    // suppressRef.current = true;
     onChange(html);
   };
 
@@ -1276,15 +1349,18 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
 
 // ─── Build sections from format_titles (supports table entries) ───────────────
 
+// Replace buildSectionsFromFormat:
 const buildSectionsFromFormat = (formatArr) => {
   return (formatArr || []).map((f) => {
     if (isTableEntry(f)) {
+      const tableName =
+        f.table_name && f.table_name.trim() ? f.table_name.trim() : ""; // keep empty, don't force "Study Table" here
       return {
         title_id: f.table_id,
-        title: "Study Table",
+        title: tableName || "", // fallback to table_id e.g. "3X2"
         isTable: true,
-        tableEntry: { ...f }, // raw entry with table_id + rowXcolY keys
-        value: "", // not used for tables
+        tableEntry: { ...f },
+        value: "",
         title_value: "",
       };
     }
@@ -1298,7 +1374,6 @@ const buildSectionsFromFormat = (formatArr) => {
     };
   });
 };
-
 const calcGAFromLMP = (lmpDateStr) => {
   if (!lmpDateStr) return "";
   try {
@@ -1314,6 +1389,7 @@ const calcGAFromLMP = (lmpDateStr) => {
     return "";
   }
 };
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDReportForm = () => {
@@ -1321,6 +1397,10 @@ const RDReportForm = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+  // ── Add to state ──────────────────────────────────────────────────────────
+  const [fetusOptions, setFetusOptions] = useState([]); // ["Single","Twins"]
+  const [showFetusModal, setShowFetusModal] = useState(false);
+  const [selectedFetus, setSelectedFetus] = useState("");
 
   // ── Live clock ────────────────────────────────────────────────────────────
   const [now, setNow] = useState(new Date());
@@ -1357,8 +1437,8 @@ const RDReportForm = () => {
   const [ancFields, setAncFields] = useState({
     guh: "",
     lmp: "",
-    ga_lmp: "", // stored as "6W5D"
-    ga_usg: "", // new: GA by USG, stored as "6W5D"
+    ga_lmp: "",
+    ga_usg: "",
     edd_usg: "",
   });
 
@@ -1406,18 +1486,14 @@ const RDReportForm = () => {
     setDataLoaded(true);
   }, [location.state, navigate]);
 
-  // ── Fetch radiology format once patient data is ready ────────────────────
-  useEffect(() => {
-    if (!dataLoaded || !billTypeNo || !itemId || !gender) return;
-
-    const fetchFormat = async () => {
+  // ── Fetch radiology format ─────────────────────────────────────────────────
+  const fetchFormat = useCallback(
+    async (fetusChoice = "") => {
       setFormatLoading(true);
       setFormatError("");
       try {
-        const result = await apiRequest(
-          `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(billTypeNo)}&test_id=${encodeURIComponent(itemId)}&gender=${encodeURIComponent(gender)}`,
-          "GET",
-        );
+        const url = `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(billTypeNo)}&test_id=${encodeURIComponent(itemId)}&gender=${encodeURIComponent(gender)}${fetusChoice ? `&fetus=${encodeURIComponent(fetusChoice)}` : ""}`;
+        const result = await apiRequest(url, "GET");
 
         if (!result.success) {
           setFormatError(result.error || "Could not load report template.");
@@ -1425,6 +1501,12 @@ const RDReportForm = () => {
         }
 
         const data = result.data;
+
+        if (data.requires_selection && data.selection_field === "fetus") {
+          setFetusOptions(data.options || []);
+          setShowFetusModal(true);
+          return;
+        }
 
         setFormatMeta({
           department: data.department,
@@ -1437,29 +1519,34 @@ const RDReportForm = () => {
 
         setShortcuts(data.shorcuts || {});
 
-        // ── ANC type detection ───────────────────────────────────────────────
         const isANCType = (data.type || "").toUpperCase() === "ANC";
         setIsANC(isANCType);
 
-        // ✅ Build sections supporting both text and table entries
         const built = buildSectionsFromFormat(data.format || []);
         setSections(built);
 
-        // Impression HTML built once here
         setImpression(buildInitialHTML(data.impression || ""));
       } catch {
         setFormatError("Unexpected error loading report template.");
       } finally {
         setFormatLoading(false);
       }
-    };
-
+    },
+    [HMSURL, billTypeNo, itemId, gender],
+  );
+  useEffect(() => {
+    if (!dataLoaded || !billTypeNo || !itemId || !gender) return;
     fetchFormat();
-  }, [dataLoaded, billTypeNo, itemId, gender, HMSURL]);
+  }, [dataLoaded, billTypeNo, itemId, gender, fetchFormat]);
+
+  // Call fetchFormat on selection
+  const handleFetusSelect = (choice) => {
+    setSelectedFetus(choice);
+    setShowFetusModal(false);
+    fetchFormat(choice);
+  };
 
   // ── Section value change ──────────────────────────────────────────────────
-  // For text sections: htmlValue is the new HTML string
-  // For table sections: htmlValue is the updated tableEntry object, isTableUpdate=true
   const handleSectionChange = (index, htmlValue, isTableUpdate = false) => {
     setSections((prev) => {
       const updated = [...prev];
@@ -1483,7 +1570,7 @@ const RDReportForm = () => {
   const handleResetSections = () => {
     setSections((prev) =>
       prev.map((s) => {
-        if (s.isTable) return s; // table resets handled inside TableEditor if needed
+        if (s.isTable) return s;
         return { ...s, value: buildInitialHTML(s.title_value || "") };
       }),
     );
@@ -1508,17 +1595,15 @@ const RDReportForm = () => {
 
     setSubmitting(true);
 
-    // Serialize sections for API:
-    // Text sections: { title_id, value }
-    // Table sections: { title_id (table_id), isTable: true, tableData: { table_id, row1col1, ... } }
     const apiSections = sections.map((s) => {
       if (s.isTable) {
-        // Store exactly as received: { table_id, row1col1, row1col2, ... }
-        return s.tableEntry;
+        // Extract only table_id, title_id, and row values — no title or table_name
+        const { table_name, title, ...rowData } = s.tableEntry;
+        return rowData; // contains table_id + title_id (if present) + row1col1 etc.
       }
+      // Store only title_id and title_value — no title
       return {
         title_id: s.title_id,
-        title: s.title,
         title_value: s.value,
       };
     });
@@ -1532,7 +1617,8 @@ const RDReportForm = () => {
       item_id: itemId,
       device_id: formatMeta?.device_id || [],
       sections: apiSections,
-      type: formatMeta?.type || "", // ← add this
+      type: formatMeta?.type || "",
+      ...(selectedFetus && { fetus: selectedFetus }), // ← add this line
       ...(isANC && { anc_fields: ancFields }),
     };
     try {
@@ -1735,7 +1821,10 @@ const RDReportForm = () => {
                       type="date"
                       value={ancFields.edd_usg}
                       onChange={(e) =>
-                        setAncFields((p) => ({ ...p, edd_usg: e.target.value }))
+                        setAncFields((p) => ({
+                          ...p,
+                          edd_usg: e.target.value,
+                        }))
                       }
                     />
                   </ANCFieldGroup>
@@ -1869,6 +1958,28 @@ const RDReportForm = () => {
               </SubmitButton>
             </StyledButtonContainer>
           </Form>
+          {/* ── Fetus Selection Modal ── */}
+          {showFetusModal && (
+            <FetusModalOverlay>
+              <FetusModalBox>
+                <FetusModalTitle>🤰 Select Fetus Type</FetusModalTitle>
+                <FetusModalSubtitle>
+                  Multiple templates found for this scan. Please select:
+                </FetusModalSubtitle>
+                <FetusOptionGrid>
+                  {fetusOptions.map((opt) => (
+                    <FetusOptionBtn
+                      key={opt}
+                      onClick={() => handleFetusSelect(opt)}
+                    >
+                      {opt === "Twins" ? "👶👶" : "👶"}
+                      <span>{opt}</span>
+                    </FetusOptionBtn>
+                  ))}
+                </FetusOptionGrid>
+              </FetusModalBox>
+            </FetusModalOverlay>
+          )}
         </FormCard>
       </Container>
     </PageWrapper>
