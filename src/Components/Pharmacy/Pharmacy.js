@@ -1375,6 +1375,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         status,
         billing_mode,
         ...paymentFields,
+        // ✅ Send patientname ONLY when no uhid (walk-in / unregistered patient)
+  ...(!formData.uhid && { patientname: formData.name }),
       };
 
       let response;

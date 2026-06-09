@@ -964,7 +964,7 @@ const extractReturnRows = (bill, employeeName) => {
       // Use the return date as bill_date so it sorts/filters properly
       bill_date:      ret.return_date || bill.bill_date || bill.created_date || "",
       uhid:           bill.uhid           || "",
-      patient_name:   bill.patient_name   || "",
+      patient_name:   bill.patient_name   || bill.patientname || "",
       // Inherit parent bill's payment so Payment Mode column shows correctly
       payment_method:  parentPaymentMethod,
       payment_details: bill.payment_details || null,
@@ -1008,7 +1008,7 @@ const formatBillData = (bills, employeeName = "") => {
       _isReturn:      false,
       bill_date:      b.bill_date      || b.created_date || "",
       uhid:           b.uhid           || "",
-      patient_name:   b.patient_name   || "",
+      patient_name:   b.patient_name   || b.patientname || "",
       payment_method: parsePaymentMethod(b.payment_details) || null,
       payment_details: b.payment_details || null,
       payment_entries: parsePaymentEntries(b.payment_details),
@@ -1461,8 +1461,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
                             <Td><AmountCell style={{ color: "#2d3748" }}>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
                             <Td>
                               {bill._isReturn ? (
-                                <AmountCell style={{ color:"#9d174d", fontWeight:600 }}>
-                                  − ₹ {bill.net_amount.toFixed(2)}
+                                <AmountCell style={{ color:"#276749", fontWeight:600 }}>
+                                  ₹ {bill.net_amount.toFixed(2)}
                                 </AmountCell>
                               ) : (
                                 <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
