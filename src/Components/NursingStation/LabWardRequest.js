@@ -631,8 +631,8 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
   const addTest = (test) => {
     if (!test) return;
     // Unique check based on test_id or itemName (if test_id missing)
-    const exists = selectedTests.find((t) => 
-      (test.test_id && t.test_id === test.test_id) || 
+    const exists = selectedTests.find((t) =>
+      (test.test_id && t.test_id === test.test_id) ||
       (t.itemName === test.itemName)
     );
     if (exists) {
@@ -675,8 +675,6 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
       bill_type: billtype,
-      billTypeNo: billTypeNo,
-      billTypeName: billTypeName,
       doctor: doctor,
       wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
       item: mappedTests,
@@ -1059,8 +1057,8 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                   </Td>
                   <Td style={{ textAlign: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                      <button 
-                        onClick={() => toggleRow(req.id)} 
+                      <button
+                        onClick={() => toggleRow(req.id)}
                         style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontSize: "1.2rem" }}
                       >
                         {expandedRow === req.id ? "▴" : "▾"}

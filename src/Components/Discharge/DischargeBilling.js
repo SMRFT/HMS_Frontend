@@ -748,7 +748,7 @@ const DischargeBilling = () => {
         ? `uhid=${encodeURIComponent(val)}`
         : `ipNumber=${encodeURIComponent(val)}`;
       const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}`, "GET");
-      const res = raw?.data !== undefined ? raw.data : raw;
+      const res = raw.success && raw.data && raw.data.success ? raw.data.data : (raw.success ? raw.data : raw);
       const p   = res?.patient;
       if (p) {
         const norm = { ...p, ip_number: p.ip_number || p.ipNumber || "" };
@@ -833,7 +833,7 @@ const DischargeBilling = () => {
       const res = editingEst?.id
         ? await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient))
         : await apiRequest(`${BASE}discharge-billing/`,                  "POST",  buildPayload(items, form, t, "Estimate", patient));
-      const d = res?.id ? res : res?.data;
+      const d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
       if (d?.id) {
         showToast(`✓ Estimate saved — ${d.estimate_number || ""}`);
         handleReset(); setEstRefresh(n => n + 1); setTab("estimates");
@@ -852,14 +852,14 @@ const DischargeBilling = () => {
       if (editingEst?.id) {
         await apiRequest(`${BASE}discharge-billing/${editingEst.id}/`, "PATCH", buildPayload(items, form, t, "Estimate", patient));
         const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {});
-        const d   = res?.id ? res : res?.data;
+        const d   = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
         if (d?.id || d?.bill_no) {
           showToast(`✓ Converted to Bill — ${d.bill_no || ""}`);
           handleReset(); setEstRefresh(n => n + 1); setBillRefresh(n => n + 1); setTab("bills");
         } else showToast(JSON.stringify(res?.error || res), true);
       } else {
         const res = await apiRequest(`${BASE}discharge-billing/`, "POST", buildPayload(items, form, t, "Billed", patient));
-        const d   = res?.id ? res : res?.data;
+        const d   = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
         if (d?.id) {
           showToast(`✓ Bill saved — ${d.bill_no || ""}`);
           handleReset(); setBillRefresh(n => n + 1); setTab("bills");

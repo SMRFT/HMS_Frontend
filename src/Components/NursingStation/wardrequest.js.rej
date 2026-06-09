@@ -1,0 +1,545 @@
+@@ -5,6 +5,8 @@
+ import MedicineWardRequest from "./WardRequestPage";
+ import RadiologyWardRequest from "./RadiologyWardRequest";
+ import DietOrderModal from "./DietOrderModal";
++import LaundryWardRequest from "./LaundryWardRequest";
++import RoomShifting from "./RoomShifting";
+ import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody, NoResults } from "../GlobalStyles";
+ 
+ // Modern Icons
+@@ -614,6 +617,10 @@
+   const [showMedicineModal, setShowMedicineModal] = useState(false);
+   const [showRadiologyModal, setShowRadiologyModal] = useState(false);
+   const [showDietModal, setShowDietModal] = useState(false);
++  const [showLaundryModal, setShowLaundryModal] = useState(false);
++  const [showRoomShiftModal, setShowRoomShiftModal] = useState(false);
++  const [showStatusModal, setShowStatusModal] = useState(false);
++  const [statusToUpdate, setStatusToUpdate] = useState("");
+   const [selectedPatient, setSelectedPatient] = useState(null);
+   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
+   const [rooms, setRooms] = useState([]);
+@@ -954,6 +1037,10 @@
+                           <div><strong>UHID:</strong> {getField(occupant, "uhid")}</div>
+                           <div><strong>IP No:</strong> {occupant.ipNumber}</div>
+                           <div><strong>Doctor:</strong> {getField(occupant, "doctorName")}</div>
++                          <div><strong>Billing:</strong> {getField(occupant, "billing_status") || (getField(occupant, "is_billed") ? "Billed" : "Pending")}</div>
++                          {getField(occupant, "ward_status") && (
++                            <div><strong>Ward Status:</strong> {getField(occupant, "ward_status")}</div>
++                          )}
+                         </BedTooltip>
+                       )}
+                     </BedItem>
+@@ -1289,104 +1446,415 @@
+                   <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Dietary</div>
+                   <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Meal Planning</div>
+                 </div>
+-              </div>
+ 
+-              <div style={{ marginTop: "20px", padding: "12px 16px", background: colors.primary + "05", borderRadius: "12px", border: `1px dashed ${colors.primary}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+-                <span style={{ fontSize: "0.75rem", color: colors.textMuted }}>Assigned Doctor:</span>
+-                <span style={{ fontSize: "0.8rem", fontWeight: 700, color: colors.primary }}>Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
++                <div
++                  style={{
++                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                  }}
++                  onClick={() => { setShowLaundryModal(true); setShowActionModal(false); }}
++                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                >
++                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                    <MdLocalLaundryService size={24} color={colors.primary} />
++                  </div>
++                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Laundry</div>
++                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Ward Service</div>
++                  </thead>
++                  <tbody>
++                    {displayedAdmissions.length === 0 ? (
++                      <Tr>
++                        <Td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: colors.textMuted }}>
++                          No admissions found matching your criteria.
++                        </Td>
++                      </Tr>
++                    ) : (
++                      displayedAdmissions.map((item, index) => {
++                        const fullName = [
++                          getField(item, "salutation"), getField(item, "firstName"),
++                          getField(item, "middleName"), getField(item, "lastName")
++                        ].filter(Boolean).join(" ");
++  
++                        const isDischarged = getField(item, "is_discharged");
++  
++                        return (
++                          <Tr key={item.id || index}>
++                            <Td>
++                              <PatientCell>
++                                {/* <div className="avatar">{getInitials(fullName)}</div> */}
++                                <div className="info">
++                                  <strong>{fullName || "Unknown"}</strong>
++                                  <small>{getField(item, "gender")} • {getField(item, "age") || "-"} yrs</small>
++                                </div>
++                              </PatientCell>
++                            </Td>
++                            <Td>
++                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
++                                <span style={{ fontWeight: 500 }}>{getField(item, "uhid") || "-"}</span>
++                                <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>{item.ipNumber || "-"}</span>
++                              </div>
++                            </Td>
++                            <Td>
++                              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: colors.textMuted }}>
++                                <FiClock /> {formatDateTime(getField(item, "admissionDateTime"))}
++                              </div>
++                            </Td>
++                            <Td>
++                              <div style={{ display: "flex", flexDirection: "column" }}>
++                                <strong style={{ color: colors.textMain }}>{getField(item, "roomNo") || "-"}</strong>
++                                <small style={{ color: colors.textMuted }}>Bed: {getField(item, "bedNo") || "-"}</small>
++                              </div>
++                            </Td>
++                            <Td>
++                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
++                                <FiUser color={colors.primary} />
++                                {getField(item, "doctorName") || "-"}
++                              </div>
++                            </Td>
++                            <Td>
++                              <StatusBadge $isDischarged={getField(item, "billing_status") === "Billed" || getField(item, "is_billed") ? false : true} style={{ background: (getField(item, "billing_status") === "Billed" || getField(item, "is_billed")) ? "#f0fdfa" : "#fff7ed", color: (getField(item, "billing_status") === "Billed" || getField(item, "is_billed")) ? colors.success : "#f59e0b" }}>
++                                {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
++                              </StatusBadge>
++                            </Td>
++                            <Td>
++                              <StatusBadge $isDischarged={isDischarged}>
++                                {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
++                              </StatusBadge>
++                            </Td>
++                            <Td style={{ textAlign: "center" }}>
++                              <Button
++                                style={{ margin: "0 auto", padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
++                                onClick={() => {
++                                  setSelectedPatient(item);
++                                  setShowActionModal(true);
++                                }}
++                              >
++                                Select Request
++                              </Button>
++                            </Td>
++                          </Tr>
++                        );
++                      })
++                    )}
++                  </tbody>
++                </Table>
++              ) : (
++                <WardGridView />
++              )}
++            </Card>
++          </div>
++        </Container>
++  
++        {showActionModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowActionModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px", padding: "0", borderRadius: "28px", overflow: "hidden", border: "none", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)" }}>
++              <div style={{ background: "linear-gradient(135deg, #136A63, #0d9488)", padding: "24px", color: "white", position: "relative" }}>
++                <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
++                  <div style={{ width: "56px", height: "56px", borderRadius: "18px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem", fontWeight: 900, backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" }}>
++                    {getInitials(getField(selectedPatient, "firstName") + " " + getField(selectedPatient, "lastName"))}
++                  </div>
++                  <div style={{ flex: 1 }}>
++                    <h2 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 900, letterSpacing: "-0.5px", lineHeight: 1.1 }}>
++                      {getField(selectedPatient, "patient_name") || `${getField(selectedPatient, "salutation")} ${getField(selectedPatient, "firstName")} ${getField(selectedPatient, "lastName")}`}
++                    </h2>
++                    <div style={{ opacity: 0.9, fontSize: "0.8rem", marginTop: "6px", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
++                      <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><FiUser size={12} /> {getField(selectedPatient, "salutation")} {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")}</span>
++                      <span style={{ width: "4px", height: "4px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
++                      <span>UHID: <strong>{getField(selectedPatient, "uhid")}</strong></span>
++                      <span style={{ width: "4px", height: "4px", background: "rgba(255,255,255,0.4)", borderRadius: "50%" }} />
++                      <span>IP: <strong>{selectedPatient.ipNumber}</strong></span>
++                    </div>
++                  </div>
++                </div>
++                <button
++                  onClick={() => setShowActionModal(false)}
++                  style={{ position: "absolute", top: "24px", right: "24px", width: "32px", height: "32px", borderRadius: "10px", background: "rgba(255,255,255,0.15)", border: "none", color: "white", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", transition: "all 0.2s", backdropFilter: "blur(5px)" }}
++                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; e.currentTarget.style.transform = "rotate(90deg)"; }}
++                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.15)"; e.currentTarget.style.transform = "rotate(0deg)"; }}
++                >
++                  <FiX size={18} />
++                </button>
+               </div>
+-            </div>
+-          </ModalContainer>
+-        </ModalOverlay>
+-      )}
+-
+-      {showLabModal && selectedPatient && (
+-        <ModalOverlay onClick={() => setShowLabModal(false)}>
+-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+-            <ModalHeader $bg="#136A63">
+-              <h3 style={{ color: "#fff" }}>
+-                <MdOutlineScience size={22} />
+-                Lab Ward Request
+-                <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+-              </h3>
+-              <CloseButton
+-                onClick={() => setShowLabModal(false)}
+-                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+-                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+-                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+-              >
+-                <FiX />
+-              </CloseButton>
+-            </ModalHeader>
+-            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+-              <LabWardRequest patient={selectedPatient} onClose={() => setShowLabModal(false)} />
+-            </div>
+-          </ModalContainer>
+-        </ModalOverlay>
+-      )}
+-
+-      {showMedicineModal && selectedPatient && (
+-        <ModalOverlay onClick={() => setShowMedicineModal(false)}>
+-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+-            <ModalHeader $bg="#136A63">
+-              <h3 style={{ color: "#fff" }}>
+-                <MdOutlineMedication size={22} />
+-                Medicine Ward Request
+-                <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+-              </h3>
+-              <CloseButton
+-                onClick={() => setShowMedicineModal(false)}
+-                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+-                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+-                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+-              >
+-                <FiX />
+-              </CloseButton>
+-            </ModalHeader>
+-            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+-              <MedicineWardRequest patient={selectedPatient} onClose={() => setShowMedicineModal(false)} />
+-            </div>
+-          </ModalContainer>
+-        </ModalOverlay>
+-      )}
+-
+-      {showRadiologyModal && selectedPatient && (
+-        <ModalOverlay onClick={() => setShowRadiologyModal(false)}>
+-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+-            <ModalHeader $bg="#136A63">
+-              <h3 style={{ color: "#fff" }}>
+-                <FiFileText size={22} />
+-                Radiology Ward Request
+-                <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+-              </h3>
+-              <CloseButton
+-                onClick={() => setShowRadiologyModal(false)}
+-                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+-                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+-                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+-              >
+-                <FiX />
+-              </CloseButton>
+-            </ModalHeader>
+-            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+-              <RadiologyWardRequest patient={selectedPatient} onClose={() => setShowRadiologyModal(false)} />
+-            </div>
+-          </ModalContainer>
+-        </ModalOverlay>
+-      )}
+-      {showDietModal && selectedPatient && (
+-        <DietOrderModal
+-          patient={selectedPatient}
+-          HmsBaseUrl={HmsBaseUrl}
+-          onClose={() => setShowDietModal(false)}
+-          onSaved={() => {
+-            setShowDietModal(false);
+-            // Optionally refresh a list if needed
+-          }}
+-        />
+-      )}
+-    </PageWrapper>
+-  );
+-};
++  
++              <div style={{ padding: "24px", background: "#ffffff" }}>
++                <div style={{ marginBottom: "16px", fontWeight: 800, color: colors.textMuted, textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: "1.2px" }}>Select Request Type</div>
++                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowLabModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <MdOutlineScience size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Laboratory</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Pathology & Lab</div>
++                  </div>
++  
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowMedicineModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <MdOutlineMedication size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Pharmacy</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Medications</div>
++                  </div>
++  
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowRadiologyModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <FiFileText size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Radiology</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Imaging Services</div>
++                  </div>
++  
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowDietModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <MdOutlineRestaurant size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Dietary</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Meal Planning</div>
++                  </div>
++  
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowLaundryModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <MdLocalLaundryService size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Laundry</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Ward Service</div>
++                  </div>
++  
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <FiFlag size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Update Status</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Patient Condition</div>
++                  </div>
+ 
+-export default WardRequest;
++                  <div
++                    style={{
++                      padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
++                    }}
++                    onClick={() => { setShowRoomShiftModal(true); setShowActionModal(false); }}
++                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
++                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
++                  >
++                    <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
++                      <FiGrid size={24} color={colors.primary} />
++                    </div>
++                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Room Shift</div>
++                    <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Transfer Patient</div>
++                  </div>
++                </div>
++  
++                <div style={{ marginTop: "20px", padding: "12px 16px", background: colors.primary + "05", borderRadius: "12px", border: `1px dashed ${colors.primary}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
++                  <span style={{ fontSize: "0.75rem", color: colors.textMuted }}>Assigned Doctor:</span>
++                  <span style={{ fontSize: "0.8rem", fontWeight: 700, color: colors.primary }}>Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
++                </div>
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++  
++        {showLabModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowLabModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
++              <ModalHeader $bg="#136A63">
++                <h3 style={{ color: "#fff" }}>
++                  <MdOutlineScience size={22} />
++                  Lab Ward Request
++                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
++                </h3>
++                <CloseButton
++                  onClick={() => setShowLabModal(false)}
++                  style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
++                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
++                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
++                >
++                  <FiX />
++                </CloseButton>
++              </ModalHeader>
++              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
++                <LabWardRequest patient={selectedPatient} onClose={() => setShowLabModal(false)} />
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++  
++        {showMedicineModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowMedicineModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
++              <ModalHeader $bg="#136A63">
++                <h3 style={{ color: "#fff" }}>
++                  <MdOutlineMedication size={22} />
++                  Medicine Ward Request
++                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
++                </h3>
++                <CloseButton
++                  onClick={() => setShowMedicineModal(false)}
++                  style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
++                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
++                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
++                >
++                  <FiX />
++                </CloseButton>
++              </ModalHeader>
++              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
++                <MedicineWardRequest patient={selectedPatient} onClose={() => setShowMedicineModal(false)} />
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++  
++        {showRadiologyModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowRadiologyModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
++              <ModalHeader $bg="#136A63">
++                <h3 style={{ color: "#fff" }}>
++                  <FiFileText size={22} />
++                  Radiology Ward Request
++                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
++                </h3>
++                <CloseButton
++                  onClick={() => setShowRadiologyModal(false)}
++                  style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
++                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
++                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
++                >
++                  <FiX />
++                </CloseButton>
++              </ModalHeader>
++              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
++                <RadiologyWardRequest patient={selectedPatient} onClose={() => setShowRadiologyModal(false)} />
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++        {showDietModal && selectedPatient && (
++          <DietOrderModal
++            patient={selectedPatient}
++            HmsBaseUrl={HmsBaseUrl}
++            onClose={() => setShowDietModal(false)}
++            onSaved={() => {
++              setShowDietModal(false);
++            }}
++          />
++        )}
++        {showLaundryModal && selectedPatient && (
++          <LaundryWardRequest
++            patient={selectedPatient}
++            HmsBaseUrl={HmsBaseUrl}
++            onClose={() => setShowLaundryModal(false)}
++            onSaved={() => {
++              setShowLaundryModal(false);
++            }}
++          />
++        )}
++  
++        {/* Room Shift Modal */}
++        {showRoomShiftModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowRoomShiftModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ width: "96%", maxWidth: "1500px", height: "92vh" }}>
++              <ModalHeader>
++                <ModalTitle>Room Shifting</ModalTitle>
++                <CloseButton onClick={() => setShowRoomShiftModal(false)}>✕</CloseButton>
++              </ModalHeader>
++              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
++                <RoomShifting 
++                  patient={selectedPatient} 
++                  onClose={() => setShowRoomShiftModal(false)}
++                  onSaved={() => {
++                    fetchAdmissions();
++                    setShowRoomShiftModal(false);
++                  }}
++                />
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++  
++        {/* STATUS UPDATE MODAL */}
++        {showStatusModal && selectedPatient && (
++          <ModalOverlay onClick={() => setShowStatusModal(false)}>
++            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px" }}>
++              <ModalHeader>
++                <ModalTitle>Update Status</ModalTitle>
++                <CloseButton onClick={() => setShowStatusModal(false)}>✕</CloseButton>
++              </ModalHeader>
++              <div style={{ padding: "20px" }}>
++                <div style={{ marginBottom: "16px" }}>
++                  <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: colors.textMain }}>
++                    Select Status
++                  </label>
++                  <select
++                    style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
++                    value={statusToUpdate}
++                    onChange={(e) => setStatusToUpdate(e.target.value)}
++                  >
++                    <option value="">Select a status...</option>
++                    <option value="Mark for discharge">Mark for discharge</option>
++                    <option value="Discharge confirmation">Discharge confirmation</option>
++                    <option value="Sent for billing">Sent for billing</option>
++                  </select>
++                </div>
++                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
++                  <button 
++                    onClick={() => setShowStatusModal(false)}
++                    style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "#f8f9fa", cursor: "pointer" }}
++                  >
++                    Cancel
++                  </button>
++                  <button 
++                    onClick={handleUpdateStatus}
++                    style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: colors.primary, color: "#fff", cursor: "pointer" }}
++                  >
++                    Save Status
++                  </button>
++                </div>
++              </div>
++            </ModalContainer>
++          </ModalOverlay>
++        )}
++      </PageWrapper>
++    );
++  };
++  
++  export default WardRequest;
