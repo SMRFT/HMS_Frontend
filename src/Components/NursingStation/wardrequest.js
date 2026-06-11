@@ -8,7 +8,9 @@ import MedicineWardRequest from "./WardRequestPage";
 import RadiologyWardRequest from "./RadiologyWardRequest";
 import DietOrderModal from "./DietOrderModal";
 import RoomShifting from "./RoomShifting";
+import LaundryWardRequest from "./LaundryWardRequest";
 import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody, NoResults } from "../GlobalStyles";
+import { useNavigate } from "react-router-dom";
 
 // Modern Icons
 import {
@@ -46,24 +48,24 @@ const PageHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 0 16px 0;
-  margin-bottom: 20px;
+  padding: 12px 0 8px 0;
+  margin-bottom: 12px;
   border-bottom: 1px solid ${colors.border};
 
   h2 {
     margin: 0;
     color: ${colors.textMain};
-    font-size: 1.6rem;
+    font-size: 1.2rem;
     font-weight: 800;
     display: flex;
     align-items: center;
     gap: 12px;
     
     .icon-container {
-      width: 44px;
-      height: 44px;
+      width: 32px;
+      height: 32px;
       background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
-      border-radius: 12px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -160,7 +162,7 @@ const SegmentButton = styled.button`
 
 const GridContainer = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 20px;
   padding: 10px 0;
   animation: ${fadeIn} 0.4s ease-out;
@@ -239,9 +241,30 @@ const RoomHeader = styled.div`
   }
 `;
 
+const getStatusColors = (status) => {
+  switch (status?.toLowerCase()) {
+    case "admitted":
+      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+    case "discharged":
+      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" };
+    case "mark for discharge":
+      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" };
+    case "discharge confirmation":
+      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" };
+    case "sent for billing":
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" };
+    case "billed":
+      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+    case "pending":
+      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" };
+    default:
+      return { bg: "#f8fafc", text: "#64748b", border: "#f1f5f9" };
+  }
+};
+
 const BedsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 `;
 
@@ -266,7 +289,13 @@ const BedItem = styled.div`
   .bed-icon {
     width: 54px;
     height: 38px;
-    background: ${(props) => (props.$occupied ? "linear-gradient(135deg, " + colors.primary + ", " + colors.primaryDark + ")" : props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)")};
+    background: ${(props) => {
+      if (props.$occupied) {
+        const color = getStatusColors(props.$status).text;
+        return `linear-gradient(135deg, ${color}, ${color}cc)`;
+      }
+      return props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)";
+    }};
     border-radius: 10px 10px 6px 6px;
     position: relative;
     transition: all 0.3s ease;
@@ -338,9 +367,9 @@ const BedItem = styled.div`
 
 const BedTooltip = styled.div`
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(-10px);
+  transform: translateX(-50%) translateY(10px);
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(8px);
   color: white;
@@ -359,11 +388,12 @@ const BedTooltip = styled.div`
   &::after {
     content: "";
     position: absolute;
-    top: 100%;
+    bottom: 100%;
+    top: auto;
     left: 50%;
     transform: translateX(-50%);
     border: 6px solid transparent;
-    border-top-color: ${colors.textMain};
+    border-bottom-color: rgba(15, 23, 42, 0.95);
   }
 
   div {
@@ -371,6 +401,29 @@ const BedTooltip = styled.div`
     &:last-child { margin-bottom: 0; }
   }
   strong { color: ${colors.secondary}; }
+`;
+
+const StyledSelect = styled.select`
+  height: 38px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid ${colors.border};
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0 14px;
+  color: ${colors.textMain};
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+  &:focus {
+    outline: none;
+    border-color: ${colors.primary};
+    box-shadow: 0 0 0 3px rgba(19, 106, 99, 0.15);
+  }
 `;
 
 const SearchBox = styled.div`
@@ -382,20 +435,24 @@ const SearchBox = styled.div`
     position: absolute;
     left: 12px;
     color: ${colors.textMuted};
+    z-index: 1;
   }
 
   input {
-    padding: 10px 14px 10px 36px;
+    height: 38px;
+    padding: 0 14px 0 36px !important;
     border: 1px solid ${colors.border};
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 0.9rem;
-    width: 250px;
-    transition: all 0.2s;
+    font-weight: 500;
+    width: 100%;
+    min-width: 150px;
+    transition: all 0.2s ease;
 
     &:focus {
       outline: none;
       border-color: ${colors.primary};
-      box-shadow: 0 0 0 3px "rgba(13, 148, 136, 0.1)";
+      box-shadow: 0 0 0 3px rgba(19, 106, 99, 0.15);
     }
   }
 `;
@@ -430,9 +487,9 @@ const PatientCell = styled.div`
 `;
 
 const StatusBadge = styled.span`
-  background: ${(props) => (props.$isDischarged ? "#fff7ed" : "#f0fdfa")};
-  color: ${(props) => (props.$isDischarged ? colors.secondary : colors.primary)};
-  border: 1px solid ${(props) => (props.$isDischarged ? "#ffedd5" : "#ccfbf1")};
+  background: ${(props) => getStatusColors(props.$status).bg};
+  color: ${(props) => getStatusColors(props.$status).text};
+  border: 1px solid ${(props) => getStatusColors(props.$status).border};
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.75rem;
@@ -505,47 +562,47 @@ const SummaryGrid = styled.div`
 
 const SummaryCard = styled.div`
   flex: 1;
-  min-width: 200px;
+  min-width: 180px;
   background: ${colors.surface};
   border: 1px solid ${colors.border};
-  border-radius: 20px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 12px;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
     border-color: ${colors.primary}30;
   }
 
   &::after {
     content: "";
     position: absolute;
-    right: -20px;
-    top: -20px;
-    width: 80px;
-    height: 80px;
+    right: -10px;
+    top: -10px;
+    width: 60px;
+    height: 60px;
     background: ${(props) => props.$gradient || colors.primary}10;
     border-radius: 50%;
   }
 
   .icon-box {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     background: ${(props) => props.$gradient || `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`};
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.5rem;
-    box-shadow: 0 8px 16px ${(props) => props.$color || colors.primary}30;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 8px ${(props) => props.$color || colors.primary}30;
     flex-shrink: 0;
   }
 
@@ -554,11 +611,11 @@ const SummaryCard = styled.div`
     flex-direction: column;
     
     .label { 
-      font-size: 0.7rem; 
+      font-size: 0.65rem; 
       font-weight: 700; 
       color: ${colors.textMuted}; 
       text-transform: uppercase; 
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
     }
     
     .details { 
@@ -568,14 +625,14 @@ const SummaryCard = styled.div`
     }
     
     .value { 
-      font-size: 1.6rem; 
+      font-size: 1.2rem; 
       font-weight: 800; 
       color: ${colors.textMain}; 
       line-height: 1;
     }
     
     .name { 
-      font-size: 0.8rem; 
+      font-size: 0.75rem; 
       font-weight: 500; 
       color: ${colors.textMuted}; 
     }
@@ -597,6 +654,7 @@ const getInitials = (name) => {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const WardRequest = () => {
+  const navigate = useNavigate();
   const [admissions, setAdmissions] = useState([]);
   const [search, setSearch] = useState("");
   const [nursingStation, setNursingStation] = useState("ALL");
@@ -620,6 +678,7 @@ const WardRequest = () => {
   const [showDietModal, setShowDietModal] = useState(false);
   const [showRoomShiftModal, setShowRoomShiftModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showLaundryModal, setShowLaundryModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
@@ -992,12 +1051,15 @@ const WardRequest = () => {
                 {getBeds(room).map((bed, bIdx) => {
                   const occupant = occupants.find(o => String(getField(o, "bedNo")) === String(bed.bed_number));
                   const initials = occupant ? getInitials(`${getField(occupant, "firstName") || ""} ${getField(occupant, "lastName") || ""}`.trim()) : "";
+                  const bedStatus = occupant ? (getField(occupant, "ward_status") || (getField(occupant, "is_discharged") ? "Discharged" : "Admitted")) : "";
+                  const statusColors = getStatusColors(bedStatus);
 
                   return (
                     <BedItem
                       key={bIdx}
                       $occupied={!!occupant}
                       $blocked={bed.blocked}
+                      $status={bedStatus}
                       onClick={() => {
                         if (occupant) {
                           setSelectedPatient(occupant);
@@ -1020,7 +1082,7 @@ const WardRequest = () => {
                             setSelectedPatient(occupant);
                             setShowStatusModal(true);
                           }}
-                          style={{ marginTop: "6px", padding: "4px 8px", fontSize: "0.65rem", fontWeight: "600", borderRadius: "12px", background: colors.success, color: "#fff", cursor: "pointer", zIndex: 2 }}
+                          style={{ marginTop: "6px", padding: "4px 8px", fontSize: "0.6rem", fontWeight: "600", borderRadius: "12px", background: statusColors.text, color: "#fff", cursor: "pointer", zIndex: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" }}
                         >
                           Update Status
                         </div>
@@ -1055,7 +1117,7 @@ const WardRequest = () => {
   };
 
   return (
-    <PageWrapper style={{ height: "calc(100vh - 85px)", maxHeight: "calc(100vh - 85px)", display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
+    <PageWrapper style={{ height: "calc(100vh - 85px)", maxHeight: "calc(100vh - 85px)", minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", padding: 0 }}>
       <Container style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0, borderRadius: 0 }}>
         <div style={{ padding: "16px 24px 0", flexShrink: 0 }}>
           <PageHeader>
@@ -1067,7 +1129,7 @@ const WardRequest = () => {
             </h2>
           </PageHeader>
 
-          <div style={{ display: "flex", gap: "20px", marginBottom: "24px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "16px", marginBottom: "16px", flexWrap: "wrap" }}>
             <SummaryCard $gradient="linear-gradient(135deg, #0ea5e9, #0284c7)" $color="#0ea5e9">
               <div className="icon-box">
                 <FiGrid />
@@ -1111,7 +1173,7 @@ const WardRequest = () => {
           </div>
 
           <Toolbar>
-            <div style={{ display: "flex", gap: "12px" }}>
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <SegmentedControl>
                 <SegmentButton
                   $active={statusFilter === "all"}
@@ -1149,101 +1211,18 @@ const WardRequest = () => {
                   <FiList /> List View
                 </SegmentButton>
               </SegmentedControl>
-            </div>
 
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <FiFilter style={{ position: "absolute", left: "12px", color: colors.primary, zIndex: 1, pointerEvents: "none" }} />
-                <Select
-                  value={nursingStation}
-                  onChange={(e) => setNursingStation(e.target.value)}
-                  style={{ width: "160px", height: "45px", borderRadius: "12px", margin: 0, paddingLeft: "35px", background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Nursing Stations</option>
-                  {availableWards.map((w, i) => (
-                    <option key={i} value={w.id}>{w.ward_name}</option>
-                  ))}
-                </Select>
-              </div>
-
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <Select
-                  value={block}
-                  onChange={(e) => setBlock(e.target.value)}
-                  style={{ width: "140px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Blocks</option>
-                  {availableBlocks.map((blk, i) => {
-                    const id = blk.id || blk.block_id;
-                    return <option key={i} value={id}>{blk.block_name}</option>;
-                  })}
-                </Select>
-              </div>
-
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <Select
-                  value={roomNo}
-                  onChange={(e) => setRoomNo(e.target.value)}
-                  style={{ width: "120px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Rooms</option>
-                  {availableRoomNumbers.map((r, i) => (
-                    <option key={i} value={r}>{r}</option>
-                  ))}
-                </Select>
-              </div>
-
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <Select
-                  value={selectedDoctor}
-                  onChange={(e) => setSelectedDoctor(e.target.value)}
-                  style={{ width: "160px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Doctors</option>
-                  {availableDoctors.map((doc, i) => (
-                    <option key={i} value={doc}>{doc}</option>
-                  ))}
-                </Select>
-              </div>
-
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <Select
-                  value={billingStatusFilter}
-                  onChange={(e) => setBillingStatusFilter(e.target.value)}
-                  style={{ width: "140px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Billing</option>
-                  <option value="Billed">Billed</option>
-                  <option value="Pending">Pending</option>
-                </Select>
-              </div>
-
-              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                <Select
-                  value={wardStatusFilter}
-                  onChange={(e) => setWardStatusFilter(e.target.value)}
-                  style={{ width: "160px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontSize: "0.9rem", fontWeight: 600 }}
-                >
-                  <option value="ALL">All Status</option>
-                  <option value="Mark for discharge">Mark for discharge</option>
-                  <option value="Discharge confirmation">Discharge confirmation</option>
-                  <option value="Sent for billing">Sent for billing</option>
-
-                </Select>
-              </div>
-
-              <SearchBox style={{ width: "180px" }}>
+              <SearchBox style={{ width: "180px", flexShrink: 0 }}>
                 <FiSearch />
                 <input
                   type="text"
                   placeholder="Search Doctor..."
                   value={doctorSearch}
                   onChange={(e) => setDoctorSearch(e.target.value)}
-                  style={{ background: "transparent", border: "none", outline: "none", width: "100%", paddingLeft: "10px" }}
                 />
               </SearchBox>
 
-              <SearchBox>
+              <SearchBox style={{ width: "180px", flexShrink: 0 }}>
                 <FiSearch />
                 <input
                   type="text"
@@ -1257,28 +1236,111 @@ const WardRequest = () => {
                 primary
                 onClick={fetchAdmissions}
                 disabled={loading}
-                style={{ height: "45px", borderRadius: "12px", padding: "0 18px", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: colors.primary, boxShadow: "0 4px 12px rgba(13, 148, 136, 0.2)" }}
+                style={{ height: "38px", borderRadius: "12px", padding: "0 18px", margin: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: colors.primary, boxShadow: "0 4px 12px rgba(13, 148, 136, 0.2)" }}
               >
                 <FiRefreshCcw className={loading ? "spin" : ""} /> {loading ? "..." : "Refresh"}
               </Button>
 
-              <Select
+              <StyledSelect
                 value={showUpTo}
                 onChange={(e) => setShowUpTo(Number(e.target.value))}
-                style={{ width: "80px", height: "45px", borderRadius: "12px", margin: 0, background: "#fff", border: `1px solid ${colors.border}`, fontWeight: 600 }}
+                style={{ width: "80px" }}
               >
                 <option value={15}>15</option>
                 <option value={30}>30</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
-              </Select>
+              </StyledSelect>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <FiFilter style={{ position: "absolute", left: "12px", color: colors.primary, zIndex: 1, pointerEvents: "none" }} />
+                <StyledSelect
+                  value={nursingStation}
+                  onChange={(e) => setNursingStation(e.target.value)}
+                  style={{ width: "160px", paddingLeft: "35px" }}
+                >
+                  <option value="ALL">All Nursing Stations</option>
+                  {availableWards.map((w, i) => (
+                    <option key={i} value={w.id}>{w.ward_name}</option>
+                  ))}
+                </StyledSelect>
+              </div>
+
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <StyledSelect
+                  value={block}
+                  onChange={(e) => setBlock(e.target.value)}
+                  style={{ width: "140px" }}
+                >
+                  <option value="ALL">All Blocks</option>
+                  {availableBlocks.map((blk, i) => {
+                    const id = blk.id || blk.block_id;
+                    return <option key={i} value={id}>{blk.block_name}</option>;
+                  })}
+                </StyledSelect>
+              </div>
+
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <StyledSelect
+                  value={roomNo}
+                  onChange={(e) => setRoomNo(e.target.value)}
+                  style={{ width: "120px" }}
+                >
+                  <option value="ALL">All Rooms</option>
+                  {availableRoomNumbers.map((r, i) => (
+                    <option key={i} value={r}>{r}</option>
+                  ))}
+                </StyledSelect>
+              </div>
+
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <StyledSelect
+                  value={selectedDoctor}
+                  onChange={(e) => setSelectedDoctor(e.target.value)}
+                  style={{ width: "160px" }}
+                >
+                  <option value="ALL">All Doctors</option>
+                  {availableDoctors.map((doc, i) => (
+                    <option key={i} value={doc}>{doc}</option>
+                  ))}
+                </StyledSelect>
+              </div>
+
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <StyledSelect
+                  value={billingStatusFilter}
+                  onChange={(e) => setBillingStatusFilter(e.target.value)}
+                  style={{ width: "140px" }}
+                >
+                  <option value="ALL">All Billing</option>
+                  <option value="Billed">Billed</option>
+                  <option value="Pending">Pending</option>
+                </StyledSelect>
+              </div>
+
+              <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                <StyledSelect
+                  value={wardStatusFilter}
+                  onChange={(e) => setWardStatusFilter(e.target.value)}
+                  style={{ width: "160px" }}
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="Mark for discharge">Mark for discharge</option>
+                  <option value="Discharge confirmation">Discharge confirmation</option>
+                  <option value="Sent for billing">Sent for billing</option>
+
+                </StyledSelect>
+              </div>
             </div>
           </Toolbar>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "0 24px 20px", minHeight: 0 }}>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "0 24px 20px", minHeight: 0 }}>
           <Card style={{ padding: viewMode === "list" ? 0 : "20px", overflow: "visible", background: viewMode === "list" ? colors.surface : "transparent", border: viewMode === "list" ? `1px solid ${colors.border}` : "none", boxShadow: viewMode === "list" ? "0 4px 12px rgba(0,0,0,0.03)" : "none" }}>
             {viewMode === "list" ? (
+              <div style={{ width: "100%", overflowX: "auto", paddingBottom: "10px" }}>
               <Table>
                 <thead>
                   <Tr>
@@ -1342,12 +1404,12 @@ const WardRequest = () => {
                             </div>
                           </Td>
                           <Td>
-                            <StatusBadge $isDischarged={getField(item, "billing_status") === "Billed" || getField(item, "is_billed") ? false : true} style={{ background: (getField(item, "billing_status") === "Billed" || getField(item, "is_billed")) ? "#f0fdfa" : "#fff7ed", color: (getField(item, "billing_status") === "Billed" || getField(item, "is_billed")) ? colors.success : "#f59e0b" }}>
+                            <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
                               {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
                             </StatusBadge>
                           </Td>
                           <Td>
-                            <StatusBadge $isDischarged={isDischarged}>
+                            <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
                               {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
                             </StatusBadge>
                           </Td>
@@ -1379,6 +1441,7 @@ const WardRequest = () => {
                   )}
                 </tbody>
               </Table>
+              </div>
             ) : (
               <WardGridView />
             )}
@@ -1388,7 +1451,7 @@ const WardRequest = () => {
 
       {showActionModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowActionModal(false)}>
-          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "400px", padding: "0", borderRadius: "28px", overflow: "hidden", border: "none", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)" }}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px", padding: "0", borderRadius: "28px", overflow: "hidden", border: "none", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.3)" }}>
             <div style={{ background: "linear-gradient(135deg, #136A63, #0d9488)", padding: "24px", color: "white", position: "relative" }}>
               <div style={{ display: "flex", gap: "18px", alignItems: "center" }}>
                 <div style={{ width: "56px", height: "56px", borderRadius: "18px", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem", fontWeight: 900, backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.3)", boxShadow: "0 8px 16px rgba(0,0,0,0.1)" }}>
@@ -1419,7 +1482,7 @@ const WardRequest = () => {
 
             <div style={{ padding: "24px", background: "#ffffff" }}>
               <div style={{ marginBottom: "16px", fontWeight: 800, color: colors.textMuted, textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: "1.2px" }}>Select Request Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
                 <div
                   style={{
                     padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
@@ -1484,6 +1547,21 @@ const WardRequest = () => {
                   style={{
                     padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
+                  onClick={() => { setShowLaundryModal(true); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <MdLocalLaundryService size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Laundry</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Linen & Washing</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
                   onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
@@ -1508,6 +1586,21 @@ const WardRequest = () => {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Room Shift</div>
                   <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Transfer Patient</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
+                  onClick={() => { navigate("/Summary", { state: { ipNo: selectedPatient.ipNumber } }); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiFileText size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Summary</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>View/Edit Summary</div>
                 </div>
               </div>
 
@@ -1594,6 +1687,32 @@ const WardRequest = () => {
           </ModalContainer>
         </ModalOverlay>
       )}
+      
+      {/* Laundry Modal */}
+      {showLaundryModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowLaundryModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+            <ModalHeader $bg="#136A63">
+              <div className="header-left">
+                <div className="icon-wrapper" style={{ background: "rgba(255,255,255,0.2)" }}>
+                  <MdLocalLaundryService size={24} color="#fff" />
+                </div>
+                <ModalTitle>Laundry Request</ModalTitle>
+              </div>
+              <CloseButton
+                onClick={() => setShowLaundryModal(false)}
+                style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}
+              >
+                <FiX size={20} />
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <LaundryWardRequest patient={selectedPatient} onClose={() => setShowLaundryModal(false)} />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
       {showDietModal && selectedPatient && (
         <DietOrderModal
           patient={selectedPatient}

@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar } from "react-icons/fa";
+import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo } from "react-icons/fa";
 
 import OPPharmacyViewBills from "../Pharmacy/OPPharmacyViewBills";
 import OPPharmacy from "../Pharmacy/OPPharmacy";
 import ViewEstimate from "../Pharmacy/Viewestimate";
 import MedicineChart from "./Medicinechart";
 import apiRequest from "../../Auth/apiRequest";
+import WardReturnApprovals from "./WardReturnApprovals";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
@@ -14,6 +15,7 @@ const TABS = [
   { key: "view_estimate", label: "View Estimate",    Icon: FaFileInvoiceDollar },
   { key: "view_bills",    label: "View Bills",       Icon: FaListAlt           },
   { key: "medichart",     label: "Medichart",        Icon: FaChartBar          },
+  { key: "ward_returns",  label: "Ward Returns",     Icon: FaUndo              },
 ];
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -265,6 +267,11 @@ const OPPharmacyTabs = () => {
       {/* ── Medicine Chart tab ── */}
       <TabPanel $visible={activeTab === "medichart"}>
         <MedicineChart onConvertToBill={handleConvertMedicineChart} />
+      </TabPanel>
+
+      {/* ── Ward Returns tab ── */}
+      <TabPanel $visible={activeTab === "ward_returns"}>
+        <WardReturnApprovals />
       </TabPanel>
     </Wrapper>
   );

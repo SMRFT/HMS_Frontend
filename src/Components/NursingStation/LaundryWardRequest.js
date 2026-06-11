@@ -1,91 +1,19 @@
 import React, { useState, useEffect } from "react";
-import styled, { keyframes, createGlobalStyle } from "styled-components";
+import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
-
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const C = {
-  primary: "#3b82f6",    // Blue 500
-  primaryDark: "#2563eb", // Blue 600
-  primaryLight: "#eff6ff", // Blue 50
-  accent: "#8b5cf6",     // Violet 500
-  textMain: "#1e293b",    // Slate 800
-  textMuted: "#64748b",   // Slate 500
-  bgGlass: "rgba(255, 255, 255, 0.9)",
-  border: "rgba(59, 130, 246, 0.15)",
-  shadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)",
-  danger: "#ef4444",
-};
-
-// ─── Animations ───────────────────────────────────────────────────────────────
-const slideUp = keyframes`
-  from { opacity: 0; transform: translateY(30px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-`;
-
-// ─── Styled Components ────────────────────────────────────────────────────────
-const GlobalModalStyle = createGlobalStyle`
-  .laundry-modal-open { overflow: hidden; }
-`;
-
-const Overlay = styled.div`
-  position: fixed; inset: 0;
-  background: rgba(15, 23, 42, 0.3);
-  backdrop-filter: blur(8px);
-  z-index: 5000;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-`;
-
-const ModalContainer = styled.div`
-  background: ${C.bgGlass};
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 24px;
-  width: 720px; max-width: 100%;
-  max-height: 90vh;
-  display: flex; flex-direction: column;
-  box-shadow: ${C.shadow};
-  animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
-  position: relative;
-`;
-
-const Header = styled.div`
-  padding: 24px 30px;
-  background: rgba(255, 255, 255, 0.5);
-  border-bottom: 1px solid ${C.border};
-  display: flex; justify-content: space-between; align-items: center;
-`;
-
-const Title = styled.h2`
-  margin: 0; font-size: 1.25rem; font-weight: 800;
-  background: linear-gradient(135deg, ${C.primaryDark}, ${C.accent});
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: flex; align-items: center; gap: 10px;
-`;
-
-const CloseBtn = styled.button`
-  background: #f1f5f9; border: none; width: 36px; height: 36px;
-  border-radius: 50%; color: ${C.textMuted}; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all 0.2s;
-  &:hover { background: #fee2e2; color: ${C.danger}; transform: rotate(90deg); }
-`;
+import { colors, Button as GlobalButton, Input, Select, Table, Th, Td, Tr, SectionHeader as GlobalSectionHeader } from "../GlobalStyles";
+import { FiTrash2 } from "react-icons/fi";
 
 const Body = styled.div`
-  padding: 30px; overflow-y: auto; flex: 1;
-  display: flex; flex-direction: column; gap: 28px;
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  padding: 24px;
+  display: flex; flex-direction: column; gap: 24px;
 `;
 
 const PatientCard = styled.div`
-  background: linear-gradient(135deg, #ffffff, ${C.primaryLight});
-  border: 1px solid ${C.border};
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.05);
+  background: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 16px;
+  padding: 20px;
 `;
 
 const InfoGrid = styled.div`
@@ -97,52 +25,19 @@ const InfoItem = styled.div`
 `;
 
 const Label = styled.span`
-  font-size: 0.65rem; font-weight: 800; color: ${C.textMuted};
-  text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: 0.7rem; font-weight: 700; color: ${colors.textMuted};
+  text-transform: uppercase; letter-spacing: 0.5px;
 `;
 
 const Value = styled.span`
-  font-size: 0.95rem; font-weight: 700; color: ${C.textMain};
-`;
-
-const SectionHeader = styled.h3`
-  font-size: 0.85rem; font-weight: 800; color: ${C.textMain};
-  margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;
-  text-transform: uppercase; letter-spacing: 0.5px;
-  &::before { content: ''; width: 4px; height: 16px; background: ${C.primary}; border-radius: 2px; }
-`;
-
-const ItemCard = styled.div`
-  background: ${({ active }) => (active ? C.primaryLight : "white")};
-  border: 2px solid ${({ active }) => (active ? C.primary : "transparent")};
-  padding: 16px 20px; border-radius: 16px; cursor: pointer;
-  display: flex; align-items: center; gap: 15px;
-  transition: all 0.3s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  font-size: 0.95rem; font-weight: 600; color: ${colors.textMain};
 `;
 
 const Footer = styled.div`
-  padding: 24px 30px; background: rgba(255, 255, 255, 0.5);
-  border-top: 1px solid ${C.border};
+  padding: 20px 24px; background: ${colors.surface};
+  border-top: 1px solid ${colors.border};
   display: flex; justify-content: flex-end; gap: 12px;
-`;
-
-const Button = styled.button`
-  padding: 14px 28px; border-radius: 14px; font-weight: 800; font-size: 0.95rem;
-  border: none; cursor: pointer; transition: all 0.3s;
-`;
-
-const PrimaryBtn = styled(Button)`
-  background: linear-gradient(135deg, ${C.primary}, ${C.primaryDark});
-  color: white; box-shadow: 0 10px 20px -5px ${C.primary}50;
-  &:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 15px 25px -5px ${C.primary}70; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
-`;
-
-const SecondaryBtn = styled(Button)`
-  background: #f1f5f9; color: ${C.textMain};
-  &:hover { background: #e2e8f0; }
+  position: sticky; bottom: 0; z-index: 10;
 `;
 
 const getIconForName = (name) => {
@@ -180,10 +75,8 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   };
 
   useEffect(() => {
-    document.body.classList.add("laundry-modal-open");
     fetchMasterItems();
     fetchHistory();
-    return () => document.body.classList.remove("laundry-modal-open");
   }, [patient]);
 
   const fetchMasterItems = async () => {
@@ -275,163 +168,161 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   };
 
   return (
-    <Overlay onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <GlobalModalStyle />
-      <ModalContainer>
-        <Header>
-          <Title>🧺 Laundry Request</Title>
-          <CloseBtn onClick={onClose}>✕</CloseBtn>
-        </Header>
+    <>
+      <Body>
+        <PatientCard>
+          <div style={{ marginBottom: "16px", paddingBottom: "16px", borderBottom: `1px dashed ${colors.border}` }}>
+            <Label>Patient Information</Label>
+            <h2 style={{ margin: "4px 0 0 0", color: colors.primary, fontSize: "1.4rem", fontWeight: 800 }}>
+              {rp.name}
+            </h2>
+          </div>
+          <InfoGrid>
+            <InfoItem>
+              <Label>UHID</Label>
+              <Value>{rp.uhid}</Value>
+            </InfoItem>
+            <InfoItem>
+              <Label>IP Number</Label>
+              <Value>{rp.ipNo}</Value>
+            </InfoItem>
+            <InfoItem>
+              <Label>Location</Label>
+              <Value>{rp.ward} / {rp.room} / {rp.bed}</Value>
+            </InfoItem>
+          </InfoGrid>
+        </PatientCard>
 
-        <Body>
-          <PatientCard>
-            <div style={{ marginBottom: "15px", paddingBottom: "15px", borderBottom: `1px dashed ${C.border}` }}>
-              <Label>Patient Information</Label>
-              <h2 style={{ margin: "4px 0 0 0", color: C.textMain, fontSize: "1.4rem", fontWeight: 900 }}>
-                {rp.name}
-              </h2>
-            </div>
-            <InfoGrid>
-              <InfoItem>
-                <Label>UHID</Label>
-                <Value>{rp.uhid}</Value>
-              </InfoItem>
-              <InfoItem>
-                <Label>IP Number</Label>
-                <Value>{rp.ipNo}</Value>
-              </InfoItem>
-              <InfoItem>
-                <Label>Location</Label>
-                <Value>{rp.ward} / {rp.room} / {rp.bed}</Value>
-              </InfoItem>
-            </InfoGrid>
-          </PatientCard>
-
-          <section>
-            <SectionHeader>Add Laundry Items</SectionHeader>
-            <div style={{ display: "flex", gap: "10px", alignItems: "flex-end", marginBottom: "20px" }}>
-              <div style={{ flex: 2 }}>
-                <Label style={{ display: "block", marginBottom: "6px" }}>Select Item</Label>
-                <select 
-                  value={selectedItemName} 
-                  onChange={e => setSelectedItemName(e.target.value)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${C.border}`, outline: "none", fontSize: "0.9rem", background: "white" }}
-                >
-                  <option value="">-- Choose Item --</option>
-                  {laundryItems.map(item => (
-                    <option key={item.id} value={item.item_name}>{item.item_name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <Label style={{ display: "block", marginBottom: "6px" }}>Quantity</Label>
-                <input 
-                  type="number" 
-                  min="1" 
-                  value={selectedQty}
-                  onChange={e => setSelectedQty(parseInt(e.target.value) || 1)}
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${C.border}`, outline: "none", fontSize: "0.9rem" }}
-                />
-              </div>
-              <Button 
-                onClick={handleAddItem}
-                style={{ background: C.primaryLight, color: C.primaryDark, padding: "10px 20px", border: `1px solid ${C.primary}`, borderRadius: "10px", fontWeight: 700 }}
+        <section>
+          <GlobalSectionHeader>
+            <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Add Laundry Items</h3>
+          </GlobalSectionHeader>
+          <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", marginBottom: "20px" }}>
+            <div style={{ flex: 2 }}>
+              <Label style={{ display: "block", marginBottom: "6px" }}>Select Item</Label>
+              <Select 
+                value={selectedItemName} 
+                onChange={e => setSelectedItemName(e.target.value)}
+                style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
               >
-                Add
-              </Button>
+                <option value="">-- Choose Item --</option>
+                {laundryItems.map(item => (
+                  <option key={item.id} value={item.item_name}>{item.item_name}</option>
+                ))}
+              </Select>
             </div>
+            <div style={{ flex: 1 }}>
+              <Label style={{ display: "block", marginBottom: "6px" }}>Quantity</Label>
+              <Input 
+                type="number" 
+                min="1" 
+                value={selectedQty}
+                onChange={e => setSelectedQty(parseInt(e.target.value) || 1)}
+                style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
+              />
+            </div>
+            <GlobalButton 
+              onClick={handleAddItem}
+              style={{ padding: "10px 24px", fontSize: "0.9rem", height: "42px" }}
+            >
+              Add
+            </GlobalButton>
+          </div>
 
-            {Object.keys(selectedItems).length > 0 && (
-              <div style={{ background: "white", border: `1px solid ${C.border}`, borderRadius: "12px", padding: "16px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-                  <thead style={{ borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
-                    <tr>
-                      <th style={{ textAlign: "left", paddingBottom: "10px" }}>Item Name</th>
-                      <th style={{ textAlign: "center", paddingBottom: "10px" }}>Quantity</th>
-                      <th style={{ textAlign: "right", paddingBottom: "10px" }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.keys(selectedItems).map(itemName => (
-                      <tr key={itemName}>
-                        <td style={{ paddingTop: "10px", fontWeight: 600 }}>{getIconForName(itemName)} {itemName}</td>
-                        <td style={{ paddingTop: "10px", textAlign: "center", fontWeight: 800 }}>{selectedItems[itemName]}</td>
-                        <td style={{ paddingTop: "10px", textAlign: "right" }}>
-                          <button onClick={() => handleRemoveItem(itemName)} style={{ background: "none", border: "none", color: C.danger, cursor: "pointer", fontWeight: 700 }}>Remove</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section style={{ display: "flex", gap: "20px" }}>
-             <div style={{ flex: 1 }}>
-                <SectionHeader>Request Priority</SectionHeader>
-                <div style={{ display: "flex", gap: "10px" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontWeight: 600 }}>
-                        <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer", fontWeight: 600, color: C.danger }}>
-                        <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
-                    </label>
-                </div>
-             </div>
-             <div style={{ flex: 2 }}>
-                <SectionHeader>Remarks</SectionHeader>
-                <input 
-                  type="text" 
-                  value={remarks} 
-                  onChange={e => setRemarks(e.target.value)} 
-                  placeholder="Any specific instructions..." 
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${C.border}`, outline: "none", fontSize: "0.9rem" }}
-                />
-             </div>
-          </section>
-
-          {history.length > 0 && (
-            <section>
-                <SectionHeader>Recent Requests</SectionHeader>
-                <div style={{ background: "#f8fafc", borderRadius: "16px", overflow: "hidden" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                    <thead style={{ background: "#f1f5f9" }}>
-                      <tr>
-                        <th style={{ padding: "12px 15px", textAlign: "left" }}>Date</th>
-                        <th style={{ padding: "12px 15px", textAlign: "left" }}>Items</th>
-                        <th style={{ padding: "12px 15px", textAlign: "left" }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.slice(0, 3).map((h, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                          <td style={{ padding: "12px 15px" }}>{h.requested_date}</td>
-                          <td style={{ padding: "12px 15px", fontWeight: 600 }}>
-                              {Array.isArray(h.items) ? h.items.map(it => `${it.item} (x${it.qty})`).join(', ') : '-'}
-                          </td>
-                          <td style={{ padding: "12px 15px" }}>
-                            <span style={{ padding: "4px 8px", borderRadius: "6px", background: h.status === "Completed" ? "#dcfce7" : h.status === "Pending" ? "#fef3c7" : "#eff6ff", color: h.status === "Completed" ? "#166534" : h.status === "Pending" ? "#b45309" : "#1d4ed8", fontWeight: 800 }}>
-                              {h.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-            </section>
+          {Object.keys(selectedItems).length > 0 && (
+            <Table>
+              <thead>
+                <Tr>
+                  <Th>Item Name</Th>
+                  <Th style={{ textAlign: "center" }}>Quantity</Th>
+                  <Th style={{ textAlign: "right" }}>Action</Th>
+                </Tr>
+              </thead>
+              <tbody>
+                {Object.keys(selectedItems).map(itemName => (
+                  <Tr key={itemName}>
+                    <Td style={{ fontWeight: 600 }}>{getIconForName(itemName)} {itemName}</Td>
+                    <Td style={{ textAlign: "center", fontWeight: 700 }}>{selectedItems[itemName]}</Td>
+                    <Td style={{ textAlign: "right" }}>
+                      <GlobalButton danger style={{ padding: "6px 10px", marginLeft: "auto" }} onClick={() => handleRemoveItem(itemName)}>
+                        <FiTrash2 /> Remove
+                      </GlobalButton>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
           )}
-        </Body>
+        </section>
 
-        <Footer>
-          <SecondaryBtn onClick={onClose}>Cancel</SecondaryBtn>
-          <PrimaryBtn onClick={handleSubmit} disabled={saving}>
-            {saving ? "Saving..." : "Submit Request"}
-          </PrimaryBtn>
-        </Footer>
-      </ModalContainer>
-    </Overlay>
+        <section style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
+           <div style={{ flex: 1, minWidth: "200px" }}>
+              <GlobalSectionHeader>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Request Priority</h3>
+              </GlobalSectionHeader>
+              <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600 }}>
+                      <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, color: colors.danger }}>
+                      <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
+                  </label>
+              </div>
+           </div>
+           <div style={{ flex: 2, minWidth: "300px" }}>
+              <GlobalSectionHeader>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Remarks</h3>
+              </GlobalSectionHeader>
+              <Input 
+                type="text" 
+                value={remarks} 
+                onChange={e => setRemarks(e.target.value)} 
+                placeholder="Any specific instructions..." 
+                style={{ width: "100%", padding: "10px", marginTop: "12px" }}
+              />
+           </div>
+        </section>
+
+        {history.length > 0 && (
+          <section>
+              <GlobalSectionHeader>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Recent Requests</h3>
+              </GlobalSectionHeader>
+              <Table>
+                <thead>
+                  <Tr>
+                    <Th>Date</Th>
+                    <Th>Items</Th>
+                    <Th>Status</Th>
+                  </Tr>
+                </thead>
+                <tbody>
+                  {history.slice(0, 3).map((h, i) => (
+                    <Tr key={i}>
+                      <Td>{h.requested_date}</Td>
+                      <Td style={{ fontWeight: 600 }}>
+                          {Array.isArray(h.items) ? h.items.map(it => `${it.item} (x${it.qty})`).join(', ') : '-'}
+                      </Td>
+                      <Td>
+                        <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
+                          {h.status}
+                        </span>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+          </section>
+        )}
+      </Body>
+
+      <Footer>
+        <GlobalButton secondary onClick={onClose} style={{ padding: "10px 20px" }}>Cancel</GlobalButton>
+        <GlobalButton success onClick={handleSubmit} disabled={saving} style={{ padding: "10px 24px" }}>
+          {saving ? "Saving..." : "Submit Request"}
+        </GlobalButton>
+      </Footer>
+    </>
   );
 };
 
