@@ -959,17 +959,18 @@ const Invoice = () => {
 
   // ─── Helper: derive sellingUnitCost from mode + percentages ───────────────
   const deriveSellingUnitCost = (u) => {
-    const unitCostWithGst = parseFloat(u.unitCostWithGst) || 0;
+    const unitPrice = parseFloat(u.unitPrice) || 0; // ← use unitPrice
     const mrp = parseFloat(u.mrp) || 0;
     if (u.sellingPricingMode === "markup") {
       const pct = parseFloat(u.sellingMarkupPercent) || 0;
-      if (unitCostWithGst > 0 && pct > 0) {
-        u.sellingUnitCost = (unitCostWithGst * (1 + pct / 100)).toFixed(2);
+      if (unitPrice > 0 && pct > 0) {
+        // ← use unitPrice
+        u.sellingUnitCost = (unitPrice * (1 + pct / 100)).toFixed(2);
       }
     } else {
       // markdown
       const pct = parseFloat(u.sellingMarkdownPercent) || 0;
-      const base = mrp > 0 ? mrp : unitCostWithGst;
+      const base = mrp > 0 ? mrp : unitPrice; // ← fallback to unitPrice
       if (base > 0 && pct > 0) {
         u.sellingUnitCost = (base * (1 - pct / 100)).toFixed(2);
       }
@@ -1084,10 +1085,10 @@ const Invoice = () => {
     if (name === "sellingMarkupPercent") {
       setModalForm((prev) => {
         const u = { ...prev, sellingMarkupPercent: value };
-        const unitCostWithGst = parseFloat(u.unitCostWithGst) || 0;
+        const unitPrice = parseFloat(u.unitPrice) || 0; // ← was unitCostWithGst
         const pct = parseFloat(value) || 0;
-        if (unitCostWithGst > 0 && pct >= 0) {
-          u.sellingUnitCost = (unitCostWithGst * (1 + pct / 100)).toFixed(2);
+        if (unitPrice > 0 && pct >= 0) {
+          u.sellingUnitCost = (unitPrice * (1 + pct / 100)).toFixed(2);
           calcSellingFromUnitCost(u);
         }
         return u;
@@ -1100,8 +1101,8 @@ const Invoice = () => {
       setModalForm((prev) => {
         const u = { ...prev, sellingMarkdownPercent: value };
         const mrp = parseFloat(u.mrp) || 0;
-        const unitCostWithGst = parseFloat(u.unitCostWithGst) || 0;
-        const base = mrp > 0 ? mrp : unitCostWithGst;
+        const unitPrice = parseFloat(u.unitPrice) || 0; // ← was unitCostWithGst
+        const base = mrp > 0 ? mrp : unitPrice; // ← was unitCostWithGst
         const pct = parseFloat(value) || 0;
         if (base > 0 && pct >= 0) {
           u.sellingUnitCost = (base * (1 - pct / 100)).toFixed(2);
@@ -2613,11 +2614,8 @@ const Invoice = () => {
                             letterSpacing: 0,
                           }}
                         >
-                          (on Unit Cost ₹
-                          {parseFloat(modalForm.unitCostWithGst || 0).toFixed(
-                            2,
-                          )}
-                          )
+                          (on Unit Price ₹
+                          {parseFloat(modalForm.unitPrice || 0).toFixed(2)})
                         </span>
                       </Lbl>
                       <Input
@@ -2644,7 +2642,7 @@ const Invoice = () => {
                         >
                           {parseFloat(modalForm.mrp) > 0
                             ? `(on MRP ₹${parseFloat(modalForm.mrp).toFixed(2)})`
-                            : `(on Unit Cost ₹${parseFloat(modalForm.unitCostWithGst || 0).toFixed(2)})`}
+                            : `(on Unit Price ₹${parseFloat(modalForm.unitPrice || 0).toFixed(2)})`}
                         </span>
                       </Lbl>
                       <Input

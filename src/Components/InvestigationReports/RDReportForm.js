@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import { createPortal } from "react-dom";
@@ -851,21 +851,19 @@ const serializeTableCells = (grid) => {
   });
   return out;
 };
+
 // ─── Sanitize: keep only <b> tags, strip everything else ─────────────────────
 const sanitizeCellHTML = (html) => {
   if (!html) return "";
-  return (
-    html
-      .replace(/<font[^>]*>/gi, "")
-      .replace(/<\/font>/gi, "")
-      .replace(/<span[^>]*>/gi, "")
-      .replace(/<\/span>/gi, "")
-      .replace(/<strong>/gi, "<b>")
-      .replace(/<\/strong>/gi, "</b>")
-      // Remove any remaining tags except <b> and </b>
-      .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
-      .trim()
-  );
+  return html
+    .replace(/<font[^>]*>/gi, "")
+    .replace(/<\/font>/gi, "")
+    .replace(/<span[^>]*>/gi, "")
+    .replace(/<\/span>/gi, "")
+    .replace(/<strong>/gi, "<b>")
+    .replace(/<\/strong>/gi, "</b>")
+    .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
+    .trim();
 };
 
 // ─── TableEditor ──────────────────────────────────────────────────────────────
@@ -876,9 +874,7 @@ const TableEditor = ({ entry, onChange }) => {
   const cellRefs = useRef({});
 
   useEffect(() => {
-    // Set initial HTML for all data rows (ri >= 1), all columns
     grid.forEach((row, ri) => {
-      if (ri === 0) return; // header row is static <th>
       row.forEach((cell, ci) => {
         const el = cellRefs.current[`${ri}-${ci}`];
         if (el) {
@@ -887,9 +883,8 @@ const TableEditor = ({ entry, onChange }) => {
       });
     });
 
-    // Commit initial state so unedited tables are still submitted
-    const sanitizedGrid = grid.map((row, ri) =>
-      ri === 0 ? row : row.map((cell) => sanitizeCellHTML(cell)),
+    const sanitizedGrid = grid.map((row) =>
+      row.map((cell) => sanitizeCellHTML(cell)),
     );
     const serialized = serializeTableCells(sanitizedGrid);
     onChange({ ...serialized, table_id: entry.table_id });
@@ -952,33 +947,23 @@ const TableEditor = ({ entry, onChange }) => {
     }
   };
 
-  const headerRow = grid[0] || [];
-  const dataRows = grid.slice(1);
-
   return (
     <ReportTable>
-      <thead>
-        <tr>
-          {headerRow.map((cell, ci) => (
-            <ReportTh key={ci}>{cell}</ReportTh>
-          ))}
-        </tr>
-      </thead>
       <tbody>
-        {dataRows.map((row, ri) => (
+        {grid.map((row, ri) => (
           <tr key={ri}>
             {row.map((cell, ci) => (
               <ReportTd key={ci} isHeader={ci === 0} alt={ri % 2 === 1}>
                 <EditableCell
                   ref={(el) => {
-                    cellRefs.current[`${ri + 1}-${ci}`] = el;
+                    cellRefs.current[`${ri}-${ci}`] = el;
                   }}
                   contentEditable
                   suppressContentEditableWarning
                   onKeyDown={(e) =>
-                    handleCellKeyDown(e, ri + 1, ci, e.currentTarget)
+                    handleCellKeyDown(e, ri, ci, e.currentTarget)
                   }
-                  onInput={(e) => handleCellInput(ri + 1, ci, e.currentTarget)}
+                  onInput={(e) => handleCellInput(ri, ci, e.currentTarget)}
                   onPaste={(e) => {
                     e.preventDefault();
                     document.execCommand(
@@ -998,6 +983,7 @@ const TableEditor = ({ entry, onChange }) => {
     </ReportTable>
   );
 };
+
 // ─── Section Accordion Item ───────────────────────────────────────────────────
 
 const SectionItem = ({ section, index, onChange, shortcuts }) => {
@@ -1008,8 +994,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
   const suppressRef = useRef(false);
   const lastHTMLRef = useRef("");
 
-  // For table sections: initial cell setup handled inside TableEditor
-  // For text sections: set innerHTML once on mount
   useEffect(() => {
     if (section.isTable) return;
     if (!editorRef.current) return;
@@ -1043,7 +1027,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
-      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1059,7 +1042,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       markEl.remove();
       sel.removeAllRanges();
       sel.addRange(range);
-      // suppressRef.current = true;
       const html = el.innerHTML;
       lastHTMLRef.current = html;
       onChange(index, html);
@@ -1099,7 +1081,6 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
         sel.removeAllRanges();
         sel.addRange(newRange);
 
-        // suppressRef.current = true;
         const html = el.innerHTML;
         lastHTMLRef.current = html;
         onChange(index, html);
@@ -1161,7 +1142,9 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
     }
   };
 
-  const displayTitle = section.isTable ? "📊 Study Table" : section.title;
+  const displayTitle = section.isTable
+    ? section.tableEntry?.table_name?.trim() || section.title || "Table"
+    : section.title;
 
   return (
     <SectionCard expanded={expanded}>
@@ -1171,19 +1154,19 @@ const SectionItem = ({ section, index, onChange, shortcuts }) => {
       >
         <SectionTitleRow>
           <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{displayTitle}</SectionName>
+          <SectionName>
+            {section.isTable ? `📊 ${displayTitle}` : displayTitle}
+          </SectionName>
         </SectionTitleRow>
         <ChevronIcon expanded={expanded}>▼</ChevronIcon>
       </SectionCardHeader>
       <SectionCardBody expanded={expanded}>
         {section.isTable ? (
-          // ── TABLE SECTION ────────────────────────────────────────────────
           <TableEditor
             entry={section.tableEntry}
             onChange={(updatedEntry) => onChange(index, updatedEntry, true)}
           />
         ) : (
-          // ── TEXT SECTION ─────────────────────────────────────────────────
           <RichEditorWrapper>
             {hint &&
               createPortal(
@@ -1248,7 +1231,6 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
     if (!el) return;
     const html = el.innerHTML;
     lastHTMLRef.current = html;
-    // suppressRef.current = true;
     onChange(html);
   };
 
@@ -1279,12 +1261,14 @@ const ImpressionEditor = ({ value, onChange, placeholder }) => {
 const buildSectionsFromFormat = (formatArr) => {
   return (formatArr || []).map((f) => {
     if (isTableEntry(f)) {
+      const tableName =
+        f.table_name && f.table_name.trim() ? f.table_name.trim() : "";
       return {
         title_id: f.table_id,
-        title: "Study Table",
+        title: tableName || "",
         isTable: true,
-        tableEntry: { ...f }, // raw entry with table_id + rowXcolY keys
-        value: "", // not used for tables
+        tableEntry: { ...f },
+        value: "",
         title_value: "",
       };
     }
@@ -1314,6 +1298,7 @@ const calcGAFromLMP = (lmpDateStr) => {
     return "";
   }
 };
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDReportForm = () => {
@@ -1357,8 +1342,8 @@ const RDReportForm = () => {
   const [ancFields, setAncFields] = useState({
     guh: "",
     lmp: "",
-    ga_lmp: "", // stored as "6W5D"
-    ga_usg: "", // new: GA by USG, stored as "6W5D"
+    ga_lmp: "",
+    ga_usg: "",
     edd_usg: "",
   });
 
@@ -1406,60 +1391,52 @@ const RDReportForm = () => {
     setDataLoaded(true);
   }, [location.state, navigate]);
 
-  // ── Fetch radiology format once patient data is ready ────────────────────
+  // ── Fetch radiology format ─────────────────────────────────────────────────
+  const fetchFormat = useCallback(async () => {
+    setFormatLoading(true);
+    setFormatError("");
+    try {
+      const url = `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(billTypeNo)}&test_id=${encodeURIComponent(itemId)}&gender=${encodeURIComponent(gender)}`;
+      const result = await apiRequest(url, "GET");
+
+      if (!result.success) {
+        setFormatError(result.error || "Could not load report template.");
+        return;
+      }
+
+      const data = result.data;
+
+      setFormatMeta({
+        department: data.department,
+        device_id: data.device_id,
+        TAT_Time: data.TAT_Time,
+        doctor_id: data.doctor_id,
+        impression: data.impression,
+        type: data.type || "",
+      });
+
+      setShortcuts(data.shorcuts || {});
+
+      const isANCType = (data.type || "").toUpperCase() === "ANC";
+      setIsANC(isANCType);
+
+      const built = buildSectionsFromFormat(data.format || []);
+      setSections(built);
+
+      setImpression(buildInitialHTML(data.impression || ""));
+    } catch {
+      setFormatError("Unexpected error loading report template.");
+    } finally {
+      setFormatLoading(false);
+    }
+  }, [HMSURL, billTypeNo, itemId, gender]);
+
   useEffect(() => {
     if (!dataLoaded || !billTypeNo || !itemId || !gender) return;
-
-    const fetchFormat = async () => {
-      setFormatLoading(true);
-      setFormatError("");
-      try {
-        const result = await apiRequest(
-          `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(billTypeNo)}&test_id=${encodeURIComponent(itemId)}&gender=${encodeURIComponent(gender)}`,
-          "GET",
-        );
-
-        if (!result.success) {
-          setFormatError(result.error || "Could not load report template.");
-          return;
-        }
-
-        const data = result.data;
-
-        setFormatMeta({
-          department: data.department,
-          device_id: data.device_id,
-          TAT_Time: data.TAT_Time,
-          doctor_id: data.doctor_id,
-          impression: data.impression,
-          type: data.type || "",
-        });
-
-        setShortcuts(data.shorcuts || {});
-
-        // ── ANC type detection ───────────────────────────────────────────────
-        const isANCType = (data.type || "").toUpperCase() === "ANC";
-        setIsANC(isANCType);
-
-        // ✅ Build sections supporting both text and table entries
-        const built = buildSectionsFromFormat(data.format || []);
-        setSections(built);
-
-        // Impression HTML built once here
-        setImpression(buildInitialHTML(data.impression || ""));
-      } catch {
-        setFormatError("Unexpected error loading report template.");
-      } finally {
-        setFormatLoading(false);
-      }
-    };
-
     fetchFormat();
-  }, [dataLoaded, billTypeNo, itemId, gender, HMSURL]);
+  }, [dataLoaded, billTypeNo, itemId, gender, fetchFormat]);
 
   // ── Section value change ──────────────────────────────────────────────────
-  // For text sections: htmlValue is the new HTML string
-  // For table sections: htmlValue is the updated tableEntry object, isTableUpdate=true
   const handleSectionChange = (index, htmlValue, isTableUpdate = false) => {
     setSections((prev) => {
       const updated = [...prev];
@@ -1483,7 +1460,7 @@ const RDReportForm = () => {
   const handleResetSections = () => {
     setSections((prev) =>
       prev.map((s) => {
-        if (s.isTable) return s; // table resets handled inside TableEditor if needed
+        if (s.isTable) return s;
         return { ...s, value: buildInitialHTML(s.title_value || "") };
       }),
     );
@@ -1508,17 +1485,13 @@ const RDReportForm = () => {
 
     setSubmitting(true);
 
-    // Serialize sections for API:
-    // Text sections: { title_id, value }
-    // Table sections: { title_id (table_id), isTable: true, tableData: { table_id, row1col1, ... } }
     const apiSections = sections.map((s) => {
       if (s.isTable) {
-        // Store exactly as received: { table_id, row1col1, row1col2, ... }
-        return s.tableEntry;
+        const { table_name, title, ...rowData } = s.tableEntry;
+        return rowData;
       }
       return {
         title_id: s.title_id,
-        title: s.title,
         title_value: s.value,
       };
     });
@@ -1532,9 +1505,10 @@ const RDReportForm = () => {
       item_id: itemId,
       device_id: formatMeta?.device_id || [],
       sections: apiSections,
-      type: formatMeta?.type || "", // ← add this
+      type: formatMeta?.type || "",
       ...(isANC && { anc_fields: ancFields }),
     };
+
     try {
       const result = await apiRequest(
         `${HMSURL}scan-reports/`,
@@ -1611,24 +1585,44 @@ const RDReportForm = () => {
           <InfoSection>
             <InfoTitle>Patient Information</InfoTitle>
             <InfoText>
-              Filling report for <strong>{patientName}</strong> — UHID:{" "}
-              <strong>
-                {uhid}/{subUhid}
-              </strong>{" "}
-              | IP Number: <strong>{ipNumber}</strong> | Age:{" "}
-              <strong>{age}</strong> | Gender: <strong>{gender}</strong> | Bill
-              No: <strong>{investBillNo}</strong>
+              Filling report for{" "}
+              <strong>{patientName || "Walk-in Patient"}</strong>
+              {uhid && uhid !== "na" && (
+                <>
+                  {" "}
+                  — UHID:{" "}
+                  <strong>
+                    {uhid}
+                    {subUhid && subUhid !== "na" ? `/${subUhid}` : ""}
+                  </strong>
+                </>
+              )}
+              {ipNumber && (
+                <>
+                  {" "}
+                  | IP Number: <strong>{ipNumber}</strong>
+                </>
+              )}{" "}
+              | Age: <strong>{age}</strong> | Gender: <strong>{gender}</strong>{" "}
+              | Bill No: <strong>{investBillNo}</strong>
               {itemName && (
                 <>
                   {" "}
                   | Item: <strong>{itemName}</strong>
                 </>
-              )}{" "}
-              | Bill Date:{" "}
-              <strong>
-                {investBillDate ? investBillDate.split("T")[0] : ""}
-              </strong>{" "}
-              | Referred By: <strong>{referredBy}</strong>
+              )}
+              {investBillDate && (
+                <>
+                  {" "}
+                  | Bill Date: <strong>{investBillDate.split("T")[0]}</strong>
+                </>
+              )}
+              {referredBy && (
+                <>
+                  {" "}
+                  | Referred By: <strong>{referredBy}</strong>
+                </>
+              )}
             </InfoText>
           </InfoSection>
 
@@ -1715,7 +1709,10 @@ const RDReportForm = () => {
                       type="date"
                       value={ancFields.edd_usg}
                       onChange={(e) =>
-                        setAncFields((p) => ({ ...p, edd_usg: e.target.value }))
+                        setAncFields((p) => ({
+                          ...p,
+                          edd_usg: e.target.value,
+                        }))
                       }
                     />
                   </ANCFieldGroup>

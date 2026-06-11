@@ -31,8 +31,7 @@ import Block from "./Components/Rooms/Block";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
-import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
-import IPPharmacy from "./Components/IPPharmacy/IPPharmacy";
+
 import Summary from "./Components/Summary/Summary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master
@@ -97,14 +96,13 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
-
-import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
+import PharmacyTabs from "./Components/Pharmacy/pharmacytabs";
 
 // import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
 import CashCounterManager from "./Components/CentralCashCounter/CashCounterManager";
 
-import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
+
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
 // import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
@@ -274,7 +272,7 @@ function App() {
 
       // Auto-navigate to default route
       if (location.pathname === "/") {
-        if (userRole === "Pharmacist") navigate("/OPPharmacy");
+        if (userRole === "Pharmacist") navigate("/Pharmacy");
         else navigate("/Dashboard");
       }
       setIsLoading(false);
@@ -328,7 +326,7 @@ function App() {
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
-      "/Oppharmacytabs": "OP Pharmacy Tabs",
+      "/pharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
       "/CashCounterManager": "Cash Counter Manager",
       "/BillWiseReport": "BillWiseReport",
@@ -851,19 +849,7 @@ function App() {
                   />
                 )}
 
-              {/* Pharmacy */}
-              {hasPagePermission(
-                "/IPPharmacy",
-                allowedActions,
-                dynamicPermissions,
-              ) && <Route path="/IPPharmacy" element={<IPPharmacy />} />}
-              {hasPagePermission(
-                "/OPPharmacy",
-                allowedActions,
-                dynamicPermissions,
-              ) && <Route path="/OPPharmacy" element={<OPPharmacy />} />}
-              <Route path="/ShiftBasisReport" element={<ShiftBasisReport />} />
-
+              
               {/* Doctor Master */}
               {hasPagePermission(
                 "/DoctorList",
@@ -1123,6 +1109,7 @@ function App() {
                     path="/OTMedicineBilling"
                     element={<OTMedicineBilling />}
                   />
+              
                 )}
 
               {hasPagePermission(
@@ -1157,7 +1144,7 @@ function App() {
                   <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
                 )}
 
-              <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
+              <Route path="/PharmacyTabs" element={<PharmacyTabs />} />
 
               {hasPagePermission(
                 "/CentralCashCounter",
