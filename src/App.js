@@ -119,6 +119,7 @@ import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
+import PrintDialysisDischargeSummary from "./Components/Discharge/PrintDialysisDischargeSummary";
 
 
 // Layout wrapper
@@ -945,6 +946,14 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/DialysisDischargeSummary" element={<DialysisDischargeSummary />} />}
+
+
+               {hasPagePermission(
+                "/PrintDialysisDischargeSummary",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PrintDialysisDischargeSummary" element={<PrintDialysisDischargeSummary />} />}
+
 
 
 

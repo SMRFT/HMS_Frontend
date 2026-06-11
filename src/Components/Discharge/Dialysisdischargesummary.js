@@ -38,6 +38,12 @@ export default function DialysisDischargeSummary() {
   const [uhidLoading, setUhidLoading] = useState(false);
   const [uhidError, setUhidError] = useState(null);
 
+  // ── Toast helper defined first so all async functions can use it ──
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   const fetchPatientByUhid = async (uhidValue) => {
     if (!uhidValue.trim()) return;
     setUhidLoading(true);
@@ -64,6 +70,23 @@ export default function DialysisDischargeSummary() {
         .join(" ");
       const consultantName =
         patient.billing?.find((b) => b.doctor_name)?.doctor_name || "";
+      // Build address: deduplicate parts that repeat (e.g. permanent_address === city)
+      const rawAddressParts = [
+        patient.permanent_address,
+        patient.area,
+        patient.city,
+        patient.state,
+        patient.zipcode,
+      ]
+        .map((p) => (p ? String(p).trim() : ""))
+        .filter(Boolean);
+
+      // Drop a part if it is identical (case-insensitive) to the immediately preceding one
+      const addressParts = rawAddressParts.filter(
+        (part, idx, arr) =>
+          idx === 0 || part.toLowerCase() !== arr[idx - 1].toLowerCase()
+      );
+
       setForm((prev) => ({
         ...prev,
         name: fullName,
@@ -82,9 +105,7 @@ export default function DialysisDischargeSummary() {
         uhid: patient.uhid || prev.uhid,
         consultant: consultantName || prev.consultant,
         insurance: patient.company_name || prev.insurance,
-        address: [patient.permanent_address, patient.area, patient.city, patient.state, patient.zipcode]
-          .filter(Boolean)
-          .join(", "),
+        address: addressParts.join(", "),
       }));
     } catch (err) {
       setUhidError(err?.message || "Failed to fetch patient details.");
@@ -93,11 +114,7 @@ export default function DialysisDischargeSummary() {
     }
   };
  
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
- 
+  
   const setField = (key, value) =>
     setForm((prev) => ({ ...prev, [key]: value }));
  
@@ -130,12 +147,15 @@ export default function DialysisDischargeSummary() {
       showToast("Please fill in Name, UHID, and Next HD Session Date.", "error");
       return;
     }
- 
+
     setLoading(true);
     try {
       const payload = {
         ...form,
         age: Number(form.age),
+        // ── New date fields sent explicitly ──
+        date_of_first_dialysis: form.date_of_first_dialysis || null,
+        date_of_last_dialysis: form.date_of_last_dialysis || null,
         blood_investigations: form.blood_investigations.filter((b) => b.result.trim()),
         hd_sessions: form.hd_sessions.filter(
           (s) => s.bp_pre_hd || s.bp_post_hd || s.weight_gain || s.uf_removed || s.complications
@@ -145,34 +165,51 @@ export default function DialysisDischargeSummary() {
         ),
         advice_on_discharge: form.advice_on_discharge.map((a) => a.text).filter(Boolean),
       };
- 
-      await apiRequest(`${Hmsbaseurl}dialysis-discharge-summary/`, "POST", payload);
- 
-      // Reset form to initial state
-      setForm({
-        name: "",
-        age: "",
-        gender: "",
-        uhid: "",
-        consultant: "",
-        id_no: "",
-        insurance: "",
-        address: "",
-        diagnosis: "",
-        date_of_first_dialysis: TODAY,
-        date_of_last_dialysis: TODAY,
-        blood_investigations: buildDefaultBloodInvestigations(),
-        hd_sessions: buildDefaultHdSessions(),
-        complications_during_hd: buildDefaultComplications(),
-        condition_on_discharge: "",
-        advice_on_discharge: buildDefaultAdvice(),
-        next_hd_session_on: TODAY,
-      });
-      setActiveSection(0);
- 
-      showToast("Discharge summary saved successfully!");
+
+      const res = await apiRequest(`${Hmsbaseurl}create_dialysis_discharge_summary/`, "POST", payload);
+
+      // Show toast FIRST — before any state resets — so React doesn't
+      // swallow the toast in the same batch as the form clear
+      const successMsg =
+        res?.data?.message ||
+        res?.message ||
+        "Discharge summary saved successfully.";
+
+      showToast(successMsg, "success");
+
+      // Reset form after toast is queued
+      setTimeout(() => {
+        setForm({
+          name: "",
+          age: "",
+          gender: "",
+          uhid: "",
+          consultant: "",
+          id_no: "",
+          insurance: "",
+          address: "",
+          diagnosis: "",
+          date_of_first_dialysis: TODAY,
+          date_of_last_dialysis: TODAY,
+          blood_investigations: buildDefaultBloodInvestigations(),
+          hd_sessions: buildDefaultHdSessions(),
+          complications_during_hd: buildDefaultComplications(),
+          condition_on_discharge: "",
+          advice_on_discharge: buildDefaultAdvice(),
+          next_hd_session_on: TODAY,
+        });
+        setActiveSection(0);
+      }, 300);
     } catch (err) {
-      showToast(err?.message || "Failed to save. Please try again.", "error");
+      // Handle both Axios-style errors (err.response.data) and plain Error objects
+      const errData = err?.response?.data || err?.data || {};
+      const errMsg =
+        errData?.message ||
+        errData?.detail ||
+        errData?.error ||
+        err?.message ||
+        "Failed to save. Please try again.";
+      showToast(errMsg, "error");
     } finally {
       setLoading(false);
     }
@@ -204,8 +241,8 @@ export default function DialysisDischargeSummary() {
           transition: border-color 0.18s, box-shadow 0.18s;
         }
         .dds-input:focus {
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59,130,246,0.13);
+          border-color: #0f766e;
+          box-shadow: 0 0 0 3px rgba(15,118,110,0.13);
         }
         .dds-input::placeholder { color: #aab4c4; }
         .dds-label {
@@ -228,7 +265,7 @@ export default function DialysisDischargeSummary() {
           overflow: hidden;
         }
         .section-header {
-          background: linear-gradient(90deg, #1e3a5f 0%, #2563eb 100%);
+          background: linear-gradient(90deg, #0d5c56 0%, #0f766e 100%);
           color: #fff;
           padding: 16px 24px;
           font-size: 14px;
@@ -252,12 +289,12 @@ export default function DialysisDischargeSummary() {
           white-space: nowrap;
         }
         .nav-pill.active {
-          background: #2563eb;
-          border-color: #2563eb;
+          background: #0f766e;
+          border-color: #0f766e;
           color: #fff;
-          box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+          box-shadow: 0 2px 8px rgba(15,118,110,0.25);
         }
-        .nav-pill:hover:not(.active) { border-color: #2563eb; color: #2563eb; }
+        .nav-pill:hover:not(.active) { border-color: #0f766e; color: #0f766e; }
         .hd-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .hd-table th {
           background: #f0f4f8;
@@ -279,8 +316,8 @@ export default function DialysisDischargeSummary() {
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          background: #eff6ff;
-          color: #2563eb;
+          background: #f0fdfa;
+          color: #0f766e;
           font-size: 11px;
           font-weight: 700;
           font-family: 'DM Mono', monospace;
@@ -322,8 +359,8 @@ export default function DialysisDischargeSummary() {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: #eff6ff;
-          color: #2563eb;
+          background: #f0fdfa;
+          color: #0f766e;
           font-size: 12px;
           font-weight: 700;
           display: flex;
@@ -333,7 +370,7 @@ export default function DialysisDischargeSummary() {
         }
         .btn-submit {
           padding: 13px 32px;
-          background: linear-gradient(90deg, #1e3a5f, #2563eb);
+          background: linear-gradient(90deg, #0d5c56, #0f766e);
           color: #fff;
           border: none;
           border-radius: 10px;
@@ -342,7 +379,7 @@ export default function DialysisDischargeSummary() {
           cursor: pointer;
           font-family: inherit;
           transition: opacity 0.18s, transform 0.12s;
-          box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+          box-shadow: 0 4px 14px rgba(15,118,110,0.3);
           display: flex;
           align-items: center;
           gap: 8px;
@@ -390,7 +427,7 @@ export default function DialysisDischargeSummary() {
       `}</style>
  
       {/* ── Header ── */}
-      <div style={{ background: "linear-gradient(135deg, #0f2545 0%, #1e3a5f 50%, #1d4ed8 100%)", padding: "28px 32px 24px", color: "#fff" }}>
+      <div style={{ background: "linear-gradient(135deg, #083830 0%, #0d5c56 50%, #0f766e 100%)", padding: "28px 32px 24px", color: "#fff" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
             <div style={{ width: 42, height: 42, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🩺</div>
@@ -440,7 +477,7 @@ export default function DialysisDischargeSummary() {
                     {uhidLoading && (
                       <span style={{
                         position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                        width: 14, height: 14, border: "2px solid #dde3ec", borderTopColor: "#2563eb",
+                        width: 14, height: 14, border: "2px solid #dde3ec", borderTopColor: "#0f766e",
                         borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite"
                       }} />
                     )}
@@ -621,7 +658,7 @@ export default function DialysisDischargeSummary() {
               {form.complications_during_hd.map((c, i) => (
                 <div className="comp-row" key={i}>
                   <div className="comp-type">
-                    <span style={{ color: "#2563eb", marginRight: 6, fontFamily: "DM Mono", fontSize: 12 }}>{i + 1}.</span>
+                    <span style={{ color: "#0f766e", marginRight: 6, fontFamily: "DM Mono", fontSize: 12 }}>{i + 1}.</span>
                     {c.type}
                   </div>
                   <input
@@ -709,7 +746,7 @@ export default function DialysisDischargeSummary() {
           <div style={{ display: "flex", gap: 10 }}>
             {activeSection < sections.length - 1 && (
               <button
-                style={{ padding: "11px 22px", borderRadius: 9, border: "1.5px solid #2563eb", background: "#eff6ff", fontFamily: "inherit", fontSize: 13.5, fontWeight: 600, color: "#2563eb", cursor: "pointer" }}
+                style={{ padding: "11px 22px", borderRadius: 9, border: "1.5px solid #0f766e", background: "#f0fdfa", fontFamily: "inherit", fontSize: 13.5, fontWeight: 600, color: "#0f766e", cursor: "pointer" }}
                 onClick={() => setActiveSection((s) => Math.min(sections.length - 1, s + 1))}
               >
                 Next →
