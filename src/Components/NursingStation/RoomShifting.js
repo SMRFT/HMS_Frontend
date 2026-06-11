@@ -861,7 +861,7 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
   const handleEditSave = async (shiftingId, updates, ipNumber) => {
     try {
       const ip  = ipNumber || form.ipNumber;
-      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`, "PATCH", { shifting_id: shiftingId, ...updates });
+      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`, "PUT", { shifting_id: shiftingId, ...updates });
       if (res.success || res.message) { toast.success("Updated — new shifting record created"); setEditOpen(false); fetchShiftings(); }
       else toast.error(res.error || "Update failed");
     } catch { toast.error("Update failed"); }
