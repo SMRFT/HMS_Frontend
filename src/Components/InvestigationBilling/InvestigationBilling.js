@@ -432,12 +432,15 @@ const InvestigationBilling = () => {
   const [selectedPrice, setSelectedPrice] = useState("");
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
-
   // Whether this session is an edit (has existing investBillNo + editRemarks)
   const [isEditMode, setIsEditMode] = useState(false);
-
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isPatientFetched = !!(
+    formData.firstName &&
+    (formData.uhid || formData.ipNumber)
+  );
 
   // ── Initialization ──────────────────────────────────────────────────────────
 
@@ -770,10 +773,6 @@ const InvestigationBilling = () => {
   };
 
   const validateForm = () => {
-    if (!formData.uhid?.trim()) {
-      alert("UHID is required!");
-      return false;
-    }
     if (!formData.doctor?.trim()) {
       alert("Doctor is required!");
       return false;
@@ -831,6 +830,12 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || "", // ← add
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
+      salutation: formData.salutation || "",
+      firstName: formData.firstName || "",
+      lastName: formData.lastName || "",
+      age: formData.calculatedAge || formData.age || "",
+      age_type: formData.ageType || "",
+      gender: formData.gender || "",
     };
 
     const result = await apiRequest(
@@ -886,6 +891,12 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || "", // ← add
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
+      salutation: formData.salutation || "",
+      firstName: formData.firstName || "",
+      lastName: formData.lastName || "",
+      age: formData.calculatedAge || formData.age || "",
+      age_type: formData.ageType || "",
+      gender: formData.gender || "",
       // ── Include editRemarks only when editing ──
       ...(isEditMode && formData.editRemarks
         ? { editRemarks: formData.editRemarks }
@@ -1184,7 +1195,8 @@ const InvestigationBilling = () => {
                 type="text"
                 name="salutation"
                 value={formData.salutation}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
@@ -1194,7 +1206,8 @@ const InvestigationBilling = () => {
                 type="text"
                 name="firstName"
                 value={formData.firstName}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
@@ -1204,17 +1217,32 @@ const InvestigationBilling = () => {
                 type="text"
                 name="lastName"
                 value={formData.lastName}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
             <InputWrapper>
               <Label>DOB</Label>
               <Input
-                type="text"
+                type="date" // ← change text to date for usability
                 name="dob"
                 value={formData.dob || ""}
-                readOnly
+                onChange={(e) => {
+                  handleInputChange(e);
+                  if (e.target.value) {
+                    const { calculatedAge, ageType } = calculateAgeFromDOB(
+                      e.target.value,
+                    );
+                    setFormData((prev) => ({
+                      ...prev,
+                      calculatedAge,
+                      ageType,
+                    }));
+                  }
+                }}
+                readOnly={isPatientFetched}
+                disabled={!formData.uhid && !formData.ipNumber} // ← disable when no UHID/IP
               />
             </InputWrapper>
 
@@ -1222,30 +1250,41 @@ const InvestigationBilling = () => {
               <Label>Age</Label>
               <Input
                 type="text"
-                name="age"
+                name="calculatedAge"
                 value={formData.calculatedAge || formData.age || ""}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
             <InputWrapper>
               <Label>Age Type</Label>
-              <Input
-                type="text"
+              <Select
                 name="ageType"
                 value={formData.ageType || ""}
-                readOnly
-              />
+                onChange={handleInputChange} // ← was readOnly Input
+                disabled={isPatientFetched}
+              >
+                <option value="">Select</option>
+                <option value="Y">Years</option>
+                <option value="M">Months</option>
+                <option value="D">Days</option>
+              </Select>
             </InputWrapper>
 
             <InputWrapper>
               <Label>Gender</Label>
-              <Input
-                type="text"
+              <Select
                 name="gender"
                 value={formData.gender}
-                readOnly
-              />
+                onChange={handleInputChange} // ← was readOnly
+                disabled={isPatientFetched}
+              >
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </Select>
             </InputWrapper>
             {/* ← add this block right after Gender */}
             {formData.ipNumber && formData.roomNo && (

@@ -471,6 +471,16 @@ const formatDateOnly = (dt) => {
   }
 };
 
+// ─── FIX: Convert \n → <br> while preserving existing HTML tags (bold etc.) ──
+// The API returns strings like "Line one\nLine <b>two</b>\nLine three"
+// When injected as innerHTML, \n is collapsed to a space unless we convert it.
+// white-space:pre-wrap only works for text nodes, not innerHTML injection.
+const nl2br = (str) => {
+  if (!str) return "";
+  // Replace literal \n with <br>; leave all HTML tags intact
+  return str.replace(/\n/g, "<br>");
+};
+
 // ─── Print helpers ────────────────────────────────────────────────────────────
 
 const printCountHTML = (countData, fromDate, toDate, billTypeLabel) => {
@@ -866,6 +876,411 @@ const printTATHTML = (rows, fromDate, toDate, billTypeLabel, filterLabel) => {
   w.print();
 };
 
+// ─── Radiology Report Print (A4 Portrait) ────────────────────────────────────
+
+const printRadiologyReportHTML = (row) => {
+  if (!row) return;
+
+  const fmt = (dt) => {
+    if (!dt) return "—";
+    try {
+      const s = String(dt);
+      const d =
+        s.includes("+") || s.endsWith("Z") ? new Date(s) : new Date(s + "Z");
+      return (
+        d.toLocaleDateString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }) +
+        " " +
+        d
+          .toLocaleTimeString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          })
+          .toUpperCase()
+      );
+    } catch {
+      return dt;
+    }
+  };
+
+  const rf = row.radiology_format || {};
+  const pnaDetails = rf.pna_details || [];
+  const disclaimer = rf.desclaimer || [];
+  const heading = rf.heading || row.itemName || "";
+  const subHeading = rf.sub_heading || "";
+  const impression = row.report?.impression || "";
+  const sections = row.report?.valuedetails?.value || [];
+  const doctorId = rf.doctor_id || "";
+
+  // Build pna line
+  const pnaLine = pnaDetails
+    .map(
+      (p) =>
+        `PNA: ${p.pna}&nbsp;&nbsp;&nbsp;&nbsp;Registration date: ${p.registration_date}`,
+    )
+    .join("&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;");
+
+  // ── FIX 1: Build section HTML using nl2br so \n → <br> and <b> renders ──
+  const buildSectionHTML = (sects) => {
+    if (!sects || sects.length === 0) return "";
+    return sects
+      .map((s) => {
+        if (s.table_id) {
+          const { rows: rCount, cols: cCount } = (() => {
+            const parts = (s.table_id || "").toUpperCase().split("X");
+            const r = parseInt(parts[0], 10);
+            const c = parseInt(parts[1], 10);
+            return { rows: isNaN(r) ? 0 : r, cols: isNaN(c) ? 0 : c };
+          })();
+          if (rCount === 0 || cCount === 0) return "";
+
+          const tableName = s.table_name || "";
+          let tableHTML = `
+            ${tableName ? `<div class="sec-title">${tableName}</div>` : ""}
+            <table class="report-table">
+              <tbody>
+          `;
+          for (let r = 1; r <= rCount; r++) {
+            tableHTML += "<tr>";
+            for (let c = 1; c <= cCount; c++) {
+              // FIX: nl2br on each cell so embedded \n and <b> both render
+              const cellVal = nl2br(s[`row${r}col${c}`] || "");
+              tableHTML += `<td class="rtd">${cellVal}</td>`;
+            }
+            tableHTML += "</tr>";
+          }
+          tableHTML += "</tbody></table>";
+          return tableHTML;
+        } else {
+          if (!s.title_value && !s.value) return "";
+          // FIX: nl2br converts \n to <br> so newlines display AND <b> renders as bold
+          const content = nl2br(s.title_value || s.value || "");
+          const titleDisplay = nl2br(s.title || "");
+          return `
+            <div class="section-block">
+              <div class="sec-title">${titleDisplay}</div>
+              <div class="sec-content">${content}</div>
+            </div>
+          `;
+        }
+      })
+      .join("");
+  };
+
+  // FIX 1 (impression): Same nl2br treatment
+  const impressionHTML = nl2br(impression);
+
+  // FIX 2 (disclaimer): nl2br for disclaimer text + CSS fixes for page fit
+  const buildDisclaimerHTML = (disclaimerArr) => {
+    if (!disclaimerArr || disclaimerArr.length === 0) return "";
+    return disclaimerArr
+      .map(
+        (d) => `
+        <div class="disclaimer-block">
+          <div class="disclaimer-title">${d.title || "DISCLAIMER"}</div>
+          <div class="disclaimer-text">${nl2br(d.title_value || "")}</div>
+        </div>
+      `,
+      )
+      .join("");
+  };
+
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html>
+    <head>
+      <title>${heading} - Report</title>
+      <style>
+        /* FIX 2: Use smaller margins and font sizes so disclaimer fits on page */
+        @page { size: A4 portrait; margin: 10mm 14mm 10mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: "Times New Roman", Times, serif;
+          font-size: 11.5px;
+          color: #111;
+          line-height: 1.45;
+        }
+
+        /* ── Header ── */
+        .report-header {
+          text-align: center;
+          border-bottom: 2px solid #000;
+          padding-bottom: 6px;
+          margin-bottom: 8px;
+        }
+        .pna-line {
+          font-size: 10.5px;
+          font-weight: 700;
+          color: #111;
+          margin-bottom: 3px;
+          letter-spacing: 0.3px;
+        }
+        .report-heading {
+          font-size: 14px;
+          font-weight: 900;
+          text-decoration: underline;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        }
+        .report-subheading {
+          font-size: 10px;
+          color: #444;
+          font-style: italic;
+        }
+
+        /* ── Patient Info bar ── */
+        .patient-bar {
+          display: flex;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 4px;
+          background: #f5f5f5;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          padding: 5px 8px;
+          margin-bottom: 8px;
+          font-size: 10.5px;
+        }
+        .patient-bar span { color: #333; }
+        .patient-bar strong { color: #111; }
+
+        /* ── ANC row ── */
+        .anc-bar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          background: #f1f8f4;
+          border: 1px solid #b2dfdb;
+          border-left: 4px solid #00897b;
+          border-radius: 4px;
+          padding: 4px 8px;
+          margin-bottom: 8px;
+          font-size: 10.5px;
+        }
+        .anc-field { display: flex; gap: 3px; align-items: baseline; }
+        .anc-lbl { font-weight: 700; color: #00695c; font-size: 9.5px; text-transform: uppercase; }
+        .anc-val { font-weight: 600; color: #111; }
+
+        /* ── Sections ── */
+        .section-block {
+          margin-bottom: 6px;
+        }
+        .sec-title {
+          font-size: 11px;
+          font-weight: 700;
+          text-decoration: underline;
+          text-transform: uppercase;
+          color: #111;
+          margin-bottom: 2px;
+          letter-spacing: 0.3px;
+        }
+        /* FIX 1: Remove white-space:pre-wrap — we use nl2br for newlines,
+           so the browser renders <br> + HTML tags (bold etc.) correctly */
+        .sec-content {
+          font-size: 11px;
+          color: #222;
+          line-height: 1.55;
+          word-break: break-word;
+        }
+        .sec-content b,
+        .sec-content strong { font-weight: 800; }
+
+        /* ── Report Table ── */
+        .report-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+          font-size: 10.5px;
+        }
+        .report-table .rtd {
+          padding: 3px 6px;
+          border: 1px solid #b2dfdb;
+          vertical-align: middle;
+          color: #222;
+          line-height: 1.4;
+          word-break: break-word;
+        }
+        /* FIX 1: No pre-wrap on table cells either */
+        .report-table tr:nth-child(odd) .rtd { background: #f8fffe; }
+        .report-table tr:nth-child(even) .rtd { background: #ffffff; }
+
+        /* ── Impression ── */
+        .impression-block {
+          margin-top: 8px;
+          margin-bottom: 10px;
+          border-top: 1.5px solid #333;
+          padding-top: 6px;
+        }
+        .impression-title {
+          font-size: 11.5px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #111;
+          margin-bottom: 4px;
+          text-decoration: underline;
+        }
+        /* FIX 1: Remove white-space:pre-wrap, use nl2br + innerHTML */
+        .impression-content {
+          font-size: 11px;
+          color: #111;
+          line-height: 1.6;
+          word-break: break-word;
+        }
+        .impression-content b,
+        .impression-content strong { font-weight: 800; }
+
+        /* ── Signature area ── */
+        .signature-area {
+          margin-top: 14px;
+          display: flex;
+          justify-content: flex-end;
+          padding-right: 10px;
+        }
+        .signature-block {
+          text-align: right;
+          min-width: 200px;
+        }
+        .sig-line {
+          border-top: 1.5px solid #333;
+          margin-bottom: 4px;
+          width: 100%;
+        }
+        .sig-doctor {
+          font-size: 11.5px;
+          font-weight: 800;
+          color: #111;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        .sig-designation {
+          font-size: 10.5px;
+          color: #333;
+          font-style: italic;
+        }
+        .sig-reg {
+          font-size: 10px;
+          color: #555;
+          margin-top: 2px;
+        }
+
+        /* ── FIX 2: Disclaimer — compact, fits on page, no overflow ── */
+        .disclaimer-block {
+          margin-top: 12px;
+          border-top: 1.5px solid #888;
+          padding-top: 6px;
+          page-break-inside: avoid;
+        }
+        .disclaimer-title {
+          font-size: 11px;
+          font-weight: 900;
+          text-decoration: underline;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          color: #111;
+          margin-bottom: 4px;
+        }
+        /* FIX 2: Smaller font, normal line-height, text-align justify,
+           NO pre-wrap — nl2br handles line breaks */
+        .disclaimer-text {
+          font-size: 10px;
+          color: #333;
+          line-height: 1.55;
+          text-align: justify;
+          word-break: break-word;
+        }
+        .disclaimer-text b,
+        .disclaimer-text strong { font-weight: 800; }
+
+        @media print {
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .report-table tr:first-child .rtd { background: #e0f2f1 !important; }
+          .patient-bar { background: #f5f5f5 !important; }
+          .anc-bar { background: #f1f8f4 !important; }
+          /* Disclaimer must not break across pages */
+          .disclaimer-block { page-break-inside: avoid; }
+          /* Each section block avoids a mid-break */
+          .section-block { page-break-inside: avoid; }
+          .impression-block { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+
+      <!-- ── Header ── -->
+      <div class="report-header">
+        ${pnaLine ? `<div class="pna-line">${pnaLine}</div>` : ""}
+        <div class="report-heading">${heading}</div>
+        ${subHeading ? `<div class="report-subheading">${subHeading}</div>` : ""}
+      </div>
+
+      <!-- ── Patient Info ── -->
+      <div class="patient-bar">
+        <span><strong>${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}</strong></span>
+        <span>Age: <strong>${row.age || "—"} ${row.age_type || ""}</strong></span>
+        <span>Gender: <strong>${row.gender || "—"}</strong></span>
+        <span>UHID: <strong>${row.uhid || "—"}</strong></span>
+        <span>Bill No: <strong>${row.investBillNo || "—"}</strong></span>
+        <span>Date: <strong>${fmt(row.investBillDate)}</strong></span>
+        ${row.referredBy ? `<span>Ref by: <strong>${row.referredBy}</strong></span>` : ""}
+      </div>
+
+      <!-- ── ANC Details ── -->
+      ${
+        row.report?.anc_fields
+          ? `
+        <div class="anc-bar">
+          ${row.report.anc_fields.guh ? `<div class="anc-field"><span class="anc-lbl">GUH:</span><span class="anc-val">${row.report.anc_fields.guh}</span></div>` : ""}
+          ${row.report.anc_fields.lmp ? `<div class="anc-field"><span class="anc-lbl">LMP:</span><span class="anc-val">${row.report.anc_fields.lmp}</span></div>` : ""}
+          ${row.report.anc_fields.ga_lmp ? `<div class="anc-field"><span class="anc-lbl">GA (LMP):</span><span class="anc-val">${row.report.anc_fields.ga_lmp}</span></div>` : ""}
+          ${row.report.anc_fields.ga_usg ? `<div class="anc-field"><span class="anc-lbl">GA (USG):</span><span class="anc-val">${row.report.anc_fields.ga_usg}</span></div>` : ""}
+          ${row.report.anc_fields.edd_usg ? `<div class="anc-field"><span class="anc-lbl">EDD (USG):</span><span class="anc-val">${row.report.anc_fields.edd_usg}</span></div>` : ""}
+        </div>
+      `
+          : ""
+      }
+
+      <!-- ── Report Sections ── -->
+      ${buildSectionHTML(sections)}
+
+      <!-- ── Impression ── -->
+      ${
+        impression
+          ? `
+        <div class="impression-block">
+          <div class="impression-title">Impression</div>
+          <div class="impression-content">${impressionHTML}</div>
+        </div>
+      `
+          : ""
+      }
+
+      <!-- ── Signature ── -->
+      <div class="signature-area">
+        <div class="signature-block">
+          <div class="sig-line"></div>
+          <div class="sig-doctor">${doctorId || "Consultant Radiologist"}</div>
+          <div class="sig-designation">Consultant Radiologist</div>
+        </div>
+      </div>
+
+      <!-- ── Disclaimer ── -->
+      ${buildDisclaimerHTML(disclaimer)}
+
+    </body>
+    </html>
+  `);
+  w.document.close();
+  w.print();
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDPrint = () => {
@@ -895,7 +1310,7 @@ const RDPrint = () => {
     }));
   }, [rows]);
 
-  // ── TAT filtered rows — must be declared BEFORE slotFilteredRows/slotCounts
+  // ── TAT filtered rows ─────────────────────────────────────────────────────
   const tatRows = useMemo(() => {
     if (tatFilter === "all") return rows;
     return rows.filter((r) => r.tat_info?.status === tatFilter);
@@ -911,7 +1326,7 @@ const RDPrint = () => {
     return counts;
   }, [rows]);
 
-  // ── Slot filtered rows (depends on tatRows — declared after it) ────────────
+  // ── Slot filtered rows ─────────────────────────────────────────────────────
   const slotFilteredRows = useMemo(() => {
     if (slotFilter === "all") return tatRows;
     if (slotFilter === "no_slot")
@@ -934,7 +1349,6 @@ const RDPrint = () => {
     return counts;
   }, [tatRows]);
 
-  // ── Final display rows: both TAT + slot filters applied ───────────────────
   const displayRows = slotFilteredRows;
 
   const activeFilterLabel =
