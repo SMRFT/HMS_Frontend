@@ -375,7 +375,7 @@ const PatientRegistrationForm = () => {
                 consultingFee: doc ? doc.consultingFee : 0,
                 totalFees: doc ? (doc.registrationFee + doc.consultingFee) : 0
             };
-            
+
             const result = await apiRequest(`${Hmsbaseurl}update-registration-visit/`, "POST", payload);
             if (result.success) {
                 alert("Visit updated successfully");
@@ -402,7 +402,7 @@ const PatientRegistrationForm = () => {
                 refund_amount: refundAmount,
                 remarks: refundRemarks
             };
-            
+
             const result = await apiRequest(`${Hmsbaseurl}process-registration-refund/`, "POST", payload);
             if (result.success) {
                 alert(`Refund processed successfully. Refund Bill No: ${result.refund_bill_no}`);
@@ -884,7 +884,7 @@ const PatientRegistrationForm = () => {
 
         if (result.success) {
             console.log("Patient Registered:", result.data)
-            
+
             const resultConfirm = await Swal.fire({
                 title: 'Registration successful!',
                 html: `Patient registered successfully with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you need a print?`,
@@ -986,13 +986,13 @@ const PatientRegistrationForm = () => {
     // Select patient from search results
     const handleSelectPatient = (selectedPatient) => {
         const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
-        
+
         // Map backend registration_date to frontend regDate if it exists
-        const mappedPatient = { 
-            ...selectedPatient, 
+        const mappedPatient = {
+            ...selectedPatient,
             name: fullName
         }
-        
+
         setPatient(mappedPatient)
         setShowSearchModal(false)
     }
@@ -1179,12 +1179,12 @@ const PatientRegistrationForm = () => {
                             <List size={20} />
                             <span>Visited List</span>
                         </StatsButton>
-                        <StatsButton 
-                            onClick={() => setShowQRModal(true)} 
-                            style={{ 
-                                background: 'white', 
-                                color: '#0d9488', 
-                                border: '1px solid #ccfbf1', 
+                        <StatsButton
+                            onClick={() => setShowQRModal(true)}
+                            style={{
+                                background: 'white',
+                                color: '#0d9488',
+                                border: '1px solid #ccfbf1',
                                 height: '40px',
                                 position: 'relative'
                             }}
@@ -1500,11 +1500,11 @@ const PatientRegistrationForm = () => {
                                     <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#64748b' }}>Patient</p>
                                     <p style={{ margin: 0, fontWeight: '600' }}>{selectedVisit.patientName} ({selectedVisit.uhid})</p>
                                 </div>
-                                
+
                                 <FilterGroup>
                                     <Label>Select New Doctor</Label>
-                                    <Select 
-                                        value={editingDoctor} 
+                                    <Select
+                                        value={editingDoctor}
                                         onChange={(e) => setEditingDoctor(e.target.value)}
                                     >
                                         <option value="">Select Doctor</option>
@@ -1550,9 +1550,9 @@ const PatientRegistrationForm = () => {
 
                                 <FilterGroup>
                                     <Label>Refund Amount</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={refundAmount} 
+                                    <Input
+                                        type="number"
+                                        value={refundAmount}
                                         onChange={(e) => setRefundAmount(e.target.value)}
                                         max={selectedVisit.billAmount}
                                     />
@@ -1560,8 +1560,8 @@ const PatientRegistrationForm = () => {
 
                                 <FilterGroup>
                                     <Label>Remarks / Reason</Label>
-                                    <TextArea 
-                                        value={refundRemarks} 
+                                    <TextArea
+                                        value={refundRemarks}
                                         onChange={(e) => setRefundRemarks(e.target.value)}
                                         placeholder="Enter reason for refund..."
                                         rows={3}
@@ -1716,13 +1716,13 @@ const PatientRegistrationForm = () => {
                                                 const selectedValue = e.target.value;
                                                 const typeObj = customerTypes.find(t => t.type_name === selectedValue);
                                                 const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
-                                                
+
                                                 setRegistrationFee(fee);
                                                 const total = fee + consultingFee;
                                                 setTotalFees(total);
-                                                
+
                                                 setPatient(prev => ({
-                                                    ...prev, 
+                                                    ...prev,
                                                     customerType: selectedValue,
                                                     registrationFee: fee,
                                                     totalFees: total
@@ -1876,7 +1876,7 @@ const PatientRegistrationForm = () => {
                                         <Input type="text" id="area" name="area" value={patient.area} onChange={handleChange} placeholder="Enter area" />
                                     </InputWrapper>
                                     <InputWrapper>
-                                        <Label htmlFor="zipcode">Zipcode<RequiredAsterisk>*</RequiredAsterisk></Label>
+                                        <Label htmlFor="zipcode">Post Code<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Input type="text" id="zipcode" name="zipcode" value={patient.zipcode} onChange={handleChange} required placeholder="Enter zipcode" />
                                     </InputWrapper>
                                     <InputWrapper>
@@ -1940,20 +1940,26 @@ const PatientRegistrationForm = () => {
                                     <InputWrapper className="span-full">
                                         <Label htmlFor="referredBy">Referred By<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <InputGroup>
-                                            <Select
+                                            <Input
+                                                list="doctor-options"
                                                 id="referredBy"
                                                 name="referredBy"
                                                 value={patient.referredBy}
-                                                onChange={handleChange}
+                                                onChange={(e) => {
+                                                    handleChange(e);
+                                                    setSearchDoctorTerm(e.target.value);
+                                                }}
+                                                placeholder="Search or Select Doctor"
+                                                onClick={() => setSearchDoctorTerm("")}
                                                 required
-                                            >
-                                                <option value="">Select Doctor</option>
+                                            />
+                                            <datalist id="doctor-options">
                                                 {allDoctors.map((doc, index) => (
                                                     <option key={index} value={doc.name}>
                                                         {doc.label}
                                                     </option>
                                                 ))}
-                                            </Select>
+                                            </datalist>
                                             <InputAddon onClick={() => setIsModalOpen(true)} title="Add New Doctor">
                                                 <Plus size={16} />
                                             </InputAddon>
@@ -2224,7 +2230,7 @@ const PatientRegistrationForm = () => {
 
                         </FormGrid>
                     </DoctorContainer >
-                    
+
                     <div style={{ marginTop: '24px' }}>
                         <QRRegistrationSidebar onDataReceived={handleQRDataReceived} />
                     </div>
