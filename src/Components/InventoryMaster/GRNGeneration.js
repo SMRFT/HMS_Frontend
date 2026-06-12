@@ -801,7 +801,7 @@ const GRNGeneration = () => {
     try { const r = await apiRequest(`${baseUrl}pharmacy-items/`,"GET"); if(r.success) setMedicines(Array.isArray(r.data)?r.data:[]) } catch {}
   },[])
   const fetchGRNList   = useCallback(async () => {
-    try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data)?r.data:[]) } catch {}
+    try { const r = await apiRequest(`${baseUrl}grn/`,"GET"); if(r.success) setGrnList(Array.isArray(r.data.data)?r.data.data:[]) } catch {}
   },[])
 
   const fetchOutlets = useCallback(async () => {

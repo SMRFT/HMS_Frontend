@@ -901,7 +901,7 @@ export default function IPAdvance() {
     try {
       const res = await apiRequest(
         `${BASE}admission-advance/${encodeURIComponent(ipNumber)}/`,
-        "PATCH",
+        "PUT",
         { advance_id: advanceId, action: "cancel" }
       );
       if (!res.success) throw new Error(res.error || "Cancel failed");
@@ -965,7 +965,7 @@ export default function IPAdvance() {
     try {
       const res = await apiRequest(
         `${BASE}admission-advance/${encodeURIComponent(ipNo)}/`,
-        "PATCH",
+        "PUT",
         {
           advance_id:     refundRecord.advance_id,
           action:         "refund",
