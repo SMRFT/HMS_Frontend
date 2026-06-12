@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { MapPin, Check, ArrowRight, X } from 'lucide-react';
+import { MapPin, Check, ArrowRight, X, Search } from 'lucide-react';
 
 const fadeIn = keyframes`
   from { opacity: 0; backdrop-filter: blur(0px); }
@@ -237,12 +237,86 @@ const SelectionIndicator = styled.div`
   }
 `;
 
+const SearchContainer = styled.div`
+  position: relative;
+  margin-bottom: 24px;
+`;
+
+const SearchInput = styled.input`
+  width: 100%;
+  padding: 14px 20px 14px 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: rgba(248, 250, 252, 0.8);
+  font-size: 1rem;
+  color: #334155;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: #0d9488;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+  }
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+`;
+
+const SearchIconWrapper = styled.div`
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
 const OutletSelectionModal = ({ outlets, onSelect, onClose, currentOutletCode }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  const filteredOutlets = outlets ? outlets.filter(o => 
+    o.outlet_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    o.outlet_code.toLowerCase().includes(searchTerm.toLowerCase())
+  ) : [];
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [searchTerm]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < filteredOutlets.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredOutlets.length > 0) {
+        onSelect(filteredOutlets[selectedIndex]);
+      }
+    } else if (e.key === 'Escape' && onClose) {
+      onClose();
+    }
+  };
+
   if (!outlets || outlets.length === 0) return null;
 
   return (
-    <Overlay>
-      <ModalContainer>
+    <Overlay onClick={onClose}>
+      <ModalContainer onClick={(e) => e.stopPropagation()}>
         {onClose && (
           <CloseButton onClick={onClose} aria-label="Close">
             <X size={20} />
@@ -254,14 +328,29 @@ const OutletSelectionModal = ({ outlets, onSelect, onClose, currentOutletCode })
           <Subtitle>Choose your active workspace for this session.</Subtitle>
         </Header>
 
+        <SearchContainer>
+          <SearchIconWrapper>
+            <Search size={20} />
+          </SearchIconWrapper>
+          <SearchInput 
+            ref={inputRef}
+            placeholder="Search facility by name or code..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </SearchContainer>
+
         <OutletGrid>
-          {outlets.map((outlet) => {
+          {filteredOutlets.map((outlet, index) => {
             const isSelected = currentOutletCode === outlet.outlet_code;
+            const isHighlighted = index === selectedIndex;
             return (
               <OutletCard 
                 key={outlet.outlet_code} 
                 $selected={isSelected}
                 onClick={() => onSelect(outlet)}
+                style={isHighlighted ? { transform: 'translateY(-2px)', boxShadow: '0 12px 24px -8px rgba(0, 0, 0, 0.06)', border: '1px solid rgba(13, 148, 136, 0.4)' } : {}}
               >
                 <IconWrapper $selected={isSelected}>
                   <MapPin size={22} strokeWidth={isSelected ? 2.5 : 2} />

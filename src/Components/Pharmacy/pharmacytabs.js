@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar } from "react-icons/fa";
+import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo } from "react-icons/fa";
 
-import OPPharmacyViewBills from "../Pharmacy/OPPharmacyViewBills";
-import OPPharmacy from "../Pharmacy/OPPharmacy";
+import PharmacyViewBills from "../Pharmacy/PharmacyViewBills";
+import OPPharmacy from "../Pharmacy/Pharmacy";
 import ViewEstimate from "../Pharmacy/Viewestimate";
 import MedicineChart from "./Medicinechart";
 import apiRequest from "../../Auth/apiRequest";
+import WardReturnApprovals from "./WardReturnApprovals";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
@@ -14,6 +15,7 @@ const TABS = [
   { key: "view_estimate", label: "View Estimate",    Icon: FaFileInvoiceDollar },
   { key: "view_bills",    label: "View Bills",       Icon: FaListAlt           },
   { key: "medichart",     label: "Medichart",        Icon: FaChartBar          },
+  { key: "ward_returns",  label: "Ward Returns",     Icon: FaUndo              },
 ];
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -94,6 +96,7 @@ const OPPharmacyTabs = () => {
   const [activeTab, setActiveTab] = useState("pharmacy_bill");
   const [estimateToLoad, setEstimateToLoad] = useState(null);
   const [billToEdit, setBillToEdit] = useState(null);
+  const [estimateRefreshKey, setEstimateRefreshKey] = useState(0);
 
   // ── Ward request state (used for MedicineChart → Convert to Bill flow) ──
   const [wardRequestToLoad, setWardRequestToLoad] = useState(null);
@@ -102,6 +105,11 @@ const OPPharmacyTabs = () => {
   const handleConvertEstimate = (estimate) => {
     setEstimateToLoad(estimate);
     setActiveTab("pharmacy_bill");
+  };
+
+  // Called by OPPharmacy after a successful Save Estimate — signals ViewEstimate to re-fetch once
+  const handleEstimateSaved = () => {
+    setEstimateRefreshKey(prev => prev + 1);
   };
 
   const handleEstimateLoaded = () => {
@@ -246,17 +254,18 @@ const OPPharmacyTabs = () => {
           onBillEditLoaded={handleBillEditLoaded}
           wardRequestToLoad={wardRequestToLoad}
           onWardRequestLoaded={handleWardRequestLoaded}
+          onEstimateSaved={handleEstimateSaved}
         />
       </TabPanel>
 
       {/* ── View Estimate tab ── */}
       <TabPanel $visible={activeTab === "view_estimate"}>
-        <ViewEstimate onConvertEstimate={handleConvertEstimate} />
+        <ViewEstimate onConvertEstimate={handleConvertEstimate} refreshTrigger={estimateRefreshKey} />
       </TabPanel>
 
       {/* ── View Bills tab ── */}
       <TabPanel $visible={activeTab === "view_bills"}>
-        <OPPharmacyViewBills
+        <PharmacyViewBills
           onEditBill={handleEditBill}
           onSwitchToPharmacy={handleSwitchToPharmacy}
         />
@@ -265,6 +274,11 @@ const OPPharmacyTabs = () => {
       {/* ── Medicine Chart tab ── */}
       <TabPanel $visible={activeTab === "medichart"}>
         <MedicineChart onConvertToBill={handleConvertMedicineChart} />
+      </TabPanel>
+
+      {/* ── Ward Returns tab ── */}
+      <TabPanel $visible={activeTab === "ward_returns"}>
+        <WardReturnApprovals />
       </TabPanel>
     </Wrapper>
   );

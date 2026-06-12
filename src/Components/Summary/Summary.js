@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
 import {
@@ -442,6 +442,7 @@ const Summary = () => {
   const [selectedField, setSelectedField] = useState("");
   const [summaries, setSummaries] = useState([]);
   const navigate = useNavigate();
+  const location = useLocation();
   const [showInvestigations, setShowInvestigations] = useState(false);
   const [investigations, setInvestigations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -575,13 +576,14 @@ const Summary = () => {
   }, []);
 
   /* ── Fetch IP patient ── */
-  const fetchIpPatient = async () => {
-    if (!formData.ipNo) {
+  const fetchIpPatient = async (overrideIp) => {
+    const ipToFetch = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
+    if (!ipToFetch) {
       alert("Please enter IP Number");
       return;
     }
     const result = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(formData.ipNo)}/`,
+      `${HMSURL}ip-patient/${encodeURIComponent(ipToFetch)}/`,
       "GET",
     );
     if (result.success) {
@@ -607,6 +609,16 @@ const Summary = () => {
       alert("Patient not found");
     }
   };
+
+  useEffect(() => {
+    if (location.state && location.state.ipNo) {
+      setFormData((prev) => ({ ...prev, ipNo: location.state.ipNo }));
+      fetchIpPatient(location.state.ipNo);
+      // Clear state so it doesn't refetch if the user navigates away and back
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   /* ── Investigations ── */
   const fetchInvestigations = async () => {

@@ -317,6 +317,9 @@ export const Th = styled.th`
   font-weight: 600;
   font-size: 0.75rem;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 `;
 
 export const Td = styled.td`

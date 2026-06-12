@@ -31,8 +31,7 @@ import Block from "./Components/Rooms/Block";
 import PharmacyItemMaster from "./Components/InventoryMaster/PharmacyItem";
 import GRNGeneration from "./Components/InventoryMaster/GRNGeneration";
 import PatientRegistrationForm from "./Components/Register/PatientRegistrationForm";
-import OPPharmacy from "./Components/Pharmacy/OPPharmacy";
-import IPPharmacy from "./Components/IPPharmacy/IPPharmacy";
+
 import Summary from "./Components/Summary/Summary";
 import SummaryPrint from "./Components/Summary/SummaryPrint";
 // Doctor Master
@@ -82,6 +81,7 @@ import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
+import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
 
 import Items from "./Components/Stores/Items";
 import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
@@ -96,14 +96,13 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
-
-import OPPharmacyTabs from "./Components/Pharmacy/Oppharmacytabs";
+import PharmacyTabs from "./Components/Pharmacy/pharmacytabs";
 
 // import CustomerType from "./Components/BillingMaster/CustomerType";
 import CentralCashCounter from "./Components/CentralCashCounter/CentralCashCounter";
 import CashCounterManager from "./Components/CentralCashCounter/CashCounterManager";
 
-import Oppharmacytabs from "./Components/Pharmacy/Oppharmacytabs";
+
 
 import CustomerType from "./Components/BillingMaster/CustomerType";
 // import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
@@ -121,6 +120,7 @@ import DietOrder from "./Components/NursingStation/DietMaster";
 import ShiftBasisReport from "./Components/Accounts/ShiftBasisReport";
 import SalesReturn from "./Components/Pharmacy/SalesReturn";
 import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
+import MarketingReport from "./Components/Reports/MarketingReport";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
 
@@ -144,6 +144,8 @@ import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinere
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
+import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 
 
 
@@ -270,7 +272,7 @@ function App() {
 
       // Auto-navigate to default route
       if (location.pathname === "/") {
-        if (userRole === "Pharmacist") navigate("/OPPharmacy");
+        if (userRole === "Pharmacist") navigate("/Pharmacy");
         else navigate("/Dashboard");
       }
       setIsLoading(false);
@@ -324,7 +326,7 @@ function App() {
       "/RecycleManagement": "Recycle Management",
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
-      "/Oppharmacytabs": "OP Pharmacy Tabs",
+      "/pharmacytabs": "OP Pharmacy Tabs",
       "/ShiftBasisReport": "Shift Basis Report",
       "/CashCounterManager": "Cash Counter Manager",
       "/BillWiseReport": "BillWiseReport",
@@ -334,6 +336,7 @@ function App() {
       "/CashierWiseDetailedReport": "Cashier Wise Detailed Report",
       "/AdvanceRegistrationInsurence": "Advance Registration (Insurance)",
       "/AdvanceRegistration": "Advance Registration",
+
       "/BillCancelReport": "Bill Cancel Report",
      
     };
@@ -348,6 +351,20 @@ function App() {
       document.title = `${title} - Shanmuga Hospital`;
     }
   }, [location.pathname]);
+
+  // Global hotkey to open Outlet Selection Modal on F12
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F12') {
+        e.preventDefault();
+        if (userOutlets && userOutlets.length > 1) {
+          setShowOutletModal(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [userOutlets]);
 
   // Routes where sidebar is hidden (login page and mobile reg)
   const hideSidebarRoutes = ["/", "/MobileRegistration"];
@@ -587,7 +604,7 @@ function App() {
                     element={<InsuranceProvider />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/InsuranceClaim",
                 allowedActions,
                 dynamicPermissions,
@@ -615,6 +632,13 @@ function App() {
                 dynamicPermissions,
               ) && (
                   <Route path="/LabWardRequest" element={<LabWardRequest />} />
+                )}
+              {hasPagePermission(
+                "/LaundryAdmin",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/LaundryAdmin" element={<LaundryAdmin />} />
                 )}
 
               {/* Rooms */}
@@ -668,7 +692,7 @@ function App() {
                   <Route
                     path="/PurchaseRequisition"
                     element={<PurchaseRequisition />}
-                 
+
                   />
                 )}
               {/* Inventory */}
@@ -725,7 +749,7 @@ function App() {
                   />
                 )}
 
-             {hasPagePermission(
+              {hasPagePermission(
                 "/PurchaseReturn",
                 allowedActions,
                 dynamicPermissions,
@@ -733,6 +757,28 @@ function App() {
                   <Route
                     path="/PurchaseReturn"
                     element={<PurchaseReturn />}
+                  />
+                )}
+
+              {hasPagePermission(
+                "/PhysicalStockEntry",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PhysicalStockEntry"
+                    element={<PhysicalStockEntry />}
+                  />
+                )}
+
+               {hasPagePermission(
+                "/PhysicalStockApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PhysicalStockApproval"
+                    element={<PhysicalStockApproval />}
                   />
                 )}
 
@@ -745,7 +791,7 @@ function App() {
                     path="/PharmacyNotification"
                     element={<PharmacyNotification />}
                   />
-              )}
+                )}
 
               {hasPagePermission(
                 "/PharmacyItemMaster",
@@ -758,7 +804,7 @@ function App() {
                   />
                 )}
 
-                
+
               {hasPagePermission(
                 "/MedicineRequisition",
                 allowedActions,
@@ -803,19 +849,7 @@ function App() {
                   />
                 )}
 
-              {/* Pharmacy */}
-              {hasPagePermission(
-                "/IPPharmacy",
-                allowedActions,
-                dynamicPermissions,
-              ) && <Route path="/IPPharmacy" element={<IPPharmacy />} />}
-              {hasPagePermission(
-                "/OPPharmacy",
-                allowedActions,
-                dynamicPermissions,
-              ) && <Route path="/OPPharmacy" element={<OPPharmacy />} />}
-              <Route path="/ShiftBasisReport" element={<ShiftBasisReport />} />
-
+              
               {/* Doctor Master */}
               {hasPagePermission(
                 "/DoctorList",
@@ -871,7 +905,7 @@ function App() {
                     element={<RDReportForm />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/RDList",
                 allowedActions,
                 dynamicPermissions,
@@ -881,7 +915,7 @@ function App() {
                     element={<RDPrint />}
                   />
                 )}
-                {hasPagePermission(
+              {hasPagePermission(
                 "/JRDReport",
                 allowedActions,
                 dynamicPermissions,
@@ -937,6 +971,10 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/FrontOfficeReports" element={<FrontOfficeReports />} />}
+              {hasPagePermission(
+                "/MarketingReport",
+                ["FrontOfficeReports_read"]
+              ) && <Route path="/MarketingReport" element={<MarketingReport />} />}
               {hasPagePermission(
                 "/AccountsReports",
                 allowedActions,
@@ -1061,17 +1099,18 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/OTLabBilling" element={<OTLabBilling />} />}
-              
+
               {hasPagePermission(
                 "/OTMedicineBilling",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route
-                  path="/OTMedicineBilling"
-                  element={<OTMedicineBilling />}
-                />
-              )}
+                  <Route
+                    path="/OTMedicineBilling"
+                    element={<OTMedicineBilling />}
+                  />
+              
+                )}
 
               {hasPagePermission(
                 "/ShiftBasisReport",
@@ -1105,7 +1144,7 @@ function App() {
                   <Route path="/SurgerySchedule" element={<SurgerySchedule />} />
                 )}
 
-              <Route path="/OPPharmacyTabs" element={<OPPharmacyTabs />} />
+              <Route path="/PharmacyTabs" element={<PharmacyTabs />} />
 
               {hasPagePermission(
                 "/CentralCashCounter",
@@ -1158,7 +1197,7 @@ function App() {
                 <Route path="/PreDayRoomOccupancyReport" element={<PreDayRoomOccupancyReport />} />
               )}
 
-                {hasPagePermission(
+              {hasPagePermission(
                 "/DialysisDischargeSummary",
                 allowedActions,
                 dynamicPermissions,

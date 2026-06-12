@@ -691,13 +691,9 @@ export default function CentralCashCounter() {
   const [rpSaving, setRpSaving] = useState(false);
   const [rpLoading, setRpLoading] = useState(false);
   const [rpShowVoucherModal, setRpShowVoucherModal] = useState(false);
-  const [rpShowVoucherForm, setRpShowVoucherForm] = useState(false);
+  const [rpShowVoucherForm, setRpShowVoucherForm]   = useState(false);
   const [rpVoucherLoading, setRpVoucherLoading] = useState(false);
-  const [rpPrintVoucher, setRpPrintVoucher] = useState(null);
-
-  // ── Return Bills state ────────────────────────────────────────────────────────
-  // const [returnPendingBills, setReturnPendingBills] = useState([]);
-  // const [returnReceivedBills, setReturnReceivedBills] = useState([]);
+  const [rpPrintVoucher, setRpPrintVoucher]     = useState(null);
 
   // ── Return Bills state ────────────────────────────────────────────────────────
   const [returnPendingBills, setReturnPendingBills] = useState([]);
@@ -709,10 +705,10 @@ export default function CentralCashCounter() {
     d.setDate(1);
     return d.toISOString().split("T")[0];
   });
-  const [pvToDate, setPvToDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [pvToDate, setPvToDate]         = useState(() => new Date().toISOString().split("T")[0]);
   const [pvVoucherType, setPvVoucherType] = useState("All");
-  const [pvData, setPvData] = useState([]);
-  const [pvPage, setPvPage] = useState(1);
+  const [pvData, setPvData]             = useState([]);
+  const [pvPage, setPvPage]             = useState(1);
   const [pvShowEntries, setPvShowEntries] = useState(10);
   const [pvTotalReceipt, setPvTotalReceipt] = useState(0);
   const [pvTotalPayment, setPvTotalPayment] = useState(0);
@@ -804,11 +800,11 @@ export default function CentralCashCounter() {
         rpShowAlert("success", "Payment collected successfully!");
 
         const newRecord = {
-          _id: res?._id || res?.id || `temp-${Date.now()}`,
-          voucher_no: res?.voucher_no || "—",
-          voucher_date: res?.voucher_date || new Date().toISOString(),
-          receipt_type: payload.receipt_type,
-          account_head: payload.account_head,
+          _id:               res?._id        || res?.id        || `temp-${Date.now()}`,
+          voucher_no:        res?.voucher_no || "—",
+          voucher_date:      res?.voucher_date || new Date().toISOString(),
+          receipt_type:      payload.receipt_type,
+          account_head:      payload.account_head,
           account_head_details: {
             no: payload.account_head,
             name: rpSelectedHeadName,
@@ -900,17 +896,17 @@ export default function CentralCashCounter() {
       const d = r.voucher_date ? new Date(r.voucher_date) : null;
       const dateStr = d
         ? d.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
         : "—";
       const timeStr = d
         ? d.toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        })
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
         : "—";
       const desc = r.description
         ? typeof r.description === "object"
@@ -922,9 +918,9 @@ export default function CentralCashCounter() {
         timeStr,
         r.shiftno || r.shift_reference || "—",
         r.account_head_details?.name ||
-        r.account_head_name ||
-        r.account_head ||
-        "—",
+          r.account_head_name ||
+          r.account_head ||
+          "—",
         r.voucher_no || "—",
         r.receipt_type === "Receipt"
           ? parseFloat(r.amount || 0).toFixed(2)
@@ -1004,20 +1000,20 @@ export default function CentralCashCounter() {
 
       const billDate = billDateObj
         ? billDateObj.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          timeZone: "Asia/Kolkata",
-        })
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          })
         : "-";
 
       const billTime = billDateObj
         ? billDateObj.toLocaleTimeString("en-IN", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true, // 👈 IMPORTANT
-          timeZone: "Asia/Kolkata",
-        })
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true, // 👈 IMPORTANT
+            timeZone: "Asia/Kolkata",
+          })
         : "-";
 
       return {
@@ -1058,19 +1054,19 @@ export default function CentralCashCounter() {
           payment.bill_type != null
             ? payment.bill_type
             : payment[" bill_type"] != null
-            ? payment[" bill_type"]
-            : null;
+              ? payment[" bill_type"]
+              : null;
 
         rows.push({
           id: `${admission.ipNumber}-${payment.advance_id}`,
           // display fields
           bill_date: billDateObj
             ? billDateObj.toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric",
-              timeZone: "Asia/Kolkata",
-            })
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                timeZone: "Asia/Kolkata",
+              })
             : "-",
           bill_no: payment.bill_no || "-",
           uhid_no: admission.uhid || "-",
@@ -1121,8 +1117,8 @@ export default function CentralCashCounter() {
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
-          ? response.data
-          : [];
+        ? response.data
+        : [];
 
       const formatted = billsArray.map((item, index) => {
         const dateObj = item.date ? new Date(item.date) : null;
@@ -1182,10 +1178,10 @@ export default function CentralCashCounter() {
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response)
-            ? response
-            : [];
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
 
       const billTypeDetails = Array.isArray(response?.data?.allowed_bill_type_details)
         ? response.data.allowed_bill_type_details
@@ -1251,7 +1247,7 @@ export default function CentralCashCounter() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Fetch IP advance received bills (stub) ────────────────────────────────────
@@ -1269,73 +1265,73 @@ export default function CentralCashCounter() {
   }, []);
 
   // ── Fetch Return Bills ────────────────────────────────────────────────────────
- const fetchReturnBills = useCallback(async () => {
-  setLoading(true);
-  try {
-    const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
-    // API returns { status, count, data: [...] }
-    // res.data is the response body, so the array is at res.data.data
-    const data = Array.isArray(res?.data?.data)
-      ? res.data.data
-      : Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-      ? res
-      : [];
+  const fetchReturnBills = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}get_return_bills/`, "GET", {});
+      // API returns { status, count, data: [...] }
+      // res.data is the response body, so the array is at res.data.data
+      const data = Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
 
-    const formatDate = (raw) => {
-      const d = raw ? new Date(raw) : null;
-      return d ? d.toLocaleDateString("en-IN", {
-        day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
-      }) : "-";
-    };
-
-    const formatTime = (raw) => {
-      const d = raw ? new Date(raw) : null;
-      return d ? d.toLocaleTimeString("en-IN", {
-        hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
-      }) : "-";
-    };
-
-    const pending = [];
-    const received = [];
-
-    data.forEach((item, idx) => {
-      // Use return_bill_date as primary date field
-      const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
-
-      const row = {
-        id: item._id || `ret-${idx}`,
-        date: formatDate(dateRaw),
-        time: formatTime(dateRaw),
-        return_bill_no: item.return_bill_no || item.return_bill_no || "-",
-        return_bill_date: formatDate(dateRaw),
-        bill_no: item.bill_no || "-",
-        bill_type_name: item.bill_type_name || item.collection_name || "-",
-        uhid_no: item.uhid || item.UHID || "-",
-        patient: item.patient_name || "-",
-        return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-        total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-        document_status: item.document_status || item.status || "-",
-        counter_name: item.counter_name || "-",
-        collection_name: item.collection_name || "-",
-        raw: item,
+      const formatDate = (raw) => {
+        const d = raw ? new Date(raw) : null;
+        return d ? d.toLocaleDateString("en-IN", {
+          day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
+        }) : "-";
       };
 
-      const st = (row.document_status || "").toLowerCase();
-      if (st === "pending") pending.push(row);
-      else received.push(row);
-    });
+      const formatTime = (raw) => {
+        const d = raw ? new Date(raw) : null;
+        return d ? d.toLocaleTimeString("en-IN", {
+          hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata",
+        }) : "-";
+      };
 
-    setReturnPendingBills(pending);
-    setReturnReceivedBills(received);
-  } catch (err) {
-    console.error("Return bills fetch error:", err);
-    showToast("error", "Unable to load Return Bills.");
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      const pending = [];
+      const received = [];
+
+      data.forEach((item, idx) => {
+        // Use return_bill_date as primary date field
+        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
+
+        const row = {
+          id: item._id || `ret-${idx}`,
+          date: formatDate(dateRaw),
+          time: formatTime(dateRaw),
+          return_bill_no: item.return_bill_no || item.return_bill_no || "-",
+          return_bill_date: formatDate(dateRaw),
+          bill_no: item.bill_no || "-",
+          bill_type_name: item.bill_type_name || item.collection_name || "-",
+          uhid_no: item.uhid || item.UHID || "-",
+          patient: item.patient_name || "-",
+          return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+          total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
+          document_status: item.document_status || item.status || "-",
+          counter_name: item.counter_name || "-",
+          collection_name: item.collection_name || "-",
+          raw: item,
+        };
+
+        const st = (row.document_status || "").toLowerCase();
+        if (st === "pending") pending.push(row);
+        else received.push(row);
+      });
+
+      setReturnPendingBills(pending);
+      setReturnReceivedBills(received);
+    } catch (err) {
+      console.error("Return bills fetch error:", err);
+      showToast("error", "Unable to load Return Bills.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const submitPayment = async () => {
     // ── Return Bills: delegate to dedicated handler ───────────────────────────
@@ -1371,11 +1367,11 @@ export default function CentralCashCounter() {
 
     if (activeMenuItem === "IP Advance") {
       const payload = {
-        ipNumber:   selectedBill.ipNumber,
+        ipNumber: selectedBill.ipNumber,
         advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
-        bill_type:  selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
+        bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
         payment_details,
-        shiftno:    activeShift?.shiftno || "",
+        shiftno: activeShift?.shiftno || "",
       };
       const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
       const ipRes = res?.data || res;
@@ -1482,12 +1478,12 @@ export default function CentralCashCounter() {
     const pendingAmount = Math.max(netAmount - paidAmount, 0);
 
     const payload = {
-      uhid:            selectedBill.uhid_no,
-      bill_no:         selectedBill.bill_no,          // original bill_no  ← NEW
-      return_bill_no:  selectedBill.return_bill_no,
-      bill_type:       selectedBill.raw?.bill_type,   // integer bill_type from the raw document
-      counter_id:      cashCounterId,
-      shiftno:         activeShift?.shiftno || "",
+      uhid: selectedBill.uhid_no,
+      bill_no: selectedBill.bill_no,          // original bill_no  ← NEW
+      return_bill_no: selectedBill.return_bill_no,
+      bill_type: selectedBill.raw?.bill_type,   // integer bill_type from the raw document
+      counter_id: cashCounterId,
+      shiftno: activeShift?.shiftno || "",
       payment_details,
       ...(pendingAmount > 0 ? { pendingAmount } : {}),
       ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
@@ -1643,11 +1639,11 @@ export default function CentralCashCounter() {
   }, [filterBills]);
 
   const colSpan =
-  activeMenuItem === "Returns Bills"
-    ? 10   // ← was 9, now 10 columns
-    : selectedType === "received"
-    ? 11
-    : 8;
+    activeMenuItem === "Returns Bills"
+      ? 10   // ← was 9, now 10 columns
+      : selectedType === "received"
+        ? 11
+        : 8;
 
   return (
     <Container>
@@ -1672,17 +1668,17 @@ export default function CentralCashCounter() {
                 >
                   {activeShift?.StartingTime
                     ? new Date(
-                      String(activeShift.StartingTime).replace(" ", "T"),
-                    ).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                      hour12: true,
-                    })
+                        String(activeShift.StartingTime).replace(" ", "T"),
+                      ).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: true,
+                      })
                     : "—"}
                 </Value>
               </InfoRow>
@@ -1698,17 +1694,17 @@ export default function CentralCashCounter() {
                 >
                   {activeShift?.closingTime
                     ? new Date(
-                      String(activeShift.closingTime).replace(" ", "T"),
-                    ).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                      hour12: true,
-                    })
+                        String(activeShift.closingTime).replace(" ", "T"),
+                      ).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                        hour12: true,
+                      })
                     : shiftBelongsHere
                       ? "Running…"
                       : "—"}
@@ -1728,9 +1724,9 @@ export default function CentralCashCounter() {
                 <Amount>
                   {activeShift
                     ? "₹ " +
-                    parseFloat(
-                      activeShift.OpeningBalance || 0,
-                    ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+                      parseFloat(
+                        activeShift.OpeningBalance || 0,
+                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
@@ -1740,10 +1736,10 @@ export default function CentralCashCounter() {
                 <Amount>
                   {activeShift?.ClosingBalance
                     ? "₹ " +
-                    parseFloat(activeShift.ClosingBalance).toLocaleString(
-                      "en-IN",
-                      { minimumFractionDigits: 2 },
-                    )
+                      parseFloat(activeShift.ClosingBalance).toLocaleString(
+                        "en-IN",
+                        { minimumFractionDigits: 2 },
+                      )
                     : "₹ 0.00"}
                 </Amount>
               </InfoRow>
@@ -1857,439 +1853,439 @@ export default function CentralCashCounter() {
                   const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
 
                   return (
-                    <>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 16 }}>
-                        <Button onClick={rpOpenVoucherModal} style={{ gap: 6 }}>
-                          <Search size={14} /> View Previous Vouchers
-                        </Button>
-                        <button
-                          onClick={() => setRpShowVoucherForm(prev => !prev)}
-                          style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            gap: 10,
-                            marginBottom: 16,
-                          }}
-                        >
-                          {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
-                        </button>
+                  <>
+                    <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginBottom:16 }}>
+                      <Button onClick={rpOpenVoucherModal} style={{ gap:6 }}>
+                        <Search size={14} /> View Previous Vouchers
+                      </Button>
+                      <button
+                        onClick={() => setRpShowVoucherForm(prev => !prev)}
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: 10,
+                          marginBottom: 16,
+                        }}
+                      >
+                        {rpShowVoucherForm ? "— Voucher" : "+ Voucher"}
+                      </button>
+                    </div>
+
+                    {rpAlert && (
+                      <div style={{
+                        padding:"10px 14px", borderRadius:4, marginBottom:14, fontSize:14,
+                        backgroundColor: rpAlert.type === "error" ? "#fef2f2" : "#f0fdf4",
+                        color: rpAlert.type === "error" ? "#dc2626" : "#166534",
+                        border: `1px solid ${rpAlert.type === "error" ? "#fecaca" : "#bbf7d0"}`,
+                      }}>
+                        {rpAlert.type === "error" ? "⚠️" : "✅"} {rpAlert.msg}
                       </div>
+                    )}
 
-                      {rpAlert && (
-                        <div style={{
-                          padding: "10px 14px", borderRadius: 4, marginBottom: 14, fontSize: 14,
-                          backgroundColor: rpAlert.type === "error" ? "#fef2f2" : "#f0fdf4",
-                          color: rpAlert.type === "error" ? "#dc2626" : "#166534",
-                          border: `1px solid ${rpAlert.type === "error" ? "#fecaca" : "#bbf7d0"}`,
-                        }}>
-                          {rpAlert.type === "error" ? "⚠️" : "✅"} {rpAlert.msg}
-                        </div>
-                      )}
-
-                      {rpShowVoucherForm && (
-                        <div style={{
-                          background: "#f0fafa", border: "1px solid #e5e7eb",
-                          borderRadius: 6, padding: "14px 16px", marginBottom: 16,
-                        }}>
-                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 16 }}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Receipt Type</label>
-                              <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
-                                {["Receipt", "Payment"].map((t) => (
-                                  <label key={t} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, cursor: "pointer" }}>
-                                    <input
-                                      type="radio" name="rpReceiptType" value={t}
-                                      checked={rpReceiptType === t}
-                                      onChange={() => setRpReceiptType(t)}
-                                      style={{ accentColor: "#0d9488", width: 15, height: 15 }}
-                                    />
-                                    {t}
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Account Head</label>
-                              <Select
-                                value={rpSelectedSNo}
-                                onChange={(e) => {
-                                  setRpSelectedSNo(e.target.value);
-                                  const head = Array.isArray(rpAccountHeads) ? rpAccountHeads.find(h => h["S.No"] === e.target.value) : null;
-                                  const name = head?.account_head || "";
-                                  setRpDescFields(
-                                    name === "ROOM ACCESS CARD" ? { patient_name: "", room_no: "" }
-                                      : name === "MISCELLANEOUS INCOME" ? { description: "" }
-                                        : {}
-                                  );
-                                }}
-                                style={{ minWidth: 200 }}
-                              >
-                                {(!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && <option value="">Loading...</option>}
-                                {Array.isArray(rpAccountHeads) && rpAccountHeads.map((h) => (
-                                  <option key={h["S.No"]} value={h["S.No"]}>{h.account_head}</option>
-                                ))}
-                              </Select>
-                            </div>
-
-                            {rpSelectedHeadName === "ROOM ACCESS CARD" && (
-                              <>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Patient Name</label>
+                    {rpShowVoucherForm && (
+                      <div style={{
+                        background:"#f0fafa", border:"1px solid #e5e7eb",
+                        borderRadius:6, padding:"14px 16px", marginBottom:16,
+                      }}>
+                        <div style={{ display:"flex", flexWrap:"wrap", alignItems:"flex-end", gap:16 }}>
+                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Receipt Type</label>
+                            <div style={{ display:"flex", gap:14, alignItems:"center", padding:"7px 0" }}>
+                              {["Receipt","Payment"].map((t) => (
+                                <label key={t} style={{ display:"flex", alignItems:"center", gap:6, fontSize:14, cursor:"pointer" }}>
                                   <input
-                                    type="text" placeholder="Enter patient name"
-                                    value={rpDescFields.patient_name || ""}
-                                    onChange={(e) => setRpDescFields(p => ({ ...p, patient_name: e.target.value }))}
-                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 180 }}
+                                    type="radio" name="rpReceiptType" value={t}
+                                    checked={rpReceiptType === t}
+                                    onChange={() => setRpReceiptType(t)}
+                                    style={{ accentColor:"#0d9488", width:15, height:15 }}
                                   />
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Room No</label>
-                                  <input
-                                    type="text" placeholder="Enter room no"
-                                    value={rpDescFields.room_no || ""}
-                                    onChange={(e) => setRpDescFields(p => ({ ...p, room_no: e.target.value }))}
-                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 120 }}
-                                  />
-                                </div>
-                              </>
-                            )}
-
-                            {rpSelectedHeadName === "MISCELLANEOUS INCOME" && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Description</label>
-                                <input
-                                  type="text" placeholder="Enter description"
-                                  value={rpDescFields.description || ""}
-                                  onChange={(e) => setRpDescFields(p => ({ ...p, description: e.target.value }))}
-                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 220 }}
-                                />
-                              </div>
-                            )}
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Amount</label>
-                              <input
-                                type="number" placeholder="0.00" min="0" step="0.01"
-                                value={rpAmount}
-                                onChange={(e) => setRpAmount(e.target.value)}
-                                style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "8px 12px", fontSize: 14, minWidth: 130 }}
-                              />
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                              <label style={{ fontSize: 13 }}>&nbsp;</label>
-                              <Button onClick={rpHandleSave} disabled={rpSaving} style={{ gap: 6 }}>
-                                {rpSaving ? <LoadingSpinner /> : "💾"}
-                                Save
-                              </Button>
+                                  {t}
+                                </label>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                      )}
 
-                      <TableControls>
-                        <ControlGroup>
-                          <span>Show up to</span>
-                          <Select value={rpShowEntries} onChange={(e) => setRpShowEntries(e.target.value)}>
-                            {["10", "25", "50", "100"].map(n => <option key={n} value={n}>{n}</option>)}
-                          </Select>
-                        </ControlGroup>
-                        <SearchWrapper>
-                          <span>Search:</span>
-                          <SearchInputWrapper>
-                            <SearchInput
-                              type="text" placeholder="Patient Name"
-                              value={rpSearchTerm}
-                              onChange={(e) => setRpSearchTerm(e.target.value)}
-                            />
-                            <MicButton><Mic size={14} /></MicButton>
-                          </SearchInputWrapper>
-                        </SearchWrapper>
-                      </TableControls>
+                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Account Head</label>
+                            <Select
+                              value={rpSelectedSNo}
+                              onChange={(e) => {
+                                setRpSelectedSNo(e.target.value);
+                                const head = Array.isArray(rpAccountHeads) ? rpAccountHeads.find(h => h["S.No"] === e.target.value) : null;
+                                const name = head?.account_head || "";
+                                setRpDescFields(
+                                  name === "ROOM ACCESS CARD" ? { patient_name:"", room_no:"" }
+                                  : name === "MISCELLANEOUS INCOME" ? { description:"" }
+                                  : {}
+                                );
+                              }}
+                              style={{ minWidth:200 }}
+                            >
+                              {(!Array.isArray(rpAccountHeads) || rpAccountHeads.length === 0) && <option value="">Loading...</option>}
+                              {Array.isArray(rpAccountHeads) && rpAccountHeads.map((h) => (
+                                <option key={h["S.No"]} value={h["S.No"]}>{h.account_head}</option>
+                              ))}
+                            </Select>
+                          </div>
 
-                      <Table>
-                        <thead>
-                          <tr>
-                            <TableHeader>Account Name ↕</TableHeader>
-                            <TableHeader>Voucher ↕</TableHeader>
-                            <TableHeader>Receipts ↕</TableHeader>
-                            <TableHeader>Payments ↕</TableHeader>
-                            <TableHeader>Description ↕</TableHeader>
-                            <TableHeader>Action</TableHeader>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rpLoading ? (
-                            <tr><TableCell center muted colSpan={6}>Loading...</TableCell></tr>
-                          ) : rpDisplayed.length === 0 ? (
-                            <tr><TableCell center muted colSpan={6}>No data available in table</TableCell></tr>
-                          ) : (
-                            rpDisplayed.map((r, idx) => (
-                              <tr key={r._id || r.voucher_no || idx}>
-                                <TableCell>{r.account_head_details?.name || r.account_head_name || r.account_head || "—"}</TableCell>
-                                <TableCell>{r.voucher_no || "—"}</TableCell>
-                                <TableCell>
-                                  ₹{r.receipt_type === "Receipt"
-                                    ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
-                                    : "0.00"}
-                                </TableCell>
-                                <TableCell>
-                                  ₹{r.receipt_type === "Payment"
-                                    ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })
-                                    : "0.00"}
-                                </TableCell>
-                                <TableCell>
-                                  {r.description
-                                    ? typeof r.description === "object"
-                                      ? Object.values(r.description).filter(Boolean).join(", ") || "—"
-                                      : r.description
-                                    : "—"}
-                                </TableCell>
-                                <TableCell center>
-                                  <div style={{ display: "flex", gap: 6, justifyContent: "center", alignItems: "center" }}>
-                                    <button
-                                      title="Print"
-                                      onClick={() => setRpPrintVoucher(r)}
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: "#374151",
-                                      }}
-                                    >
-                                      🖨️
-                                    </button>
-                                    <button
-                                      title="Delete"
-                                      onClick={() => {
-                                        if (window.confirm(`Delete voucher ${r.voucher_no}?`)) {
-                                          console.log("Delete voucher:", r.voucher_no);
-                                        }
-                                      }}
-                                      style={{
-                                        background: "none",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        fontSize: "1.1rem"
-                                      }}
-                                    >
-                                      🗑️
-                                    </button>
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                      gap: 4,
-                                    }}
-                                  >
-                                    <label
-                                      style={{
-                                        fontSize: 13,
-                                        fontWeight: 600,
-                                        color: "#374151",
-                                      }}
-                                    >
-                                      Room No
-                                    </label>
-                                    <input
-                                      type="text"
-                                      placeholder="Enter room no"
-                                      value={rpDescFields.room_no || ""}
-                                      onChange={(e) =>
-                                        setRpDescFields((p) => ({
-                                          ...p,
-                                          room_no: e.target.value,
-                                        }))
-                                      }
-                                      style={{
-                                        border: "1px solid #d1d5db",
-                                        borderRadius: 4,
-                                        padding: "8px 12px",
-                                        fontSize: 14,
-                                        minWidth: 120,
-                                      }}
-                                    />
-                                  </div>
-                                </TableCell>
-                              </tr>
-                            ))
+                          {rpSelectedHeadName === "ROOM ACCESS CARD" && (
+                            <>
+                              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                                <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Patient Name</label>
+                                <input
+                                  type="text" placeholder="Enter patient name"
+                                  value={rpDescFields.patient_name || ""}
+                                  onChange={(e) => setRpDescFields(p => ({ ...p, patient_name: e.target.value }))}
+                                  style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:180 }}
+                                />
+                              </div>
+                              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                                <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Room No</label>
+                                <input
+                                  type="text" placeholder="Enter room no"
+                                  value={rpDescFields.room_no || ""}
+                                  onChange={(e) => setRpDescFields(p => ({ ...p, room_no: e.target.value }))}
+                                  style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:120 }}
+                                />
+                              </div>
+                            </>
                           )}
-                        </tbody>
-                      </Table>
 
-                      <Pagination>
-                        <div>Showing {rpDisplayed.length} of {rpFilteredRecords.length} entries</div>
-                        <div>
-                          <PaginationButton style={{ marginRight: 8 }}>Previous</PaginationButton>
-                          <PaginationButton>Next</PaginationButton>
+                          {rpSelectedHeadName === "MISCELLANEOUS INCOME" && (
+                            <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                              <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Description</label>
+                              <input
+                                type="text" placeholder="Enter description"
+                                value={rpDescFields.description || ""}
+                                onChange={(e) => setRpDescFields(p => ({ ...p, description: e.target.value }))}
+                                style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:220 }}
+                              />
+                            </div>
+                          )}
+
+                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                            <label style={{ fontSize:13, fontWeight:600, color:"#374151" }}>Amount</label>
+                            <input
+                              type="number" placeholder="0.00" min="0" step="0.01"
+                              value={rpAmount}
+                              onChange={(e) => setRpAmount(e.target.value)}
+                              style={{ border:"1px solid #d1d5db", borderRadius:4, padding:"8px 12px", fontSize:14, minWidth:130 }}
+                            />
+                          </div>
+
+                          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                            <label style={{ fontSize:13 }}>&nbsp;</label>
+                            <Button onClick={rpHandleSave} disabled={rpSaving} style={{ gap:6 }}>
+                              {rpSaving ? <LoadingSpinner /> : "💾"}
+                              Save
+                            </Button>
+                          </div>
                         </div>
-                      </Pagination>
+                      </div>
+                    )}
 
-                      {/* ══ Previous Vouchers Modal ══ */}
-                      {rpShowVoucherModal && (
-                        <ModalOverlay onClick={() => setRpShowVoucherModal(false)}>
-                          <ModalContainer style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
-                            <ModalHeader style={{ background: "#0d6e6e", borderRadius: "8px 8px 0 0", padding: "14px 20px" }}>
-                              <ModalTitle style={{ fontSize: 16 }}>Previous Vouchers</ModalTitle>
-                              <CloseButton onClick={() => setRpShowVoucherModal(false)}>✕</CloseButton>
-                            </ModalHeader>
+                    <TableControls>
+                      <ControlGroup>
+                        <span>Show up to</span>
+                        <Select value={rpShowEntries} onChange={(e) => setRpShowEntries(e.target.value)}>
+                          {["10","25","50","100"].map(n => <option key={n} value={n}>{n}</option>)}
+                        </Select>
+                      </ControlGroup>
+                      <SearchWrapper>
+                        <span>Search:</span>
+                        <SearchInputWrapper>
+                          <SearchInput
+                            type="text" placeholder="Patient Name"
+                            value={rpSearchTerm}
+                            onChange={(e) => setRpSearchTerm(e.target.value)}
+                          />
+                          <MicButton><Mic size={14} /></MicButton>
+                        </SearchInputWrapper>
+                      </SearchWrapper>
+                    </TableControls>
 
-                            <ModalBody style={{ padding: "0", overflowX: "hidden" }}>
-                              {/* Filter Bar */}
-                              <div style={{
-                                padding: "14px 20px", background: "#f9fafb",
-                                borderBottom: "1px solid #e5e7eb",
-                                display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
-                              }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
-                                  <input
-                                    type="date" value={pvFromDate}
-                                    onChange={(e) => setPvFromDate(e.target.value)}
-                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                                  />
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
-                                  <input
-                                    type="date" value={pvToDate}
-                                    onChange={(e) => setPvToDate(e.target.value)}
-                                    style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
-                                  />
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
-                                  <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
-                                    {["All", "Receipt", "Payment"].map((t) => (
-                                      <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
-                                        <input
-                                          type="radio" name="pvVoucherType" value={t}
-                                          checked={pvVoucherType === t}
-                                          onChange={() => setPvVoucherType(t)}
-                                          style={{ accentColor: "#0d9488" }}
-                                        />
-                                        {t}
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                  <label style={{ fontSize: 13 }}>&nbsp;</label>
+                    <Table>
+                      <thead>
+                        <tr>
+                          <TableHeader>Account Name ↕</TableHeader>
+                          <TableHeader>Voucher ↕</TableHeader>
+                          <TableHeader>Receipts ↕</TableHeader>
+                          <TableHeader>Payments ↕</TableHeader>
+                          <TableHeader>Description ↕</TableHeader>
+                          <TableHeader>Action</TableHeader>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rpLoading ? (
+                          <tr><TableCell center muted colSpan={6}>Loading...</TableCell></tr>
+                        ) : rpDisplayed.length === 0 ? (
+                          <tr><TableCell center muted colSpan={6}>No data available in table</TableCell></tr>
+                        ) : (
+                          rpDisplayed.map((r, idx) => (
+                            <tr key={r._id || r.voucher_no || idx}>
+                              <TableCell>{r.account_head_details?.name || r.account_head_name || r.account_head || "—"}</TableCell>
+                              <TableCell>{r.voucher_no || "—"}</TableCell>
+                              <TableCell>
+                                ₹{r.receipt_type === "Receipt"
+                                  ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits:2 })
+                                  : "0.00"}
+                              </TableCell>
+                              <TableCell>
+                                ₹{r.receipt_type === "Payment"
+                                  ? parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits:2 })
+                                  : "0.00"}
+                              </TableCell>
+                              <TableCell>
+                                {r.description
+                                  ? typeof r.description === "object"
+                                    ? Object.values(r.description).filter(Boolean).join(", ") || "—"
+                                    : r.description
+                                  : "—"}
+                              </TableCell>
+                              <TableCell center>
+                                <div style={{ display:"flex", gap:6, justifyContent:"center", alignItems:"center" }}>
                                   <button
-                                    onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
-                                    disabled={rpVoucherLoading}
+                                    title="Print"
+                                    onClick={() => setRpPrintVoucher(r)}
                                     style={{
-                                      background: "#0d9488", color: "white", border: "none",
-                                      borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600,
-                                      cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: "#374151",
                                     }}
                                   >
-                                    {rpVoucherLoading ? "⏳" : "🔍"} Fetch
+                                    🖨️
+                                  </button>
+                                  <button
+                                    title="Delete"
+                                    onClick={() => {
+                                      if (window.confirm(`Delete voucher ${r.voucher_no}?`)) {
+                                        console.log("Delete voucher:", r.voucher_no);
+                                      }
+                                    }}
+                                    style={{
+                                      background: "none",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      fontSize: "1.1rem"
+                                    }}
+                                  >
+                                    🗑️
                                   </button>
                                 </div>
-                              </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 4,
+                                  }}
+                                >
+                                  <label
+                                    style={{
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: "#374151",
+                                    }}
+                                  >
+                                    Room No
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Enter room no"
+                                    value={rpDescFields.room_no || ""}
+                                    onChange={(e) =>
+                                      setRpDescFields((p) => ({
+                                        ...p,
+                                        room_no: e.target.value,
+                                      }))
+                                    }
+                                    style={{
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: 4,
+                                      padding: "8px 12px",
+                                      fontSize: 14,
+                                      minWidth: 120,
+                                    }}
+                                  />
+                                </div>
+                              </TableCell>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </Table>
 
-                              {/* Table Area */}
-                              <div style={{ padding: "14px 20px" }}>
-                                {rpVoucherLoading ? (
-                                  <div style={{ textAlign: "center", padding: "40px 0" }}>
-                                    <LoadingSpinner />
-                                    <p style={{ marginTop: 10, color: "#6b7280" }}>Fetching vouchers...</p>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div style={{ overflowX: "auto", maxHeight: "45vh" }}>
-                                      <Table>
-                                        <thead>
+                    <Pagination>
+                      <div>Showing {rpDisplayed.length} of {rpFilteredRecords.length} entries</div>
+                      <div>
+                        <PaginationButton style={{ marginRight:8 }}>Previous</PaginationButton>
+                        <PaginationButton>Next</PaginationButton>
+                      </div>
+                    </Pagination>
+
+                    {/* ══ Previous Vouchers Modal ══ */}
+                    {rpShowVoucherModal && (
+                      <ModalOverlay onClick={() => setRpShowVoucherModal(false)}>
+                        <ModalContainer style={{ maxWidth: 1000, borderRadius: 8, maxHeight: "92vh" }} onClick={(e) => e.stopPropagation()}>
+                          <ModalHeader style={{ background: "#0d6e6e", borderRadius: "8px 8px 0 0", padding: "14px 20px" }}>
+                            <ModalTitle style={{ fontSize: 16 }}>Previous Vouchers</ModalTitle>
+                            <CloseButton onClick={() => setRpShowVoucherModal(false)}>✕</CloseButton>
+                          </ModalHeader>
+
+                          <ModalBody style={{ padding: "0", overflowX: "hidden" }}>
+                            {/* Filter Bar */}
+                            <div style={{
+                              padding: "14px 20px", background: "#f9fafb",
+                              borderBottom: "1px solid #e5e7eb",
+                              display: "flex", flexWrap: "wrap", gap: 16, alignItems: "flex-end",
+                            }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>From Date</label>
+                                <input
+                                  type="date" value={pvFromDate}
+                                  onChange={(e) => setPvFromDate(e.target.value)}
+                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
+                                />
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>To Date</label>
+                                <input
+                                  type="date" value={pvToDate}
+                                  onChange={(e) => setPvToDate(e.target.value)}
+                                  style={{ border: "1px solid #d1d5db", borderRadius: 4, padding: "7px 10px", fontSize: 13 }}
+                                />
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>Voucher Type</label>
+                                <div style={{ display: "flex", gap: 14, alignItems: "center", padding: "7px 0" }}>
+                                  {["All", "Receipt", "Payment"].map((t) => (
+                                    <label key={t} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
+                                      <input
+                                        type="radio" name="pvVoucherType" value={t}
+                                        checked={pvVoucherType === t}
+                                        onChange={() => setPvVoucherType(t)}
+                                        style={{ accentColor: "#0d9488" }}
+                                      />
+                                      {t}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 13 }}>&nbsp;</label>
+                                <button
+                                  onClick={() => pvFetchVouchers(pvFromDate, pvToDate, pvVoucherType)}
+                                  disabled={rpVoucherLoading}
+                                  style={{
+                                    background: "#0d9488", color: "white", border: "none",
+                                    borderRadius: 4, padding: "8px 18px", fontSize: 13, fontWeight: 600,
+                                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+                                  }}
+                                >
+                                  {rpVoucherLoading ? "⏳" : "🔍"} Fetch
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Table Area */}
+                            <div style={{ padding: "14px 20px" }}>
+                              {rpVoucherLoading ? (
+                                <div style={{ textAlign: "center", padding: "40px 0" }}>
+                                  <LoadingSpinner />
+                                  <p style={{ marginTop: 10, color: "#6b7280" }}>Fetching vouchers...</p>
+                                </div>
+                              ) : (
+                                <>
+                                  <div style={{ overflowX: "auto", maxHeight: "45vh" }}>
+                                    <Table>
+                                      <thead>
+                                        <tr>
+                                          <TableHeader>Date</TableHeader>
+                                          <TableHeader>Time</TableHeader>
+                                          <TableHeader>Shift Ref</TableHeader>
+                                          <TableHeader>Account Name</TableHeader>
+                                          <TableHeader>Voucher No</TableHeader>
+                                          <TableHeader>Receipts</TableHeader>
+                                          <TableHeader>Payments</TableHeader>
+                                          <TableHeader>Description</TableHeader>
+                                          <TableHeader>Action</TableHeader>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {pvData.length === 0 ? (
                                           <tr>
-                                            <TableHeader>Date</TableHeader>
-                                            <TableHeader>Time</TableHeader>
-                                            <TableHeader>Shift Ref</TableHeader>
-                                            <TableHeader>Account Name</TableHeader>
-                                            <TableHeader>Voucher No</TableHeader>
-                                            <TableHeader>Receipts</TableHeader>
-                                            <TableHeader>Payments</TableHeader>
-                                            <TableHeader>Description</TableHeader>
-                                            <TableHeader>Action</TableHeader>
+                                            <TableCell center muted colSpan={9}>No vouchers found.</TableCell>
                                           </tr>
-                                        </thead>
-                                        <tbody>
-                                          {pvData.length === 0 ? (
-                                            <tr>
-                                              <TableCell center muted colSpan={9}>No vouchers found.</TableCell>
-                                            </tr>
-                                          ) : (
-                                            pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
-                                              const d = r.voucher_date ? new Date(r.voucher_date) : null;
-                                              const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
-                                              const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
-                                              const isReceipt = r.receipt_type === "Receipt";
-                                              const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-                                              return (
-                                                <tr key={r._id || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
-                                                  <TableCell>{dateStr}</TableCell>
-                                                  <TableCell>{timeStr}</TableCell>
-                                                  <TableCell>{r.shiftno || "—"}</TableCell>
-                                                  <TableCell>{r.account_head_details?.name || r.account_head || "—"}</TableCell>
-                                                  <TableCell>{r.voucher_no || "—"}</TableCell>
-                                                  <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
-                                                  <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
-                                                  <TableCell>{typeof r.description === 'object' ? Object.values(r.description).join(", ") : (r.description || "—")}</TableCell>
-                                                  <TableCell center>
-                                                    <button
-                                                      onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
-                                                      style={{ background: "#0d9488", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
-                                                    >
-                                                      🖨️
-                                                    </button>
-                                                  </TableCell>
-                                                </tr>
-                                              );
-                                            })
-                                          )}
-                                        </tbody>
-                                        {pvData.length > 0 && (
-                                          <tfoot>
-                                            <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
-                                              <TableCell colSpan={5} style={{ textAlign: "right" }}>Total:</TableCell>
-                                              <TableCell>₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                                              <TableCell>₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
-                                              <TableCell colSpan={2} />
-                                            </tr>
-                                          </tfoot>
+                                        ) : (
+                                          pvData.slice((pvPage - 1) * pvShowEntries, pvPage * pvShowEntries).map((r, idx) => {
+                                            const d = r.voucher_date ? new Date(r.voucher_date) : null;
+                                            const dateStr = d ? d.toLocaleDateString("en-IN") : "—";
+                                            const timeStr = d ? d.toLocaleTimeString("en-IN") : "—";
+                                            const isReceipt = r.receipt_type === "Receipt";
+                                            const amt = parseFloat(r.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+                                            return (
+                                              <tr key={r._id || idx} style={{ background: idx % 2 === 0 ? "#fff" : "#f9fafb" }}>
+                                                <TableCell>{dateStr}</TableCell>
+                                                <TableCell>{timeStr}</TableCell>
+                                                <TableCell>{r.shiftno || "—"}</TableCell>
+                                                <TableCell>{r.account_head_details?.name || r.account_head || "—"}</TableCell>
+                                                <TableCell>{r.voucher_no || "—"}</TableCell>
+                                                <TableCell>₹ {isReceipt ? amt : "0.00"}</TableCell>
+                                                <TableCell>₹ {!isReceipt ? amt : "0.00"}</TableCell>
+                                                <TableCell>{typeof r.description === 'object' ? Object.values(r.description).join(", ") : (r.description || "—")}</TableCell>
+                                                <TableCell center>
+                                                  <button
+                                                    onClick={() => { setRpShowVoucherModal(false); setRpPrintVoucher(r); }}
+                                                    style={{ background: "#0d9488", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}
+                                                  >
+                                                    🖨️
+                                                  </button>
+                                                </TableCell>
+                                              </tr>
+                                            );
+                                          })
                                         )}
-                                      </Table>
-                                    </div>
-
-                                    {/* Pagination & Excel */}
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-                                      <button
-                                        onClick={pvExportExcel}
-                                        style={{ background: "#f97316", color: "white", border: "none", padding: "7px 14px", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-                                      >
-                                        📊 Excel Export
-                                      </button>
-
-                                      {pvData.length > pvShowEntries && (
-                                        <div style={{ display: "flex", gap: 5 }}>
-                                          <button disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Prev</button>
-                                          <span>Page {pvPage}</span>
-                                          <button disabled={pvPage * pvShowEntries >= pvData.length} onClick={() => setPvPage(p => p + 1)}>Next</button>
-                                        </div>
+                                      </tbody>
+                                      {pvData.length > 0 && (
+                                        <tfoot>
+                                          <tr style={{ background: "#f3f4f6", fontWeight: 700 }}>
+                                            <TableCell colSpan={5} style={{ textAlign: "right" }}>Total:</TableCell>
+                                            <TableCell>₹ {pvTotalReceipt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                                            <TableCell>₹ {pvTotalPayment.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
+                                            <TableCell colSpan={2} />
+                                          </tr>
+                                        </tfoot>
                                       )}
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </ModalBody>
+                                    </Table>
+                                  </div>
 
-                            <ModalFooterBar>
-                              <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
-                            </ModalFooterBar>
-                          </ModalContainer>
-                        </ModalOverlay>
-                      )}
+                                  {/* Pagination & Excel */}
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
+                                    <button
+                                      onClick={pvExportExcel}
+                                      style={{ background: "#f97316", color: "white", border: "none", padding: "7px 14px", borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+                                    >
+                                      📊 Excel Export
+                                    </button>
+
+                                    {pvData.length > pvShowEntries && (
+                                      <div style={{ display: "flex", gap: 5 }}>
+                                        <button disabled={pvPage === 1} onClick={() => setPvPage(p => p - 1)}>Prev</button>
+                                        <span>Page {pvPage}</span>
+                                        <button disabled={pvPage * pvShowEntries >= pvData.length} onClick={() => setPvPage(p => p + 1)}>Next</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </ModalBody>
+
+                          <ModalFooterBar>
+                            <CancelButton onClick={() => setRpShowVoucherModal(false)}>Close</CancelButton>
+                          </ModalFooterBar>
+                        </ModalContainer>
+                      </ModalOverlay>
+                    )}
                     </>
                   );
                 })()}
@@ -2388,18 +2384,18 @@ export default function CentralCashCounter() {
                             <TableHeader>Status</TableHeader>
                           </>
                         ) : activeMenuItem === "Returns Bills" ? (
-                           <>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader>Time</TableHeader>
-                  <TableHeader>Return Bill No</TableHeader>
-                  <TableHeader>Bill No</TableHeader>
-                  <TableHeader>Bill Type</TableHeader>
-                  <TableHeader>UHID</TableHeader>
-                  <TableHeader>Patient Name</TableHeader>
-                  <TableHeader>Return Amount (₹)</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                </>
-                                      ) : (
+                          <>
+                            <TableHeader>Date</TableHeader>
+                            <TableHeader>Time</TableHeader>
+                            <TableHeader>Return Bill No</TableHeader>
+                            <TableHeader>Bill No</TableHeader>
+                            <TableHeader>Bill Type</TableHeader>
+                            <TableHeader>UHID</TableHeader>
+                            <TableHeader>Patient Name</TableHeader>
+                            <TableHeader>Return Amount (₹)</TableHeader>
+                            <TableHeader>Status</TableHeader>
+                          </>
+                        ) : (
                           <>
                             <TableHeader>Bill No</TableHeader>
                             <TableHeader>Bill Type</TableHeader>
@@ -2460,24 +2456,24 @@ export default function CentralCashCounter() {
                               </>
                             ) : activeMenuItem === "Returns Bills" ? (
                               <>
-    <TableCell>{bill.date}</TableCell>
-    <TableCell>{bill.time}</TableCell>
-    <TableCell>{bill.return_bill_no}</TableCell>
-    <TableCell>{bill.bill_no}</TableCell>
-    <TableCell>{bill.bill_type_name}</TableCell>
-    <TableCell>{bill.uhid_no}</TableCell>
-    <TableCell>{bill.patient}</TableCell>
-    <TableCell>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
-    <TableCell>
-      <span style={{
-        padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600,
-        background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
-        color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
-      }}>
-        {bill.document_status}
-      </span>
-    </TableCell>
-  </>
+                                <TableCell>{bill.date}</TableCell>
+                                <TableCell>{bill.time}</TableCell>
+                                <TableCell>{bill.return_bill_no}</TableCell>
+                                <TableCell>{bill.bill_no}</TableCell>
+                                <TableCell>{bill.bill_type_name}</TableCell>
+                                <TableCell>{bill.uhid_no}</TableCell>
+                                <TableCell>{bill.patient}</TableCell>
+                                <TableCell>₹{(bill.return_amount || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</TableCell>
+                                <TableCell>
+                                  <span style={{
+                                    padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: 600,
+                                    background: bill.document_status?.toLowerCase() === "pending" ? "#fef3c7" : "#d1fae5",
+                                    color: bill.document_status?.toLowerCase() === "pending" ? "#b45309" : "#065f46",
+                                  }}>
+                                    {bill.document_status}
+                                  </span>
+                                </TableCell>
+                              </>
                             ) : (
                               <>
                                 <TableCell>{bill.bill_no}</TableCell>
@@ -2493,10 +2489,10 @@ export default function CentralCashCounter() {
                                     fontWeight: 600,
                                     background: bill.status?.toLowerCase() === "pending" ? "#fef3c7"
                                       : bill.status?.toLowerCase() === "billed" ? "#dbeafe"
-                                        : "#d1fae5",
+                                      : "#d1fae5",
                                     color: bill.status?.toLowerCase() === "pending" ? "#b45309"
                                       : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
-                                        : "#065f46",
+                                      : "#065f46",
                                   }}>
                                     {bill.status}
                                   </span>
