@@ -258,6 +258,59 @@ const Complaints = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // Edit state inside detail modal
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAttachments, setEditAttachments] = useState([]);
+
+  const handleEditFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditAttachments(prev => [
+          ...prev,
+          {
+            name: file.name,
+            url: reader.result,
+            file_type: file.type
+          }
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = null;
+  };
+
+  const handleRemoveEditAttachment = (idx) => {
+    setEditAttachments(editAttachments.filter((_, i) => i !== idx));
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editTitle.trim()) {
+      return toast.warning("Complaint Title is required");
+    }
+
+    setLoading(true);
+    const payload = {
+      title: editTitle.trim(),
+      description: editDescription.trim(),
+      attachments: editAttachments
+    };
+
+    const res = await apiRequest(`${Hmsbaseurl}/complaints/${selectedTicket.issue_id}/`, "PATCH", payload);
+    if (res.success) {
+      toast.success("Ticket updated successfully!");
+      setIsEditing(false);
+      setSelectedTicket(res.data);
+      fetchHistory();
+    } else {
+      toast.error(res.error || "Failed to update ticket");
+    }
+    setLoading(false);
+  };
+
   // Form State
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -473,7 +526,7 @@ const Complaints = () => {
               <form onSubmit={handleSubmit}>
                 <S.FormRow style={{ gridTemplateColumns: "1fr" }}>
                   <S.InputWrapper>
-                    <S.Label required>Issue Title</S.Label>
+                    <S.Label required>Title</S.Label>
                     <S.Input 
                       placeholder="e.g. Pharmacy Stock Calculation Mismatch" 
                       value={title}
@@ -776,12 +829,53 @@ const Complaints = () => {
             </div>
           }
           open={isDetailOpen}
-          onCancel={() => setIsDetailOpen(false)}
-          footer={[
-            <S.Button key="close" onClick={() => setIsDetailOpen(false)} style={{ padding: "6px 16px" }}>
-              Close Window
-            </S.Button>
-          ]}
+          onCancel={() => { setIsDetailOpen(false); setIsEditing(false); }}
+          footer={
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <div>
+                {selectedTicket?.status !== "Completed" && (
+                  !isEditing ? (
+                    <S.Button 
+                      key="edit" 
+                      onClick={() => {
+                        setEditTitle(selectedTicket.title || "");
+                        setEditDescription(selectedTicket.description || "");
+                        setEditAttachments(selectedTicket.attachments || []);
+                        setIsEditing(true);
+                      }} 
+                      style={{ padding: "6px 16px", background: "#f59e0b", borderColor: "#f59e0b", color: "white" }}
+                    >
+                      ✏️ Edit Ticket
+                    </S.Button>
+                  ) : (
+                    <S.Button 
+                      key="save" 
+                      onClick={handleEditSubmit} 
+                      disabled={loading}
+                      style={{ padding: "6px 16px", background: "#0d9488", borderColor: "#0d9488", color: "white" }}
+                    >
+                      {loading ? "Saving..." : "💾 Save Changes"}
+                    </S.Button>
+                  )
+                )}
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {isEditing && (
+                  <S.Button 
+                    key="cancel" 
+                    secondary 
+                    onClick={() => setIsEditing(false)} 
+                    style={{ padding: "6px 16px" }}
+                  >
+                    Cancel
+                  </S.Button>
+                )}
+                <S.Button key="close" onClick={() => { setIsDetailOpen(false); setIsEditing(false); }} style={{ padding: "6px 16px" }}>
+                  Close Window
+                </S.Button>
+              </div>
+            </div>
+          }
           width={750}
           centered
         >
@@ -789,9 +883,18 @@ const Complaints = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "14px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "4px" }}>
                 <DetailLabel>Issue Title</DetailLabel>
-                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#1e293b", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-                  {selectedTicket.title}
-                </div>
+                {isEditing ? (
+                  <S.Input 
+                    value={editTitle} 
+                    onChange={e => setEditTitle(e.target.value)} 
+                    placeholder="Enter issue title" 
+                    style={{ fontSize: "1.05rem", fontWeight: 700, padding: "8px 12px" }}
+                  />
+                ) : (
+                  <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "#1e293b", background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
+                    {selectedTicket.title}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
@@ -805,7 +908,11 @@ const Complaints = () => {
                 </div>
                 <div>
                   <DetailLabel>Assignee</DetailLabel>
-                  <DetailValue>{selectedTicket.assignee || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Assigned Yet</span>}</DetailValue>
+                  <DetailValue>
+                    {selectedTicket.assignee_name 
+                      ? `${selectedTicket.assignee_name} (${selectedTicket.assignee})` 
+                      : (selectedTicket.assignee || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Assigned Yet</span>)}
+                  </DetailValue>
                 </div>
               </div>
 
@@ -867,7 +974,16 @@ const Complaints = () => {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                 <div>
                   <DetailLabel>Description</DetailLabel>
-                  <DetailValue style={{ minHeight: "80px" }}>{selectedTicket.description || <span style={{ color: "#94a3b8" }}>No description provided</span>}</DetailValue>
+                  {isEditing ? (
+                    <S.TextArea 
+                      value={editDescription} 
+                      onChange={e => setEditDescription(e.target.value)} 
+                      placeholder="Enter description" 
+                      style={{ minHeight: "100px", fontSize: "0.85rem" }}
+                    />
+                  ) : (
+                    <DetailValue style={{ minHeight: "80px" }}>{selectedTicket.description || <span style={{ color: "#94a3b8" }}>No description provided</span>}</DetailValue>
+                  )}
                 </div>
                 <div>
                   <DetailLabel>Steps to Reproduce</DetailLabel>
@@ -881,84 +997,175 @@ const Complaints = () => {
                   <DetailValue style={{ minHeight: "80px" }}>{selectedTicket.environment || <span style={{ color: "#94a3b8" }}>No environment details provided</span>}</DetailValue>
                 </div>
                 <div>
-                  <DetailLabel>Attachments ({selectedTicket.attachments?.length || 0})</DetailLabel>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "4px" }}>
-                    {(!selectedTicket.attachments || selectedTicket.attachments.length === 0) && (
-                      <span style={{ color: "#94a3b8", fontSize: "0.8rem", fontStyle: "italic" }}>No attachments uploaded</span>
-                    )}
-                    {selectedTicket.attachments?.map((file, idx) => {
-                      const isImage = file.file_type?.startsWith("image/");
-                      return (
-                        <div key={idx} style={{
-                          border: "1px solid #e2e8f0",
+                  <DetailLabel>Attachments ({isEditing ? editAttachments.length : (selectedTicket.attachments?.length || 0)})</DetailLabel>
+                  {isEditing ? (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                        <label style={{
+                          padding: "6px 12px",
+                          background: "#f1f5f9",
+                          border: "1px solid #cbd5e1",
                           borderRadius: "6px",
-                          padding: "8px",
-                          background: "#fff",
-                          width: "120px",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center"
+                          cursor: "pointer",
+                          fontSize: "0.78rem",
+                          fontWeight: 600,
+                          color: "#475569"
                         }}>
-                          {isImage ? (
-                            <div style={{
-                              width: "40px",
-                              height: "40px",
-                              backgroundImage: `url(${file.url})`,
-                              backgroundSize: "cover",
-                              backgroundPosition: "center",
-                              borderRadius: "4px"
-                            }} />
-                          ) : (
-                            <span style={{ fontSize: "1.2rem" }}>📄</span>
-                          )}
-                          <span style={{
-                            fontSize: "0.7rem",
-                            color: "#64748b",
-                            maxWidth: "100px",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            textAlign: "center",
-                            marginTop: "4px"
-                          }}>{file.name}</span>
-                           <div style={{ display: "flex", gap: "6px", width: "100%", marginTop: "8px", justifyContent: "center" }}>
-                            <span 
-                              onClick={() => setPreviewFile(file)}
-                              style={{ 
-                                fontSize: "0.68rem", 
-                                color: "#0d9488", 
-                                cursor: "pointer", 
-                                fontWeight: 600,
-                                background: "#e0f2f1",
-                                padding: "2px 6px",
-                                borderRadius: "4px",
-                                border: "1px solid #b2dfdb"
-                              }}
-                            >
-                              Preview
-                            </span>
-                            <DownloadLink 
-                              href={file.url} 
-                              download={file.name} 
-                              style={{ 
-                                margin: 0, 
-                                padding: "2px 6px",
-                                background: "#f1f5f9",
-                                color: "#475569",
-                                border: "1px solid #cbd5e1",
-                                borderRadius: "4px",
-                                fontSize: "0.68rem",
-                                display: "inline-flex",
-                                alignItems: "center"
-                              }}
-                            >
-                              Download
-                            </DownloadLink>
+                          📷 Add Photos / Files
+                          <input 
+                            type="file" 
+                            multiple 
+                            accept="image/*,application/pdf,text/*" 
+                            onChange={handleEditFileUpload} 
+                            style={{ display: "none" }} 
+                          />
+                        </label>
+                      </div>
+
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {editAttachments.map((file, idx) => {
+                          const isImage = file.file_type?.startsWith("image/");
+                          return (
+                            <div key={idx} style={{
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "4px",
+                              padding: "6px",
+                              background: "#fff",
+                              width: "100px",
+                              position: "relative",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center"
+                            }}>
+                              <button 
+                                type="button" 
+                                onClick={() => handleRemoveEditAttachment(idx)}
+                                style={{
+                                  position: "absolute",
+                                  top: "2px",
+                                  right: "2px",
+                                  background: "#fee2e2",
+                                  color: "#ef4444",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: "16px",
+                                  height: "16px",
+                                  fontSize: "0.7rem",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: "bold"
+                                }}
+                              >
+                                &times;
+                              </button>
+                              {isImage ? (
+                                <div style={{
+                                  width: "30px",
+                                  height: "30px",
+                                  backgroundImage: `url(${file.url})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                  borderRadius: "2px"
+                                }} />
+                              ) : (
+                                <span style={{ fontSize: "1rem" }}>📄</span>
+                              )}
+                              <span style={{
+                                fontSize: "0.65rem",
+                                color: "#64748b",
+                                maxWidth: "80px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                textAlign: "center",
+                                marginTop: "2px"
+                              }}>{file.name}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "4px" }}>
+                      {(!selectedTicket.attachments || selectedTicket.attachments.length === 0) && (
+                        <span style={{ color: "#94a3b8", fontSize: "0.8rem", fontStyle: "italic" }}>No attachments uploaded</span>
+                      )}
+                      {selectedTicket.attachments?.map((file, idx) => {
+                        const isImage = file.file_type?.startsWith("image/");
+                        return (
+                          <div key={idx} style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "6px",
+                            padding: "8px",
+                            background: "#fff",
+                            width: "120px",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center"
+                          }}>
+                            {isImage ? (
+                              <div style={{
+                                width: "40px",
+                                height: "40px",
+                                backgroundImage: `url(${file.url})`,
+                                backgroundSize: "cover",
+                                backgroundPosition: "center",
+                                borderRadius: "4px"
+                              }} />
+                            ) : (
+                              <span style={{ fontSize: "1.2rem" }}>📄</span>
+                            )}
+                            <span style={{
+                              fontSize: "0.7rem",
+                              color: "#64748b",
+                              maxWidth: "100px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              textAlign: "center",
+                              marginTop: "4px"
+                            }}>{file.name}</span>
+                             <div style={{ display: "flex", gap: "6px", width: "100%", marginTop: "8px", justifyContent: "center" }}>
+                              <span 
+                                onClick={() => setPreviewFile(file)}
+                                style={{ 
+                                  fontSize: "0.68rem", 
+                                  color: "#0d9488", 
+                                  cursor: "pointer", 
+                                  fontWeight: 600,
+                                  background: "#e0f2f1",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  border: "1px solid #b2dfdb"
+                                }}
+                              >
+                                Preview
+                              </span>
+                              <DownloadLink 
+                                href={file.url} 
+                                download={file.name} 
+                                style={{ 
+                                  margin: 0, 
+                                  padding: "2px 6px",
+                                  background: "#f1f5f9",
+                                  color: "#475569",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: "4px",
+                                  fontSize: "0.68rem",
+                                  display: "inline-flex",
+                                  alignItems: "center"
+                                }}
+                              >
+                                Download
+                              </DownloadLink>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

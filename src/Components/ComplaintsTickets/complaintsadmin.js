@@ -417,7 +417,7 @@ const ComplaintsAdmin = () => {
         escapeCSV(ticket.severity),
         escapeCSV(ticket.reporter),
         escapeCSV(ticket.reporter_name),
-        escapeCSV(ticket.assignee),
+        escapeCSV(ticket.assignee_name ? `${ticket.assignee_name} (${ticket.assignee})` : (ticket.assignee || "")),
         escapeCSV(ticket.reported_date ? dayjs(ticket.reported_date).format("YYYY-MM-DD HH:mm") : ""),
         escapeCSV(ticket.due_date || ""),
         escapeCSV(ticket.final_completion_date || ""),
@@ -486,7 +486,7 @@ const ComplaintsAdmin = () => {
                   <td style="font-weight: bold;">${t.issue_id}</td>
                   <td>${t.title}</td>
                   <td>${t.reporter_name || t.reporter}</td>
-                  <td>${t.assignee || "-"}</td>
+                  <td>${t.assignee_name ? `${t.assignee_name} (${t.assignee})` : (t.assignee || "-")}</td>
                   <td>${dayjs(t.reported_date).format("DD/MM/YYYY")}</td>
                   <td>${t.status}</td>
                 </tr>
@@ -543,7 +543,7 @@ const ComplaintsAdmin = () => {
                   <td style="font-weight: bold;">${t.issue_id}</td>
                   <td>${t.title}</td>
                   <td>${t.reporter_name || t.reporter}</td>
-                  <td>${t.assignee || "-"}</td>
+                  <td>${t.assignee_name ? `${t.assignee_name} (${t.assignee})` : (t.assignee || "-")}</td>
                   <td>${dayjs(t.reported_date).format("DD/MM/YYYY")}</td>
                   <td>${t.final_completion_date ? dayjs(t.final_completion_date).format("DD/MM/YYYY") : "-"}</td>
                 </tr>
@@ -727,8 +727,8 @@ const ComplaintsAdmin = () => {
                         <S.Td style={{ fontSize: "0.78rem" }}>
                           {dayjs(ticket.reported_date).format("DD/MM/YYYY hh:mm A")}
                         </S.Td>
-                        <S.Td>
-                          <span style={{ fontSize: "0.78rem" }}>{ticket.assignee || "-"}</span>
+                        <S.Td style={{ fontSize: "0.78rem" }}>
+                          {ticket.assignee_name ? `${ticket.assignee_name} (${ticket.assignee})` : (ticket.assignee || "-")}
                         </S.Td>
                         <S.Td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
                           <S.Button onClick={() => openEditModal(ticket)} style={{ padding: "4px 8px", fontSize: "0.72rem", margin: "0 auto" }}>
@@ -907,8 +907,8 @@ const ComplaintsAdmin = () => {
                         <S.Td style={{ fontSize: "0.78rem", fontWeight: 600, color: "#16a34a" }}>
                           {ticket.final_completion_date ? dayjs(ticket.final_completion_date).format("DD/MM/YYYY") : "-"}
                         </S.Td>
-                        <S.Td>
-                          <span style={{ fontSize: "0.78rem" }}>{ticket.assignee || "-"}</span>
+                        <S.Td style={{ fontSize: "0.78rem" }}>
+                          {ticket.assignee_name ? `${ticket.assignee_name} (${ticket.assignee})` : (ticket.assignee || "-")}
                         </S.Td>
                         <S.Td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
                           <S.Button onClick={() => openEditModal(ticket)} style={{ padding: "4px 8px", fontSize: "0.72rem", margin: "0 auto" }}>
@@ -949,18 +949,16 @@ const ComplaintsAdmin = () => {
           width={850}
           centered
           footer={
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-              <S.Button key="delete" danger onClick={handleDeleteTicket} disabled={updating} style={{ padding: "6px 16px", background: "#ef4444", borderColor: "#ef4444", color: "white" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", width: "100%", gap: "12px" }}>
+              {/* <S.Button key="delete" danger onClick={handleDeleteTicket} disabled={updating} style={{ padding: "6px 16px", background: "#ef4444", borderColor: "#ef4444", color: "white" }}>
                 🗑️ Delete Complaint
+              </S.Button> */}
+              <S.Button key="cancel" secondary onClick={() => setIsModalOpen(false)} style={{ padding: "6px 16px" }}>
+                Cancel
               </S.Button>
-              <div style={{ display: "flex", gap: "12px" }}>
-                <S.Button key="cancel" secondary onClick={() => setIsModalOpen(false)} style={{ padding: "6px 16px" }}>
-                  Cancel
-                </S.Button>
-                <S.Button key="save" onClick={handleSaveChanges} disabled={updating} style={{ padding: "6px 20px" }}>
-                  {updating ? "Saving..." : "Save Changes"}
-                </S.Button>
-              </div>
+              <S.Button key="save" onClick={handleSaveChanges} disabled={updating} style={{ padding: "6px 20px" }}>
+                {updating ? "Saving..." : "Save Changes"}
+              </S.Button>
             </div>
           }
         >
