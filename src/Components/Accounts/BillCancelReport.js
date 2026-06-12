@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaEye, FaPrint, FaSearch } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileCsv } from "react-icons/fa";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -124,15 +124,15 @@ const PrintSignatures = styled.div`
 `;
 
 
-const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
+const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [billType, setBillType] = useState("all");
+    const [searchQuery, setSearchQuery] = useState("");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
 
     useEffect(() => {
         if (startDate) setFromDate(startDate);
@@ -143,21 +143,22 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
         if (fromDate && toDate) {
             fetchReport();
         }
-    }, [fromDate, toDate, billType]);
+    }, [fromDate, toDate]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&status=Billed`, "GET");
+            const response = await apiRequest(`${HmsBaseUrl}bill-cancel-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
             if (response.success && response.data && Array.isArray(response.data.data)) {
-                let filteredData = response.data.data;
-                if (billType !== "all") {
-                    filteredData = response.data.data.filter(b => b.payment_mode?.toLowerCase() === billType.toLowerCase());
-                }
-                setReportData(filteredData);
+                setReportData(response.data.data);
+            } else if (response.data && Array.isArray(response.data)) {
+                setReportData(response.data);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
-            console.error("Error fetching report:", error);
+            console.error("Error fetching bill cancel report:", error);
+            setReportData([]);
         } finally {
             setLoading(false);
         }
@@ -167,14 +168,84 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
         window.print();
     };
 
-    const grandTotal = reportData.reduce((acc, curr) => acc + (curr.net_amount || 0), 0);
+    // Filter by type and search query
+    const filteredData = reportData.filter(item => {
+        const matchesType = billType === "all" || 
+            (billType === "discharge" && item.bill_type === "Discharge Bill") ||
+            (billType === "advance" && item.bill_type === "IP Advance") ||
+            (billType === "admission" && item.bill_type === "IP Admission");
+
+        const q = searchQuery.toLowerCase().trim();
+        const matchesSearch = !q || 
+            (item.patient_name || "").toLowerCase().includes(q) ||
+            (item.uhid || "").toLowerCase().includes(q) ||
+            (item.bill_no || "").toLowerCase().includes(q) ||
+            (item.cancelled_by || "").toLowerCase().includes(q) ||
+            (item.created_by || "").toLowerCase().includes(q);
+
+        return matchesType && matchesSearch;
+    });
+
+    const grandTotal = filteredData.reduce((acc, curr) => acc + (curr.net_amount || 0), 0);
+
+    const escapeCSV = (val) => {
+        if (val === undefined || val === null) return '""';
+        let str = String(val);
+        str = str.replace(/"/g, '""');
+        return `"${str}"`;
+    };
+
+    const handleExportCSV = () => {
+        if (filteredData.length === 0) {
+            alert("No data available to export");
+            return;
+        }
+
+        const headers = [
+            "S.No",
+            "Patient Name",
+            "UHID",
+            "Bill Type",
+            "Bill No",
+            "Bill Date",
+            "Cancelled Date",
+            "Created By",
+            "Cancelled By",
+            "Amount (Rs)",
+            "Remarks"
+        ];
+
+        const rows = filteredData.map((item, index) => [
+            escapeCSV(index + 1),
+            escapeCSV(item.patient_name || ""),
+            escapeCSV(item.uhid || ""),
+            escapeCSV(item.bill_type || ""),
+            escapeCSV(item.bill_no || ""),
+            escapeCSV(item.bill_date || ""),
+            escapeCSV(item.cancelled_date || ""),
+            escapeCSV(item.created_by || ""),
+            escapeCSV(item.cancelled_by || ""),
+            escapeCSV((item.net_amount || 0).toFixed(2)),
+            escapeCSV(item.remarks || "")
+        ]);
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `bill_cancel_report_${dayjs().format("YYYY-MM-DD")}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <PageWrapper>
             <SectionTitle className="no-print">
-                <h3>Discharge Bills Report</h3>
+                <h3>Bill Cancellation Report</h3>
                 <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    View and print discharge bills summary
+                    List of cancelled discharge bills and IP advances with patient details
                 </p>
             </SectionTitle>
 
@@ -199,19 +270,31 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                         />
                     </InputWrapper>
                     <InputWrapper>
-                        <Label>Bill Type</Label>
+                        <Label>Bill Category</Label>
                         <Select
                             value={billType}
                             onChange={(e) => setBillType(e.target.value)}
                         >
-                            <option value="all">All Types</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Credit">Credit</option>
+                            <option value="all">All Categories</option>
+                            <option value="discharge">Discharge Bills</option>
+                            <option value="advance">IP Advances</option>
+                            <option value="admission">IP Admissions</option>
                         </Select>
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Search</Label>
+                        <Input
+                            placeholder="Search Patient, UHID, Bill No..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </InputWrapper>
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Refreshing..." : "Refresh"}
+                        </Button>
+                        <Button onClick={handleExportCSV} style={{ height: "40px", background: colors.success, borderColor: colors.success }}>
+                            <FaFileCsv style={{ marginRight: "8px" }} /> CSV
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
@@ -222,59 +305,65 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
                 <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Total Patients</SummaryLabel>
-                    <SummaryValue>{reportData.length}</SummaryValue>
+                    <SummaryLabel>Total Cancelled Bills</SummaryLabel>
+                    <SummaryValue>{filteredData.length}</SummaryValue>
                 </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Grand Total</SummaryLabel>
+                <SummaryCard color={colors.danger}>
+                    <SummaryLabel>Total Cancelled Amount</SummaryLabel>
                     <SummaryValue>₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
                 </SummaryCard>
             </div>
 
             <TableWrapper>
-                <Table id="discharge-bills-table">
+                <Table id="bill-cancel-table">
                     <thead>
                         <Tr>
                             <Th>S.No</Th>
                             <Th>Patient Name</Th>
-                            <Th>IP.No</Th>
-                            <Th>Room</Th>
-                            <Th>Admission Date</Th>
-                            <Th>Discharge Date</Th>
-                            <Th>Bill ID</Th>
+                            <Th>UHID</Th>
+                            <Th>Bill Type</Th>
                             <Th>Bill No</Th>
-                            <Th style={{ textAlign: "right" }}>Total</Th>
+                            <Th>Bill Date</Th>
+                            <Th>Cancelled Date</Th>
+                            <Th>Created By</Th>
+                            <Th>Cancelled By</Th>
+                            <Th style={{ textAlign: "right" }}>Amount</Th>
+                            <Th>Remarks</Th>
                         </Tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((bill, index) => (
+                        {filteredData.length > 0 ? (
+                            filteredData.map((item, index) => (
                                 <Tr key={index}>
                                     <Td>{index + 1}</Td>
-                                    <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || "N/A"}</Td>
-                                    <Td>{bill.ip_number}</Td>
-                                    <Td>{bill.patient_details?.room_no || "N/A"}</Td>
-                                    <Td>{bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : "N/A"}</Td>
-                                    <Td>{bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A"}</Td>
-                                    <Td>{bill.discharge_id}</Td>
-                                    <Td>{bill.bill_no}</Td>
-                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(bill.net_amount || 0).toFixed(2)}</Td>
+                                    <Td style={{ fontWeight: "600" }}>{item.patient_name}</Td>
+                                    <Td>{item.uhid}</Td>
+                                    <Td style={{ fontWeight: "500", color: item.bill_type === "Discharge Bill" ? colors.primary : (item.bill_type === "IP Advance" ? colors.secondary : colors.textMuted) }}>
+                                        {item.bill_type}
+                                    </Td>
+                                    <Td style={{ fontFamily: "monospace" }}>{item.bill_no}</Td>
+                                    <Td>{item.bill_date ? dayjs(item.bill_date).format("DD/MM/YYYY HH:mm") : "N/A"}</Td>
+                                    <Td>{item.cancelled_date ? dayjs(item.cancelled_date).format("DD/MM/YYYY HH:mm") : "N/A"}</Td>
+                                    <Td>{item.created_by || "N/A"}</Td>
+                                    <Td>{item.cancelled_by || "N/A"}</Td>
+                                    <Td style={{ textAlign: "right", fontWeight: "700", color: colors.danger }}>₹{(item.net_amount || 0).toFixed(2)}</Td>
+                                    <Td style={{ fontSize: "0.85rem", color: colors.textMuted }}>{item.remarks || "N/A"}</Td>
                                 </Tr>
                             ))
                         ) : (
                             <Tr>
-                                <Td colSpan="9" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
-                                    No records found for the selected period.
+                                <Td colSpan="11" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
+                                    No records found for the selected filter criteria.
                                 </Td>
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {filteredData.length > 0 && (
                         <tfoot>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="7" style={{ textAlign: "right" }}>Total Patients: {reportData.length}</Td>
-                                <Td style={{ textAlign: "right" }}>Grand Total:</Td>
-                                <Td style={{ textAlign: "right", color: colors.primary }}>₹{grandTotal.toFixed(2)}</Td>
+                                <Td colSpan="9" style={{ textAlign: "right" }}>Grand Total ({filteredData.length} Bills):</Td>
+                                <Td style={{ textAlign: "right", color: colors.danger }}>₹{grandTotal.toFixed(2)}</Td>
+                                <Td></Td>
                             </Tr>
                         </tfoot>
                     )}
@@ -303,7 +392,7 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                 <PrintHeader>
                     <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
                     <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
-                    <div className="report-title">Discharge Bills Report</div>
+                    <div className="report-title">Bill Cancellation Report</div>
                 </PrintHeader>
 
                 <PrintInfoTable>
@@ -314,8 +403,8 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                             <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                         </tr>
                         <tr>
-                            <td><strong>Bill Type:</strong> {billType === "all" ? "All Types" : billType}</td>
-                            <td><strong>Total Patients:</strong> {reportData.length}</td>
+                            <td><strong>Category:</strong> {billType === "all" ? "All Categories" : billType}</td>
+                            <td><strong>Search:</strong> {searchQuery || "None"}</td>
                             <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
                         </tr>
                     </tbody>
@@ -326,40 +415,44 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                         <tr>
                             <th>S.No</th>
                             <th>Patient Name</th>
-                            <th>IP.No</th>
-                            <th>Room</th>
-                            <th>Admission Date</th>
-                            <th>Discharge Date</th>
-                            <th>Bill ID</th>
+                            <th>UHID</th>
+                            <th>Bill Type</th>
                             <th>Bill No</th>
-                            <th style={{ textAlign: "right" }}>Total</th>
+                            <th>Bill Date</th>
+                            <th>Cancelled Date</th>
+                            <th>Created By</th>
+                            <th>Cancelled By</th>
+                            <th style={{ textAlign: "right" }}>Amount</th>
+                            <th>Remarks</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((bill, index) => (
+                        {filteredData.length > 0 ? (
+                            filteredData.map((item, index) => (
                                 <tr key={index}>
                                     <td>{index + 1}</td>
-                                    <td>{bill.patient_details?.patient_name || "N/A"}</td>
-                                    <td>{bill.ip_number}</td>
-                                    <td>{bill.patient_details?.room_no || "N/A"}</td>
-                                    <td>{bill.patient_details?.admission_date ? dayjs(bill.patient_details.admission_date).format("DD/MM/YYYY") : "N/A"}</td>
-                                    <td>{bill.bill_date ? dayjs(bill.bill_date).format("DD/MM/YYYY") : "N/A"}</td>
-                                    <td>{bill.discharge_id}</td>
-                                    <td>{bill.bill_no}</td>
-                                    <td style={{ textAlign: "right" }}>₹{(bill.net_amount || 0).toFixed(2)}</td>
+                                    <td>{item.patient_name}</td>
+                                    <td>{item.uhid}</td>
+                                    <td>{item.bill_type}</td>
+                                    <td>{item.bill_no}</td>
+                                    <td>{item.bill_date ? dayjs(item.bill_date).format("DD/MM/YYYY HH:mm") : "N/A"}</td>
+                                    <td>{item.cancelled_date ? dayjs(item.cancelled_date).format("DD/MM/YYYY HH:mm") : "N/A"}</td>
+                                    <td>{item.created_by || "N/A"}</td>
+                                    <td>{item.cancelled_by || "N/A"}</td>
+                                    <td style={{ textAlign: "right" }}>₹{(item.net_amount || 0).toFixed(2)}</td>
+                                    <td>{item.remarks || "N/A"}</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="9" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
+                                <td colSpan="11" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
                             </tr>
                         )}
-                        {reportData.length > 0 && (
+                        {filteredData.length > 0 && (
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                <td colSpan="7" style={{ textAlign: "right" }}>Total Patients: {reportData.length}</td>
-                                <td style={{ textAlign: "right" }}>Grand Total:</td>
+                                <td colSpan="9" style={{ textAlign: "right" }}>Grand Total ({filteredData.length} Bills):</td>
                                 <td style={{ textAlign: "right" }}>₹{grandTotal.toFixed(2)}</td>
+                                <td></td>
                             </tr>
                         )}
                     </tbody>
@@ -375,5 +468,5 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
     );
 };
 
-export default DischargeBills;
+export default BillCancelReport;
 

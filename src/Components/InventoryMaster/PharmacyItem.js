@@ -177,10 +177,10 @@ const Badge = styled.span`
   font-weight: 600;
   background: ${(p) =>
     p.variant === "green" ? "#dcfce7" :
-    p.variant === "red"   ? "#fee2e2" : "#f1f5f9"};
+      p.variant === "red" ? "#fee2e2" : "#f1f5f9"};
   color: ${(p) =>
     p.variant === "green" ? "#16a34a" :
-    p.variant === "red"   ? "#dc2626" : colors.textMuted};
+      p.variant === "red" ? "#dc2626" : colors.textMuted};
 `;
 
 const ActionBtn = styled.button`
@@ -345,8 +345,8 @@ const CompositionTag = styled.div`
 
 const CompositionSelect = ({ compositions, value, onChange, error }) => {
   const [query, setQuery] = useState("");
-  const [open, setOpen]   = useState(false);
-  const wrapperRef        = useRef(null);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
 
   const selectedLabel = compositions.find(
     (c) => String(c.composition_id) === String(value)
@@ -354,8 +354,8 @@ const CompositionSelect = ({ compositions, value, onChange, error }) => {
 
   const filtered = query.trim()
     ? compositions.filter((c) =>
-        c.composition_name.toLowerCase().includes(query.toLowerCase())
-      )
+      c.composition_name.toLowerCase().includes(query.toLowerCase())
+    )
     : compositions;
 
   useEffect(() => {
@@ -427,13 +427,13 @@ const CompositionSelect = ({ compositions, value, onChange, error }) => {
 
 const usePagination = (data, defaultPageSize = 10) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize]       = useState(defaultPageSize);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
 
   useEffect(() => { setCurrentPage(1); }, [data.length, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
-  const startIdx   = (currentPage - 1) * pageSize;
-  const pageData   = data.slice(startIdx, startIdx + pageSize);
+  const startIdx = (currentPage - 1) * pageSize;
+  const pageData = data.slice(startIdx, startIdx + pageSize);
 
   const goTo = (page) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
@@ -455,7 +455,7 @@ const Pagination = ({ currentPage, totalPages, pageSize, totalItems, startIdx, g
       pages.push(1);
       if (currentPage > 3) pages.push("...");
       const start = Math.max(2, currentPage - 1);
-      const end   = Math.min(totalPages - 1, currentPage + 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
       for (let i = start; i <= end; i++) pages.push(i);
       if (currentPage < totalPages - 2) pages.push("...");
       pages.push(totalPages);
@@ -501,42 +501,66 @@ const Pagination = ({ currentPage, totalPages, pageSize, totalItems, startIdx, g
 const baseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const EMPTY_FORM = {
-  item_name:            "",
-  item_last_name:       "",
-  category:             "",   // stores category_id (number as string)
-  hsn:                  "",
-  brand_name:           "",
+  item_name: "",
+  item_last_name: "",
+  category: "",   // stores category_id (number as string)
+  hsn: "",
+  brand_name: "",
   chemical_composition: "",
-  high_risk:            false,
-  look_alike:           false,
-  sound_alike:          false,
-  reorder_level:        "",
-  IP_available:         true,
-  IP_shelf_no:          "",
-  IP_rack_no:           "",
-  OP_available:         true,
-  OP_shelf_no:          "",
-  OP_rack_no:           "",
-  G_available:          true,
-  G_shelf_no:           "",
-  G_rack_no:            "",
-  is_blocked:           false,
-  blocked_reason:       "",
+  high_risk: false,
+  look_alike: false,
+  sound_alike: false,
+  reorder_level: "",
+  IP_available: true,
+  IP_shelf_no: "",
+  IP_rack_no: "",
+  OP_available: true,
+  OP_shelf_no: "",
+  OP_rack_no: "",
+  G_available: true,
+  G_shelf_no: "",
+  G_rack_no: "",
+  is_blocked: false,
+  blocked_reason: "",
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const PharmacyItemMaster = () => {
-  const [items, setItems]               = useState([]);
-  const [categories, setCategories]     = useState([]);
+  const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [compositions, setCompositions] = useState([]);
-  const [form, setForm]                 = useState(EMPTY_FORM);
-  const [editId, setEditId]             = useState(null);
-  const [showForm, setShowForm]         = useState(false);
-  const [search, setSearch]             = useState("");
-  const [loading, setLoading]           = useState(false);
-  const [errors, setErrors]             = useState({});
-  const [toast, setToast]               = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editId, setEditId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [toast, setToast] = useState(null);
+
+  const [trackingModalOpen, setTrackingModalOpen] = useState(false);
+  const [trackingData, setTrackingData] = useState(null);
+  const [trackingItemName, setTrackingItemName] = useState("");
+  const [trackingLoading, setTrackingLoading] = useState(false);
+
+  const handleTrackItem = async (item) => {
+    setTrackingItemName(item.item_name);
+    setTrackingModalOpen(true);
+    setTrackingData(null);
+    setTrackingLoading(true);
+    try {
+      const res = await apiRequest(`${baseUrl}get_pharmacy_item_tracking/?item_id=${item.item_id}`, "GET");
+      if (res.success) {
+        setTrackingData(res.data);
+      } else {
+        showToast(res.error || "Failed to fetch tracking data", "error");
+      }
+    } catch (err) {
+      showToast("Error fetching tracking data", "error");
+    } finally {
+      setTrackingLoading(false);
+    }
+  };
 
   // ── Lookup helpers ────────────────────────────────────────────────────────
   const getCompositionName = (id) => {
@@ -584,7 +608,7 @@ const PharmacyItemMaster = () => {
     try {
       const res = await apiRequest(`${baseUrl}pharmacy-category/`, "GET");
       const list = Array.isArray(res?.data) ? res.data
-                 : Array.isArray(res)        ? res : [];
+        : Array.isArray(res) ? res : [];
       setCategories(list);
     } catch {
       showToast("Failed to fetch categories", "error");
@@ -595,7 +619,7 @@ const PharmacyItemMaster = () => {
     try {
       const res = await apiRequest(`${baseUrl}chemical-composition/`, "GET");
       const list = Array.isArray(res?.data) ? res.data
-                 : Array.isArray(res)        ? res : [];
+        : Array.isArray(res) ? res : [];
       setCompositions(list);
     } catch {
       showToast("Failed to fetch compositions", "error");
@@ -624,7 +648,7 @@ const PharmacyItemMaster = () => {
   const validate = () => {
     const e = {};
     if (!form.item_name.trim()) e.item_name = "Item name is required";
-    if (!form.category)         e.category  = "Category is required";
+    if (!form.category) e.category = "Category is required";
     if (form.is_blocked && !form.blocked_reason.trim())
       e.blocked_reason = "Reason required when blocked";
     return e;
@@ -636,23 +660,23 @@ const PharmacyItemMaster = () => {
 
     setLoading(true);
     try {
-      const url    = editId ? `${baseUrl}pharmacy-items/${editId}/` : `${baseUrl}pharmacy-items/`;
+      const url = editId ? `${baseUrl}pharmacy-items/${editId}/` : `${baseUrl}pharmacy-items/`;
       const method = editId ? "PUT" : "POST";
 
       const payload = {
         ...form,
-        is_active:            true,
-        reorder_level:        Number(form.reorder_level) || 0,
-        category:             form.category ? Number(form.category) : null,
-        brand_name:           form.brand_name,
+        is_active: true,
+        reorder_level: Number(form.reorder_level) || 0,
+        category: form.category ? Number(form.category) : null,
+        brand_name: form.brand_name,
         chemical_composition: form.chemical_composition || null,
-        IP_shelf_no:          form.IP_available ? form.IP_shelf_no : "",
-        IP_rack_no:           form.IP_available ? form.IP_rack_no  : "",
-        OP_shelf_no:          form.OP_available ? form.OP_shelf_no : "",
-        OP_rack_no:           form.OP_available ? form.OP_rack_no  : "",
-        G_shelf_no:           form.G_available  ? form.G_shelf_no  : "",
-        G_rack_no:            form.G_available  ? form.G_rack_no   : "",
-        blocked_reason:       form.is_blocked   ? form.blocked_reason : "",
+        IP_shelf_no: form.IP_available ? form.IP_shelf_no : "",
+        IP_rack_no: form.IP_available ? form.IP_rack_no : "",
+        OP_shelf_no: form.OP_available ? form.OP_shelf_no : "",
+        OP_rack_no: form.OP_available ? form.OP_rack_no : "",
+        G_shelf_no: form.G_available ? form.G_shelf_no : "",
+        G_rack_no: form.G_available ? form.G_rack_no : "",
+        blocked_reason: form.is_blocked ? form.blocked_reason : "",
       };
 
       const res = await apiRequest(url, method, payload);
@@ -674,29 +698,29 @@ const PharmacyItemMaster = () => {
 
   const handleEdit = (item) => {
     setForm({
-      item_name:            item.item_name            || "",
-      item_last_name:       item.item_last_name       || "",
-      category:             item.category != null
-                              ? String(item.category) : "",
-      hsn:                  item.hsn                  || "",
-      brand_name:           item.brand_name           || "",
+      item_name: item.item_name || "",
+      item_last_name: item.item_last_name || "",
+      category: item.category != null
+        ? String(item.category) : "",
+      hsn: item.hsn || "",
+      brand_name: item.brand_name || "",
       chemical_composition: item.chemical_composition != null
-                              ? String(item.chemical_composition) : "",
-      high_risk:            !!item.high_risk,
-      look_alike:           !!item.look_alike,
-      sound_alike:          !!item.sound_alike,
-      reorder_level:        item.reorder_level        ?? "",
-      IP_available:         item.IP_available         !== false,
-      IP_shelf_no:          item.IP_shelf_no          || "",
-      IP_rack_no:           item.IP_rack_no           || "",
-      OP_available:         item.OP_available         !== false,
-      OP_shelf_no:          item.OP_shelf_no          || "",
-      OP_rack_no:           item.OP_rack_no           || "",
-      G_available:          item.G_available          !== false,
-      G_shelf_no:           item.G_shelf_no           || "",
-      G_rack_no:            item.G_rack_no            || "",
-      is_blocked:           !!item.is_blocked,
-      blocked_reason:       item.blocked_reason       || "",
+        ? String(item.chemical_composition) : "",
+      high_risk: !!item.high_risk,
+      look_alike: !!item.look_alike,
+      sound_alike: !!item.sound_alike,
+      reorder_level: item.reorder_level ?? "",
+      IP_available: item.IP_available !== false,
+      IP_shelf_no: item.IP_shelf_no || "",
+      IP_rack_no: item.IP_rack_no || "",
+      OP_available: item.OP_available !== false,
+      OP_shelf_no: item.OP_shelf_no || "",
+      OP_rack_no: item.OP_rack_no || "",
+      G_available: item.G_available !== false,
+      G_shelf_no: item.G_shelf_no || "",
+      G_rack_no: item.G_rack_no || "",
+      is_blocked: !!item.is_blocked,
+      blocked_reason: item.blocked_reason || "",
     });
     setEditId(item.item_id);
     setShowForm(true);
@@ -1057,8 +1081,8 @@ const PharmacyItemMaster = () => {
                       <Td style={{ fontFamily: "monospace", fontSize: "0.82rem" }}>{item.hsn || "—"}</Td>
                       <Td style={{ fontSize: "0.82rem" }}>{getCompositionName(item.chemical_composition)}</Td>
                       <Td style={{ textAlign: "center" }}>{item.reorder_level}</Td>
-                      <Td><Badge variant={item.high_risk   ? "green" : ""}>{item.high_risk   ? "Yes" : "No"}</Badge></Td>
-                      <Td><Badge variant={item.look_alike  ? "green" : ""}>{item.look_alike  ? "Yes" : "No"}</Badge></Td>
+                      <Td><Badge variant={item.high_risk ? "green" : ""}>{item.high_risk ? "Yes" : "No"}</Badge></Td>
+                      <Td><Badge variant={item.look_alike ? "green" : ""}>{item.look_alike ? "Yes" : "No"}</Badge></Td>
                       <Td><Badge variant={item.sound_alike ? "green" : ""}>{item.sound_alike ? "Yes" : "No"}</Badge></Td>
                       <Td><Badge variant={item.IP_available ? "green" : ""}>{item.IP_available ? "Yes" : "No"}</Badge></Td>
                       <Td style={{ fontSize: "0.8rem" }}>
@@ -1079,6 +1103,7 @@ const PharmacyItemMaster = () => {
                       </Td>
                       <Td>
                         <div style={{ display: "flex", gap: 5 }}>
+                          <ActionBtn onClick={() => handleTrackItem(item)} style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0" }}>Track</ActionBtn>
                           <ActionBtn onClick={() => handleEdit(item)}>Edit</ActionBtn>
                           <ActionBtn danger onClick={() => handleDelete(item.item_id)}>Delete</ActionBtn>
                         </div>
@@ -1104,6 +1129,82 @@ const PharmacyItemMaster = () => {
           )}
         </FormContent>
       </Container>
+
+      {/* TRACKING MODAL */}
+      {trackingModalOpen && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+          <div style={{ background: "#fff", borderRadius: "12px", width: "800px", maxWidth: "95vw", maxHeight: "90vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 25px rgba(0,0,0,0.2)" }}>
+            <div style={{ padding: "20px 24px", background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "600" }}>Track Item: {trackingItemName}</h2>
+              <button onClick={() => setTrackingModalOpen(false)} style={{ background: "transparent", border: "none", color: "#fff", fontSize: "1.5rem", cursor: "pointer" }}>×</button>
+            </div>
+
+            <div style={{ padding: "24px", overflowY: "auto", flex: 1 }}>
+              {trackingLoading ? (
+                <div style={{ textAlign: "center", padding: "40px" }}>Loading tracking data...</div>
+              ) : trackingData ? (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "24px" }}>
+                    <div style={{ padding: "20px", background: colors.primary + "10", borderRadius: "12px", border: `1px solid ${colors.primary}30` }}>
+                      <div style={{ fontSize: "0.9rem", color: colors.textMuted, fontWeight: "600" }}>Total Current Stock</div>
+                      <div style={{ fontSize: "2rem", fontWeight: "700", color: colors.primary, marginTop: "8px" }}>{trackingData.total_stock}</div>
+                    </div>
+                    <div style={{ padding: "20px", background: colors.primary + "10", borderRadius: "12px", border: `1px solid ${colors.primary}30` }}>
+                      <div style={{ fontSize: "0.9rem", color: colors.textMuted, fontWeight: "600" }}>Times Procured</div>
+                      <div style={{ fontSize: "2rem", fontWeight: "700", color: colors.primary, marginTop: "8px" }}>{trackingData.times_procured}</div>
+                    </div>
+                  </div>
+
+                  <h3 style={{ fontSize: "1.1rem", marginBottom: "16px", color: colors.textMain }}>Batch History</h3>
+                  {trackingData.batches && trackingData.batches.length > 0 ? (
+                    <TableWrapper style={{ maxHeight: "300px", overflowY: "auto" }}>
+                      <Table>
+                        <thead style={{ position: "sticky", top: 0, background: colors.tableHeaderBg, zIndex: 1 }}>
+                          <tr>
+                            <Th>Batch Number</Th>
+                            <Th>Procured Date</Th>
+                            <Th>Expiry Date</Th>
+                            <Th>GRN No.</Th>
+                            <Th>Initial Stock</Th>
+                            <Th>Current Stock</Th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {trackingData.batches.map((b, idx) => (
+                            <Tr key={idx}>
+                              <Td><strong>{b.batch_number}</strong></Td>
+                              <Td>{b.procured_date}</Td>
+                              <Td>
+                                <Badge variant={new Date(b.expiry_date.split('-').reverse().join('-')) < new Date() ? "red" : "green"}>
+                                  {b.expiry_date}
+                                </Badge>
+                              </Td>
+                              <Td>{b.grn_number}</Td>
+                              <Td>{b.total_stock}</Td>
+                              <Td><strong style={{ color: colors.primary }}>{b.current_stock}</strong></Td>
+                            </Tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </TableWrapper>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "30px", background: "#f8fafc", borderRadius: "8px", color: colors.textMuted }}>
+                      No procurement history found for this item.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>Failed to load data.</div>
+              )}
+            </div>
+
+            <div style={{ padding: "16px 24px", background: "#f8fafc", borderTop: `1px solid ${colors.border}`, display: "flex", justifyContent: "flex-end" }}>
+              <Button onClick={() => setTrackingModalOpen(false)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </PageWrapper>
   );
 };

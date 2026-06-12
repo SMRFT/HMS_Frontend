@@ -72,7 +72,7 @@ const FilterSection = styled.div`
 const PrintTemplate = styled.div`
     display: none;
     @media print {
-        display: block;
+        display: block !important;
         background: white;
         width: 100%;
         color: black;
@@ -83,11 +83,55 @@ const PrintTemplate = styled.div`
 const PrintHeader = styled.div`
     text-align: center;
     border-bottom: 2px solid #000;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-    h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
-    p { margin: 2px 0; font-size: 12px; }
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
 `;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
 
 const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
     const location = useLocation();
@@ -415,24 +459,22 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
 
                 <style>
                     {`
-                @media print {
-                    /* Hide everything by default */
-                    body * { visibility: hidden; }
-                    /* Show only our print template and its children */
-                    #printable-shift-report, #printable-shift-report * { visibility: visible; }
-                    #printable-shift-report { 
-                        display: block !important;
-                        position: absolute; 
-                        left: 0; 
-                        top: 0; 
-                        width: 100%;
-                        visibility: visible !important;
+                    @media print {
+                        @page { size: landscape; margin: 10mm; }
+                        body * { visibility: hidden; }
+                        #printable-shift-report, #printable-shift-report * { visibility: visible; }
+                        #printable-shift-report { 
+                            display: block !important;
+                            position: absolute; 
+                            left: 0; 
+                            top: 0; 
+                            width: 100%;
+                        }
+                        body { background: white !important; }
                     }
-                    /* Ensure no background colors or extra spacing from parent elements */
-                    body { background: white !important; margin: 0; padding: 0; }
-                }
-                `}
+                    `}
                 </style>
+
 
                 {/* PROFESSIONAL PRINT TEMPLATE */}
                 <PrintTemplate>
@@ -631,86 +673,86 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
             <PrintTemplate id="printable-shift-report">
                 <PrintHeader>
                     <h1>{hospital_name}</h1>
-                    <p style={{ marginTop: "10px", fontSize: "16px", fontWeight: "bold" }}>SHIFT BASIS ACCOUNTS REPORT</p>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: "15px", fontSize: "11px" }}>
-                        <span>Report Range: {format(new Date(fromDate), "dd-MM-yyyy")} to {format(new Date(toDate), "dd-MM-yyyy")}</span>
-                        <span>Printed On: {format(new Date(), "dd-MM-yyyy HH:mm")}</span>
-                    </div>
+                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
+                    <div className="report-title">Shift Basis Accounts Report</div>
                 </PrintHeader>
 
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "10px" }}>
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td colSpan="2"><strong>Type:</strong> Shift Collection & Settlement Summary</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {user_id || "Staff"}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
                     <thead>
-                        <tr style={{ background: "#f0f0f0" }}>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Counter</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Date</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Shift No</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Cashier Name</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>Start Time</th>
-                            <th style={{ border: "1px solid black", padding: "5px" }}>End Time</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Opening Bal</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Closing Bal</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Collection</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Return</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Remitted</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Handover</th>
-                            <th style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>Total Coll.</th>
+                        <tr>
+                            <th>Counter</th>
+                            <th>Date</th>
+                            <th>Shift No</th>
+                            <th>Cashier Name</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th style={{ textAlign: "right" }}>Opening Bal</th>
+                            <th style={{ textAlign: "right" }}>Closing Bal</th>
+                            <th style={{ textAlign: "right" }}>Collection</th>
+                            <th style={{ textAlign: "right" }}>Return</th>
+                            <th style={{ textAlign: "right" }}>Remitted</th>
+                            <th style={{ textAlign: "right" }}>Handover</th>
+                            <th style={{ textAlign: "right" }}>Total Coll.</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {summaryData && summaryData.length > 0 ? summaryData.map((s, i) => (
-                            <tr key={i}>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.SelectedOutlet}</td>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.date}</td>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.shiftno}</td>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.User}</td>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.StartTime}</td>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>{s.EndTime || "Active"}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.SalesReturnAmount || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                        {summaryData && summaryData.length > 0 ? (
+                            summaryData.map((s, i) => (
+                                <tr key={i}>
+                                    <td>{s.SelectedOutlet}</td>
+                                    <td>{s.date}</td>
+                                    <td>{s.shiftno}</td>
+                                    <td>{s.User}</td>
+                                    <td>{s.StartTime}</td>
+                                    <td>{s.EndTime || "Active"}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.SalesReturnAmount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right", fontWeight: "bold" }}>₹{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="13" style={{ textAlign: "center", padding: "15px" }}>No data available for print.</td>
                             </tr>
-                        )) : (
-                            <tr><td colSpan="13" style={{ textAlign: "center", padding: "10px" }}>No data available for print.</td></tr>
+                        )}
+                        {summaryData && summaryData.length > 0 && (
+                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                                <td colSpan="6" style={{ textAlign: "right" }}>GRAND TOTAL:</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.OpeningBalance || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SalesReturnAmount || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.RemittedToBank || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}</td>
+                            </tr>
                         )}
                     </tbody>
-                    {summaryData && summaryData.length > 0 && (
-                        <tfoot>
-                            <tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <td style={{ border: "1px solid black", padding: "5px" }}>GRAND TOTAL</td>
-                                <td colSpan="5" style={{ border: "1px solid black", padding: "5px" }}></td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.OpeningBalance || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.SalesReturnAmount || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.RemittedToBank || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0), 0).toFixed(2)}
-                                </td>
-                                <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>
-                                    {summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    )}
-                </table>
+                </PrintTable>
 
-                <div style={{ position: "fixed", bottom: "0", width: "100%", textAlign: "center", fontSize: "9px", borderTop: "1px solid #ddd", paddingTop: "5px" }}>
-                    {hospital_name} - Shift Basis Accounts Report. Printed by {user_id}
-                </div>
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
             </PrintTemplate>
         </>
     );

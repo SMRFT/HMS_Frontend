@@ -21,6 +21,10 @@ function setforlocaldev() {
   const selectedOutlet = "OLET002";
   localStorage.setItem("selected_outlet", selectedOutlet);
   return dev_token;
+
+
+
+
 }
 
 // --- Function to redirect to login ---

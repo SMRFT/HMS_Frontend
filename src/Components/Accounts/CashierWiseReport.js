@@ -74,73 +74,69 @@ const ClosingSection = styled.div`
     color: ${colors.primary};
 `;
 
-// Print-only components
-const PrintContainer = styled.div`
+const PrintTemplate = styled.div`
     display: none;
     @media print {
-        display: block;
+        display: block !important;
+        background: white;
         width: 100%;
-        color: #000;
-        font-family: 'Times New Roman', Times, serif;
-        background: #fff;
+        color: black;
+        font-family: 'Times New Roman', serif;
     }
 `;
 
-const PrintBlock = styled.div`
-    page-break-inside: avoid;
-    margin-bottom: 40px;
-    padding-bottom: 20px;
-    border-bottom: 1px dashed #000;
-`;
-
-const PrintTitle = styled.h2`
+const PrintHeader = styled.div`
     text-align: center;
-    margin: 0 0 5px 0;
-    font-size: 20px;
-    text-transform: uppercase;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
 `;
 
-const PrintSubtitle = styled.p`
-    text-align: center;
-    margin: 0 0 20px 0;
-    font-size: 12px;
-    font-weight: bold;
-`;
-
-const PrintHeaderTable = styled.table`
+const PrintInfoTable = styled.table`
     width: 100%;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     border-collapse: collapse;
-    font-size: 13px;
-    td {
-        padding: 4px 0;
-    }
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
 `;
 
 const PrintTable = styled.table`
     width: 100%;
     border-collapse: collapse;
     margin: 10px 0;
-    font-size: 12px;
+    font-size: 9px;
     th, td {
-        border: 1px solid #000;
-        padding: 6px 8px;
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
         text-align: left;
     }
     th {
         background-color: #f2f2f2 !important;
         font-weight: bold;
+        text-transform: uppercase;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
 `;
 
-const PrintClosing = styled.div`
-    text-align: right;
-    margin-top: 15px;
-    font-size: 14px;
-    font-weight: bold;
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
 `;
+
 
 const CashierWiseReport = ({ startDate, endDate }) => {
     const location = useLocation();
@@ -433,33 +429,55 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                 )}
             </div>
 
-            {/* PRINT VIEW */}
-            <PrintContainer>
+            <style>
+                {`
+                @media print {
+                    @page { size: portrait; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; }
+                }
+                `}
+            </style>
+
+            <PrintTemplate id="printable-report-area">
                 {shiftBlocks.map((block, idx) => (
-                    <PrintBlock key={idx}>
-                        <PrintTitle>{hospital_name}</PrintTitle>
-                        <PrintSubtitle>{branch_name}</PrintSubtitle>
-                        
-                        <PrintHeaderTable>
+                    <div key={idx} style={{ pageBreakAfter: idx < shiftBlocks.length - 1 ? "always" : "auto", paddingBottom: "20px" }}>
+                        <PrintHeader>
+                            <h1>{hospital_name}</h1>
+                            <p>{branch_name}</p>
+                            <div className="report-title">Cashier Wise Summary Report</div>
+                        </PrintHeader>
+
+                        <PrintInfoTable>
                             <tbody>
                                 <tr>
-                                    <td style={{ width: "50%" }}><strong>Shift No :</strong> {block.shiftno}</td>
-                                    <td style={{ width: "50%", textAlign: "right" }}><strong>Start Time :</strong> {block.startTime}</td>
+                                    <td style={{ width: "35%" }}><strong>Shift No:</strong> {block.shiftno}</td>
+                                    <td style={{ width: "35%" }}><strong>Start Time:</strong> {block.startTime}</td>
+                                    <td style={{ width: "30%", textAlign: "right" }}><strong>End Time:</strong> {block.endTime}</td>
                                 </tr>
                                 <tr>
-                                    <td><strong>Staff Name :</strong> {block.cashierName}</td>
-                                    <td style={{ textAlign: "right" }}><strong>End Time :</strong> {block.endTime}</td>
+                                    <td><strong>Staff Name:</strong> {block.cashierName}</td>
+                                    <td><strong>Date:</strong> {block.date ? dayjs(block.date).format("DD/MM/YYYY") : "All Dates"}</td>
+                                    <td style={{ textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                                 </tr>
                             </tbody>
-                        </PrintHeaderTable>
+                        </PrintInfoTable>
 
                         <PrintTable>
                             <thead>
                                 <tr>
-                                    <th style={{ width: "60px" }}>SlNo.</th>
+                                    <th>SlNo.</th>
                                     <th>Bill Name</th>
-                                    <th style={{ textAlign: "right", width: "120px" }}>Receipts</th>
-                                    <th style={{ textAlign: "right", width: "120px" }}>Payments</th>
+                                    <th style={{ textAlign: "right" }}>Receipts</th>
+                                    <th style={{ textAlign: "right" }}>Payments</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -467,36 +485,30 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                                     <tr key={cIdx}>
                                         <td>{cIdx + 1}</td>
                                         <td>{cat.name}</td>
-                                        <td style={{ textAlign: "right" }}>{cat.receipts.toFixed(2)}</td>
-                                        <td style={{ textAlign: "right" }}>{cat.payments.toFixed(2)}</td>
+                                        <td style={{ textAlign: "right" }}>₹{cat.receipts.toFixed(2)}</td>
+                                        <td style={{ textAlign: "right" }}>₹{cat.payments.toFixed(2)}</td>
                                     </tr>
                                 ))}
-                                <tr style={{ fontWeight: "bold" }}>
-                                    <td colSpan="2" style={{ textAlign: "right" }}>Total</td>
-                                    <td style={{ textAlign: "right" }}>{block.totalReceipts.toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>{block.totalPayments.toFixed(2)}</td>
+                                <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                                    <td colSpan="2" style={{ textAlign: "right" }}>Total:</td>
+                                    <td style={{ textAlign: "right" }}>₹{block.totalReceipts.toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{block.totalPayments.toFixed(2)}</td>
+                                </tr>
+                                <tr style={{ fontWeight: "bold", background: "#e6e6e6" }}>
+                                    <td colSpan="2" style={{ textAlign: "right" }}>Closing Balance:</td>
+                                    <td colSpan="2" style={{ textAlign: "right" }}>₹{block.closingBalance.toFixed(2)}</td>
                                 </tr>
                             </tbody>
                         </PrintTable>
 
-                        <PrintClosing>
-                            Closing Balance : {block.closingBalance.toFixed(2)}
-                        </PrintClosing>
-                    </PrintBlock>
+                        <PrintSignatures>
+                            <div className="sig-box">Prepared By</div>
+                            <div className="sig-box">Accounts Officer</div>
+                            <div className="sig-box">Authorized Signatory</div>
+                        </PrintSignatures>
+                    </div>
                 ))}
-            </PrintContainer>
-
-            <style>
-                {`
-                @media print {
-                    @page { size: portrait; margin: 15mm 10mm; }
-                    body { background: white !important; }
-                    .no-print { display: none !important; }
-                    /* Hide parent containers that shouldn't show in print */
-                    #root > div, main, header, nav, aside { box-shadow: none !important; border: none !important; background: transparent !important; }
-                }
-                `}
-            </style>
+            </PrintTemplate>
         </PageWrapper>
     );
 };

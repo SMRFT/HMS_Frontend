@@ -9,6 +9,8 @@ import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 import QRRegistrationModal from "./QRRegistrationModal";
 import QRRegistrationSidebar from "./QRRegistrationSidebar";
+import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 
 
 // Modal component for search results
@@ -770,8 +772,6 @@ const PatientRegistrationForm = () => {
     const [selectedDoctor, setSelectedDoctor] = useState({})
     const [registrationFee, setRegistrationFee] = useState(0)
     const [consultingFee, setConsultingFee] = useState(0)
-    const [hospitalFee, setHospitalFee] = useState(0)
-    const [bookingFee, setBookingFee] = useState(0)
     const [totalFees, setTotalFees] = useState(0)
 
     // Age calculation functions
@@ -823,6 +823,24 @@ const PatientRegistrationForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (!patient.emergencyContact) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please enter an Emergency Contact.'
+            });
+            return;
+        }
+
+        if (!patient.referredBy) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please select a Referred By doctor.'
+            });
+            return;
+        }
+
         const formData = new FormData()
 
         const backendKeys = {
@@ -866,7 +884,38 @@ const PatientRegistrationForm = () => {
 
         if (result.success) {
             console.log("Patient Registered:", result.data)
-            alert("Patient Registered Successfully! UHID: " + result.data.uhid)
+            
+            const resultConfirm = await Swal.fire({
+                title: 'Registration successful!',
+                html: `Patient registered successfully with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you need a print?`,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#0d9488',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'Yes, print it!',
+                cancelButtonText: 'No, thanks'
+            });
+
+            if (resultConfirm.isConfirmed) {
+                const visitObj = {
+                    uhid: result.data.uhid,
+                    patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
+                    age: patient.age,
+                    gender: patient.gender,
+                    spouseName: patient.spouseName,
+                    address: patient.permanentAddress,
+                    mobile: patient.mobilePhone,
+                    doctorName: patient.doctorName,
+                    consultingFee: consultingFee,
+                    registrationFee: registrationFee,
+                    billAmount: totalFees,
+                    date: new Date().toLocaleDateString(),
+                    paymentMethod: "Cash"
+                };
+                handlePrintBill(visitObj);
+            } else {
+                toast.success("Registration successful!");
+            }
 
             // Reset form
             setPatient({
@@ -909,8 +958,6 @@ const PatientRegistrationForm = () => {
             setSelectedDoctor({})
             setRegistrationFee(0)
             setConsultingFee(0)
-            setHospitalFee(0)
-            setBookingFee(0)
             setTotalFees(0)
         } else {
             console.error("Error:", result.error)
@@ -1035,15 +1082,11 @@ const PatientRegistrationForm = () => {
     const handleDoctorSelect = (selected) => {
         const regFee = selected.registrationFee || 0
         const consFee = selected.consultingFee || 0
-        const hospFee = 0
-        const bookFee = 0
-        const total = regFee + consFee + hospFee + bookFee
+        const total = regFee + consFee
 
         setSelectedDoctor(selected)
         setRegistrationFee(regFee)
         setConsultingFee(consFee)
-        setHospitalFee(hospFee)
-        setBookingFee(bookFee)
         setTotalFees(total)
 
         setPatient(prev => ({
@@ -1063,26 +1106,20 @@ const PatientRegistrationForm = () => {
 
         if (feeType === "registration") {
             setRegistrationFee(newFee)
-            setTotalFees(newFee + consultingFee + hospitalFee + bookingFee)
+            setTotalFees(newFee + consultingFee)
             setPatient({
                 ...patient,
                 registrationFee: newFee,
-                totalFees: newFee + consultingFee + hospitalFee + bookingFee,
+                totalFees: newFee + consultingFee,
             })
         } else if (feeType === "consulting") {
             setConsultingFee(newFee)
-            setTotalFees(registrationFee + newFee + hospitalFee + bookingFee)
+            setTotalFees(registrationFee + newFee)
             setPatient({
                 ...patient,
                 consultingFee: newFee,
-                totalFees: registrationFee + newFee + hospitalFee + bookingFee,
+                totalFees: registrationFee + newFee,
             })
-        } else if (feeType === "hospital") {
-            setHospitalFee(newFee)
-            setTotalFees(registrationFee + consultingFee + newFee + bookingFee)
-        } else if (feeType === "booking") {
-            setBookingFee(newFee)
-            setTotalFees(registrationFee + consultingFee + hospitalFee + newFee)
         }
     }
 
@@ -1091,8 +1128,6 @@ const PatientRegistrationForm = () => {
         setSelectedDoctor({})
         setRegistrationFee(0)
         setConsultingFee(0)
-        setHospitalFee(0)
-        setBookingFee(0)
         setTotalFees(0)
 
         setPatient(prev => ({
@@ -1610,7 +1645,6 @@ const PatientRegistrationForm = () => {
 
                     {/* Search Container */}
                     <SearchContainer>
-                        <ContainerTitle>Patient Search</ContainerTitle>
                         <SearchRow>
                             <InputWrapper>
                                 <Label htmlFor="uhid">UHID No</Label>
@@ -1684,7 +1718,7 @@ const PatientRegistrationForm = () => {
                                                 const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
                                                 
                                                 setRegistrationFee(fee);
-                                                const total = fee + consultingFee + hospitalFee + bookingFee;
+                                                const total = fee + consultingFee;
                                                 setTotalFees(total);
                                                 
                                                 setPatient(prev => ({
@@ -1884,7 +1918,7 @@ const PatientRegistrationForm = () => {
                                         />
                                     </InputWrapper>
                                     <InputWrapper>
-                                        <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                                        <Label htmlFor="emergencyContact">Emergency Contact<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Input
                                             type="text"
                                             id="emergencyContact"
@@ -1893,6 +1927,7 @@ const PatientRegistrationForm = () => {
                                             onChange={handleChange}
                                             placeholder="Enter emergency contact"
                                             maxLength={10}
+                                            required
                                         />
                                     </InputWrapper>
                                 </FormGrid>
@@ -1903,27 +1938,22 @@ const PatientRegistrationForm = () => {
                             <CollapsibleSection title="Referred Information" icon={<UserPlus size={20} />}>
                                 <FormGrid>
                                     <InputWrapper className="span-full">
-                                        <Label htmlFor="referredBy">Referred By</Label>
+                                        <Label htmlFor="referredBy">Referred By<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <InputGroup>
-                                            <Input
-                                                list="doctor-options"
+                                            <Select
                                                 id="referredBy"
                                                 name="referredBy"
                                                 value={patient.referredBy}
-                                                onChange={(e) => {
-                                                    handleChange(e);
-                                                    setSearchDoctorTerm(e.target.value);
-                                                }}
-                                                placeholder="Search or Select Doctor"
-                                                onClick={() => setSearchDoctorTerm("")}
-                                            />
-                                            <datalist id="doctor-options">
+                                                onChange={handleChange}
+                                                required
+                                            >
+                                                <option value="">Select Doctor</option>
                                                 {allDoctors.map((doc, index) => (
                                                     <option key={index} value={doc.name}>
                                                         {doc.label}
                                                     </option>
                                                 ))}
-                                            </datalist>
+                                            </Select>
                                             <InputAddon onClick={() => setIsModalOpen(true)} title="Add New Doctor">
                                                 <Plus size={16} />
                                             </InputAddon>
@@ -2184,24 +2214,7 @@ const PatientRegistrationForm = () => {
                                         onChange={(e) => handleFeeChange("consulting", e.target.value)}
                                     />
                                 </FeeItem>
-                                <FeeItem>
-                                    <Label htmlFor="hospitalFee">Hospital Fee (₹)</Label>
-                                    <Input
-                                        id="hospitalFee"
-                                        type="number"
-                                        value={hospitalFee.toFixed(2)}
-                                        onChange={(e) => handleFeeChange("hospital", e.target.value)}
-                                    />
-                                </FeeItem>
-                                <FeeItem>
-                                    <Label htmlFor="bookingFee">Booking Fee (₹)</Label>
-                                    <Input
-                                        id="bookingFee"
-                                        type="number"
-                                        value={bookingFee.toFixed(2)}
-                                        onChange={(e) => handleFeeChange("booking", e.target.value)}
-                                    />
-                                </FeeItem>
+
                                 <TotalFeeItem>
                                     <Label htmlFor="totalFee">Total Fees (₹)</Label>
                                     <Input id="totalFee" type="number" value={totalFees.toFixed(2)} readOnly />
@@ -2346,17 +2359,17 @@ const DoctorContainer = styled.div`
 
 const SearchContainer = styled.div`
   background: white;
-  border-radius: 20px;
-  padding: 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 8px 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border: 1px solid #f1f5f9;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 `
 
 const SearchRow = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 12px;
   align-items: end;
   
   @media (min-width: 768px) {
