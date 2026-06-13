@@ -1070,9 +1070,10 @@ const EnquiryRoom = () => {
     }
   };
 
-  const handleCleanedChange = useCallback(async (payload) => {
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}update-room-cleaned/`, "PATCH", payload);
+const handleCleanedChange = useCallback(async (payload) => {
+  try {
+    console.log("Sending PUT payload:", payload);  // ← confirm method + payload
+    const res = await apiRequest(`${HmsBaseUrl}update-room-cleaned/`, "PUT", payload);
       if (res.success || res.message) {
         toast.success(`Bed ${payload.bed_no} marked as cleaned ✓`);
         fetchEnquiryData();
