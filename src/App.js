@@ -143,10 +143,10 @@ import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinere
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+import PurchaseRequisitionApproval from "./Components/InventoryMaster/PurchaseRequisitionApproval";
 import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
-
-
+import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -667,6 +667,18 @@ function App() {
                  
                   />
                 )}
+              {hasPagePermission(
+                "/PurchaseRequisitionApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseRequisitionApproval"
+                    element={<PurchaseRequisitionApproval />}
+                 
+                  />
+                )}
+                
               {/* Inventory */}
               {hasPagePermission(
                 "/VendorManagement",
@@ -755,26 +767,37 @@ function App() {
                 )}
 
                {hasPagePermission(
-                "/PharmacyNotification",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                  <Route
-                    path="/PharmacyNotification"
-                    element={<PharmacyNotification />}
-                  />
-              )}
+                 "/PharmacyNotification",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/PharmacyNotification"
+                     element={<PharmacyNotification />}
+                   />
+               )}
 
-              {hasPagePermission(
-                "/PharmacyItemMaster",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                  <Route
-                    path="/PharmacyItemMaster"
-                    element={<PharmacyItemMaster />}
-                  />
-                )}
+               {hasPagePermission(
+                 "/MedicineTracking",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/MedicineTracking"
+                     element={<MedicineTracking />}
+                   />
+               )}
+
+               {hasPagePermission(
+                 "/PharmacyItemMaster",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/PharmacyItemMaster"
+                     element={<PharmacyItemMaster />}
+                   />
+                 )}
 
                 
               {hasPagePermission(

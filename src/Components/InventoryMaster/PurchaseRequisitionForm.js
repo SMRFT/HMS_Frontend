@@ -3,7 +3,6 @@ import apiRequest from "../../Auth/apiRequest"
 import { toast } from "react-toastify"
 import styled, { keyframes, css } from "styled-components"
 
-const BASE     = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL
 
 /* ── Animations ── */
@@ -23,8 +22,6 @@ const C = {
   text    : "#111827",
   muted   : "#6b7280",
   danger  : "#dc2626",
-  amber   : "#f97316",
-  amberD  : "#ea6c0a",
 }
 
 /* ── Layout ── */
@@ -32,35 +29,17 @@ const Wrap   = styled.div`min-height:100vh;background:${C.bg};padding-bottom:48p
 const Header = styled.div`
   background:linear-gradient(135deg,${C.primary} 0%,${C.pDark} 100%);
   color:#fff;padding:18px 28px;
-  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
   box-shadow:0 4px 20px rgba(13,148,136,.25);
 `
 const HTitle = styled.h1`margin:0;font-size:1.2rem;font-weight:800;letter-spacing:-.02em;`
 const HSub   = styled.p`margin:3px 0 0;font-size:.75rem;opacity:.82;`
-const Body   = styled.div`max-width:1100px;margin:0 auto;padding:22px 20px;`
-
-/* ── Tabs ── */
-const TabRow = styled.div`display:flex;gap:4px;`
-const Tab    = styled.button`
-  padding:7px 18px;border-radius:6px;font-size:.82rem;font-weight:700;
-  cursor:pointer;font-family:inherit;border:none;transition:all .14s;
-  background:${p => p.$a ? "#fff" : "rgba(255,255,255,.18)"};
-  color:${p => p.$a ? C.primary : "#fff"};
-  border:1px solid ${p => p.$a ? "transparent" : "rgba(255,255,255,.3)"};
-`
+const Body   = styled.div`max-width:900px;margin:0 auto;padding:22px 20px;`
 
 /* ── Card ── */
 const Card     = styled.div`background:${C.surface};border:1px solid ${C.border};border-radius:10px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(0,0,0,.06);`
 const AniCard  = styled(Card)`${css`animation:${fadeSlide} .22s ease;`}`
-const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;`
+const CardHead = styled.div`background:${C.faint};border-bottom:1px solid ${C.border};padding:12px 18px;font-size:.82rem;font-weight:800;color:${C.primary};display:flex;align-items:center;justify-content:space-between;`
 const CardBody = styled.div`padding:18px 20px;`
-
-/* ── Grid ── */
-const Grid = styled.div`
-  display:grid;grid-template-columns:${p => p.$cols || "repeat(2,1fr)"};gap:12px;margin-bottom:14px;
-  @media(max-width:760px){grid-template-columns:1fr 1fr!important;}
-  @media(max-width:500px){grid-template-columns:1fr!important;}
-`
 
 /* ── Form controls ── */
 const FG     = styled.div`display:flex;flex-direction:column;gap:4px;position:relative;`
@@ -72,18 +51,11 @@ const Inp    = styled.input`
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
   &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
 `
-const Sel    = styled.select`
+const Textarea = styled.textarea`
   padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};
   border-radius:7px;font-size:.875rem;color:${C.text};outline:none;width:100%;
-  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s;
-  &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
-  &:disabled{background:${C.faint};color:${C.muted};cursor:not-allowed;}
-`
-const Txta   = styled.textarea`
-  padding:9px 12px;border:1.5px solid ${p => p.$err ? C.danger : C.border};border-radius:7px;
-  font-size:.875rem;color:${C.text};outline:none;width:100%;
-  box-sizing:border-box;resize:vertical;min-height:64px;font-family:inherit;
-  transition:border-color .14s;
+  box-sizing:border-box;font-family:inherit;background:#fff;transition:border-color .14s,box-shadow .14s;
+  resize:vertical;min-height:70px;
   &:focus{border-color:${C.primary};box-shadow:0 0 0 3px rgba(13,148,136,.1);}
 `
 const ErrMsg = styled.span`font-size:.68rem;color:${C.danger};margin-top:2px;`
@@ -115,268 +87,84 @@ const Btn      = styled.button`
 `
 const PrimBtn  = styled(Btn)`background:${C.primary};color:#fff;&:hover:not(:disabled){background:${C.pDark};}`
 const SecBtn   = styled(Btn)`background:#fff;color:#374151;border:1.5px solid ${C.border};&:hover:not(:disabled){background:${C.faint};}`
-const DangerBtn= styled(Btn)`background:#fee2e2;color:${C.danger};border:1px solid #fca5a5;&:hover:not(:disabled){background:#fecaca;}`
-const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:6px;`
-
-/* ── Item card ── */
-const ItemCard  = styled.div`
-  border:1.5px solid ${C.border};border-radius:8px;padding:16px;margin-bottom:12px;
-  background:${C.faint};position:relative;
-  transition:border-color .14s;
-  &:hover{border-color:${C.pBorder};}
-`
-const ItemBadge = styled.div`
-  position:absolute;top:-10px;left:14px;background:${C.primary};color:#fff;
-  font-size:.65rem;font-weight:800;padding:2px 8px;border-radius:10px;letter-spacing:.04em;
-`
-
-/* ── Three-dot action menu ── */
-const MenuWrap = styled.div`position:relative;display:inline-block;`
-const DotBtn   = styled.button`
-  width:32px;height:32px;border-radius:7px;border:1.5px solid ${C.border};
-  background:#fff;color:${C.muted};font-size:1.1rem;cursor:pointer;
-  display:inline-flex;align-items:center;justify-content:center;
-  transition:background .13s,border-color .13s;
-  &:hover{background:${C.pLight};border-color:${C.primary};color:${C.primary};}
-`
-const MenuList = styled.ul`
-  position:absolute;right:0;top:calc(100% + 4px);z-index:9999;
-  min-width:150px;background:#fff;border:1.5px solid ${C.border};
-  border-radius:9px;box-shadow:0 8px 28px rgba(0,0,0,.13);
-  list-style:none;margin:0;padding:5px;
-  ${css`animation:${fadeSlide} .14s ease;`}
-`
-const MenuItem = styled.li`
-  display:flex;align-items:center;gap:8px;
-  padding:8px 12px;border-radius:6px;font-size:.8rem;font-weight:700;
-  cursor:pointer;color:${p => p.$danger ? C.danger : C.text};
-  transition:background .1s;
-  &:hover{background:${p => p.$danger ? "#fff1f2" : C.pLight};color:${p => p.$danger ? C.danger : C.primary};}
-`
+const DangerBtn = styled(Btn)`background:#fff;color:${C.danger};border:1.5px solid #fca5a5;&:hover:not(:disabled){background:#fee2e2;}`
+const BtnRow   = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:20px;border-top:1px solid ${C.border};padding-top:16px;`
 
 /* ── Badge / Pill ── */
 const Badge = styled.span`
   display:inline-flex;align-items:center;gap:4px;
   padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:800;
-  background:${p => p.$s==="Approved"?"#dcfce7":p.$s==="Rejected"?"#fee2e2":p.$s==="Verified"?"#dbeafe":"#fef9c3"};
-  color:${p => p.$s==="Approved"?"#166534":p.$s==="Rejected"?"#991b1b":p.$s==="Verified"?"#1d4ed8":"#92400e"};
-  border:1px solid ${p => p.$s==="Approved"?"#86efac":p.$s==="Rejected"?"#fca5a5":p.$s==="Verified"?"#93c5fd":"#fde68a"};
+  background:${p =>
+    p.$s==="Approved"?"#dcfce7":
+    p.$s==="Rejected"?"#fee2e2":
+    p.$s==="Verified"?"#dbeafe":
+    p.$s==="Purchase Order Initiated"?"#ede9fe":
+    p.$s==="Purchased"?"#fef3c7":
+    p.$s==="Stock Restocked"?"#d1fae5":"#fef9c3"
+  };
+  color:${p =>
+    p.$s==="Approved"?"#166534":
+    p.$s==="Rejected"?"#991b1b":
+    p.$s==="Verified"?"#1d4ed8":
+    p.$s==="Purchase Order Initiated"?"#5b21b6":
+    p.$s==="Purchased"?"#92400e":
+    p.$s==="Stock Restocked"?"#065f46":"#92400e"
+  };
+  border:1px solid ${p =>
+    p.$s==="Approved"?"#86efac":
+    p.$s==="Rejected"?"#fca5a5":
+    p.$s==="Verified"?"#93c5fd":
+    p.$s==="Purchase Order Initiated"?"#c4b5fd":
+    p.$s==="Purchased"?"#fde68a":
+    p.$s==="Stock Restocked"?"#6ee7b7":"#fde68a"
+  };
   &::before{content:'';width:5px;height:5px;border-radius:50%;
-    background:${p => p.$s==="Approved"?"#16a34a":p.$s==="Rejected"?"#dc2626":p.$s==="Verified"?"#2563eb":"#d97706"};}
+    background:${p =>
+      p.$s==="Approved"?"#16a34a":
+      p.$s==="Rejected"?"#dc2626":
+      p.$s==="Verified"?"#2563eb":
+      p.$s==="Purchase Order Initiated"?"#7c3aed":
+      p.$s==="Purchased"?"#d97706":
+      p.$s==="Stock Restocked"?"#059669":"#d97706"
+    };}
 `
 const Pill = styled.span`background:${C.pLight};color:${C.pDark};padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:700;border:1px solid ${C.pBorder};font-family:monospace;`
 
-/* ── List table ── */
-const TblWrap = styled.div`overflow-x:auto;`
+/* ── Items table ── */
+const TblWrap = styled.div`overflow-x:auto;border-radius:8px;border:1px solid ${C.border};`
 const Tbl     = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
 const Th      = styled.th`background:${C.faint};color:${C.muted};padding:10px 12px;text-align:left;font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid ${C.border};white-space:nowrap;`
 const Td      = styled.td`padding:10px 12px;border-bottom:1px solid #f1f5f9;color:${C.text};vertical-align:middle;`
-const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}`
+const Trow    = styled.tr`transition:background .1s;&:hover{background:#fafafa;}&:last-child td{border-bottom:none;}`
 
-/* ── Filter bar ── */
-const FBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:13px 18px;background:${C.faint};border-bottom:1px solid ${C.border};`
+/* ── Spin ── */
+const Spin = styled.span`display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .6s linear infinite;`}`
+
+/* ── Add-item row ── */
+const AddRow = styled.div`display:flex;gap:10px;align-items:flex-end;padding:14px 16px;background:${C.pLight};border-top:1px solid ${C.pBorder};`
 
 /* ── Modal ── */
 const MOverlay = styled.div`position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1050;display:flex;align-items:center;justify-content:center;padding:16px;`
 const MBox     = styled.div`background:#fff;border-radius:12px;padding:28px 32px;max-width:460px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.22);${css`animation:${fadeSlide} .18s ease forwards;`}`
-const MTitle   = styled.h3`margin:0 0 7px;font-size:1rem;font-weight:800;color:${C.text};`
-const MSub     = styled.p`margin:0 0 16px;font-size:.875rem;color:${C.muted};line-height:1.55;`
-const Spin     = styled.span`display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;${css`animation:${spin} .6s linear infinite;`}`
+const MTitle   = styled.h3`margin:0 0 14px;font-size:1rem;font-weight:800;color:${C.text};`
 
-/* ── Section divider ── */
-const SecDiv = styled.div`
-  font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
-  color:${C.primary};margin:18px 0 10px;padding-bottom:5px;
-  border-bottom:1.5px solid ${C.border};display:flex;align-items:center;gap:6px;
-`
-
-/* ── Edit-reason modal ── */
-const EditReasonModal = ({ onConfirm, onClose }) => {
-  const [r, setR] = useState("")
-  const [t, setT] = useState(false)
-  const go = () => { setT(true); if (!r.trim()) return; onConfirm(r.trim()) }
-  return (
-    <MOverlay onClick={onClose}>
-      <MBox onClick={e => e.stopPropagation()}>
-        <MTitle>✏️ Reason for Edit</MTitle>
-        <MSub>Describe what changed and why — recorded for audit.</MSub>
-        <FG style={{ marginBottom: 18 }}>
-          <Lbl>Reason <span style={{ color: C.danger }}>*</span></Lbl>
-          <Txta
-            value={r} onChange={e => setR(e.target.value)}
-            placeholder="e.g. Corrected quantity per updated stock count…"
-            style={{ borderColor: t && !r.trim() ? C.danger : undefined }}
-          />
-          {t && !r.trim() && <ErrMsg>Reason is required.</ErrMsg>}
-        </FG>
-        <BtnRow>
-          <SecBtn onClick={onClose}>Cancel</SecBtn>
-          <PrimBtn onClick={go}>Confirm &amp; Save</PrimBtn>
-        </BtnRow>
-      </MBox>
-    </MOverlay>
-  )
-}
-
-/* ── View detail modal ── */
-const ViewModal = ({ pr, onClose }) => {
-  const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
-  const DRow   = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;`
-  const DField = styled.div`background:${C.faint};border-radius:7px;padding:9px 12px;border:1px solid ${C.border};`
-  const DLbl   = styled.div`font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:${C.muted};margin-bottom:3px;`
-  const DVal   = styled.div`font-size:.85rem;font-weight:600;color:${C.text};word-break:break-word;`
-  const DSec   = styled.div`font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:${C.primary};margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid ${C.border};`
-
-  const items = Array.isArray(pr.items) ? pr.items : []
-
-  return (
-    <MOverlay onClick={onClose}>
-      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 600, width: "95%", padding: 0, overflow: "hidden" }}>
-        {/* header */}
-        <div style={{ background: `linear-gradient(135deg,${C.primary},${C.pDark})`, color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: "1rem" }}>{pr.pr_number}</div>
-            <div style={{ fontSize: ".75rem", opacity: .82, marginTop: 2 }}>{pr.department} — {pr.requested_by}</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Badge $s={pr.status}>{pr.status}</Badge>
-            <button onClick={onClose} style={{ background: "rgba(255,255,255,.2)", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-          </div>
-        </div>
-        <div style={{ padding: "20px 22px", maxHeight: "75vh", overflowY: "auto" }}>
-          <DSec>📋 Requisition Details</DSec>
-          <DRow>
-            <DField><DLbl>PR Number</DLbl><DVal><Pill>{pr.pr_number}</Pill></DVal></DField>
-            <DField><DLbl>Status</DLbl><DVal><Badge $s={pr.status}>{pr.status}</Badge></DVal></DField>
-          </DRow>
-          <DRow>
-            <DField><DLbl>Department</DLbl><DVal>{pr.department || "—"}</DVal></DField>
-            <DField><DLbl>Requested By</DLbl><DVal>{pr.requested_by || "—"}</DVal></DField>
-          </DRow>
-          <DRow>
-            <DField><DLbl>Request Date</DLbl><DVal>{fmtDT(pr.request_date)}</DVal></DField>
-            <DField><DLbl>Purpose</DLbl><DVal style={{ fontWeight: 400, color: C.muted }}>{pr.purpose || "—"}</DVal></DField>
-          </DRow>
-
-          <DSec>💊 Medicine Items ({items.length})</DSec>
-          {items.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: ".82rem", padding: "8px 0" }}>No items.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {items.map((it, i) => (
-                <DField key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, alignItems: "start" }}>
-                  <div>
-                    <DLbl>Medicine</DLbl>
-                    <DVal>{it.medicine_name || "—"}</DVal>
-                    {it.item_code && <div style={{ fontSize: ".68rem", color: C.muted, marginTop: 1 }}>#{it.item_code}</div>}
-                  </div>
-                  <div>
-                    <DLbl>Qty / Unit</DLbl>
-                    <DVal>{it.quantity} {it.unit}</DVal>
-                  </div>
-                  <div>
-                    <DLbl>Remarks</DLbl>
-                    <DVal style={{ fontWeight: 400, color: C.muted, fontSize: ".78rem" }}>{it.remarks || "—"}</DVal>
-                  </div>
-                </DField>
-              ))}
-            </div>
-          )}
-
-          {pr.status === "Approved" && (
-            <>
-              <DSec>✔ Approval Info</DSec>
-              <DRow>
-                <DField><DLbl>Approved By</DLbl><DVal style={{ color: "#166534" }}>{pr.approved_by || "—"}</DVal></DField>
-                <DField><DLbl>Approved Date</DLbl><DVal>{fmtDT(pr.approved_date)}</DVal></DField>
-              </DRow>
-            </>
-          )}
-          {pr.status === "Rejected" && (
-            <>
-              <DSec>✕ Rejection Info</DSec>
-              <DRow>
-                <DField><DLbl>Rejected By</DLbl><DVal style={{ color: C.danger }}>{pr.rejected_by || "—"}</DVal></DField>
-                <DField><DLbl>Rejected Date</DLbl><DVal>{fmtDT(pr.rejected_date)}</DVal></DField>
-              </DRow>
-              <DRow>
-                <DField style={{ gridColumn: "1/-1" }}><DLbl>Rejection Reason</DLbl><DVal style={{ color: C.danger, fontWeight: 400 }}>{pr.rejected_reason || "—"}</DVal></DField>
-              </DRow>
-            </>
-          )}
-          {pr.edited_by && (
-            <>
-              <DSec>✏️ Last Edit</DSec>
-              <DRow>
-                <DField><DLbl>Edited By</DLbl><DVal>{pr.edited_by}</DVal></DField>
-                <DField><DLbl>Edited Date</DLbl><DVal>{fmtDT(pr.edited_date)}</DVal></DField>
-              </DRow>
-              <DRow>
-                <DField style={{ gridColumn: "1/-1" }}><DLbl>Edit Reason</DLbl><DVal style={{ fontWeight: 400, color: C.muted }}>{pr.edited_reason || "—"}</DVal></DField>
-              </DRow>
-            </>
-          )}
-          <DSec>📅 Audit Trail</DSec>
-          <DRow>
-            <DField><DLbl>Created By</DLbl><DVal>{pr.created_by || "—"}</DVal></DField>
-            <DField><DLbl>Created Date</DLbl><DVal>{fmtDT(pr.created_date)}</DVal></DField>
-          </DRow>
-          <BtnRow style={{ marginTop: 14 }}>
-            <SecBtn onClick={onClose}>Close</SecBtn>
-          </BtnRow>
-        </div>
-      </MBox>
-    </MOverlay>
-  )
-}
+/* ── List table ── */
+const ListTblWrap = styled.div`overflow-x:auto;`
+const ListTbl = styled.table`width:100%;border-collapse:collapse;font-size:.8rem;`
 
 /* ══════════════════════════════════════════════════════
-   MEDICINE SEARCH HOOK
+   MEDICINE SEARCH FIELD
 ══════════════════════════════════════════════════════ */
-function useMedicineSearch(fromOutlet) {
-  const [query,          setQuery]          = useState("")
-  const [results,        setResults]        = useState([])
-  const [showDropdown,   setShowDropdown]   = useState(false)
-  const debounceRef = useRef(null)
-
-  const search = useCallback(async (q) => {
-    if (!q || q.length < 2) { setResults([]); setShowDropdown(false); return }
-    if (fromOutlet === null || fromOutlet === undefined) { setResults([]); setShowDropdown(false); return }
-    try {
-      const params = new URLSearchParams({ search: q })
-      params.append("outlet_code", fromOutlet)
-      const res = await apiRequest(`${HmsBaseUrl}pharmacy-stock/?${params}`, "GET")
-      const raw = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
-      const seen = new Set()
-      const unique = raw.filter(s => { if (seen.has(s.item_id)) return false; seen.add(s.item_id); return true })
-      setResults(unique)
-      setShowDropdown(unique.length > 0)
-    } catch {
-      setResults([])
-      setShowDropdown(false)
-    }
-  }, [fromOutlet])
-
-  const handleInput = (val) => {
-    setQuery(val)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => search(val), 300)
-  }
-
-  const clear = () => { setQuery(""); setResults([]); setShowDropdown(false) }
-
-  return { query, setQuery, results, showDropdown, setShowDropdown, handleInput, clear }
-}
-
-/* ── Medicine search field per item ── */
-const MedicineSearchField = ({ value, onChange, fromOutlet, err }) => {
-  const [inputVal, setInputVal]   = useState(value?.medicine_name || "")
+const MedicineSearchField = ({ value, onChange, fromOutlet, err, placeholder }) => {
+  const [inputVal, setInputVal]   = useState(value || "")
   const [results,  setResults]    = useState([])
   const [showDrop, setShowDrop]   = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
   const debounce  = useRef(null)
   const wrapRef   = useRef(null)
 
-  // Close dropdown on outside click
+  useEffect(() => { setInputVal(value || "") }, [value])
+
   useEffect(() => {
     const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false) }
     document.addEventListener("mousedown", h)
@@ -401,8 +189,8 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err }) => {
 
   const handleChange = (val) => {
     setInputVal(val)
-    // Clear selection if user edits
-    onChange({ medicine_name: val, item_id: "", item_code: "" })
+    setSelectedItem(null)
+    onChange({ name: val, item: null })
     clearTimeout(debounce.current)
     debounce.current = setTimeout(() => doSearch(val), 280)
   }
@@ -412,21 +200,18 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err }) => {
     setInputVal(name)
     setShowDrop(false)
     setResults([])
-    onChange({
-      medicine_name: name,
-      item_id:       stock.item_id   || "",
-      item_code:     stock.item_code || stock.code || "",
-    })
+    setSelectedItem(stock)
+    onChange({ name, item: stock })
   }
 
   return (
-    <div ref={wrapRef} style={{ position: "relative" }}>
+    <div ref={wrapRef} style={{ position: "relative", flex: 1 }}>
       <Inp
         $err={!!err}
         value={inputVal}
         onChange={e => handleChange(e.target.value)}
         onFocus={() => { if (results.length) setShowDrop(true) }}
-        placeholder="Type to search medicine…"
+        placeholder={placeholder || "Type to search medicine…"}
         autoComplete="off"
       />
       {showDrop && (
@@ -444,169 +229,266 @@ const MedicineSearchField = ({ value, onChange, fromOutlet, err }) => {
 }
 
 /* ══════════════════════════════════════════════════════
+   VIEW DETAIL MODAL
+══════════════════════════════════════════════════════ */
+const ViewModal = ({ pr, onClose }) => {
+  const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
+
+  const items = Array.isArray(pr.items) ? pr.items : []
+
+  return (
+    <MOverlay onClick={onClose}>
+      <MBox onClick={e => e.stopPropagation()} style={{ maxWidth: 560, width: "95%", padding: 0, overflow: "hidden" }}>
+        <div style={{ background: `linear-gradient(135deg,${C.primary},${C.pDark})`, color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: "1rem" }}>{pr.pr_number}</div>
+            <div style={{ fontSize: ".75rem", opacity: .82, marginTop: 2 }}>Created {fmtDT(pr.created_date)}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Badge $s={pr.status}>{pr.status}</Badge>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,.2)", border: "none", color: "#fff", borderRadius: "50%", width: 28, height: 28, cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+          </div>
+        </div>
+        <div style={{ padding: "20px 22px", maxHeight: "75vh", overflowY: "auto" }}>
+
+          {/* Items */}
+          <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, marginBottom: 8, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>💊 Medicine Items</div>
+          {items.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: ".82rem", padding: "10px 0" }}>No items</div>
+          ) : (
+            <TblWrap style={{ marginBottom: 16 }}>
+              <Tbl>
+                <thead>
+                  <tr>
+                    <Th>#</Th>
+                    <Th>Medicine Name</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, idx) => (
+                    <Trow key={idx}>
+                      <Td style={{ color: C.muted, fontSize: ".72rem", width: 40 }}>{idx + 1}</Td>
+                      <Td style={{ fontWeight: 600 }}>{item.medicine_name || "—"}</Td>
+                    </Trow>
+                  ))}
+                </tbody>
+              </Tbl>
+            </TblWrap>
+          )}
+
+          {/* Approval */}
+          {pr.status === "Approved" && (
+            <>
+              <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, margin: "14px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>✔ Approval</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Approved By</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600, color: "#166534" }}>{pr.approved_by_name || pr.approved_by || "—"}</div>
+                </div>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Approved Date</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{fmtDT(pr.approved_date)}</div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Rejection */}
+          {pr.status === "Rejected" && (
+            <>
+              <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, margin: "14px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>✕ Rejection</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Rejected By</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600, color: C.danger }}>{pr.rejected_by_name || pr.rejected_by || "—"}</div>
+                </div>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Rejected Date</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{fmtDT(pr.rejected_date)}</div>
+                </div>
+              </div>
+              <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}`, marginBottom: 10 }}>
+                <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Reason</div>
+                <div style={{ fontSize: ".85rem", fontWeight: 400, color: C.danger }}>{pr.rejected_reason || "—"}</div>
+              </div>
+            </>
+          )}
+
+          {/* Edit audit */}
+          {pr.edited_by && (
+            <>
+              <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, margin: "14px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>✏️ Last Edit</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Edited By</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{pr.edited_by_name || pr.edited_by}</div>
+                </div>
+                <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Edited Date</div>
+                  <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{fmtDT(pr.edited_date)}</div>
+                </div>
+              </div>
+              <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}`, marginBottom: 10 }}>
+                <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Edit Reason</div>
+                <div style={{ fontSize: ".85rem", fontWeight: 400, color: C.muted }}>{pr.edited_reason || "—"}</div>
+              </div>
+            </>
+          )}
+
+          {/* Audit */}
+          <div style={{ fontSize: ".72rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".05em", color: C.primary, margin: "14px 0 8px", paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>📅 Audit</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Created By</div>
+              <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{pr.created_by_name || pr.created_by || "—"}</div>
+            </div>
+            <div style={{ background: C.faint, borderRadius: 7, padding: "9px 12px", border: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: ".65rem", fontWeight: 800, textTransform: "uppercase", color: C.muted, marginBottom: 3 }}>Created Date</div>
+              <div style={{ fontSize: ".85rem", fontWeight: 600 }}>{fmtDT(pr.created_date)}</div>
+            </div>
+          </div>
+
+          <BtnRow style={{ marginTop: 14, border: "none", paddingTop: 10 }}>
+            <SecBtn onClick={onClose}>Close</SecBtn>
+          </BtnRow>
+        </div>
+      </MBox>
+    </MOverlay>
+  )
+}
+
+/* ══════════════════════════════════════════════════════
+   EDIT REASON MODAL (required on PUT)
+══════════════════════════════════════════════════════ */
+const EditReasonModal = ({ onConfirm, onClose, saving }) => {
+  const [reason, setReason] = useState("")
+  return (
+    <MOverlay onClick={onClose}>
+      <MBox onClick={e => e.stopPropagation()}>
+        <MTitle>✏️ Edit Reason</MTitle>
+        <p style={{ margin: "0 0 12px", fontSize: ".83rem", color: C.muted }}>Please provide a reason for editing this requisition.</p>
+        <FG>
+          <Lbl>Reason <span style={{ color: C.danger }}>*</span></Lbl>
+          <Textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Describe what changed and why…"
+          />
+        </FG>
+        <BtnRow>
+          <SecBtn onClick={onClose} disabled={saving}>Cancel</SecBtn>
+          <PrimBtn onClick={() => onConfirm(reason)} disabled={saving || !reason.trim()}>
+            {saving ? <><Spin /> Saving…</> : "💾 Save Changes"}
+          </PrimBtn>
+        </BtnRow>
+      </MBox>
+    </MOverlay>
+  )
+}
+
+/* ══════════════════════════════════════════════════════
    MAIN COMPONENT
 ══════════════════════════════════════════════════════ */
-const UNITS = ["Tablet", "Capsule", "Bottle", "Vial", "Pack", "Ampoule", "Sachet", "Strip"]
-
-const emptyItem = () => ({
-  medicine_name: "",
-  item_id:       "",
-  item_code:     "",
-  quantity:      "",
-  unit:          "Tablet",
-  remarks:       "",
-})
-
-const todayStr = () => new Date().toISOString().slice(0, 10)
-
 export default function PurchaseRequisition() {
   const [tab,         setTab]         = useState("form")
   const [prList,      setPrList]      = useState([])
   const [editPr,      setEditPr]      = useState(null)
+  const [items,       setItems]       = useState([])          // [{ item_id, medicine_name }]
+  const [addInput,    setAddInput]    = useState({ name: "", item: null })
+  const [addErr,      setAddErr]      = useState("")
   const [saving,      setSaving]      = useState(false)
   const [loading,     setLoading]     = useState(false)
-  const [showReason,  setShowReason]  = useState(false)
-  const [pendingSave, setPendingSave] = useState(null)
   const [viewPr,      setViewPr]      = useState(null)
-  const [openMenuId,  setOpenMenuId]  = useState(null)
-  const menuRef = useRef(null)
+  const [showEditReason, setShowEditReason] = useState(false)
+  const [itemsErr,    setItemsErr]    = useState("")
+  const addFieldKey = useRef(0)         // force-reset the medicine search input
 
-  // fromOutlet: adapt to your auth context / redux / localStorage
   const fromOutlet = localStorage.getItem("outlet_code") || null
-
-  /* ── Header form ── */
-  const emptyHeader = {
-    department:    "",
-    requested_by:  "",
-    request_date:  new Date().toISOString().slice(0, 16),
-    purpose:       "",
-  }
-  const [header, setHeader] = useState(emptyHeader)
-  const [items,  setItems]  = useState([emptyItem()])
-  const [errs,   setErrs]   = useState({})
-
-  /* ── List filters ── */
-  const [searchQ,    setSearchQ]    = useState("")
-  const [filterStat, setFilterStat] = useState("")
-  const [fromDate,   setFromDate]   = useState(todayStr)
-  const [toDate,     setToDate]     = useState(todayStr)
-
-  /* ── Close menu on outside click ── */
-  useEffect(() => {
-    const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenuId(null) }
-    document.addEventListener("mousedown", h)
-    return () => document.removeEventListener("mousedown", h)
-  }, [])
 
   /* ── Fetch list ── */
   const fetchList = useCallback(async () => {
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (fromDate) params.append("from_date", fromDate)
-      if (toDate)   params.append("to_date",   toDate)
-      const qs = params.toString()
-      const r  = await apiRequest(`${BASE}purchase-requisition/${qs ? "?" + qs : ""}`, "GET")
+      const r = await apiRequest(`${HmsBaseUrl}purchase-requisition/`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setPrList(Array.isArray(rows) ? rows : [])
-    } catch { toast.error("Failed to load requisitions") }
-    finally  { setLoading(false) }
-  }, [fromDate, toDate])
+    } catch {
+      toast.error("Failed to load requisitions")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => { fetchList() }, [fetchList])
 
-  /* ── Validate ── */
-  const validate = () => {
-    const e = {}
-    if (!header.department.trim())   e.department   = "Required"
-    if (!header.requested_by.trim()) e.requested_by = "Required"
-    if (!header.request_date)        e.request_date = "Required"
-    items.forEach((it, i) => {
-      if (!it.medicine_name.trim()) e[`item_${i}_medicine`] = "Required"
-      if (!it.quantity || Number(it.quantity) < 1) e[`item_${i}_qty`] = "Enter valid qty"
-    })
-    setErrs(e)
-    return Object.keys(e).length === 0
+  /* ── Add item to staging list ── */
+  const handleAddItem = () => {
+    const name = addInput.name.trim()
+    if (!name) { setAddErr("Please select or type a medicine name"); return }
+    setAddErr("")
+    setItems(prev => [...prev, { item_id: addInput.item?.item_id || null, medicine_name: name }])
+    setAddInput({ name: "", item: null })
+    addFieldKey.current += 1
+    setItemsErr("")
   }
 
-  /* ── Build payload ── */
-  const buildPayload = (editedReason) => ({
-    department:    header.department.trim(),
-    requested_by:  header.requested_by.trim(),
-    request_date:  header.request_date,
-    purpose:       header.purpose.trim(),
-    items: items.map(it => ({
-      medicine_name: it.medicine_name.trim(),
-      item_id:       it.item_id  || "",
-      item_code:     it.item_code || "",
-      quantity:      Number(it.quantity),
-      unit:          it.unit,
-      remarks:       it.remarks.trim(),
-    })),
-    ...(editPr ? { edited_reason: editedReason } : {}),
-  })
-
-  /* ── Submit ── */
-  const handleSubmit = () => {
-    if (!validate()) { toast.error("Please fill all required fields"); return }
-    if (editPr) {
-      setPendingSave(buildPayload(null))
-      setShowReason(true)
-    } else {
-      doSave(buildPayload())
-    }
+  /* ── Remove item from staging list ── */
+  const handleRemoveItem = (idx) => {
+    setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
-  const handleReasonConfirm = reason => {
-    setShowReason(false)
-    doSave({ ...pendingSave, edited_reason: reason })
-    setPendingSave(null)
-  }
-
-  const doSave = async payload => {
+  /* ── Perform save (POST or PUT) ── */
+  const doSave = async (editedReason) => {
+    if (items.length === 0) { setItemsErr("Add at least one medicine"); return }
+    setItemsErr("")
     setSaving(true)
     try {
       const isEdit = !!editPr
-      const url    = isEdit ? `${BASE}purchase-requisition/${editPr.pr_number}/` : `${BASE}purchase-requisition/`
+      const url    = isEdit ? `${HmsBaseUrl}purchase-requisition/${editPr.pr_number}/` : `${HmsBaseUrl}purchase-requisition/`
       const method = isEdit ? "PUT" : "POST"
-      const r      = await apiRequest(url, method, payload)
+      const payload = { items }
+      if (isEdit) payload.edited_reason = editedReason
+
+      const r = await apiRequest(url, method, payload)
       if (r?.success) {
-        toast.success(isEdit ? "Requisition updated" : `Draft created: ${r.data?.pr_number}`)
-        resetForm(); fetchList(); setTab("list")
+        toast.success(isEdit ? "Requisition updated" : `Created: ${r.data?.pr_number}`)
+        resetForm()
+        fetchList()
+        setTab("list")
+        setShowEditReason(false)
       } else {
-        const err = r?.error
-        toast.error(Array.isArray(err) ? err.join(", ") : typeof err === "string" ? err : "Save failed")
+        const errMsg = r?.error
+        toast.error(Array.isArray(errMsg) ? errMsg.join(", ") : typeof errMsg === "string" ? errMsg : "Save failed")
       }
-    } catch { toast.error("Network error") }
-    finally  { setSaving(false) }
+    } catch {
+      toast.error("Network error")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  /* ── Load into edit form ── */
+  /* ── Submit handler ── */
+  const handleSubmit = () => {
+    if (items.length === 0) { setItemsErr("Add at least one medicine"); return }
+    if (editPr) {
+      setShowEditReason(true)
+    } else {
+      doSave(null)
+    }
+  }
+
+  /* ── Load into edit ── */
   const handleEdit = pr => {
-    if (pr.status === "Approved" || pr.status === "Rejected") {
+    if (pr.status !== "Draft") {
       toast.warning(`Cannot edit a ${pr.status} requisition`)
       return
     }
     setEditPr(pr)
-    setHeader({
-      department:   pr.department   || "",
-      requested_by: pr.requested_by || "",
-      request_date: pr.request_date ? pr.request_date.slice(0, 16) : "",
-      purpose:      pr.purpose      || "",
-    })
-    setItems(
-      Array.isArray(pr.items) && pr.items.length > 0
-        ? pr.items.map(it => ({
-            medicine_name: it.medicine_name || "",
-            item_id:       it.item_id       || "",
-            item_code:     it.item_code     || "",
-            quantity:      it.quantity      || "",
-            unit:          it.unit          || "Tablet",
-            remarks:       it.remarks       || "",
-          }))
-        : [emptyItem()]
-    )
-    setErrs({})
+    setItems(Array.isArray(pr.items) ? pr.items : [])
+    setItemsErr("")
+    setAddErr("")
+    setAddInput({ name: "", item: null })
+    addFieldKey.current += 1
     setTab("form")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -614,25 +496,12 @@ export default function PurchaseRequisition() {
   /* ── Reset ── */
   const resetForm = () => {
     setEditPr(null)
-    setHeader(emptyHeader)
-    setItems([emptyItem()])
-    setErrs({})
+    setItems([])
+    setAddInput({ name: "", item: null })
+    setAddErr("")
+    setItemsErr("")
+    addFieldKey.current += 1
   }
-
-  /* ── Item helpers ── */
-  const addItem    = () => setItems(prev => [...prev, emptyItem()])
-  const removeItem = idx => { if (items.length === 1) return; setItems(prev => prev.filter((_, i) => i !== idx)) }
-  const updateItem = (idx, patch) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it))
-
-  /* ── Filtered list ── */
-  const filtered = prList.filter(r => {
-    const q = searchQ.toLowerCase()
-    const okQ = !q ||
-      (r.pr_number     || "").toLowerCase().includes(q) ||
-      (r.department    || "").toLowerCase().includes(q) ||
-      (r.requested_by  || "").toLowerCase().includes(q)
-    return okQ && (!filterStat || r.status === filterStat)
-  })
 
   const fmtDT = d => { try { return d ? new Date(d).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "—" } catch { return "—" } }
 
@@ -641,14 +510,8 @@ export default function PurchaseRequisition() {
     <Wrap>
       {/* Header */}
       <Header>
-        <div>
-          <HTitle>🛒 Purchase Requisition</HTitle>
-          <HSub>Raise &amp; manage medicine purchase requests</HSub>
-        </div>
-        <TabRow>
-          <Tab $a={tab === "form"} onClick={() => { resetForm(); setTab("form") }}>+ New Request</Tab>
-          <Tab $a={tab === "list"} onClick={() => setTab("list")}>📄 Requisitions</Tab>
-        </TabRow>
+        <HTitle>💊 Purchase Requisition</HTitle>
+        <HSub>Request medicines for pharmacy stock</HSub>
       </Header>
 
       <Body>
@@ -656,134 +519,79 @@ export default function PurchaseRequisition() {
         {tab === "form" && (
           <AniCard>
             <CardHead>
-              {editPr ? `✏️ Edit Requisition — ${editPr.pr_number}` : "📝 New Purchase Requisition"}
+              <span>{editPr ? `✏️ Edit — ${editPr.pr_number}` : "📝 New Requisition"}</span>
               {editPr && <Badge $s={editPr.status}>{editPr.status}</Badge>}
             </CardHead>
             <CardBody>
 
-              <SecDiv>📋 Requisition Header</SecDiv>
+              {/* ── Items table ── */}
+              <div style={{ marginBottom: 16 }}>
+                <Lbl style={{ display: "block", marginBottom: 8 }}>
+                  Medicine Items <span style={{ color: C.danger }}>*</span>
+                  <span style={{ marginLeft: 8, background: C.pLight, color: C.pDark, padding: "1px 8px", borderRadius: 12, fontSize: ".68rem", fontWeight: 700, border: `1px solid ${C.pBorder}` }}>
+                    {items.length} added
+                  </span>
+                </Lbl>
 
-              {/* Department & Requested By */}
-              <Grid $cols="1fr 1fr">
-                <FG>
-                  <Lbl>Department <span style={{ color: C.danger }}>*</span></Lbl>
-                  <Inp
-                    $err={!!errs.department}
-                    value={header.department}
-                    onChange={e => setHeader(p => ({ ...p, department: e.target.value }))}
-                    placeholder="e.g. Pharmacy, Ward 3"
-                  />
-                  {errs.department && <ErrMsg>{errs.department}</ErrMsg>}
-                </FG>
-                <FG>
-                  <Lbl>Requested By <span style={{ color: C.danger }}>*</span></Lbl>
-                  <Inp
-                    $err={!!errs.requested_by}
-                    value={header.requested_by}
-                    onChange={e => setHeader(p => ({ ...p, requested_by: e.target.value }))}
-                    placeholder="Staff name / ID"
-                  />
-                  {errs.requested_by && <ErrMsg>{errs.requested_by}</ErrMsg>}
-                </FG>
-              </Grid>
-
-              {/* Request Date */}
-              <Grid $cols="1fr 1fr">
-                <FG>
-                  <Lbl>Request Date &amp; Time <span style={{ color: C.danger }}>*</span></Lbl>
-                  <Inp
-                    $err={!!errs.request_date}
-                    type="datetime-local"
-                    value={header.request_date}
-                    onChange={e => setHeader(p => ({ ...p, request_date: e.target.value }))}
-                  />
-                  {errs.request_date && <ErrMsg>{errs.request_date}</ErrMsg>}
-                </FG>
-                <FG>
-                  <Lbl>Purpose / Notes</Lbl>
-                  <Inp
-                    value={header.purpose}
-                    onChange={e => setHeader(p => ({ ...p, purpose: e.target.value }))}
-                    placeholder="Reason or additional context (optional)"
-                  />
-                </FG>
-              </Grid>
-
-              {/* Medicine Items */}
-              <SecDiv style={{ marginTop: 22 }}>💊 Medicine Items</SecDiv>
-
-              {items.map((item, idx) => (
-                <ItemCard key={idx}>
-                  <ItemBadge>Item {idx + 1}</ItemBadge>
-                  <Grid $cols="2fr 1fr 1fr" style={{ marginTop: 6 }}>
-                    {/* Medicine name — searchable */}
-                    <FG>
-                      <Lbl>Medicine Name <span style={{ color: C.danger }}>*</span></Lbl>
-                      <MedicineSearchField
-                        value={item}
-                        fromOutlet={fromOutlet}
-                        err={errs[`item_${idx}_medicine`]}
-                        onChange={patch => updateItem(idx, patch)}
-                      />
-                      {item.item_code && (
-                        <span style={{ fontSize: ".68rem", color: C.muted, marginTop: 2 }}>
-                          Code: {item.item_code}
-                        </span>
-                      )}
-                      {errs[`item_${idx}_medicine`] && <ErrMsg>{errs[`item_${idx}_medicine`]}</ErrMsg>}
-                    </FG>
-
-                    {/* Quantity */}
-                    <FG>
-                      <Lbl>Quantity <span style={{ color: C.danger }}>*</span></Lbl>
-                      <Inp
-                        $err={!!errs[`item_${idx}_qty`]}
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={e => updateItem(idx, { quantity: e.target.value })}
-                        placeholder="0"
-                      />
-                      {errs[`item_${idx}_qty`] && <ErrMsg>{errs[`item_${idx}_qty`]}</ErrMsg>}
-                    </FG>
-
-                    {/* Unit */}
-                    <FG>
-                      <Lbl>Unit</Lbl>
-                      <Sel value={item.unit} onChange={e => updateItem(idx, { unit: e.target.value })}>
-                        {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </Sel>
-                    </FG>
-                  </Grid>
-
-                  {/* Remarks */}
-                  <Grid $cols="1fr" style={{ marginBottom: 0, marginTop: 4 }}>
-                    <FG>
-                      <Lbl>Remarks</Lbl>
-                      <Inp
-                        value={item.remarks}
-                        onChange={e => updateItem(idx, { remarks: e.target.value })}
-                        placeholder="Any notes for this item…"
-                      />
-                    </FG>
-                  </Grid>
-
-                  {items.length > 1 && (
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                      <DangerBtn onClick={() => removeItem(idx)}>✕ Remove Item</DangerBtn>
+                <TblWrap>
+                  {items.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "28px 16px", color: C.muted, fontSize: ".82rem" }}>
+                      No medicines added yet. Use the field below to add.
                     </div>
+                  ) : (
+                    <Tbl>
+                      <thead>
+                        <tr>
+                          <Th style={{ width: 40 }}>#</Th>
+                          <Th>Medicine Name</Th>
+                          <Th style={{ width: 80, textAlign: "center" }}>Remove</Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((item, idx) => (
+                          <Trow key={idx}>
+                            <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
+                            <Td style={{ fontWeight: 600 }}>{item.medicine_name}</Td>
+                            <Td style={{ textAlign: "center" }}>
+                              <DangerBtn
+                                style={{ padding: "4px 10px", fontSize: ".72rem" }}
+                                onClick={() => handleRemoveItem(idx)}
+                              >
+                                ✕
+                              </DangerBtn>
+                            </Td>
+                          </Trow>
+                        ))}
+                      </tbody>
+                    </Tbl>
                   )}
-                </ItemCard>
-              ))}
 
-              <div style={{ marginBottom: 18 }}>
-                <SecBtn onClick={addItem}>＋ Add Medicine Item</SecBtn>
+                  {/* Add item row */}
+                  <AddRow>
+                    <MedicineSearchField
+                      key={addFieldKey.current}
+                      value={addInput.name}
+                      fromOutlet={fromOutlet}
+                      err={addErr}
+                      placeholder="Search and select medicine…"
+                      onChange={val => setAddInput({ name: val.name, item: val.item })}
+                    />
+                    <PrimBtn
+                      style={{ padding: "9px 18px", whiteSpace: "nowrap", flexShrink: 0 }}
+                      onClick={handleAddItem}
+                    >
+                      + Add
+                    </PrimBtn>
+                  </AddRow>
+                  {addErr && <div style={{ padding: "4px 16px 8px", fontSize: ".68rem", color: C.danger }}>{addErr}</div>}
+                </TblWrap>
+                {itemsErr && <ErrMsg style={{ display: "block", marginTop: 6 }}>{itemsErr}</ErrMsg>}
               </div>
 
-              <BtnRow style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+              <BtnRow>
                 <SecBtn onClick={resetForm} disabled={saving}>✕ Clear</SecBtn>
                 <PrimBtn onClick={handleSubmit} disabled={saving}>
-                  {saving ? <><Spin /> Saving…</> : editPr ? "💾 Update Requisition" : "💾 Save as Draft"}
+                  {saving ? <><Spin /> Saving…</> : editPr ? "💾 Update" : "💾 Create"}
                 </PrimBtn>
               </BtnRow>
             </CardBody>
@@ -794,120 +602,99 @@ export default function PurchaseRequisition() {
         {tab === "list" && (
           <Card>
             <CardHead>
-              📄 Requisition Records
+              <span>📄 My Requisitions</span>
               <span style={{ background: "#e5e7eb", color: C.muted, fontSize: ".72rem", padding: "1px 8px", borderRadius: 12, fontWeight: 600 }}>
                 {prList.length}
               </span>
             </CardHead>
 
-            {/* Filters */}
-            <FBar>
-              <FG style={{ flex: 1, minWidth: 200, margin: 0 }}>
-                <Lbl>Search</Lbl>
-                <Inp value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="PR No, Department, Requested By…" />
-              </FG>
-              <FG style={{ minWidth: 150, margin: 0 }}>
-                <Lbl>Status</Lbl>
-                <Sel value={filterStat} onChange={e => setFilterStat(e.target.value)}>
-                  <option value="">All Status</option>
-                  {["Draft", "Verified", "Approved", "Rejected"].map(s => <option key={s}>{s}</option>)}
-                </Sel>
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>From Date</Lbl>
-                <Inp type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
-              </FG>
-              <FG style={{ margin: 0 }}>
-                <Lbl>To Date</Lbl>
-                <Inp type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
-              </FG>
-              <PrimBtn onClick={fetchList} style={{ alignSelf: "flex-end" }}>🔄 Refresh</PrimBtn>
-            </FBar>
-
-            <TblWrap>
+            <ListTblWrap>
               {loading ? (
                 <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>Loading…</div>
-              ) : filtered.length === 0 ? (
+              ) : prList.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px", color: C.muted, fontSize: ".85rem" }}>📭 No requisitions found</div>
               ) : (
-                <Tbl>
+                <ListTbl>
                   <thead>
                     <tr>
                       <Th>#</Th>
                       <Th>PR No</Th>
-                      <Th>Department</Th>
-                      <Th>Requested By</Th>
-                      <Th>Req Date</Th>
                       <Th>Items</Th>
                       <Th>Status</Th>
-                      <Th>Purpose</Th>
+                      <Th>Created</Th>
                       <Th style={{ textAlign: "center" }}>Action</Th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((r, idx) => {
-                      const canEdit = r.status === "Draft" || r.status === "Verified"
-                      const itemCount = Array.isArray(r.items) ? r.items.length : 0
+                    {prList.map((r, idx) => {
+                      const itemList  = Array.isArray(r.items) ? r.items : []
+                      const canEdit   = r.status === "Draft"
+                      const firstItem = itemList[0]?.medicine_name || "—"
+                      const more      = itemList.length > 1 ? ` +${itemList.length - 1} more` : ""
                       return (
                         <Trow key={r.pr_number}>
                           <Td style={{ color: C.muted, fontSize: ".72rem" }}>{idx + 1}</Td>
                           <Td><Pill>{r.pr_number}</Pill></Td>
-                          <Td style={{ fontWeight: 700 }}>{r.department || "—"}</Td>
-                          <Td style={{ whiteSpace: "nowrap" }}>{r.requested_by || "—"}</Td>
-                          <Td style={{ whiteSpace: "nowrap", fontSize: ".78rem" }}>{fmtDT(r.request_date)}</Td>
-                          <Td>
-                            <span style={{ background: C.pLight, color: C.pDark, padding: "2px 8px", borderRadius: 4, fontSize: ".72rem", fontWeight: 700 }}>
-                              {itemCount} item{itemCount !== 1 ? "s" : ""}
-                            </span>
+                          <Td style={{ fontWeight: 600, fontSize: ".82rem" }}>
+                            {firstItem}
+                            {more && <span style={{ color: C.muted, fontWeight: 400 }}>{more}</span>}
                           </Td>
                           <Td><Badge $s={r.status}>{r.status}</Badge></Td>
-                          <Td style={{ maxWidth: 140, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: ".78rem", color: C.muted }}>{r.purpose || "—"}</Td>
-                          {/* Three-dot menu */}
-                          <Td style={{ textAlign: "center" }}>
-                            <MenuWrap ref={openMenuId === r.pr_number ? menuRef : null}>
-                              <DotBtn
-                                title="Actions"
-                                onClick={() => setOpenMenuId(prev => prev === r.pr_number ? null : r.pr_number)}
-                              >⋯</DotBtn>
-                              {openMenuId === r.pr_number && (
-                                <MenuList>
-                                  <MenuItem onClick={() => { setViewPr(r); setOpenMenuId(null) }}>
-                                    👁 View
-                                  </MenuItem>
-                                  {canEdit ? (
-                                    <MenuItem onClick={() => { handleEdit(r); setOpenMenuId(null) }}>
-                                      ✏️ Edit
-                                    </MenuItem>
-                                  ) : (
-                                    <MenuItem style={{ opacity: 0.45, cursor: "not-allowed" }}>
-                                      🔒 {r.status}
-                                    </MenuItem>
-                                  )}
-                                </MenuList>
-                              )}
-                            </MenuWrap>
+                          <Td style={{ fontSize: ".78rem" }}>{fmtDT(r.created_date)}</Td>
+                          <Td style={{ textAlign: "center", whiteSpace: "nowrap" }}>
+                            <SecBtn
+                              style={{ padding: "5px 12px", fontSize: ".75rem" }}
+                              onClick={() => setViewPr(r)}
+                            >
+                              👁 View
+                            </SecBtn>
+                            {canEdit && (
+                              <SecBtn
+                                style={{ padding: "5px 12px", fontSize: ".75rem", marginLeft: 4 }}
+                                onClick={() => handleEdit(r)}
+                              >
+                                ✏️ Edit
+                              </SecBtn>
+                            )}
                           </Td>
                         </Trow>
                       )
                     })}
                   </tbody>
-                </Tbl>
+                </ListTbl>
               )}
-            </TblWrap>
+            </ListTblWrap>
           </Card>
         )}
-      </Body>
 
-      {/* Edit-reason modal */}
-      {showReason && (
-        <EditReasonModal
-          onConfirm={handleReasonConfirm}
-          onClose={() => { setShowReason(false); setPendingSave(null) }}
-        />
-      )}
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <PrimBtn
+            onClick={() => { resetForm(); setTab("form") }}
+            style={{ padding: "7px 18px", fontSize: ".8rem", background: tab === "form" ? C.primary : C.pLight, color: tab === "form" ? "#fff" : C.primary }}
+          >
+            {tab === "form" ? "✓ Form" : "+ New"}
+          </PrimBtn>
+          <PrimBtn
+            onClick={() => setTab("list")}
+            style={{ padding: "7px 18px", fontSize: ".8rem", background: tab === "list" ? C.primary : C.pLight, color: tab === "list" ? "#fff" : C.primary }}
+          >
+            {tab === "list" ? "✓ List" : "📄 My List"}
+          </PrimBtn>
+        </div>
+      </Body>
 
       {/* View detail modal */}
       {viewPr && <ViewModal pr={viewPr} onClose={() => setViewPr(null)} />}
+
+      {/* Edit reason modal */}
+      {showEditReason && (
+        <EditReasonModal
+          saving={saving}
+          onClose={() => setShowEditReason(false)}
+          onConfirm={(reason) => doSave(reason)}
+        />
+      )}
     </Wrap>
   )
 }
