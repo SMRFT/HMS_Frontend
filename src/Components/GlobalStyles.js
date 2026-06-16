@@ -48,7 +48,8 @@ export const Container = styled.div`
   margin: 0;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  animation: ${fadeIn} 0.4s ease-out;
+  animation-name: fadeIn;
+  animation: fadeIn 0.4s ease-out;
   box-sizing: border-box;
   overflow: hidden;
 `;

@@ -17,7 +17,7 @@ import {
   Tr,
   colors,
 } from "../GlobalStyles";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(10px); }
@@ -153,7 +153,9 @@ const TYPE_META = {
   },
 };
 
-const HmsBaseUrl = `${process.env.REACT_APP_API_URL || ""}/`;
+const HmsBaseUrl =
+  process.env.REACT_APP_BACKEND_HMS_BASE_URL ||
+  "http://127.0.0.1:2609/_b_a_c_k_e_n_d/HMS/";
 
 function MedicineTracking() {
   const [searchType, setSearchType] = useState("item_id");
@@ -247,7 +249,7 @@ function MedicineTracking() {
 
   return (
     <PageWrapper>
-      <Container style={{ animation: `${fadeIn} 0.4s ease-out` }}>
+      <Container>
         <PageHeader>
           <div>
             <PageTitle>Medicine Tracking</PageTitle>

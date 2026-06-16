@@ -678,6 +678,18 @@ function App() {
                  
                   />
                 )}
+
+                {hasPagePermission(
+                "/MedicineTracking",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineTracking"
+                    element={<MedicineTracking />}
+                 
+                  />
+                )}
                 
               {/* Inventory */}
               {hasPagePermission(
