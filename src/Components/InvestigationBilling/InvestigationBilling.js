@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
+import PrintModal from "./PrintModal"; // ← fast in-page print modal
 import {
   PageWrapper,
   FormRow,
@@ -287,7 +288,7 @@ const SearchableDropdown = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
-  const isTyping = useRef(false); // ← track if user is actively typing
+  const isTyping = useRef(false);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -314,9 +315,8 @@ const SearchableDropdown = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [value, options, displayKey, valueKey]);
 
-  // Sync display text only when NOT typing
   useEffect(() => {
-    if (isTyping.current) return; // ← skip sync while user is typing
+    if (isTyping.current) return;
     if (value) {
       const selected = options.find((opt) =>
         typeof opt === "string" ? opt === value : opt[valueKey] === value,
@@ -349,11 +349,11 @@ const SearchableDropdown = ({
 
   const handleInputChange = (e) => {
     const val = e.target.value;
-    isTyping.current = true; // ← mark as typing so useEffect won't override
+    isTyping.current = true;
     setSearchTerm(val);
     setIsOpen(true);
     if (val === "") {
-      isTyping.current = false; // ← allow sync again once fully cleared
+      isTyping.current = false;
       onChange("");
     }
   };
@@ -418,7 +418,7 @@ const InvestigationBilling = () => {
     customer_type: "",
     company_name: "",
     company_code: "",
-    editRemarks: "", // ← new field
+    editRemarks: "",
   });
 
   const [doctors, setDoctors] = useState([]);
@@ -432,8 +432,11 @@ const InvestigationBilling = () => {
   const [selectedPrice, setSelectedPrice] = useState("");
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
-  // Whether this session is an edit (has existing investBillNo + editRemarks)
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // ── Print modal state: { bill, isEstimate, toastMsg } ──────────────────────
+  const [printJob, setPrintJob] = useState(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -488,10 +491,6 @@ const InvestigationBilling = () => {
   }, [HMSURL]);
 
   // ── Handle incoming navigation data ────────────────────────────────────────
-  // Split into two effects:
-  //   1) Load form fields as soon as navigation state arrives
-  //   2) Trigger handleBillTypeChange only after billTypes are fetched
-  //      (fixes the race where billTypes = [] on first render)
 
   useEffect(() => {
     if (!location.state?.patientData) return;
@@ -513,9 +512,6 @@ const InvestigationBilling = () => {
       itemsArray = data.item;
     }
 
-    // bill_name is set by BillsReport (resolved from DB).
-    // billType is what was stored on the investbilling doc directly.
-    // Use whichever is available so the dropdown can display correctly.
     const resolvedBillName = data.bill_name || data.billType || "";
 
     setFormData({
@@ -547,23 +543,17 @@ const InvestigationBilling = () => {
       company_name: data.company_name || "",
       company_code: data.company_code || "",
       editRemarks: data.editRemarks || "",
-      calculatedAge: data.calculatedAge || String(data.age || ""), // ← add
-      ageType: data.ageType || data.age_type || "", // ← add
+      calculatedAge: data.calculatedAge || String(data.age || ""),
+      ageType: data.ageType || data.age_type || "",
     });
 
     setProductList(itemsArray);
 
-    // Recalculate from DOB if available, otherwise keep stored values
     if (data.dob) {
       const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
       setFormData((prev) => ({ ...prev, calculatedAge, ageType }));
     }
   }, [location.state]); // eslint-disable-line
-
-  // ── Trigger bill type fetch once billTypes list has loaded ─────────────────
-  // This solves the race condition: location.state fires before the
-  // bill-types API response arrives, so billTypes is [] at that point.
-  // By watching [billTypes, location.state] we retry as soon as both exist.
 
   useEffect(() => {
     if (!location.state?.patientData) return;
@@ -571,7 +561,6 @@ const InvestigationBilling = () => {
 
     const data = location.state.patientData;
 
-    // Match by bill_type (numeric id), billTypeNo, or bill name
     const bt =
       (data.bill_type &&
         billTypes.find(
@@ -797,8 +786,6 @@ const InvestigationBilling = () => {
       alert("Please add at least one item!");
       return false;
     }
-    // In edit mode, remarks must be present (already enforced by BillsReport modal,
-    // but guard here too for safety)
     if (isEditMode && !formData.editRemarks?.trim()) {
       alert("Edit Remarks is required!");
       return false;
@@ -827,14 +814,12 @@ const InvestigationBilling = () => {
       finalPrice: formData.finalPrice,
       paymentMethod: formData.paymentMethod,
       item: productList,
-      age: formData.calculatedAge || "", // ← add
+      age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
       salutation: formData.salutation || "",
       firstName: formData.firstName || "",
       lastName: formData.lastName || "",
-      age: formData.calculatedAge || formData.age || "",
-      age_type: formData.ageType || "",
       gender: formData.gender || "",
     };
 
@@ -846,19 +831,24 @@ const InvestigationBilling = () => {
     if (result.success) {
       const estBillNo = result.data?.EstBillNo;
       if (estBillNo) {
-        handleEstimatePrint({
-          ...formData,
-          EstBillNo: estBillNo,
-          EstBillDate: formData.investBillDate,
-          item: productList,
+        // ── Open print modal with an in-modal toast instead of alert(). ──
+        // ── The modal stays open until the user explicitly closes it — ──
+        // ── form reset/reload happens on that close, not on a timer.  ──
+        setPrintJob({
+          bill: {
+            ...formData,
+            EstBillNo: estBillNo,
+            EstBillDate: formData.investBillDate,
+            item: productList,
+          },
+          isEstimate: true,
+          toastMsg: "Estimate generated successfully!",
         });
-        setTimeout(() => alert("Estimate generated successfully!"), 100);
       } else {
         alert(
           "Estimate generated but estimate number not received from server!",
         );
       }
-      setTimeout(() => window.location.reload(), 2000);
     } else {
       alert(`Failed to save estimate: ${result.error}`);
     }
@@ -888,16 +878,13 @@ const InvestigationBilling = () => {
       item: productList,
       is_emergency: !!formData.is_emergency,
       EstBillNo: formData.EstBillNo,
-      age: formData.calculatedAge || "", // ← add
+      age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
       salutation: formData.salutation || "",
       firstName: formData.firstName || "",
       lastName: formData.lastName || "",
-      age: formData.calculatedAge || formData.age || "",
-      age_type: formData.ageType || "",
       gender: formData.gender || "",
-      // ── Include editRemarks only when editing ──
       ...(isEditMode && formData.editRemarks
         ? { editRemarks: formData.editRemarks }
         : {}),
@@ -911,20 +898,22 @@ const InvestigationBilling = () => {
     if (result.success) {
       const billNo = result.data?.investBillNo;
       if (billNo) {
-        handlePrint({
-          ...formData,
-          investBillNo: billNo,
-          investBillDate: formData.investBillDate,
-          item: productList,
+        // ── Open print modal with an in-modal toast instead of alert(). ──
+        // ── The modal stays open until the user explicitly closes it — ──
+        // ── form reset/reload happens on that close, not on a timer.  ──
+        setPrintJob({
+          bill: {
+            ...formData,
+            investBillNo: billNo,
+            investBillDate: formData.investBillDate,
+            item: productList,
+          },
+          isEstimate: false,
+          toastMsg: "Bill generated successfully!",
         });
-        setTimeout(() => alert("Bill generated successfully!"), 100);
       } else {
         alert("Bill generated but bill number not received from server!");
       }
-      setTimeout(() => {
-        navigate(location.pathname, { replace: true, state: {} });
-        window.location.reload();
-      }, 2000);
     } else {
       alert(`Failed to save bill: ${result.error}`);
     }
@@ -962,6 +951,7 @@ const InvestigationBilling = () => {
       return updated;
     });
   };
+
   const calculateAgeFromDOB = (dob) => {
     if (!dob) return { calculatedAge: "", ageType: "" };
 
@@ -984,152 +974,6 @@ const InvestigationBilling = () => {
     if (years >= 1) return { calculatedAge: `${years}`, ageType: "Y" };
     if (months >= 1) return { calculatedAge: `${months}`, ageType: "M" };
     return { calculatedAge: `${days}`, ageType: "D" };
-  };
-
-  // ── Print helpers ───────────────────────────────────────────────────────────
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return "";
-    const date = new Date(dateStr);
-    return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-  };
-
-  const formatTimeTo12Hr = (timeStr) => {
-    if (!timeStr) return "";
-    const [hourStr, minuteStr, secondStr] = timeStr.split(":");
-    let hours = parseInt(hourStr);
-    const minutes = minuteStr || "00";
-    const seconds = secondStr || "00";
-    const ampm = hours >= 12 ? "PM" : "AM";
-    hours = hours % 12 || 12;
-    return `${String(hours).padStart(2, "0")}:${minutes}:${seconds} ${ampm}`;
-  };
-
-  const formatPatientName = (salutation, firstName, middleName, lastName) =>
-    `${salutation || ""} ${firstName || ""} ${middleName ? middleName + " " : ""}${lastName || ""}`.trim();
-
-  const resolveItems = (item) => {
-    if (typeof item === "string") {
-      try {
-        return JSON.parse(item);
-      } catch {
-        return [];
-      }
-    }
-    return Array.isArray(item) ? item : [];
-  };
-
-  const buildItemRows = (itemsArray) =>
-    itemsArray.length > 0
-      ? itemsArray
-          .map(
-            (item, index) => `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${item.itemName || ""}</td>
-          <td>${item.quantity || 1}</td>
-          <td>${parseFloat(item.price).toFixed(2)}</td>
-          <td>${(parseFloat(item.price) * parseInt(item.quantity || 1)).toFixed(2)}</td>
-        </tr>`,
-          )
-          .join("")
-      : '<tr><td colspan="5">No Items</td></tr>';
-
-  const printStyles = `
-    body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 10px; }
-    .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-    .hospital-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-    .bill-title { font-weight: bold; display: inline-block; margin-right: 10px; }
-    .bill-subtitle { font-weight: bold; display: inline-block; margin-left: 10px; }
-    .bill-details { display: flex; justify-content: space-between; margin-bottom: 15px; }
-    .bill-details-left { width: 48%; }
-    .bill-row { display: flex; margin-bottom: 5px; }
-    .bill-label { font-weight: bold; width: 120px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-    th, td { border: 1px solid #000; padding: 5px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .total-section { margin-top: 10px; border-top: 1px solid #000; padding-top: 5px; }
-    .total-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-    .total-label { font-weight: bold; }
-    .net-amount { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 5px; }
-    .signature { display: flex; justify-content: space-between; margin-top: 30px; }
-  `;
-  const resolveEmployeeName = (idOrName) => {
-    if (!idOrName) return "";
-    if (idOrName === "SELF") return "SELF";
-    const found = doctors.find(
-      (d) => String(d.employeeId) === String(idOrName),
-    );
-    return found ? found.employeeName.trim() : idOrName;
-  };
-  const handlePrint = (bill) => {
-    const printWindow = window.open("", "_blank", "height=600,width=800");
-    const itemsArray = resolveItems(bill.item);
-    const html = `<!DOCTYPE html><html><head><title>Bill Print</title><style>${printStyles}</style></head>
-      <body>
-        <div class="header">
-          <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-          <div>51/24.Saradha College Road, Salem - 636007</div>
-          <div>CIN: U85110TZ20PLC033974</div>
-        </div>
-        <div><span class="bill-title">"${bill.paymentMethod || "NIL"}"</span><span class="bill-subtitle">${bill.billType || "NIL"}</span></div>
-        <div class="bill-details">
-          <div class="bill-details-left">
-            <div class="bill-row"><div class="bill-label">Bill Number</div><div>: ${bill.investBillNo || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${bill.uhid || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">Bill Date</div><div>: ${formatDateTime(bill.investBillDate)}, ${formatTimeTo12Hr(bill.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.calculatedAge || bill.age || ""}${bill.ageType || "Y"} / ${bill.gender}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${resolveEmployeeName(bill.doctor)}</div></div>
-          </div>
-        </div>
-        <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-        <tbody>${buildItemRows(itemsArray)}</tbody></table>
-        <div class="total-section">
-          <div class="total-row"><div class="total-label">Total</div><div>${parseFloat(bill.total || 0).toFixed(2)}</div></div>
-          <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
-          <div class="total-row net-amount"><div class="total-label">Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
-        </div>
-        <div class="signature"><div>${localStorage.getItem("employeeId")}</div><div>(Signature)</div></div>
-      </body></html>`;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 500);
-  };
-
-  const handleEstimatePrint = (estimate) => {
-    const printWindow = window.open("", "_blank", "height=600,width=800");
-    const itemsArray = resolveItems(estimate.item);
-    const html = `<!DOCTYPE html><html><head><title>Estimate Print</title><style>${printStyles}</style></head>
-      <body>
-        <div class="header">
-          <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-          <div>51/24.Saradha College Road, Salem - 636007</div>
-        </div>
-        <div style="text-align:center;font-weight:bold;color:#d97706;margin:8px 0;">*** ESTIMATE BILL ***</div>
-        <div class="bill-details">
-          <div class="bill-details-left">
-            <div class="bill-row"><div class="bill-label">Estimate No</div><div>: ${estimate.EstBillNo || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${estimate.uhid || ""}</div></div>
-            <div class="bill-row"><div class="bill-label">Date</div><div>: ${formatDateTime(estimate.EstBillDate)}, ${formatTimeTo12Hr(estimate.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(estimate.salutation, estimate.firstName, estimate.middleName, estimate.lastName)} / ${estimate.calculatedAge || estimate.age || ""}${estimate.ageType || "Y"} / ${estimate.gender}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${resolveEmployeeName(estimate.doctor)}</div></div>
-          </div>
-        </div>
-        <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-        <tbody>${buildItemRows(itemsArray)}</tbody></table>
-        <div class="total-section">
-          <div class="total-row"><div class="total-label">Total</div><div>${parseFloat(estimate.total || 0).toFixed(2)}</div></div>
-          <div class="total-row"><div class="total-label">Discount</div><div>${estimate.discount || "0.00"}</div></div>
-          <div class="total-row net-amount"><div class="total-label">Estimated Net Amount</div><div>${estimate.finalPrice || "0.00"}</div></div>
-        </div>
-        <div style="margin-top:12px;padding:8px;background:#fffbeb;border-left:3px solid #d97706;font-style:italic;font-size:11px;">
-          <strong>Note:</strong> This is an estimate. Final charges may vary.
-        </div>
-        <div class="signature"><div>${localStorage.getItem("employeeId")}</div><div>(Authorized Signature)</div></div>
-      </body></html>`;
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 500);
   };
 
   // ── JSX ─────────────────────────────────────────────────────────────────────
@@ -1195,7 +1039,7 @@ const InvestigationBilling = () => {
                 type="text"
                 name="salutation"
                 value={formData.salutation}
-                onChange={handleInputChange} // ← was readOnly
+                onChange={handleInputChange}
                 readOnly={isPatientFetched}
               />
             </InputWrapper>
@@ -1206,7 +1050,7 @@ const InvestigationBilling = () => {
                 type="text"
                 name="firstName"
                 value={formData.firstName}
-                onChange={handleInputChange} // ← was readOnly
+                onChange={handleInputChange}
                 readOnly={isPatientFetched}
               />
             </InputWrapper>
@@ -1217,7 +1061,7 @@ const InvestigationBilling = () => {
                 type="text"
                 name="lastName"
                 value={formData.lastName}
-                onChange={handleInputChange} // ← was readOnly
+                onChange={handleInputChange}
                 readOnly={isPatientFetched}
               />
             </InputWrapper>
@@ -1225,7 +1069,7 @@ const InvestigationBilling = () => {
             <InputWrapper>
               <Label>DOB</Label>
               <Input
-                type="date" // ← change text to date for usability
+                type="date"
                 name="dob"
                 value={formData.dob || ""}
                 onChange={(e) => {
@@ -1242,7 +1086,7 @@ const InvestigationBilling = () => {
                   }
                 }}
                 readOnly={isPatientFetched}
-                disabled={!formData.uhid && !formData.ipNumber} // ← disable when no UHID/IP
+                disabled={!formData.uhid && !formData.ipNumber}
               />
             </InputWrapper>
 
@@ -1252,7 +1096,7 @@ const InvestigationBilling = () => {
                 type="text"
                 name="calculatedAge"
                 value={formData.calculatedAge || formData.age || ""}
-                onChange={handleInputChange} // ← was readOnly
+                onChange={handleInputChange}
                 readOnly={isPatientFetched}
               />
             </InputWrapper>
@@ -1262,7 +1106,7 @@ const InvestigationBilling = () => {
               <Select
                 name="ageType"
                 value={formData.ageType || ""}
-                onChange={handleInputChange} // ← was readOnly Input
+                onChange={handleInputChange}
                 disabled={isPatientFetched}
               >
                 <option value="">Select</option>
@@ -1277,7 +1121,7 @@ const InvestigationBilling = () => {
               <Select
                 name="gender"
                 value={formData.gender}
-                onChange={handleInputChange} // ← was readOnly
+                onChange={handleInputChange}
                 disabled={isPatientFetched}
               >
                 <option value="">Select</option>
@@ -1286,7 +1130,7 @@ const InvestigationBilling = () => {
                 <option value="Other">Other</option>
               </Select>
             </InputWrapper>
-            {/* ← add this block right after Gender */}
+
             {formData.ipNumber && formData.roomNo && (
               <InputWrapper>
                 <Label>Room No</Label>
@@ -1372,7 +1216,7 @@ const InvestigationBilling = () => {
                 options={[
                   { id: "SELF", name: "SELF" },
                   ...doctors.map((d) => ({
-                    id: d.employeeId, // ← store employeeId
+                    id: d.employeeId,
                     name: d.employeeName.trim(),
                   })),
                 ]}
@@ -1392,7 +1236,7 @@ const InvestigationBilling = () => {
                 options={[
                   { id: "SELF", name: "SELF" },
                   ...doctors.map((d) => ({
-                    id: d.employeeId, // ← store employeeId
+                    id: d.employeeId,
                     name: d.employeeName.trim(),
                   })),
                 ]}
@@ -1556,7 +1400,6 @@ const InvestigationBilling = () => {
                 />
               </InputWrapper>
 
-              {/* Company info — blue text only, no input box */}
               {(formData.customer_type || formData.company_name) && (
                 <InputWrapper>
                   <Label>Patient Type</Label>
@@ -1599,6 +1442,26 @@ const InvestigationBilling = () => {
           </ProductSection>
         </form>
       </ContentCard>
+
+      {/* ── Fast in-page print modal (replaces window.open) ── */}
+      {/* Reset/reload only happens when the user explicitly closes the  */}
+      {/* modal (× or "Close & Reset") — never on an automatic timer, so */}
+      {/* the modal can't disappear out from under the user.            */}
+      {printJob && (
+        <PrintModal
+          bill={printJob.bill}
+          doctors={doctors}
+          isEstimate={printJob.isEstimate}
+          toastMsg={printJob.toastMsg}
+          onClose={() => {
+            setPrintJob(null);
+            if (!printJob.isEstimate) {
+              navigate(location.pathname, { replace: true, state: {} });
+            }
+            window.location.reload();
+          }}
+        />
+      )}
     </PageContainer>
   );
 };

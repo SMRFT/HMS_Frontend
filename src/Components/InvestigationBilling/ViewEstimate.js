@@ -20,6 +20,7 @@ import {
   TableWrapper,
   colors,
 } from "../GlobalStyles";
+import PrintModal from "./PrintModal";
 
 // ─── Page Layout ──────────────────────────────────────────────────────────────
 
@@ -281,6 +282,7 @@ const EstimateBillsReport = () => {
   const [billTypes, setBillTypes] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [viewBill, setViewBill] = useState(null);
+  const [printJob, setPrintJob] = useState(null);
 
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -374,72 +376,30 @@ const EstimateBillsReport = () => {
 
   // ── Print ─────────────────────────────────────────────────────────────────────
   const handlePrint = (bill) => {
-    const pw = window.open("", "_blank", "height=600,width=800");
-    const getTotalPrice = (items) =>
-      Array.isArray(items)
-        ? items.reduce(
-            (t, i) => t + parseFloat(i.price) * parseInt(i.quantity || 1),
-            0,
-          )
-        : 0;
+    const raw = bill.EstBillDate || "";
+    const normalized = raw.endsWith("Z") || raw.includes("+") ? raw : raw + "Z";
+    const d = normalized ? new Date(normalized) : null;
+    const pad = (n) => String(n).padStart(2, "0");
+    const dateOnly = d
+      ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      : "";
+    const timeOnly = d
+      ? `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+      : "";
 
-    pw.document
-      .write(`<!DOCTYPE html><html><head><title>Estimate Bill Print</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:10px;}
-        .header{text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:10px;}
-        .hospital-name{font-weight:bold;font-size:14px;margin-bottom:3px;}
-        .estimate-label{font-weight:bold;font-size:16px;color:#ff9800;text-align:center;margin:10px 0;text-decoration:underline;}
-        .bill-row{display:flex;margin-bottom:5px;}
-        .bill-label{font-weight:bold;width:130px;}
-        .bill-value{flex-grow:1;}
-        table{width:100%;border-collapse:collapse;margin-bottom:15px;}
-        th,td{border:1px solid #000;padding:5px;text-align:left;}
-        th{background-color:#fff3e0;}
-        .total-section{margin-top:10px;border-top:1px solid #000;padding-top:5px;}
-        .total-row{display:flex;justify-content:space-between;margin-bottom:5px;}
-        .total-label{font-weight:bold;}
-        .net-amount{font-weight:bold;font-size:14px;border-top:1px solid #000;padding-top:5px;}
-        .note{margin-top:20px;padding:10px;background-color:#fff3e0;border-left:4px solid #ff9800;font-style:italic;}
-        .signature{display:flex;justify-content:space-between;margin-top:30px;}
-      </style></head><body>
-      <div class="header">
-        <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-        <div>51/24.Saradha College Road, Salem - 636007</div>
-        <div>CIN: U85110TZ20PLC033974</div>
-      </div>
-      <div class="estimate-label">*** ESTIMATE BILL ***</div>
-      <div><b>"${bill.paymentMethod || "NIL"}"</b>&nbsp;&nbsp;<b>${bill.bill_name || "NIL"}</b></div>
-      <div style="margin:10px 0">
-        <div class="bill-row"><div class="bill-label">Estimate Number</div><div class="bill-value">: ${bill.EstBillNo || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">Estimate Date</div><div class="bill-value">: ${formatDateTime(bill.EstBillDate)}</div></div>
-        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${
-          bill.age && bill.age_type ? `${bill.age}/${bill.age_type}` : "-"
-        } / ${bill.gender}</div></div>
-        <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
-      </div>
-      <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-      <tbody>${
-        Array.isArray(bill.item)
-          ? bill.item
-              .map(
-                (it, i) =>
-                  `<tr><td>${i + 1}</td><td>${it.itemName || ""}</td><td>${it.quantity || 1}</td><td>${parseFloat(it.price).toFixed(2)}</td><td>${(parseFloat(it.price) * parseInt(it.quantity || 1)).toFixed(2)}</td></tr>`,
-              )
-              .join("")
-          : '<tr><td colspan="5">No Items</td></tr>'
-      }</tbody></table>
-      <div class="total-section">
-        <div class="total-row"><div class="total-label">Total</div><div>${getTotalPrice(bill.item).toFixed(2)}</div></div>
-        <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
-        <div class="total-row net-amount"><div class="total-label">Estimated Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
-      </div>
-      <div class="note"><strong>Note:</strong> This is an estimate bill. Final charges may vary. Please convert to a final bill at the time of payment.</div>
-      <div class="signature"><div>${bill.created_by || ""}</div><div>(Authorized Signature)</div></div>
-    </body></html>`);
-    pw.document.close();
-    setTimeout(() => pw.print(), 500);
+    setPrintJob({
+      bill: {
+        ...bill,
+        investBillDate: dateOnly,
+        EstBillDate: dateOnly,
+        time: timeOnly,
+        firstName: [bill.firstName, bill.middleName].filter(Boolean).join(" "),
+        ageType: bill.age_type || bill.ageType || "Y",
+        billType: bill.bill_name || bill.billType || "",
+        item: Array.isArray(bill.item) ? bill.item : [],
+      },
+      isEstimate: true,
+    });
   };
 
   const handleConvert = (bill) => {
@@ -679,6 +639,14 @@ const EstimateBillsReport = () => {
             </ModalBody>
           </ModalBox>
         </ModalOverlay>
+      )}
+      {printJob && (
+        <PrintModal
+          bill={printJob.bill}
+          doctors={doctors}
+          isEstimate={printJob.isEstimate}
+          onClose={() => setPrintJob(null)}
+        />
       )}
     </PageContainer>
   );
