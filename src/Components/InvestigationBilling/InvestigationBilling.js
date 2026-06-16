@@ -285,92 +285,117 @@ const SearchableDropdown = ({
   valueKey = "id",
   disabled = false,
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const getLabel = (val) => {
+    if (!val) return "";
+    const found = options.find((o) =>
+      typeof o === "string" ? o === val : o[valueKey] === val,
+    );
+    return found
+      ? typeof found === "string"
+        ? found
+        : found[displayKey]
+      : val;
+  };
+
+  const [inputValue, setInputValue] = useState(() => getLabel(value));
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
-  const isTyping = useRef(false);
+  const isSearchingRef = useRef(false);
 
+  // Only sync from outside when NOT actively typing
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    if (!isSearchingRef.current) {
+      setInputValue(getLabel(value));
+    }
+  }, [value, options]); // eslint-disable-line
+
+  // Close on outside click, restore label
+  useEffect(() => {
+    const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        isTyping.current = false;
+        isSearchingRef.current = false;
         setIsOpen(false);
-        if (value) {
-          const selected = options.find((opt) =>
-            typeof opt === "string" ? opt === value : opt[valueKey] === value,
-          );
-          setSearchTerm(
-            selected
-              ? typeof selected === "string"
-                ? selected
-                : selected[displayKey]
-              : value,
-          );
-        } else {
-          setSearchTerm("");
-        }
+        setInputValue(getLabel(value)); // restore on blur without selection
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [value, options, displayKey, valueKey]);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [value, options]); // eslint-disable-line
 
-  useEffect(() => {
-    if (isTyping.current) return;
-    if (value) {
-      const selected = options.find((opt) =>
-        typeof opt === "string" ? opt === value : opt[valueKey] === value,
-      );
-      setSearchTerm(
-        selected
-          ? typeof selected === "string"
-            ? selected
-            : selected[displayKey]
-          : value,
-      );
-    } else {
-      setSearchTerm("");
-    }
-  }, [value, options, displayKey, valueKey]);
-
-  const filteredOptions = options.filter((opt) => {
-    const dv = typeof opt === "string" ? opt : opt[displayKey];
-    return dv.toLowerCase().includes(searchTerm.toLowerCase());
+  const filtered = options.filter((o) => {
+    const label = typeof o === "string" ? o : o[displayKey];
+    return label.toLowerCase().includes(inputValue.toLowerCase());
   });
+
+  const handleInputChange = (e) => {
+    isSearchingRef.current = true;
+    setInputValue(e.target.value);
+    setIsOpen(true);
+    if (e.target.value === "") {
+      isSearchingRef.current = false;
+      onChange(""); // clear parent
+    }
+  };
+
+  const handleClear = () => {
+    isSearchingRef.current = false;
+    setInputValue("");
+    setIsOpen(false);
+    onChange(""); // clear parent
+  };
 
   const handleSelect = (option) => {
     const sv = typeof option === "string" ? option : option[valueKey];
     const dv = typeof option === "string" ? option : option[displayKey];
-    isTyping.current = false;
-    onChange(sv);
-    setSearchTerm(dv);
+    isSearchingRef.current = false;
+    setInputValue(dv);
     setIsOpen(false);
+    onChange(sv);
   };
 
-  const handleInputChange = (e) => {
-    const val = e.target.value;
-    isTyping.current = true;
-    setSearchTerm(val);
+  const handleFocus = () => {
+    isSearchingRef.current = true;
+    setInputValue(""); // clear text so user sees all options
     setIsOpen(true);
-    if (val === "") {
-      isTyping.current = false;
-      onChange("");
-    }
   };
 
   return (
-    <DropdownWrapper ref={wrapperRef}>
-      <Input
-        type="text"
-        value={searchTerm}
-        onChange={handleInputChange}
-        onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
-        disabled={disabled}
-      />
-      {isOpen && filteredOptions.length > 0 && (
+    <DropdownWrapper ref={wrapperRef} style={{ position: "relative" }}>
+      <div
+        style={{ position: "relative", display: "flex", alignItems: "center" }}
+      >
+        <Input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ paddingRight: value ? "28px" : undefined }}
+        />
+        {value && !disabled && (
+          <span
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleClear();
+            }}
+            style={{
+              position: "absolute",
+              right: "8px",
+              cursor: "pointer",
+              color: "#888",
+              fontSize: "14px",
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            ×
+          </span>
+        )}
+      </div>
+      {isOpen && filtered.length > 0 && (
         <DropdownList>
-          {filteredOptions.map((option, index) => (
+          {filtered.map((option, index) => (
             <DropdownItem
               key={index}
               onMouseDown={(e) => e.preventDefault()}
@@ -436,6 +461,7 @@ const InvestigationBilling = () => {
 
   // ── Print modal state: { bill, isEstimate, toastMsg } ──────────────────────
   const [printJob, setPrintJob] = useState(null);
+  const billTypeInitialized = useRef(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -558,6 +584,8 @@ const InvestigationBilling = () => {
   useEffect(() => {
     if (!location.state?.patientData) return;
     if (!billTypes.length) return;
+    if (billTypeInitialized.current) return; // ← bail if already ran
+    billTypeInitialized.current = true; // ← mark as done
 
     const data = location.state.patientData;
 
@@ -571,6 +599,7 @@ const InvestigationBilling = () => {
       (data.billType && billTypes.find((b) => b.bill_name === data.billType)) ||
       (data.billTypeNo &&
         billTypes.find((b) => b.billTypeNo === data.billTypeNo));
+
     if (bt) {
       const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
       handleBillTypeChange(
@@ -1175,6 +1204,26 @@ const InvestigationBilling = () => {
               <SearchableDropdown
                 value={formData.billType}
                 onChange={(billName) => {
+                  if (!billName) {
+                    // ← This is what's missing. Clear all bill type state.
+                    setFormData((prev) => ({
+                      ...prev,
+                      billType: "",
+                      bill_type: "",
+                      billTypeNo: "",
+                      discountPercent: "",
+                      discount: "",
+                      discountRemarks: "",
+                    }));
+                    setSelectedBillTypeNo("");
+                    setSelectedPackageNo("");
+                    setItems([]);
+                    setPackages([]);
+                    setSelectedItem("");
+                    setSelectedPrice("");
+                    setIsDiscountAllowed(true);
+                    return;
+                  }
                   const bt = billTypes.find((b) => b.bill_name === billName);
                   if (bt) {
                     const billTypeNo = bt.billTypeNo ?? bt.BillTypeNo ?? 0;
