@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText, Edit, RotateCcw, History } from "lucide-react"
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 import QRRegistrationModal from "./QRRegistrationModal";
 import QRRegistrationSidebar from "./QRRegistrationSidebar";
+import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 
 
 // Modal component for search results
@@ -300,6 +302,12 @@ const PatientRegistrationForm = () => {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
     const [unusedQRCount, setUnusedQRCount] = useState(0);
+    const [showEditVisitModal, setShowEditVisitModal] = useState(false);
+    const [showRefundVisitModal, setShowRefundVisitModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [refundAmount, setRefundAmount] = useState("");
+    const [refundRemarks, setRefundRemarks] = useState("Patient Request");
+    const [editingDoctor, setEditingDoctor] = useState("");
 
     const handleQRDataReceived = (data) => {
         setPatient(prev => {
@@ -349,6 +357,63 @@ const PatientRegistrationForm = () => {
         if (result.success) {
             setVisitList(result.data);
             setShowVisitList(true);
+        }
+    };
+
+    const handleUpdateVisit = async () => {
+        try {
+            if (!editingDoctor) {
+                alert("Please select a doctor");
+                return;
+            }
+            const doc = doctors.find(d => d.id === editingDoctor);
+            const payload = {
+                bill_number: selectedVisit.billNumber,
+                doctor_id: editingDoctor,
+                doctorName: doc ? doc.name : "",
+                registrationFee: doc ? doc.registrationFee : 0,
+                consultingFee: doc ? doc.consultingFee : 0,
+                totalFees: doc ? (doc.registrationFee + doc.consultingFee) : 0
+            };
+
+            const result = await apiRequest(`${Hmsbaseurl}update-registration-visit/`, "POST", payload);
+            if (result.success) {
+                alert("Visit updated successfully");
+                setShowEditVisitModal(false);
+                handleViewList(); // Refresh list
+            } else {
+                alert(result.error || result.message || "Update failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error updating visit");
+        }
+    };
+
+    const handleProcessRefund = async () => {
+        try {
+            if (Number(refundAmount) <= 0) {
+                alert("Please enter a valid refund amount");
+                return;
+            }
+            const payload = {
+                bill_no: selectedVisit.billNumber,
+                uhid: selectedVisit.uhid,
+                refund_amount: refundAmount,
+                remarks: refundRemarks
+            };
+
+            const result = await apiRequest(`${Hmsbaseurl}process-registration-refund/`, "POST", payload);
+            if (result.success) {
+                alert(`Refund processed successfully. Refund Bill No: ${result.refund_bill_no}`);
+                setShowRefundVisitModal(false);
+                handleViewList(); // Refresh list
+            } else {
+                alert(result.error || result.message || "Refund failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error processing refund");
         }
     };
 
@@ -707,8 +772,6 @@ const PatientRegistrationForm = () => {
     const [selectedDoctor, setSelectedDoctor] = useState({})
     const [registrationFee, setRegistrationFee] = useState(0)
     const [consultingFee, setConsultingFee] = useState(0)
-    const [hospitalFee, setHospitalFee] = useState(0)
-    const [bookingFee, setBookingFee] = useState(0)
     const [totalFees, setTotalFees] = useState(0)
 
     // Age calculation functions
@@ -760,6 +823,24 @@ const PatientRegistrationForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
 
+        if (!patient.emergencyContact) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please enter an Emergency Contact.'
+            });
+            return;
+        }
+
+        if (!patient.referredBy) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please select a Referred By doctor.'
+            });
+            return;
+        }
+
         const formData = new FormData()
 
         const backendKeys = {
@@ -803,7 +884,38 @@ const PatientRegistrationForm = () => {
 
         if (result.success) {
             console.log("Patient Registered:", result.data)
-            alert("Patient Registered Successfully! UHID: " + result.data.uhid)
+
+            const resultConfirm = await Swal.fire({
+                title: 'Registration successful!',
+                html: `Patient registered successfully with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you need a print?`,
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#0d9488',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: 'Yes, print it!',
+                cancelButtonText: 'No, thanks'
+            });
+
+            if (resultConfirm.isConfirmed) {
+                const visitObj = {
+                    uhid: result.data.uhid,
+                    patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
+                    age: patient.age,
+                    gender: patient.gender,
+                    spouseName: patient.spouseName,
+                    address: patient.permanentAddress,
+                    mobile: patient.mobilePhone,
+                    doctorName: patient.doctorName,
+                    consultingFee: consultingFee,
+                    registrationFee: registrationFee,
+                    billAmount: totalFees,
+                    date: new Date().toLocaleDateString(),
+                    paymentMethod: "Cash"
+                };
+                handlePrintBill(visitObj);
+            } else {
+                toast.success("Registration successful!");
+            }
 
             // Reset form
             setPatient({
@@ -846,8 +958,6 @@ const PatientRegistrationForm = () => {
             setSelectedDoctor({})
             setRegistrationFee(0)
             setConsultingFee(0)
-            setHospitalFee(0)
-            setBookingFee(0)
             setTotalFees(0)
         } else {
             console.error("Error:", result.error)
@@ -876,13 +986,13 @@ const PatientRegistrationForm = () => {
     // Select patient from search results
     const handleSelectPatient = (selectedPatient) => {
         const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
-        
+
         // Map backend registration_date to frontend regDate if it exists
-        const mappedPatient = { 
-            ...selectedPatient, 
+        const mappedPatient = {
+            ...selectedPatient,
             name: fullName
         }
-        
+
         setPatient(mappedPatient)
         setShowSearchModal(false)
     }
@@ -972,15 +1082,11 @@ const PatientRegistrationForm = () => {
     const handleDoctorSelect = (selected) => {
         const regFee = selected.registrationFee || 0
         const consFee = selected.consultingFee || 0
-        const hospFee = 0
-        const bookFee = 0
-        const total = regFee + consFee + hospFee + bookFee
+        const total = regFee + consFee
 
         setSelectedDoctor(selected)
         setRegistrationFee(regFee)
         setConsultingFee(consFee)
-        setHospitalFee(hospFee)
-        setBookingFee(bookFee)
         setTotalFees(total)
 
         setPatient(prev => ({
@@ -1000,26 +1106,20 @@ const PatientRegistrationForm = () => {
 
         if (feeType === "registration") {
             setRegistrationFee(newFee)
-            setTotalFees(newFee + consultingFee + hospitalFee + bookingFee)
+            setTotalFees(newFee + consultingFee)
             setPatient({
                 ...patient,
                 registrationFee: newFee,
-                totalFees: newFee + consultingFee + hospitalFee + bookingFee,
+                totalFees: newFee + consultingFee,
             })
         } else if (feeType === "consulting") {
             setConsultingFee(newFee)
-            setTotalFees(registrationFee + newFee + hospitalFee + bookingFee)
+            setTotalFees(registrationFee + newFee)
             setPatient({
                 ...patient,
                 consultingFee: newFee,
-                totalFees: registrationFee + newFee + hospitalFee + bookingFee,
+                totalFees: registrationFee + newFee,
             })
-        } else if (feeType === "hospital") {
-            setHospitalFee(newFee)
-            setTotalFees(registrationFee + consultingFee + newFee + bookingFee)
-        } else if (feeType === "booking") {
-            setBookingFee(newFee)
-            setTotalFees(registrationFee + consultingFee + hospitalFee + newFee)
         }
     }
 
@@ -1028,8 +1128,6 @@ const PatientRegistrationForm = () => {
         setSelectedDoctor({})
         setRegistrationFee(0)
         setConsultingFee(0)
-        setHospitalFee(0)
-        setBookingFee(0)
         setTotalFees(0)
 
         setPatient(prev => ({
@@ -1081,12 +1179,12 @@ const PatientRegistrationForm = () => {
                             <List size={20} />
                             <span>Visited List</span>
                         </StatsButton>
-                        <StatsButton 
-                            onClick={() => setShowQRModal(true)} 
-                            style={{ 
-                                background: 'white', 
-                                color: '#0d9488', 
-                                border: '1px solid #ccfbf1', 
+                        <StatsButton
+                            onClick={() => setShowQRModal(true)}
+                            style={{
+                                background: 'white',
+                                color: '#0d9488',
+                                border: '1px solid #ccfbf1',
                                 height: '40px',
                                 position: 'relative'
                             }}
@@ -1251,6 +1349,72 @@ const PatientRegistrationForm = () => {
                                                         >
                                                             <FileText size={16} />
                                                         </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedVisit(visit);
+                                                                setShowHistoryModal(true);
+                                                            }}
+                                                            style={{
+                                                                background: '#f1f5f9',
+                                                                border: '1px solid #e2e8f0',
+                                                                cursor: 'pointer',
+                                                                color: '#64748b',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '6px',
+                                                                borderRadius: '6px'
+                                                            }}
+                                                            title="View History"
+                                                        >
+                                                            <History size={16} />
+                                                        </button>
+                                                        {visit.paymentStatus !== 'Paid' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedVisit(visit);
+                                                                    setEditingDoctor(visit.doctor || "");
+                                                                    setShowEditVisitModal(true);
+                                                                }}
+                                                                style={{
+                                                                    background: '#fef3c7',
+                                                                    border: '1px solid #fde68a',
+                                                                    cursor: 'pointer',
+                                                                    color: '#d97706',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    padding: '6px',
+                                                                    borderRadius: '6px'
+                                                                }}
+                                                                title="Edit Doctor"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                        )}
+                                                        {visit.paymentStatus === 'Paid' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedVisit(visit);
+                                                                    setRefundAmount(visit.billAmount);
+                                                                    setShowRefundVisitModal(true);
+                                                                }}
+                                                                style={{
+                                                                    background: '#fee2e2',
+                                                                    border: '1px solid #fecaca',
+                                                                    cursor: 'pointer',
+                                                                    color: '#dc2626',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    padding: '6px',
+                                                                    borderRadius: '6px'
+                                                                }}
+                                                                title="Refund"
+                                                            >
+                                                                <RotateCcw size={16} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1319,11 +1483,168 @@ const PatientRegistrationForm = () => {
                         )}
                     </Modal>
 
+                    {/* Edit Visit Modal */}
+                    <Modal
+                        show={showEditVisitModal}
+                        onClose={() => setShowEditVisitModal(false)}
+                        title="Edit Visit (Doctor Change)"
+                        footer={
+                            <StatsButton onClick={handleUpdateVisit} style={{ background: '#0d9488', color: 'white', width: '100%' }}>
+                                Update Visit
+                            </StatsButton>
+                        }
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#64748b' }}>Patient</p>
+                                    <p style={{ margin: 0, fontWeight: '600' }}>{selectedVisit.patientName} ({selectedVisit.uhid})</p>
+                                </div>
 
+                                <FilterGroup>
+                                    <Label>Select New Doctor</Label>
+                                    <Select
+                                        value={editingDoctor}
+                                        onChange={(e) => setEditingDoctor(e.target.value)}
+                                    >
+                                        <option value="">Select Doctor</option>
+                                        {doctors.map(doc => (
+                                            <option key={doc.id} value={doc.id}>{doc.name} - {doc.specialty}</option>
+                                        ))}
+                                    </Select>
+                                </FilterGroup>
+
+                                {editingDoctor && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Reg. Fee</p>
+                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.registrationFee || 0}</p>
+                                        </div>
+                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Cons. Fee</p>
+                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.consultingFee || 0}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Modal>
+
+                    {/* Refund Modal */}
+                    <Modal
+                        show={showRefundVisitModal}
+                        onClose={() => setShowRefundVisitModal(false)}
+                        title="Process Refund"
+                        footer={
+                            <StatsButton onClick={handleProcessRefund} style={{ background: '#dc2626', color: 'white', width: '100%' }}>
+                                Process Refund
+                            </StatsButton>
+                        }
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div style={{ background: '#fef2f2', padding: '12px', borderRadius: '8px', border: '1px solid #fee2e2' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#991b1b' }}>Refunding for Bill: {selectedVisit.billNumber}</p>
+                                    <p style={{ margin: 0, fontWeight: '600' }}>{selectedVisit.patientName} (₹{selectedVisit.billAmount})</p>
+                                </div>
+
+                                <FilterGroup>
+                                    <Label>Refund Amount</Label>
+                                    <Input
+                                        type="number"
+                                        value={refundAmount}
+                                        onChange={(e) => setRefundAmount(e.target.value)}
+                                        max={selectedVisit.billAmount}
+                                    />
+                                </FilterGroup>
+
+                                <FilterGroup>
+                                    <Label>Remarks / Reason</Label>
+                                    <TextArea
+                                        value={refundRemarks}
+                                        onChange={(e) => setRefundRemarks(e.target.value)}
+                                        placeholder="Enter reason for refund..."
+                                        rows={3}
+                                    />
+                                </FilterGroup>
+                            </div>
+                        )}
+                    </Modal>
+
+
+
+                    {/* History Modal */}
+                    <Modal
+                        show={showHistoryModal}
+                        onClose={() => setShowHistoryModal(false)}
+                        title="Visit History & Refunds"
+                    >
+                        {selectedVisit && (
+                            <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Edit History Section */}
+                                <div>
+                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <History size={16} /> Edit History
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {selectedVisit.editHistory && selectedVisit.editHistory.length > 0 ? (
+                                            selectedVisit.editHistory.map((edit, idx) => (
+                                                <div key={idx} style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                        <span style={{ fontWeight: '600', color: '#0f172a' }}>{edit.date}</span>
+                                                        <span style={{ color: '#64748b' }}>by {edit.user}</span>
+                                                    </div>
+                                                    <ul style={{ margin: 0, paddingLeft: '18px', color: '#334155' }}>
+                                                        {Object.entries(edit.changes).map(([field, values]) => (
+                                                            <li key={field}>
+                                                                Changed <strong>{field.replace('_', ' ')}</strong> from <em>{values.old}</em> to <strong>{values.new}</strong>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No edit history available.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Refunds Section */}
+                                <div>
+                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <RotateCcw size={16} /> Refunds
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {selectedVisit.refunds && selectedVisit.refunds.length > 0 ? (
+                                            <>
+                                                {selectedVisit.refunds.map((refund, idx) => (
+                                                    <div key={idx} style={{ background: '#fff5f5', padding: '10px', borderRadius: '8px', border: '1px solid #feb2b2', fontSize: '13px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                            <span style={{ fontWeight: '600', color: '#991b1b' }}>{refund.refund_bill_no}</span>
+                                                            <span style={{ color: '#dc2626', fontWeight: '600' }}>₹{refund.amount}</span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', fontSize: '12px' }}>
+                                                            <span>{refund.date}</span>
+                                                            <span>Status: <strong>{refund.status}</strong></span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <div style={{ marginTop: '10px', padding: '10px', borderTop: '2px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span style={{ fontWeight: '600' }}>Total Refunded:</span>
+                                                    <span style={{ fontWeight: '700', color: '#dc2626' }}>₹{selectedVisit.totalRefunded}</span>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <p style={{ margin: 0, fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '10px' }}>No refunds found for this visit.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </Modal>
 
                     {/* Search Container */}
                     <SearchContainer>
-                        <ContainerTitle>Patient Search</ContainerTitle>
                         <SearchRow>
                             <InputWrapper>
                                 <Label htmlFor="uhid">UHID No</Label>
@@ -1395,13 +1716,13 @@ const PatientRegistrationForm = () => {
                                                 const selectedValue = e.target.value;
                                                 const typeObj = customerTypes.find(t => t.type_name === selectedValue);
                                                 const fee = typeObj ? parseFloat(typeObj.registration_fee) : 0;
-                                                
+
                                                 setRegistrationFee(fee);
-                                                const total = fee + consultingFee + hospitalFee + bookingFee;
+                                                const total = fee + consultingFee;
                                                 setTotalFees(total);
-                                                
+
                                                 setPatient(prev => ({
-                                                    ...prev, 
+                                                    ...prev,
                                                     customerType: selectedValue,
                                                     registrationFee: fee,
                                                     totalFees: total
@@ -1555,7 +1876,7 @@ const PatientRegistrationForm = () => {
                                         <Input type="text" id="area" name="area" value={patient.area} onChange={handleChange} placeholder="Enter area" />
                                     </InputWrapper>
                                     <InputWrapper>
-                                        <Label htmlFor="zipcode">Zipcode<RequiredAsterisk>*</RequiredAsterisk></Label>
+                                        <Label htmlFor="zipcode">Post Code<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Input type="text" id="zipcode" name="zipcode" value={patient.zipcode} onChange={handleChange} required placeholder="Enter zipcode" />
                                     </InputWrapper>
                                     <InputWrapper>
@@ -1597,7 +1918,7 @@ const PatientRegistrationForm = () => {
                                         />
                                     </InputWrapper>
                                     <InputWrapper>
-                                        <Label htmlFor="emergencyContact">Emergency Contact</Label>
+                                        <Label htmlFor="emergencyContact">Emergency Contact<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <Input
                                             type="text"
                                             id="emergencyContact"
@@ -1606,6 +1927,7 @@ const PatientRegistrationForm = () => {
                                             onChange={handleChange}
                                             placeholder="Enter emergency contact"
                                             maxLength={10}
+                                            required
                                         />
                                     </InputWrapper>
                                 </FormGrid>
@@ -1616,7 +1938,7 @@ const PatientRegistrationForm = () => {
                             <CollapsibleSection title="Referred Information" icon={<UserPlus size={20} />}>
                                 <FormGrid>
                                     <InputWrapper className="span-full">
-                                        <Label htmlFor="referredBy">Referred By</Label>
+                                        <Label htmlFor="referredBy">Referred By<RequiredAsterisk>*</RequiredAsterisk></Label>
                                         <InputGroup>
                                             <Input
                                                 list="doctor-options"
@@ -1629,6 +1951,7 @@ const PatientRegistrationForm = () => {
                                                 }}
                                                 placeholder="Search or Select Doctor"
                                                 onClick={() => setSearchDoctorTerm("")}
+                                                required
                                             />
                                             <datalist id="doctor-options">
                                                 {allDoctors.map((doc, index) => (
@@ -1897,24 +2220,7 @@ const PatientRegistrationForm = () => {
                                         onChange={(e) => handleFeeChange("consulting", e.target.value)}
                                     />
                                 </FeeItem>
-                                <FeeItem>
-                                    <Label htmlFor="hospitalFee">Hospital Fee (₹)</Label>
-                                    <Input
-                                        id="hospitalFee"
-                                        type="number"
-                                        value={hospitalFee.toFixed(2)}
-                                        onChange={(e) => handleFeeChange("hospital", e.target.value)}
-                                    />
-                                </FeeItem>
-                                <FeeItem>
-                                    <Label htmlFor="bookingFee">Booking Fee (₹)</Label>
-                                    <Input
-                                        id="bookingFee"
-                                        type="number"
-                                        value={bookingFee.toFixed(2)}
-                                        onChange={(e) => handleFeeChange("booking", e.target.value)}
-                                    />
-                                </FeeItem>
+
                                 <TotalFeeItem>
                                     <Label htmlFor="totalFee">Total Fees (₹)</Label>
                                     <Input id="totalFee" type="number" value={totalFees.toFixed(2)} readOnly />
@@ -1924,7 +2230,7 @@ const PatientRegistrationForm = () => {
 
                         </FormGrid>
                     </DoctorContainer >
-                    
+
                     <div style={{ marginTop: '24px' }}>
                         <QRRegistrationSidebar onDataReceived={handleQRDataReceived} />
                     </div>
@@ -2059,17 +2365,17 @@ const DoctorContainer = styled.div`
 
 const SearchContainer = styled.div`
   background: white;
-  border-radius: 20px;
-  padding: 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 8px 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
   border: 1px solid #f1f5f9;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 `
 
 const SearchRow = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 12px;
   align-items: end;
   
   @media (min-width: 768px) {
@@ -2206,6 +2512,24 @@ const Input = styled.input`
   
   &::placeholder {
     color: #cbd5e1;
+  }
+`
+
+const TextArea = styled.textarea`
+  padding: 12px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  color: #334155;
+  background: #fff;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+  resize: vertical;
+  
+  &:focus {
+    outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
   }
 `
 

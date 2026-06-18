@@ -3,6 +3,7 @@ import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
+import RoomShifting from "./RoomShifting";          // ← Room Shifting component
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -65,6 +66,14 @@ const IconBtn   = styled.button`height:28px;padding:0 9px;font-size:.72rem;backg
 const FActions  = styled.div`display:flex;gap:8px;justify-content:flex-end;padding:10px 20px 16px;border-top:1px solid #e5e7eb;margin-top:4px;`;
 const SmBtn     = styled.button`height:30px;padding:0 18px;font-size:.75rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
 
+// ─── Active Admission Banner ───────────────────────────────────────────────────
+const ActiveBanner = styled.div`
+  grid-column:span 6;
+  background:#fef9c3;border:1.5px solid #fde047;border-radius:7px;
+  padding:10px 14px;display:flex;align-items:center;gap:10px;
+  font-size:.78rem;color:#713f12;font-weight:500;
+`;
+
 // ─── Room History Timeline ─────────────────────────────────────────────────────
 const TimelineWrap  = styled.div`grid-column:span 6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin-top:6px;`;
 const TimelineTitle = styled.div`font-size:.72rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px;`;
@@ -109,6 +118,12 @@ const InfoMsg  = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;marg
 const InfoBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
 const IBtn     = styled.button`height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.primary?'#0d9488':'#e5e7eb'};color:${p=>p.primary?'#fff':'#374151'};&:hover{opacity:.88;}`;
 
+// ─── Reason Modal (shared for Cancel and Edit) ────────────────────────────────
+const ReasonMC   = styled(ModalContainer)`max-width:460px;animation:${popIn} .22s ease;`;
+const ReasonBody = styled(ModalBody)`padding:24px;`;
+const ReasonTxta = styled.textarea`width:100%;box-sizing:border-box;padding:8px 10px;font-size:.8rem;border:1.5px solid #d1d5db;border-radius:6px;resize:vertical;min-height:80px;outline:none;&:focus{border-color:#0d9488;}`;
+const ReasonBtns = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:14px;`;
+
 // ─── Table ─────────────────────────────────────────────────────────────────────
 const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;`;
 const TWrap = styled.div`overflow-x:auto;`;
@@ -124,7 +139,7 @@ const RoomSourceTag = styled.span`font-size:.55rem;font-weight:700;padding:1px 5
 // ─── Dropdown ──────────────────────────────────────────────────────────────────
 const AW   = styled.div`position:relative;display:inline-block;`;
 const DotB = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#6b7280;&:hover{background:#f3f4f6;}`;
-const Drop = styled.div`position:fixed;top:${p=>p.top}px;left:${p=>p.left}px;background:#fff;border:1px solid #e5e7eb;border-radius:7px;box-shadow:0 8px 28px rgba(0,0,0,.16);z-index:9999;min-width:190px;overflow:hidden;animation:${fadeIn} .14s ease;`;
+const Drop = styled.div`position:fixed;top:${p=>p.top}px;left:${p=>p.left}px;background:#fff;border:1px solid #e5e7eb;border-radius:7px;box-shadow:0 8px 28px rgba(0,0,0,.16);z-index:9999;min-width:200px;overflow:hidden;animation:${fadeIn} .14s ease;`;
 const DI   = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;display:flex;align-items:center;gap:8px;color:${p=>p.disabled?'#9ca3af':p.danger?'#dc2626':'#374151'};cursor:${p=>p.disabled?'not-allowed':'pointer'};&:hover:not(:disabled){background:${p=>p.danger?'#fff1f2':'#f0fdf4'};}`;
 
 // ─── Pagination ────────────────────────────────────────────────────────────────
@@ -194,6 +209,10 @@ const SBold= styled.div`font-weight:700;margin:2px 0;font-size:12px;`;
 const PA   = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
 const PBt  = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.sec?'#e5e7eb':'#7c3aed'};color:${p=>p.sec?'#374151':'#fff'};&:hover{opacity:.88;}`;
 
+// ─── Room Shifting Modal wrapper ───────────────────────────────────────────────
+const ShiftMC = styled(ModalContainer)`max-width:860px;max-height:92vh;`;
+const ShiftMB = styled(ModalBody)`padding:0;overflow-y:auto;background:#f8fafc;`;
+
 // ─── Code128B Barcode ──────────────────────────────────────────────────────────
 const CODE128_PATTERNS = [
   "11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000",
@@ -255,11 +274,10 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
 const EMPTY = {
   uhid:"", ipNumber:"", admittingDoctor:"", consultingDoctor:"",
   roomNo:"", bedNo:"", reasonForAdmission:"",
-  // packageNo holds the stored number; packageName is resolved from packages list for display only
   packageNo:"", packageName:"",
   mlc_type:"", mlc_doc:null, mlc_remarks:"",
   salutation:"", firstName:"", middleName:"", lastName:"",
-  age:"", gender:"", mobilePhone:"", permanent_address:"",
+  dob:"", age:"", gender:"", mobilePhone:"", permanent_address:"",
   area:"", zipcode:"", city:"", state:"",
   customerType:"", insuranceCompanyName:"", company_code:"",
   room_details:[], roomShitingDetails:[],
@@ -285,6 +303,7 @@ function safeParseList(value) {
   }
   return [];
 }
+
 function normalizeAdm(adm) {
   if (!adm) return adm;
   adm.room_details       = safeParseList(adm.room_details);
@@ -299,7 +318,6 @@ const getRoomStatus = beds => {
   if (s.every(x => x === "Occupied"))                return "occupied";
   if (s.every(x => x === "Reserved"))                return "reserved";
   if (s.every(x => x === "Available - Not Cleaned")) return "not-cleaned";
-  // mixed occupied + others → partial
   if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
   if (s.some(x => x === "Occupied"))                 return "partial";
   if (s.some(x => x === "Reserved"))                 return "reserved";
@@ -322,9 +340,9 @@ const getActiveRoom = adm => {
 };
 
 const getAdmStatus = adm => {
-  if (adm.is_discharged)                           return "discharged";
-  if (!adm.is_admissionActive && !adm.is_admitted) return "cancelled";
-  if (adm.is_admitted)                             return "admitted";
+  if (adm.is_discharged)  return "discharged";
+  if (adm.is_cancelled)   return "cancelled";
+  if (adm.is_admitted)    return "admitted";
   return "cancelled";
 };
 
@@ -376,6 +394,47 @@ function InfoModal({ icon="ℹ️", title, message, onClose, type="info" }) {
           <InfoBtns><IBtn primary onClick={onClose}>OK</IBtn></InfoBtns>
         </InfoBody>
       </InfoMC>
+    </ModalOverlay>
+  );
+}
+
+// ─── Reason Modal — used for both Cancel and Edit ─────────────────────────────
+function ReasonModal({ mode="cancel", onConfirm, onCancel }) {
+  const [reason, setReason] = useState("");
+  const isCancel = mode === "cancel";
+  return (
+    <ModalOverlay onClick={onCancel}>
+      <ReasonMC onClick={e=>e.stopPropagation()}>
+        <ModalHeader>
+          <ModalTitle>{isCancel ? "🗑️ Cancel Admission" : "✏️ Edit Admission"}</ModalTitle>
+          <CloseButton onClick={onCancel}>×</CloseButton>
+        </ModalHeader>
+        <ReasonBody>
+          <div style={{fontSize:".8rem",color:"#374151",marginBottom:8}}>
+            <strong>{isCancel ? "Cancellation" : "Edit"} Reason</strong>
+            <span style={{color:"#ef4444",marginLeft:3}}>*</span>
+          </div>
+          <ReasonTxta
+            placeholder={isCancel
+              ? "Enter mandatory reason for cancellation…"
+              : "Enter mandatory reason for editing this admission…"}
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            autoFocus
+          />
+          <ReasonBtns>
+            <CBtn onClick={onCancel}>Back</CBtn>
+            <CBtn
+              danger={isCancel}
+              primary={!isCancel}
+              disabled={!reason.trim()}
+              onClick={() => reason.trim() && onConfirm(reason.trim())}
+            >
+              {isCancel ? "Confirm Cancel" : "Proceed to Edit"}
+            </CBtn>
+          </ReasonBtns>
+        </ReasonBody>
+      </ReasonMC>
     </ModalOverlay>
   );
 }
@@ -564,6 +623,9 @@ export default function Admission() {
   const [editingId, setEditingId] = useState(null);
   const [form,      setForm]      = useState(EMPTY);
 
+  // ── When form is in edit mode, store the editReason until submit ──────────
+  const [pendingEditReason, setPendingEditReason] = useState("");
+
   const [showRoom,  setShowRoom]  = useState(false);
   const [rFilter,   setRFilter]   = useState({ room_number:"", block:"", floor:"" });
   const [allRooms,  setAllRooms]  = useState([]);
@@ -580,6 +642,12 @@ export default function Admission() {
   const [menuPos,        setMenuPos]        = useState({ top:0, left:0 });
   const menuRef = useRef(null);
 
+  // ── Reason modals ─────────────────────────────────────────────────────────
+  const [reasonModal,    setReasonModal]    = useState(null); // { mode:"cancel"|"edit", adm }
+
+  // ── Room Shifting modal ───────────────────────────────────────────────────
+  const [shiftAdm,       setShiftAdm]       = useState(null); // adm object to prefill
+
   const showConfirm = (opts) => new Promise(resolve => {
     setConfirmModal({
       ...opts,
@@ -589,7 +657,6 @@ export default function Admission() {
   });
   const showInfo = (opts) => { setInfoModal({ ...opts, onClose: () => setInfoModal(null) }); };
 
-  // Helper: resolve package display name from packageNo using loaded packages list
   const resolvePackageName = (packageNo) => {
     if (!packageNo) return "";
     const pkg = packages.find(p => String(p.packageNo) === String(packageNo));
@@ -621,7 +688,6 @@ export default function Admission() {
       if (fDoctor !== "ALL") p.append("admitting_doctor", fDoctor);
       if (fStatus !== "All") p.append("status",           fStatus);
       const q   = p.toString() ? `?${p.toString()}` : "";
-      // RENAMED: was admission/ → now admission-list/
       const res = await apiRequest(`${API_ADMISSION_LIST}${q}`, "GET");
       const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
       setAdmissions(list.map(normalizeAdm));
@@ -646,7 +712,6 @@ export default function Admission() {
       if (f.block)       p.append("block",        f.block);
       if (f.floor)       p.append("floor",        f.floor);
       const q   = p.toString() ? `?${p.toString()}` : "";
-      // RENAMED: was search-rooms/ → now admission-room-search/
       const res = await apiRequest(`${API_ROOM_SEARCH}${q}`, "GET");
       let rooms = [];
       if (Array.isArray(res))              rooms = res;
@@ -657,6 +722,7 @@ export default function Admission() {
     finally  { setLoadRooms(false); }
   };
 
+  // ── Fetch patient by UHID — also checks for active admission ─────────────
   const fetchPatientByUHID = async () => {
     const uhid = form.uhid.trim();
     if (!uhid) { showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID before searching." }); return; }
@@ -664,16 +730,35 @@ export default function Admission() {
       const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
       if (!res.success) { showInfo({ type:"error", title:"Patient Not Found", message: res.error||"No patient found for this UHID." }); return; }
       const d = res.data;
+
+      // ── Check if patient has active admission ──────────────────────────────
+      const activeAdm = admissions.find(a =>
+        String(a.uhid).trim() === String(uhid).trim()
+        && a.is_admitted
+        && !a.is_discharged
+        && !a.is_cancelled
+      );
+      if (activeAdm) {
+        setAlreadyAdmInfo({
+          ipNumber: activeAdm.ipNumber,
+          admissionDateTime: activeAdm.admissionDateTime,
+          roomNo: getActiveRoom(activeAdm).roomNo,
+          bedNo:  getActiveRoom(activeAdm).bedNo,
+        });
+      }
+
       setForm(p => ({
         ...p,
         salutation: d.salutation||"", firstName: d.firstName||"",
         middleName: d.middleName||"", lastName:  d.lastName||"",
-        age: d.age||"", gender: d.gender||"",
+        dob:  d.dob||"",
+        age:  d.age||"",             // Already calculated from DOB by backend
+        gender: d.gender||"",
         mobilePhone: d.mobilePhone||d.phone||"",
         permanent_address: d.permanent_address||"", area: d.area||"",
         zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
         customerType: d.customerType||d.customer_type||"",
-        insuranceCompanyName: d.insuranceCompanyName||"",
+        insuranceCompanyName: d.insuranceCompanyName||d.company_name||"",
         company_code: d.company_code||"",
       }));
       toast.success("Patient loaded");
@@ -684,25 +769,32 @@ export default function Admission() {
     const ip = form.ipNumber.trim();
     if (!ip) { showInfo({ type:"warning", title:"IP Number Required", message:"Please enter an IP Number before searching." }); return; }
     try {
-      // RENAMED: was admission/?ip_number=... → now admission-list/?ip_number=...
       const res = await apiRequest(`${API_ADMISSION_LIST}?ip_number=${encodeURIComponent(ip)}`, "GET");
       if (!res.success) throw new Error(res.error||"Not found");
       const list = Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];
       if (!list.length) { showInfo({ type:"error", title:"Not Found", message:"No admission found for this IP Number." }); return; }
-      loadAdmissionIntoForm(list[0]);
-      toast.success(`Admission loaded: ${list[0].ipNumber||ip}`);
+      const found = list[0];
+
+      // If the found admission is active, show warning and enter edit mode
+      if (found.is_admitted && !found.is_discharged && !found.is_cancelled) {
+        setAlreadyAdmInfo({
+          ipNumber: found.ipNumber,
+          admissionDateTime: found.admissionDateTime,
+          roomNo: getActiveRoom(found).roomNo,
+          bedNo:  getActiveRoom(found).bedNo,
+        });
+      }
+      loadAdmissionIntoForm(found);
+      toast.success(`Admission loaded: ${found.ipNumber||ip}`);
     } catch(err) { showInfo({ type:"error", title:"Admission Not Found", message: err.message||"Could not retrieve admission." }); }
   };
 
-  // Load admission into form.
-  // API returns "packageNo" (the stored number from packageName field).
-  // Resolve the display name client-side from the packages list.
   function loadAdmissionIntoForm(adm) {
     setEditingId(adm.ipNumber);
     const { roomNo, bedNo } = getActiveRoom(adm);
-    // packageNo comes from API as the stored number; resolve name from packages list
     const storedPackageNo = adm.packageNo || "";
     const resolvedName    = resolvePackageName(storedPackageNo);
+    setPendingEditReason("");
     setForm({
       ...EMPTY,
       uhid:                 adm.uhid                ||"",
@@ -712,7 +804,6 @@ export default function Admission() {
       roomNo,
       bedNo,
       reasonForAdmission:   adm.reasonForAdmission  ||"",
-      // packageNo = stored number; packageName = resolved display name
       packageNo:            storedPackageNo,
       packageName:          resolvedName,
       mlc_type:             adm.mlc_type            ||"",
@@ -721,6 +812,7 @@ export default function Admission() {
       firstName:            adm.firstName           ||"",
       middleName:           adm.middleName          ||"",
       lastName:             adm.lastName            ||"",
+      dob:                  adm.dob                 ||"",
       age:                  adm.age                 ||"",
       gender:               adm.gender              ||"",
       mobilePhone:          adm.mobilePhone         ||"",
@@ -757,11 +849,10 @@ export default function Admission() {
   const paginated  = filtered.slice((page-1)*perPage, page*perPage);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setFormOpen(true); };
+  const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setFormOpen(true); };
   const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setFormOpen(true); window.scrollTo({top:0,behavior:"smooth"}); };
-  const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); };
+  const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); };
 
-  // When packageNo changes, resolve and store the display name from packages list
   const handleFormChange = e => {
     const { name, value, type, files } = e.target;
     if (name === "packageNo") {
@@ -772,32 +863,48 @@ export default function Admission() {
     }
   };
 
-  // ── Submit ────────────────────────────────────────────────────────────────
+  // ── Submit (new) ──────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!editingId && !form.uhid) { showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID to proceed." }); return; }
     if (!form.admittingDoctor)    { showInfo({ type:"warning", title:"Doctor Required", message:"Please select an Admitting Doctor." }); return; }
     if (!form.roomNo)             { showInfo({ type:"warning", title:"Room Required", message:"Please select a room before saving." }); return; }
     if (!form.bedNo)              { showInfo({ type:"warning", title:"Bed Required", message:"Please select a bed before saving." }); return; }
 
+    // Edit requires a reason — prompt via ReasonModal first
+    if (editingId) {
+      setReasonModal({ mode:"edit", adm: null });
+      return;
+    }
+
+    await _doSave();
+  };
+
+  // Called after edit reason is confirmed
+  const handleEditConfirmed = async (reason) => {
+    setReasonModal(null);
+    setPendingEditReason(reason);
+    await _doSave(reason);
+  };
+
+  const _doSave = async (editReason = "") => {
     setSaving(true);
     const payload = new FormData();
     ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
      "reasonForAdmission","mlc_type","mlc_remarks"].forEach(k => { if (form[k]) payload.append(k, form[k]); });
-
-    // Send packageNo (number) — backend stores it in packageName field
-    // packageName (display name) is NOT sent; backend has no packageName column for display
     if (form.packageNo) payload.append("packageNo", form.packageNo);
-
     payload.append("admissionDateTime", new Date().toISOString());
     if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
+
+    if (editingId) {
+      payload.append("action", "edit");
+      payload.append("edited_Reason", editReason || pendingEditReason);
+    }
 
     try {
       let res;
       if (editingId) {
-        // RENAMED: was admission/<ipNumber>/ → now admission-detail/<ipNumber>/
         res = await apiRequest(API_ADMISSION_DETAIL(editingId), "PUT", payload);
       } else {
-        // RENAMED: was admission/ → now admission-list/
         res = await apiRequest(API_ADMISSION_LIST, "POST", payload);
       }
 
@@ -816,17 +923,20 @@ export default function Admission() {
     finally { setSaving(false); }
   };
 
-  const handleCancel = async adm => {
+  // ── Cancel ────────────────────────────────────────────────────────────────
+  // Opens ReasonModal first, then sends PUT action=cancel with reason
+  const handleCancel = (adm) => {
     setOpenMenu(null);
-    const confirmed = await showConfirm({
-      icon:"🗑️", title:"Cancel Admission?", danger:true,
-      confirmLabel:"Yes, Cancel", cancelLabel:"Keep Admission",
-      message: (<>You are about to cancel the admission for <strong>{pName(adm)}</strong>.<br/><br/>This will deactivate <strong>all rooms</strong> in both room details and shifting records.</>),
-    });
-    if (!confirmed) return;
+    setReasonModal({ mode:"cancel", adm });
+  };
+
+  const handleCancelConfirmed = async (adm, reason) => {
+    setReasonModal(null);
     try {
-      // RENAMED: was admission/<ipNumber>/ → now admission-detail/<ipNumber>/
-      const res = await apiRequest(API_ADMISSION_DETAIL(adm.ipNumber), "DELETE");
+      const res = await apiRequest(API_ADMISSION_DETAIL(adm.ipNumber), "PUT", {
+        action: "cancel",
+        cancelled_Reason: reason,
+      });
       if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
       else showInfo({ type:"error", title:"Cancel Failed", message: res.error||"Failed to cancel admission." });
     } catch { showInfo({ type:"error", title:"Error", message:"Failed to cancel admission. Please try again." }); }
@@ -837,7 +947,7 @@ export default function Admission() {
   const handleMenuToggle = (ipNumber, e) => {
     if (openMenu === ipNumber) { setOpenMenu(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
-    const mw   = 190;
+    const mw   = 200;
     let left   = rect.right - mw;
     let top    = rect.bottom + 4;
     if (left < 8) left = 8;
@@ -856,7 +966,7 @@ export default function Admission() {
     let barsHtml="", xPos=0;
     for (let i=0;i<encoded.length;i++) { if(i%2===0) barsHtml+=`<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW,0.6).toFixed(2)}" height="50" fill="black"/>`; xPos+=modW; }
     const w = window.open("","_blank","width=640,height=440");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div><div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div><div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
     w.document.close();
   };
 
@@ -867,8 +977,6 @@ export default function Admission() {
     return g;
   })();
   const handleRoomClick = room => {
-    // Only block if truly no Available bed — a room can be "partial" or
-    // "not-cleaned" at room level but still have individual Available beds
     if (getRoomStatus(room.beds) === "maintenance") return;
     const hasAvail = (room.beds||[]).some(b => b.status === "Available");
     if (!hasAvail) return;
@@ -932,12 +1040,29 @@ export default function Admission() {
               <FPTitle>
                 {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
                 {editingId && <span style={{fontWeight:400,color:"#6b7280",fontSize:".72rem"}}>&nbsp; IP: {editingId}</span>}
+                {editingId && form.is_cancelled && <span style={{background:"#fee2e2",color:"#991b1b",fontSize:".68rem",padding:"1px 8px",borderRadius:10,marginLeft:4}}>Cancelled</span>}
               </FPTitle>
               <CloseFP onClick={closeForm}>×</CloseFP>
             </FPHead>
 
             <div style={{background:"linear-gradient(180deg,#f0fdf4 0%,#fff 80px)"}}>
               <FGrid>
+
+                {/* ── Active admission warning banner ── */}
+                {editingId && (()=>{
+                  const activeExists = admissions.find(a =>
+                    String(a.uhid).trim() === String(form.uhid).trim()
+                    && a.is_admitted && !a.is_discharged && !a.is_cancelled
+                    && a.ipNumber !== editingId
+                  );
+                  if (!activeExists) return null;
+                  return (
+                    <ActiveBanner>
+                      ⚠️ <strong>Already Has Active Admission</strong> — IP: {activeExists.ipNumber}.
+                      &nbsp;You are currently editing a different record.
+                    </ActiveBanner>
+                  );
+                })()}
 
                 <Field span={2}>
                   <Lbl req>UHID</Lbl>
@@ -964,10 +1089,16 @@ export default function Admission() {
 
                 <SecDiv>Patient Details (auto-filled from UHID)</SecDiv>
                 <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(form)} readOnly/></Field>
-                <Field><Lbl>Age</Lbl><Inp value={form.age} readOnly/></Field>
+                <Field><Lbl>DOB</Lbl><Inp value={form.dob||""} readOnly style={{background:"#f3f4f6"}}/></Field>
+                <Field>
+                  <Lbl>Age (calculated)</Lbl>
+                  <Inp value={form.age||""} readOnly
+                    style={{background:"#f0fdf4",fontWeight:700,color:"#0d9488"}}
+                    title="Automatically calculated from Date of Birth"/>
+                </Field>
                 <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly/></Field>
-                <Field><Lbl>Customer Type</Lbl><Inp value={form.customerType} readOnly/></Field>
-                <Field span={3}><Lbl>Insurance</Lbl><Inp value={form.insuranceCompanyName||""} readOnly placeholder="—"/></Field>
+                <Field span={2}><Lbl>Customer Type</Lbl><Inp value={form.customerType} readOnly/></Field>
+                <Field span={4}><Lbl>Insurance</Lbl><Inp value={form.insuranceCompanyName||""} readOnly placeholder="—"/></Field>
                 <Field span={2}><Lbl>Phone</Lbl><Inp value={form.mobilePhone} readOnly/></Field>
                 <Field span={4}><Lbl>Address</Lbl><Inp value={form.permanent_address} readOnly/></Field>
                 <Field span={2}><Lbl>Area</Lbl><Inp value={form.area} readOnly/></Field>
@@ -1016,11 +1147,6 @@ export default function Admission() {
                 </Field>
                 <Field span={3}>
                   <Lbl>Package</Lbl>
-                  {/*
-                    Dropdown value = packageNo (the number stored in DB).
-                    Display text   = packageName resolved from packages list.
-                    On save: only packageNo is sent to backend; backend stores it in packageName field.
-                  */}
                   <Sel name="packageNo" value={form.packageNo} onChange={handleFormChange}>
                     <option value="">— Select Package —</option>
                     {packages.map(pkg => (
@@ -1029,7 +1155,6 @@ export default function Admission() {
                       </option>
                     ))}
                   </Sel>
-                  {/* Show resolved display name below the dropdown */}
                   {form.packageNo && (
                     <span style={{fontSize:".68rem",color:"#6b7280",marginTop:2}}>
                       Selected: {resolvePackageName(form.packageNo) || form.packageName || "—"}
@@ -1168,6 +1293,11 @@ export default function Admission() {
               ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
             </DI>
             <DI onClick={()=>{setOpenMenu(null);setHistoryAdm(adm);}}>🏨 Room History</DI>
+            {/* ── Room Shifting ── */}
+            <DI onClick={()=>{setOpenMenu(null); setShiftAdm(adm);}} disabled={!isAdmitted}
+              title={!isAdmitted?`Cannot shift — admission is ${t}`:"Shift room"}>
+              🔄 Room Shifting{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
+            </DI>
             <DI danger onClick={()=>{if(isAdmitted)handleCancel(adm);}} disabled={!isAdmitted}
               title={!isAdmitted?`Cannot cancel — admission is ${t}`:"Cancel admission"}>
               🗑️ Cancel Admission{!isAdmitted&&<span style={{fontSize:".62rem",color:"#fca5a5",marginLeft:"auto"}}>({t})</span>}
@@ -1180,12 +1310,55 @@ export default function Admission() {
       {confirmModal&&<ConfirmModal {...confirmModal}/>}
       {infoModal&&<InfoModal {...infoModal}/>}
 
+      {/* ── Reason Modal (cancel or edit) ── */}
+      {reasonModal&&(
+        <ReasonModal
+          mode={reasonModal.mode}
+          onCancel={()=>setReasonModal(null)}
+          onConfirm={reason=>{
+            if (reasonModal.mode==="cancel") handleCancelConfirmed(reasonModal.adm, reason);
+            else handleEditConfirmed(reason);
+          }}
+        />
+      )}
+
       {alreadyAdmInfo&&(
         <AlreadyAdmittedModal info={alreadyAdmInfo} onClose={()=>setAlreadyAdmInfo(null)}
           onEdit={info=>{const existing=admissions.find(a=>a.ipNumber===info.ipNumber);if(existing)openEditForm(existing);}}/>
       )}
 
       {historyAdm&&<RoomHistoryModal adm={historyAdm} onClose={()=>setHistoryAdm(null)}/>}
+
+      {/* ══ ROOM SHIFTING MODAL ══ */}
+      {shiftAdm&&(
+        <ModalOverlay onClick={()=>setShiftAdm(null)}>
+          <ShiftMC onClick={e=>e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>🔄 Room Shifting — {shiftAdm.ipNumber}</ModalTitle>
+              <CloseButton onClick={()=>setShiftAdm(null)}>×</CloseButton>
+            </ModalHeader>
+            <ShiftMB>
+              {/*
+                Pass the admission as `patient` prop so RoomShifting
+                pre-fills UHID / IP and loads the admission automatically.
+                onSaved triggers a refresh and closes the modal.
+              */}
+              <RoomShifting
+                patient={{
+                  uhid:     shiftAdm.uhid,
+                  ipNumber: shiftAdm.ipNumber,
+                  patient_details: {
+                    uhid:     shiftAdm.uhid,
+                    ipNumber: shiftAdm.ipNumber,
+                  }
+                }}
+                onClose={()=>setShiftAdm(null)}
+                onSaved={()=>{ setShiftAdm(null); fetchAdmissions(); }}
+              />
+            </ShiftMB>
+          </ShiftMC>
+        </ModalOverlay>
+      )}
 
       {/* ══ ROOM PICKER ══ */}
       {showRoom&&(
@@ -1302,7 +1475,11 @@ export default function Admission() {
                     <SL>
                       <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText/>
                       <SBold>{pName(printData)}</SBold>
-                      <SLn>{printData.age||""} {printData.gender||""}</SLn>
+                      <SLn>
+                        {printData.dob ? `DOB: ${printData.dob}  ` : ""}
+                        {printData.age ? `Age: ${printData.age}` : ""}
+                        {printData.gender ? `  ${printData.gender}` : ""}
+                      </SLn>
                       <SLn>{printData.permanent_address||""}</SLn>
                       <SLn>{[printData.area,printData.city,printData.state].filter(Boolean).join(", ")}</SLn>
                       <SLn>{printData.mobilePhone||""}</SLn>

@@ -742,7 +742,7 @@ const EMPTY = {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const RoomShifting = () => {
+const RoomShifting = ({ patient, onClose, onSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const [form,          setForm]      = useState(EMPTY);
@@ -760,20 +760,36 @@ const RoomShifting = () => {
   const todayDisplay  = new Date().toLocaleDateString("en-GB");
   const alreadyShifted = form.has_shifted === true;
 
-  const fetchShiftings = async () => {
+  const fetchShiftings = async (customFilters = null) => {
     try {
+      const activeFilters = customFilters || filters;
       const p = new URLSearchParams();
-      if (filters.fromDate) p.append("from_date", filters.fromDate);
-      if (filters.toDate)   p.append("to_date",   filters.toDate);
-      if (filters.uhid)     p.append("uhid",      filters.uhid);
-      if (filters.ipNumber) p.append("ip_number", filters.ipNumber);
+      if (activeFilters.fromDate) p.append("from_date", activeFilters.fromDate);
+      if (activeFilters.toDate)   p.append("to_date",   activeFilters.toDate);
+      if (activeFilters.uhid)     p.append("uhid",      activeFilters.uhid);
+      if (activeFilters.ipNumber) p.append("ip_number", activeFilters.ipNumber);
       const res  = await apiRequest(`${HmsBaseUrl}room-shifting/?${p}`, "GET");
       const data = Array.isArray(res) ? res : Array.isArray(res.data) ? res.data : [];
       setShiftings(data);
     } catch (err) { console.error("fetchShiftings:", err); }
   };
 
-  useEffect(() => { fetchShiftings(); }, []);
+  useEffect(() => {
+    if (patient) {
+      const uhid = patient.uhid || patient.patient_details?.uhid;
+      const ipNumber = patient.ipNumber || patient.patient_details?.ipNumber;
+      if (uhid || ipNumber) {
+        const newFilters = { ...filters, uhid: uhid || "", ipNumber: ipNumber || "" };
+        setFilters(newFilters);
+        if (ipNumber) loadAdmission({ ip_number: ipNumber });
+        else loadAdmission({ uhid: uhid });
+        fetchShiftings(newFilters);
+      }
+    } else {
+      fetchShiftings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patient]);
 
   const loadAdmission = async (params) => {
     try {
@@ -827,7 +843,15 @@ const RoomShifting = () => {
     if (!newRoomNo || !newBedNo) return toast.warning("Select a new room and bed");
     try {
       const res = await apiRequest(`${HmsBaseUrl}room-shifting/`, "POST", { ip_number: ipNumber, uhid, newRoomNo, newBedNo });
-      if (res.success || res.message) { toast.success("Room shifted successfully!"); handleReset(); fetchShiftings(); }
+      if (res.success || res.message) { 
+        toast.success("Room shifted successfully!"); 
+        handleReset(); 
+        if (onSaved && typeof onSaved === "function") {
+          onSaved();
+        } else {
+          fetchShiftings(); 
+        }
+      }
       else toast.error(res.error || "Failed to shift room");
     } catch (err) {
       toast.error(err?.response?.data?.error || err?.message || "An error occurred");
@@ -837,7 +861,7 @@ const RoomShifting = () => {
   const handleEditSave = async (shiftingId, updates, ipNumber) => {
     try {
       const ip  = ipNumber || form.ipNumber;
-      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`, "PATCH", { shifting_id: shiftingId, ...updates });
+      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`, "PUT", { shifting_id: shiftingId, ...updates });
       if (res.success || res.message) { toast.success("Updated — new shifting record created"); setEditOpen(false); fetchShiftings(); }
       else toast.error(res.error || "Update failed");
     } catch { toast.error("Update failed"); }
@@ -848,9 +872,11 @@ const RoomShifting = () => {
       <Container>
 
         {/* ── Header ── */}
-        <PageHeader>
-          <PageTitle>🏥 Room Shifting</PageTitle>
-        </PageHeader>
+        {!patient && (
+          <PageHeader>
+            <PageTitle>🏥 Room Shifting</PageTitle>
+          </PageHeader>
+        )}
 
         {/* ── Patient Lookup ── */}
         <Card>

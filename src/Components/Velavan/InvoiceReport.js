@@ -375,8 +375,11 @@ const InvoiceReport = () => {
           items: parseItems(record.items),
         }));
 
-        setAllData(data);
-        setFilteredData(data);
+        const sorted = [...data].sort(
+          (a, b) => new Date(b.invoice_date) - new Date(a.invoice_date),
+        );
+        setAllData(sorted);
+        setFilteredData(sorted);
         if (data.length === 0)
           toast.info("No records found for the selected date range");
       } catch (err) {
@@ -403,16 +406,18 @@ const InvoiceReport = () => {
     }
     const s = filters.search.toLowerCase().trim();
     setFilteredData(
-      allData.filter(
-        (item) =>
-          item.grn_number?.toLowerCase().includes(s) ||
-          item.invoice_no?.toLowerCase().includes(s) ||
-          item.vendor?.toLowerCase().includes(s) ||
-          item.vendor_id?.toLowerCase().includes(s) ||
-          item.patient_name?.toLowerCase().includes(s) ||
-          item.surgeon_id?.toLowerCase().includes(s) ||
-          item.ip_number?.toLowerCase().includes(s),
-      ),
+      [
+        ...allData.filter(
+          (item) =>
+            item.grn_number?.toLowerCase().includes(s) ||
+            item.invoice_no?.toLowerCase().includes(s) ||
+            item.vendor?.toLowerCase().includes(s) ||
+            item.vendor_id?.toLowerCase().includes(s) ||
+            item.patient_name?.toLowerCase().includes(s) ||
+            item.surgeon_id?.toLowerCase().includes(s) ||
+            item.ip_number?.toLowerCase().includes(s),
+        ),
+      ].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date)),
     );
     setCurrentPage(1);
   }, [allData, filters.search]);
@@ -699,10 +704,8 @@ const InvoiceReport = () => {
   const handleVelavanPrint = (record) => {
     const items = parseItems(record.items);
 
-    const sellingNonTaxableAmt = items.reduce(
-      (sum, item) =>
-        sum +
-        parseFloat(item.sellingUnitCost || 0) * parseFloat(item.quantity || 0),
+    const sellingTaxableAmt = items.reduce(
+      (sum, item) => sum + parseFloat(item.sellingCostBeforeGst || 0),
       0,
     );
 
@@ -717,9 +720,7 @@ const InvoiceReport = () => {
     );
 
     const sellingTotal = items.reduce(
-      (sum, item) =>
-        sum +
-        parseFloat(item.unitSellingCost || 0) * parseFloat(item.quantity || 0),
+      (sum, item) => sum + parseFloat(item.sellingCost || 0),
       0,
     );
     // ── Round-off logic ──────────────────────────────────────────
@@ -798,12 +799,13 @@ const InvoiceReport = () => {
           ${items
             .map((item, i) => {
               const qty = parseFloat(item.quantity || 0);
-              const unitSelling = parseFloat(item.sellingUnitCost || 0);
+              const unitSelling =
+                parseFloat(item.sellingCostBeforeGst || 0) / qty;
               const nonTaxableAmt = unitSelling * qty;
               const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
               const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
               const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
+              // const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
               return `<tr>
               <td>${i + 1}</td>
               <td class="l">${item.name || "N/A"}</td>
@@ -820,18 +822,18 @@ const InvoiceReport = () => {
               <td class="r">₹${cgstAmt.toFixed(2)}</td>
               <td>${item.sellingsgstPercent || 0}%</td>
               <td class="r">₹${sgstAmt.toFixed(2)}</td>
-              <td class="r"><b>₹${lineTotal.toFixed(2)}</b></td>
+              <td class="r"><b>₹${item.sellingCost || 0}</b></td>
             </tr>`;
             })
             .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${sellingNonTaxableAmt.toFixed(2)}</td>
+            <td class="r">₹${sellingTaxableAmt.toFixed(2)}</td>
             <td style="border-left:2px solid #000"></td>
             <td class="r">₹${sellingCgst.toFixed(2)}</td>
             <td></td>
             <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.unitSellingCost || 0) * parseFloat(i.quantity || 0), 0).toFixed(2)}</b></td>
+            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.sellingCost || 0), 0).toFixed(2)}</b></td>
           </tr>
         </tbody>
       </table>`
@@ -892,13 +894,15 @@ const InvoiceReport = () => {
           </div>
         </div>
         <div class="amts">
-          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingNonTaxableAmt.toFixed(2)}</span></div>
+          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingTaxableAmt.toFixed(2)}</span></div>
           <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
           <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
           <div class="amt-row">
-            <span>Round Off</span>
-            <span>${roundOff >= 0 ? "+" : ""}₹${roundOff.toFixed(2)}</span>
-          </div>
+  <span>Round Off</span>
+  <span style="${roundOff === 0 ? "color:#999" : "color:#000"}">
+    ${roundOff > 0 ? "+" : ""}₹${roundOff.toFixed(2)}
+  </span>
+</div>
           <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${roundedTotal.toFixed(2)}</b></span></div>
         </div>
       </div>
@@ -1000,14 +1004,10 @@ const InvoiceReport = () => {
       vendorGroups[vendor].rows.push(row);
 
       const rowItems = parseItems(row.items);
-      const sellingAmt = rowItems.reduce((sum, item) => {
-        const base =
-          parseFloat(item.unitSellingCost || 0) *
-          parseFloat(item.quantity || 0);
-        const cgst = parseFloat(item.sellingCgstAmt || 0);
-        const sgst = parseFloat(item.sellingSgstAmt || 0);
-        return sum + base + cgst + sgst;
-      }, 0);
+      const sellingAmt = rowItems.reduce(
+        (sum, item) => sum + parseFloat(item.sellingCost || 0),
+        0,
+      );
 
       // ── Round-off logic ──────────────────────────────────────────
       const decimal = sellingAmt - Math.floor(sellingAmt);
@@ -1801,14 +1801,11 @@ const InvoiceReport = () => {
                     >
                       {(() => {
                         const rowItems = parseItems(row.items);
-                        const sellingAmt = rowItems.reduce((sum, item) => {
-                          const base =
-                            parseFloat(item.unitSellingCost || 0) *
-                            parseFloat(item.quantity || 0);
-                          const cgst = parseFloat(item.sellingCgstAmt || 0);
-                          const sgst = parseFloat(item.sellingSgstAmt || 0);
-                          return sum + base + cgst + sgst;
-                        }, 0);
+                        const sellingAmt = rowItems.reduce(
+                          (sum, item) =>
+                            sum + parseFloat(item.sellingCost || 0),
+                          0,
+                        );
                         const decimal = sellingAmt - Math.floor(sellingAmt);
                         const roundOff =
                           decimal >= 0.5 ? 1 - decimal : -decimal;

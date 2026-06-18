@@ -6,7 +6,7 @@ import React, {
   useRef,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { createPortal } from "react-dom";
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
@@ -36,15 +36,7 @@ import {
   ButtonContainer,
   colors,
 } from "../GlobalStyles";
-
-// ─── Bill Type Options ────────────────────────────────────────────────────────
-
-const BILL_TYPES = [
-  { label: "CT", value: "CT01" },
-  { label: "MRI", value: "MRI01" },
-  { label: "USG", value: "USG01" },
-  { label: "X-RAY", value: "XRAY01" },
-];
+import RDPrint from "./RDPrint";
 
 // ─── Animations ───────────────────────────────────────────────────────────────
 
@@ -57,6 +49,53 @@ const pulse = keyframes`
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.5; }
 `;
+
+// ─── Table Helpers ────────────────────────────────────────────────────────────
+
+const isTableEntry = (entry) => !!entry?.table_id;
+
+const parseTableDimensions = (tableId) => {
+  const parts = (tableId || "").toUpperCase().split("X");
+  const r = parseInt(parts[0], 10);
+  const c = parseInt(parts[1], 10);
+  return { rows: isNaN(r) ? 0 : r, cols: isNaN(c) ? 0 : c };
+};
+
+const extractTableCells = (entry, rows, cols) => {
+  const grid = [];
+  for (let r = 1; r <= rows; r++) {
+    const row = [];
+    for (let c = 1; c <= cols; c++) {
+      row.push(entry[`row${r}col${c}`] || "");
+    }
+    grid.push(row);
+  }
+  return grid;
+};
+
+const serializeTableCells = (grid) => {
+  const out = {};
+  grid.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      out[`row${ri + 1}col${ci + 1}`] = cell;
+    });
+  });
+  return out;
+};
+
+const buildInitialHTML = (text) => {
+  if (!text) return "";
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  const tmp = document.createElement("div");
+  tmp.textContent = text;
+  const safeHTML = tmp.innerHTML;
+  return safeHTML.replace(
+    /\/\/\//g,
+    `<mark class="ph" style="background:#fff3e0;color:#e65100;font-weight:700;border-radius:3px;padding:0 2px;cursor:text;">///</mark>`,
+  );
+};
+
+const stripHTML = (html) => (html || "").replace(/<[^>]*>/g, "").trim();
 
 // ─── Page Layout ──────────────────────────────────────────────────────────────
 
@@ -122,19 +161,16 @@ const StatIcon = styled.span`
   font-size: 1.1rem;
   flex-shrink: 0;
 `;
-
 const StatInfo = styled.div`
   display: flex;
   flex-direction: column;
 `;
-
 const StatCount = styled.span`
   font-size: 1.25rem;
   font-weight: 800;
   color: ${(p) => p.color || "#333"};
   line-height: 1.1;
 `;
-
 const StatLabel = styled.span`
   font-size: 0.65rem;
   font-weight: 600;
@@ -143,7 +179,7 @@ const StatLabel = styled.span`
   letter-spacing: 0.4px;
 `;
 
-// ─── Date + Bill Type Filter Bar ──────────────────────────────────────────────
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
 
 const FilterContainer = styled.div`
   display: flex;
@@ -152,13 +188,11 @@ const FilterContainer = styled.div`
   flex-wrap: wrap;
   align-items: flex-end;
 `;
-
 const FilterGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 `;
-
 const FilterLabel = styled.label`
   color: #00897b;
   font-weight: 600;
@@ -166,7 +200,6 @@ const FilterLabel = styled.label`
   text-transform: uppercase;
   letter-spacing: 0.4px;
 `;
-
 const DateInput = styled.input`
   padding: 0.4rem 0.6rem;
   border: 1.5px solid #e0e0e0;
@@ -180,15 +213,11 @@ const DateInput = styled.input`
     box-shadow: 0 0 0 2px rgba(0, 137, 123, 0.1);
   }
 `;
-
-// ─── Bill Type Dropdown ───────────────────────────────────────────────────────
-
 const BillTypeWrapper = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 `;
-
 const BillTypeSelect = styled.select`
   padding: 0.4rem 2rem 0.4rem 0.75rem;
   border: 2px solid #00897b;
@@ -221,7 +250,6 @@ const BillTypeSelect = styled.select`
     background: white;
   }
 `;
-
 const ResetButton = styled(Button)`
   background: linear-gradient(135deg, #757575 0%, #616161 100%);
   padding: 0.4rem 1rem;
@@ -234,7 +262,7 @@ const ResetButton = styled(Button)`
   }
 `;
 
-// ─── Column Search Row ────────────────────────────────────────────────────────
+// ─── Column Search ────────────────────────────────────────────────────────────
 
 const SearchInput = styled.input`
   width: 100%;
@@ -259,9 +287,9 @@ const SearchInput = styled.input`
     font-style: italic;
   }
 `;
-
 const SearchSelect = styled.select`
-  width: 100%;
+  width: max-content;
+  min-width: max-content;
   padding: 0.4rem 0.5rem;
   border: 1.5px solid #e0e0e0;
   border-radius: 7px;
@@ -280,7 +308,6 @@ const SearchSelect = styled.select`
     background: #fff;
   }
 `;
-
 const SearchTh = styled.th`
   padding: 0.4rem 0.5rem 0.6rem;
   background: #f8fffe;
@@ -299,28 +326,24 @@ const IconBtn = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 1.4rem;
   transition:
     transform 0.15s,
-    box-shadow 0.15s,
-    filter 0.15s;
+    opacity 0.15s;
   flex-shrink: 0;
-  background: ${(p) => p.bg || "#eee"};
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  background: transparent;
+  box-shadow: none;
   &:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.08);
-    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
-    filter: brightness(1.1);
+    transform: translateY(-2px) scale(1.15);
+    opacity: 0.8;
   }
   &:active:not(:disabled) {
     transform: translateY(0) scale(1);
   }
   &:disabled {
-    opacity: 0.28;
+    opacity: 0.25;
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
-    filter: none;
   }
   &::after {
     content: attr(data-tip);
@@ -339,7 +362,6 @@ const IconBtn = styled.button`
     opacity: 0;
     transition: opacity 0.18s;
     z-index: 9999;
-    letter-spacing: 0.3px;
   }
   &::before {
     content: "";
@@ -359,7 +381,6 @@ const IconBtn = styled.button`
     opacity: 1;
   }
 `;
-
 const ActionRow = styled.div`
   display: flex;
   gap: 0.3rem;
@@ -367,25 +388,11 @@ const ActionRow = styled.div`
   flex-wrap: nowrap;
 `;
 
-// ─── Print Dropdown (portal pattern) ─────────────────────────────────────────
+// ─── Print Dropdown ───────────────────────────────────────────────────────────
 
-// Replace the styled component
 const PrintDropdownWrapper = styled.div`
   position: relative;
-  &::after {
-    content: "";
-    position: fixed;
-    width: 210px;
-    height: 10px;
-    left: ${(p) => p.left || 0}px;
-    top: ${(p) => p.top || 0}px;
-    z-index: 9998;
-    pointer-events: auto;
-    background: transparent;
-  }
 `;
-
-// Replace PortalDropdownMenu
 const PortalDropdownMenu = styled.div`
   position: fixed;
   background-color: white;
@@ -395,7 +402,6 @@ const PortalDropdownMenu = styled.div`
   z-index: 9999;
   overflow: hidden;
   border: 1px solid #e9ecef;
-  // Bridge the gap with invisible top padding
   padding-top: 6px;
   margin-top: -6px;
 `;
@@ -415,7 +421,7 @@ const DropdownItem = styled.button`
   }
 `;
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Status Badges ────────────────────────────────────────────────────────────
 
 const StatusBadge = styled.span`
   padding: 0.3rem 0.75rem;
@@ -430,13 +436,14 @@ const StatusBadge = styled.span`
   white-space: nowrap;
   ${(props) => {
     if (!props.hasReport)
-      return `background: linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%); color:#1565c0;`;
+      return `background:linear-gradient(135deg,#e3f2fd,#bbdefb);color:#1565c0;`;
+    if (props.dispatched)
+      return `background:linear-gradient(135deg,#b3e5fc,#81d4fa);color:#01579b;`;
     if (props.approved)
-      return `background: linear-gradient(135deg,#c8e6c9 0%,#a5d6a7 100%); color:#2e7d32;`;
-    return `background: linear-gradient(135deg,#fff9c4 0%,#fff59d 100%); color:#f57f17;`;
+      return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`;
+    return `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`;
   }}
 `;
-
 const SlotBadge = styled.span`
   padding: 0.22rem 0.55rem;
   border-radius: 10px;
@@ -445,11 +452,10 @@ const SlotBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
-  background: linear-gradient(135deg, #ede7f6 0%, #d1c4e9 100%);
+  background: linear-gradient(135deg, #ede7f6, #d1c4e9);
   color: #4527a0;
   white-space: nowrap;
 `;
-
 const ReferredByBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -457,36 +463,148 @@ const ReferredByBadge = styled.span`
   font-size: 0.75rem;
   font-weight: 600;
   color: #0277bd;
-  background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%);
+  background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
   padding: 0.2rem 0.6rem;
   border-radius: 20px;
   white-space: nowrap;
 `;
+const ScanTypeBadge = styled.span`
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  ${(p) => {
+    switch (p.type) {
+      case "DOPPLER":
+        return `background:#e3f2fd; color:#1565c0;`;
+      case "ANC":
+        return `background:#fce4ec; color:#880e4f;`;
+      case "OBSTETRIC":
+        return `background:#f3e5f5; color:#6a1b9a;`;
+      case "GENERAL":
+      default:
+        return `background:#e8f5e9; color:#2e7d32;`;
+    }
+  }}
+`;
+
+const TATBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  ${(p) => {
+    switch (p.status) {
+      case "completed":
+        return `background:linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#1b5e20;`;
+      case "completed_late":
+        return `background:linear-gradient(135deg,#ffe0b2,#ffcc80); color:#bf360c;`;
+      case "overdue":
+        return `background:linear-gradient(135deg,#ffcdd2,#ef9a9a); color:#b71c1c;`;
+      case "on_track":
+        return `background:linear-gradient(135deg,#e3f2fd,#bbdefb); color:#0d47a1;`;
+      case "waiting":
+        return `background:linear-gradient(135deg,#f5f5f5,#eeeeee); color:#9e9e9e;`;
+      default:
+        return `background:#f5f5f5; color:#9e9e9e;`;
+    }
+  }}
+`;
+const SlotPunctualityBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 10px;
+  white-space: nowrap;
+  ${(p) =>
+    p.status === "on_time"
+      ? `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#1b5e20;`
+      : p.status === "late"
+        ? `background:linear-gradient(135deg,#ffcdd2,#ef9a9a);color:#b71c1c;`
+        : `background:#f5f5f5;color:#9e9e9e;`}
+`;
+
+const tatIcon = (status) => {
+  switch (status) {
+    case "completed":
+      return "✅";
+    case "completed_late":
+      return "⚠️";
+    case "overdue":
+      return "🔴";
+    case "on_track":
+      return "🟢";
+    case "waiting":
+      return "⏳";
+    default:
+      return "—";
+  }
+};
+
+// ─── ANC Info Row ─────────────────────────────────────────────────────────────
+const ANCInfoRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.65rem;
+  background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
+  border: 1.5px solid #b2dfdb;
+  border-left: 4px solid #00897b;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+`;
+const ANCInfoChip = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+`;
+const ANCInfoLabel = styled.span`
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #00897b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+const ANCInfoValue = styled.span`
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #333;
+`;
 
 const EmptyState = styled.div`
   text-align: center;
-  padding: 4rem 2rem;
+  padding: 3rem 2rem;
   color: #999;
-  &::before {
-    content: "📭";
-    font-size: 4rem;
-    display: block;
-    margin-bottom: 1rem;
-  }
   p {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 500;
     color: #666;
+    margin-top: 0.75rem;
   }
 `;
 
-// ─── Shared Modal Base ────────────────────────────────────────────────────────
+// ─── Modal Base ───────────────────────────────────────────────────────────────
 
 const StyledModalOverlay = styled(ModalOverlay)`
   background: linear-gradient(
     135deg,
-    rgba(0, 137, 123, 0.9) 0%,
-    rgba(0, 105, 92, 0.9) 100%
+    rgba(0, 137, 123, 0.9),
+    rgba(0, 105, 92, 0.9)
   );
   backdrop-filter: blur(10px);
   display: flex;
@@ -495,7 +613,6 @@ const StyledModalOverlay = styled(ModalOverlay)`
   overflow-y: auto;
   padding: 1rem;
 `;
-
 const StyledModalContent = styled(ModalContainer)`
   border-radius: 24px;
   padding: 2.5rem;
@@ -509,20 +626,17 @@ const StyledModalContent = styled(ModalContainer)`
   position: relative;
   animation: ${slideUp} 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 `;
-
 const StyledModalHeader = styled(ModalHeader)`
   border-bottom: 2px solid #f0f0f0;
   background: transparent;
   padding: 0 0 1rem 0;
   margin-bottom: 1.5rem;
 `;
-
 const ModalIcon = styled.span`
   font-size: 2rem;
 `;
-
 const InfoBanner = styled.div`
-  background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+  background: linear-gradient(135deg, #e8f5e9, #f1f8f4);
   border: 1.5px solid #b2dfdb;
   border-left: 5px solid #00897b;
   border-radius: 14px;
@@ -532,13 +646,11 @@ const InfoBanner = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.5rem 1rem;
 `;
-
 const InfoChip = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
 `;
-
 const InfoChipLabel = styled.span`
   font-size: 0.62rem;
   font-weight: 700;
@@ -546,12 +658,13 @@ const InfoChipLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
-
 const InfoChipValue = styled.span`
   font-size: 0.85rem;
   font-weight: 600;
   color: #333;
 `;
+
+// ─── Section Cards ────────────────────────────────────────────────────────────
 
 const SectionCard = styled.div`
   border: 2px solid ${(p) => (p.expanded ? "#b2dfdb" : "#f0f0f0")};
@@ -560,28 +673,25 @@ const SectionCard = styled.div`
   transition: border-color 0.2s;
   margin-bottom: 0.6rem;
 `;
-
 const SectionCardHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.7rem 1rem;
-  background: ${(p) =>
-    p.expanded ? "linear-gradient(135deg,#e8f5e9,#f1f8f4)" : "#fafafa"};
   cursor: pointer;
   user-select: none;
   transition: background 0.2s;
+  background: ${(p) =>
+    p.expanded ? "linear-gradient(135deg,#e8f5e9,#f1f8f4)" : "#fafafa"};
   &:hover {
     background: linear-gradient(135deg, #e0f2f1, #e8f5e9);
   }
 `;
-
 const SectionTitleRow = styled.div`
   display: flex;
   align-items: center;
   gap: 0.6rem;
 `;
-
 const SectionNumber = styled.span`
   width: 22px;
   height: 22px;
@@ -595,7 +705,6 @@ const SectionNumber = styled.span`
   justify-content: center;
   flex-shrink: 0;
 `;
-
 const SectionName = styled.span`
   font-weight: 700;
   font-size: 0.82rem;
@@ -603,14 +712,12 @@ const SectionName = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.4px;
 `;
-
 const ChevronIcon = styled.span`
   font-size: 0.8rem;
   color: #00897b;
   transition: transform 0.2s;
   transform: ${(p) => (p.expanded ? "rotate(180deg)" : "rotate(0deg)")};
 `;
-
 const SectionCardBody = styled.div`
   padding: ${(p) => (p.expanded ? "0.875rem 1rem" : "0")};
   max-height: ${(p) => (p.expanded ? "600px" : "0")};
@@ -620,7 +727,6 @@ const SectionCardBody = styled.div`
     padding 0.3s ease;
   background: white;
 `;
-
 const PreviewContent = styled.div`
   font-size: 0.875rem;
   color: #444;
@@ -633,6 +739,77 @@ const PreviewContent = styled.div`
     font-weight: 800;
   }
 `;
+
+// ─── Table Styled Components ──────────────────────────────────────────────────
+
+const ReportTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+  border-radius: 8px;
+  overflow: hidden;
+`;
+const ReportTh = styled.th`
+  background: linear-gradient(135deg, #00897b, #00695c);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.4px;
+  border: 1px solid #00695c;
+`;
+const ReportTd = styled.td`
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #d0e8e5;
+  vertical-align: middle;
+  text-align: center;
+  color: #333;
+  font-size: 0.8rem;
+  background: ${(p) => (p.isHeader ? "#e8f5e9" : p.alt ? "#f8fffe" : "white")};
+  font-weight: ${(p) => (p.isHeader ? "700" : "400")};
+`;
+const EditableCell = styled.div`
+  min-width: 80px;
+  min-height: 28px;
+  padding: 0.2rem 0.4rem;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  &:focus {
+    border-color: #00897b;
+    background: #f0faf8;
+  }
+  b,
+  strong {
+    color: #00695c;
+    font-weight: 800;
+  }
+  mark.ph {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
+  &:empty::before {
+    content: "///";
+    color: #e65100;
+    font-weight: 700;
+  }
+`;
+
+// ─── Rich Editor Components ───────────────────────────────────────────────────
 
 const RichEditor = styled.div`
   width: 100%;
@@ -668,8 +845,15 @@ const RichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
+  mark.ph {
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
 `;
-
 const FinalRichEditor = styled.div`
   width: 100%;
   min-height: 160px;
@@ -705,16 +889,25 @@ const FinalRichEditor = styled.div`
     font-style: italic;
     pointer-events: none;
   }
+  mark.ph {
+    background: #fff3e0;
+    color: #6a1b9a;
+    font-weight: 800;
+    border-radius: 3px;
+    padding: 0 2px;
+    cursor: text;
+  }
 `;
 
+// ─── Impression & Edit Components ─────────────────────────────────────────────
+
 const ImpressionBox = styled.div`
-  background: linear-gradient(135deg, #f3e5f5 0%, #ede7f6 100%);
+  background: linear-gradient(135deg, #f3e5f5, #ede7f6);
   border: 2px solid #ce93d8;
   border-radius: 14px;
   padding: 1.1rem 1.4rem;
   margin-top: 1.25rem;
 `;
-
 const ImpressionTitle = styled.div`
   font-size: 0.8rem;
   font-weight: 800;
@@ -729,7 +922,6 @@ const ImpressionTitle = styled.div`
     content: "📝";
   }
 `;
-
 const ImpressionText = styled.div`
   font-size: 0.938rem;
   color: #333;
@@ -741,16 +933,21 @@ const ImpressionText = styled.div`
     color: #6a1b9a;
     font-weight: 800;
   }
+  mark.ph {
+    background: transparent;
+    color: #6a1b9a;
+    font-weight: 800;
+    border-radius: 3px;
+    padding: 0 2px;
+  }
 `;
-
 const EditImpressionSection = styled.div`
-  background: linear-gradient(135deg, #f3e5f5 0%, #ede7f6 100%);
+  background: linear-gradient(135deg, #f3e5f5, #ede7f6);
   border: 2px solid #ce93d8;
   border-radius: 14px;
   padding: 1.1rem 1.4rem;
   margin-top: 1.25rem;
 `;
-
 const EditImpressionTitle = styled.div`
   font-size: 0.8rem;
   font-weight: 800;
@@ -765,14 +962,12 @@ const EditImpressionTitle = styled.div`
     content: "📝";
   }
 `;
-
 const SectionsHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 0.75rem;
 `;
-
 const SectionsTitle = styled.h3`
   font-size: 0.9rem;
   font-weight: 800;
@@ -785,7 +980,6 @@ const SectionsTitle = styled.h3`
     content: "🏥";
   }
 `;
-
 const SmallBtn = styled.button`
   padding: 0.28rem 0.75rem;
   border: none;
@@ -802,7 +996,6 @@ const SmallBtn = styled.button`
     transform: translateY(-1px);
   }
 `;
-
 const ModalFooter = styled.div`
   display: flex;
   gap: 1rem;
@@ -814,7 +1007,6 @@ const ModalFooter = styled.div`
   background: white;
   z-index: 1;
 `;
-
 const ModalActionButton = styled.button`
   flex: 1;
   padding: 0.875rem 1.5rem;
@@ -840,7 +1032,6 @@ const ModalActionButton = styled.button`
     transform: none;
   }
 `;
-
 const ApprovalBadge = styled.div`
   display: inline-flex;
   align-items: center;
@@ -849,12 +1040,14 @@ const ApprovalBadge = styled.div`
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 700;
+  margin-bottom: 1rem;
   ${(p) =>
     p.approved
-      ? `background: linear-gradient(135deg,#c8e6c9,#a5d6a7); color:#2e7d32;`
-      : `background: linear-gradient(135deg,#fff9c4,#fff59d); color:#f57f17;`}
-  margin-bottom: 1rem;
+      ? `background:linear-gradient(135deg,#c8e6c9,#a5d6a7);color:#2e7d32;`
+      : `background:linear-gradient(135deg,#fff9c4,#fff59d);color:#f57f17;`}
 `;
+
+// ─── Slot Modal ───────────────────────────────────────────────────────────────
 
 const SlotModalContent = styled(StyledModalContent)`
   max-width: 580px;
@@ -862,18 +1055,16 @@ const SlotModalContent = styled(StyledModalContent)`
 const SlotModalOverlay = styled(StyledModalOverlay)`
   background: linear-gradient(
     135deg,
-    rgba(124, 77, 255, 0.88) 0%,
-    rgba(101, 31, 255, 0.88) 100%
+    rgba(124, 77, 255, 0.88),
+    rgba(101, 31, 255, 0.88)
   );
 `;
-
 const SlotFormGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
 `;
-
 const SlotLabel = styled.label`
   color: #4527a0;
   font-weight: 700;
@@ -884,7 +1075,6 @@ const SlotLabel = styled.label`
   align-items: center;
   gap: 0.4rem;
 `;
-
 const SlotInput = styled.input`
   padding: 0.875rem 1rem;
   border: 2px solid #d1c4e9;
@@ -900,13 +1090,11 @@ const SlotInput = styled.input`
     box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.15);
   }
 `;
-
 const SlotDivider = styled.div`
   height: 1px;
   background: linear-gradient(to right, transparent, #e0e0e0, transparent);
   margin: 1rem 0 1.5rem 0;
 `;
-
 const SlotSectionTitle = styled.h3`
   font-size: 0.938rem;
   font-weight: 700;
@@ -918,14 +1106,6 @@ const SlotSectionTitle = styled.h3`
   align-items: center;
   gap: 0.5rem;
 `;
-
-const ImpressionOptionalNote = styled.p`
-  font-size: 0.8rem;
-  color: #888;
-  margin: -0.75rem 0 1rem 0;
-  font-style: italic;
-`;
-
 const SlotInfoRow = styled.div`
   display: flex;
   padding: 0.875rem 0;
@@ -934,7 +1114,6 @@ const SlotInfoRow = styled.div`
     border-bottom: none;
   }
 `;
-
 const SlotInfoLabel = styled.span`
   color: #00897b;
   font-weight: 700;
@@ -943,22 +1122,137 @@ const SlotInfoLabel = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
-
 const SlotInfoValue = styled.span`
   color: #555;
   font-size: 0.938rem;
   flex: 1;
 `;
 
-const StyledTextArea = styled(TextArea)`
+const WfPillBase = css`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
-  min-height: 120px;
-  border: 2px solid #d1c4e9;
-  border-radius: 12px;
-  box-sizing: border-box;
-  &:focus {
-    border-color: #7c4dff;
-    box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.15);
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition:
+    opacity 0.15s,
+    filter 0.15s;
+  font-family: inherit;
+  &:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    filter: none;
+  }
+  &:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+`;
+
+export const WfIcon = styled.span`
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  background: ${(p) => p.bg || "rgba(0,0,0,0.12)"};
+  color: white;
+`;
+
+export const WfTime = styled.span`
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-left: auto;
+  letter-spacing: 0.2px;
+`;
+
+export const WfIdleBtn = styled.button`
+  ${WfPillBase}
+  background: white;
+  border-color: #e0e0e0;
+  color: #9e9e9e;
+  ${WfIcon} {
+    background: #e0e0e0;
+    color: #9e9e9e;
+  }
+  &:hover:not(:disabled) {
+    border-color: #bdbdbd;
+    background: #fafafa;
+    color: #616161;
+    filter: none;
+  }
+`;
+
+export const WfCheckedInBtn = styled.button`
+  ${WfPillBase}
+  background: #f1f8e9;
+  border-color: #c5e1a5;
+  color: #33691e;
+  ${WfIcon} {
+    background: #558b2f;
+  }
+  &:active:not(:disabled) {
+    filter: brightness(0.92);
+  }
+`;
+
+export const WfScanActiveBtn = styled.button`
+  ${WfPillBase}
+  background: #fff8e1;
+  border-color: #ffe082;
+  color: #e65100;
+  ${WfIcon} {
+    background: #f57c00;
+  }
+  &:active:not(:disabled) {
+    filter: brightness(0.92);
+  }
+`;
+
+export const WfDispatchReadyBtn = styled.button`
+  ${WfPillBase}
+  background: #e3f2fd;
+  border-color: #90caf9;
+  color: #0d47a1;
+  ${WfIcon} {
+    background: #1976d2;
+  }
+  &:hover:not(:disabled) {
+    background: #bbdefb;
+    border-color: #64b5f6;
+    filter: none;
+  }
+`;
+
+export const WfDispatchedPill = styled.div`
+  ${WfPillBase}
+  cursor: default;
+  background: #e0f2f1;
+  border-color: #80cbc4;
+  color: #004d40;
+  ${WfIcon} {
+    background: #00796b;
+  }
+`;
+
+export const WfLockedPill = styled.div`
+  ${WfPillBase}
+  cursor: default;
+  opacity: 0.55;
+  background: ${(p) => p.bg || "#f5f5f5"};
+  border-color: ${(p) => p.borderColor || "#e0e0e0"};
+  color: ${(p) => p.color || "#757575"};
+  ${WfIcon} {
+    background: ${(p) => p.iconBg || "#bdbdbd"};
   }
 `;
 
@@ -970,29 +1264,201 @@ const formatDate = (date) => {
   if (date instanceof Date) return date.toISOString().split("T")[0];
   return "";
 };
-
 const getToday = () => new Date().toISOString().split("T")[0];
-
 const formatSlotDisplay = (slotDateTime) => {
   if (!slotDateTime) return null;
   try {
-    const d = new Date(slotDateTime);
-    return d.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
+    const [datePart, timePart] = slotDateTime.split("T");
+    const [year, month, day] = datePart.split("-");
+    const [hour, minute] = timePart.split(":");
+    const h = parseInt(hour, 10);
+    const ampm = h >= 12 ? "pm" : "am";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    return `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year}, ${String(h12).padStart(2, "0")}:${minute} ${ampm}`;
   } catch {
     return slotDateTime;
   }
 };
+const calcGAFromLMP = (lmpDateStr) => {
+  if (!lmpDateStr) return "";
+  try {
+    const lmp = new Date(lmpDateStr);
+    const today = new Date();
+    const diffMs = today - lmp;
+    if (diffMs < 0) return "";
+    const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const weeks = Math.floor(totalDays / 7);
+    const days = totalDays % 7;
+    return `${weeks}W${days}D`;
+  } catch {
+    return "";
+  }
+};
 
-const stripHTML = (html) => (html || "").replace(/<[^>]*>/g, "").trim();
+const getANCFields = (row) => row?.report?.valuedetails?.anc_fields || null;
+const isANCRow = (row) => row.radiology_type === "ANC" || !!getANCFields(row);
+const formatLMPDate = (val) => {
+  if (!val) return "—";
+  try {
+    return new Date(val).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return val;
+  }
+};
+const useLiveTime = () => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+};
 
-// ─── Rich Editor Components ───────────────────────────────────────────────────
+const ANCDisplayBlock = ({ row }) => {
+  const anc = getANCFields(row) || {};
+  return (
+    <ANCInfoRow>
+      <ANCInfoChip>
+        <ANCInfoLabel>GUH</ANCInfoLabel>
+        <ANCInfoValue>{anc.guh || "—"}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>LMP</ANCInfoLabel>
+        <ANCInfoValue>{formatLMPDate(anc.lmp)}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
+        <ANCInfoValue>{anc.ga_lmp || "—"}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>GA (By USG)</ANCInfoLabel>
+        <ANCInfoValue>{anc.ga_usg || "—"}</ANCInfoValue>
+      </ANCInfoChip>
+      <ANCInfoChip>
+        <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
+        <ANCInfoValue>{formatLMPDate(anc.edd_usg)}</ANCInfoValue>
+      </ANCInfoChip>
+    </ANCInfoRow>
+  );
+};
+const ANCEditBlock = ({ row, ancFields, onChange }) => (
+  <ANCInfoRow style={{ marginBottom: "1rem" }}>
+    <ANCInfoChip>
+      <ANCInfoLabel>GUH</ANCInfoLabel>
+      <input
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="///"
+        value={ancFields.guh || ""}
+        onChange={(e) => onChange((p) => ({ ...p, guh: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>LMP</ANCInfoLabel>
+      <input
+        type="date"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        value={ancFields.lmp || ""}
+        onChange={(e) => {
+          const lmp = e.target.value;
+          const ga_lmp = calcGAFromLMP(lmp);
+          onChange((p) => ({ ...p, lmp, ga_lmp }));
+        }}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>GA (By LMP)</ANCInfoLabel>
+      <input
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="e.g. 12W3D"
+        value={ancFields.ga_lmp || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_lmp: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>GA (By USG)</ANCInfoLabel>
+      <input
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        placeholder="e.g. 12W4D"
+        value={ancFields.ga_usg || ""}
+        onChange={(e) => onChange((p) => ({ ...p, ga_usg: e.target.value }))}
+      />
+    </ANCInfoChip>
+    <ANCInfoChip>
+      <ANCInfoLabel>EDD (By USG)</ANCInfoLabel>
+      <input
+        type="date"
+        style={{
+          padding: "0.4rem 0.6rem",
+          border: "1.5px solid #b2dfdb",
+          borderRadius: "8px",
+          fontSize: "0.875rem",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+        value={ancFields.edd_usg || ""}
+        onChange={(e) => onChange((p) => ({ ...p, edd_usg: e.target.value }))}
+      />
+    </ANCInfoChip>
+  </ANCInfoRow>
+);
+
+// ─── Rich Editor Ref Helper ───────────────────────────────────────────────────
+
+const getCaretInsideMark = () => {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const node = sel.getRangeAt(0).startContainer;
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  if (el && el.classList && el.classList.contains("ph")) return el;
+  return null;
+};
+
+// ─── SectionRichEditor ────────────────────────────────────────────────────────
 
 const SectionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
@@ -1018,6 +1484,43 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
+  const handleKeyDown = (e) => {
+    const el = ref.current;
+    const sel = window.getSelection();
+    if (!el || !sel || sel.rangeCount === 0) return;
+    const markEl = getCaretInsideMark();
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+  };
+
   const handleInput = () => {
     if (!ref.current) return;
     const html = ref.current.innerHTML;
@@ -1028,8 +1531,22 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
+  };
+
+  const handleClick = (e) => {
+    const target = e.target;
+    if (target.classList && target.classList.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   };
 
   return (
@@ -1038,12 +1555,16 @@ const SectionRichEditor = ({ value, onChange, placeholder }) => {
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
+      onKeyDown={handleKeyDown}
       onInput={handleInput}
       onPaste={handlePaste}
+      onClick={handleClick}
       spellCheck={false}
     />
   );
 };
+
+// ─── ImpressionRichEditor ─────────────────────────────────────────────────────
 
 const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
   const ref = useRef(null);
@@ -1069,6 +1590,43 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value]);
 
+  const handleKeyDown = (e) => {
+    const el = ref.current;
+    const sel = window.getSelection();
+    if (!el || !sel || sel.rangeCount === 0) return;
+    const markEl = getCaretInsideMark();
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      suppressRef.current = true;
+      const html = el.innerHTML;
+      lastRef.current = html;
+      onChange(html);
+      return;
+    }
+  };
+
   const handleInput = () => {
     if (!ref.current) return;
     const html = ref.current.innerHTML;
@@ -1079,8 +1637,22 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
+    document.execCommand(
+      "insertText",
+      false,
+      e.clipboardData.getData("text/plain"),
+    );
+  };
+
+  const handleClick = (e) => {
+    const target = e.target;
+    if (target.classList && target.classList.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
   };
 
   return (
@@ -1089,17 +1661,244 @@ const ImpressionRichEditor = ({ value, onChange, placeholder }) => {
       contentEditable
       suppressContentEditableWarning
       data-placeholder={placeholder}
+      onKeyDown={handleKeyDown}
       onInput={handleInput}
       onPaste={handlePaste}
+      onClick={handleClick}
       spellCheck={false}
     />
   );
 };
 
-// ─── Section Items ────────────────────────────────────────────────────────────
+// ─── TablePreview (read-only) — ALL rows as data rows ─────────────────────────
+
+const TablePreview = ({ entry }) => {
+  const { rows, cols } = parseTableDimensions(entry.table_id);
+  const grid = extractTableCells(entry, rows, cols);
+  if (!grid.length) return null;
+  return (
+    <ReportTable>
+      <tbody>
+        {grid.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <ReportTd
+                key={ci}
+                isHeader={ci === 0}
+                alt={ri % 2 === 1}
+                style={
+                  ri === 0
+                    ? {
+                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                        fontWeight: 700,
+                      }
+                    : {}
+                }
+              >
+                <span
+                  dangerouslySetInnerHTML={{ __html: buildInitialHTML(cell) }}
+                />
+              </ReportTd>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </ReportTable>
+  );
+};
+
+// ─── Sanitize ─────────────────────────────────────────────────────────────────
+const sanitizeCellHTML = (html) => {
+  if (!html) return "";
+  return html
+    .replace(/<font[^>]*>/gi, "")
+    .replace(/<\/font>/gi, "")
+    .replace(/<span[^>]*>/gi, "")
+    .replace(/<\/span>/gi, "")
+    .replace(/<strong>/gi, "<b>")
+    .replace(/<\/strong>/gi, "</b>")
+    .replace(/<(?!\/?b(?:\s|>))[^>]+>/gi, "")
+    .trim();
+};
+
+// ─── TableEditor — ALL rows editable ─────────────────────────────────────────
+
+const TableEditor = ({ entry, onChange }) => {
+  const { rows, cols } = parseTableDimensions(entry.table_id);
+  const [grid, setGrid] = useState(() => extractTableCells(entry, rows, cols));
+  const cellRefs = useRef({});
+
+  useEffect(() => {
+    // Set initial HTML for ALL rows (including row 0)
+    grid.forEach((row, ri) => {
+      row.forEach((cell, ci) => {
+        const el = cellRefs.current[`${ri}-${ci}`];
+        if (el) {
+          el.innerHTML = buildInitialHTML(sanitizeCellHTML(cell));
+        }
+      });
+    });
+    const sanitizedGrid = grid.map((row) =>
+      row.map((cell) => sanitizeCellHTML(cell)),
+    );
+    const serialized = serializeTableCells(sanitizedGrid);
+    onChange({ ...serialized, table_id: entry.table_id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const commitCell = (ri, ci, html) => {
+    const clean = sanitizeCellHTML(html);
+    setGrid((prev) => {
+      const newGrid = prev.map((r) => [...r]);
+      newGrid[ri][ci] = clean;
+      const serialized = serializeTableCells(newGrid);
+      onChange({ ...serialized, table_id: entry.table_id });
+      return newGrid;
+    });
+  };
+
+  const handleCellKeyDown = (e, ri, ci, el) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const markEl = getCaretInsideMark();
+    if (markEl && e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const boldNode = document.createElement("b");
+      boldNode.textContent = e.key;
+      markEl.replaceWith(boldNode);
+      const range = document.createRange();
+      range.setStartAfter(boldNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+    if (markEl && e.key === "Backspace") {
+      e.preventDefault();
+      const range = document.createRange();
+      range.setStartBefore(markEl);
+      range.collapse(true);
+      markEl.remove();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      commitCell(ri, ci, el.innerHTML);
+      return;
+    }
+  };
+
+  const handleCellInput = (ri, ci, el) => {
+    commitCell(ri, ci, el.innerHTML);
+  };
+
+  const handleCellClick = (e) => {
+    const t = e.target;
+    if (t.classList?.contains("ph")) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+
+  return (
+    <ReportTable>
+      <tbody>
+        {grid.map((row, ri) => (
+          <tr key={ri}>
+            {row.map((cell, ci) => (
+              <ReportTd
+                key={ci}
+                isHeader={ci === 0}
+                alt={ri % 2 === 1}
+                style={
+                  ri === 0
+                    ? {
+                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                        fontWeight: 700,
+                      }
+                    : {}
+                }
+              >
+                <EditableCell
+                  ref={(el) => {
+                    cellRefs.current[`${ri}-${ci}`] = el;
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onKeyDown={(e) =>
+                    handleCellKeyDown(e, ri, ci, e.currentTarget)
+                  }
+                  onInput={(e) => handleCellInput(ri, ci, e.currentTarget)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    document.execCommand(
+                      "insertText",
+                      false,
+                      e.clipboardData.getData("text/plain"),
+                    );
+                  }}
+                  onClick={handleCellClick}
+                  spellCheck={false}
+                />
+              </ReportTd>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </ReportTable>
+  );
+};
+
+// ─── buildSectionsFromValueDetails ───────────────────────────────────────────
+
+// This function already does this correctly — verify the tableNameMap logic:
+const buildSectionsFromValueDetails = (
+  valuedetails,
+  titleMap = null,
+  formatTitles = null,
+) => {
+  if (!valuedetails || !Array.isArray(valuedetails.value)) return [];
+
+  const tableNameMap = {};
+  if (formatTitles) {
+    formatTitles.forEach((f) => {
+      // table entries in format_titles have table_id + table_name
+      if (f.table_id && f.table_name) {
+        tableNameMap[f.table_id] = f.table_name;
+      }
+    });
+  }
+
+  return valuedetails.value.map((v) => {
+    if (isTableEntry(v)) {
+      // Prefer table_name on the saved entry, fall back to format lookup
+      const tableName = v.table_name || tableNameMap[v.table_id] || "";
+      return {
+        title_id: v.title_id || v.table_id,
+        title: tableName || "Study Table",
+        tableName,
+        value: v,
+        isTable: true,
+      };
+    }
+    return {
+      title_id: v.title_id,
+      title: (titleMap && titleMap[v.title_id]) || v.title_id || "",
+      tableName: "",
+      value: v.title_value || "",
+      isTable: false,
+    };
+  });
+};
+// ─── PreviewSectionItem ───────────────────────────────────────────────────────
 
 const PreviewSectionItem = ({ section, index }) => {
   const [expanded, setExpanded] = useState(true);
+  const displayTitle = section.isTable
+    ? section.tableName || "Study Table"
+    : section.title;
   return (
     <SectionCard expanded={expanded}>
       <SectionCardHeader
@@ -1108,25 +1907,34 @@ const PreviewSectionItem = ({ section, index }) => {
       >
         <SectionTitleRow>
           <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{section.title}</SectionName>
+          <SectionName>{displayTitle}</SectionName>
         </SectionTitleRow>
         <ChevronIcon expanded={expanded}>▼</ChevronIcon>
       </SectionCardHeader>
       <SectionCardBody expanded={expanded}>
-        <PreviewContent
-          dangerouslySetInnerHTML={{
-            __html:
-              section.value ||
-              "<em style='color:#bbb'>No findings entered.</em>",
-          }}
-        />
+        {section.isTable ? (
+          <TablePreview entry={section.value} />
+        ) : (
+          <PreviewContent
+            dangerouslySetInnerHTML={{
+              __html:
+                section.value ||
+                "<em style='color:#bbb'>No findings entered.</em>",
+            }}
+          />
+        )}
       </SectionCardBody>
     </SectionCard>
   );
 };
+
+// ─── EditSectionItem ──────────────────────────────────────────────────────────
 
 const EditSectionItem = ({ section, index, onChange }) => {
   const [expanded, setExpanded] = useState(true);
+  const displayTitle = section.isTable
+    ? section.tableName || "Study Table"
+    : section.title;
   return (
     <SectionCard expanded={expanded}>
       <SectionCardHeader
@@ -1135,39 +1943,30 @@ const EditSectionItem = ({ section, index, onChange }) => {
       >
         <SectionTitleRow>
           <SectionNumber>{index + 1}</SectionNumber>
-          <SectionName>{section.title}</SectionName>
+          <SectionName>{displayTitle}</SectionName>
         </SectionTitleRow>
         <ChevronIcon expanded={expanded}>▼</ChevronIcon>
       </SectionCardHeader>
       <SectionCardBody expanded={expanded}>
-        <SectionRichEditor
-          value={section.value}
-          onChange={(html) => onChange(index, html)}
-          placeholder={`Enter findings for ${section.title}…`}
-        />
+        {section.isTable ? (
+          <TableEditor
+            entry={section.value}
+            onChange={(updatedEntry) => onChange(index, updatedEntry, true)}
+          />
+        ) : (
+          <SectionRichEditor
+            value={section.value}
+            onChange={(html) => onChange(index, html, false)}
+            placeholder={`Enter findings for ${section.title}…`}
+          />
+        )}
       </SectionCardBody>
     </SectionCard>
   );
-};
-
-const buildSectionsFromValueDetails = (valuedetails, titleMap = null) => {
-  if (!valuedetails || !Array.isArray(valuedetails.value)) return [];
-  return valuedetails.value.map((v) => ({
-    title_id: v.title_id,
-    title: (titleMap && titleMap[v.title_id]) || v.title || v.title_id,
-    value: v.title_value || "",
-  }));
 };
 
 // ─── PDF Print Helper ─────────────────────────────────────────────────────────
 
-/**
- * Generates and opens a PDF report for a radiology investigation row.
- * Uses only the data already present in `row` — no extra API call needed.
- *
- * @param {object} row          - The row object from RDList state
- * @param {boolean} withLetterpad - Whether to include header/footer images
- */
 const handlePrintReport = async (row, withLetterpad = true) => {
   try {
     const report = row.report;
@@ -1176,7 +1975,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return;
     }
 
-    // ── Fetch signature data for approved_by ──────────────────────────────
     let signatureData = null;
     const approvedBy = report.approved_by;
     if (approvedBy) {
@@ -1185,9 +1983,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           `${process.env.REACT_APP_BACKEND_HMS_BASE_URL}employee-signature/?employee_id=${approvedBy}`,
           "GET",
         );
-        if (result.success && result.data) {
-          signatureData = result.data;
-        }
+        if (result.success && result.data) signatureData = result.data;
       } catch (e) {
         console.warn("Could not fetch signature:", e);
       }
@@ -1196,19 +1992,22 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const sections = buildSectionsFromValueDetails(
       report.valuedetails,
       row._titleMap,
+      row.radiology_format?.format_titles, // ← add this
     );
     const impression = report.impression || "";
+    const pnaDetails = row._pnaDetails || [];
+    const disclaimerList = row._desclaimer || [];
 
-    // ── Layout constants ──────────────────────────────────────────────────
+    const doc = new jsPDF();
+    let pageCount = 1;
+
     const leftMargin = 10;
     const rightMargin = leftMargin + 190;
     const contentWidth = rightMargin - leftMargin;
     const headerHeight = 25;
     const footerHeight = 20;
     const contentYStart = headerHeight + 15;
-    const signatureBlockHeight = signatureData ? 55 : 0;
 
-    // ── Patient info rows ─────────────────────────────────────────────────
     const billDateFormatted = row.investBillDate
       ? format(new Date(row.investBillDate), "dd MMM yy / HH:mm")
       : "N/A";
@@ -1221,15 +2020,16 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
     const leftDetails = [
       { label: "Bill No", value: row.investBillNo || "N/A" },
-      { label: "UHID", value: row.uhid || "N/A" },
+      ...(row.uhid && row.uhid !== "na"
+        ? [{ label: "UHID", value: row.uhid }]
+        : []),
       { label: "Patient Name", value: row.patientName || "N/A" },
       {
         label: "Age / Gender",
-        value: `${row.age || "N/A"} / ${row.gender || "N/A"}`,
+        value: `${row.age}${row.age_type} / ${row.gender || "N/A"}`,
       },
-      { label: "Referred By", value: row.referredBy || "SELF" },
+      { label: "Referred By", value: row.referredByName || "SELF" },
     ];
-
     const rightDetails = [
       { label: "Billed On", value: billDateFormatted },
       ...(slotFormatted ? [{ label: "Slot Date", value: slotFormatted }] : []),
@@ -1242,21 +2042,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         : []),
     ];
 
-    // ── jsPDF setup ───────────────────────────────────────────────────────
-    const doc = new jsPDF();
-    let pageCount = 1;
-
     const wrapText = (text, maxWidth) => {
       if (!text) return [];
       return doc.splitTextToSize(text, maxWidth);
     };
 
-    const calculateMaxLabelWidth = (details) => {
-      const tempDoc = new jsPDF();
-      return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
-    };
-
-    // ── Strip HTML to plain text (for height estimation) ──────────────────
     const htmlToPlainText = (html) => {
       if (!html) return "";
       return html
@@ -1272,7 +2062,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         .trim();
     };
 
-    // ── Parse HTML into bold/normal segments ──────────────────────────────
     const parseHtmlSegments = (html) => {
       if (!html) return [];
       const normalized = html
@@ -1284,14 +2073,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         .replace(/&gt;/g, ">")
         .replace(/&nbsp;/g, " ")
         .replace(/&#39;/g, "'");
-
       const segments = [];
       const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
       let match;
       while ((match = regex.exec(normalized)) !== null) {
-        if (match[1] !== undefined) {
+        if (match[1] !== undefined)
           segments.push({ text: match[1], bold: true });
-        } else if (match[2] !== undefined) {
+        else if (match[2] !== undefined) {
           const plain = match[2].replace(/<[^>]*>/g, "");
           if (plain) segments.push({ text: plain, bold: false });
         }
@@ -1299,11 +2087,9 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return segments;
     };
 
-    // ── Rich text renderer (bold-aware word wrap) ─────────────────────────
     const renderRichText = (html, maxWidth, x, y, lineHeight = 4.8) => {
       if (!html) return 0;
       const segments = parseHtmlSegments(html);
-
       const lines = [];
       let currentLine = [];
       let currentLineWidth = 0;
@@ -1329,9 +2115,8 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             if (
               currentLineWidth + spaceW + wordW > maxWidth &&
               currentLine.length > 0
-            ) {
+            )
               pushLine();
-            }
             const space = currentLine.length > 0 ? " " : "";
             const last = currentLine[currentLine.length - 1];
             if (last && last.bold === bold) {
@@ -1359,12 +2144,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           cx += doc.getTextWidth(text);
         });
       });
-
       doc.setFont("helvetica", "normal");
       return lines.length * lineHeight;
     };
 
-    // ── Header / Footer ───────────────────────────────────────────────────
     const addHeaderFooter = () => {
       if (withLetterpad) {
         doc.addImage(
@@ -1386,12 +2169,15 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       }
     };
 
-    // ── Patient Info block ────────────────────────────────────────────────
+    const calculateMaxLabelWidth = (details) => {
+      const tempDoc = new jsPDF();
+      return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
+    };
+
     const addPatientInfo = (yPos) => {
       const leftMaxW = calculateMaxLabelWidth(leftDetails);
       const rightMaxW = calculateMaxLabelWidth(rightDetails);
       const centerPoint = (leftMargin + rightMargin) / 2;
-
       const leftLabelX = leftMargin;
       const leftColonX = leftLabelX + leftMaxW + 2;
       const leftValueX = leftColonX + 3;
@@ -1402,12 +2188,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setFontSize(10);
       let infoY = yPos;
       const maxLen = Math.max(leftDetails.length, rightDetails.length);
-
       for (let i = 0; i < maxLen; i++) {
         const left = leftDetails[i];
         const right = rightDetails[i];
         let leftRowH = 5;
-
         if (left) {
           doc.setFont("helvetica", "bold");
           doc.text(left.label, leftLabelX, infoY);
@@ -1427,19 +2211,15 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.setFont("helvetica", "normal");
           doc.text(right.value, rightValueX, infoY);
         }
-
         infoY += Math.max(leftRowH, 5);
       }
       return infoY;
     };
 
-    // ── Signature block (last page only) ──────────────────────────────────
     const addSignatures = (yPos) => {
-      if (!signatureData) return 0;
-
+      if (!signatureData) return yPos;
       const sigX = rightMargin - 68;
-      let sy = yPos + 3; // matches sigH gap(6)
-
+      let sy = yPos + 3;
       if (signatureData.signatureBase64) {
         try {
           doc.addImage(
@@ -1454,27 +2234,23 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           console.warn("Could not render signature image:", e);
         }
       }
-      sy += 16; // 16(img) + 2(gap)
-
+      sy += 16;
       doc.setDrawColor(100, 100, 100);
       doc.line(sigX, sy, sigX + 52, sy);
       doc.setDrawColor(0, 0, 0);
       sy += 3;
-
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.text(signatureData.employeeName || "", sigX + 29, sy, {
         align: "center",
       });
       sy += 3;
-
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.5);
       doc.text(signatureData.designation || "", sigX + 29, sy, {
         align: "center",
       });
       sy += 3;
-
       if (signatureData.registrationNumber) {
         doc.setFontSize(7);
         doc.text(
@@ -1483,16 +2259,28 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           sy,
           { align: "center" },
         );
+        sy += 3;
       }
-
       doc.setFont("helvetica", "normal");
+      return sy;
     };
 
-    // ── Page overflow check ───────────────────────────────────────────────
     const checkNewPage = (yPos, needed) => {
       const pageH = doc.internal.pageSize.height;
-      const footerStart = pageH - footerHeight - 5;
+      const footerStart = pageH - footerHeight - 8;
       if (yPos + needed >= footerStart) {
+        if (withLetterpad) {
+          doc.addImage(
+            FooterImage,
+            "PNG",
+            0,
+            pageH - footerHeight,
+            doc.internal.pageSize.width,
+            footerHeight,
+          );
+        }
+        // ← Remove the stale "Page N of ..." text here entirely
+        //    The final loop will stamp correct "Page X of Y" on every page
         doc.addPage();
         pageCount++;
         addHeaderFooter();
@@ -1507,127 +2295,333 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return yPos;
     };
 
-    // ─────────────────────────────────────────────────────────────────────
-    // BUILD THE PDF
-    // ─────────────────────────────────────────────────────────────────────
+    // ── BUILD PDF ──────────────────────────────────────────────────────────────
 
     addHeaderFooter();
     let yPos = addPatientInfo(contentYStart);
 
-    // ── Separator line after patient info ─────────────────────────────────
     doc.setDrawColor(180, 180, 180);
     doc.line(leftMargin, yPos, rightMargin, yPos);
     doc.setDrawColor(0, 0, 0);
     yPos += 6;
 
-    // ── Report title ──────────────────────────────────────────────────────
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    const billTypeLabel =
-      BILL_TYPES.find((b) => b.value === (row.billTypeNo || "USG01"))?.label ||
-      "RADIOLOGY";
-    const reportTitle = `${billTypeLabel} REPORT — ${(row.itemName || "").toUpperCase()}`;
-    doc.text(reportTitle, leftMargin + contentWidth / 2, yPos, {
-      align: "center",
-    });
-    const titleW = doc.getTextWidth(reportTitle);
-    doc.line(
-      leftMargin + contentWidth / 2 - titleW / 2,
-      yPos + 2,
-      leftMargin + contentWidth / 2 + titleW / 2,
-      yPos + 2,
-    );
-    yPos += 6;
+    const centerX = leftMargin + contentWidth / 2;
+    const department = row.department ? row.department.toUpperCase() : "";
+    const headingStr = row.heading ? row.heading.toUpperCase() : "";
+    const subHeading = row.sub_heading || "";
 
-    // ── Scan Findings sections ────────────────────────────────────────────
+    // ── Department ────────────────────────────────────────────────────────────
+    if (department) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
+      doc.text(department, centerX, yPos, { align: "center" });
+      yPos += 7;
+    }
+
+    // ── PNA Details (centered, between department and heading) ────────────────
+    if (pnaDetails && pnaDetails.length > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(60, 60, 60);
+      pnaDetails.forEach((pna) => {
+        const pnaText = `PNA: ${pna.pna}   Registration date: ${pna.registration_date}`;
+        doc.text(pnaText, centerX, yPos, { align: "center" });
+        yPos += 4.5;
+      });
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // ── Heading with underline ─────────────────────────────────────────────────
+    if (headingStr) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      const headingLines = doc.splitTextToSize(headingStr, contentWidth - 10);
+      headingLines.forEach((line, li) => {
+        doc.text(line, centerX, yPos + li * 6, { align: "center" });
+        const lineW = doc.getTextWidth(line);
+        doc.line(
+          centerX - lineW / 2,
+          yPos + li * 6 + 1.5,
+          centerX + lineW / 2,
+          yPos + li * 6 + 1.5,
+        );
+      });
+      yPos += headingLines.length * 6 + 1;
+    }
+
+    // ── Sub heading ────────────────────────────────────────────────────────────
+    if (subHeading) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 100, 100);
+      doc.text(subHeading, centerX, yPos, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "normal");
+      yPos += 5;
+    }
+    yPos += 2;
+
+    // ── ANC Fields Row ─────────────────────────────────────────────────────────
+    const ancData = row.report?.valuedetails?.anc_fields;
+    if (
+      ancData &&
+      (ancData.guh || ancData.lmp || ancData.ga_weeks || ancData.edd_usg)
+    ) {
+      const ancRowH = 16;
+      const ancCellW = contentWidth / 5;
+      const ancLabels = [
+        "NO OF CHILDREN",
+        "LMP",
+        "GA (By LMP)",
+        "GA (By USG)",
+        "EDD (By USG)",
+      ];
+      const ancVals = [
+        ancData.guh || "—",
+        ancData.lmp
+          ? (() => {
+              try {
+                return new Date(ancData.lmp).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+              } catch {
+                return ancData.lmp;
+              }
+            })()
+          : "—",
+        ancData.ga_lmp || "—",
+        ancData.ga_usg || "—",
+        ancData.edd_usg
+          ? (() => {
+              try {
+                return new Date(ancData.edd_usg).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                });
+              } catch {
+                return ancData.edd_usg;
+              }
+            })()
+          : "—",
+      ];
+
+      doc.setFillColor(232, 245, 233);
+      doc.rect(leftMargin, yPos, contentWidth, ancRowH, "F");
+      doc.setDrawColor(178, 223, 219);
+      doc.rect(leftMargin, yPos, contentWidth, ancRowH, "S");
+      doc.setDrawColor(0, 105, 92);
+      doc.setLineWidth(1.2);
+      doc.line(leftMargin, yPos, leftMargin, yPos + ancRowH);
+      doc.setLineWidth(0.2);
+      doc.setDrawColor(178, 223, 219);
+
+      ancLabels.forEach((label, i) => {
+        const cellX = leftMargin + i * ancCellW;
+        if (i > 0) doc.line(cellX, yPos, cellX, yPos + ancRowH);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(0, 105, 92);
+        doc.text(label, cellX + ancCellW / 2, yPos + 5, { align: "center" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(40, 40, 40);
+        doc.text(ancVals[i], cellX + ancCellW / 2, yPos + 11.5, {
+          align: "center",
+        });
+      });
+
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.2);
+      yPos += ancRowH + 4;
+    }
+
+    // ── Sections ───────────────────────────────────────────────────────────────
+
     if (sections.length > 0) {
       sections.forEach((section, idx) => {
-        const plainValue = htmlToPlainText(section.value);
-        if (!plainValue) return;
+        if (section.isTable) {
+          // ── TABLE SECTION — ALL rows as data rows ─────────────────────────
+          const entry = section.value;
+          const { rows: tRows, cols } = parseTableDimensions(entry.table_id);
+          const grid = extractTableCells(entry, tRows, cols);
+          if (!grid.length) return;
 
-        const valueLines = wrapText(plainValue, contentWidth - 4);
-        const sectionHeight = 7 + valueLines.length * 4.8 + 4;
+          const cellPadX = 3;
+          const cellPadY = 2.5;
+          const lineH = 5;
+          const minRowH = 9;
+          const fontSize = 8.5;
 
-        yPos = checkNewPage(yPos, sectionHeight);
+          doc.setFontSize(fontSize);
+          const colWidth = contentWidth / cols;
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(0, 105, 92);
-        doc.text(
-          `${idx + 1}. ${section.title.toUpperCase()}`,
-          leftMargin,
-          yPos,
-        );
-        doc.setTextColor(0, 0, 0);
-        yPos += 6;
+          // Pre-calculate row heights
+          const rowHeights = grid.map((row) => {
+            let maxLines = 1;
+            row.forEach((cell) => {
+              const plain = htmlToPlainText(cell).replace(/\/\/\//g, "");
+              const wrapped = doc.splitTextToSize(
+                plain,
+                colWidth - cellPadX * 2,
+              );
+              if (wrapped.length > maxLines) maxLines = wrapped.length;
+            });
+            return Math.max(minRowH, maxLines * lineH + cellPadY * 2);
+          });
 
-        doc.setFontSize(9);
-        yPos += renderRichText(
-          section.value,
-          contentWidth - 6,
-          leftMargin + 3,
-          yPos,
-          4.8,
-        );
-        yPos += 3;
+          // ── Table name heading ─────────────────────────────────────────────
+          const tableName = section.tableName || "";
+          const tableNameHeight = tableName ? 10 : 0;
+
+          const totalTableHeight =
+            rowHeights.reduce((a, b) => a + b, 0) + tableNameHeight + 6;
+          yPos = checkNewPage(yPos, totalTableHeight);
+
+          // Render table name if present
+          if (tableName) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8.5);
+            doc.setTextColor(0, 105, 92);
+            doc.text(tableName.toUpperCase(), leftMargin, yPos);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            yPos += 6;
+          }
+
+          grid.forEach((row, ri) => {
+            const rowH = rowHeights[ri];
+            yPos = checkNewPage(yPos, rowH + 2);
+
+            // ALL rows get the same mild alternating background
+            doc.setFillColor(
+              ri % 2 === 0 ? 240 : 248,
+              ri % 2 === 0 ? 248 : 252,
+              ri % 2 === 0 ? 245 : 250,
+            );
+            doc.rect(leftMargin, yPos, contentWidth, rowH, "F");
+
+            row.forEach((cell, ci) => {
+              const x = leftMargin + ci * colWidth;
+              doc.setDrawColor(200, 225, 220);
+              doc.rect(x, yPos, colWidth, rowH, "S");
+
+              doc.setFontSize(fontSize);
+              const maxW = colWidth - cellPadX * 2;
+              const segments = parseHtmlSegments(cell);
+
+              const words = [];
+              segments.forEach(({ text, bold }) => {
+                const parts = text.split("\n");
+                parts.forEach((part, pi) => {
+                  if (pi > 0) words.push({ text: "\n", bold: false });
+                  part.split(" ").forEach((w) => {
+                    if (w) words.push({ text: w, bold });
+                  });
+                });
+              });
+
+              const wrappedLines = [];
+              let curLine = [];
+              let curLineW = 0;
+              const pushLine = () => {
+                wrappedLines.push(curLine);
+                curLine = [];
+                curLineW = 0;
+              };
+
+              words.forEach((word) => {
+                if (word.text === "\n") {
+                  pushLine();
+                  return;
+                }
+                doc.setFont("helvetica", word.bold ? "bold" : "normal");
+                const spaceW = curLine.length > 0 ? doc.getTextWidth(" ") : 0;
+                const wordW = doc.getTextWidth(word.text);
+                if (curLineW + spaceW + wordW > maxW && curLine.length > 0)
+                  pushLine();
+                const spacedText =
+                  curLine.length > 0 ? " " + word.text : word.text;
+                const last = curLine[curLine.length - 1];
+                if (last && last.bold === word.bold) {
+                  last.text += curLine.length > 0 ? " " + word.text : word.text;
+                  last.w += doc.getTextWidth(spacedText);
+                } else {
+                  curLine.push({
+                    text: spacedText,
+                    bold: word.bold,
+                    w: doc.getTextWidth(spacedText),
+                  });
+                }
+                curLineW += doc.getTextWidth(spacedText);
+              });
+              if (curLine.length > 0) pushLine();
+
+              const nonEmpty = wrappedLines.filter(
+                (l) => l.length > 0 && l.some((s) => s.text.trim()),
+              );
+              const blockH = nonEmpty.length * lineH;
+              const startY = yPos + (rowH - blockH) / 2 + lineH * 0.75;
+
+              nonEmpty.forEach((lineSegs, li) => {
+                const totalW = lineSegs.reduce((acc, s) => acc + s.w, 0);
+                let cx = x + (colWidth - totalW) / 2;
+                lineSegs.forEach(({ text, bold }) => {
+                  doc.setFont("helvetica", bold ? "bold" : "normal");
+                  doc.setTextColor(40, 40, 40);
+                  doc.text(text, cx, startY + li * lineH);
+                  cx += doc.getTextWidth(text);
+                });
+              });
+            });
+
+            doc.setTextColor(0, 0, 0);
+            doc.setFont("helvetica", "normal");
+            yPos += rowH;
+          });
+
+          doc.setDrawColor(0, 0, 0);
+          yPos += 5;
+        } else {
+          // ── TEXT SECTION ──────────────────────────────────────────────────
+          const plainValue = htmlToPlainText(section.value);
+          if (!plainValue) return;
+
+          const valueLines = wrapText(plainValue, contentWidth - 4);
+          const sectionHeight = 7 + valueLines.length * 4.8 + 4;
+          yPos = checkNewPage(yPos, sectionHeight);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(0, 105, 92);
+          doc.text(section.title.toUpperCase(), leftMargin, yPos);
+          doc.setTextColor(0, 0, 0);
+          yPos += 6;
+
+          doc.setFontSize(9);
+          yPos += renderRichText(
+            section.value,
+            contentWidth - 6,
+            leftMargin + 3,
+            yPos,
+            4.8,
+          );
+          yPos += 3;
+        }
       });
     }
 
-    // ── Calculate actual available space on current page ──────────────────
+    // ── Impression ─────────────────────────────────────────────────────────────
+
     const getAvailableSpace = (currentY) => {
-      const pageH = doc.internal.pageSize.height;
-      return pageH - footerHeight - 5 - currentY;
+      return doc.internal.pageSize.height - footerHeight - 5 - currentY;
     };
 
-    // ── Measure impression height accurately ─────────────────────────────
-    const measureImpressionHeight = () => {
-      if (!impression) return 0;
-      const plainImpression = htmlToPlainText(impression);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      const impressionLines = doc.splitTextToSize(
-        plainImpression,
-        contentWidth - 6,
-      );
-      // 7 (heading) + lines + 2 (gap before "End of Report")  ← FIX: was +4
-      return 7 + impressionLines.length * 5.2 + 2;
-    };
-
-    const impressionH = measureImpressionHeight();
-    const endOfReportH = 6; // FIX: was 10 — only "End of Report" text + yPos += 2
-    // addSignatures renders: 3(gap) + 14(img) + 2 + 1(line) + 3 + 3 + 3 = ~29
-    const sigH = signatureData ? 32 : 0; // FIX: was 42
-    const totalFinalH = impressionH + endOfReportH + sigH;
-    const available = getAvailableSpace(yPos);
-
-    console.log(
-      "yPos:",
-      yPos,
-      "available:",
-      available,
-      "totalFinalH:",
-      totalFinalH,
-      "impressionH:",
-      impressionH,
-      "sigH:",
-      sigH,
-    );
-
-    if (totalFinalH > available) {
-      doc.addPage();
-      pageCount++;
-      addHeaderFooter();
-      let ny = contentYStart;
-      ny = addPatientInfo(ny);
-      ny += 10;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(leftMargin, ny - 4, rightMargin, ny - 4);
-      doc.setDrawColor(0, 0, 0);
-      yPos = ny;
-    }
-
-    // ── Impression ────────────────────────────────────────────────────────
-    // ── Impression ────────────────────────────────────────────────────────────────
+    yPos = checkNewPage(yPos, 12);
     if (impression) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
@@ -1637,8 +2631,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       yPos += 8;
 
       doc.setFontSize(9.5);
-
-      // Split impression into bullet lines on \n or <br>
       const impressionLines = impression
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<\/p>/gi, "\n")
@@ -1662,56 +2654,133 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       impressionLines.forEach((line) => {
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
         yPos = checkNewPage(yPos, wrapped.length * 5.2 + 2);
-
-        // Bullet dot
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
-
-        // Line text (bold if original was wrapped in <b>)
-        const isBold =
-          /<b>/i.test(impression) &&
-          impression.includes(line.replace(/\s+/g, " ").trim().slice(0, 20));
-        doc.setFont("helvetica", isBold ? "bold" : "normal");
-
-        wrapped.forEach((wline, wi) => {
-          doc.text(wline, wi === 0 ? textX : textX, yPos + wi * 5.2);
-        });
+        doc.setFont("helvetica", "normal");
+        wrapped.forEach((wline, wi) => doc.text(wline, textX, yPos + wi * 5.2));
         yPos += wrapped.length * 5.2 + 0.2;
       });
-
       doc.setFont("helvetica", "normal");
       yPos += 0.5;
     }
 
-    // ── End of report ─────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     doc.text("**End of the Report**", leftMargin + contentWidth / 2, yPos, {
       align: "center",
     });
     yPos += 6;
 
-    // ── Signature inline ──────────────────────────────────────────────────
-    addSignatures(yPos);
+    // ── Signatures ─────────────────────────────────────────────────────────────
+    const afterSigY = addSignatures(yPos);
+    yPos = afterSigY + 8;
 
-    // ── Page numbers ──────────────────────────────────────────────────────
+    // ── Disclaimer — after signature ──────────────────────────────────────────
+    if (disclaimerList && disclaimerList.length > 0) {
+      disclaimerList.forEach((disc) => {
+        const titleText = disc.title || "DISCLAIMER";
+        const rawText = htmlToPlainText(disc.title_value || "");
+        const bodyText = rawText
+          .replace(/\r?\n+/g, " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+        if (!bodyText) return;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+
+        const bodyLines = doc.splitTextToSize(bodyText, contentWidth);
+        const discH = 6 + 5 + bodyLines.length * 4.5 + 6;
+        yPos = checkNewPage(yPos, discH + 10);
+
+        // Separator
+        doc.setDrawColor(180, 180, 180);
+        doc.line(leftMargin, yPos, rightMargin, yPos);
+        doc.setDrawColor(0, 0, 0);
+        yPos += 5;
+
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(titleText, leftMargin, yPos);
+        const titleW = doc.getTextWidth(titleText);
+        doc.line(leftMargin, yPos + 1, leftMargin + titleW, yPos + 1);
+        yPos += 6;
+
+        // ── Justified body text ───────────────────────────────────────────────
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(50, 50, 50);
+
+        bodyLines.forEach((line, lineIdx) => {
+          yPos = checkNewPage(yPos, 5);
+
+          const isLastLine = lineIdx === bodyLines.length - 1;
+
+          // Last line or very short line — left align, no justification
+          if (isLastLine || doc.getTextWidth(line) < contentWidth * 0.6) {
+            doc.text(line, leftMargin, yPos);
+          } else {
+            // Justify: distribute extra space evenly between words
+            const words = line.split(" ").filter((w) => w.length > 0);
+            if (words.length <= 1) {
+              doc.text(line, leftMargin, yPos);
+            } else {
+              const totalWordsWidth = words.reduce(
+                (sum, w) => sum + doc.getTextWidth(w),
+                0,
+              );
+              const totalSpace = contentWidth - totalWordsWidth;
+              const spacePerGap = totalSpace / (words.length - 1);
+              let x = leftMargin;
+              words.forEach((word, wi) => {
+                doc.text(word, x, yPos);
+                x += doc.getTextWidth(word) + spacePerGap;
+              });
+            }
+          }
+          yPos += 4.5;
+        });
+
+        doc.setTextColor(0, 0, 0);
+        yPos += 4;
+      });
+    }
+    // ── Page numbers ───────────────────────────────────────────────────────────
     const finalPageCount = pageCount;
     for (let i = 1; i <= finalPageCount; i++) {
       doc.setPage(i);
       const pageH = doc.internal.pageSize.height;
+
+      if (withLetterpad) {
+        // Redraw footer image on EVERY page to cover any content overflow
+        doc.addImage(
+          FooterImage,
+          "PNG",
+          0,
+          pageH - footerHeight,
+          doc.internal.pageSize.width,
+          footerHeight,
+        );
+      }
+
+      // Draw page number ABOVE the footer (not inside it)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
       doc.text(
         `Page ${i} of ${finalPageCount}`,
         leftMargin + contentWidth / 2,
-        pageH - footerHeight - 2,
+        pageH - footerHeight - 3, // sits just above footer
         { align: "center" },
       );
+      doc.setTextColor(0, 0, 0);
     }
 
-    // ── Open PDF ──────────────────────────────────────────────────────────
     const pdfBlob = doc.output("blob");
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, "_blank");
@@ -1727,10 +2796,13 @@ const Modal = ({ row, onClose }) => {
   const report = row.report;
   const sections = useMemo(
     () =>
-      buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
-    [report],
+      buildSectionsFromValueDetails(
+        report?.valuedetails,
+        report?._titleMap,
+        row.radiology_format?.format_titles, // ← add this
+      ),
+    [report, row.radiology_format],
   );
-
   return (
     <StyledModalOverlay onClick={onClose}>
       <StyledModalContent onClick={(e) => e.stopPropagation()}>
@@ -1762,7 +2834,7 @@ const Modal = ({ row, onClose }) => {
             <InfoChip>
               <InfoChipLabel>Age / Gender</InfoChipLabel>
               <InfoChipValue>
-                {row.age || "N/A"} / {row.gender || "N/A"}
+                {row.age} {row.age_type} / {row.gender || "N/A"}
               </InfoChipValue>
             </InfoChip>
             <InfoChip>
@@ -1792,6 +2864,7 @@ const Modal = ({ row, onClose }) => {
               </InfoChip>
             )}
           </InfoBanner>
+          {isANCRow(row) && <ANCDisplayBlock row={row} />}
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -1799,7 +2872,7 @@ const Modal = ({ row, onClose }) => {
               </SectionsHeader>
               {sections.map((section, idx) => (
                 <PreviewSectionItem
-                  key={section.title_id}
+                  key={`${section.title_id}-${idx}`}
                   section={section}
                   index={idx}
                 />
@@ -1836,22 +2909,39 @@ const Modal = ({ row, onClose }) => {
 const EditModal = ({ row, onClose, onSave }) => {
   const report = row.report;
   const [sections, setSections] = useState(() =>
-    buildSectionsFromValueDetails(report?.valuedetails, report?._titleMap),
+    buildSectionsFromValueDetails(
+      report?.valuedetails,
+      report?._titleMap,
+      row.radiology_format?.format_titles, // ← add this
+    ),
   );
   const [impression, setImpression] = useState(report?.impression || "");
   const [saving, setSaving] = useState(false);
+  const [editAncFields, setEditAncFields] = useState(
+    () =>
+      row.report?.valuedetails?.anc_fields || {
+        guh: "",
+        lmp: "",
+        ga_lmp: "",
+        ga_usg: "",
+        edd_usg: "",
+      },
+  );
 
-  const handleSectionChange = (index, htmlValue) => {
+  const handleSectionChange = (index, value, isTableUpdate = false) => {
     setSections((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], value: htmlValue };
+      updated[index] = { ...updated[index], value };
       return updated;
     });
   };
 
   const handleCompileImpression = () => {
     const compiled = sections
-      .filter((s) => stripHTML(s.value))
+      .filter((s) => {
+        if (s.isTable) return false;
+        return stripHTML(s.value);
+      })
       .map((s) => `<b>${s.title}:</b>\n${s.value.trim()}`)
       .join("\n\n");
     if (compiled) setImpression(compiled);
@@ -1864,7 +2954,12 @@ const EditModal = ({ row, onClose, onSave }) => {
       return;
     }
     setSaving(true);
-    await onSave(impression, sections);
+    const apiSections = sections.map((s) => ({
+      title_id: s.title_id,
+      value: s.isTable ? s.value : s.value,
+      isTable: s.isTable,
+    }));
+    await onSave(impression, apiSections, isANCRow(row) ? editAncFields : null);
     setSaving(false);
   };
 
@@ -1892,10 +2987,17 @@ const EditModal = ({ row, onClose, onSave }) => {
             <InfoChip>
               <InfoChipLabel>Age / Gender</InfoChipLabel>
               <InfoChipValue>
-                {row.age || "N/A"} / {row.gender || "N/A"}
+                {row.age} {row.age_type}/ {row.gender || "N/A"}
               </InfoChipValue>
             </InfoChip>
           </InfoBanner>
+          {isANCRow(row) && (
+            <ANCEditBlock
+              row={row}
+              ancFields={editAncFields}
+              onChange={setEditAncFields}
+            />
+          )}
           {sections.length > 0 && (
             <>
               <SectionsHeader>
@@ -1911,7 +3013,7 @@ const EditModal = ({ row, onClose, onSave }) => {
               </SectionsHeader>
               {sections.map((section, idx) => (
                 <EditSectionItem
-                  key={section.title_id}
+                  key={`${section.title_id}-${idx}`}
                   section={section}
                   index={idx}
                   onChange={handleSectionChange}
@@ -1930,7 +3032,7 @@ const EditModal = ({ row, onClose, onSave }) => {
                 marginBottom: "0.75rem",
               }}
             >
-              {sections.length > 0 && (
+              {sections.some((s) => !s.isTable) && (
                 <SmallBtn
                   type="button"
                   bg="linear-gradient(135deg,#00897b,#00695c)"
@@ -1982,7 +3084,7 @@ const EditModal = ({ row, onClose, onSave }) => {
 // ─── Slot Modal ───────────────────────────────────────────────────────────────
 
 const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
-  const hasReport = row.hasReport;
+  const recordExists = !!row.report;
 
   const initSlotDate = () => {
     if (row.report?.slot_DateTime) {
@@ -2003,7 +3105,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
 
   const [slotDate, setSlotDate] = useState(initSlotDate);
   const [slotTime, setSlotTime] = useState(initSlotTime);
-  const [impression, setImpression] = useState(row.report?.impression || "");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -2011,48 +3112,49 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
       toast.error("Please select both slot date and time.");
       return;
     }
+    if (!row.item_id) {
+      toast.error("Item ID is missing. Please refresh and try again.");
+      return;
+    }
     const slotDateTime = `${slotDate}T${slotTime}:00`;
     setSaving(true);
     try {
       const encodedBill = encodeURIComponent(row.investBillNo);
-      const encodedItem = encodeURIComponent(row.itemName);
+      const encodedItem = encodeURIComponent(row.item_id);
       let result;
-      if (!hasReport) {
+      if (!recordExists) {
         result = await apiRequest(`${HMSURL}scan-reports/`, "POST", {
           investBillNo: row.investBillNo,
           investBillDate: row.investBillDate,
           billTypeNo: activeBillTypeNo,
           itemName: row.itemName,
+          item_id: row.item_id,
           slot_DateTime: slotDateTime,
-          impression: impression || "",
+          impression: "",
         });
         if (!result.success) {
-          toast.error(result.error || "Failed to create report");
+          toast.error(result.error || "Failed to create slot");
           return;
         }
-        toast.success("Slot scheduled and report created! ✓");
+        toast.success("Slot scheduled! ✓");
       } else {
-        const patchData = { slot_DateTime: slotDateTime };
-        if (impression && impression !== row.report?.impression)
-          patchData.impression = impression;
         result = await apiRequest(
           `${HMSURL}scan-reports/slot/${encodedBill}/${encodedItem}/`,
           "PATCH",
-          patchData,
+          { slot_DateTime: slotDateTime },
         );
         if (!result.success) {
           toast.error(result.error || "Failed to update slot");
           return;
         }
-        toast.success("Slot updated successfully! ✓");
+        toast.success("Slot updated! ✓");
       }
       onSaved({
         investBillNo: row.investBillNo,
         itemName: row.itemName,
+        item_id: row.item_id,
         slot_DateTime: slotDateTime,
-        impression: impression || row.report?.impression || "",
-        is_approved: row.report?.is_approved || false,
-        wasCreated: !hasReport,
+        wasCreated: !recordExists,
       });
       onClose();
     } catch {
@@ -2067,7 +3169,9 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
       <SlotModalContent onClick={(e) => e.stopPropagation()}>
         <StyledModalHeader>
           <ModalIcon>🕐</ModalIcon>
-          <ModalTitle>{hasReport ? "Update Slot" : "Schedule Slot"}</ModalTitle>
+          <ModalTitle>
+            {row.report?.slot_DateTime ? "Update Slot" : "Schedule Slot"}
+          </ModalTitle>
         </StyledModalHeader>
         <ModalBody style={{ padding: 0 }}>
           <SlotInfoRow>
@@ -2105,17 +3209,6 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
               />
             </SlotFormGroup>
             <SlotDivider />
-            <SlotSectionTitle>📝 Impression</SlotSectionTitle>
-            <ImpressionOptionalNote>
-              {hasReport
-                ? "Update impression (leave unchanged to keep existing)."
-                : "Optional — can be added now or later."}
-            </ImpressionOptionalNote>
-            <StyledTextArea
-              value={impression}
-              onChange={(e) => setImpression(e.target.value)}
-              placeholder="Enter impression / findings (optional)…"
-            />
           </div>
         </ModalBody>
         <ModalFooter>
@@ -2127,7 +3220,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
           >
             {saving
               ? "Saving…"
-              : hasReport
+              : row.report?.slot_DateTime
                 ? "Update Slot"
                 : "Schedule & Create"}
           </ModalActionButton>
@@ -2148,6 +3241,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDList = ({ investBillNo: investBillNoFilter }) => {
+  useLiveTime();
   const [rows, setRows] = useState([]);
   const [selectedRow, setSelectedRow] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2158,25 +3252,25 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // ── Print dropdown portal state ────────────────────────────────────────
   const [activePrintRowId, setActivePrintRowId] = useState(null);
   const [printDropdownPos, setPrintDropdownPos] = useState({ top: 0, left: 0 });
 
-  // ── Date filters ───────────────────────────────────────────────────────
   const [fromDate, setFromDate] = useState(getToday);
   const [toDate, setToDate] = useState(getToday);
+  const [selectedBillType, setSelectedBillType] = useState(
+    () => localStorage.getItem("rdlist_billType") || "USG01",
+  );
 
-  // ── Bill Type state ────────────────────────────────────────────────────
-  const [selectedBillType, setSelectedBillType] = useState("USG01");
-
-  // ── Column search ──────────────────────────────────────────────────────
   const [searchBillNo, setSearchBillNo] = useState("");
   const [searchUhid, setSearchUhid] = useState("");
   const [searchIpNumber, setSearchIpNumber] = useState("");
   const [searchPatient, setSearchPatient] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const [searchReferredBy, setSearchReferredBy] = useState("");
-  const [titleMapCache, setTitleMapCache] = useState({});
+  const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
+  const [searchScanType, setSearchScanType] = useState("");
+  const [billTypes, setBillTypes] = useState([]);
+  const [searchSlotStatus, setSearchSlotStatus] = useState("");
 
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -2185,7 +3279,24 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const canApprove = allowedActions.includes("HMS-API-RDA-RW");
   const canDelete = allowedActions.includes("HMS-API-RDD-RW");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const fetchBillTypes = async () => {
+      try {
+        const result = await apiRequest(`${HMSURL}hard-bill-types/`, "GET");
+        if (result.success && Array.isArray(result.data)) {
+          setBillTypes(result.data);
+          const saved = localStorage.getItem("rdlist_billType");
+          if (!saved && result.data.length > 0) {
+            setSelectedBillType(result.data[0].value);
+          }
+        }
+      } catch {
+        toast.error("Failed to load bill types");
+      }
+    };
+    fetchBillTypes();
+  }, [HMSURL]);
+
   const fetchData = useCallback(async () => {
     try {
       const params = new URLSearchParams({
@@ -2194,7 +3305,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         to_date: toDate,
       });
       if (investBillNoFilter) params.append("investBillNo", investBillNoFilter);
-
       const result = await apiRequest(
         `${HMSURL}investigations/?${params.toString()}`,
         "GET",
@@ -2203,26 +3313,28 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         toast.error(result.error || "Failed to fetch data");
         return;
       }
-
       const merged = (result.data || []).map((row) => ({
         investBillNo: row.investBillNo,
         uhid: row.uhid,
         ipNumber: row.ipNumber,
         investBillDate: row.investBillDate,
-        item: row.item,
-        item_id: Array.isArray(row.item)
-          ? (row.item.find((i) => i.billTypeNo === selectedBillType)?.item_id ??
-            "")
-          : "",
+        item_id: row.item_id ?? "",
         itemName: row.itemName || "",
+        paymentStatus: row.paymentStatus || "",
         billTypeNo: row.billTypeNo || selectedBillType,
         patientName:
-          `${row.salutation || ""} ${row.firstName || ""} ${row.lastName || ""}`.trim(),
+          `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
         age: row.age,
+        age_type: row.age_type,
         gender: row.gender,
         referredBy: row.referredBy || "",
+        referredByName: row.referredByName || "",
         report: row.report || null,
         hasReport: !!row.hasReport,
+        radiology_type: (row.radiology_format?.type || "").toUpperCase(),
+        scan_type: (row.scan_type || "").toUpperCase(),
+        tat_info: row.tat_info || null,
+        radiology_format: row.radiology_format || null,
       }));
       setRows(merged);
     } catch {
@@ -2237,15 +3349,22 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const fetchFormatAndBuildSections = async (row, HMSURL) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo || row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
+        `${HMSURL}scan-reports/format/?billTypeNo=${encodeURIComponent(row.billTypeNo)}&test_id=${encodeURIComponent(row.item_id)}&gender=${encodeURIComponent(row.gender)}`,
         "GET",
       );
       if (result.success && result.data?.format) {
         const titleMap = {};
         result.data.format.forEach((f) => {
-          titleMap[f.title_id] = f.title;
+          if (f.title_id) titleMap[f.title_id] = f.title;
         });
-        return titleMap;
+        return {
+          titleMap,
+          pnaDetails: result.data.pna_details || [],
+          desclaimer: result.data.desclaimer || [],
+          department: result.data.department || "",
+          heading: result.data.heading || "",
+          sub_heading: result.data.sub_heading || "",
+        };
       }
     } catch (e) {
       console.warn("Could not fetch format titles:", e);
@@ -2253,39 +3372,75 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     return null;
   };
 
-  const getTitleMap = useCallback(
-    async (row) => {
-      const cacheKey = `${row.billTypeNo}-${row.item_id}-${row.gender}`;
-      if (titleMapCache[cacheKey]) return titleMapCache[cacheKey];
-      const map = await fetchFormatAndBuildSections(row, HMSURL);
-      if (map) setTitleMapCache((prev) => ({ ...prev, [cacheKey]: map }));
-      return map;
-    },
-    [titleMapCache, HMSURL],
-  );
-  const handlePrintWithTitleMap = useCallback(
-    async (row, withLetterpad) => {
-      const titleMap = await getTitleMap(row);
-      handlePrintReport({ ...row, _titleMap: titleMap }, withLetterpad);
-    },
-    [getTitleMap],
-  );
+  const handleOpenPrint = () => {
+    navigate("/RDPrint", {
+      state: {
+        rows: filteredRows,
+        fromDate,
+        toDate,
+        billTypeLabel:
+          billTypes.find((b) => b.value === selectedBillType)?.label ||
+          selectedBillType,
+      },
+    });
+  };
+  const buildTitleMapFromRow = (row) => {
+    const rf = row.radiology_format || {};
+    const titleMap = {};
+    (rf.format_titles || []).forEach((f) => {
+      if (f.title_id) titleMap[f.title_id] = f.title;
+    });
+    return {
+      titleMap: Object.keys(titleMap).length ? titleMap : null,
+      pnaDetails: rf.pna_details || [],
+      desclaimer: rf.desclaimer || [],
+      department: rf.department || "",
+      heading: rf.heading || "",
+      sub_heading: rf.sub_heading || "",
+    };
+  };
 
-  // ── Reset ──────────────────────────────────────────────────────────────
+  const handlePrintWithTitleMap = useCallback((row, withLetterpad) => {
+    const formatData = buildTitleMapFromRow(row);
+    handlePrintReport(
+      {
+        ...row,
+        _titleMap: formatData.titleMap,
+        _pnaDetails: formatData.pnaDetails,
+        _desclaimer: formatData.desclaimer,
+        department: formatData.department,
+        heading: formatData.heading,
+        sub_heading: formatData.sub_heading,
+      },
+      withLetterpad,
+    );
+  }, []);
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+
   const handleResetFilter = () => {
     setFromDate(getToday());
     setToDate(getToday());
-    setSelectedBillType("USG01");
+    const defaultType = billTypes[0]?.value || "";
+    setSelectedBillType(defaultType);
+    localStorage.setItem("rdlist_billType", defaultType);
     setSearchBillNo("");
     setSearchUhid("");
     setSearchIpNumber("");
     setSearchPatient("");
+    setSearchPaymentStatus("");
     setSearchStatus("");
     setSearchReferredBy("");
+    setSearchScanType("");
   };
 
+  const scanTypeOptions = useMemo(() => {
+    const types = rows.map((r) => r.scan_type).filter(Boolean);
+    return [...new Set(types)].sort();
+  }, [rows]);
+
   const referredByOptions = useMemo(() => {
-    const names = rows.map((r) => r.referredBy).filter(Boolean);
+    const names = rows.map((r) => r.referredByName).filter(Boolean);
     return [...new Set(names)].sort();
   }, [rows]);
 
@@ -2293,9 +3448,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     return rows.filter((row) => {
       const statusLabel = !row.hasReport
         ? "pending"
-        : row.report?.is_approved
-          ? "approved"
-          : "reported";
+        : row.report?.is_Dispatched
+          ? "dispatched"
+          : row.report?.is_approved
+            ? "approved"
+            : "reported";
       return (
         (!searchBillNo ||
           (row.investBillNo || "")
@@ -2312,7 +3469,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             .toLowerCase()
             .includes(searchPatient.toLowerCase())) &&
         (!searchStatus || statusLabel === searchStatus) &&
-        (!searchReferredBy || row.referredBy === searchReferredBy)
+        (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
+        (!searchScanType || (row.scan_type || "") === searchScanType) &&
+        (!searchSlotStatus ||
+          (() => {
+            const s = row.tat_info?.slot_info?.status;
+            return searchSlotStatus === "no_slot"
+              ? !row.report?.slot_DateTime
+              : s === searchSlotStatus;
+          })()) &&
+        (!searchReferredBy || row.referredByName === searchReferredBy)
       );
     });
   }, [
@@ -2323,50 +3489,225 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchPatient,
     searchStatus,
     searchReferredBy,
+    searchPaymentStatus,
+    searchScanType,
+    searchSlotStatus,
   ]);
 
-  // ── Print dropdown handlers ────────────────────────────────────────────
-  const showPrintDropdown = (investBillNo, e) => {
+  // ── Print dropdown ─────────────────────────────────────────────────────────
+
+  const showPrintDropdown = (row, e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setPrintDropdownPos({
-      top: rect.bottom - 2, // was +4, now -2 so the menu overlaps the button slightly
-      left: rect.right - 200,
-    });
-    setActivePrintRowId(investBillNo);
+    setPrintDropdownPos({ top: rect.bottom - 2, left: rect.right - 200 });
+    setActivePrintRowId(`${row.investBillNo}__${row.item_id}`);
   };
   const hidePrintDropdown = () => {
     setActivePrintRowId(null);
   };
-
   const activePrintRow = useMemo(
-    () => rows.find((r) => r.investBillNo === activePrintRowId) || null,
+    () =>
+      rows.find(
+        (r) => `${r.investBillNo}__${r.item_id}` === activePrintRowId,
+      ) || null,
     [rows, activePrintRowId],
   );
 
-  // ── Other handlers ─────────────────────────────────────────────────────
+  // ── Action Handlers ────────────────────────────────────────────────────────
+
   const handleGoToReport = (row) => {
-    const parts = (row.uhid || "").split("/");
-    const uhidBase = parts[0] || "";
-    const subUhid = parts[1] || "";
+    const uhidFull = row.uhid || "";
+    const parts = uhidFull.split("/");
+    const uhidBase = parts[0] || "na";
+    const subUhid = parts[1] || "na";
     navigate(`/RDReportForm/${uhidBase}/${subUhid}`, {
       state: {
-        uhid: uhidBase,
-        subUhid,
+        uhid: uhidFull,
+        subUhid: "",
         itemName: row.itemName,
+        item_id: row.item_id,
         ipNumber: row.ipNumber,
         investBillNo: row.investBillNo,
-        salutation: "",
-        firstName: row.patientName,
-        middleName: "",
-        lastName: "",
+        billTypeNo: row.billTypeNo || selectedBillType,
+        salutation: row.salutation || "",
+        firstName: row.firstName || "",
+        middleName: row.middleName || "",
+        lastName: row.lastName || "",
         age: row.age,
+        age_type: row.age_type,
         gender: row.gender,
         investBillDate: row.investBillDate,
-        billTypeNo: selectedBillType,
-        item_id: row.item_id,
-        referredBy: row.referredBy,
+        referredBy: row.referredBy || "",
       },
     });
+  };
+
+  const handlePatientCheckIn = async (row) => {
+    const alreadyIn = !!row.report?.patientIn_DateTime;
+    const patientIn_DateTime = alreadyIn ? null : new Date().toISOString();
+    try {
+      if (!row.report) {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          {
+            patientIn_DateTime,
+            investBillDate: row.investBillDate,
+            itemName: row.itemName,
+            billTypeNo: row.billTypeNo || selectedBillType,
+          },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to check in");
+          return;
+        }
+        toast.success(
+          alreadyIn ? "Check-in cleared." : "Patient checked in! ✓",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: { ...(r.report || {}), ...result.data },
+                }
+              : r,
+          ),
+        );
+      } else {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/checkin/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          { patientIn_DateTime },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to check in");
+          return;
+        }
+        toast.success(
+          alreadyIn ? "Check-in cleared." : "Patient checked in! ✓",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: { ...r.report, ...result.data },
+                }
+              : r,
+          ),
+        );
+      }
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
+  };
+
+  const handleScanStarted = async (row) => {
+    const alreadyStarted = !!row.report?.scan_started_DateTime;
+    const scan_started_DateTime = alreadyStarted
+      ? null
+      : new Date().toISOString();
+    try {
+      if (!row.report) {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/scan-started/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          {
+            scan_started_DateTime,
+            investBillDate: row.investBillDate,
+            itemName: row.itemName,
+            billTypeNo: row.billTypeNo || selectedBillType,
+          },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to mark scan start");
+          return;
+        }
+        toast.success(
+          alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: { ...(r.report || {}), ...result.data },
+                }
+              : r,
+          ),
+        );
+      } else {
+        const result = await apiRequest(
+          `${HMSURL}scan-reports/scan-started/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+          "PATCH",
+          { scan_started_DateTime },
+        );
+        if (!result.success) {
+          toast.error(result.error || "Failed to update scan start");
+          return;
+        }
+        toast.success(
+          alreadyStarted ? "Scan start cleared." : "Scan started! 🔬",
+        );
+        setRows((prev) =>
+          prev.map((r) =>
+            r.investBillNo === row.investBillNo && r.item_id === row.item_id
+              ? {
+                  ...r,
+                  tat_info: result.data?.tat_info ?? r.tat_info,
+                  report: { ...r.report, ...result.data },
+                }
+              : r,
+          ),
+        );
+      }
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
+  };
+
+  const handleDispatch = async (row) => {
+    if (!row.report?.is_approved) {
+      toast.warning("Only approved reports can be dispatched.");
+      return;
+    }
+    if (row.report?.is_Dispatched) {
+      toast.info("Already dispatched.");
+      return;
+    }
+    try {
+      const result = await apiRequest(
+        `${HMSURL}scan-reports/dispatch/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
+        "PATCH",
+        {},
+      );
+      if (!result.success) {
+        toast.error(result.error || "Dispatch failed");
+        return;
+      }
+      toast.success("Report dispatched! 📤");
+      setRows((prev) =>
+        prev.map((r) =>
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
+            ? {
+                ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info,
+                report: {
+                  ...r.report,
+                  is_Dispatched: true,
+                  dispatch_DateTime:
+                    result.data?.dispatch_DateTime || new Date().toISOString(),
+                },
+              }
+            : r,
+        ),
+      );
+    } catch {
+      toast.error("An unexpected error occurred.");
+    }
   };
 
   const handleOpenSlot = (row) => {
@@ -2377,55 +3718,53 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleSlotSaved = ({
     investBillNo,
     itemName,
+    item_id,
     slot_DateTime,
-    impression,
     wasCreated,
   }) => {
     setRows((prev) =>
       prev.map((r) => {
-        if (r.investBillNo !== investBillNo || r.itemName !== itemName)
-          return r;
+        if (r.investBillNo !== investBillNo || r.item_id !== item_id) return r;
         const updatedReport = wasCreated
-          ? { slot_DateTime, impression, is_approved: false, is_active: true }
-          : {
-              ...r.report,
+          ? {
               slot_DateTime,
-              ...(impression ? { impression } : {}),
-            };
-        return { ...r, report: updatedReport, hasReport: true };
+              impression: "",
+              is_approved: false,
+              is_active: true,
+              has_report: false,
+            }
+          : { ...r.report, slot_DateTime };
+        return { ...r, report: updatedReport };
       }),
     );
   };
 
-  const handlePreview = async (row) => {
-    const titleMap = await getTitleMap(row);
-    const enrichedRow = {
+  const handlePreview = (row) => {
+    const formatData = buildTitleMapFromRow(row);
+    setSelectedRow({
       ...row,
       report: row.report
-        ? {
-            ...row.report,
-            _titleMap: titleMap,
-          }
+        ? { ...row.report, _titleMap: formatData.titleMap }
         : row.report,
-    };
-    setSelectedRow(enrichedRow);
+    });
     setIsModalOpen(true);
   };
 
-  const handleEdit = async (row) => {
-    const titleMap = await getTitleMap(row);
-    const enrichedRow = {
+  const handleEdit = (row) => {
+    const formatData = buildTitleMapFromRow(row);
+    setEditingRow({
       ...row,
-      report: row.report ? { ...row.report, _titleMap: titleMap } : row.report,
-    };
-    setEditingRow(enrichedRow);
+      report: row.report
+        ? { ...row.report, _titleMap: formatData.titleMap }
+        : row.report,
+    });
     setIsEditModalOpen(true);
   };
 
   const handleApprove = async (row) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/approve/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        `${HMSURL}scan-reports/approve/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
         "PATCH",
         {},
       );
@@ -2433,7 +3772,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       toast.success("Report approved successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
                 ...r,
                 report: {
@@ -2453,46 +3792,43 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     }
   };
 
-  const handleSaveEdit = async (newImpression, newSections) => {
+  const handleSaveEdit = async (newImpression, newSections, newAncFields) => {
     try {
-      const patchPayload = {
-        impression: newImpression,
-        ...(newSections?.length > 0
-          ? {
-              sections: newSections.map((s) => ({
-                title_id: s.title_id,
-                value: s.value,
-              })),
-            }
-          : {}),
-      };
+      const apiSections = newSections.map((s) => {
+        if (s.isTable) {
+          const { table_name, title, ...rowData } = s.value;
+          return rowData;
+        }
+        return {
+          title_id: s.title_id,
+          title_value: s.value,
+        };
+      });
       const result = await apiRequest(
-        `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.itemName)}/`,
+        `${HMSURL}scan-reports/edit/${encodeURIComponent(editingRow.investBillNo)}/${encodeURIComponent(editingRow.item_id)}/`,
         "PATCH",
-        patchPayload,
+        {
+          impression: newImpression,
+          sections: apiSections,
+          ...(newAncFields && { anc_fields: newAncFields }),
+        },
       );
       if (!result.success) throw new Error(result.error);
       toast.success("Report updated successfully!");
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === editingRow.investBillNo &&
-          r.itemName === editingRow.itemName
+          r.item_id === editingRow.item_id
             ? {
                 ...r,
                 report: {
                   ...r.report,
                   impression: newImpression,
-                  ...(newSections?.length > 0
-                    ? {
-                        valuedetails: {
-                          ...r.report?.valuedetails,
-                          value: newSections.map((s) => ({
-                            title_id: s.title_id,
-                            title_value: s.value,
-                          })),
-                        },
-                      }
-                    : {}),
+                  valuedetails: {
+                    ...r.report?.valuedetails,
+                    value: apiSections,
+                    ...(newAncFields && { anc_fields: newAncFields }),
+                  },
                 },
               }
             : r,
@@ -2508,7 +3844,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const handleDelete = async (row) => {
     try {
       const result = await apiRequest(
-        `${HMSURL}scan-reports/delete/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.itemName)}/`,
+        `${HMSURL}scan-reports/delete/${encodeURIComponent(row.investBillNo)}/${encodeURIComponent(row.item_id)}/`,
         "PATCH",
         {},
       );
@@ -2516,7 +3852,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       toast.success("Report deleted successfully!");
       setRows((prev) =>
         prev.map((r) =>
-          r.investBillNo === row.investBillNo && r.itemName === row.itemName
+          r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? { ...r, report: null, hasReport: false }
             : r,
         ),
@@ -2542,38 +3878,252 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   }, [rows]);
 
   const pageLabel =
-    BILL_TYPES.find((b) => b.value === selectedBillType)?.label || "Radiology";
+    billTypes.find((b) => b.value === selectedBillType)?.label || "Radiology";
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  const formatTATDuration = (seconds) => {
+    if (seconds === null || seconds === undefined) return "—";
+    const total = Math.abs(Math.round(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const getLiveTAT = (row) => {
+    const tat = row.tat_info;
+    if (!tat || tat.status === "unknown") return tat;
+    if (tat.status === "completed" || tat.status === "completed_late")
+      return tat;
+    if (!row.report?.patientIn_DateTime)
+      return { ...tat, status: "waiting", label: "Awaiting check-in" };
+    if (!row.report?.scan_started_DateTime)
+      return { ...tat, status: "waiting", label: "Awaiting scan start" };
+
+    const startTime = new Date(row.report.scan_started_DateTime).getTime();
+    const nowTime = Date.now();
+    const elapsed_seconds = Math.floor((nowTime - startTime) / 1000);
+    const tat_seconds = tat.tat_seconds || 0;
+    const remaining = tat_seconds - elapsed_seconds;
+
+    const fmtDuration = (s) => {
+      const abs = Math.abs(Math.round(s));
+      const h = Math.floor(abs / 3600);
+      const m = Math.floor((abs % 3600) / 60);
+      const sec = abs % 60;
+      const parts = [];
+      if (h) parts.push(`${h}h`);
+      if (m || h) parts.push(`${m}m`);
+      parts.push(`${sec}s`);
+      return parts.join(" ");
+    };
+
+    const status = remaining > 0 ? "on_track" : "overdue";
+    const label =
+      status === "on_track"
+        ? `${fmtDuration(remaining)} left`
+        : `Overdue by ${fmtDuration(-remaining)}`;
+    return { ...tat, elapsed_seconds, status, label };
+  };
+
+  const formatTimeOnly = (isoString) => {
+    if (!isoString) return "";
+    try {
+      const timePart = isoString.split("T")[1];
+      if (!timePart) return "";
+      const timeOnly = timePart.split("+")[0].split("-")[0];
+      const [hour, minute, second] = timeOnly.split(":");
+      const h = parseInt(hour, 10);
+      const ampm = h >= 12 ? "pm" : "am";
+      const h12 = h % 12 === 0 ? 12 : h % 12;
+      const sec = second ? second.split(".")[0] : "00";
+      return `${String(h12).padStart(2, "0")}:${minute}:${sec} ${ampm}`;
+    } catch {
+      return "";
+    }
+  };
+
+  const PatientInCell = ({ row, handlePatientCheckIn }) => {
+    const checkedIn = !!row.report?.patientIn_DateTime;
+    const scanStarted = !!row.report?.scan_started_DateTime;
+    const paymentPending = row.paymentStatus !== "Paid";
+    const isApproved = !!row.report?.is_approved;
+
+    if (isApproved && checkedIn) {
+      return (
+        <Td>
+          <WfLockedPill
+            bg="#f1f8e9"
+            borderColor="#c5e1a5"
+            color="#558b2f"
+            iconBg="#558b2f"
+          >
+            <WfIcon bg="#558b2f">✓</WfIcon>
+            Arrived
+            <WfTime>{formatTimeOnly(row.report.patientIn_DateTime)}</WfTime>
+          </WfLockedPill>
+        </Td>
+      );
+    }
+    if (checkedIn) {
+      return (
+        <Td>
+          <WfCheckedInBtn
+            onClick={() => handlePatientCheckIn(row)}
+            disabled={scanStarted}
+            title={
+              scanStarted
+                ? "Locked — scan already started"
+                : "Click to undo check-in"
+            }
+          >
+            <WfIcon bg="#558b2f">✓</WfIcon>
+            Arrived
+            <WfTime>{formatTimeOnly(row.report.patientIn_DateTime)}</WfTime>
+          </WfCheckedInBtn>
+        </Td>
+      );
+    }
+    return (
+      <Td>
+        <WfIdleBtn
+          onClick={() => handlePatientCheckIn(row)}
+          disabled={paymentPending}
+          title={paymentPending ? "Payment pending" : "Mark patient as arrived"}
+        >
+          <WfIcon>☐</WfIcon>
+          Check in
+        </WfIdleBtn>
+      </Td>
+    );
+  };
+
+  const ScanStartedCell = ({ row, handleScanStarted }) => {
+    const scanStarted = !!row.report?.scan_started_DateTime;
+    const checkedIn = !!row.report?.patientIn_DateTime;
+    const isApproved = !!row.report?.is_approved;
+
+    if (isApproved && scanStarted) {
+      return (
+        <Td>
+          <WfLockedPill
+            bg="#fff8e1"
+            borderColor="#ffe082"
+            color="#e65100"
+            iconBg="#f57c00"
+          >
+            <WfIcon bg="#f57c00">🔬</WfIcon>
+            Scanned
+            <WfTime>{formatTimeOnly(row.report.scan_started_DateTime)}</WfTime>
+          </WfLockedPill>
+        </Td>
+      );
+    }
+    if (scanStarted) {
+      return (
+        <Td>
+          <WfScanActiveBtn
+            onClick={() => handleScanStarted(row)}
+            disabled={
+              !checkedIn || (row.hasReport && row.report?.impression?.trim())
+            }
+            title={
+              !checkedIn
+                ? "Check in patient first"
+                : row.hasReport && row.report?.impression?.trim()
+                  ? "Report already submitted"
+                  : "Click to clear scan start"
+            }
+          >
+            <WfIcon bg="#f57c00">🔬</WfIcon>
+            Scanning
+            <WfTime>{formatTimeOnly(row.report.scan_started_DateTime)}</WfTime>
+          </WfScanActiveBtn>
+        </Td>
+      );
+    }
+    return (
+      <Td>
+        <WfIdleBtn
+          onClick={() => handleScanStarted(row)}
+          disabled={!checkedIn}
+          title={!checkedIn ? "Check in patient first" : "Mark scan as started"}
+        >
+          <WfIcon>☐</WfIcon>
+          Start scan
+        </WfIdleBtn>
+      </Td>
+    );
+  };
+
+  const DispatchCell = ({ row, handleDispatch }) => {
+    const isApproved = !!row.report?.is_approved;
+    const isDispatched = !!row.report?.is_Dispatched;
+
+    if (isDispatched) {
+      return (
+        <Td>
+          <WfDispatchedPill>
+            <WfIcon bg="#00796b">✓</WfIcon>
+            Dispatched
+            <WfTime>{formatTimeOnly(row.report.dispatch_DateTime)}</WfTime>
+          </WfDispatchedPill>
+        </Td>
+      );
+    }
+    if (isApproved) {
+      return (
+        <Td>
+          <WfDispatchReadyBtn
+            onClick={() => handleDispatch(row)}
+            title="Dispatch report"
+          >
+            <WfIcon bg="#1976d2">📤</WfIcon>
+            Dispatch
+          </WfDispatchReadyBtn>
+        </Td>
+      );
+    }
+    return (
+      <Td>
+        <WfIdleBtn
+          disabled
+          title={!row.hasReport ? "No report yet" : "Approve report first"}
+        >
+          <WfIcon>☐</WfIcon>
+          Dispatch
+        </WfIdleBtn>
+      </Td>
+    );
+  };
+
   return (
     <PageWrapper>
       <Container>
         <ContentCard>
-          {/* ── Top bar ── */}
           <TopBar>
             <PageTitle>{pageLabel} Investigations</PageTitle>
-
             <FilterContainer>
               <BillTypeWrapper>
                 <FilterLabel>Bill Type</FilterLabel>
                 <BillTypeSelect
                   value={selectedBillType}
                   onChange={(e) => {
-                    setSelectedBillType(e.target.value);
+                    const val = e.target.value;
+                    setSelectedBillType(val);
+                    localStorage.setItem("rdlist_billType", val);
                     setRows([]);
                     setSearchBillNo("");
                     setSearchStatus("");
                     setSearchReferredBy("");
                   }}
                 >
-                  {BILL_TYPES.map((bt) => (
+                  {billTypes.map((bt) => (
                     <option key={bt.value} value={bt.value}>
                       {bt.label}
                     </option>
                   ))}
                 </BillTypeSelect>
               </BillTypeWrapper>
-
               <FilterGroup>
                 <FilterLabel>From</FilterLabel>
                 <DateInput
@@ -2592,9 +4142,24 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
               </FilterGroup>
               <ResetButton onClick={handleResetFilter}>↺ Reset</ResetButton>
             </FilterContainer>
+            <Button
+              onClick={handleOpenPrint}
+              style={{
+                background: "linear-gradient(135deg,#ff7043,#e64a19)",
+                padding: "0.4rem 1rem",
+                fontSize: "0.82rem",
+                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                whiteSpace: "nowrap",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              }}
+            >
+              🖨️ Print
+            </Button>
           </TopBar>
 
-          {/* ── Stat Cards ── */}
           <StatsRow>
             <StatCard bg="#f0faf8" accent="#00897b">
               <StatIcon>📋</StatIcon>
@@ -2643,6 +4208,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             <Table>
               <thead>
                 <tr>
+                  <Th>Sl.No</Th>
                   <Th>Bill No</Th>
                   <Th>UHID</Th>
                   <Th>IP Number</Th>
@@ -2650,13 +4216,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <Th>Age</Th>
                   <Th>Gender</Th>
                   <Th>Item</Th>
+                  <Th>TAT</Th>
                   <Th>Bill Date</Th>
                   <Th>Referred By</Th>
+                  <Th>Payment Status</Th>
                   <Th>Slot</Th>
+                  <Th>Patient In</Th>
+                  <Th>Scan Started</Th>
+                  <Th>Dispatch</Th>
                   <Th>Status</Th>
                   <Th>Actions</Th>
                 </tr>
                 <tr>
+                  <SearchTh />
                   <SearchTh>
                     <SearchInput
                       placeholder="🔍 Bill No"
@@ -2687,6 +4259,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   </SearchTh>
                   <SearchTh />
                   <SearchTh />
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchScanType}
+                      onChange={(e) => setSearchScanType(e.target.value)}
+                    >
+                      <option value="">All Types</option>
+                      {scanTypeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </SearchSelect>
+                  </SearchTh>
                   <SearchTh />
                   <SearchTh />
                   <SearchTh>
@@ -2695,6 +4280,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       onChange={(e) => setSearchReferredBy(e.target.value)}
                     >
                       <option value="">All Doctors</option>
+                      <option value="SELF">SELF</option>
                       {referredByOptions.map((name) => (
                         <option key={name} value={name}>
                           {name}
@@ -2702,6 +4288,31 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       ))}
                     </SearchSelect>
                   </SearchTh>
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchPaymentStatus}
+                      onChange={(e) => setSearchPaymentStatus(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      <option value="Paid">✅ Paid</option>
+                      <option value="Pending">⏳ Pending</option>
+                    </SearchSelect>
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchSlotStatus}
+                      onChange={(e) => setSearchSlotStatus(e.target.value)}
+                      style={{ width: "auto", minWidth: "max-content" }}
+                    >
+                      <option value="">All Arrivals</option>
+                      <option value="on_time">✅ On Time</option>
+                      <option value="late">🔴 Late</option>
+                      <option value="not_arrived">⏳ Not Arrived</option>
+                      <option value="no_slot">— No Slot</option>
+                    </SearchSelect>
+                  </SearchTh>
+                  <SearchTh />
+                  <SearchTh />
                   <SearchTh />
                   <SearchTh>
                     <SearchSelect
@@ -2712,6 +4323,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       <option value="pending">⏳ Pending</option>
                       <option value="reported">⏱ Reported</option>
                       <option value="approved">✓ Approved</option>
+                      <option value="dispatched">📤 Dispatched</option>
                     </SearchSelect>
                   </SearchTh>
                   <SearchTh />
@@ -2724,42 +4336,124 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       key={`${row.investBillNo}-${row.itemName}-${index}`}
                       style={{
                         background: row.hasReport
-                          ? "linear-gradient(135deg,#f1f8f4 0%,#e8f5e9 100%)"
+                          ? "linear-gradient(135deg,#f1f8f4,#e8f5e9)"
                           : "white",
                       }}
                     >
+                      <Td
+                        style={{
+                          textAlign: "center",
+                          fontWeight: 700,
+                          color: "#00897b",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {index + 1}
+                      </Td>
                       <Td>{row.investBillNo}</Td>
                       <Td>{row.uhid}</Td>
                       <Td>{row.ipNumber || "—"}</Td>
                       <Td>{row.patientName}</Td>
-                      <Td>{row.age || "N/A"}</Td>
+                      <Td>
+                        {row.age} {row.age_type}
+                      </Td>
                       <Td>{row.gender || "N/A"}</Td>
-                      <Td>{row.itemName || "—"}</Td>
+                      <Td>
+                        <span>{row.itemName || "—"}</span>
+                        {row.scan_type && (
+                          <ScanTypeBadge type={row.scan_type}>
+                            {row.scan_type}
+                          </ScanTypeBadge>
+                        )}
+                      </Td>
+                      <Td>
+                        {(() => {
+                          const liveTat = getLiveTAT(row);
+                          if (!liveTat || liveTat.status === "unknown")
+                            return (
+                              <span
+                                style={{ color: "#bbb", fontSize: "0.8rem" }}
+                              >
+                                —
+                              </span>
+                            );
+                          return (
+                            <TATBadge status={liveTat.status}>
+                              {tatIcon(liveTat.status)} {liveTat.label}
+                            </TATBadge>
+                          );
+                        })()}
+                      </Td>
                       <Td>{formatDate(row.investBillDate)}</Td>
                       <Td>
-                        {row.referredBy ? (
-                          <ReferredByBadge>👨‍⚕️ {row.referredBy}</ReferredByBadge>
+                        {row.referredByName ? (
+                          <ReferredByBadge>
+                            👨‍⚕️ {row.referredByName}
+                          </ReferredByBadge>
                         ) : (
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —
                           </span>
                         )}
+                      </Td>
+                      <Td>
+                        <StatusBadge
+                          hasReport={row.paymentStatus === "Paid"}
+                          approved={row.paymentStatus === "Paid"}
+                        >
+                          {row.paymentStatus === "Paid"
+                            ? "✅ Paid"
+                            : "⏳ Pending"}
+                        </StatusBadge>
                       </Td>
                       <Td>
                         {row.report?.slot_DateTime ? (
-                          <SlotBadge>
-                            🕐 {formatSlotDisplay(row.report.slot_DateTime)}
-                          </SlotBadge>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.25rem",
+                            }}
+                          >
+                            <SlotBadge>
+                              🕐 {formatSlotDisplay(row.report.slot_DateTime)}
+                            </SlotBadge>
+                            {row.tat_info?.slot_info && (
+                              <SlotPunctualityBadge
+                                status={row.tat_info.slot_info.status}
+                              >
+                                {row.tat_info.slot_info.status === "on_time"
+                                  ? "✅"
+                                  : row.tat_info.slot_info.status === "late"
+                                    ? "🔴"
+                                    : "⏳"}{" "}
+                                {row.tat_info.slot_info.label}
+                              </SlotPunctualityBadge>
+                            )}
+                          </div>
                         ) : (
                           <span style={{ color: "#bbb", fontSize: "0.8rem" }}>
                             —
                           </span>
                         )}
                       </Td>
+                      <PatientInCell
+                        row={row}
+                        handlePatientCheckIn={handlePatientCheckIn}
+                      />
+                      <ScanStartedCell
+                        row={row}
+                        handleScanStarted={handleScanStarted}
+                      />
+                      <DispatchCell row={row} handleDispatch={handleDispatch} />
                       <Td>
                         {!row.hasReport ? (
                           <StatusBadge hasReport={false}>
                             ⏳ Pending
+                          </StatusBadge>
+                        ) : row.report?.is_Dispatched ? (
+                          <StatusBadge hasReport approved dispatched>
+                            📤 Dispatched
                           </StatusBadge>
                         ) : row.report?.is_approved ? (
                           <StatusBadge hasReport approved>
@@ -2773,34 +4467,54 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         <ActionRow>
                           {row.ipNumber && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#7c4dff,#651fff)"
                               onClick={() => handleOpenSlot(row)}
-                              disabled={row.report?.is_approved}
+                              disabled={
+                                row.report?.is_approved ||
+                                !!row.report?.scan_started_DateTime
+                              }
                               data-tip={
                                 row.report?.is_approved
                                   ? "Slot locked (approved)"
-                                  : row.hasReport
-                                    ? "Update Slot"
-                                    : "Set Slot"
+                                  : row.report?.scan_started_DateTime
+                                    ? "Slot locked (scan started)"
+                                    : row.report?.slot_DateTime
+                                      ? "Update Slot"
+                                      : "Set Slot"
                               }
                             >
                               🕐
                             </IconBtn>
                           )}
                           <IconBtn
-                            bg="linear-gradient(135deg,#00897b,#00695c)"
                             onClick={() => handleGoToReport(row)}
-                            disabled={row.hasReport}
+                            disabled={
+                              row.paymentStatus !== "Paid" ||
+                              row.report?.is_approved ||
+                              !row.report?.patientIn_DateTime ||
+                              !row.report?.scan_started_DateTime ||
+                              (row.hasReport && !row.ipNumber) ||
+                              (row.hasReport &&
+                                row.ipNumber &&
+                                row.report?.impression?.trim())
+                            }
                             data-tip={
-                              row.hasReport
-                                ? "Already Submitted"
-                                : "Go to Report"
+                              row.paymentStatus !== "Paid"
+                                ? "Payment Pending"
+                                : !row.report?.patientIn_DateTime
+                                  ? "Patient not checked in yet"
+                                  : !row.report?.scan_started_DateTime
+                                    ? "Scan not started yet"
+                                    : row.report?.is_approved
+                                      ? "Already Approved"
+                                      : row.hasReport &&
+                                          row.report?.impression?.trim()
+                                        ? "Already Submitted"
+                                        : "Go to Report"
                             }
                           >
                             📋
                           </IconBtn>
                           <IconBtn
-                            bg="linear-gradient(135deg,#26a69a,#00897b)"
                             onClick={() => handlePreview(row)}
                             disabled={!row.hasReport}
                             data-tip="Preview Report"
@@ -2809,7 +4523,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           </IconBtn>
                           {canApprove && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#66bb6a,#43a047)"
                               onClick={() => handleApprove(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
@@ -2825,7 +4538,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           )}
                           {canEdit && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#42a5f5,#1e88e5)"
                               onClick={() => handleEdit(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
@@ -2835,17 +4547,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               ✏️
                             </IconBtn>
                           )}
-
-                          {/* ── PRINT icon — portal dropdown, same pattern as PatientOverview ── */}
                           <PrintDropdownWrapper
                             onMouseEnter={(e) =>
                               row.report?.is_approved &&
-                              showPrintDropdown(row.investBillNo, e)
+                              showPrintDropdown(row, e)
                             }
                             onMouseLeave={hidePrintDropdown}
                           >
                             <IconBtn
-                              bg="linear-gradient(135deg,#ff7043,#e64a19)"
                               disabled={!row.report?.is_approved}
                               data-tip={
                                 row.report?.is_approved
@@ -2858,10 +4567,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               🖨️
                             </IconBtn>
                           </PrintDropdownWrapper>
-
                           {canDelete && (
                             <IconBtn
-                              bg="linear-gradient(135deg,#ef5350,#e53935)"
                               onClick={() => handleDelete(row)}
                               disabled={
                                 !row.hasReport || row.report?.is_approved
@@ -2877,8 +4584,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   ))
                 ) : (
                   <tr>
-                    <Td colSpan="12">
+                    <Td colSpan="18" style={{ padding: 0, border: "none" }}>
                       <EmptyState>
+                        <div
+                          style={{ fontSize: "3rem", marginBottom: "0.5rem" }}
+                        >
+                          📭
+                        </div>
                         <p>
                           {rows.length > 0
                             ? "No results match your search criteria"
@@ -2894,7 +4606,6 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         </ContentCard>
       </Container>
 
-      {/* ── PORTAL PRINT DROPDOWN — renders at <body> level ── */}
       {activePrintRowId &&
         activePrintRow &&
         createPortal(

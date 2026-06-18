@@ -286,33 +286,48 @@ const SearchableDropdown = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const isFocused = useRef(false);
   const wrapperRef = useRef(null);
+  const isTyping = useRef(false); // ← track if user is actively typing
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        isTyping.current = false;
         setIsOpen(false);
-        isFocused.current = false;
+        if (value) {
+          const selected = options.find((opt) =>
+            typeof opt === "string" ? opt === value : opt[valueKey] === value,
+          );
+          setSearchTerm(
+            selected
+              ? typeof selected === "string"
+                ? selected
+                : selected[displayKey]
+              : value,
+          );
+        } else {
+          setSearchTerm("");
+        }
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [value, options, displayKey, valueKey]);
 
+  // Sync display text only when NOT typing
   useEffect(() => {
-    if (isFocused.current) return;
+    if (isTyping.current) return; // ← skip sync while user is typing
     if (value) {
       const selected = options.find((opt) =>
         typeof opt === "string" ? opt === value : opt[valueKey] === value,
       );
-      if (selected) {
-        setSearchTerm(
-          typeof selected === "string" ? selected : selected[displayKey],
-        );
-        return;
-      }
-      setSearchTerm(value);
+      setSearchTerm(
+        selected
+          ? typeof selected === "string"
+            ? selected
+            : selected[displayKey]
+          : value,
+      );
     } else {
       setSearchTerm("");
     }
@@ -326,10 +341,21 @@ const SearchableDropdown = ({
   const handleSelect = (option) => {
     const sv = typeof option === "string" ? option : option[valueKey];
     const dv = typeof option === "string" ? option : option[displayKey];
+    isTyping.current = false;
     onChange(sv);
     setSearchTerm(dv);
     setIsOpen(false);
-    isFocused.current = false;
+  };
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    isTyping.current = true; // ← mark as typing so useEffect won't override
+    setSearchTerm(val);
+    setIsOpen(true);
+    if (val === "") {
+      isTyping.current = false; // ← allow sync again once fully cleared
+      onChange("");
+    }
   };
 
   return (
@@ -337,18 +363,8 @@ const SearchableDropdown = ({
       <Input
         type="text"
         value={searchTerm}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => {
-          isFocused.current = true;
-          setIsOpen(true);
-        }}
-        onBlur={() => {
-          isFocused.current = false;
-          if (!searchTerm.trim()) onChange("");
-        }}
+        onChange={handleInputChange}
+        onFocus={() => setIsOpen(true)}
         placeholder={placeholder}
         disabled={disabled}
       />
@@ -388,6 +404,7 @@ const InvestigationBilling = () => {
     firstName: "",
     lastName: "",
     age: "",
+    age_type: "",
     gender: "",
     item: JSON.stringify([]),
     referredBy: "",
@@ -415,12 +432,15 @@ const InvestigationBilling = () => {
   const [selectedPrice, setSelectedPrice] = useState("");
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
-
   // Whether this session is an edit (has existing investBillNo + editRemarks)
   const [isEditMode, setIsEditMode] = useState(false);
-
   const navigate = useNavigate();
   const location = useLocation();
+
+  const isPatientFetched = !!(
+    formData.firstName &&
+    (formData.uhid || formData.ipNumber)
+  );
 
   // ── Initialization ──────────────────────────────────────────────────────────
 
@@ -527,9 +547,17 @@ const InvestigationBilling = () => {
       company_name: data.company_name || "",
       company_code: data.company_code || "",
       editRemarks: data.editRemarks || "",
+      calculatedAge: data.calculatedAge || String(data.age || ""), // ← add
+      ageType: data.ageType || data.age_type || "", // ← add
     });
 
     setProductList(itemsArray);
+
+    // Recalculate from DOB if available, otherwise keep stored values
+    if (data.dob) {
+      const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
+      setFormData((prev) => ({ ...prev, calculatedAge, ageType }));
+    }
   }, [location.state]); // eslint-disable-line
 
   // ── Trigger bill type fetch once billTypes list has loaded ─────────────────
@@ -685,16 +713,20 @@ const InvestigationBilling = () => {
     );
     if (result.success) {
       const data = result.data;
+      const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
       setFormData((prev) => ({
         ...prev,
         salutation: data.salutation || "",
         firstName: data.firstName || "",
         lastName: data.lastName || "",
-        age: data.age || "",
+        dob: data.dob || "",
+        calculatedAge,
+        ageType,
         gender: data.gender || "",
         customer_type: data.customer_type || "",
         company_name: data.company_name || "",
         company_code: data.company_code || "",
+        roomNo: "",
       }));
     } else {
       alert(result.error || "Patient not found");
@@ -712,17 +744,21 @@ const InvestigationBilling = () => {
     );
     if (result.success) {
       const data = result.data;
+      const { calculatedAge, ageType } = calculateAgeFromDOB(data.dob);
       setFormData((prev) => ({
         ...prev,
         uhid: data.uhid || "",
         salutation: data.salutation || "",
         firstName: data.firstName || "",
         lastName: data.lastName || "",
-        age: data.age || "",
+        dob: data.dob || "",
+        calculatedAge,
+        ageType,
         gender: data.gender || "",
         customer_type: data.customer_type || "",
         company_name: data.company_name || "",
         company_code: data.company_code || "",
+        roomNo: data.roomNo || "",
       }));
     } else {
       alert(result.error || "Patient not found");
@@ -737,10 +773,6 @@ const InvestigationBilling = () => {
   };
 
   const validateForm = () => {
-    if (!formData.uhid?.trim()) {
-      alert("UHID is required!");
-      return false;
-    }
     if (!formData.doctor?.trim()) {
       alert("Doctor is required!");
       return false;
@@ -795,6 +827,15 @@ const InvestigationBilling = () => {
       finalPrice: formData.finalPrice,
       paymentMethod: formData.paymentMethod,
       item: productList,
+      age: formData.calculatedAge || "", // ← add
+      age_type: formData.ageType || "",
+      roomNo: formData.roomNo || "",
+      salutation: formData.salutation || "",
+      firstName: formData.firstName || "",
+      lastName: formData.lastName || "",
+      age: formData.calculatedAge || formData.age || "",
+      age_type: formData.ageType || "",
+      gender: formData.gender || "",
     };
 
     const result = await apiRequest(
@@ -847,6 +888,15 @@ const InvestigationBilling = () => {
       item: productList,
       is_emergency: !!formData.is_emergency,
       EstBillNo: formData.EstBillNo,
+      age: formData.calculatedAge || "", // ← add
+      age_type: formData.ageType || "",
+      roomNo: formData.roomNo || "",
+      salutation: formData.salutation || "",
+      firstName: formData.firstName || "",
+      lastName: formData.lastName || "",
+      age: formData.calculatedAge || formData.age || "",
+      age_type: formData.ageType || "",
+      gender: formData.gender || "",
       // ── Include editRemarks only when editing ──
       ...(isEditMode && formData.editRemarks
         ? { editRemarks: formData.editRemarks }
@@ -911,6 +961,29 @@ const InvestigationBilling = () => {
       if (name === "paymentMethod") updated.paymentStatus = "Pending";
       return updated;
     });
+  };
+  const calculateAgeFromDOB = (dob) => {
+    if (!dob) return { calculatedAge: "", ageType: "" };
+
+    const birth = new Date(dob);
+    const today = new Date();
+
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+    let days = today.getDate() - birth.getDate();
+
+    if (days < 0) {
+      months -= 1;
+      days += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    if (years >= 1) return { calculatedAge: `${years}`, ageType: "Y" };
+    if (months >= 1) return { calculatedAge: `${months}`, ageType: "M" };
+    return { calculatedAge: `${days}`, ageType: "D" };
   };
 
   // ── Print helpers ───────────────────────────────────────────────────────────
@@ -981,7 +1054,14 @@ const InvestigationBilling = () => {
     .net-amount { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 5px; }
     .signature { display: flex; justify-content: space-between; margin-top: 30px; }
   `;
-
+  const resolveEmployeeName = (idOrName) => {
+    if (!idOrName) return "";
+    if (idOrName === "SELF") return "SELF";
+    const found = doctors.find(
+      (d) => String(d.employeeId) === String(idOrName),
+    );
+    return found ? found.employeeName.trim() : idOrName;
+  };
   const handlePrint = (bill) => {
     const printWindow = window.open("", "_blank", "height=600,width=800");
     const itemsArray = resolveItems(bill.item);
@@ -998,8 +1078,8 @@ const InvestigationBilling = () => {
             <div class="bill-row"><div class="bill-label">Bill Number</div><div>: ${bill.investBillNo || ""}</div></div>
             <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${bill.uhid || ""}</div></div>
             <div class="bill-row"><div class="bill-label">Bill Date</div><div>: ${formatDateTime(bill.investBillDate)}, ${formatTimeTo12Hr(bill.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.age}Y / ${bill.gender}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${bill.doctor || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${bill.calculatedAge || bill.age || ""}${bill.ageType || "Y"} / ${bill.gender}</div></div>
+            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${resolveEmployeeName(bill.doctor)}</div></div>
           </div>
         </div>
         <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
@@ -1031,8 +1111,8 @@ const InvestigationBilling = () => {
             <div class="bill-row"><div class="bill-label">Estimate No</div><div>: ${estimate.EstBillNo || ""}</div></div>
             <div class="bill-row"><div class="bill-label">OP Number</div><div>: ${estimate.uhid || ""}</div></div>
             <div class="bill-row"><div class="bill-label">Date</div><div>: ${formatDateTime(estimate.EstBillDate)}, ${formatTimeTo12Hr(estimate.time)}</div></div>
-            <div class="bill-row"><div class="bill-label">Name</div><div>: ${formatPatientName(estimate.salutation, estimate.firstName, estimate.middleName, estimate.lastName)}</div></div>
-            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${estimate.doctor || ""}</div></div>
+            <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div>: ${formatPatientName(estimate.salutation, estimate.firstName, estimate.middleName, estimate.lastName)} / ${estimate.calculatedAge || estimate.age || ""}${estimate.ageType || "Y"} / ${estimate.gender}</div></div>
+            <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${resolveEmployeeName(estimate.doctor)}</div></div>
           </div>
         </div>
         <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
@@ -1115,7 +1195,8 @@ const InvestigationBilling = () => {
                 type="text"
                 name="salutation"
                 value={formData.salutation}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
@@ -1125,7 +1206,8 @@ const InvestigationBilling = () => {
                 type="text"
                 name="firstName"
                 value={formData.firstName}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
               />
             </InputWrapper>
 
@@ -1135,24 +1217,87 @@ const InvestigationBilling = () => {
                 type="text"
                 name="lastName"
                 value={formData.lastName}
-                readOnly
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
+              />
+            </InputWrapper>
+
+            <InputWrapper>
+              <Label>DOB</Label>
+              <Input
+                type="date" // ← change text to date for usability
+                name="dob"
+                value={formData.dob || ""}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  if (e.target.value) {
+                    const { calculatedAge, ageType } = calculateAgeFromDOB(
+                      e.target.value,
+                    );
+                    setFormData((prev) => ({
+                      ...prev,
+                      calculatedAge,
+                      ageType,
+                    }));
+                  }
+                }}
+                readOnly={isPatientFetched}
+                disabled={!formData.uhid && !formData.ipNumber} // ← disable when no UHID/IP
               />
             </InputWrapper>
 
             <InputWrapper>
               <Label>Age</Label>
-              <Input type="number" name="age" value={formData.age} readOnly />
+              <Input
+                type="text"
+                name="calculatedAge"
+                value={formData.calculatedAge || formData.age || ""}
+                onChange={handleInputChange} // ← was readOnly
+                readOnly={isPatientFetched}
+              />
+            </InputWrapper>
+
+            <InputWrapper>
+              <Label>Age Type</Label>
+              <Select
+                name="ageType"
+                value={formData.ageType || ""}
+                onChange={handleInputChange} // ← was readOnly Input
+                disabled={isPatientFetched}
+              >
+                <option value="">Select</option>
+                <option value="Y">Years</option>
+                <option value="M">Months</option>
+                <option value="D">Days</option>
+              </Select>
             </InputWrapper>
 
             <InputWrapper>
               <Label>Gender</Label>
-              <Input
-                type="text"
+              <Select
                 name="gender"
                 value={formData.gender}
-                readOnly
-              />
+                onChange={handleInputChange} // ← was readOnly
+                disabled={isPatientFetched}
+              >
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </Select>
             </InputWrapper>
+            {/* ← add this block right after Gender */}
+            {formData.ipNumber && formData.roomNo && (
+              <InputWrapper>
+                <Label>Room No</Label>
+                <Input
+                  type="text"
+                  name="roomNo"
+                  value={formData.roomNo}
+                  readOnly
+                />
+              </InputWrapper>
+            )}
           </FormRow>
 
           {/* ── Billing Details ── */}
@@ -1224,10 +1369,13 @@ const InvestigationBilling = () => {
                 onChange={(value) =>
                   setFormData((prev) => ({ ...prev, doctor: value }))
                 }
-                options={doctors.map((d) => ({
-                  id: d.employeeName.trim(),
-                  name: d.employeeName.trim(),
-                }))}
+                options={[
+                  { id: "SELF", name: "SELF" },
+                  ...doctors.map((d) => ({
+                    id: d.employeeId, // ← store employeeId
+                    name: d.employeeName.trim(),
+                  })),
+                ]}
                 displayKey="name"
                 valueKey="id"
                 placeholder="Select doctor..."
@@ -1241,10 +1389,13 @@ const InvestigationBilling = () => {
                 onChange={(value) =>
                   setFormData((prev) => ({ ...prev, referredBy: value }))
                 }
-                options={doctors.map((d) => ({
-                  id: d.employeeName.trim(),
-                  name: d.employeeName.trim(),
-                }))}
+                options={[
+                  { id: "SELF", name: "SELF" },
+                  ...doctors.map((d) => ({
+                    id: d.employeeId, // ← store employeeId
+                    name: d.employeeName.trim(),
+                  })),
+                ]}
                 displayKey="name"
                 valueKey="id"
                 placeholder="Select doctor..."
@@ -1266,7 +1417,7 @@ const InvestigationBilling = () => {
             {selectedBillTypeNo !== "PACK" && (
               <FormRow
                 style={{
-                  gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
                 }}
               >
                 <InputWrapper>
