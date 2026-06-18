@@ -105,6 +105,7 @@ import CashCounterManager from "./Components/CentralCashCounter/CashCounterManag
 import CustomerType from "./Components/BillingMaster/CustomerType";
 // import DoctorSchedule from "./Components/DoctorMaster/DoctorSchedule";
 import DoctorReport from "./Components/DoctorMaster/DoctorReport";
+import CrashCartChecklist from "./Components/NursingStation/CrashCartChecklist";
 import NursingStation from "./Components/Rooms/NursingStation";
 import RoomServiceDescription from "./Components/Rooms/RoomServiceDescription";
 import RoomKitItems from "./Components/Rooms/RoomKitItems";
@@ -335,6 +336,7 @@ function App() {
       "/AdvanceRegistration": "Advance Registration",
 
       "/BillCancelReport": "Bill Cancel Report",
+
     };
 
     const path = location.pathname;
@@ -656,8 +658,11 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/NursingStation" element={<NursingStation />} />
-              )}
+                  <>
+                    <Route path="/crash-cart" element={<CrashCartChecklist />} />
+                    <Route path="/NursingStation" element={<NursingStation />} />
+                  </>
+                )}
               {hasPagePermission(
                 "/RoomKitItems",
                 allowedActions,
@@ -822,6 +827,7 @@ function App() {
                   element={<PurchaseOrderApproval />}
                 />
               )}
+
 
               {/* Doctor Master */}
               {hasPagePermission(

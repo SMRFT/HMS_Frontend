@@ -8,8 +8,8 @@ const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const C = {
-  primary: "#3b82f6",    
-  primaryDark: "#2563eb", 
+  primary: "#3b82f6",
+  primaryDark: "#2563eb",
   bgGlass: "rgba(255, 255, 255, 0.9)",
   border: "rgba(59, 130, 246, 0.15)",
   danger: "#ef4444",
@@ -67,15 +67,16 @@ const ActionBtn = styled(Button)`
 
 const LaundryAdmin = () => {
   const [activeTab, setActiveTab] = useState("requests");
-  
+
   // Requests State
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
-  
+
   // Master State
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [form, setForm] = useState({ id: "", item_name: "", price: "" });
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => {
     if (activeTab === "requests") fetchRequests();
@@ -143,7 +144,7 @@ const LaundryAdmin = () => {
       <Container>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0, color: C.textMain }}>🧺 Laundry Management</h2>
-          <Button onClick={activeTab === 'requests' ? fetchRequests : fetchItems}><FiRefreshCcw style={{marginRight: '8px'}}/>Refresh</Button>
+          <Button onClick={activeTab === 'requests' ? fetchRequests : fetchItems}><FiRefreshCcw style={{ marginRight: '8px' }} />Refresh</Button>
         </div>
 
         <TabContainer>
@@ -167,16 +168,16 @@ const LaundryAdmin = () => {
               </thead>
               <tbody>
                 {loadingRequests ? (
-                  <Tr><Td colSpan={7} style={{textAlign: 'center'}}>Loading...</Td></Tr>
+                  <Tr><Td colSpan={7} style={{ textAlign: 'center' }}>Loading...</Td></Tr>
                 ) : requests.length === 0 ? (
-                  <Tr><Td colSpan={7} style={{textAlign: 'center'}}>No requests found.</Td></Tr>
+                  <Tr><Td colSpan={7} style={{ textAlign: 'center' }}>No requests found.</Td></Tr>
                 ) : (
                   requests.map(req => (
                     <Tr key={req.id}>
                       <Td>{req.requested_date}</Td>
                       <Td>
-                        <div style={{fontWeight: 700}}>{req.patient_name}</div>
-                        <div style={{fontSize: '0.8rem', color: C.textMuted}}>{req.uhid} | {req.ipNumber}</div>
+                        <div style={{ fontWeight: 700 }}>{req.patient_name}</div>
+                        <div style={{ fontSize: '0.8rem', color: C.textMuted }}>{req.uhid} | {req.ipNumber}</div>
                       </Td>
                       <Td>{req.wardName} / {req.roomNo} / {req.bedNo}</Td>
                       <Td>
@@ -190,8 +191,8 @@ const LaundryAdmin = () => {
                         </span>
                       </Td>
                       <Td>
-                        <select 
-                          value={req.status} 
+                        <select
+                          value={req.status}
                           onChange={(e) => updateStatus(req.id, e.target.value)}
                           style={{ padding: "6px 12px", borderRadius: "8px", border: `1px solid ${C.border}`, background: req.status === "Completed" ? "#dcfce7" : req.status === "Pending" ? "#fef3c7" : "#eff6ff", color: req.status === "Completed" ? "#166534" : req.status === "Pending" ? "#b45309" : "#1d4ed8", fontWeight: 700, outline: "none", cursor: "pointer" }}
                         >
@@ -223,19 +224,19 @@ const LaundryAdmin = () => {
             <FormCard>
               <FormGroup>
                 <Label>Item Name</Label>
-                <StyledInput 
-                  placeholder="e.g. Bedsheets" 
-                  value={form.item_name} 
-                  onChange={e => setForm({...form, item_name: e.target.value})} 
+                <StyledInput
+                  placeholder="e.g. Bedsheets"
+                  value={form.item_name}
+                  onChange={e => setForm({ ...form, item_name: e.target.value })}
                 />
               </FormGroup>
               <FormGroup>
                 <Label>Price (Optional)</Label>
-                <StyledInput 
-                  type="number" 
-                  placeholder="0.00" 
-                  value={form.price} 
-                  onChange={e => setForm({...form, price: e.target.value})} 
+                <StyledInput
+                  type="number"
+                  placeholder="0.00"
+                  value={form.price}
+                  onChange={e => setForm({ ...form, price: e.target.value })}
                 />
               </FormGroup>
               <Button style={{ padding: '12px 24px', borderRadius: '10px' }} onClick={saveItem}>
@@ -249,18 +250,18 @@ const LaundryAdmin = () => {
                   <Tr>
                     <Th>Item Name</Th>
                     <Th>Price</Th>
-                    <Th style={{width: '120px'}}>Actions</Th>
+                    <Th style={{ width: '120px' }}>Actions</Th>
                   </Tr>
                 </thead>
                 <tbody>
                   {loadingItems ? (
-                    <Tr><Td colSpan={3} style={{textAlign: 'center'}}>Loading...</Td></Tr>
+                    <Tr><Td colSpan={3} style={{ textAlign: 'center' }}>Loading...</Td></Tr>
                   ) : items.length === 0 ? (
-                    <Tr><Td colSpan={3} style={{textAlign: 'center'}}>No items found.</Td></Tr>
+                    <Tr><Td colSpan={3} style={{ textAlign: 'center' }}>No items found.</Td></Tr>
                   ) : (
                     items.map(item => (
                       <Tr key={item.id}>
-                        <Td style={{fontWeight: 700}}>{item.item_name}</Td>
+                        <Td style={{ fontWeight: 700 }}>{item.item_name}</Td>
                         <Td>₹{item.price}</Td>
                         <Td>
                           <div style={{ display: 'flex', gap: '8px' }}>

@@ -630,9 +630,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // UI States
-  const [showForm,       setShowForm]       = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
-  const [editSaving,     setEditSaving]     = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   // Form Fields
   const [pharmacyDept, setPharmacyDept] = useState("OLET001");
@@ -780,12 +780,11 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
           "GET",
         );
-        // Fix for standard apiRequest return shape: { success, data }
         const list = res.success
-          ? Array.isArray(res.data?.data)
-            ? res.data.data
-            : Array.isArray(res.data)
-              ? res.data
+          ? Array.isArray(res.data)
+            ? res.data
+            : Array.isArray(res.data?.data)
+              ? res.data.data
               : []
           : [];
 
@@ -1124,7 +1123,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               </div>
             </PatientIdentity>
           </PatientHeader>
-          
+
           <PatientGrid>
             <FieldBox>
               <FieldLabel>Admitting Dr</FieldLabel>
@@ -1499,179 +1498,179 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         {/* ── Medicine History Table ── */}
         <div style={{ overflowX: "auto", borderRadius: "8px", border: `1px solid ${colors.border}` }}>
           <StyledTable>
-          <thead>
-            <tr>
-              <th>Req Date & Time</th>
-              <th>Medicine Name</th>
-              <th>Dosage</th>
-              <th>No Of Days</th>
-              <th>Qty.</th>
-              <th>Route</th>
-              <th>Doctor</th>
-              <th>Bill Name</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.length === 0 ? (
+            <thead>
               <tr>
-                <td
-                  colSpan="10"
-                  style={{
-                    textAlign: "center",
-                    padding: "30px",
-                    color: colors.textMuted,
-                  }}
-                >
-                  No request history found.
-                </td>
+                <th>Req Date & Time</th>
+                <th>Medicine Name</th>
+                <th>Dosage</th>
+                <th>No Of Days</th>
+                <th>Qty.</th>
+                <th>Route</th>
+                <th>Doctor</th>
+                <th>Bill Name</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              Array.isArray(requests) && requests.map((req, i) => (
-                <tr key={i}>
-                  <td>
-                    {req.reqDate} {req.reqTime}
+            </thead>
+            <tbody>
+              {requests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="10"
+                    style={{
+                      textAlign: "center",
+                      padding: "30px",
+                      color: colors.textMuted,
+                    }}
+                  >
+                    No request history found.
                   </td>
-                  <td>
-                    {req.medicines
-                      ?.filter((m) => !m.is_deleted)
-                      .map((m, idx, arr) => (
+                </tr>
+              ) : (
+                Array.isArray(requests) && requests.map((req, i) => (
+                  <tr key={i}>
+                    <td>
+                      {req.reqDate} {req.reqTime}
+                    </td>
+                    <td>
+                      {req.medicines
+                        ?.filter((m) => !m.is_deleted)
+                        .map((m, idx, arr) => (
+                          <div
+                            key={idx}
+                            style={{
+                              borderBottom:
+                                idx < arr.length - 1
+                                  ? "1px solid #eee"
+                                  : "none",
+                              padding: "4px 0",
+                            }}
+                          >
+                            {m.item_name || m.name || `(ID: ${m.item_id})`}
+                          </div>
+                        ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
                         <div
                           key={idx}
                           style={{
                             borderBottom:
-                              idx < arr.length - 1
+                              idx < req.medicines.length - 1
                                 ? "1px solid #eee"
                                 : "none",
                             padding: "4px 0",
                           }}
                         >
-                          {m.item_name || m.name || `(ID: ${m.item_id})`}
+                          {m.dosage}
                         </div>
                       ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.noOfDays}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.quantity}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.route}
+                        </div>
+                      ))}
+                    </td>
+                    <td>{req.doctorName || req.doctor}</td>
+                    <td>{req.billName}</td>
+                    <td>
+                      <LegendItem
+                        color={getStatusColor(req.status || "Pending", false)}
                       >
-                        {m.dosage}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.noOfDays}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.quantity}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.route}
-                      </div>
-                    ))}
-                  </td>
-                  <td>{req.doctorName || req.doctor}</td>
-                  <td>{req.billName}</td>
-                  <td>
-                    <LegendItem
-                      color={getStatusColor(req.status || "Pending", false)}
-                    >
-                      {req.status || "Pending"}
-                    </LegendItem>
-                  </td>
-                  <td>
-                    {(() => {
-                      const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some(pr => pr.status === "Pending");
-                      const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
-                      return (
-                        <>
-                          <button
-                            onClick={() => handleOpenEdit(req)}
-                            disabled={req.status === "Billed" || req.status === "Cancelled"}
-                            style={{
-                              background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "5px",
-                              padding: "5px 12px",
-                              cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "600",
-                            }}
-                          >
-                            ✎ Edit
-                          </button>
-                          <button
-                            onClick={() => handleOpenReturn(req)}
-                            disabled={!canReturn}
-                            style={{
-                              background: !canReturn ? "#ccc" : colors.orange,
-                              color: "white",
-                              border: "none",
-                              borderRadius: "5px",
-                              padding: "5px 12px",
-                              cursor: !canReturn ? "not-allowed" : "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "600",
-                              marginLeft: "8px"
-                            }}
-                          >
-                            {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
-                          </button>
-                        </>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </StyledTable>
+                        {req.status || "Pending"}
+                      </LegendItem>
+                    </td>
+                    <td>
+                      {(() => {
+                        const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some(pr => pr.status === "Pending");
+                        const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
+                        return (
+                          <>
+                            <button
+                              onClick={() => handleOpenEdit(req)}
+                              disabled={req.status === "Billed" || req.status === "Cancelled"}
+                              style={{
+                                background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "5px",
+                                padding: "5px 12px",
+                                cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                              }}
+                            >
+                              ✎ Edit
+                            </button>
+                            <button
+                              onClick={() => handleOpenReturn(req)}
+                              disabled={!canReturn}
+                              style={{
+                                background: !canReturn ? "#ccc" : colors.orange,
+                                color: "white",
+                                border: "none",
+                                borderRadius: "5px",
+                                padding: "5px 12px",
+                                cursor: !canReturn ? "not-allowed" : "pointer",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                marginLeft: "8px"
+                              }}
+                            >
+                              {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </StyledTable>
         </div>
         <LegendContainer>
           <LegendItem color={colors.legPending}>Pending</LegendItem>
@@ -1942,8 +1941,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             </Header>
             <ContentBody style={{ overflowY: "auto" }}>
               <div style={{ marginBottom: "16px", background: "#fff8e1", padding: "12px", borderRadius: "8px", borderLeft: `4px solid ${colors.orange}` }}>
-                <strong>Request Date:</strong> {selectedReturnReq.reqDate} {selectedReturnReq.reqTime} <br/>
-                <strong>Bill ID:</strong> {selectedReturnReq.Bill_id} <br/>
+                <strong>Request Date:</strong> {selectedReturnReq.reqDate} {selectedReturnReq.reqTime} <br />
+                <strong>Bill ID:</strong> {selectedReturnReq.Bill_id} <br />
                 <strong>Doctor:</strong> {selectedReturnReq.doctorName || selectedReturnReq.doctor}
               </div>
               <div style={{ overflowX: "auto" }}>
@@ -1995,8 +1994,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             </ContentBody>
             <div style={{ padding: "16px", borderTop: "1px solid #CFD8DC", display: "flex", justifyContent: "flex-end", gap: "12px", background: "#f5f7f8" }}>
               <CancelBtn onClick={() => setIsReturnModalOpen(false)}>Cancel</CancelBtn>
-              <RequestBtn 
-                onClick={handleReturnSubmit} 
+              <RequestBtn
+                onClick={handleReturnSubmit}
                 disabled={returnSaving}
                 style={{ background: returnSaving ? "#ccc" : colors.orange }}
               >

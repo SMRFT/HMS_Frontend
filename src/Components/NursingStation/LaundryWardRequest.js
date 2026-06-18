@@ -50,7 +50,7 @@ const getIconForName = (name) => {
   return "🧺";
 };
 
-const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
+const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
   const [laundryItems, setLaundryItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState({});
   const [selectedItemName, setSelectedItemName] = useState("");
@@ -59,6 +59,7 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const [requestType, setRequestType] = useState("Normal");
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState([]);
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const pd = patient?.patient_details || {};
   const rp = {
@@ -109,12 +110,12 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const handleAddItem = () => {
     if (!selectedItemName) return;
     if (selectedQty < 1) return;
-    
+
     setSelectedItems(prev => ({
       ...prev,
       [selectedItemName]: (prev[selectedItemName] || 0) + selectedQty
     }));
-    
+
     setSelectedItemName("");
     setSelectedQty(1);
   };
@@ -130,7 +131,7 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const handleSubmit = async () => {
     const itemKeys = Object.keys(selectedItems);
     if (itemKeys.length === 0) return alert("Please select at least one laundry item.");
-    
+
     setSaving(true);
     try {
       const itemsPayload = itemKeys.map(k => ({
@@ -200,8 +201,8 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
           <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", marginBottom: "20px" }}>
             <div style={{ flex: 2 }}>
               <Label style={{ display: "block", marginBottom: "6px" }}>Select Item</Label>
-              <Select 
-                value={selectedItemName} 
+              <Select
+                value={selectedItemName}
                 onChange={e => setSelectedItemName(e.target.value)}
                 style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
               >
@@ -213,15 +214,15 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
             </div>
             <div style={{ flex: 1 }}>
               <Label style={{ display: "block", marginBottom: "6px" }}>Quantity</Label>
-              <Input 
-                type="number" 
-                min="1" 
+              <Input
+                type="number"
+                min="1"
                 value={selectedQty}
                 onChange={e => setSelectedQty(parseInt(e.target.value) || 1)}
                 style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
               />
             </div>
-            <GlobalButton 
+            <GlobalButton
               onClick={handleAddItem}
               style={{ padding: "10px 24px", fontSize: "0.9rem", height: "42px" }}
             >
@@ -256,62 +257,62 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
         </section>
 
         <section style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
-           <div style={{ flex: 1, minWidth: "200px" }}>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Request Priority</h3>
-              </GlobalSectionHeader>
-              <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600 }}>
-                      <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, color: colors.danger }}>
-                      <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
-                  </label>
-              </div>
-           </div>
-           <div style={{ flex: 2, minWidth: "300px" }}>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Remarks</h3>
-              </GlobalSectionHeader>
-              <Input 
-                type="text" 
-                value={remarks} 
-                onChange={e => setRemarks(e.target.value)} 
-                placeholder="Any specific instructions..." 
-                style={{ width: "100%", padding: "10px", marginTop: "12px" }}
-              />
-           </div>
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Request Priority</h3>
+            </GlobalSectionHeader>
+            <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600 }}>
+                <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, color: colors.danger }}>
+                <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
+              </label>
+            </div>
+          </div>
+          <div style={{ flex: 2, minWidth: "300px" }}>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Remarks</h3>
+            </GlobalSectionHeader>
+            <Input
+              type="text"
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder="Any specific instructions..."
+              style={{ width: "100%", padding: "10px", marginTop: "12px" }}
+            />
+          </div>
         </section>
 
         {history.length > 0 && (
           <section>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Recent Requests</h3>
-              </GlobalSectionHeader>
-              <Table>
-                <thead>
-                  <Tr>
-                    <Th>Date</Th>
-                    <Th>Items</Th>
-                    <Th>Status</Th>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Recent Requests</h3>
+            </GlobalSectionHeader>
+            <Table>
+              <thead>
+                <Tr>
+                  <Th>Date</Th>
+                  <Th>Items</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 3).map((h, i) => (
+                  <Tr key={i}>
+                    <Td>{h.requested_date}</Td>
+                    <Td style={{ fontWeight: 600 }}>
+                      {Array.isArray(h.items) ? h.items.map(it => `${it.item} (x${it.qty})`).join(', ') : '-'}
+                    </Td>
+                    <Td>
+                      <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
+                        {h.status}
+                      </span>
+                    </Td>
                   </Tr>
-                </thead>
-                <tbody>
-                  {history.slice(0, 3).map((h, i) => (
-                    <Tr key={i}>
-                      <Td>{h.requested_date}</Td>
-                      <Td style={{ fontWeight: 600 }}>
-                          {Array.isArray(h.items) ? h.items.map(it => `${it.item} (x${it.qty})`).join(', ') : '-'}
-                      </Td>
-                      <Td>
-                        <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
-                          {h.status}
-                        </span>
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
+                ))}
+              </tbody>
+            </Table>
           </section>
         )}
       </Body>

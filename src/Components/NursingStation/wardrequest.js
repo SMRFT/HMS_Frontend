@@ -162,7 +162,7 @@ const SegmentButton = styled.button`
 
 const GridContainer = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
   gap: 20px;
   padding: 10px 0;
   animation: ${fadeIn} 0.4s ease-out;
@@ -264,7 +264,7 @@ const getStatusColors = (status) => {
 
 const BedsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
 `;
 
@@ -290,12 +290,12 @@ const BedItem = styled.div`
     width: 54px;
     height: 38px;
     background: ${(props) => {
-      if (props.$occupied) {
-        const color = getStatusColors(props.$status).text;
-        return `linear-gradient(135deg, ${color}, ${color}cc)`;
-      }
-      return props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)";
-    }};
+    if (props.$occupied) {
+      const color = getStatusColors(props.$status).text;
+      return `linear-gradient(135deg, ${color}, ${color}cc)`;
+    }
+    return props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)";
+  }};
     border-radius: 10px 10px 6px 6px;
     position: relative;
     transition: all 0.3s ease;
@@ -931,11 +931,11 @@ const WardRequest = () => {
     const selectedWardObj = wards.find(w => String(w.id) === String(nursingStation) || String(w._id) === String(nursingStation));
     const wardName = selectedWardObj ? selectedWardObj.ward_name : "";
 
-    const matchesStation = nursingStation === "ALL" || 
-      String(stationId) === String(nursingStation) || 
+    const matchesStation = nursingStation === "ALL" ||
+      String(stationId) === String(nursingStation) ||
       String(stationName) === String(wardName) ||
       String(stationName) === String(nursingStation);
-    
+
     if (!matchesStation) return false;
 
     const catId = getField(item, "room_category_id") || item.room_category_id;
@@ -1341,106 +1341,106 @@ const WardRequest = () => {
           <Card style={{ padding: viewMode === "list" ? 0 : "20px", overflow: "visible", background: viewMode === "list" ? colors.surface : "transparent", border: viewMode === "list" ? `1px solid ${colors.border}` : "none", boxShadow: viewMode === "list" ? "0 4px 12px rgba(0,0,0,0.03)" : "none" }}>
             {viewMode === "list" ? (
               <div style={{ width: "100%", overflowX: "auto", paddingBottom: "10px" }}>
-              <Table>
-                <thead>
-                  <Tr>
-                    <Th>Patient Info</Th>
-                    <Th>UHID / IP No</Th>
-                    <Th>Admitted On</Th>
-                    <Th>Room & Bed</Th>
-                    <Th>Doctor</Th>
-                    <Th>Billing</Th>
-                    <Th>Status</Th>
-                    <Th style={{ textAlign: "center" }}>Actions</Th>
-                  </Tr>
-                </thead>
-                <tbody>
-                  {displayedAdmissions.length === 0 ? (
+                <Table>
+                  <thead>
                     <Tr>
-                      <Td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: colors.textMuted }}>
-                        No admissions found matching your criteria.
-                      </Td>
+                      <Th>Patient Info</Th>
+                      <Th>UHID / IP No</Th>
+                      <Th>Admitted On</Th>
+                      <Th>Room & Bed</Th>
+                      <Th>Doctor</Th>
+                      <Th>Billing</Th>
+                      <Th>Status</Th>
+                      <Th style={{ textAlign: "center" }}>Actions</Th>
                     </Tr>
-                  ) : (
-                    displayedAdmissions.map((item, index) => {
-                      const fullName = [
-                        getField(item, "salutation"), getField(item, "firstName"),
-                        getField(item, "middleName"), getField(item, "lastName")
-                      ].filter(Boolean).join(" ");
+                  </thead>
+                  <tbody>
+                    {displayedAdmissions.length === 0 ? (
+                      <Tr>
+                        <Td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: colors.textMuted }}>
+                          No admissions found matching your criteria.
+                        </Td>
+                      </Tr>
+                    ) : (
+                      displayedAdmissions.map((item, index) => {
+                        const fullName = [
+                          getField(item, "salutation"), getField(item, "firstName"),
+                          getField(item, "middleName"), getField(item, "lastName")
+                        ].filter(Boolean).join(" ");
 
-                      const isDischarged = getField(item, "is_discharged");
+                        const isDischarged = getField(item, "is_discharged");
 
-                      return (
-                        <Tr key={item.id || index}>
-                          <Td>
-                            <PatientCell>
-                              <div className="info">
-                                <strong>{fullName || "Unknown"}</strong>
-                                <small>{getField(item, "gender")} • {getField(item, "age") || "-"} yrs</small>
+                        return (
+                          <Tr key={item.id || index}>
+                            <Td>
+                              <PatientCell>
+                                <div className="info">
+                                  <strong>{fullName || "Unknown"}</strong>
+                                  <small>{getField(item, "gender")} • {getField(item, "age") || "-"} yrs</small>
+                                </div>
+                              </PatientCell>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ fontWeight: 500 }}>{getField(item, "uhid") || "-"}</span>
+                                <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>{item.ipNumber || "-"}</span>
                               </div>
-                            </PatientCell>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                              <span style={{ fontWeight: 500 }}>{getField(item, "uhid") || "-"}</span>
-                              <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>{item.ipNumber || "-"}</span>
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: colors.textMuted }}>
-                              <FiClock /> {formatDateTime(getField(item, "admissionDateTime"))}
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <strong style={{ color: colors.textMain }}>{getField(item, "roomNo") || "-"}</strong>
-                              <small style={{ color: colors.textMuted }}>Bed: {getField(item, "bedNo") || "-"}</small>
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <FiUser color={colors.primary} />
-                              {getField(item, "doctorName") || "-"}
-                            </div>
-                          </Td>
-                          <Td>
-                            <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
-                              {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
-                            </StatusBadge>
-                          </Td>
-                          <Td>
-                            <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
-                              {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
-                            </StatusBadge>
-                          </Td>
-                          <Td style={{ textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                              <Button
-                                style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.success + "15", color: colors.success, border: `1px solid ${colors.success}30` }}
-                                onClick={() => {
-                                  setSelectedPatient(item);
-                                  setShowStatusModal(true);
-                                }}
-                              >
-                                Update Status
-                              </Button>
-                              <Button
-                                style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
-                                onClick={() => {
-                                  setSelectedPatient(item);
-                                  setShowActionModal(true);
-                                }}
-                              >
-                                Select Request
-                              </Button>
-                            </div>
-                          </Td>
-                        </Tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </Table>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: colors.textMuted }}>
+                                <FiClock /> {formatDateTime(getField(item, "admissionDateTime"))}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <strong style={{ color: colors.textMain }}>{getField(item, "roomNo") || "-"}</strong>
+                                <small style={{ color: colors.textMuted }}>Bed: {getField(item, "bedNo") || "-"}</small>
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <FiUser color={colors.primary} />
+                                {getField(item, "doctorName") || "-"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
+                                {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
+                              </StatusBadge>
+                            </Td>
+                            <Td>
+                              <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
+                                {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
+                              </StatusBadge>
+                            </Td>
+                            <Td style={{ textAlign: "center" }}>
+                              <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                                <Button
+                                  style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.success + "15", color: colors.success, border: `1px solid ${colors.success}30` }}
+                                  onClick={() => {
+                                    setSelectedPatient(item);
+                                    setShowStatusModal(true);
+                                  }}
+                                >
+                                  Update Status
+                                </Button>
+                                <Button
+                                  style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
+                                  onClick={() => {
+                                    setSelectedPatient(item);
+                                    setShowActionModal(true);
+                                  }}
+                                >
+                                  Select Request
+                                </Button>
+                              </div>
+                            </Td>
+                          </Tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </Table>
               </div>
             ) : (
               <WardGridView />
@@ -1687,7 +1687,7 @@ const WardRequest = () => {
           </ModalContainer>
         </ModalOverlay>
       )}
-      
+
       {/* Laundry Modal */}
       {showLaundryModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowLaundryModal(false)}>
@@ -1724,76 +1724,76 @@ const WardRequest = () => {
           }}
         />
       )}
-        {/* Room Shift Modal */}
-        {showRoomShiftModal && selectedPatient && (
-          <ModalOverlay onClick={() => setShowRoomShiftModal(false)}>
-            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ width: "96%", maxWidth: "1500px", height: "92vh" }}>
-              <ModalHeader>
-                <ModalTitle>Room Shifting</ModalTitle>
-                <CloseButton onClick={() => setShowRoomShiftModal(false)}>✕</CloseButton>
-              </ModalHeader>
-              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
-                <RoomShifting 
-                  patient={selectedPatient} 
-                  onClose={() => setShowRoomShiftModal(false)}
-                  onSaved={() => {
-                    fetchAdmissions();
-                    setShowRoomShiftModal(false);
-                  }}
-                />
-              </div>
-            </ModalContainer>
-          </ModalOverlay>
-        )}
+      {/* Room Shift Modal */}
+      {showRoomShiftModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowRoomShiftModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ width: "96%", maxWidth: "1500px", height: "92vh" }}>
+            <ModalHeader>
+              <ModalTitle>Room Shifting</ModalTitle>
+              <CloseButton onClick={() => setShowRoomShiftModal(false)}>✕</CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <RoomShifting
+                patient={selectedPatient}
+                onClose={() => setShowRoomShiftModal(false)}
+                onSaved={() => {
+                  fetchAdmissions();
+                  setShowRoomShiftModal(false);
+                }}
+              />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
 
-        {/* STATUS UPDATE MODAL */}
-        {showStatusModal && selectedPatient && (
-          <ModalOverlay onClick={() => setShowStatusModal(false)}>
-            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
-              <ModalHeader>
-                <ModalTitle>Update Status - {selectedPatient.firstName} {selectedPatient.lastName}</ModalTitle>
-                <CloseButton onClick={() => setShowStatusModal(false)}>✕</CloseButton>
-              </ModalHeader>
-              <div style={{ padding: "24px" }}>
-                <div style={{ marginBottom: "20px", padding: "16px", background: colors.primary + "10", borderRadius: "10px", border: `1px solid ${colors.primary}30` }}>
-                  <div style={{ fontSize: "0.9rem", color: colors.textMuted, marginBottom: "4px" }}>Current Status</div>
-                  <div style={{ fontSize: "1.1rem", fontWeight: "700", color: colors.primary }}>
-                    {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted / Pending")}
-                  </div>
-                </div>
-                <div style={{ marginBottom: "24px" }}>
-                  <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: colors.textMain }}>
-                    Select Status
-                  </label>
-                  <select
-                    style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
-                    value={statusToUpdate}
-                    onChange={(e) => setStatusToUpdate(e.target.value)}
-                  >
-                    <option value="">Select a status...</option>
-                    <option value="Mark for discharge">Mark for discharge</option>
-                    <option value="Discharge confirmation">Discharge confirmation</option>
-                    <option value="Sent for billing">Sent for billing</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-                  <button 
-                    onClick={() => setShowStatusModal(false)}
-                    style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "#f8f9fa", cursor: "pointer" }}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleUpdateStatus}
-                    style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: colors.primary, color: "#fff", cursor: "pointer" }}
-                  >
-                    Save Status
-                  </button>
+      {/* STATUS UPDATE MODAL */}
+      {showStatusModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowStatusModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+            <ModalHeader>
+              <ModalTitle>Update Status - {selectedPatient.firstName} {selectedPatient.lastName}</ModalTitle>
+              <CloseButton onClick={() => setShowStatusModal(false)}>✕</CloseButton>
+            </ModalHeader>
+            <div style={{ padding: "24px" }}>
+              <div style={{ marginBottom: "20px", padding: "16px", background: colors.primary + "10", borderRadius: "10px", border: `1px solid ${colors.primary}30` }}>
+                <div style={{ fontSize: "0.9rem", color: colors.textMuted, marginBottom: "4px" }}>Current Status</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: "700", color: colors.primary }}>
+                  {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted / Pending")}
                 </div>
               </div>
-            </ModalContainer>
-          </ModalOverlay>
-        )}
+              <div style={{ marginBottom: "24px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: colors.textMain }}>
+                  Select Status
+                </label>
+                <select
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
+                  value={statusToUpdate}
+                  onChange={(e) => setStatusToUpdate(e.target.value)}
+                >
+                  <option value="">Select a status...</option>
+                  <option value="Mark for discharge">Mark for discharge</option>
+                  <option value="Discharge confirmation">Discharge confirmation</option>
+                  <option value="Sent for billing">Sent for billing</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  onClick={() => setShowStatusModal(false)}
+                  style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "#f8f9fa", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateStatus}
+                  style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: colors.primary, color: "#fff", cursor: "pointer" }}
+                >
+                  Save Status
+                </button>
+              </div>
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
 
     </PageWrapper>
   );
