@@ -1174,7 +1174,7 @@ export default function CentralCashCounter() {
 
   const fetchOpPharmacyPendingBills = useCallback(async () => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}cashcounter_pending_bills/`, "GET");
+      const response = await apiRequest(`${HmsBaseUrl}OPPharmacy_pending_bills/`, "GET");
       const billsArray = Array.isArray(response?.data?.data)
         ? response.data.data
         : Array.isArray(response?.data)

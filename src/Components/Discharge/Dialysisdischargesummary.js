@@ -167,15 +167,20 @@ export default function DialysisDischargeSummary() {
       };
 
       const res = await apiRequest(`${Hmsbaseurl}create_dialysis_discharge_summary/`, "POST", payload);
+      console.log("API RESPONSE:", res);
+
+      const backendSuccess = res?.data?.success;
+      const backendMessage = res?.data?.message;
+
+      if (!backendSuccess) {
+        showToast(backendMessage || "Failed to save. Please try again.", "error");
+        setLoading(false);
+        return;
+      }
 
       // Show toast FIRST — before any state resets — so React doesn't
       // swallow the toast in the same batch as the form clear
-      const successMsg =
-        res?.data?.message ||
-        res?.message ||
-        "Discharge summary saved successfully.";
-
-      showToast(successMsg, "success");
+      showToast(backendMessage || "Discharge summary saved successfully.", "success");
 
       // Reset form after toast is queued
       setTimeout(() => {
