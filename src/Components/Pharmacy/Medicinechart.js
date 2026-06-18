@@ -1064,7 +1064,7 @@ const MedicineChart = ({ onConvertToBill }) => {
     if (!HmsBaseUrl) return;
     const fetchMedicines = async () => {
       try {
-        const response = await apiRequest(`${HmsBaseUrl}get_oppharmacy_stock/`, "POST");
+        const response = await apiRequest(`${HmsBaseUrl}get_pharmacy_stock/`, "POST");
         const medicineArray = Array.isArray(response.data)
           ? response.data
           : Array.isArray(response.data?.data)

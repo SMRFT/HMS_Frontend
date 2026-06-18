@@ -123,6 +123,7 @@ import FrontOfficeReports from "./Components/Reports/FrontOfficeReports";
 import MarketingReport from "./Components/Reports/MarketingReport";
 import BillWiseReport from "./Components/Accounts/BillWiseReport"
 import DialysisDischargeSummary from "./Components/Discharge/Dialysisdischargesummary";
+import PrintDialysisDischargeSummary from "./Components/Discharge/PrintDialysisDischargeSummary";
 
 import RDPrint from "./Components/InvestigationReports/RDPrint";
 import JRDReport from "./Components/InvestigationReports/JRDReport";
@@ -1208,6 +1209,14 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/complaints" element={<Complaints />} />}
+
+               {hasPagePermission(
+                "/PrintDialysisDischargeSummary",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/PrintDialysisDischargeSummary" element={<PrintDialysisDischargeSummary />} />}
+
+
 
               {hasPagePermission(
                 "/complaintsadmin",
