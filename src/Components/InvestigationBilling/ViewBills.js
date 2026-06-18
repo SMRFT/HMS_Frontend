@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
+import PrintModal from "./PrintModal"; // ← fast in-page print modal (shared with InvestigationBilling)
 import {
   PageWrapper,
   FormRow,
@@ -567,6 +568,10 @@ const BillsReport = () => {
   const [refundBill, setRefundBill] = useState(null);
   const [refundSelected, setRefundSelected] = useState([]);
   const [refundSubmitting, setRefundSubmitting] = useState(false);
+
+  // Print modal state — { bill, isEstimate }
+  const [printJob, setPrintJob] = useState(null);
+
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
@@ -662,76 +667,42 @@ const BillsReport = () => {
   };
 
   // ── Print ────────────────────────────────────────────────────────────────────
-  const handlePrint = (bill) => {
-    const pw = window.open("", "_blank", "height=600,width=800");
-    const fmtDT = (s) => {
-      if (!s) return "";
-      const n = s.endsWith("Z") || s.includes("+") ? s : s + "Z";
-      return new Date(n)
-        .toLocaleString("en-IN", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
-        })
-        .toUpperCase();
+  // PrintModal/buildBillHtml expects the same shape InvestigationBilling.js
+  // hands it (separate date + time strings, `ageType`, `billType`, an `item`
+  // array). This report's rows use slightly different field names
+  // (`age_type`, `bill_name`, a single combined datetime) — normalize here
+  // instead of duplicating another print template.
+  const toPrintBill = (bill) => {
+    const raw = bill.investBillDate || bill.EstBillDate || "";
+    const normalized = raw
+      ? raw.endsWith("Z") || raw.includes("+")
+        ? raw
+        : raw + "Z"
+      : "";
+    const d = normalized ? new Date(normalized) : null;
+    const pad = (n) => String(n).padStart(2, "0");
+    const dateOnly = d
+      ? `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      : "";
+    const timeOnly = d
+      ? `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+      : "";
+
+    return {
+      ...bill,
+      investBillDate: dateOnly,
+      EstBillDate: dateOnly,
+      time: timeOnly,
+      firstName: [bill.firstName, bill.middleName].filter(Boolean).join(" "),
+      ageType: bill.age_type || bill.ageType || "Y",
+      billType: bill.bill_name || bill.billType || "",
+      item: Array.isArray(bill.item) ? bill.item : [],
     };
-    const fmtName = (s, f, m, l) =>
-      `${s || ""} ${f || ""} ${m ? m + " " : ""}${l || ""}`.trim();
-    pw.document.write(`<!DOCTYPE html><html><head><title>Bill Print</title>
-      <style>
-        body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:10px;}
-        .header{text-align:center;border-bottom:1px solid #000;padding-bottom:5px;margin-bottom:10px;}
-        .hospital-name{font-weight:bold;font-size:14px;margin-bottom:3px;}
-        .bill-row{display:flex;margin-bottom:5px;}
-        .bill-label{font-weight:bold;width:120px;}
-        .bill-value{flex-grow:1;}
-        table{width:100%;border-collapse:collapse;margin-bottom:15px;}
-        th,td{border:1px solid #000;padding:5px;text-align:left;}
-        th{background:#f2f2f2;}
-        .total-row{display:flex;justify-content:space-between;margin-bottom:5px;}
-        .total-label{font-weight:bold;}
-        .net-amount{font-weight:bold;font-size:14px;border-top:1px solid #000;padding-top:5px;}
-        .signature{display:flex;justify-content:space-between;margin-top:30px;}
-      </style></head><body>
-      <div class="header">
-        <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-        <div>51/24.Saradha College Road, Salem - 636007</div>
-        <div>CIN: U85110TZ20PLC033974</div>
-      </div>
-      <div><b>"${bill.paymentMethod || "NIL"}"</b>&nbsp;&nbsp;<b>${bill.bill_name || "NIL"}</b></div>
-      <div style="margin:10px 0">
-        <div class="bill-row"><div class="bill-label">Bill Number</div><div class="bill-value">: ${bill.investBillNo || bill.EstBillNo || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">OP Number</div><div class="bill-value">: ${bill.uhid || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">Bill Date</div><div class="bill-value">: ${fmtDT(bill.investBillDate || bill.EstBillDate)}</div></div>
-        <div class="bill-row"><div class="bill-label">Name/Age/Gender</div><div class="bill-value">: ${fmtName(bill.salutation, bill.firstName, bill.middleName, bill.lastName)} / ${
-          bill.age && bill.age_type ? `${bill.age}/${bill.age_type}` : "-"
-        } / ${bill.gender}</div></div>
-        <div class="bill-row"><div class="bill-label">Doctor</div><div class="bill-value">: ${bill.doctor || ""}</div></div>
-      </div>
-      <table><thead><tr><th>SlNo</th><th>Description</th><th>Qty</th><th>Cost</th><th>Amount</th></tr></thead>
-      <tbody>${
-        Array.isArray(bill.item)
-          ? bill.item
-              .map(
-                (it, i) =>
-                  `<tr><td>${i + 1}</td><td>${it.itemName || ""}</td><td>${it.quantity || 1}</td><td>${parseFloat(it.price).toFixed(2)}</td><td>${(parseFloat(it.price) * parseInt(it.quantity || 1)).toFixed(2)}</td></tr>`,
-              )
-              .join("")
-          : '<tr><td colspan="5">No Items</td></tr>'
-      }</tbody></table>
-      <div style="border-top:1px solid #000;padding-top:5px;">
-        <div class="total-row"><div class="total-label">Total</div><div>${parseFloat(bill.total || 0).toFixed(2)}</div></div>
-        <div class="total-row"><div class="total-label">Discount</div><div>${bill.discount || "0.00"}</div></div>
-        <div class="total-row net-amount"><div class="total-label">Net Amount</div><div>${bill.finalPrice || "0.00"}</div></div>
-      </div>
-      <div class="signature"><div>${bill.created_by}</div><div>(Signature)</div></div>
-      </body></html>`);
-    pw.document.close();
-    setTimeout(() => pw.print(), 500);
+  };
+
+  const handlePrint = (bill) => {
+    const isEstimate = !bill.investBillNo && !!bill.EstBillNo;
+    setPrintJob({ bill: toPrintBill(bill), isEstimate });
   };
 
   // ── Edit ─────────────────────────────────────────────────────────────────────
@@ -1414,6 +1385,15 @@ const BillsReport = () => {
             </RemarksModalFooter>
           </RefundModalBox>
         </ModalOverlay>
+      )}
+      {/* ── Print Modal (fast in-page preview, replaces window.open) ── */}
+      {printJob && (
+        <PrintModal
+          bill={printJob.bill}
+          doctors={doctors}
+          isEstimate={printJob.isEstimate}
+          onClose={() => setPrintJob(null)}
+        />
       )}
     </PageContainer>
   );
