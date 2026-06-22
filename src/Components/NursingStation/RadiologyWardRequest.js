@@ -459,6 +459,22 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const [selectedTests, setSelectedTests] = useState([]);
   const [expandedRow, setExpandedRow] = useState(null);
 
+  const testDropdownRef = useRef(null);
+  const packageDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (testDropdownRef.current && !testDropdownRef.current.contains(event.target)) {
+        setShowItemDropdown(false);
+      }
+      if (packageDropdownRef.current && !packageDropdownRef.current.contains(event.target)) {
+        setShowPackageDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Form states
   const [doctor, setDoctor] = useState("");
   const [billTypeNo, setBillTypeNo] = useState("");
@@ -540,10 +556,8 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   const addTestToList = (item) => {
     if (!item) return;
-    if (selectedTests.find(t => t.test_id === item.test_id)) return;
-    setSelectedTests([...selectedTests, { ...item, type: "individual" }]);
-    setTestSearch("");
-    setShowItemDropdown(false);
+    if (selectedTests.find(t => (item.item_id && t.item_id === item.item_id) || (item.test_id && t.test_id === item.test_id) || t.itemName === item.itemName)) return;
+    setSelectedTests(prev => [...prev, { ...item, type: "individual" }]);
   };
 
   const addPackageToList = async (pkg) => {
@@ -553,13 +567,13 @@ export default function RadiologyWardRequest({ patient, onClose }) {
         const pkgItems = (res.data?.items || []).map(i => ({ ...i, type: "package", packageName: pkg.packageName }));
         const newTests = [...selectedTests];
         pkgItems.forEach(item => {
-          if (!newTests.find(t => t.test_id === item.test_id)) newTests.push(item);
+          if (!newTests.find(t => (item.item_id && t.item_id === item.item_id) || (item.test_id && t.test_id === item.test_id) || t.itemName === item.itemName)) {
+            newTests.push(item);
+          }
         });
         setSelectedTests(newTests);
       }
     } catch (e) { console.error(e); }
-    setPackageSearch("");
-    setShowPackageDropdown(false);
   };
 
   const handleSave = async () => {
@@ -579,7 +593,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       selectedTests: selectedTests.map(t => ({
         itemName: t.itemName,
         price: t.price,
-        test_id: t.test_id,
+        item_id: t.item_id,
+        // billTypeNo: billTypeNo,
+        billtype: selectedBT?.bill_type,
         packageName: t.packageName || null,
         type: t.type || "individual"
       })),
@@ -612,9 +628,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   const handleRemoveIndividualTest = async (billId, test) => {
     if (!window.confirm(`Are you sure you want to remove ${test.name}?`)) return;
     try {
-      const res = await apiRequest(`${HmsBaseUrl}remove_individual_radiology/`, "POST", { 
-        id: billId, 
-        test_id: test.test_id 
+      const res = await apiRequest(`${HmsBaseUrl}remove_individual_radiology/`, "POST", {
+        id: billId,
+        test_id: test.test_id
       });
       if (res.success) {
         alert("Test removed from request");
@@ -625,9 +641,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   const toggleRow = (id) => setExpandedRow(expandedRow === id ? null : id);
 
-  const filteredRequests = requests.filter(req => 
-    req.wardName.toLowerCase().includes(search.toLowerCase()) || 
-    req.doctorName.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredRequests = requests.filter(req =>
+    req.wardName.toLowerCase().includes(search.toLowerCase()) ||
+    req.doctorName.toLowerCase().includes(search.toLowerCase()) ||
     req.billNo.toLowerCase().includes(search.toLowerCase())
   ).slice(0, showUpTo);
 
@@ -675,7 +691,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
       <ActionsBar>
         <div />
-        <Button onClick={() => { setShowRequestForm(!showRequestForm); if(!showRequestForm) setExpandedRow(null); }}>
+        <Button onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
           {showRequestForm ? "View History" : "+ New Other Request"}
         </Button>
       </ActionsBar>
@@ -703,20 +719,20 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 />
               </div>
             </FormRow>
-            
+
             <FormRow style={{ gridTemplateColumns: "1fr" }}>
               <div style={{ marginTop: 2 }}>
                 <FormLabel>Search Item (Investigations / Packages)</FormLabel>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                  <SearchWrapper>
-                    <FormInput 
-                      placeholder="Investigations (CT, MRI...)" 
+                  <SearchWrapper ref={testDropdownRef}>
+                    <FormInput
+                      placeholder="Investigations (CT, MRI...)"
                       value={testSearch}
                       onChange={(e) => { setTestSearch(e.target.value); setShowItemDropdown(true); }}
                       onFocus={() => setShowItemDropdown(true)}
                       disabled={!billTypeNo || billTypeNo === "PACK"}
                     />
-                    {showItemDropdown && testSearch && (
+                    {showItemDropdown && (
                       <DropdownList>
                         {Array.isArray(investigationItems) && investigationItems.filter(i => i.itemName.toLowerCase().includes(testSearch.toLowerCase())).map((item, idx) => (
                           <DropdownItem key={idx} onClick={() => addTestToList(item)}>
@@ -727,15 +743,15 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                     )}
                   </SearchWrapper>
 
-                  <SearchWrapper>
-                    <FormInput 
-                      placeholder="Health Packages..." 
+                  <SearchWrapper ref={packageDropdownRef}>
+                    <FormInput
+                      placeholder="Health Packages..."
                       value={packageSearch}
                       onChange={(e) => { setPackageSearch(e.target.value); setShowPackageDropdown(true); }}
                       onFocus={() => setShowPackageDropdown(true)}
                       disabled={billTypeNo !== "PACK"}
                     />
-                    {showPackageDropdown && packageSearch && (
+                    {showPackageDropdown && (
                       <DropdownList>
                         {Array.isArray(packages) && packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).map((pkg, idx) => (
                           <DropdownItem key={idx} onClick={() => addPackageToList(pkg)}>
@@ -833,70 +849,70 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 ) : (
                   Array.isArray(filteredRequests) && filteredRequests.map((req) => (
                     <React.Fragment key={req.id}>
-                        <Tr>
-                          <Td><StatusBadge status={req.status}>{req.status}</StatusBadge></Td>
-                          <Td>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <span style={{ fontWeight: 500 }}>{req.reqDate}</span>
-                              <small style={{ color: colors.textMuted }}>{req.reqTime}</small>
-                            </div>
-                          </Td>
-                          <Td>{req.userName}</Td>
-                          <Td><strong>{req.billNo}</strong></Td>
-                          <Td>{req.billTypeName || '-'}</Td>
-                          <Td>{req.wardName}</Td>
-                          <Td 
-                            style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
-                            onClick={() => toggleRow(req.id)}
-                          >
-                            {req.doctorName}
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                              <button 
-                                onClick={() => toggleRow(req.id)} 
-                                style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontSize: "1.2rem" }}
-                              >
-                                {expandedRow === req.id ? "▴" : "▾"}
-                              </button>
-                              {req.status === "Result Pending" && (
-                                <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
-                              )}
-                            </div>
-                          </Td>
-                        </Tr>
+                      <Tr>
+                        <Td><StatusBadge status={req.status}>{req.status}</StatusBadge></Td>
+                        <Td>
+                          <div style={{ display: "flex", flexDirection: "column" }}>
+                            <span style={{ fontWeight: 500 }}>{req.reqDate}</span>
+                            <small style={{ color: colors.textMuted }}>{req.reqTime}</small>
+                          </div>
+                        </Td>
+                        <Td>{req.userName}</Td>
+                        <Td><strong>{req.billNo}</strong></Td>
+                        <Td>{req.billTypeName || '-'}</Td>
+                        <Td>{req.wardName}</Td>
+                        <Td
+                          style={{ cursor: "pointer", color: colors.primary, fontWeight: 600 }}
+                          onClick={() => toggleRow(req.id)}
+                        >
+                          {req.doctorName}
+                        </Td>
+                        <Td>
+                          <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                            <button
+                              onClick={() => toggleRow(req.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: colors.primary, fontSize: "1.2rem" }}
+                            >
+                              {expandedRow === req.id ? "▴" : "▾"}
+                            </button>
+                            {req.status === "Result Pending" && (
+                              <button onClick={() => handleCancelRequest(req.id)} style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: "1rem" }} title="Cancel Entire Request">✕</button>
+                            )}
+                          </div>
+                        </Td>
+                      </Tr>
 
                       {expandedRow === req.id && (
                         <ExpandedRow>
                           <ExpandedCell colSpan={9}>
                             <SubTableWrapper>
-                            <SubTable>
-                              <thead>
-                                <Tr>
-                                  <Th>Test Name</Th>
-                                  <Th>Type</Th>
-                                  <Th>Action</Th>
-                                </Tr>
-                              </thead>
-                              <tbody>
-                                {req.tests.map((t, idx) => (
-                                  <Tr key={idx}>
-                                    <Td>{t.name}</Td>
-                                    <Td>{t.packageName ? `Package (${t.packageName})` : "Individual"}</Td>
-                                    <Td>
-                                      {req.status === "Result Pending" && (
-                                        <button 
-                                          onClick={() => handleRemoveIndividualTest(req.id, t)} 
-                                          style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer" }}
-                                        >
-                                          ✕ Remove
-                                        </button>
-                                      )}
-                                    </Td>
+                              <SubTable>
+                                <thead>
+                                  <Tr>
+                                    <Th>Test Name</Th>
+                                    <Th>Type</Th>
+                                    <Th>Action</Th>
                                   </Tr>
-                                ))}
-                              </tbody>
-                            </SubTable>
+                                </thead>
+                                <tbody>
+                                  {req.tests.map((t, idx) => (
+                                    <Tr key={idx}>
+                                      <Td>{t.name}</Td>
+                                      <Td>{t.packageName ? `Package (${t.packageName})` : "Individual"}</Td>
+                                      <Td>
+                                        {req.status === "Result Pending" && (
+                                          <button
+                                            onClick={() => handleRemoveIndividualTest(req.id, t)}
+                                            style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer" }}
+                                          >
+                                            ✕ Remove
+                                          </button>
+                                        )}
+                                      </Td>
+                                    </Tr>
+                                  ))}
+                                </tbody>
+                              </SubTable>
                             </SubTableWrapper>
                           </ExpandedCell>
                         </ExpandedRow>

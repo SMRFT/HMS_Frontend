@@ -454,12 +454,18 @@ const Td = styled.td`
 `;
 
 const CashBadge = styled.span`
-  background: #00796b;
+  background: ${p =>
+    p.$mode === "IP Credit" ? "#f9a825" :
+    p.$mode === "Other Mode" ? "#5c6bc0" :
+    "#00796b"};
   color: #fff;
   border-radius: 4px;
   padding: 3px 10px;
   font-size: 12px;
   font-weight: 600;
+  display: inline-block;
+  min-width: 80px;
+  text-align: center;
 `;
 
 const NoRecords = styled.div`
@@ -1590,14 +1596,14 @@ const SalesReturn = () => {
                 ) : (
                   filtered.map((row, i) => (
                     <tr key={i}>
-                      <Td><CashBadge>{row.mode || "Cash Return"}</CashBadge></Td>
+                      <Td><CashBadge $mode={row.mode || "Cash Return"}>{row.mode || "Cash Return"}</CashBadge></Td>
                       <Td>{formatDate(row.return_bill_date)}</Td>
                       <Td>{row.return_bill_no}</Td>
                       <Td>{row.patient_name || "—"}</Td>
                       <Td>{row.uhid || "—"}</Td>
                       <Td>{row.bill_no || "—"}</Td>
                       <Td>₹ {parseFloat(row.return_amount || 0).toFixed(2)}</Td>
-                      <Td>{row.pharmacist_name || "—"}</Td>
+                      <Td>{row.pharmacist_name || row.created_by || "—"}</Td>
                     </tr>
                   ))
                 )}
