@@ -777,12 +777,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     if (val.length > 2) {
       try {
         const res = await apiRequest(
-          `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
+          `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
           "GET",
         );
         const list = res.success
-          ? Array.isArray(res.data)
-            ? res.data
+          ? Array.isArray(res.data?.data)
+            ? res.data?.data
             : Array.isArray(res.data?.data)
               ? res.data.data
               : []
@@ -903,6 +903,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       billing_status: "Ward Request",
       billing_mode: "WARD REQUEST",
       outlet_code: pharmacyDept,
+      is_discharge: isDischarge,
     };
 
     try {
@@ -914,6 +915,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       if (res.success) {
         alert("Ward Request saved successfully");
         setSelectedMedicines([]);
+        setIsDischarge(false);
         fetchRequests();
       }
     } catch (e) {
@@ -1618,9 +1620,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                     <td>{req.billName}</td>
                     <td>
                       <LegendItem
-                        color={getStatusColor(req.status || "Pending", false)}
+                        color={getStatusColor(req.status || "Pending", req.isDischarge)}
                       >
-                        {req.status || "Pending"}
+                        {req.isDischarge ? "Discharge Medicine" : (req.status || "Pending")}
                       </LegendItem>
                     </td>
                     <td>
