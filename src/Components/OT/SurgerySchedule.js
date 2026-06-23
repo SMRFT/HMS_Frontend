@@ -500,9 +500,8 @@ const emptyForm = {
   ip_number: "",
   patient_name: "",
   address: "",
-  age_year: "",
-  age_month: "",
-  age_days: "",
+  age: "",
+  age_type: "",
   gender: "",
   customer_type: "",
   company_name: "",
@@ -542,7 +541,9 @@ const SurgerySchedule = () => {
           lastName: "",
           salutation: "",
           age: String(s.age || ""),
+          age_type: String(s.age_type || ""),
           gender: s.gender || "",
+          ot_name: s.ot_name || "",
           // Company / insurance
           customer_type: s.customer_type || "",
           company_name: s.company_name || "",
@@ -571,6 +572,7 @@ const SurgerySchedule = () => {
           lastName: "",
           salutation: "",
           age: String(s.age || ""),
+          age_type: String(s.age_type || ""),
           gender: s.gender || "",
           // ── Company / insurance ────────────────────────────────────────
           customer_type: s.customer_type || "",
@@ -720,17 +722,21 @@ const SurgerySchedule = () => {
   // ── Patient lookup ────────────────────────────────────────────────────────
   // Maps API response fields (firstName, lastName, age, etc.) to form state
   const applyPatientData = (p, extra = {}) => {
+    // Build address line from area / city / state / zipcode
+    const addressParts = [p.area, p.city, p.state, p.zipcode].filter(Boolean);
+    const addressLine = addressParts.join(", ");
+
     setFormData((prev) => ({
       ...prev,
       patient_name:
         `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim(),
       gender: p.gender || "",
-      age_year: String(p.age || ""),
-      age_month: "",
-      age_days: "",
+      age: String(p.age || ""),
+      age_type: String(p.age_type || ""),
       customer_type: p.customer_type || "",
       company_name: p.company_name || "",
       company_code: p.company_code || "",
+      address: addressLine,
       ...extra,
     }));
   };
@@ -825,9 +831,8 @@ const SurgerySchedule = () => {
       ip_number: item.ip_number || "",
       patient_name: item.patient_name || "",
       address: item.address || "",
-      age_year: "",
-      age_month: "",
-      age_days: "",
+      age: "",
+      age_type: "",
       gender: item.gender || "",
       ot_id: item.ot_id || "",
       surgery_name: item.surgery_name || "",
@@ -1281,7 +1286,7 @@ const SurgerySchedule = () => {
           <FormPanel>
             <FormGrid>
               {/* UHID */}
-              <FormGroup span={2}>
+              {/* <FormGroup span={2}>
                 <Label>
                   UHID No <Required>*</Required>
                 </Label>
@@ -1295,7 +1300,7 @@ const SurgerySchedule = () => {
                     <Search size={14} />
                   </button>
                 </SearchIconInput>
-              </FormGroup>
+              </FormGroup> */}
 
               {/* IP No */}
               <FormGroup span={2}>
@@ -1325,22 +1330,13 @@ const SurgerySchedule = () => {
               </FormGroup>
 
               {/* Age */}
-              <FormGroup span={2}>
+              <FormGroup span={1}>
                 <Label>Age</Label>
                 <AgeGroup>
+                  <input placeholder="Year" value={formData.age} readOnly />
                   <input
-                    placeholder="Year"
-                    value={formData.age_year}
-                    readOnly
-                  />
-                  <input
-                    placeholder="Mont"
-                    value={formData.age_month}
-                    readOnly
-                  />
-                  <input
-                    placeholder="Days"
-                    value={formData.age_days}
+                    placeholder="Age Type"
+                    value={formData.age_type}
                     readOnly
                   />
                 </AgeGroup>

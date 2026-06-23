@@ -515,6 +515,7 @@ const EstimateBillsReport = () => {
                   <Th>IP No</Th>
                   <Th>Patient Name</Th>
                   <Th>Age</Th>
+                  <Th>Room No</Th>
                   <Th>Bill Type</Th>
                   <Th>Estimate Amount</Th>
                   <Th>Doctor</Th>
@@ -543,6 +544,7 @@ const EstimateBillsReport = () => {
                         ? `${bill.age}/${bill.age_type}`
                         : "-"}
                     </Td>
+                    <Td>{bill.roomNo}</Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
                     <Td>{bill.doctorName}</Td>

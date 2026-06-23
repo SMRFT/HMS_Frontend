@@ -822,6 +822,22 @@ const InvestigationBilling = () => {
     return true;
   };
 
+  // ── Build patient-identity fields for submission ───────────────────────────
+  // When the patient was fetched via UHID/IP search, the backend already has
+  // salutation/firstName/lastName/gender on record (looked up via uhid /
+  // ipNumber), so we omit these from the payload entirely to avoid storing
+  // stale/duplicate copies. When the user typed them manually (no UHID/IP
+  // match), we still send them since they're the only source of truth.
+  const getPatientIdentityFields = () => {
+    if (isPatientFetched) return {};
+    return {
+      salutation: formData.salutation || "",
+      firstName: formData.firstName || "",
+      lastName: formData.lastName || "",
+      gender: formData.gender || "",
+    };
+  };
+
   const handleEstimate = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -846,10 +862,7 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
-      salutation: formData.salutation || "",
-      firstName: formData.firstName || "",
-      lastName: formData.lastName || "",
-      gender: formData.gender || "",
+      ...getPatientIdentityFields(),
     };
 
     const result = await apiRequest(
@@ -910,10 +923,7 @@ const InvestigationBilling = () => {
       age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
-      salutation: formData.salutation || "",
-      firstName: formData.firstName || "",
-      lastName: formData.lastName || "",
-      gender: formData.gender || "",
+      ...getPatientIdentityFields(),
       ...(isEditMode && formData.editRemarks
         ? { editRemarks: formData.editRemarks }
         : {}),

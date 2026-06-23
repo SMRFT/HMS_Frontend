@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import { useNavigate, useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
+import PrintModal from "../InvestigationBilling/PrintModal";
 import {
   PageWrapper,
   FormRow,
@@ -94,6 +95,7 @@ const SectionLabel = styled.span`
 const DropdownWrapper = styled.div`
   position: relative;
 `;
+
 const DropdownList = styled.div`
   position: absolute;
   top: 100%;
@@ -108,6 +110,7 @@ const DropdownList = styled.div`
   z-index: 1000;
   margin-top: 2px;
 `;
+
 const DropdownItem = styled.div`
   padding: 5px 8px;
   cursor: pointer;
@@ -120,16 +123,12 @@ const DropdownItem = styled.div`
     border-bottom: 1px solid ${colors.border};
   }
 `;
+
 const ProductSection = styled(ContentCard)`
   background: #fafbfc;
   padding: 8px 12px;
 `;
-const InlineSearchBtn = styled(Button)`
-  margin-top: 3px;
-  padding: 3px 10px;
-  font-size: 0.75rem;
-  height: auto;
-`;
+
 const AddBtn = styled(Button)`
   background: ${colors.success};
   margin-top: 18px;
@@ -137,6 +136,7 @@ const AddBtn = styled(Button)`
     background: #16a34a;
   }
 `;
+
 const DelBtn = styled(Button)`
   background: ${colors.danger};
   padding: 3px 8px;
@@ -149,6 +149,7 @@ const DelBtn = styled(Button)`
     cursor: not-allowed;
   }
 `;
+
 const QuantityControl = styled.div`
   display: flex;
   align-items: center;
@@ -167,6 +168,7 @@ const QuantityControl = styled.div`
     }
   }
 `;
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 20px;
@@ -176,6 +178,7 @@ const EmptyState = styled.div`
   border-radius: 6px;
   margin-top: 8px;
 `;
+
 const SummaryGrid = styled(FormRow)`
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   margin-top: 8px;
@@ -184,6 +187,7 @@ const SummaryGrid = styled(FormRow)`
   border-radius: 6px;
   border: 1px solid ${colors.border};
 `;
+
 const CompanyInfoText = styled.div`
   display: flex;
   flex-direction: column;
@@ -200,17 +204,20 @@ const CompanyInfoText = styled.div`
     font-weight: 500;
   }
 `;
+
 const ActionRow = styled(ButtonContainer)`
   justify-content: flex-end;
   margin-top: 8px;
   padding-top: 8px;
 `;
+
 const ResetBtn = styled(Button)`
   background: ${colors.textMuted};
   &:hover {
     background: #475569;
   }
 `;
+
 const SubmitBtn = styled(Button)`
   background: ${colors.primary};
   &:hover {
@@ -222,7 +229,7 @@ const SubmitBtn = styled(Button)`
 const LAB_BILL_TYPE_NO = "LAB01";
 const LAB_BILL_TYPE = 16;
 
-// ─── Searchable Dropdown Component ───────────────────────────────────────────
+// ─── Searchable Dropdown Component (matches InvestigationBilling) ─────────────
 const SearchableDropdown = ({
   value,
   onChange,
@@ -232,79 +239,123 @@ const SearchableDropdown = ({
   valueKey = "id",
   disabled = false,
 }) => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const isFocused = useRef(false);
-  const wrapperRef = useRef(null);
+  const getLabel = (val) => {
+    if (!val) return "";
+    const found = options.find((o) =>
+      typeof o === "string" ? o === val : o[valueKey] === val,
+    );
+    return found
+      ? typeof found === "string"
+        ? found
+        : found[displayKey]
+      : val;
+  };
 
+  const [inputValue, setInputValue] = useState(() => getLabel(value));
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+  const isSearchingRef = useRef(false);
+
+  // Only sync from outside when NOT actively typing
+  useEffect(() => {
+    if (!isSearchingRef.current) {
+      setInputValue(getLabel(value));
+    }
+  }, [value, options]); // eslint-disable-line
+
+  // Close on outside click, restore label
   useEffect(() => {
     const handler = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        isSearchingRef.current = false;
         setIsOpen(false);
-        isFocused.current = false;
+        setInputValue(getLabel(value)); // restore on blur without selection
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
-    if (isFocused.current) return;
-    if (value) {
-      const sel = options.find((o) =>
-        typeof o === "string" ? o === value : o[valueKey] === value,
-      );
-      setSearchTerm(
-        sel ? (typeof sel === "string" ? sel : sel[displayKey]) : value,
-      );
-    } else {
-      setSearchTerm("");
-    }
-  }, [value, options, displayKey, valueKey]);
+  }, [value, options]); // eslint-disable-line
 
   const filtered = options.filter((o) => {
-    const dv = typeof o === "string" ? o : o[displayKey];
-    return dv.toLowerCase().includes(searchTerm.toLowerCase());
+    const label = typeof o === "string" ? o : o[displayKey];
+    return label.toLowerCase().includes(inputValue.toLowerCase());
   });
+
+  const handleInputChange = (e) => {
+    isSearchingRef.current = true;
+    setInputValue(e.target.value);
+    setIsOpen(true);
+    if (e.target.value === "") {
+      isSearchingRef.current = false;
+      onChange(""); // clear parent
+    }
+  };
+
+  const handleClear = () => {
+    isSearchingRef.current = false;
+    setInputValue("");
+    setIsOpen(false);
+    onChange(""); // clear parent
+  };
 
   const handleSelect = (option) => {
     const sv = typeof option === "string" ? option : option[valueKey];
     const dv = typeof option === "string" ? option : option[displayKey];
-    onChange(sv);
-    setSearchTerm(dv);
+    isSearchingRef.current = false;
+    setInputValue(dv);
     setIsOpen(false);
-    isFocused.current = false;
+    onChange(sv);
+  };
+
+  const handleFocus = () => {
+    isSearchingRef.current = true;
+    setInputValue(""); // clear text so user sees all options
+    setIsOpen(true);
   };
 
   return (
-    <DropdownWrapper ref={wrapperRef}>
-      <Input
-        type="text"
-        value={searchTerm}
-        disabled={disabled}
-        placeholder={placeholder}
-        onChange={(e) => {
-          setSearchTerm(e.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => {
-          isFocused.current = true;
-          setIsOpen(true);
-        }}
-        onBlur={() => {
-          isFocused.current = false;
-          if (!searchTerm.trim()) onChange("");
-        }}
-      />
+    <DropdownWrapper ref={wrapperRef} style={{ position: "relative" }}>
+      <div
+        style={{ position: "relative", display: "flex", alignItems: "center" }}
+      >
+        <Input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          placeholder={placeholder}
+          disabled={disabled}
+          style={{ paddingRight: value ? "28px" : undefined }}
+        />
+        {value && !disabled && (
+          <span
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleClear();
+            }}
+            style={{
+              position: "absolute",
+              right: "8px",
+              cursor: "pointer",
+              color: "#888",
+              fontSize: "14px",
+              lineHeight: 1,
+              userSelect: "none",
+            }}
+          >
+            ×
+          </span>
+        )}
+      </div>
       {isOpen && filtered.length > 0 && (
         <DropdownList>
-          {filtered.map((o, i) => (
+          {filtered.map((option, index) => (
             <DropdownItem
-              key={i}
+              key={index}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => handleSelect(o)}
+              onClick={() => handleSelect(option)}
             >
-              {typeof o === "string" ? o : o[displayKey]}
+              {typeof option === "string" ? option : option[displayKey]}
             </DropdownItem>
           ))}
         </DropdownList>
@@ -325,23 +376,25 @@ const OTLabBilling = () => {
     time: "",
     uhid: "",
     ipNumber: "",
-    doctor: "",
+    doctor: "", // stores employeeId (like InvestigationBilling)
     salutation: "",
     firstName: "",
     patientName: "",
     lastName: "",
     age: "",
+    age_type: "",
     gender: "",
     item: JSON.stringify([]),
-    referredBy: "",
+    referredBy: "", // stores employeeId (like InvestigationBilling)
     total: 0,
     finalPrice: 0,
-    paymentMethod: "Credit", // always Credit for lab
+    paymentMethod: "Credit",
     paymentStatus: "Pending",
     customer_type: "",
     company_name: "",
     company_code: "",
-    surgeryRef: "", // originating surgery schedule reference
+    surgeryRef: "",
+    roomNo: "", // stores ot_name from navigated surgery data
     is_emergency: false,
   });
 
@@ -352,6 +405,7 @@ const OTLabBilling = () => {
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [loadingItems, setLoadingItems] = useState(true);
+  const [printJob, setPrintJob] = useState(null);
 
   // ── Clock ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -374,16 +428,16 @@ const OTLabBilling = () => {
 
   // ── Fetch doctors ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetch = async () => {
+    const fetchDoctors = async () => {
       const res = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
       if (res.success) setDoctors(res.data);
     };
-    fetch();
+    fetchDoctors();
   }, [HMSURL]);
 
-  // ── Fetch LAB items once on mount (fixed billTypeNo + billType) ────────────
+  // ── Fetch LAB items once on mount ──────────────────────────────────────────
   useEffect(() => {
-    const fetch = async () => {
+    const fetchItems = async () => {
       setLoadingItems(true);
       const res = await apiRequest(
         `${HMSURL}investigation-items/?billTypeNo=${LAB_BILL_TYPE_NO}&billType=${LAB_BILL_TYPE}`,
@@ -392,30 +446,32 @@ const OTLabBilling = () => {
       if (res.success) setItems(res.data?.items || []);
       setLoadingItems(false);
     };
-    fetch();
+    fetchItems();
   }, [HMSURL]);
 
   // ── Populate form from navigation state ───────────────────────────────────
+  // UHID and IP Number now come exclusively from navigated data (no manual
+  // search). ot_name from the navigated payload is stored into roomNo.
   useEffect(() => {
     if (!location.state?.patientData) return;
     const d = location.state.patientData;
     setFormData((prev) => ({
       ...prev,
       uhid: d.uhid || "",
-      ipNumber: d.ipNumber || "",
+      ipNumber: d.ip_number || d.ipNumber || "",
       salutation: d.salutation || "",
       firstName: d.firstName || "",
       lastName: d.lastName || "",
-      // patient_name from enriched schedule data (full resolved name)
       patientName: d.patient_name || d.firstName || "",
       age: String(d.age || ""),
+      age_type: String(d.age_type || ""),
       gender: d.gender || "",
-      // Store raw incoming doctor value (may be a name or an ID)
-      // The second effect resolves it against the loaded doctors list
-      _rawDoctor: d.doctor || "",
-      doctor: "", // resolved by second effect
-      referredBy: "", // resolved by second effect
-      surgeryRef: d.surgeryRef || "",
+      // Store raw incoming doctor value — resolved to employeeId in next effect
+      _rawDoctor: d.doctor || d.surgeon_id || "",
+      doctor: "",
+      referredBy: "",
+      surgeryRef: d.surgeryRef || d.reference_no || "",
+      roomNo: d.ot_name || "",
       customer_type: d.customer_type || "",
       company_name: d.company_name || "",
       company_code: d.company_code || "",
@@ -423,16 +479,14 @@ const OTLabBilling = () => {
     }));
   }, [location.state]);
 
-  // ── Resolve doctor name once doctors list loads ────────────────────────────
-  // Handles race: location.state fires before doctor_list_diagnostics returns.
-  // Also handles the case where surgeon_id (e.g. "60380") was passed instead
-  // of surgeon_name — we match against employeeId too.
+  // ── Resolve raw doctor to employeeId once doctors list loads ───────────────
+  // Matches by employeeName, employeeId, or raw value — stores employeeId
+  // (same pattern as InvestigationBilling which stores employeeId in doctor field)
   useEffect(() => {
     if (!doctors.length) return;
     const raw = formData._rawDoctor;
     if (!raw) return;
 
-    // Try to find by name first, then by employeeId
     const match = doctors.find(
       (d) =>
         d.employeeName.trim() === raw ||
@@ -440,8 +494,13 @@ const OTLabBilling = () => {
         String(d.employeeId) === String(raw),
     );
 
-    const resolved = match ? match.employeeName.trim() : raw;
-    setFormData((p) => ({ ...p, doctor: resolved, referredBy: resolved }));
+    // Store employeeId so SearchableDropdown can match it via valueKey="id"
+    const resolvedId = match ? match.employeeId : raw;
+    setFormData((p) => ({
+      ...p,
+      doctor: resolvedId,
+      referredBy: resolvedId,
+    }));
   }, [doctors, formData._rawDoctor]); // eslint-disable-line
 
   // ── Item selection ─────────────────────────────────────────────────────────
@@ -461,6 +520,7 @@ const OTLabBilling = () => {
       quantity,
       billTypeNo: LAB_BILL_TYPE_NO,
       ...(obj?.test_id && { test_id: obj.test_id }),
+      ...(obj?.item_id && { item_id: obj.item_id }),
     };
     const updated = [...productList, newProduct];
     setProductList(updated);
@@ -476,69 +536,13 @@ const OTLabBilling = () => {
     setFormData((p) => ({ ...p, item: JSON.stringify(updated) }));
   };
 
-  // ── Patient search ─────────────────────────────────────────────────────────
-  const fetchPatientDetails = async () => {
-    if (!formData.uhid) {
-      alert("Please enter UHID");
-      return;
-    }
-    const res = await apiRequest(
-      `${HMSURL}op-patient/${encodeURIComponent(formData.uhid)}/`,
-      "GET",
-    );
-    if (res.success) {
-      const d = res.data;
-      setFormData((p) => ({
-        ...p,
-        salutation: d.salutation || "",
-        firstName: d.firstName || "",
-        lastName: d.lastName || "",
-        patientName:
-          `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`.trim(),
-        age: String(d.age || ""),
-        gender: d.gender || "",
-        customer_type: d.customer_type || "",
-        company_name: d.company_name || "",
-        company_code: d.company_code || "",
-      }));
-    } else alert(res.error || "Patient not found");
-  };
-
-  const fetchIpPatient = async () => {
-    if (!formData.ipNumber) {
-      alert("Please enter IP Number");
-      return;
-    }
-    const res = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(formData.ipNumber)}/`,
-      "GET",
-    );
-    if (res.success) {
-      const d = res.data;
-      setFormData((p) => ({
-        ...p,
-        uhid: d.uhid || "",
-        salutation: d.salutation || "",
-        firstName: d.firstName || "",
-        lastName: d.lastName || "",
-        patientName:
-          `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`.trim(),
-        age: String(d.age || ""),
-        gender: d.gender || "",
-        customer_type: d.customer_type || "",
-        company_name: d.company_name || "",
-        company_code: d.company_code || "",
-      }));
-    } else alert(res.error || "Patient not found");
-  };
-
   // ── Auto-calculations ──────────────────────────────────────────────────────
   useEffect(() => {
     const total = productList.reduce(
       (s, i) => s + Number(i.price) * Number(i.quantity),
       0,
     );
-    setFormData((p) => ({ ...p, total, finalPrice: total })); // no discount
+    setFormData((p) => ({ ...p, total, finalPrice: total }));
   }, [productList]);
 
   // ── Form actions ───────────────────────────────────────────────────────────
@@ -570,10 +574,10 @@ const OTLabBilling = () => {
     const payload = {
       uhid: formData.uhid,
       ipNumber: formData.ipNumber,
-      doctor: formData.doctor,
+      doctor: formData.doctor, // employeeId
       bill_type: LAB_BILL_TYPE,
       billTypeNo: LAB_BILL_TYPE_NO,
-      referredBy: formData.referredBy,
+      referredBy: formData.referredBy, // employeeId
       discountPercent: 0,
       discount: 0,
       discountRemarks: "",
@@ -583,93 +587,31 @@ const OTLabBilling = () => {
       paymentStatus: "Pending",
       item: productList,
       is_emergency: !!formData.is_emergency,
+      roomNo: formData.roomNo || "",
+      age: formData.age || "",
+      age_type: formData.age_type || "",
     };
 
     const res = await apiRequest(`${HMSURL}investBilling/`, "POST", payload);
     if (res.success) {
       const billNo = res.data?.investBillNo;
       if (billNo) {
-        handlePrint({ ...formData, investBillNo: billNo, item: productList });
-        setTimeout(() => alert("Lab bill generated successfully!"), 100);
+        setPrintJob({
+          bill: {
+            ...formData,
+            investBillNo: billNo,
+            investBillDate: formData.investBillDate,
+            item: productList,
+          },
+          isEstimate: false,
+          toastMsg: "Lab bill generated successfully!",
+        });
+      } else {
+        alert("Bill generated but bill number not received from server!");
       }
-      setTimeout(() => {
-        navigate(-1);
-      }, 2000);
     } else {
       alert(`Failed to save lab bill: ${res.error}`);
     }
-  };
-
-  // ── Print ──────────────────────────────────────────────────────────────────
-  const printStyles = `
-    body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 10px; }
-    .header { text-align: center; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 10px; }
-    .hospital-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-    .bill-row { display: flex; margin-bottom: 5px; }
-    .bill-label { font-weight: bold; width: 130px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-    th, td { border: 1px solid #000; padding: 5px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .total-section { border-top: 1px solid #000; padding-top: 5px; }
-    .total-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .total-label { font-weight: bold; }
-    .net-amount { font-weight: bold; font-size: 14px; border-top: 1px solid #000; padding-top: 5px; }
-    .signature { display: flex; justify-content: space-between; margin-top: 30px; }
-  `;
-
-  const handlePrint = (bill) => {
-    const win = window.open("", "_blank", "height=600,width=800");
-    const itemsArr = Array.isArray(bill.item)
-      ? bill.item
-      : JSON.parse(bill.item || "[]");
-    const patName =
-      `${bill.salutation || ""} ${bill.firstName || ""} ${bill.lastName || ""}`.trim();
-    const itemRows =
-      itemsArr
-        .map(
-          (it, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${it.itemName || ""}</td>
-        <td>${it.quantity || 1}</td>
-        <td>${parseFloat(it.price).toFixed(2)}</td>
-        <td>${(parseFloat(it.price) * parseInt(it.quantity || 1)).toFixed(2)}</td>
-      </tr>`,
-        )
-        .join("") || '<tr><td colspan="5">No Items</td></tr>';
-
-    win.document
-      .write(`<!DOCTYPE html><html><head><title>Lab Bill</title><style>${printStyles}</style></head>
-    <body>
-      <div class="header">
-        <div class="hospital-name">SHANMUGA HOSPITAL LIMITED</div>
-        <div>51/24. Saradha College Road, Salem - 636007</div>
-        <div style="font-weight:bold;margin-top:4px;">LAB REQUEST BILL — Credit</div>
-      </div>
-      <div style="margin-bottom:12px;">
-        <div class="bill-row"><div class="bill-label">Bill Number</div><div>: ${bill.investBillNo || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">Surgery Ref</div><div>: ${bill.surgeryRef || "—"}</div></div>
-        <div class="bill-row"><div class="bill-label">UHID</div><div>: ${bill.uhid || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">IP Number</div><div>: ${bill.ipNumber || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">Patient Name</div><div>: ${patName || "—"}</div></div>
-        <div class="bill-row"><div class="bill-label">Age / Gender</div><div>: ${bill.age || "—"} / ${bill.gender || "—"}</div></div>
-        <div class="bill-row"><div class="bill-label">Doctor</div><div>: ${bill.doctor || ""}</div></div>
-        <div class="bill-row"><div class="bill-label">Date</div><div>: ${bill.investBillDate || ""}</div></div>
-      </div>
-      <table>
-        <thead><tr><th>Sl</th><th>Test Name</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
-        <tbody>${itemRows}</tbody>
-      </table>
-      <div class="total-section">
-        <div class="total-row net-amount">
-          <div class="total-label">Net Amount (Credit)</div>
-          <div>${parseFloat(bill.finalPrice || 0).toFixed(2)}</div>
-        </div>
-      </div>
-      <div class="signature"><div>${bill.uhid || ""}</div><div>(Authorized Signature)</div></div>
-      <script>window.onload = () => window.print();</script>
-    </body></html>`);
-    win.document.close();
   };
 
   const handleInputChange = (e) => {
@@ -682,12 +624,10 @@ const OTLabBilling = () => {
     <PageContainer>
       <PageTitle>🧪 Lab Request Billing</PageTitle>
 
-      {/* Navigation */}
       <NavigationLinks>
         <NavLink onClick={() => navigate("/ViewBills")}>📄 View Bills</NavLink>
       </NavigationLinks>
 
-      {/* Surgery reference banner */}
       {formData.surgeryRef && (
         <SurgeryRefBanner>
           <span>🔗</span>
@@ -713,11 +653,9 @@ const OTLabBilling = () => {
                 type="text"
                 name="uhid"
                 value={formData.uhid}
-                onChange={handleInputChange}
+                readOnly
+                style={{ background: "#f1f5f9", color: "#475569" }}
               />
-              <InlineSearchBtn type="button" onClick={fetchPatientDetails}>
-                🔍 Search
-              </InlineSearchBtn>
             </InputWrapper>
 
             <InputWrapper>
@@ -726,11 +664,9 @@ const OTLabBilling = () => {
                 type="text"
                 name="ipNumber"
                 value={formData.ipNumber}
-                onChange={handleInputChange}
+                readOnly
+                style={{ background: "#f1f5f9", color: "#475569" }}
               />
-              <InlineSearchBtn type="button" onClick={fetchIpPatient}>
-                🔍 Search
-              </InlineSearchBtn>
             </InputWrapper>
 
             <InputWrapper>
@@ -749,11 +685,28 @@ const OTLabBilling = () => {
               <Label>Age</Label>
               <Input type="text" value={formData.age} readOnly />
             </InputWrapper>
+            <InputWrapper>
+              <Label>Age Type</Label>
+              <Input type="text" value={formData.age_type} readOnly />
+            </InputWrapper>
 
             <InputWrapper>
               <Label>Gender</Label>
               <Input type="text" value={formData.gender} readOnly />
             </InputWrapper>
+
+            {/* Room No — from navigated surgery data (ot_name) */}
+            {formData.roomNo && (
+              <InputWrapper>
+                <Label>Room No</Label>
+                <Input
+                  type="text"
+                  name="roomNo"
+                  value={formData.roomNo}
+                  readOnly
+                />
+              </InputWrapper>
+            )}
 
             {/* Emergency Case checkbox */}
             <InputWrapper style={{ justifyContent: "flex-end" }}>
@@ -832,11 +785,16 @@ const OTLabBilling = () => {
               <Label required>Doctor</Label>
               <SearchableDropdown
                 value={formData.doctor}
-                onChange={(v) => setFormData((p) => ({ ...p, doctor: v }))}
-                options={doctors.map((d) => ({
-                  id: d.employeeName.trim(),
-                  name: d.employeeName.trim(),
-                }))}
+                onChange={(value) =>
+                  setFormData((p) => ({ ...p, doctor: value }))
+                }
+                options={[
+                  { id: "SELF", name: "SELF" },
+                  ...doctors.map((d) => ({
+                    id: d.employeeId,
+                    name: d.employeeName.trim(),
+                  })),
+                ]}
                 displayKey="name"
                 valueKey="id"
                 placeholder="Select doctor..."
@@ -847,11 +805,16 @@ const OTLabBilling = () => {
               <Label>Referred By</Label>
               <SearchableDropdown
                 value={formData.referredBy}
-                onChange={(v) => setFormData((p) => ({ ...p, referredBy: v }))}
-                options={doctors.map((d) => ({
-                  id: d.employeeName.trim(),
-                  name: d.employeeName.trim(),
-                }))}
+                onChange={(value) =>
+                  setFormData((p) => ({ ...p, referredBy: value }))
+                }
+                options={[
+                  { id: "SELF", name: "SELF" },
+                  ...doctors.map((d) => ({
+                    id: d.employeeId,
+                    name: d.employeeName.trim(),
+                  })),
+                ]}
                 displayKey="name"
                 valueKey="id"
                 placeholder="Select doctor..."
@@ -877,6 +840,7 @@ const OTLabBilling = () => {
                   onChange={handleItemChange}
                   options={loadingItems ? [] : items.map((i) => i.itemName)}
                   placeholder={loadingItems ? "Loading..." : "Select test..."}
+                  disabled={loadingItems}
                 />
               </InputWrapper>
 
@@ -955,7 +919,6 @@ const OTLabBilling = () => {
                 />
               </InputWrapper>
 
-              {/* Discount fields — disabled, always 0 for lab billing */}
               <InputWrapper>
                 <Label>Discount (%)</Label>
                 <Input
@@ -1000,7 +963,6 @@ const OTLabBilling = () => {
                 />
               </InputWrapper>
 
-              {/* Payment Method — in summary, matching InvestigationBilling */}
               <InputWrapper>
                 <Label>Payment Method</Label>
                 <Input
@@ -1015,7 +977,6 @@ const OTLabBilling = () => {
                 />
               </InputWrapper>
 
-              {/* Patient Type / Company */}
               {(formData.customer_type || formData.company_name) && (
                 <InputWrapper>
                   <Label>Patient Type</Label>
@@ -1030,7 +991,6 @@ const OTLabBilling = () => {
                 </InputWrapper>
               )}
 
-              {/* Emergency flag */}
               {formData.is_emergency && (
                 <InputWrapper>
                   <Label>Case Type</Label>
@@ -1074,6 +1034,20 @@ const OTLabBilling = () => {
           </ProductSection>
         </form>
       </ContentCard>
+
+      {/* ── Print Modal ──────────────────────────────────────────────────── */}
+      {printJob && (
+        <PrintModal
+          bill={printJob.bill}
+          doctors={doctors}
+          isEstimate={printJob.isEstimate}
+          toastMsg={printJob.toastMsg}
+          onClose={() => {
+            setPrintJob(null);
+            navigate(-1);
+          }}
+        />
+      )}
     </PageContainer>
   );
 };
