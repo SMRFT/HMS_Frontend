@@ -218,7 +218,6 @@ const TimeText = styled.div`
   font-weight: 700;
   color: ${colors.textMain};
   letter-spacing: 0.4px;
-  animation: ${tickFlip} 0.25s ease both;
   line-height: 1.2;
 `;
 
@@ -792,7 +791,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           <Clock size={14} />
         </ClockIconBox>
         <ClockTexts>
-          <TimeText key={time.getSeconds()}>{formatTime(time)}</TimeText>
+          <TimeText>{formatTime(time)}</TimeText>
           <DateText>{formatDate(time)}</DateText>
         </ClockTexts>
       </ClockSection>
