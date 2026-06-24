@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes, createGlobalStyle } from "styled-components";
 
@@ -617,6 +618,8 @@ const ItemsSection = ({
 // ═════════════════════════════════════════════════════════════════════════════
 
 const DischargeBilling = () => {
+  const location = useLocation();
+
   const [tab, setTab] = useState("create");
 
   // ── Master data ────────────────────────────────────────────────────────────
@@ -738,8 +741,8 @@ const DischargeBilling = () => {
   };
 
   // ── Patient search ─────────────────────────────────────────────────────────
-  const doSearch = async mode => {
-    const val = (mode==="uhid"?uhid:ipNumber).trim();
+  const doSearch = async (mode, explicitVal = null) => {
+    const val = (explicitVal || (mode==="uhid"?uhid:ipNumber)).trim();
     if (!val) { setSearchErr("Please enter a value"); return; }
     setSearchErr(""); setSearching(true);
     setPatient(null); setItems([]); setNewItem(EMPTY_ITEM);
@@ -761,6 +764,13 @@ const DischargeBilling = () => {
     } catch { setSearchErr("Search failed — check network"); }
     finally   { setSearching(false); }
   };
+
+  useEffect(() => {
+    if (location.state?.ipNo) {
+      setIpNumber(location.state.ipNo);
+      doSearch("ipNumber", location.state.ipNo);
+    }
+  }, [location.state?.ipNo]);
 
   // ── New item helpers ───────────────────────────────────────────────────────
   const handleNIChange = (field, value) =>
