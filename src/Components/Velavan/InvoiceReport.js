@@ -306,6 +306,9 @@ const InvoiceReport = () => {
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
+  const canView = allowedActions.includes("HMS-P-VEV");
+  const canPurP = allowedActions.includes("HMS-P-VPP");
+  const canVelP = allowedActions.includes("HMS-P-VVP");
   const canEdit = allowedActions.includes("HMS-P-VINE-RW");
   const canApprove = allowedActions.includes("HMS-P-VINA-RW");
 
@@ -1810,14 +1813,15 @@ const InvoiceReport = () => {
                     </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
                       {/* View */}
-                      <button
-                        style={actionBtn}
-                        title="View"
-                        onClick={() => handleView(row)}
-                      >
-                        <Eye size={14} />
-                      </button>
-
+                      {canView && (
+                        <button
+                          style={actionBtn}
+                          title="View"
+                          onClick={() => handleView(row)}
+                        >
+                          <Eye size={14} />
+                        </button>
+                      )}
                       {/* Edit — disabled when approved */}
                       {canEdit && (
                         <button
@@ -1864,46 +1868,52 @@ const InvoiceReport = () => {
                       )}
 
                       {/* GRN Print */}
-                      <button
-                        style={actionBtn}
-                        title="GRN Print"
-                        onClick={() => handleGRNPrint(row)}
-                      >
-                        <Printer size={14} />
-                      </button>
+                      {canPurP && (
+                        <button
+                          style={actionBtn}
+                          title="GRN Print"
+                          onClick={() => handleGRNPrint(row)}
+                        >
+                          <Printer size={14} />
+                        </button>
+                      )}
 
                       {/* Velavan Print */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          color: row.is_approved ? "#7c3aed" : colors.textMuted,
-                          borderColor: row.is_approved
-                            ? "#7c3aed"
-                            : colors.border,
-                          opacity: row.is_approved ? 1 : 0.35,
-                          cursor: row.is_approved ? "pointer" : "not-allowed",
-                        }}
-                        title={
-                          row.is_approved
-                            ? "Velavan Print"
-                            : "Approve invoice to enable Velavan Print"
-                        }
-                        onClick={() =>
-                          row.is_approved && handleVelavanPrint(row)
-                        }
-                        disabled={!row.is_approved}
-                      >
-                        <Printer size={14} />
-                        <span
+                      {canVelP && (
+                        <button
                           style={{
-                            fontSize: "0.65rem",
-                            marginLeft: 2,
-                            fontWeight: 600,
+                            ...actionBtn,
+                            color: row.is_approved
+                              ? "#7c3aed"
+                              : colors.textMuted,
+                            borderColor: row.is_approved
+                              ? "#7c3aed"
+                              : colors.border,
+                            opacity: row.is_approved ? 1 : 0.35,
+                            cursor: row.is_approved ? "pointer" : "not-allowed",
                           }}
+                          title={
+                            row.is_approved
+                              ? "Velavan Print"
+                              : "Approve invoice to enable Velavan Print"
+                          }
+                          onClick={() =>
+                            row.is_approved && handleVelavanPrint(row)
+                          }
+                          disabled={!row.is_approved}
                         >
-                          V
-                        </span>
-                      </button>
+                          <Printer size={14} />
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              marginLeft: 2,
+                              fontWeight: 600,
+                            }}
+                          >
+                            V
+                          </span>
+                        </button>
+                      )}
                     </Td>
                   </Tr>
                 ))
