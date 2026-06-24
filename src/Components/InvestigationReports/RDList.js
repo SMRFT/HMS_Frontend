@@ -3321,7 +3321,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         item_id: row.item_id ?? "",
         itemName: row.itemName || "",
         paymentStatus: row.paymentStatus || "",
-        billTypeNo: row.billTypeNo || selectedBillType,
+        billTypeNo: selectedBillType,
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
         age: row.age,

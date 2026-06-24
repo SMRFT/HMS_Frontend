@@ -62,6 +62,7 @@ import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
+import MedicinePackage from "./Components/BillingMaster/MedicinePackage";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
 import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
@@ -308,6 +309,7 @@ function App() {
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
+      "/MedicinePackage": "MedicinePackage",
       "/Investigationprice": "Investigation Price",
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
@@ -906,6 +908,16 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Package" element={<Package />} />}
+
+              {/* Medicine Packages */}
+              {hasPagePermission(
+                "/Package",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/MedicinePackage" element={<MedicinePackage />} />
+              )}
+
               {/* Investigationprice */}
               {hasPagePermission(
                 "/Investigationprice",

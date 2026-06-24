@@ -472,7 +472,14 @@ const EMPTY_FORM = {
   totalPrice: "",
   is_active: true,
   items: [
-    { itemName: "", price: "", quantity: 1, billTypeNo: "", test_id: "" },
+    {
+      itemName: "",
+      price: "",
+      quantity: 1,
+      billTypeNo: "",
+      test_id: "",
+      item_id: null,
+    },
   ],
 };
 
@@ -621,30 +628,32 @@ const Package = () => {
     const item = pickerItems.find((i) => i.itemName === selectedPickerItem);
     if (!item) return;
 
-    let price, test_id;
+    let price, test_id, item_id;
+
     if (item.isLab) {
       price = item.price || "0";
       test_id = item.test_id || "";
+      item_id = null; // Lab items have no item_id
     } else {
-      const numericKeys = Object.keys(item.extraKeys || {}).filter((k) =>
-        /^\d+$/.test(k),
+      const numericKeys = Object.keys(item.extraKeys || {}).filter(
+        (k) => /^\d+$/.test(k) && k !== "item_id", // ← exclude item_id key from price calc
       );
       price = numericKeys.length
         ? Math.max(
             ...numericKeys.map((k) => parseFloat(item.extraKeys[k]) || 0),
           ).toString()
         : "0";
-      test_id = item.extraKeys?.hasOwnProperty("test_id")
-        ? item.extraKeys["test_id"]
-        : "";
+      test_id = "";
+      item_id = item.extraKeys?.item_id ?? null; // ← from extraKeys
     }
 
     const newRow = {
       itemName: item.itemName,
-      price: price,
+      price,
       quantity: 1,
       billTypeNo: selectedBT?.billTypeNo || "",
-      test_id: test_id,
+      test_id,
+      item_id, // ← always set
     };
 
     setFormData((prev) => {
@@ -750,16 +759,18 @@ const Package = () => {
     setFormData({
       packageName: pkg.packageName || "",
       outlet_code: pkg.outlet_code || "",
+      outlet: pkg.outlet_name || pkg.outlet || "", // ← also restore outlet for dropdown
       totalPrice: pkg.totalPrice || "",
       is_active: pkg.is_active !== false,
       items:
         Array.isArray(pkg.items) && pkg.items.length
           ? pkg.items.map((i) => ({
-              itemName: i.itemName || "",
+              itemName: i.itemName || "", // ← resolved name from GET response
               price: i.price || "",
               quantity: i.quantity || 1,
               billTypeNo: i.billTypeNo || "",
-              test_id: i.test_id || "",
+              test_id: i.test_id ?? "", // undefined → "" (won't be sent as null)
+              item_id: i.item_id ?? null, // undefined → null (filtered by backend)
             }))
           : [
               {
@@ -768,6 +779,7 @@ const Package = () => {
                 quantity: 1,
                 billTypeNo: "",
                 test_id: "",
+                item_id: null,
               },
             ],
     });
