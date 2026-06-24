@@ -1698,19 +1698,25 @@ const InvoiceReport = () => {
             : `Showing ${currentData.length} of ${filteredData.length} records`}
         </span>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button success onClick={handlePurchasePrint}>
-            <Printer size={14} /> Purchase Report
-          </Button>
-          <Button
-            success
-            onClick={handleSalesReportPrint}
-            style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
-          >
-            <Printer size={14} /> Sales Report
-          </Button>
-          <Button onClick={exportToExcel}>
-            <Download size={14} /> Export CSV
-          </Button>
+          {canPurP && (
+            <Button success onClick={handlePurchasePrint}>
+              <Printer size={14} /> Purchase Report
+            </Button>
+          )}
+          {canPurP && (
+            <Button
+              success
+              onClick={handleSalesReportPrint}
+              style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+            >
+              <Printer size={14} /> Sales Report
+            </Button>
+          )}
+          {canPurP && (
+            <Button onClick={exportToExcel}>
+              <Download size={14} /> Export CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1743,8 +1749,8 @@ const InvoiceReport = () => {
                   "Patient",
                   "Surgeon",
                   "IP Number",
-                  "Purchase Amount", // ← renamed from "Total Amount"
-                  "Selling Amount", // ← new column
+                  // "Purchase Amount", // ← renamed from "Total Amount"
+                  // "Selling Amount", // ← new column
                   "Actions",
                 ].map((h) => (
                   <Th key={h} style={{ whiteSpace: "nowrap" }}>
@@ -1786,12 +1792,12 @@ const InvoiceReport = () => {
                     <Td style={{ minWidth: 100 }}>{row.patient_name || "—"}</Td>
                     <Td style={{ minWidth: 100 }}>{row.surgeon_id || "—"}</Td>
                     <Td>{row.ip_number || "—"}</Td>
-                    <Td style={{ textAlign: "right", fontWeight: 600 }}>
+                    {/* <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
-                    </Td>
+                    </Td> */}
 
                     {/* Selling Amount with round-off */}
-                    <Td
+                    {/* <Td
                       style={{
                         textAlign: "right",
                         fontWeight: 600,
@@ -1810,7 +1816,7 @@ const InvoiceReport = () => {
                           decimal >= 0.5 ? 1 - decimal : -decimal;
                         return formatCurrency(sellingAmt + roundOff);
                       })()}
-                    </Td>
+                    </Td> */}
                     <Td style={{ whiteSpace: "nowrap" }}>
                       {/* View */}
                       {canView && (
