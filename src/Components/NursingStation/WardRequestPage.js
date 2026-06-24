@@ -19,16 +19,16 @@ const colors = {
   white: "#FFFFFF",
   rowHighlight: "#E0F2F1",
   headerBg: "#546E7A",
-  // Legend Colors
-  legPending: "#FFC107",
-  legSubstituted: "#B366CC",
-  legBilled: "#28A745",
-  legCancelled: "#6C757D",
-  legStopped: "#FA6680",
-  legEmergency: "#DC3545",
-  legInsurance: "#007BFF",
-  legDischarge: "#48D1CC",
-  legRegular: "#136A63",
+  // Legend Colors (Refined for better UI)
+  legPending: "#F59E0B",     // Rich amber
+  legSubstituted: "#8B5CF6", // Vibrant purple
+  legBilled: "#10B981",      // Emerald green
+  legCancelled: "#6B7280",   // Cool gray
+  legStopped: "#EF4444",     // Red
+  legEmergency: "#DC2626",   // Deeper Red
+  legInsurance: "#3B82F6",   // Blue
+  legDischarge: "#06B6D4",   // Cyan
+  legRegular: "#0D9488",     // Teal
 };
 
 // ─── Styled Components ────────────────────────────────────────────────────────
@@ -449,26 +449,50 @@ const StyledTable = styled.table`
 `;
 
 const LegendContainer = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 15px;
   margin-top: 25px;
-  padding: 15px;
+  padding: 20px;
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid ${colors.border};
-  flex-wrap: wrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+`;
+
+const LegendItemWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fdfdfd;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s;
+  &:hover {
+    background: #f8fafb;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
 `;
 
 const LegendItem = styled.div`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
   background: ${(props) => props.color};
   color: white;
+  width: fit-content;
+  box-shadow: 0 2px 6px ${(props) => props.color}40;
+`;
+
+const LegendDescription = styled.div`
+  font-size: 0.75rem;
+  color: ${colors.textMuted};
+  line-height: 1.3;
 `;
 
 // ─── Searchable Dropdown Helper ───────────────────────────────────────────────
@@ -1675,15 +1699,42 @@ const MedicineWardRequest = ({ patient, onClose }) => {
           </StyledTable>
         </div>
         <LegendContainer>
-          <LegendItem color={colors.legPending}>Pending</LegendItem>
-          <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
-          <LegendItem color={colors.legBilled}>Billed</LegendItem>
-          <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
-          <LegendItem color={colors.legStopped}>Stopped</LegendItem>
-          <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
-          <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
-          <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
-          <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legPending}>Pending</LegendItem>
+            <LegendDescription>Request is placed but not yet processed or billed.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
+            <LegendDescription>Requested medicine was replaced with an alternative.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legBilled}>Billed</LegendItem>
+            <LegendDescription>Medicine has been billed and issued to the patient.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
+            <LegendDescription>The request was cancelled before processing.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legStopped}>Stopped</LegendItem>
+            <LegendDescription>Medication has been stopped by the doctor.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
+            <LegendDescription>High priority urgent medicine request.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
+            <LegendDescription>Medicine covered under patient's insurance plan.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
+            <LegendDescription>Medicines prescribed for patient at the time of discharge.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+            <LegendDescription>Standard ongoing medicines for the admitted patient.</LegendDescription>
+          </LegendItemWrapper>
         </LegendContainer>
       </div>
 

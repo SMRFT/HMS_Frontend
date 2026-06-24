@@ -26,7 +26,8 @@ import {
   FiGrid,
   FiList,
   FiCheckCircle,
-  FiRefreshCcw
+  FiRefreshCcw,
+  FiCreditCard
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant, MdLocalLaundryService } from "react-icons/md";
 
@@ -244,21 +245,21 @@ const RoomHeader = styled.div`
 const getStatusColors = (status) => {
   switch (status?.toLowerCase()) {
     case "admitted":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
     case "discharged":
-      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" };
+      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" }; // Gray
     case "mark for discharge":
-      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" };
+      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" }; // Orange
     case "discharge confirmation":
-      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" };
+      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" }; // Pink
     case "sent for billing":
-      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" };
+      return { bg: "#f5f3ff", text: "#8b5cf6", border: "#ede9fe" }; // Purple
     case "billed":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" }; // Green
     case "pending":
-      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" };
+      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" }; // Red
     default:
-      return { bg: "#f8fafc", text: "#64748b", border: "#f1f5f9" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
   }
 };
 
@@ -266,6 +267,35 @@ const BedsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
+`;
+
+const LegendContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  border: 1px solid ${colors.border};
+`;
+
+const LegendItemWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+
+  .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: ${(props) => props.$color};
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
 `;
 
 const BedItem = styled.div`
@@ -1052,6 +1082,7 @@ const WardRequest = () => {
                   const occupant = occupants.find(o => String(getField(o, "bedNo")) === String(bed.bed_number));
                   const initials = occupant ? getInitials(`${getField(occupant, "firstName") || ""} ${getField(occupant, "lastName") || ""}`.trim()) : "";
                   const bedStatus = occupant ? (getField(occupant, "ward_status") || (getField(occupant, "is_discharged") ? "Discharged" : "Admitted")) : "";
+                  const customerType = occupant ? (getField(occupant, "customer_type") || getField(occupant, "customerType") || "Normal") : "";
                   const statusColors = getStatusColors(bedStatus);
 
                   return (
@@ -1060,6 +1091,7 @@ const WardRequest = () => {
                       $occupied={!!occupant}
                       $blocked={bed.blocked}
                       $status={bedStatus}
+                      $customerType={customerType}
                       onClick={() => {
                         if (occupant) {
                           setSelectedPatient(occupant);
@@ -1067,7 +1099,14 @@ const WardRequest = () => {
                         }
                       }}
                     >
-                      <div className="bed-icon" />
+                      <div className="bed-icon">
+                        {occupant && customerType.toLowerCase() === "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#a855f7', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Insurance Patient" />
+                        )}
+                        {occupant && customerType.toLowerCase() !== "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#3b82f6', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Normal Pay Patient" />
+                        )}
+                      </div>
                       {/* {initials && <div className="patient-initials">{initials}</div>} */}
                       <div className="bed-label">{bed.bed_number}</div>
                       {occupant && (
@@ -1082,9 +1121,25 @@ const WardRequest = () => {
                             setSelectedPatient(occupant);
                             setShowStatusModal(true);
                           }}
-                          style={{ marginTop: "6px", padding: "4px 8px", fontSize: "0.6rem", fontWeight: "600", borderRadius: "12px", background: statusColors.text, color: "#fff", cursor: "pointer", zIndex: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" }}
+                          style={{ 
+                            marginTop: "6px", 
+                            padding: "4px 8px", 
+                            fontSize: "0.6rem", 
+                            fontWeight: "700", 
+                            borderRadius: "12px", 
+                            background: statusColors.bg, 
+                            color: statusColors.text, 
+                            border: `1px solid ${statusColors.border}`,
+                            cursor: "pointer", 
+                            zIndex: 2, 
+                            whiteSpace: "nowrap", 
+                            overflow: "hidden", 
+                            textOverflow: "ellipsis", 
+                            maxWidth: "95%", 
+                            textAlign: "center" 
+                          }}
                         >
-                          Update Status
+                          {bedStatus || "Update Status"}
                         </div>
                       )}
 
@@ -1094,6 +1149,7 @@ const WardRequest = () => {
                           <div><strong>UHID:</strong> {getField(occupant, "uhid")}</div>
                           <div><strong>IP No:</strong> {occupant.ipNumber}</div>
                           <div><strong>Doctor:</strong> {getField(occupant, "doctorName")}</div>
+                          <div><strong>Patient Type:</strong> {customerType}</div>
                           <div><strong>Billing:</strong> {getField(occupant, "billing_status") || (getField(occupant, "is_billed") ? "Billed" : "Pending")}</div>
                           {getField(occupant, "ward_status") && (
                             <div><strong>Ward Status:</strong> {getField(occupant, "ward_status")}</div>
@@ -1338,6 +1394,45 @@ const WardRequest = () => {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "0 24px 20px", minHeight: 0 }}>
+          {viewMode === "grid" && (
+            <LegendContainer>
+              <LegendItemWrapper $color="linear-gradient(135deg, #10b981, #15803d)">
+                <div className="legend-color" />
+                Available
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #3b82f6, #3b82f6cc)">
+                <div className="legend-color" />
+                Admitted
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #f59e0b, #f59e0bcc)">
+                <div className="legend-color" />
+                Mark for Discharge
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #db2777, #db2777cc)">
+                <div className="legend-color" />
+                Discharge Confirmation
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #8b5cf6, #8b5cf6cc)">
+                <div className="legend-color" />
+                Sent for Billing
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #64748b, #64748bcc)">
+                <div className="legend-color" />
+                Blocked
+              </LegendItemWrapper>
+              
+              <div style={{ width: "1px", height: "24px", background: colors.border, margin: "0 8px" }} />
+              
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#a855f7', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Insurance
+              </LegendItemWrapper>
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3b82f6', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Normal Pay
+              </LegendItemWrapper>
+            </LegendContainer>
+          )}
           <Card style={{ padding: viewMode === "list" ? 0 : "20px", overflow: "visible", background: viewMode === "list" ? colors.surface : "transparent", border: viewMode === "list" ? `1px solid ${colors.border}` : "none", boxShadow: viewMode === "list" ? "0 4px 12px rgba(0,0,0,0.03)" : "none" }}>
             {viewMode === "list" ? (
               <div style={{ width: "100%", overflowX: "auto", paddingBottom: "10px" }}>
@@ -1601,6 +1696,21 @@ const WardRequest = () => {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Summary</div>
                   <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>View/Edit Summary</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
+                  onClick={() => { navigate("/DischargeBilling", { state: { ipNo: selectedPatient.ipNumber } }); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiCreditCard size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Billing</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Generate Final Bill</div>
                 </div>
               </div>
 
