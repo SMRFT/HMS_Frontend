@@ -693,7 +693,7 @@ const WardRequest = () => {
   const [roomNo, setRoomNo] = useState("ALL");
   const [selectedDoctor, setSelectedDoctor] = useState("ALL");
   const [doctorSearch, setDoctorSearch] = useState("");
-  const [billingStatusFilter, setBillingStatusFilter] = useState("ALL");
+  const [insuranceCompanyFilter, setInsuranceCompanyFilter] = useState("ALL");
   //  const [roomCategories, setRoomCategories] = useState([]);
   const [locationMapping, setLocationMapping] = useState([]); // Master map
   const [statusFilter, setStatusFilter] = useState("all");
@@ -713,6 +713,7 @@ const WardRequest = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
   const [rooms, setRooms] = useState([]);
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
 
   const menuRef = useRef(null);
 
@@ -727,6 +728,16 @@ const WardRequest = () => {
         setRooms(mappingData);
       }
     } catch (err) { console.error("Location mapping fetch failed", err); }
+  };
+
+  const fetchInsuranceProviders = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}insurance-providers/`, "GET");
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        setInsuranceProviders(data);
+      }
+    } catch (err) { console.error("Insurance providers fetch failed", err); }
   };
 
   const fetchAdmissions = async () => {
@@ -770,7 +781,14 @@ const WardRequest = () => {
 
   useEffect(() => {
     fetchLocationMapping();
+    fetchInsuranceProviders();
   }, []);
+
+  const getInsuranceCompanyName = (code) => {
+    if (!code) return "";
+    const provider = insuranceProviders.find(p => String(p.company_code || p.id) === String(code));
+    return provider ? (provider.company_name || code) : code;
+  };
 
   // Compute master lists dynamically from locationMapping
   const wards = useMemo(() => {
@@ -831,6 +849,16 @@ const WardRequest = () => {
     });
     return Array.from(docs).sort();
   }, [admissions]);
+
+  const availableInsuranceCompanies = useMemo(() => {
+    const companies = new Set();
+    admissions.forEach(adm => {
+      const code = getField(adm, "company_code") || getField(adm, "insuranceCompanyName") || getField(adm, "insurance_company_name");
+      const name = getInsuranceCompanyName(code);
+      if (name) companies.add(name);
+    });
+    return Array.from(companies).sort();
+  }, [admissions, insuranceProviders]);
 
   // availableBlocks depends on selected NursingStation, RoomCategory and RoomNo
   const availableBlocks = useMemo(() => {
@@ -988,10 +1016,10 @@ const WardRequest = () => {
       if (!docName.toLowerCase().includes(doctorSearch.toLowerCase())) return false;
     }
 
-    // Temporary logic for billing status using is_billed or fallback
-    const billingStatus = getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending");
-    const matchesBilling = billingStatusFilter === "ALL" || billingStatus === billingStatusFilter;
-    if (!matchesBilling) return false;
+    const rawCompany = getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name") || "";
+    const insuranceCompany = getInsuranceCompanyName(rawCompany);
+    const matchesInsurance = insuranceCompanyFilter === "ALL" || insuranceCompany === insuranceCompanyFilter;
+    if (!matchesInsurance) return false;
 
     return true;
   });
@@ -1150,7 +1178,7 @@ const WardRequest = () => {
                           <div><strong>IP No:</strong> {occupant.ipNumber}</div>
                           <div><strong>Doctor:</strong> {getField(occupant, "doctorName")}</div>
                           <div><strong>Patient Type:</strong> {customerType}</div>
-                          <div><strong>Billing:</strong> {getField(occupant, "billing_status") || (getField(occupant, "is_billed") ? "Billed" : "Pending")}</div>
+                          <div><strong>Insurance:</strong> {getInsuranceCompanyName(getField(occupant, "company_code") || getField(occupant, "insuranceCompanyName") || getField(occupant, "insurance_company_name")) || "-"}</div>
                           {getField(occupant, "ward_status") && (
                             <div><strong>Ward Status:</strong> {getField(occupant, "ward_status")}</div>
                           )}
@@ -1366,13 +1394,14 @@ const WardRequest = () => {
 
               <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                 <StyledSelect
-                  value={billingStatusFilter}
-                  onChange={(e) => setBillingStatusFilter(e.target.value)}
-                  style={{ width: "140px" }}
+                  value={insuranceCompanyFilter}
+                  onChange={(e) => setInsuranceCompanyFilter(e.target.value)}
+                  style={{ width: "160px" }}
                 >
-                  <option value="ALL">All Billing</option>
-                  <option value="Billed">Billed</option>
-                  <option value="Pending">Pending</option>
+                  <option value="ALL">All Insurance</option>
+                  {availableInsuranceCompanies.map((comp, i) => (
+                    <option key={i} value={comp}>{comp}</option>
+                  ))}
                 </StyledSelect>
               </div>
 
@@ -1444,8 +1473,8 @@ const WardRequest = () => {
                       <Th>Admitted On</Th>
                       <Th>Room & Bed</Th>
                       <Th>Doctor</Th>
-                      <Th>Billing</Th>
-                      <Th>Status</Th>
+                      <Th>Insurance Co.</Th>
+                      <Th>Ward Status</Th>
                       <Th style={{ textAlign: "center" }}>Actions</Th>
                     </Tr>
                   </thead>
@@ -1499,9 +1528,9 @@ const WardRequest = () => {
                               </div>
                             </Td>
                             <Td>
-                              <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
-                                {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
-                              </StatusBadge>
+                              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: colors.textMain }}>
+                                {getInsuranceCompanyName(getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name")) || "-"}
+                              </span>
                             </Td>
                             <Td>
                               <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>

@@ -477,7 +477,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
 
   // Form states
   const [doctor, setDoctor] = useState("");
-  const [billTypeNo, setBillTypeNo] = useState("");
+  const [selectedBillType, setSelectedBillType] = useState("");
   const [testSearch, setTestSearch] = useState("");
   const [packageSearch, setPackageSearch] = useState("");
   const [showItemDropdown, setShowItemDropdown] = useState(false);
@@ -536,7 +536,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
   };
 
   const handleBillTypeChange = async (val) => {
-    setBillTypeNo(val);
+    setSelectedBillType(val);
     setSelectedTests([]);
     setTestSearch("");
     setPackageSearch("");
@@ -546,9 +546,10 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       if (res.success) setPackages(res.data?.packages || []);
       setInvestigationItems([]);
     } else {
-      const selectedBT = billTypes.find(bt => bt.billTypeNo === val);
+      const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(val));
+      const bTypeNo = selectedBT?.billTypeNo || "";
       const bType = selectedBT?.bill_type || "";
-      const res = await apiRequest(`${HmsBaseUrl}investigation-items/?billTypeNo=${val}&billType=${bType}`, "GET");
+      const res = await apiRequest(`${HmsBaseUrl}investigation-items/?billTypeNo=${bTypeNo}&billType=${bType}`, "GET");
       if (res.success) setInvestigationItems(res.data?.items || []);
       setPackages([]);
     }
@@ -581,14 +582,14 @@ export default function RadiologyWardRequest({ patient, onClose }) {
       alert("Please select doctor and at least one test");
       return;
     }
-    const selectedBT = billTypes.find(bt => bt.billTypeNo === billTypeNo);
+    const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(selectedBillType));
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
       patientName: resolvedPatient.name,
       doctor: doctor,
       billtype: selectedBT?.bill_type,
-      billTypeNo: billTypeNo,
+      billTypeNo: selectedBT?.billTypeNo,
       billTypeName: selectedBT?.bill_name,
       selectedTests: selectedTests.map(t => ({
         itemName: t.itemName,
@@ -702,9 +703,9 @@ export default function RadiologyWardRequest({ patient, onClose }) {
             <FormRow>
               <div>
                 <FormLabel>Bill Type</FormLabel>
-                <FormSelect value={billTypeNo} onChange={(e) => handleBillTypeChange(e.target.value)}>
+                <FormSelect value={selectedBillType} onChange={(e) => handleBillTypeChange(e.target.value)}>
                   <option value="">Select Bill Type</option>
-                  {billTypes.map(o => <option key={o.billTypeNo} value={o.billTypeNo}>{o.bill_name}</option>)}
+                  {billTypes.map((o, idx) => <option key={`${o.bill_type}_${idx}`} value={o.bill_type}>{o.bill_name}</option>)}
                 </FormSelect>
               </div>
               <div>
@@ -730,7 +731,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                       value={testSearch}
                       onChange={(e) => { setTestSearch(e.target.value); setShowItemDropdown(true); }}
                       onFocus={() => setShowItemDropdown(true)}
-                      disabled={!billTypeNo || billTypeNo === "PACK"}
+                      disabled={!selectedBillType || selectedBillType === "PACK"}
                     />
                     {showItemDropdown && (
                       <DropdownList>
@@ -749,7 +750,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                       value={packageSearch}
                       onChange={(e) => { setPackageSearch(e.target.value); setShowPackageDropdown(true); }}
                       onFocus={() => setShowPackageDropdown(true)}
-                      disabled={billTypeNo !== "PACK"}
+                      disabled={selectedBillType !== "PACK"}
                     />
                     {showPackageDropdown && (
                       <DropdownList>
@@ -764,7 +765,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 </div>
               </div>
             </FormRow>
-            {!billTypeNo && (
+            {!selectedBillType && (
               <div style={{ marginTop: "20px", padding: "15px", background: "#FFF3E0", color: "#E65100", borderRadius: "6px", fontSize: "0.85rem", fontWeight: 500 }}>
                 💡 Select a Bill Type to begin searching for investigations or packages.
               </div>
