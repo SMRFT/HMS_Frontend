@@ -2265,10 +2265,11 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return sy;
     };
 
-    const checkNewPage = (yPos, needed) => {
+    const checkNewPage = (yPos, needed = 0) => {
       const pageH = doc.internal.pageSize.height;
-      const footerStart = pageH - footerHeight - 8;
-      if (yPos + needed >= footerStart) {
+      const footerStart = pageH - footerHeight - 12; // extra 12px safety margin
+      if (yPos + needed > footerStart) {
+        // Redraw footer over any content bleed on current page
         if (withLetterpad) {
           doc.addImage(
             FooterImage,
@@ -2279,8 +2280,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
             footerHeight,
           );
         }
-        // ← Remove the stale "Page N of ..." text here entirely
-        //    The final loop will stamp correct "Page X of Y" on every page
         doc.addPage();
         pageCount++;
         addHeaderFooter();
@@ -2588,13 +2587,92 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           yPos += 5;
         } else {
           // ── TEXT SECTION ──────────────────────────────────────────────────
-          const plainValue = htmlToPlainText(section.value);
-          if (!plainValue) return;
+          if (!section.value) return;
 
-          const valueLines = wrapText(plainValue, contentWidth - 4);
-          const sectionHeight = 7 + valueLines.length * 4.8 + 4;
-          yPos = checkNewPage(yPos, sectionHeight);
+          const lineH = 4.8;
+          const segments = (() => {
+            // Parse HTML into bold/normal segments line by line
+            const html = section.value;
+            if (!html) return [];
+            const normalized = html
+              .replace(/<br\s*\/?>/gi, "\n")
+              .replace(/<\/p>/gi, "\n")
+              .replace(/<\/div>/gi, "\n")
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&nbsp;/g, " ")
+              .replace(/&#39;/g, "'");
+            const segs = [];
+            const regex = /<b>(.*?)<\/b>|([^<]+)/gis;
+            let match;
+            while ((match = regex.exec(normalized)) !== null) {
+              if (match[1] !== undefined)
+                segs.push({ text: match[1], bold: true });
+              else if (match[2] !== undefined) {
+                const plain = match[2].replace(/<[^>]*>/g, "");
+                if (plain) segs.push({ text: plain, bold: false });
+              }
+            }
+            return segs;
+          })();
 
+          // Build all lines first (same word-wrap logic as renderRichText)
+          const maxW = contentWidth - 6;
+          const allLines = [];
+          let currentLine = [];
+          let currentLineWidth = 0;
+          const pushLine = () => {
+            allLines.push(currentLine);
+            currentLine = [];
+            currentLineWidth = 0;
+          };
+          doc.setFontSize(9);
+          segments.forEach(({ text, bold }) => {
+            const parts = text.split("\n");
+            parts.forEach((part, partIdx) => {
+              if (partIdx > 0) pushLine();
+              const words = part.split(" ");
+              words.forEach((word, wi) => {
+                if (word === "" && wi === 0 && currentLine.length === 0) return;
+                doc.setFont("helvetica", bold ? "bold" : "normal");
+                const spaceW =
+                  currentLine.length > 0 ? doc.getTextWidth(" ") : 0;
+                const wordW = doc.getTextWidth(word);
+                if (
+                  currentLineWidth + spaceW + wordW > maxW &&
+                  currentLine.length > 0
+                )
+                  pushLine();
+                const space = currentLine.length > 0 ? " " : "";
+                const last = currentLine[currentLine.length - 1];
+                if (last && last.bold === bold) {
+                  last.text += space + word;
+                  last.width += doc.getTextWidth(space + word);
+                } else {
+                  const segText = space + word;
+                  currentLine.push({
+                    text: segText,
+                    bold,
+                    width: doc.getTextWidth(segText),
+                  });
+                }
+                currentLineWidth += doc.getTextWidth(space + word);
+              });
+            });
+          });
+          if (currentLine.length > 0) pushLine();
+
+          const nonEmptyLines = allLines.filter(
+            (l) => l.length > 0 && l.some((s) => s.text.trim()),
+          );
+
+          if (nonEmptyLines.length === 0) return;
+
+          // Always check for new page before title
+          yPos = checkNewPage(yPos, 6 + lineH);
+
+          // Section title
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(0, 105, 92);
@@ -2602,14 +2680,19 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.setTextColor(0, 0, 0);
           yPos += 6;
 
+          // Render each line individually, checking for page break each time
           doc.setFontSize(9);
-          yPos += renderRichText(
-            section.value,
-            contentWidth - 6,
-            leftMargin + 3,
-            yPos,
-            4.8,
-          );
+          nonEmptyLines.forEach((line) => {
+            yPos = checkNewPage(yPos, lineH);
+            let cx = leftMargin + 3;
+            line.forEach(({ text, bold }) => {
+              doc.setFont("helvetica", bold ? "bold" : "normal");
+              doc.text(text, cx, yPos);
+              cx += doc.getTextWidth(text);
+            });
+            yPos += lineH;
+          });
+          doc.setFont("helvetica", "normal");
           yPos += 3;
         }
       });
@@ -2653,14 +2736,20 @@ const handlePrintReport = async (row, withLetterpad = true) => {
 
       impressionLines.forEach((line) => {
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
-        yPos = checkNewPage(yPos, wrapped.length * 5.2 + 2);
+        yPos = checkNewPage(yPos, 5.2);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
         doc.setFont("helvetica", "normal");
-        wrapped.forEach((wline, wi) => doc.text(wline, textX, yPos + wi * 5.2));
-        yPos += wrapped.length * 5.2 + 0.2;
+        wrapped.forEach((wline, wi) => {
+          if (wi > 0) {
+            yPos += 5.2;
+            yPos = checkNewPage(yPos, 5.2);
+          }
+          doc.text(wline, textX, yPos);
+        });
+        yPos += 5.2 + 0.2;
       });
       doc.setFont("helvetica", "normal");
       yPos += 0.5;
