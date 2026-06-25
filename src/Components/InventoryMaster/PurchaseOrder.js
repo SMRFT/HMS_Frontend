@@ -324,7 +324,7 @@ export default function PurchaseOrder() {
       return
     }
     try {
-      const r    = await apiRequest(`${BASE}pharmacy-items/?q=${encodeURIComponent(query)}`, "GET")
+      const r    = await apiRequest(`${BASE}pharmacy_items/?q=${encodeURIComponent(query)}`, "GET")
       const rows = r?.data?.data ?? (Array.isArray(r?.data) ? r.data : [])
       setMedResults(p => ({ ...p, [lineId]: Array.isArray(rows) ? rows : [] }))
       setShowDrop(p   => ({ ...p, [lineId]: rows.length > 0 }))

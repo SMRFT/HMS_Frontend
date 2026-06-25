@@ -169,7 +169,7 @@ function MedicineTracking() {
 
   const fetchMedicines = useCallback(async () => {
     try {
-      const r = await apiRequest(`${HmsBaseUrl}pharmacy-items/`, "GET");
+      const r = await apiRequest(`${HmsBaseUrl}pharmacy_items/`, "GET");
       if (r?.success && Array.isArray(r?.data)) {
         setMedicines(r.data);
       } else {
