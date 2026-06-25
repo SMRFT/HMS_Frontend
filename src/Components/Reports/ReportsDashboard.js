@@ -33,6 +33,7 @@ const DischargeBills = lazy(() => import("../Accounts/DischargeBills"));
 const DischargeBillsDetailed = lazy(() => import("../Accounts/DischargeBillsDetailed"));
 const AdvanceRegistration = lazy(() => import("../Accounts/AdvanceRegistration"));
 const AdvanceRegistrationInsurence = lazy(() => import("../Accounts/AdvanceRegistrationInsurence"));
+const BillCancelReport = lazy(() => import("../Accounts/BillCancelReport"));
 
 const { RangePicker } = DatePicker;
 
@@ -337,6 +338,14 @@ const ReportsDashboard = () => {
             description: "Advance registration reports for insurance-linked patients",
             icon: <ShieldCheck size={24} />,
             component: AdvanceRegistrationInsurence,
+            color: colors.primary
+        },
+        {
+            id: "bill_cancel",
+            title: "Bill Cancel Report",
+            description: "List of all cancelled bills and IP advances with patient details",
+            icon: <X size={24} />,
+            component: BillCancelReport,
             color: colors.primary
         },
         {

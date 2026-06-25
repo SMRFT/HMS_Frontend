@@ -665,16 +665,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
 
     const mappedTests = selectedTests.map(t => ({
       test_id: t.test_id || "",
-      itemCode: t.itemCode || "",
       itemName: t.itemName,
       price: t.price,
+      bill_type: billtype,
       is_emergency: emergency
     }));
 
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
-      bill_type: billtype,
       doctor: doctor,
       wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
       item: mappedTests,
