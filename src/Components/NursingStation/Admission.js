@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import RoomShifting from "./RoomShifting";          // ← Room Shifting component
+import IPAdvance from "./IPAdvance";                // ← IP Advance component
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -648,6 +649,9 @@ export default function Admission() {
   // ── Room Shifting modal ───────────────────────────────────────────────────
   const [shiftAdm,       setShiftAdm]       = useState(null); // adm object to prefill
 
+  // ── IP Advance modal ─────────────────────────────────────────────────────
+  const [ipAdvAdm,       setIpAdvAdm]       = useState(null); // adm object to prefill
+
   const showConfirm = (opts) => new Promise(resolve => {
     setConfirmModal({
       ...opts,
@@ -1281,31 +1285,36 @@ export default function Admission() {
       </Container>
 
       {/* ══ ACTION DROPDOWN ══ */}
-      {openMenu!==null&&(()=>{
-        const adm = paginated.find(a=>a.ipNumber===openMenu);
-        if (!adm) return null;
-        const t = getAdmStatus(adm);
-        const isAdmitted = t==="admitted";
-        return (
-          <Drop ref={menuRef} top={menuPos.top} left={menuPos.left}>
-            <DI onClick={()=>{if(isAdmitted)openEditForm(adm);}} disabled={!isAdmitted}
-              title={!isAdmitted?`Cannot edit — admission is ${t}`:"Edit admission"}>
-              ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
-            </DI>
-            <DI onClick={()=>{setOpenMenu(null);setHistoryAdm(adm);}}>🏨 Room History</DI>
-            {/* ── Room Shifting ── */}
-            <DI onClick={()=>{setOpenMenu(null); setShiftAdm(adm);}} disabled={!isAdmitted}
-              title={!isAdmitted?`Cannot shift — admission is ${t}`:"Shift room"}>
-              🔄 Room Shifting{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
-            </DI>
-            <DI danger onClick={()=>{if(isAdmitted)handleCancel(adm);}} disabled={!isAdmitted}
-              title={!isAdmitted?`Cannot cancel — admission is ${t}`:"Cancel admission"}>
-              🗑️ Cancel Admission{!isAdmitted&&<span style={{fontSize:".62rem",color:"#fca5a5",marginLeft:"auto"}}>({t})</span>}
-            </DI>
-            <DI onClick={()=>handlePrint(adm)}>🖨️ Print Slip</DI>
-          </Drop>
-        );
-      })()}
+{openMenu!==null&&(()=>{
+         const adm = paginated.find(a=>a.ipNumber===openMenu);
+         if (!adm) return null;
+         const t = getAdmStatus(adm);
+         const isAdmitted = t==="admitted";
+         return (
+           <Drop ref={menuRef} top={menuPos.top} left={menuPos.left}>
+             <DI onClick={()=>{if(isAdmitted)openEditForm(adm);}} disabled={!isAdmitted}
+               title={!isAdmitted?`Cannot edit — admission is ${t}`:"Edit admission"}>
+               ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
+             </DI>
+             <DI onClick={()=>{setOpenMenu(null);setHistoryAdm(adm);}}>🏨 Room History</DI>
+             {/* ── Room Shifting ── */}
+             <DI onClick={()=>{setOpenMenu(null); setShiftAdm(adm);}} disabled={!isAdmitted}
+               title={!isAdmitted?`Cannot shift — admission is ${t}`:"Shift room"}>
+               🔄 Room Shifting{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
+             </DI>
+             {/* ── IP Advance ── */}
+             <DI onClick={()=>{setOpenMenu(null); setIpAdvAdm(adm);}} disabled={!isAdmitted}
+               title={!isAdmitted?`Cannot add advance — admission is ${t}`:"Add IP Advance"}>
+               💳 IP Advance{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
+             </DI>
+             <DI danger onClick={()=>{if(isAdmitted)handleCancel(adm);}} disabled={!isAdmitted}
+               title={!isAdmitted?`Cannot cancel — admission is ${t}`:"Cancel admission"}>
+               🗑️ Cancel Admission{!isAdmitted&&<span style={{fontSize:".62rem",color:"#fca5a5",marginLeft:"auto"}}>({t})</span>}
+             </DI>
+             <DI onClick={()=>handlePrint(adm)}>🖨️ Print Slip</DI>
+           </Drop>
+         );
+       })()}
 
       {confirmModal&&<ConfirmModal {...confirmModal}/>}
       {infoModal&&<InfoModal {...infoModal}/>}
@@ -1356,11 +1365,42 @@ export default function Admission() {
                 onSaved={()=>{ setShiftAdm(null); fetchAdmissions(); }}
               />
             </ShiftMB>
-          </ShiftMC>
-        </ModalOverlay>
-      )}
+</ShiftMC>
+         </ModalOverlay>
+       )}
 
-      {/* ══ ROOM PICKER ══ */}
+       {/* ── IP ADVANCE MODAL ── */}
+       {ipAdvAdm&&(
+         <ModalOverlay onClick={()=>setIpAdvAdm(null)}>
+           <ShiftMC onClick={e=>e.stopPropagation()}>
+             <ModalHeader>
+               <ModalTitle>💳 IP Advance — {ipAdvAdm.ipNumber}</ModalTitle>
+               <CloseButton onClick={()=>setIpAdvAdm(null)}>×</CloseButton>
+             </ModalHeader>
+             <ShiftMB>
+               {/*
+                 Pass the admission as `patient` prop so IPAdvance
+                 pre-fills UHID / IP and loads the admission automatically.
+                 onSaved triggers a refresh and closes the modal.
+               */}
+               <IPAdvance
+                 patient={{
+                   uhid:     ipAdvAdm.uhid,
+                   ipNumber: ipAdvAdm.ipNumber,
+                   patient_details: {
+                     uhid:     ipAdvAdm.uhid,
+                     ipNumber: ipAdvAdm.ipNumber,
+                   }
+                 }}
+                 onClose={()=>setIpAdvAdm(null)}
+                 onSaved={()=>{ setIpAdvAdm(null); fetchAdmissions(); }}
+               />
+             </ShiftMB>
+           </ShiftMC>
+         </ModalOverlay>
+       )}
+
+       {/* ══ ROOM PICKER ══ */}
       {showRoom&&(
         <ModalOverlay onClick={()=>setShowRoom(false)}>
           <RMC onClick={e=>e.stopPropagation()}>
