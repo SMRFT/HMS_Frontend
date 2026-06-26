@@ -62,6 +62,7 @@ import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
+import MedicinePackage from "./Components/BillingMaster/MedicinePackage";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
 import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
@@ -144,8 +145,10 @@ import MedicineRequisitionApproval from "./Components/InventoryMaster/Medicinere
 import PurchaseOrder from "./Components/InventoryMaster/PurchaseOrder";
 import PurchaseOrderApproval from "./Components/InventoryMaster/PurchaseOrderApproval";
 import PurchaseRequisition from "./Components/InventoryMaster/PurchaseRequisitionForm";
+import PurchaseRequisitionApproval from "./Components/InventoryMaster/PurchaseRequisitionApproval";
 import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
+import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -308,6 +311,7 @@ function App() {
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
       "/Package": "Package",
+      "/MedicinePackage": "MedicinePackage",
       "/Investigationprice": "Investigation Price",
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
@@ -683,11 +687,36 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route
-                  path="/PurchaseRequisition"
-                  element={<PurchaseRequisition />}
-                />
-              )}
+                  <Route
+                    path="/PurchaseRequisition"
+                    element={<PurchaseRequisition />}
+                 
+                  />
+                )}
+              {hasPagePermission(
+                "/PurchaseRequisitionApproval",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/PurchaseRequisitionApproval"
+                    element={<PurchaseRequisitionApproval />}
+                 
+                  />
+                )}
+
+                {hasPagePermission(
+                "/MedicineTracking",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/MedicineTracking"
+                    element={<MedicineTracking />}
+                 
+                  />
+                )}
+                
               {/* Inventory */}
               {hasPagePermission(
                 "/VendorManagement",
@@ -767,27 +796,38 @@ function App() {
                 />
               )}
 
-              {hasPagePermission(
-                "/PharmacyNotification",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                <Route
-                  path="/PharmacyNotification"
-                  element={<PharmacyNotification />}
-                />
-              )}
+               {hasPagePermission(
+                 "/PharmacyNotification",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/PharmacyNotification"
+                     element={<PharmacyNotification />}
+                   />
+               )}
 
-              {hasPagePermission(
-                "/PharmacyItemMaster",
-                allowedActions,
-                dynamicPermissions,
-              ) && (
-                <Route
-                  path="/PharmacyItemMaster"
-                  element={<PharmacyItemMaster />}
-                />
-              )}
+               {hasPagePermission(
+                 "/MedicineTracking",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/MedicineTracking"
+                     element={<MedicineTracking />}
+                   />
+               )}
+
+               {hasPagePermission(
+                 "/PharmacyItemMaster",
+                 allowedActions,
+                 dynamicPermissions,
+               ) && (
+                   <Route
+                     path="/PharmacyItemMaster"
+                     element={<PharmacyItemMaster />}
+                   />
+                 )}
 
               {hasPagePermission(
                 "/MedicineRequisition",
@@ -906,6 +946,16 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Package" element={<Package />} />}
+
+              {/* Medicine Packages */}
+              {hasPagePermission(
+                "/Package",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/MedicinePackage" element={<MedicinePackage />} />
+              )}
+
               {/* Investigationprice */}
               {hasPagePermission(
                 "/Investigationprice",

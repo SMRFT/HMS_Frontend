@@ -966,6 +966,7 @@ const BillsReport = () => {
                   </StickyTh>
                   {/* ── Scrollable header cells ── */}
                   <Th>Age</Th>
+                  <Th>Room No</Th>
                   <Th>Bill Type</Th>
                   <Th>Bill Amount</Th>
                   <Th>Payment Method</Th>
@@ -1017,6 +1018,7 @@ const BillsReport = () => {
                         ? `${bill.age}/${bill.age_type}`
                         : "-"}
                     </Td>
+                    <Td>{bill.roomNo}</Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
                     <Td>{bill.paymentMethod}</Td>

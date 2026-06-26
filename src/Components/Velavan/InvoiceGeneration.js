@@ -575,8 +575,8 @@ const EMPTY_MODAL = {
   unitCostWithGst: "",
   // Selling Pricing
   sellingPricingMode: "markup",
-  sellingMarkupPercent: "",
-  sellingMarkdownPercent: "",
+  sellingMarkupPercent: "30",
+  sellingMarkdownPercent: "13",
   sellingUnitCost: "",
   // Selling Discount & Cost
   sellingDiscountPercent: "",
@@ -1067,9 +1067,9 @@ const Invoice = () => {
         const u = { ...prev, sellingPricingMode: value };
         // reset the other % when switching
         if (value === "markup") {
-          u.sellingMarkdownPercent = "";
+          u.sellingMarkdownPercent = "13";
         } else {
-          u.sellingMarkupPercent = "";
+          u.sellingMarkupPercent = "30";
         }
         // re-derive selling unit cost with new mode
         deriveSellingUnitCost(u);
@@ -1295,15 +1295,23 @@ const Invoice = () => {
       return;
     }
 
-    // ── NEW: Warn if Selling Unit Cost exceeds MRP ──
-    const sellingUnitCost = parseFloat(modalForm.sellingUnitCost) || 0;
+    // ── NEW: Warn if Unit Selling Cost exceeds MRP ──
+    const unitSellingCost = parseFloat(modalForm.unitSellingCost) || 0;
     const mrp = parseFloat(modalForm.mrp) || 0;
 
-    if (mrp > 0 && sellingUnitCost > mrp) {
+    if (mrp > 0 && unitSellingCost > mrp) {
       toast.error(
-        `Selling Unit Cost ₹${sellingUnitCost.toFixed(2)} cannot exceed MRP ₹${mrp.toFixed(2)}`,
+        `Unit Selling Cost ₹${unitSellingCost.toFixed(2)} cannot exceed MRP ₹${mrp.toFixed(2)}`,
       );
       return; // hard stop — no override
+    }
+    // After the MRP > unitSellingCost check, add:
+    const unitCostWithGst = parseFloat(modalForm.unitCostWithGst) || 0;
+    if (unitCostWithGst > 0 && unitSellingCost < unitCostWithGst) {
+      toast.error(
+        `Unit Selling Cost ₹${unitSellingCost.toFixed(2)} cannot be less than Unit Cost (with GST) ₹${unitCostWithGst.toFixed(2)}`,
+      );
+      return;
     }
     if (editingItem) {
       setItems((prev) =>
@@ -2624,7 +2632,7 @@ const Invoice = () => {
                         name="sellingMarkupPercent"
                         value={modalForm.sellingMarkupPercent}
                         onChange={handleModalChange}
-                        placeholder="e.g. 20"
+                        placeholder="e.g. 30"
                         style={{ fontSize: "0.82rem" }}
                       />
                     </InputWrapper>
@@ -2651,7 +2659,7 @@ const Invoice = () => {
                         name="sellingMarkdownPercent"
                         value={modalForm.sellingMarkdownPercent}
                         onChange={handleModalChange}
-                        placeholder="e.g. 10"
+                        placeholder="e.g. 13"
                         style={{ fontSize: "0.82rem" }}
                       />
                     </InputWrapper>

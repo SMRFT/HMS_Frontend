@@ -26,7 +26,8 @@ import {
   FiGrid,
   FiList,
   FiCheckCircle,
-  FiRefreshCcw
+  FiRefreshCcw,
+  FiCreditCard
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant, MdLocalLaundryService } from "react-icons/md";
 
@@ -244,21 +245,21 @@ const RoomHeader = styled.div`
 const getStatusColors = (status) => {
   switch (status?.toLowerCase()) {
     case "admitted":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
     case "discharged":
-      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" };
+      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" }; // Gray
     case "mark for discharge":
-      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" };
+      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" }; // Orange
     case "discharge confirmation":
-      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" };
+      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" }; // Pink
     case "sent for billing":
-      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" };
+      return { bg: "#f5f3ff", text: "#8b5cf6", border: "#ede9fe" }; // Purple
     case "billed":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" }; // Green
     case "pending":
-      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" };
+      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" }; // Red
     default:
-      return { bg: "#f8fafc", text: "#64748b", border: "#f1f5f9" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
   }
 };
 
@@ -266,6 +267,35 @@ const BedsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
+`;
+
+const LegendContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  border: 1px solid ${colors.border};
+`;
+
+const LegendItemWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+
+  .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: ${(props) => props.$color};
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
 `;
 
 const BedItem = styled.div`
@@ -663,7 +693,7 @@ const WardRequest = () => {
   const [roomNo, setRoomNo] = useState("ALL");
   const [selectedDoctor, setSelectedDoctor] = useState("ALL");
   const [doctorSearch, setDoctorSearch] = useState("");
-  const [billingStatusFilter, setBillingStatusFilter] = useState("ALL");
+  const [insuranceCompanyFilter, setInsuranceCompanyFilter] = useState("ALL");
   //  const [roomCategories, setRoomCategories] = useState([]);
   const [locationMapping, setLocationMapping] = useState([]); // Master map
   const [statusFilter, setStatusFilter] = useState("all");
@@ -683,6 +713,7 @@ const WardRequest = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
   const [rooms, setRooms] = useState([]);
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
 
   const menuRef = useRef(null);
 
@@ -697,6 +728,16 @@ const WardRequest = () => {
         setRooms(mappingData);
       }
     } catch (err) { console.error("Location mapping fetch failed", err); }
+  };
+
+  const fetchInsuranceProviders = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}insurance-providers/`, "GET");
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        setInsuranceProviders(data);
+      }
+    } catch (err) { console.error("Insurance providers fetch failed", err); }
   };
 
   const fetchAdmissions = async () => {
@@ -740,7 +781,14 @@ const WardRequest = () => {
 
   useEffect(() => {
     fetchLocationMapping();
+    fetchInsuranceProviders();
   }, []);
+
+  const getInsuranceCompanyName = (code) => {
+    if (!code) return "";
+    const provider = insuranceProviders.find(p => String(p.company_code || p.id) === String(code));
+    return provider ? (provider.company_name || code) : code;
+  };
 
   // Compute master lists dynamically from locationMapping
   const wards = useMemo(() => {
@@ -801,6 +849,16 @@ const WardRequest = () => {
     });
     return Array.from(docs).sort();
   }, [admissions]);
+
+  const availableInsuranceCompanies = useMemo(() => {
+    const companies = new Set();
+    admissions.forEach(adm => {
+      const code = getField(adm, "company_code") || getField(adm, "insuranceCompanyName") || getField(adm, "insurance_company_name");
+      const name = getInsuranceCompanyName(code);
+      if (name) companies.add(name);
+    });
+    return Array.from(companies).sort();
+  }, [admissions, insuranceProviders]);
 
   // availableBlocks depends on selected NursingStation, RoomCategory and RoomNo
   const availableBlocks = useMemo(() => {
@@ -958,10 +1016,10 @@ const WardRequest = () => {
       if (!docName.toLowerCase().includes(doctorSearch.toLowerCase())) return false;
     }
 
-    // Temporary logic for billing status using is_billed or fallback
-    const billingStatus = getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending");
-    const matchesBilling = billingStatusFilter === "ALL" || billingStatus === billingStatusFilter;
-    if (!matchesBilling) return false;
+    const rawCompany = getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name") || "";
+    const insuranceCompany = getInsuranceCompanyName(rawCompany);
+    const matchesInsurance = insuranceCompanyFilter === "ALL" || insuranceCompany === insuranceCompanyFilter;
+    if (!matchesInsurance) return false;
 
     return true;
   });
@@ -1052,6 +1110,7 @@ const WardRequest = () => {
                   const occupant = occupants.find(o => String(getField(o, "bedNo")) === String(bed.bed_number));
                   const initials = occupant ? getInitials(`${getField(occupant, "firstName") || ""} ${getField(occupant, "lastName") || ""}`.trim()) : "";
                   const bedStatus = occupant ? (getField(occupant, "ward_status") || (getField(occupant, "is_discharged") ? "Discharged" : "Admitted")) : "";
+                  const customerType = occupant ? (getField(occupant, "customer_type") || getField(occupant, "customerType") || "Normal") : "";
                   const statusColors = getStatusColors(bedStatus);
 
                   return (
@@ -1060,6 +1119,7 @@ const WardRequest = () => {
                       $occupied={!!occupant}
                       $blocked={bed.blocked}
                       $status={bedStatus}
+                      $customerType={customerType}
                       onClick={() => {
                         if (occupant) {
                           setSelectedPatient(occupant);
@@ -1067,7 +1127,14 @@ const WardRequest = () => {
                         }
                       }}
                     >
-                      <div className="bed-icon" />
+                      <div className="bed-icon">
+                        {occupant && customerType.toLowerCase() === "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#a855f7', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Insurance Patient" />
+                        )}
+                        {occupant && customerType.toLowerCase() !== "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#3b82f6', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Normal Pay Patient" />
+                        )}
+                      </div>
                       {/* {initials && <div className="patient-initials">{initials}</div>} */}
                       <div className="bed-label">{bed.bed_number}</div>
                       {occupant && (
@@ -1082,9 +1149,25 @@ const WardRequest = () => {
                             setSelectedPatient(occupant);
                             setShowStatusModal(true);
                           }}
-                          style={{ marginTop: "6px", padding: "4px 8px", fontSize: "0.6rem", fontWeight: "600", borderRadius: "12px", background: statusColors.text, color: "#fff", cursor: "pointer", zIndex: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" }}
+                          style={{ 
+                            marginTop: "6px", 
+                            padding: "4px 8px", 
+                            fontSize: "0.6rem", 
+                            fontWeight: "700", 
+                            borderRadius: "12px", 
+                            background: statusColors.bg, 
+                            color: statusColors.text, 
+                            border: `1px solid ${statusColors.border}`,
+                            cursor: "pointer", 
+                            zIndex: 2, 
+                            whiteSpace: "nowrap", 
+                            overflow: "hidden", 
+                            textOverflow: "ellipsis", 
+                            maxWidth: "95%", 
+                            textAlign: "center" 
+                          }}
                         >
-                          Update Status
+                          {bedStatus || "Update Status"}
                         </div>
                       )}
 
@@ -1094,7 +1177,8 @@ const WardRequest = () => {
                           <div><strong>UHID:</strong> {getField(occupant, "uhid")}</div>
                           <div><strong>IP No:</strong> {occupant.ipNumber}</div>
                           <div><strong>Doctor:</strong> {getField(occupant, "doctorName")}</div>
-                          <div><strong>Billing:</strong> {getField(occupant, "billing_status") || (getField(occupant, "is_billed") ? "Billed" : "Pending")}</div>
+                          <div><strong>Patient Type:</strong> {customerType}</div>
+                          <div><strong>Insurance:</strong> {getInsuranceCompanyName(getField(occupant, "company_code") || getField(occupant, "insuranceCompanyName") || getField(occupant, "insurance_company_name")) || "-"}</div>
                           {getField(occupant, "ward_status") && (
                             <div><strong>Ward Status:</strong> {getField(occupant, "ward_status")}</div>
                           )}
@@ -1310,13 +1394,14 @@ const WardRequest = () => {
 
               <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                 <StyledSelect
-                  value={billingStatusFilter}
-                  onChange={(e) => setBillingStatusFilter(e.target.value)}
-                  style={{ width: "140px" }}
+                  value={insuranceCompanyFilter}
+                  onChange={(e) => setInsuranceCompanyFilter(e.target.value)}
+                  style={{ width: "160px" }}
                 >
-                  <option value="ALL">All Billing</option>
-                  <option value="Billed">Billed</option>
-                  <option value="Pending">Pending</option>
+                  <option value="ALL">All Insurance</option>
+                  {availableInsuranceCompanies.map((comp, i) => (
+                    <option key={i} value={comp}>{comp}</option>
+                  ))}
                 </StyledSelect>
               </div>
 
@@ -1338,6 +1423,45 @@ const WardRequest = () => {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "0 24px 20px", minHeight: 0 }}>
+          {viewMode === "grid" && (
+            <LegendContainer>
+              <LegendItemWrapper $color="linear-gradient(135deg, #10b981, #15803d)">
+                <div className="legend-color" />
+                Available
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #3b82f6, #3b82f6cc)">
+                <div className="legend-color" />
+                Admitted
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #f59e0b, #f59e0bcc)">
+                <div className="legend-color" />
+                Mark for Discharge
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #db2777, #db2777cc)">
+                <div className="legend-color" />
+                Discharge Confirmation
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #8b5cf6, #8b5cf6cc)">
+                <div className="legend-color" />
+                Sent for Billing
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #64748b, #64748bcc)">
+                <div className="legend-color" />
+                Blocked
+              </LegendItemWrapper>
+              
+              <div style={{ width: "1px", height: "24px", background: colors.border, margin: "0 8px" }} />
+              
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#a855f7', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Insurance
+              </LegendItemWrapper>
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3b82f6', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Normal Pay
+              </LegendItemWrapper>
+            </LegendContainer>
+          )}
           <Card style={{ padding: viewMode === "list" ? 0 : "20px", overflow: "visible", background: viewMode === "list" ? colors.surface : "transparent", border: viewMode === "list" ? `1px solid ${colors.border}` : "none", boxShadow: viewMode === "list" ? "0 4px 12px rgba(0,0,0,0.03)" : "none" }}>
             {viewMode === "list" ? (
               <div style={{ width: "100%", overflowX: "auto", paddingBottom: "10px" }}>
@@ -1349,8 +1473,8 @@ const WardRequest = () => {
                       <Th>Admitted On</Th>
                       <Th>Room & Bed</Th>
                       <Th>Doctor</Th>
-                      <Th>Billing</Th>
-                      <Th>Status</Th>
+                      <Th>Insurance Co.</Th>
+                      <Th>Ward Status</Th>
                       <Th style={{ textAlign: "center" }}>Actions</Th>
                     </Tr>
                   </thead>
@@ -1404,9 +1528,9 @@ const WardRequest = () => {
                               </div>
                             </Td>
                             <Td>
-                              <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
-                                {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
-                              </StatusBadge>
+                              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: colors.textMain }}>
+                                {getInsuranceCompanyName(getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name")) || "-"}
+                              </span>
                             </Td>
                             <Td>
                               <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
@@ -1601,6 +1725,21 @@ const WardRequest = () => {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Summary</div>
                   <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>View/Edit Summary</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
+                  onClick={() => { navigate("/DischargeBilling", { state: { ipNo: selectedPatient.ipNumber } }); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiCreditCard size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Billing</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Generate Final Bill</div>
                 </div>
               </div>
 

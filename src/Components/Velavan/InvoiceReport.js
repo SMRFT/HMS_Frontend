@@ -306,6 +306,9 @@ const InvoiceReport = () => {
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
+  const canView = allowedActions.includes("HMS-P-VEV");
+  const canPurP = allowedActions.includes("HMS-P-VPP");
+  const canVelP = allowedActions.includes("HMS-P-VVP");
   const canEdit = allowedActions.includes("HMS-P-VINE-RW");
   const canApprove = allowedActions.includes("HMS-P-VINA-RW");
 
@@ -415,7 +418,10 @@ const InvoiceReport = () => {
             item.vendor_id?.toLowerCase().includes(s) ||
             item.patient_name?.toLowerCase().includes(s) ||
             item.surgeon_id?.toLowerCase().includes(s) ||
-            item.ip_number?.toLowerCase().includes(s),
+            item.ip_number?.toLowerCase().includes(s) ||
+            parseItems(item.items).some((i) =>
+              i.batch_no?.toLowerCase().includes(s),
+            ),
         ),
       ].sort((a, b) => new Date(b.invoice_date) - new Date(a.invoice_date)),
     );
@@ -940,22 +946,22 @@ const InvoiceReport = () => {
         (a.grn_number || "").localeCompare(b.grn_number || ""),
       );
       tableRows += `<tr style="background:#e0f2fe">
-        <td colspan="6" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
-        <td style="font-weight:bold;text-align:right;background:#fff3cd">
-          ${formatCurrency(total)}
-        </td>
-      </tr>`;
+  <td colspan="7" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
+</tr>`;
       rows.forEach((row) => {
         tableRows += `<tr>
-          <td style="text-align:center">${sl++}</td>
-          <td>${formatDate(row.date)}</td>
-          <td>${row.grn_number || "N/A"}</td>
-          <td>${row.invoice_no || "N/A"}</td>
-          <td>${formatDate(row.invoice_date)}</td>
-          <td style="text-align:right">${formatCurrency(row.net_invoice_amount)}</td>
-          <td></td>
-        </tr>`;
+    <td style="text-align:center">${sl++}</td>
+    <td>${row.grn_number || "N/A"}</td>
+    <td>${row.invoice_no || "N/A"}</td>
+    <td>${formatDate(row.invoice_date)}</td>
+    <td style="text-align:right" colspan="2">${formatCurrency(row.net_invoice_amount)}</td>
+  </tr>`;
       });
+      // Footer total row for this vendor
+      tableRows += `<tr style="background:#fff3cd;font-weight:bold">
+  <td colspan="4" style="text-align:right;padding:8px">Total</td>
+  <td style="text-align:right;padding:8px" colspan="2">${formatCurrency(total)}</td>
+</tr>`;
     });
 
     const css = `
@@ -971,14 +977,13 @@ const InvoiceReport = () => {
       <h2>${getDateRangeLabel()}</h2>
       <table>
         <thead><tr>
-          <th>Sl.</th><th>Date</th><th>GRN Number</th><th>Invoice No</th>
+          <th>Sl.</th><th>GRN Number</th><th>Invoice No</th>
           <th>Inv. Date</th><th style="text-align:right">Bill Amount</th>
-          <th style="text-align:right">Vendor Total</th>
         </tr></thead>
         <tbody>
           ${tableRows}
           <tr style="background:#d4edda;font-weight:bold">
-            <td colspan="6" style="text-align:right;padding:8px">Grand Total:</td>
+            <td colspan="4" style="text-align:right;padding:8px">Grand Total:</td>
             <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
           </tr>
         </tbody>
@@ -1030,26 +1035,26 @@ const InvoiceReport = () => {
       );
 
       tableRows += `
-      <tr style="background:#e0f2fe">
-        <td colspan="5" style="font-weight:bold;padding:8px;color:#1e40af;font-size:14px">
-          ${vendor}
-        </td>
-        <td style="font-weight:bold;text-align:right;background:#fff3cd;white-space:nowrap">
-          ${formatCurrency(total)}
-        </td>
-      </tr>`;
-
+<tr style="background:#e0f2fe">
+  <td colspan="4" style="font-weight:bold;padding:8px;color:#1e40af;font-size:14px">
+    ${vendor}
+  </td>
+</tr>`;
       rows.forEach((row) => {
         tableRows += `
-        <tr>
-          <td style="text-align:center">${sl++}</td>
-          <td style="text-align:center">${formatDate(row.date)}</td>
-          <td style="text-align:center">${row.grn_number || "N/A"}</td>
-          <td style="text-align:center">${formatDate(row.invoice_date)}</td>
-          <td style="text-align:right">${formatCurrency(row._sellingTotal)}</td>
-          <td></td>
-        </tr>`;
+  <tr>
+    <td style="text-align:center">${sl++}</td>
+    <td style="text-align:center">${row.grn_number || "N/A"}</td>
+    <td style="text-align:center">${formatDate(row.invoice_date)}</td>
+    <td style="text-align:right" colspan="2">${formatCurrency(row._sellingTotal)}</td>
+  </tr>`;
       });
+      // Footer total row
+      tableRows += `
+<tr style="background:#fff3cd;font-weight:bold">
+  <td colspan="3" style="text-align:right;padding:8px">Total</td>
+  <td style="text-align:right;padding:8px" colspan="2">${formatCurrency(total)}</td>
+</tr>`;
     });
 
     const css = `
@@ -1063,11 +1068,9 @@ const InvoiceReport = () => {
     .grand-row td { background: #d4edda; font-weight: bold; }
 
     col.sl   { width: 5%;  }
-    col.date { width: 13%; }
     col.inv  { width: 18%; }
     col.invd { width: 13%; }
     col.sell { width: 22%; }
-    col.vtot { width: 22%; }
 
     @media print {
       body { padding: 0; }
@@ -1081,26 +1084,22 @@ const InvoiceReport = () => {
     <table>
       <colgroup>
         <col class="sl">
-        <col class="date">
         <col class="inv">
         <col class="invd">
         <col class="sell">
-        <col class="vtot">
       </colgroup>
       <thead>
         <tr>
           <th>Sl.</th>
-          <th>Date</th>
           <th>Invoice No</th>
           <th>Inv. Date</th>
           <th style="text-align:right">Selling Amount</th>
-          <th style="text-align:right">Vendor Total</th>
         </tr>
       </thead>
       <tbody>
         ${tableRows}
         <tr class="grand-row">
-          <td colspan="5" style="text-align:right;padding:8px">Grand Total:</td>
+          <td colspan="3" style="text-align:right;padding:8px">Grand Total:</td>
           <td style="text-align:right;padding:8px;white-space:nowrap">${formatCurrency(grandTotal)}</td>
         </tr>
       </tbody>
@@ -1658,12 +1657,12 @@ const InvoiceReport = () => {
           <Search size={13} /> Search
         </Button>
 
-        <div style={{ ...filterGroup, minWidth: 240 }}>
+        <div style={{ ...filterGroup, minWidth: 340 }}>
           <Label>Search</Label>
           <div style={{ position: "relative" }}>
             <Input
               type="text"
-              placeholder="GRN, Invoice No, Vendor, Patient, Surgeon…"
+              placeholder="GRN, Invoice No, Batch No, Vendor, Patient, Surgeon…"
               value={filters.search}
               onChange={(e) => handleFilterChange("search", e.target.value)}
               style={{ paddingLeft: 30, width: "100%" }}
@@ -1699,19 +1698,25 @@ const InvoiceReport = () => {
             : `Showing ${currentData.length} of ${filteredData.length} records`}
         </span>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button success onClick={handlePurchasePrint}>
-            <Printer size={14} /> Purchase Report
-          </Button>
-          <Button
-            success
-            onClick={handleSalesReportPrint}
-            style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
-          >
-            <Printer size={14} /> Sales Report
-          </Button>
-          <Button onClick={exportToExcel}>
-            <Download size={14} /> Export CSV
-          </Button>
+          {canPurP && (
+            <Button success onClick={handlePurchasePrint}>
+              <Printer size={14} /> Purchase Report
+            </Button>
+          )}
+          {canPurP && (
+            <Button
+              success
+              onClick={handleSalesReportPrint}
+              style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+            >
+              <Printer size={14} /> Sales Report
+            </Button>
+          )}
+          {canPurP && (
+            <Button onClick={exportToExcel}>
+              <Download size={14} /> Export CSV
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1744,8 +1749,8 @@ const InvoiceReport = () => {
                   "Patient",
                   "Surgeon",
                   "IP Number",
-                  "Purchase Amount", // ← renamed from "Total Amount"
-                  "Selling Amount", // ← new column
+                  // "Purchase Amount", // ← renamed from "Total Amount"
+                  // "Selling Amount", // ← new column
                   "Actions",
                 ].map((h) => (
                   <Th key={h} style={{ whiteSpace: "nowrap" }}>
@@ -1787,12 +1792,12 @@ const InvoiceReport = () => {
                     <Td style={{ minWidth: 100 }}>{row.patient_name || "—"}</Td>
                     <Td style={{ minWidth: 100 }}>{row.surgeon_id || "—"}</Td>
                     <Td>{row.ip_number || "—"}</Td>
-                    <Td style={{ textAlign: "right", fontWeight: 600 }}>
+                    {/* <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
-                    </Td>
+                    </Td> */}
 
                     {/* Selling Amount with round-off */}
-                    <Td
+                    {/* <Td
                       style={{
                         textAlign: "right",
                         fontWeight: 600,
@@ -1811,17 +1816,18 @@ const InvoiceReport = () => {
                           decimal >= 0.5 ? 1 - decimal : -decimal;
                         return formatCurrency(sellingAmt + roundOff);
                       })()}
-                    </Td>
+                    </Td> */}
                     <Td style={{ whiteSpace: "nowrap" }}>
                       {/* View */}
-                      <button
-                        style={actionBtn}
-                        title="View"
-                        onClick={() => handleView(row)}
-                      >
-                        <Eye size={14} />
-                      </button>
-
+                      {canView && (
+                        <button
+                          style={actionBtn}
+                          title="View"
+                          onClick={() => handleView(row)}
+                        >
+                          <Eye size={14} />
+                        </button>
+                      )}
                       {/* Edit — disabled when approved */}
                       {canEdit && (
                         <button
@@ -1868,46 +1874,52 @@ const InvoiceReport = () => {
                       )}
 
                       {/* GRN Print */}
-                      <button
-                        style={actionBtn}
-                        title="GRN Print"
-                        onClick={() => handleGRNPrint(row)}
-                      >
-                        <Printer size={14} />
-                      </button>
+                      {canPurP && (
+                        <button
+                          style={actionBtn}
+                          title="GRN Print"
+                          onClick={() => handleGRNPrint(row)}
+                        >
+                          <Printer size={14} />
+                        </button>
+                      )}
 
                       {/* Velavan Print */}
-                      <button
-                        style={{
-                          ...actionBtn,
-                          color: row.is_approved ? "#7c3aed" : colors.textMuted,
-                          borderColor: row.is_approved
-                            ? "#7c3aed"
-                            : colors.border,
-                          opacity: row.is_approved ? 1 : 0.35,
-                          cursor: row.is_approved ? "pointer" : "not-allowed",
-                        }}
-                        title={
-                          row.is_approved
-                            ? "Velavan Print"
-                            : "Approve invoice to enable Velavan Print"
-                        }
-                        onClick={() =>
-                          row.is_approved && handleVelavanPrint(row)
-                        }
-                        disabled={!row.is_approved}
-                      >
-                        <Printer size={14} />
-                        <span
+                      {canVelP && (
+                        <button
                           style={{
-                            fontSize: "0.65rem",
-                            marginLeft: 2,
-                            fontWeight: 600,
+                            ...actionBtn,
+                            color: row.is_approved
+                              ? "#7c3aed"
+                              : colors.textMuted,
+                            borderColor: row.is_approved
+                              ? "#7c3aed"
+                              : colors.border,
+                            opacity: row.is_approved ? 1 : 0.35,
+                            cursor: row.is_approved ? "pointer" : "not-allowed",
                           }}
+                          title={
+                            row.is_approved
+                              ? "Velavan Print"
+                              : "Approve invoice to enable Velavan Print"
+                          }
+                          onClick={() =>
+                            row.is_approved && handleVelavanPrint(row)
+                          }
+                          disabled={!row.is_approved}
                         >
-                          V
-                        </span>
-                      </button>
+                          <Printer size={14} />
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              marginLeft: 2,
+                              fontWeight: 600,
+                            }}
+                          >
+                            V
+                          </span>
+                        </button>
+                      )}
                     </Td>
                   </Tr>
                 ))

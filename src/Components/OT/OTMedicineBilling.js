@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Search, Plus, X } from "lucide-react";
+import { Search, Plus, X, Package as PackageIcon, Eye } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 
 // ─── GlobalStyles imports ─────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ const colors = {
   legDischarge: "#48D1CC",
   legRegular: "#136A63",
   legProcessed: "#8b5edd",
+  packageTag: "#1d4ed8",
 };
 
 // ─── Styled Components ────────────────────────────────────────────────────────
@@ -254,6 +255,36 @@ const EditModeBanner = styled.div`
   color: #92400e;
 `;
 
+const PackageModeBanner = styled.div`
+  background: #eff6ff;
+  border: 1.5px solid #1d4ed8;
+  border-radius: 8px;
+  padding: 10px 18px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1d4ed8;
+`;
+
+const ClearPackageBtn = styled.button`
+  background: white;
+  border: 1px solid #1d4ed8;
+  color: #1d4ed8;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover {
+    background: #1d4ed8;
+    color: white;
+  }
+`;
+
 const RequestFormWrapper = styled.div`
   display: grid;
   grid-template-columns: 1fr 360px;
@@ -356,6 +387,10 @@ const AddBtn = styled.button`
   cursor: pointer;
   &:hover {
     background: ${colors.primaryDark};
+  }
+  &:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
   }
 `;
 const CancelBtn = styled.button`
@@ -473,6 +508,23 @@ const DropdownItem = styled.li`
   }
 `;
 
+// Special "Select Package" row pinned at the top of the medicine-name dropdown
+const PackageOptionItem = styled.li`
+  padding: 10px 15px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border-bottom: 2px solid ${colors.border};
+  background: #f0f6ff;
+  color: ${colors.packageTag};
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &:hover {
+    background: #e0edff;
+  }
+`;
+
 const SearchableDropdown = ({
   value,
   onChange,
@@ -544,6 +596,203 @@ const SearchableDropdown = ({
   );
 };
 
+// ─── Medicine Name field with integrated "Select Package" option ─────────────
+// This wraps the medicine-name search input. Typing filters nothing on its own
+// (the real search still happens through the existing Search button/modal) —
+// this component only adds a dropdown affordance so the user can either:
+//   1. keep typing to do a normal medicine search, or
+//   2. click "📦 Select from Package" to switch into package mode.
+const MedicineNameField = ({
+  searchQuery,
+  setSearchQuery,
+  selectedDrug,
+  setSelectedDrug,
+  onOpenPackageList,
+  disabled,
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target))
+        setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <SearchWrapper ref={wrapperRef}>
+      <StyledInput
+        type="text"
+        disabled={disabled}
+        placeholder="Search medicine (min 3 chars)..."
+        value={selectedDrug ? selectedDrug.name : searchQuery}
+        onChange={(e) => {
+          if (selectedDrug) setSelectedDrug(null);
+          setSearchQuery(e.target.value);
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && !disabled && (
+        <DropdownList>
+          <PackageOptionItem
+            onClick={() => {
+              setIsOpen(false);
+              onOpenPackageList();
+            }}
+          >
+            <PackageIcon size={15} /> Select from Package
+          </PackageOptionItem>
+        </DropdownList>
+      )}
+    </SearchWrapper>
+  );
+};
+
+// ─── View Medicines Modal (Eye icon in Request History) ──────────────────────
+// Shows full medicine list with dosage/qty/route details for a single request.
+const ViewMedicinesModal = ({ request, onClose }) => {
+  if (!request) return null;
+  const medicines = request.medicines || [];
+
+  return (
+    <ModalOverlay style={{ zIndex: 2100 }}>
+      <ModalContainer
+        style={{ width: "70%", height: "70%", maxWidth: "900px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Header>
+          <HeaderTitle>
+            <Eye
+              size={20}
+              style={{ verticalAlign: "middle", marginRight: "8px" }}
+            />
+            Medicine Details
+            {request.packageName && (
+              <span
+                style={{
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  marginLeft: "12px",
+                  background: "rgba(255,255,255,0.2)",
+                  padding: "2px 10px",
+                  borderRadius: "12px",
+                }}
+              >
+                📦 {request.packageName}
+              </span>
+            )}
+          </HeaderTitle>
+          <button onClick={onClose}>×</button>
+        </Header>
+        <ContentBody>
+          <div
+            style={{
+              marginBottom: "16px",
+              fontSize: "0.85rem",
+              color: colors.textMuted,
+            }}
+          >
+            {request.reqDate} {request.reqTime} · Doctor:{" "}
+            <strong style={{ color: colors.textMain }}>
+              {request.doctorName || request.doctor || "-"}
+            </strong>
+          </div>
+          {medicines.length > 0 ? (
+            <div
+              style={{
+                overflowX: "auto",
+                border: `1px solid ${colors.border}`,
+                borderRadius: "8px",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  fontSize: "0.88rem",
+                }}
+              >
+                <thead>
+                  <tr style={{ background: colors.headerBg, color: "#fff" }}>
+                    <th style={{ padding: "10px", textAlign: "left" }}>
+                      Medicine Name
+                    </th>
+                    <th style={{ padding: "10px", textAlign: "left" }}>
+                      Dosage
+                    </th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>
+                      No. of Days
+                    </th>
+                    <th style={{ padding: "10px", textAlign: "right" }}>Qty</th>
+                    <th style={{ padding: "10px", textAlign: "left" }}>Dose</th>
+                    <th style={{ padding: "10px", textAlign: "left" }}>
+                      Route
+                    </th>
+                    <th style={{ padding: "10px", textAlign: "left" }}>
+                      Remark
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {medicines.map((m, i) => (
+                    <tr
+                      key={i}
+                      style={{ borderBottom: `1px solid ${colors.border}` }}
+                    >
+                      <td
+                        style={{
+                          padding: "10px",
+                          fontWeight: 600,
+                          color: colors.primary,
+                        }}
+                      >
+                        {m.itemName || m.name}
+                      </td>
+                      <td style={{ padding: "10px" }}>{m.dosage || "-"}</td>
+                      <td style={{ padding: "10px", textAlign: "right" }}>
+                        {m.noOfDays || "-"}
+                      </td>
+                      <td style={{ padding: "10px", textAlign: "right" }}>
+                        {m.qty}
+                      </td>
+                      <td style={{ padding: "10px" }}>
+                        {m.dose ? `${m.dose} ${m.doseUnit || ""}`.trim() : "-"}
+                      </td>
+                      <td style={{ padding: "10px" }}>{m.route || "-"}</td>
+                      <td
+                        style={{
+                          padding: "10px",
+                          fontStyle: m.remark ? "italic" : "normal",
+                          color: m.remark ? colors.orange : colors.textMuted,
+                        }}
+                      >
+                        {m.remark || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "40px",
+                textAlign: "center",
+                color: colors.textMuted,
+              }}
+            >
+              No medicines found for this request.
+            </div>
+          )}
+        </ContentBody>
+      </ModalContainer>
+    </ModalOverlay>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const OTMedicineBilling = () => {
   const navigate = useNavigate();
@@ -580,6 +829,18 @@ const OTMedicineBilling = () => {
   // ── Edit mode state ───────────────────────────────────────────────────────
   const [editMode, setEditMode] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState(null);
+
+  // ── Package mode state ─────────────────────────────────────────────────────
+  // selectedPackageId holds medPackage_id, which is sent as Package_id on save.
+  // When set, the individual-medicine inputs are locked (package-only mode).
+  const [packages, setPackages] = useState([]);
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [selectedPackageId, setSelectedPackageId] = useState(null);
+  const [selectedPackageName, setSelectedPackageName] = useState("");
+  const [packageLoading, setPackageLoading] = useState(false);
+
+  // ── View medicines modal (Eye icon in Request History) ────────────────────
+  const [viewingRequest, setViewingRequest] = useState(null);
 
   // Fixed for OT: always IP pharmacy
   const pharmacyDept = "OLET001";
@@ -657,6 +918,91 @@ const OTMedicineBilling = () => {
     }
   };
 
+  // Fetch packages from hospital_medicine_package collection, scoped to this outlet
+  const fetchPackages = async () => {
+    const res = await apiRequest(
+      `${HmsBaseUrl}get_medicine_packages/?outlet_code=${pharmacyDept}`,
+      "GET",
+    );
+    const list = res.success
+      ? Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+          ? res.data
+          : []
+      : [];
+    setPackages(list.filter((p) => p.is_active !== false));
+  };
+
+  const handleOpenPackageList = () => {
+    setIsPackageModalOpen(true);
+    fetchPackages();
+  };
+
+  // Look up the current price for a given item_id from stock,
+  // since the package collection only stores item_id/item_name/qty.
+  const lookupItemPrice = async (itemId, itemName) => {
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}&search=${encodeURIComponent(itemName)}`,
+        "GET",
+      );
+      const list = res.success
+        ? Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : []
+        : [];
+      const match = list.find((i) => i.item_id === itemId) || list[0];
+      return match ? Number(match.mrp) || 0 : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // ── Selecting a package: pulls items+qty, looks up price per item,
+  //     and REPLACES selectedMedicines (package-only mode) ─────────────────
+  const handleSelectPackage = async (pkg) => {
+    setPackageLoading(true);
+    setIsPackageModalOpen(false);
+
+    const items = pkg.items || [];
+    const priced = await Promise.all(
+      items.map(async (it) => {
+        const price = await lookupItemPrice(it.item_id, it.item_name);
+        return {
+          item_id: it.item_id,
+          itemName: it.item_name,
+          qty: it.qty,
+          price,
+          // Other per-item fields are not applicable for package items —
+          // sent as empty strings, matching backend setdefault() handling.
+          noOfDays: "",
+          dosage: "",
+          dose: "",
+          doseUnit: "",
+          route: "",
+          remark: "",
+        };
+      }),
+    );
+
+    setSelectedMedicines(priced);
+    setSelectedPackageId(pkg.medPackage_id);
+    setSelectedPackageName(pkg.medPackage_name);
+
+    // Clear any in-progress single-medicine entry, since we're now in package mode
+    resetDrugFields();
+    setPackageLoading(false);
+  };
+
+  const handleClearPackage = () => {
+    setSelectedPackageId(null);
+    setSelectedPackageName("");
+    setSelectedMedicines([]);
+  };
+
   const handleMedicineSearch = async (val) => {
     if (val.length < 3) {
       setSearchResults([]);
@@ -700,6 +1046,7 @@ const OTMedicineBilling = () => {
   }, [dosage, noOfDays]);
 
   const handleAddMedicine = () => {
+    if (selectedPackageId) return; // package-only mode: individual add disabled
     if (!selectedDrug) return alert("Select a drug from search.");
     if (!dosage) return alert("Enter Dosage.");
     if (!noOfDays) return alert("Enter No. of days.");
@@ -740,6 +1087,8 @@ const OTMedicineBilling = () => {
     setEditMode(false);
     setEditingRequestId(null);
     setSelectedMedicines([]);
+    setSelectedPackageId(null);
+    setSelectedPackageName("");
   };
 
   // ── Open Edit: pre-fill form with existing request data ──────────────────
@@ -770,10 +1119,35 @@ const OTMedicineBilling = () => {
     }));
 
     setSelectedMedicines(prefilled);
+
+    // Pre-fill package info if this request originated from a package
+    if (req.Package_id || req.package_id) {
+      setSelectedPackageId(req.Package_id || req.package_id);
+      setSelectedPackageName(req.packageName || req.package_name || "");
+    } else {
+      setSelectedPackageId(null);
+      setSelectedPackageName("");
+    }
+
     setEditMode(true);
     setEditingRequestId(req.bill_id || req.bill_id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleMarkReceived = async (req) => {
+    if (!window.confirm("Mark this request as Received?")) return;
+    const res = await apiRequest(
+      `${HmsBaseUrl}mark_ot_medicine_received/`,
+      "PUT",
+      { bill_id: req.bill_id },
+    );
+    if (res.success) {
+      alert("Marked as received successfully");
+      fetchRequests();
+    } else {
+      alert(res.error || res.message || "Failed to mark as received");
+    }
   };
 
   const handleDelete = async (req) => {
@@ -810,6 +1184,7 @@ const OTMedicineBilling = () => {
         medicine_particulars: selectedMedicines,
         total_amount: total,
         doctor_id: doctor,
+        Package_id: selectedPackageId || "",
       };
       const res = await apiRequest(
         `${HmsBaseUrl}update_ot_medicine_ward_request/`,
@@ -835,6 +1210,7 @@ const OTMedicineBilling = () => {
         total_amount: total,
         doctor_id: doctor,
         surgeryRef: resolvedPatient.surgeryRef,
+        Package_id: selectedPackageId || "",
       };
       const res = await apiRequest(
         `${HmsBaseUrl}save_ot_medicine_ward_request/`,
@@ -850,8 +1226,16 @@ const OTMedicineBilling = () => {
     }
   };
 
-  const removeSelectedMed = (i) =>
+  const removeSelectedMed = (i) => {
+    // Removing an item from a package-derived list breaks the 1:1 package
+    // mapping, so drop the package association — the rest of the items
+    // stay in the list as plain medicines.
+    if (selectedPackageId) {
+      setSelectedPackageId(null);
+      setSelectedPackageName("");
+    }
     setSelectedMedicines((p) => p.filter((_, idx) => idx !== i));
+  };
 
   const getStatusColor = (status) => {
     if (status === "Pending") return colors.legPending;
@@ -860,6 +1244,10 @@ const OTMedicineBilling = () => {
     if (status === "Billed") return colors.legBilled;
     return colors.legRegular;
   };
+
+  // Add this alongside getStatusColor:
+  const getDispatchColor = (isDispatched) =>
+    isDispatched ? "#136A63" : "#F88C22"; // green = Dispatched, orange = Pending
 
   // ── Handle toggle form button ─────────────────────────────────────────────
   const handleToggleForm = () => {
@@ -955,6 +1343,20 @@ const OTMedicineBilling = () => {
               </EditModeBanner>
             )}
 
+            {/* Package mode banner */}
+            {selectedPackageId && (
+              <PackageModeBanner>
+                <span>
+                  📦 Package selected: <strong>{selectedPackageName}</strong>{" "}
+                  (ID: {selectedPackageId}). Individual medicine entry is
+                  disabled while a package is active.
+                </span>
+                <ClearPackageBtn onClick={handleClearPackage}>
+                  ✕ Clear Package
+                </ClearPackageBtn>
+              </PackageModeBanner>
+            )}
+
             <RequestFormWrapper>
               <FormPanel>
                 <FormGrid>
@@ -972,7 +1374,7 @@ const OTMedicineBilling = () => {
                     />
                   </FormItem>
 
-                  {/* Medicine Name search */}
+                  {/* Medicine Name search + Select-Package option */}
                   <FormItem style={{ gridColumn: "span 2" }}>
                     <FormLabel>
                       Medicine Name{" "}
@@ -989,23 +1391,19 @@ const OTMedicineBilling = () => {
                       )}
                     </FormLabel>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      <StyledInput
-                        style={{ flex: 1 }}
-                        placeholder="Search medicine (min 3 chars)..."
-                        value={selectedDrug ? selectedDrug.name : searchQuery}
-                        onChange={(e) => {
-                          if (selectedDrug) setSelectedDrug(null);
-                          setSearchQuery(e.target.value);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && searchQuery.length > 2) {
-                            setIsSearchModalOpen(true);
-                            handleMedicineSearch(searchQuery);
-                          }
-                        }}
-                      />
+                      <div style={{ flex: 1 }}>
+                        <MedicineNameField
+                          searchQuery={searchQuery}
+                          setSearchQuery={setSearchQuery}
+                          selectedDrug={selectedDrug}
+                          setSelectedDrug={setSelectedDrug}
+                          onOpenPackageList={handleOpenPackageList}
+                          disabled={!!selectedPackageId}
+                        />
+                      </div>
                       <button
                         type="button"
+                        disabled={!!selectedPackageId}
                         onClick={() => {
                           if (searchQuery.length > 2) {
                             setIsSearchModalOpen(true);
@@ -1013,12 +1411,14 @@ const OTMedicineBilling = () => {
                           } else alert("Enter at least 3 characters.");
                         }}
                         style={{
-                          background: colors.primary,
+                          background: selectedPackageId
+                            ? "#cbd5e1"
+                            : colors.primary,
                           color: "white",
                           padding: "0 16px",
                           borderRadius: "4px",
                           border: "none",
-                          cursor: "pointer",
+                          cursor: selectedPackageId ? "not-allowed" : "pointer",
                           display: "flex",
                           alignItems: "center",
                           gap: "6px",
@@ -1054,6 +1454,7 @@ const OTMedicineBilling = () => {
                       <StyledSelect
                         value={dosage}
                         onChange={(e) => setDosage(e.target.value)}
+                        disabled={!!selectedPackageId}
                         style={{ flex: 1 }}
                       >
                         <option value="">Select Dosage</option>
@@ -1070,15 +1471,18 @@ const OTMedicineBilling = () => {
                       </StyledSelect>
                       <button
                         type="button"
+                        disabled={!!selectedPackageId}
                         onClick={() => setShowDosageModal(true)}
                         style={{
-                          background: colors.primary,
+                          background: selectedPackageId
+                            ? "#cbd5e1"
+                            : colors.primary,
                           color: "white",
                           width: "38px",
                           height: "38px",
                           borderRadius: "4px",
                           border: "none",
-                          cursor: "pointer",
+                          cursor: selectedPackageId ? "not-allowed" : "pointer",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -1094,6 +1498,7 @@ const OTMedicineBilling = () => {
                     <StyledInput
                       type="number"
                       value={noOfDays}
+                      disabled={!!selectedPackageId}
                       onChange={(e) => setNoOfDays(e.target.value)}
                     />
                   </FormItem>
@@ -1102,6 +1507,7 @@ const OTMedicineBilling = () => {
                     <StyledInput
                       type="number"
                       value={qty}
+                      disabled={!!selectedPackageId}
                       onChange={(e) => setQty(e.target.value)}
                     />
                   </FormItem>
@@ -1109,6 +1515,7 @@ const OTMedicineBilling = () => {
                     <FormLabel>Dose</FormLabel>
                     <StyledInput
                       value={dose}
+                      disabled={!!selectedPackageId}
                       onChange={(e) => setDose(e.target.value)}
                     />
                   </FormItem>
@@ -1116,6 +1523,7 @@ const OTMedicineBilling = () => {
                     <FormLabel>Dose Unit</FormLabel>
                     <StyledSelect
                       value={doseUnit}
+                      disabled={!!selectedPackageId}
                       onChange={(e) => setDoseUnit(e.target.value)}
                     >
                       <option value="">Select Unit</option>
@@ -1129,6 +1537,7 @@ const OTMedicineBilling = () => {
                     <FormLabel>Route</FormLabel>
                     <StyledInput
                       value={route}
+                      disabled={!!selectedPackageId}
                       onChange={(e) => setRoute(e.target.value)}
                     />
                   </FormItem>
@@ -1138,24 +1547,45 @@ const OTMedicineBilling = () => {
                   <FormLabel>Remark</FormLabel>
                   <StyledInput
                     value={remark}
+                    disabled={!!selectedPackageId}
                     onChange={(e) => setRemark(e.target.value)}
                   />
                 </FormItem>
 
                 <ActionButtons>
                   <CancelBtn onClick={resetDrugFields}>✕ Reset</CancelBtn>
-                  <AddBtn onClick={handleAddMedicine}>＋ Add Medicine</AddBtn>
+                  <AddBtn
+                    disabled={!!selectedPackageId}
+                    onClick={handleAddMedicine}
+                  >
+                    ＋ Add Medicine
+                  </AddBtn>
                 </ActionButtons>
               </FormPanel>
 
               {/* ── Side panel ──────────────────────────────────────────── */}
               <SidePanel>
                 <SidePanelHeader>
-                  {editMode ? "✏️ Editing Medicines" : "Selected Items"} (
-                  {selectedMedicines.length})
+                  {selectedPackageId
+                    ? "📦 Package Items"
+                    : editMode
+                      ? "✏️ Editing Medicines"
+                      : "Selected Items"}{" "}
+                  ({selectedMedicines.length})
                 </SidePanelHeader>
                 <SidePanelContent>
-                  {selectedMedicines.length === 0 ? (
+                  {packageLoading ? (
+                    <div
+                      style={{
+                        textAlign: "center",
+                        color: colors.textMuted,
+                        marginTop: "40px",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      Loading package items...
+                    </div>
+                  ) : selectedMedicines.length === 0 ? (
                     <div
                       style={{
                         textAlign: "center",
@@ -1195,8 +1625,14 @@ const OTMedicineBilling = () => {
                             marginTop: "4px",
                           }}
                         >
-                          {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
-                          {m.route && ` | ${m.route}`}
+                          {selectedPackageId ? (
+                            <>Qty: {m.qty}</>
+                          ) : (
+                            <>
+                              {m.dosage} | {m.noOfDays} Days | Qty: {m.qty}
+                              {m.route && ` | ${m.route}`}
+                            </>
+                          )}
                         </div>
                         {m.remark && (
                           <div
@@ -1251,14 +1687,12 @@ const OTMedicineBilling = () => {
           <thead>
             <tr>
               <th>Req Date & Time</th>
-              <th>Medicine Name</th>
-              <th>Dosage</th>
-              <th>No Of Days</th>
-              <th>Qty.</th>
-              <th>Route</th>
+              <th>Medicine Details</th>
+              <th>Raised From</th>
               <th>Doctor</th>
               <th>Bill Name</th>
-              <th>Status</th>
+              <th>Dispatch Status</th>
+              <th>Payment Status</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -1266,7 +1700,7 @@ const OTMedicineBilling = () => {
             {requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="10"
+                  colSpan="7"
                   style={{
                     textAlign: "center",
                     padding: "30px",
@@ -1283,87 +1717,43 @@ const OTMedicineBilling = () => {
                     {req.reqDate} {req.reqTime}
                   </td>
                   <td>
-                    {req.medicines?.map((m, j) => (
-                      <div
-                        key={j}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                      }}
+                    >
+                      <button
+                        title="View medicine details"
+                        onClick={() => setViewingRequest(req)}
                         style={{
-                          borderBottom:
-                            j < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
+                          background: "none",
+                          border: "none",
+                          color: colors.primary,
+                          cursor: "pointer",
+                          padding: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          flexShrink: 0,
                         }}
                       >
-                        {m.itemName || m.name}
-                      </div>
-                    ))}
+                        <Eye size={16} />
+                      </button>
+                    </div>
                   </td>
-                  <td>
-                    {req.medicines?.map((m, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          borderBottom:
-                            j < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.dosage}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          borderBottom:
-                            j < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.noOfDays}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          borderBottom:
-                            j < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.qty}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, j) => (
-                      <div
-                        key={j}
-                        style={{
-                          borderBottom:
-                            j < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.route}
-                      </div>
-                    ))}
-                  </td>
+
+                  <td>{req.wardName || ""}</td>
                   <td>{req.doctorName || req.doctor}</td>
                   <td>{req.billName}</td>
+                  {/* Dispatch Status */}
+                  <td>
+                    <LegendItem color={getDispatchColor(req.is_dispatched)}>
+                      {req.is_dispatched ? "Dispatched" : "Pending"}
+                    </LegendItem>
+                  </td>
+
+                  {/* Payment Status */}
                   <td>
                     <LegendItem
                       color={getStatusColor(req.billingStatus || "Pending")}
@@ -1371,8 +1761,17 @@ const OTMedicineBilling = () => {
                       {req.billingStatus || "Pending"}
                     </LegendItem>
                   </td>
+
+                  {/* Action */}
                   <td>
-                    <div style={{ display: "flex", gap: "6px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "6px",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <button
                         disabled={
                           (req.billingStatus || "Pending") !== "Pending"
@@ -1429,6 +1828,50 @@ const OTMedicineBilling = () => {
                       >
                         🗑️ Delete
                       </button>
+
+                      {/* Received checkbox — only visible when dispatched and not yet received */}
+                      {req.is_dispatched && !req.is_received && (
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            color: colors.primary,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                          title="Mark as Received"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            onChange={() => handleMarkReceived(req)}
+                            style={{
+                              cursor: "pointer",
+                              accentColor: colors.primary,
+                            }}
+                          />
+                          Received
+                        </label>
+                      )}
+
+                      {/* Already received — show read-only tick */}
+                      {req.is_dispatched && req.is_received && (
+                        <span
+                          style={{
+                            fontSize: "0.78rem",
+                            fontWeight: 700,
+                            color: colors.legBilled,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          ✅ Received
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1594,6 +2037,107 @@ const OTMedicineBilling = () => {
             </ContentBody>
           </ModalContainer>
         </ModalOverlay>
+      )}
+
+      {/* ── Medicine Package Selection Modal ──────────────────────────────── */}
+      {/* Rendered as a simple list of medPackage_name rows, not cards. */}
+      {isPackageModalOpen && (
+        <ModalOverlay style={{ zIndex: 2000 }}>
+          <ModalContainer
+            style={{ width: "60%", height: "75%", maxWidth: "700px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Header>
+              <HeaderTitle>
+                <PackageIcon
+                  size={20}
+                  style={{ verticalAlign: "middle", marginRight: "8px" }}
+                />
+                Select Medicine Package ({pharmacyDept})
+              </HeaderTitle>
+              <button onClick={() => setIsPackageModalOpen(false)}>×</button>
+            </Header>
+            <ContentBody style={{ padding: 0 }}>
+              {packages.length > 0 ? (
+                <ul
+                  style={{
+                    margin: 0,
+                    padding: 0,
+                    listStyle: "none",
+                  }}
+                >
+                  {packages.map((pkg, idx) => (
+                    <li
+                      key={pkg.medPackage_id}
+                      onClick={() => handleSelectPackage(pkg)}
+                      style={{
+                        padding: "14px 25px",
+                        cursor: "pointer",
+                        borderBottom:
+                          idx < packages.length - 1
+                            ? `1px solid ${colors.border}`
+                            : "none",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        background: "white",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = colors.background;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "white";
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <PackageIcon size={16} color={colors.primary} />
+                        <span
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.92rem",
+                            color: colors.primary,
+                          }}
+                        >
+                          {pkg.medPackage_name}
+                        </span>
+                      </div>
+                      <span
+                        style={{ fontSize: "0.78rem", color: colors.textMuted }}
+                      >
+                        {(pkg.items || []).length} items
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div
+                  style={{
+                    padding: "40px",
+                    textAlign: "center",
+                    color: colors.textMuted,
+                  }}
+                >
+                  No medicine packages found for {pharmacyDept}.
+                </div>
+              )}
+            </ContentBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* ── View Medicines Modal (Eye icon, Request History) ──────────────── */}
+      {viewingRequest && (
+        <ViewMedicinesModal
+          request={viewingRequest}
+          onClose={() => setViewingRequest(null)}
+        />
       )}
 
       {/* ── Add Dosage Modal ──────────────────────────────────────────────── */}
