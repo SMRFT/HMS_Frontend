@@ -646,6 +646,7 @@ export default function CentralCashCounter() {
   const [ipAdvancePendingBills, setIpAdvancePendingBills] = useState([]);
   const [ipAdvanceReceivedBills, setIpAdvanceReceivedBills] = useState([]);
   const [opPharmacyBills, setOpPharmacyBills] = useState([]);
+  const [opPharmacyReceivedBills, setOpPharmacyReceivedBills] = useState([]);
   const [allowedBillTypes, setAllowedBillTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cashCounterId, setCashCounterId] = useState("");
@@ -1188,40 +1189,76 @@ export default function CentralCashCounter() {
         : [];
       setAllowedBillTypes(billTypeDetails);
       setCashCounterId(response?.data?.cashcounter?.counter_id || response?.cashcounter?.counter_id || "");
+      // Parse payment_details (JSON or Python OrderedDict string) into structured data
+      const parsePaymentDetails = (raw) => {
+        if (!raw) return { label: "-", breakdown: null };
+        try {
+          const parsed = typeof raw === "object" ? raw : JSON.parse(raw);
+          const method = parsed?.method || "";
+          if (method.toLowerCase().includes("multiple")) {
+            const bd = parsed?.breakdown || [];
+            return {
+              label: "Multiple Payment",
+              breakdown: bd.map((b) => ({ method: b.method, amount: b.Paid_amount })),
+            };
+          }
+          const cap = method.charAt(0).toUpperCase() + method.slice(1);
+          return { label: cap || "-", breakdown: null };
+        } catch {
+          // Python OrderedDict string fallback
+          const outerMethod = raw.match(/'method',\s*'([^']+)'/)?.[1] || "";
+          if (outerMethod.toLowerCase().includes("multiple")) {
+            const pairs = [...raw.matchAll(/'method',\s*'([^']+)'[^O]*?'Paid_amount',\s*([\d.]+)/g)];
+            // skip the first match (outer Multiple Payment entry), use rest as breakdown
+            const bd = pairs.slice(1).map((m) => ({ method: m[1], amount: parseFloat(m[2]) }));
+            return { label: "Multiple Payment", breakdown: bd.length ? bd : null };
+          }
+          const cap = outerMethod.charAt(0).toUpperCase() + outerMethod.slice(1);
+          return { label: cap || "-", breakdown: null };
+        }
+      };
+
+      const formatPharmacyItem = (item, index) => {
+        const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
+        const billDate = billDateObj
+          ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
+          : "-";
+        const billTime = billDateObj
+          ? billDateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+          : "-";
+        return {
+          id: `pharmacy-${item.Bill_id}-${index}`,
+          date: billDate,
+          time: billTime,
+          Bill_id: item.Bill_id,
+          uhid: item.uhid || "-",
+          bill_no: item.bill_no || "-",
+          bill_type: "OP Pharmacy",
+          raw_bill_type: "OPPharmacy",
+          uhid_no: item.uhid || "-",
+          patient: item.patient_name || "-",
+          amount: parseFloat(item.net_amount || 0),
+          total: parseFloat(item.net_amount || 0),
+          status: item.billing_status || "-",
+          doctor: item.doctor_name || "-",
+          payment_method: parsePaymentDetails(item.payment_details).label,
+          payment_breakdown: parsePaymentDetails(item.payment_details).breakdown,
+          source: "OPPharmacy",
+          raw_bill_no: item.bill_no || null,
+          raw: item,
+        };
+      };
+
       const formatted = billsArray
         .filter((item) => item.billing_status === "Billed" || item.billing_status === "Processing")
-        .map((item, index) => {
-          const billDateObj = item.bill_date ? new Date(item.bill_date) : null;
-          const billDate = billDateObj
-            ? billDateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata" })
-            : "-";
-          const billTime = billDateObj
-            ? billDateObj.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
-            : "-";
+        .map(formatPharmacyItem);
 
-          return {
-            id: `pharmacy-${item.Bill_id}-${index}`,
-            date: billDate,
-            time: billTime,
-            Bill_id: item.Bill_id,
-            uhid: item.uhid || "-",
-            bill_no: item.bill_no || "-",
-            bill_type: "OP Pharmacy",
-            raw_bill_type: "OPPharmacy",
-            uhid_no: item.uhid || "-",
-            patient: item.patient_name || "-",
-            amount: parseFloat(item.net_amount || 0),
-            total: parseFloat(item.net_amount || 0),
-            status: item.billing_status || "-",
-            doctor: item.doctor_name || "-",
-            payment_method: "-",
-            source: "OPPharmacy",
-            raw_bill_no: item.bill_no || null,
-            raw: item,
-          };
-        });
+      const formattedReceived = billsArray
+        .filter((item) => item.billing_status === "Paid")
+        .map(formatPharmacyItem);
 
       setOpPharmacyBills(formatted);
+      setOpPharmacyReceivedBills(formattedReceived);
     } catch (err) {
       console.error("OP Pharmacy bills fetch error:", err);
       showToast("error", "Unable to load OP Pharmacy bills.");
@@ -1356,6 +1393,16 @@ export default function CentralCashCounter() {
       return;
     }
 
+    // Validate ref numbers based on selected methods
+    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
+      showToast("error", "Please enter the Card / Transaction Reference No to proceed.");
+      return;
+    }
+    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
+      showToast("error", "Please enter the Cheque Number to proceed.");
+      return;
+    }
+
     let payment_details;
     if (activeMethods.length === 1) {
       payment_details = activeMethods[0];
@@ -1468,6 +1515,16 @@ export default function CentralCashCounter() {
       return;
     }
 
+    // Validate ref numbers based on selected methods
+    if (selectedMethods.card && parseFloat(payments.card) > 0 && !payments.cardNo.trim()) {
+      showToast("error", "Please enter the Card / Transaction Reference No to proceed.");
+      return;
+    }
+    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
+      showToast("error", "Please enter the Cheque Number to proceed.");
+      return;
+    }
+
     let payment_details;
     if (activeMethods.length === 1) {
       payment_details = activeMethods[0];
@@ -1509,7 +1566,7 @@ export default function CentralCashCounter() {
   const filterBills = useCallback(() => {
     let bills = [];
     if (activeMenuItem === "Pending Bills") {
-      bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : receivedBills;
+      bills = selectedType === "pending" ? [...pendingBills, ...opPharmacyBills] : [...receivedBills, ...opPharmacyReceivedBills];
     } else if (activeMenuItem === "IP Advance") {
       bills =
         selectedType === "pending"
@@ -1540,7 +1597,7 @@ export default function CentralCashCounter() {
     }
     setFilteredBills(filtered);
   }, [
-    activeMenuItem, selectedType, pendingBills, opPharmacyBills,
+    activeMenuItem, selectedType, pendingBills, opPharmacyBills, opPharmacyReceivedBills,
     receivedBills, ipAdvancePendingBills, ipAdvanceReceivedBills,
     returnPendingBills, returnReceivedBills,
     billType, searchTerm,
@@ -1640,9 +1697,9 @@ export default function CentralCashCounter() {
 
   const colSpan =
     activeMenuItem === "Returns Bills"
-      ? 10   // ← was 9, now 10 columns
+      ? 10
       : selectedType === "received"
-        ? 11
+        ? 10  // Doctor + Total + Payment Method, no Action column
         : 8;
 
   return (
@@ -2412,7 +2469,7 @@ export default function CentralCashCounter() {
                             )}
                           </>
                         )}
-                        <TableHeader>Action</TableHeader>
+                        {selectedType === "pending" && <TableHeader>Action</TableHeader>}
                       </tr>
                     </thead>
                     <tbody>
@@ -2500,8 +2557,39 @@ export default function CentralCashCounter() {
                                 {selectedType === "received" && (
                                   <>
                                     <TableCell>{bill.doctor}</TableCell>
-                                    <TableCell>₹{(bill.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
-                                    <TableCell>{bill.payment_method}</TableCell>
+                                    <TableCell>
+                                      {bill.payment_breakdown ? (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                                          {bill.payment_breakdown.map((b, i) => (
+                                            <span key={i} style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                                              {b.method.charAt(0).toUpperCase() + b.method.slice(1)}-{b.amount}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span>₹{(bill.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <span style={{
+                                        padding: "2px 10px",
+                                        borderRadius: "12px",
+                                        fontSize: "12px",
+                                        fontWeight: 600,
+                                        background: bill.payment_method === "Multiple Payment" ? "#ede9fe"
+                                          : bill.payment_method === "Cash" ? "#d1fae5"
+                                          : bill.payment_method === "Card" ? "#dbeafe"
+                                          : bill.payment_method === "Cheque" ? "#fef3c7"
+                                          : "#f3f4f6",
+                                        color: bill.payment_method === "Multiple Payment" ? "#6d28d9"
+                                          : bill.payment_method === "Cash" ? "#065f46"
+                                          : bill.payment_method === "Card" ? "#1d4ed8"
+                                          : bill.payment_method === "Cheque" ? "#b45309"
+                                          : "#374151",
+                                      }}>
+                                        {bill.payment_method}
+                                      </span>
+                                    </TableCell>
                                   </>
                                 )}
                               </>
@@ -2672,14 +2760,40 @@ export default function CentralCashCounter() {
                       type="checkbox"
                       checked={selectedMethods[method]}
                       onChange={(e) => {
-                        setSelectedMethods((prev) => ({ ...prev, [method]: e.target.checked }));
-                        if (!e.target.checked) {
-                          setPayments((prev) => ({
-                            ...prev,
-                            [method]: "",
-                            ...(method === "card" ? { cardNo: "" } : {}),
-                            ...(method === "cheque" ? { chequeNo: "" } : {}),
-                          }));
+                        const isChecked = e.target.checked;
+                        setSelectedMethods((prev) => ({ ...prev, [method]: isChecked }));
+
+                        if (isChecked) {
+                          // Auto-fill this method with the remaining unpaid amount
+                          setPayments((prev) => {
+                            const alreadyPaid =
+                              (method !== "cash" && selectedMethods.cash ? parseFloat(prev.cash) || 0 : 0) +
+                              (method !== "card" && selectedMethods.card ? parseFloat(prev.card) || 0 : 0) +
+                              (method !== "cheque" && selectedMethods.cheque ? parseFloat(prev.cheque) || 0 : 0);
+                            const remaining = Math.max(netAmount - alreadyPaid, 0);
+                            return {
+                              ...prev,
+                              [method]: remaining > 0 ? String(remaining) : "",
+                            };
+                          });
+                        } else {
+                          // Clear this method's amount; redistribute remaining to cash if cash is still selected
+                          setPayments((prev) => {
+                            const clearedPayments = {
+                              ...prev,
+                              [method]: "",
+                              ...(method === "card" ? { cardNo: "" } : {}),
+                              ...(method === "cheque" ? { chequeNo: "" } : {}),
+                            };
+                            // If cash is still active, update cash to cover remaining balance
+                            const otherPaid =
+                              (method !== "card" && selectedMethods.card ? parseFloat(prev.card) || 0 : 0) +
+                              (method !== "cheque" && selectedMethods.cheque ? parseFloat(prev.cheque) || 0 : 0);
+                            if (selectedMethods.cash && method !== "cash") {
+                              clearedPayments.cash = String(Math.max(netAmount - otherPaid, 0));
+                            }
+                            return clearedPayments;
+                          });
                         }
                       }}
                       style={{ accentColor: "#0d9488", width: "16px", height: "16px" }}
@@ -2711,7 +2825,14 @@ export default function CentralCashCounter() {
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.card}
-                      onChange={(e) => setPayments({ ...payments, card: e.target.value })}
+                      onChange={(e) => {
+                        const cardVal = parseFloat(e.target.value) || 0;
+                        const chequeVal = selectedMethods.cheque ? parseFloat(payments.cheque) || 0 : 0;
+                        const newCash = selectedMethods.cash
+                          ? String(Math.max(netAmount - cardVal - chequeVal, 0))
+                          : payments.cash;
+                        setPayments({ ...payments, card: e.target.value, cash: newCash });
+                      }}
                     />
                   </FormRow>
                   <FormRow>
@@ -2733,7 +2854,14 @@ export default function CentralCashCounter() {
                     <Input
                       type="number" placeholder="0.00"
                       value={payments.cheque}
-                      onChange={(e) => setPayments({ ...payments, cheque: e.target.value })}
+                      onChange={(e) => {
+                        const chequeVal = parseFloat(e.target.value) || 0;
+                        const cardVal = selectedMethods.card ? parseFloat(payments.card) || 0 : 0;
+                        const newCash = selectedMethods.cash
+                          ? String(Math.max(netAmount - chequeVal - cardVal, 0))
+                          : payments.cash;
+                        setPayments({ ...payments, cheque: e.target.value, cash: newCash });
+                      }}
                     />
                   </FormRow>
                   <FormRow>
