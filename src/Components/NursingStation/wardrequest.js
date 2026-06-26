@@ -1604,12 +1604,12 @@ const WardRequest = () => {
               </button>
             </div>
 
-            <div style={{ padding: "24px", background: "#ffffff" }}>
+            <div style={{ padding: "24px", background: "#ffffff", overflowY: "auto", flex: 1, minHeight: 0 }}>
               <div style={{ marginBottom: "16px", fontWeight: 800, color: colors.textMuted, textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: "1.2px" }}>Select Request Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "12px" }}>
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowLabModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1624,7 +1624,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowMedicineModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1639,7 +1639,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowRadiologyModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1654,7 +1654,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowDietModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1669,7 +1669,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowLaundryModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1684,7 +1684,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}

@@ -55,6 +55,15 @@ const ModalContainer = styled.div`
   animation: ${slideUp} 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   position: relative;
+
+  @media (max-width: 768px) {
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
 `;
 
 const Header = styled.div`
@@ -423,6 +432,7 @@ const DietOrderModal = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
       const extraItems = (Array.isArray(extraMasters) ? extraMasters : [])
         .filter(e => extras[e.extra_id]?.checked)
         .map(e => ({ 
+          item_id: e.item_id,
           item: e.item_name, 
           qty: extras[e.extra_id]?.qty || 1,
           price: e.price
