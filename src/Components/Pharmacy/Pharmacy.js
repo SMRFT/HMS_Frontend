@@ -1258,7 +1258,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
           Bill_id: parseInt(recordId),
-          current_total_amount: parseFloat(totalAmount.toFixed(2)),
         });
 
         console.log("finalize_bill RESPONSE:", finalizeRes);
@@ -1610,7 +1609,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const rawMeds = parseOrderedDictMeds(estimate.medicine_particulars);
 
     // ── Fix: in convertWardRequest, replace the loadedMedicines map ──────────
-const loadedMedicines = items.map((item) => {
+const loadedMedicines = rawMeds.map((item) => {
   const stockMatch =
     medicines.find(
       (s) =>
