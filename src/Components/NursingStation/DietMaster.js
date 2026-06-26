@@ -238,6 +238,7 @@ const DietMaster = () => {
     const [searchTerm, setSearchTerm] = useState("");
     
     const [formData, setFormData] = useState({ 
+        item_id: "",
         diet_name: "", 
         morning_items: "", 
         afternoon_items: "", 
@@ -248,6 +249,7 @@ const DietMaster = () => {
     });
 
     const [extraFormData, setExtraFormData] = useState({
+        item_id: "",
         item_name: "",
         price: 0,
         is_active: true
@@ -326,6 +328,7 @@ const DietMaster = () => {
     const openModal = (diet = null) => {
         setEditingDiet(diet);
         setFormData({ 
+            item_id: diet?.item_id || "",
             diet_name: diet?.diet_name || "", 
             morning_items: diet?.morning_items || "", 
             afternoon_items: diet?.afternoon_items || "", 
@@ -340,6 +343,7 @@ const DietMaster = () => {
     const openExtraModal = (extra = null) => {
         setEditingExtra(extra);
         setExtraFormData({
+            item_id: extra?.item_id || "",
             item_name: extra?.item_name || "",
             price: extra?.price || 0,
             is_active: extra ? extra.is_active : true
@@ -378,6 +382,7 @@ const DietMaster = () => {
                     <SmartTable>
                         <thead>
                             <tr>
+                                <Th>Item ID</Th>
                                 <Th>{activeTab === "categories" ? "Diet Type" : "Item Name"}</Th>
                                 {activeTab === "categories" && (
                                     <>
@@ -396,6 +401,7 @@ const DietMaster = () => {
                             {activeTab === "categories" ? (
                                 filteredDiets.map((diet, i) => (
                                     <Tr key={i}>
+                                        <Td>{diet.item_id || "-"}</Td>
                                         <Td><DietName>{diet.diet_name}</DietName></Td>
                                         <Td><MenuText title={diet.morning_items}>{diet.morning_items || "—"}</MenuText></Td>
                                         <Td><MenuText title={diet.afternoon_items}>{diet.afternoon_items || "—"}</MenuText></Td>
@@ -415,6 +421,7 @@ const DietMaster = () => {
                             ) : (
                                 filteredExtras.map((item, i) => (
                                     <Tr key={i}>
+                                        <Td>{item.item_id || "-"}</Td>
                                         <Td><DietName>{item.item_name}</DietName></Td>
                                         <Td><div style={{ fontWeight: 800, color: T.secondary }}>{item.price.toFixed(2)}</div></Td>
                                         <Td>
@@ -451,9 +458,15 @@ const DietMaster = () => {
                             <ActionBtn style={{ background: "#f1f5f9", color: "#64748b" }} onClick={() => setShowModal(false)}><FiX /></ActionBtn>
                         </MHeader>
                         <MBody>
-                            <div>
-                                <SessionLabel style={{ marginBottom: "8px" }}>Dietary Category Name</SessionLabel>
-                                <Input placeholder="e.g. Therapeutic Diabetics" value={formData.diet_name} onChange={e => setFormData({...formData, diet_name: e.target.value})} />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Item ID</SessionLabel>
+                                    <Input value={formData.item_id || "Auto-generated"} disabled style={{ background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' }} />
+                                </div>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Dietary Category Name</SessionLabel>
+                                    <Input placeholder="e.g. Therapeutic Diabetics" value={formData.diet_name} onChange={e => setFormData({...formData, diet_name: e.target.value})} />
+                                </div>
                             </div>
 
                             <div>
@@ -503,9 +516,15 @@ const DietMaster = () => {
                             <ActionBtn style={{ background: "#f1f5f9", color: "#64748b" }} onClick={() => setShowExtraModal(false)}><FiX /></ActionBtn>
                         </MHeader>
                         <MBody>
-                            <div>
-                                <SessionLabel style={{ marginBottom: "8px" }}>Item Name</SessionLabel>
-                                <Input placeholder="e.g. Health Soup" value={extraFormData.item_name} onChange={e => setExtraFormData({...extraFormData, item_name: e.target.value})} />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '16px' }}>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Item ID</SessionLabel>
+                                    <Input value={extraFormData.item_id || "Auto-generated"} disabled style={{ background: '#f8fafc', color: '#94a3b8', cursor: 'not-allowed' }} />
+                                </div>
+                                <div>
+                                    <SessionLabel style={{ marginBottom: "8px" }}>Item Name</SessionLabel>
+                                    <Input placeholder="e.g. Health Soup" value={extraFormData.item_name} onChange={e => setExtraFormData({...extraFormData, item_name: e.target.value})} />
+                                </div>
                             </div>
                             <div>
                                 <SessionLabel style={{ marginBottom: "8px" }}>Price (₹)</SessionLabel>
