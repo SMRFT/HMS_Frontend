@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -18,6 +19,7 @@ import {
   Printer,
   FlaskConical,
   Pill,
+  Hammer,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
@@ -523,6 +525,227 @@ const emptyForm = {
   is_pack_return_CSSD: false,
 };
 
+const ActionPopover = ({
+  s,
+  anchorEl,
+  onClose,
+  onEdit,
+  onCancel,
+  onPostpone,
+  onCssdReq,
+  onCssdReturn,
+  onConfirm,
+  onLab,
+  onMedicine,
+  onImplant,
+  canEdit,
+  canDelete,
+  canSchedule,
+  canApprove,
+  canLab,
+  canMedicine,
+  canImplant,
+}) => {
+  const isConfirmed = s.status === "Confirmed";
+  const isCancelled = s.status === "Cancelled";
+  const lockMain = isConfirmed || isCancelled;
+  const lockConfirm = isConfirmed || isCancelled;
+  const lockCssd = s.is_pack_request_CSSD && s.is_pack_return_CSSD;
+
+  const [pos, setPos] = React.useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (anchorEl) {
+      const rect = anchorEl.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right + window.scrollX,
+      });
+    }
+  }, [anchorEl]);
+
+  const groups = [
+    {
+      title: "Schedule actions",
+      items: [
+        canEdit && {
+          icon: <Pencil size={15} />,
+          label: "Edit",
+          color: "#0d9488",
+          disabled: lockMain,
+          onClick: onEdit,
+        },
+        canDelete && {
+          icon: <X size={15} />,
+          label: "Cancel",
+          color: "#dc2626",
+          disabled: lockMain,
+          onClick: onCancel,
+        },
+        canSchedule && {
+          icon: <CalendarClock size={15} />,
+          label: "Postpone",
+          color: "#7c3aed",
+          disabled: lockMain,
+          onClick: onPostpone,
+        },
+        canApprove && {
+          icon: <CheckCheck size={15} />,
+          label: "Confirm",
+          color: "#ea580c",
+          disabled: lockConfirm,
+          onClick: onConfirm,
+        },
+      ].filter(Boolean),
+    },
+    {
+      title: "CSSD",
+      items: [
+        {
+          icon: <PackageCheck size={15} />,
+          label: "Pack request",
+          color: s.is_pack_request_CSSD ? "#16a34a" : "#94a3b8",
+          disabled: lockCssd,
+          onClick: onCssdReq,
+        },
+        {
+          icon: <PackageOpen size={15} />,
+          label: "Pack return",
+          color: s.is_pack_return_CSSD ? "#16a34a" : "#94a3b8",
+          disabled: lockCssd,
+          onClick: onCssdReturn,
+        },
+      ],
+    },
+    {
+      title: "Requests",
+      items: [
+        canLab && {
+          icon: <FlaskConical size={15} />,
+          label: "Lab request",
+          color: "#0891b2",
+          disabled: !isConfirmed,
+          onClick: onLab,
+        },
+        canMedicine && {
+          icon: <Pill size={15} />,
+          label: "Medicine",
+          color: "#7c3aed",
+          disabled: !isConfirmed,
+          onClick: onMedicine,
+        },
+        canImplant && {
+          icon: <Hammer size={15} />,
+          label: "Implant",
+          color: "#b45309",
+          disabled: !isConfirmed,
+          onClick: onImplant,
+        },
+      ].filter(Boolean),
+    },
+  ];
+
+  const popover = (
+    <div
+      className="ot-action-popover"
+      style={{
+        position: "absolute",
+        top: pos.top,
+        left: pos.left,
+        transform: "translateX(-100%)",
+        background: "#fff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 10,
+        padding: "10px 12px",
+        zIndex: 99999,
+        minWidth: 230,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+      }}
+    >
+      {groups.map((group, gi) => (
+        <div key={gi}>
+          {gi > 0 && (
+            <div style={{ borderTop: "1px solid #f1f5f9", margin: "8px 0" }} />
+          )}
+          <div
+            style={{
+              fontSize: "0.68rem",
+              fontWeight: 700,
+              color: "#94a3b8",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              marginBottom: 6,
+            }}
+          >
+            {group.title}
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `repeat(${group.items.length <= 2 ? group.items.length : 4}, 1fr)`,
+              gap: 4,
+            }}
+          >
+            {group.items.map((item, ii) => (
+              <button
+                key={ii}
+                disabled={item.disabled}
+                title={item.label}
+                onMouseDown={(e) => {
+                  {
+                    /* ← CHANGE onClick → onMouseDown */
+                  }
+                  e.stopPropagation();
+                  if (!item.disabled) {
+                    item.onClick();
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "8px 6px",
+                  border: "1px solid transparent",
+                  borderRadius: 8,
+                  background: "none",
+                  cursor: item.disabled ? "not-allowed" : "pointer",
+                  opacity: item.disabled ? 0.38 : 1,
+                  transition: "background 0.12s, border-color 0.12s",
+                  color: item.color,
+                }}
+                onMouseEnter={(e) => {
+                  if (!item.disabled) {
+                    e.currentTarget.style.background = "#f8fafc";
+                    e.currentTarget.style.borderColor = "#e2e8f0";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "none";
+                  e.currentTarget.style.borderColor = "transparent";
+                }}
+              >
+                {item.icon}
+                <span
+                  style={{
+                    fontSize: "0.68rem",
+                    color: "#64748b",
+                    lineHeight: 1.2,
+                    textAlign: "center",
+                  }}
+                >
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return createPortal(popover, document.body);
+};
 // ─────────────────────────────────────────────────────────────────────────────
 const SurgerySchedule = () => {
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -593,6 +816,35 @@ const SurgerySchedule = () => {
     });
   };
 
+  // ── Raise Implant Request → navigate to OTImplantRequest ────────────────
+  const raiseImplantRequest = (s) => {
+    navigate("/OTImplantRequest", {
+      state: {
+        patientData: {
+          uhid: s.uhid || "",
+          ipNumber: s.ip_number || "",
+          patient_name: s.patient_name || "",
+          firstName: s.patient_name || "",
+          lastName: "",
+          salutation: "",
+          age: String(s.age || ""),
+          age_type: String(s.age_type || ""),
+          gender: s.gender || "",
+          customer_type: s.customer_type || "",
+          customerType: s.customer_type || "",
+          company_name: s.company_name || "",
+          companyName: s.company_name || "",
+          company_code: s.company_code || "",
+          is_emergency: !!s.is_emergency,
+          admittingDoctor: s.surgeon_name || s.surgeon_id || "",
+          roomNo: s.ot_name || s.ot_id || "",
+          bedNo: "",
+          surgeryRef: s.reference_no || "",
+        },
+      },
+    });
+  };
+
   // Date filter
   const [fromDate, setFromDate] = useState(today());
   const [toDate, setToDate] = useState(today());
@@ -607,6 +859,9 @@ const SurgerySchedule = () => {
   const [scheduleList, setScheduleList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeFilters, setActiveFilters] = useState(new Set());
+  const [openPopover, setOpenPopover] = useState(null);
+  const anchorRefs = React.useRef({});
+  const [popoverData, setPopoverData] = useState(null);
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
@@ -616,6 +871,7 @@ const SurgerySchedule = () => {
   const canApprove = allowedActions.includes("HMS-P-OTSSA-RW");
   const canLab = allowedActions.includes("HMS-P-IB-RW");
   const canMedicine = allowedActions.includes("HMS-P-OTMB-RW");
+  const canImplant = allowedActions.includes("HMS-P-OTIR-RW");
 
   const toggleFilter = (key) => {
     setActiveFilters((prev) => {
@@ -652,6 +908,17 @@ const SurgerySchedule = () => {
       id: d.employeeId || d.doctor_id || d.id || "",
       name: d.employeeName || d.doctor_name || d.name || "",
     }));
+
+  useEffect(() => {
+    const handler = (e) => {
+      // Allow clicks inside the popover portal (rendered in body)
+      if (e.target.closest(".action-popover-wrap")) return;
+      if (e.target.closest(".ot-action-popover")) return;
+      setOpenPopover(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // ── Fetch masters ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1979,157 +2246,106 @@ const SurgerySchedule = () => {
                       <Td>{s.anesthesia_name || s.anesthesia_id || "—"}</Td>
                       <Td>{s.ot_name || s.ot_id}</Td>
                       <Td>
-                        {(() => {
-                          const isConfirmed = s.status === "Confirmed";
-                          const isCancelled = s.status === "Cancelled";
-                          // Edit/Cancel/Postpone/Confirm locked after Confirmed or Cancelled
-                          const lockMain = isConfirmed || isCancelled;
-                          // Confirm locked when already Confirmed; enabled when Cancelled
-                          const lockConfirm = isConfirmed || isCancelled;
-                          // CSSD icons locked once both are done
-                          const lockCssd =
-                            s.is_pack_request_CSSD && s.is_pack_return_CSSD;
+                        <div
+                          className="action-popover-wrap"
+                          style={{
+                            position: "relative",
+                            display: "inline-block",
+                          }}
+                        >
+                          <button
+                            ref={(el) => {
+                              anchorRefs.current[s.reference_no] = el;
+                            }}
+                            onClick={() => {
+                              if (openPopover === s.reference_no) {
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              } else {
+                                setOpenPopover(s.reference_no);
+                                setPopoverData(s); // ← freeze snapshot at open time
+                              }
+                            }}
+                            style={{
+                              background: "#f1f5f9",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: 6,
+                              padding: "4px 10px",
+                              cursor: "pointer",
+                              fontSize: 18,
+                              letterSpacing: 2,
+                              color: "#64748b",
+                              lineHeight: 1,
+                              transition: "background 0.15s",
+                            }}
+                            title="Actions"
+                          >
+                            ···
+                          </button>
 
-                          return (
-                            <ActionBtnRow>
-                              {/* Edit */}
-                              {canEdit && (
-                                <IconAction
-                                  col="#0d9488"
-                                  title={lockMain ? "Edit locked" : "Edit"}
-                                  disabled={lockMain}
-                                  onClick={() => !lockMain && openEdit(s)}
-                                >
-                                  <Pencil size={15} />
-                                </IconAction>
-                              )}
-
-                              {/* Cancel */}
-                              {canDelete && (
-                                <IconAction
-                                  col="#dc2626"
-                                  title={
-                                    lockMain
-                                      ? "Cancel locked"
-                                      : "Cancel Schedule"
-                                  }
-                                  disabled={lockMain}
-                                  onClick={() => !lockMain && handleCancel(s)}
-                                >
-                                  <X size={15} />
-                                </IconAction>
-                              )}
-
-                              {/* Postponed Date */}
-                              {canSchedule && (
-                                <IconAction
-                                  col="#7c3aed"
-                                  title={
-                                    lockMain
-                                      ? "Postpone locked"
-                                      : "Set Postponed Date"
-                                  }
-                                  disabled={lockMain}
-                                  onClick={() => !lockMain && openPostpone(s)}
-                                >
-                                  <CalendarClock size={15} />
-                                </IconAction>
-                              )}
-
-                              {/* Send Pack Request to CSSD */}
-                              <IconAction
-                                col={
-                                  s.is_pack_request_CSSD ? "#16a34a" : "#94a3b8"
-                                }
-                                title={
-                                  lockCssd
-                                    ? "Both CSSD actions completed"
-                                    : s.is_pack_request_CSSD
-                                      ? "CSSD Pack Requested ✓"
-                                      : "Send Pack Request to CSSD"
-                                }
-                                disabled={lockCssd}
-                                onClick={() =>
-                                  !lockCssd && toggleCssdRequest(s)
-                                }
-                              >
-                                <PackageCheck size={15} />
-                              </IconAction>
-
-                              {/* Return / Pack Instruments to CSSD */}
-                              <IconAction
-                                col={
-                                  s.is_pack_return_CSSD ? "#16a34a" : "#94a3b8"
-                                }
-                                title={
-                                  lockCssd
-                                    ? "Both CSSD actions completed"
-                                    : s.is_pack_return_CSSD
-                                      ? "CSSD Pack Returned ✓"
-                                      : "Return / Pack Instruments to CSSD"
-                                }
-                                disabled={lockCssd}
-                                onClick={() => !lockCssd && toggleCssdReturn(s)}
-                              >
-                                <PackageOpen size={15} />
-                              </IconAction>
-
-                              {/* Confirm Schedule */}
-                              {canApprove && (
-                                <IconAction
-                                  col="#ea580c"
-                                  title={
-                                    lockConfirm
-                                      ? "Already Confirmed"
-                                      : "Confirm Schedule"
-                                  }
-                                  disabled={lockConfirm}
-                                  onClick={() =>
-                                    !lockConfirm && confirmSchedule(s)
-                                  }
-                                >
-                                  <CheckCheck size={15} />
-                                </IconAction>
-                              )}
-
-                              {/* Raise Lab Request — only enabled after Confirmed */}
-                              {canLab && (
-                                <IconAction
-                                  col="#0891b2"
-                                  title={
-                                    isConfirmed
-                                      ? "Raise Lab Request"
-                                      : "Available after Confirmed"
-                                  }
-                                  disabled={!isConfirmed}
-                                  onClick={() =>
-                                    isConfirmed && raiseLabRequest(s)
-                                  }
-                                >
-                                  <FlaskConical size={15} />
-                                </IconAction>
-                              )}
-
-                              {/* Raise Medicine Request — only enabled after Confirmed */}
-                              {canMedicine && (
-                                <IconAction
-                                  col="#7c3aed"
-                                  title={
-                                    isConfirmed
-                                      ? "Raise Medicine Request"
-                                      : "Available after Confirmed"
-                                  }
-                                  disabled={!isConfirmed}
-                                  onClick={() =>
-                                    isConfirmed && raiseMedicineRequest(s)
-                                  }
-                                >
-                                  <Pill size={15} />
-                                </IconAction>
-                              )}
-                            </ActionBtnRow>
-                          );
-                        })()}
+                          {openPopover === s.reference_no && popoverData && (
+                            <ActionPopover
+                              s={popoverData}
+                              anchorEl={anchorRefs.current[s.reference_no]}
+                              onClose={() => {
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              canEdit={canEdit}
+                              canDelete={canDelete}
+                              canSchedule={canSchedule}
+                              canApprove={canApprove}
+                              canLab={canLab}
+                              canMedicine={canMedicine}
+                              canImplant={canImplant}
+                              onEdit={() => {
+                                openEdit(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onCancel={() => {
+                                handleCancel(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onPostpone={() => {
+                                openPostpone(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onCssdReq={() => {
+                                toggleCssdRequest(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onCssdReturn={() => {
+                                toggleCssdReturn(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onConfirm={() => {
+                                confirmSchedule(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onLab={() => {
+                                raiseLabRequest(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onMedicine={() => {
+                                raiseMedicineRequest(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                              onImplant={() => {
+                                raiseImplantRequest(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
+                            />
+                          )}
+                        </div>
                       </Td>
                     </Tr>
                   ))
@@ -2248,6 +2464,7 @@ const SurgerySchedule = () => {
           </PostponeBox>
         </ModalBackdrop>
       )}
+      <div id="popover-root" />
     </Container>
   );
 };

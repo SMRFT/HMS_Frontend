@@ -417,6 +417,7 @@ const InvoiceReport = () => {
             item.vendor?.toLowerCase().includes(s) ||
             item.vendor_id?.toLowerCase().includes(s) ||
             item.patient_name?.toLowerCase().includes(s) ||
+            item.surgeon_name?.toLowerCase().includes(s) ||
             item.surgeon_id?.toLowerCase().includes(s) ||
             item.ip_number?.toLowerCase().includes(s) ||
             parseItems(item.items).some((i) =>
@@ -559,7 +560,10 @@ const InvoiceReport = () => {
     `;
 
     const hasPatient =
-      record.ip_number || record.patient_name || record.surgeon_id;
+      record.ip_number ||
+      record.patient_name ||
+      record.surgeon_name ||
+      record.surgeon_id;
 
     const itemsHtml =
       items.length > 0
@@ -666,7 +670,7 @@ const InvoiceReport = () => {
             ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
             ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
             ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type} -  ${record.company_name}</div>` : ""}
-            ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_id}</div>` : ""}
+            ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name || record.surgeon_id}</div>` : ""}
           </div>
         </div>`
             : ""
@@ -880,7 +884,7 @@ const InvoiceReport = () => {
             <td class="sec cnt" style="text-align:left;vertical-align:top">
               ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
               ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-              ${record.surgeon_name ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name}</div>` : ""}
+              ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name || record.surgeon_id}</div>` : ""}
               ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type}${record.company_name ? ` - ${record.company_name}` : ""}</div>` : ""}
             </td>`
                 : ""
@@ -1129,7 +1133,7 @@ const InvoiceReport = () => {
           `"${row.vendor || row.vendor_id || "N/A"}"`,
           row.invoice_no,
           `"${row.patient_name || "N/A"}"`,
-          `"${row.surgeon_id || "N/A"}"`,
+          `"${row.surgeon_name || row.surgeon_id || "N/A"}"`,
           row.ip_number || "N/A",
           parseFloat(row.net_invoice_amount || 0).toFixed(2),
         ].join(","),
@@ -1312,7 +1316,8 @@ const InvoiceReport = () => {
     // Normalize items to always be an array inside the modal
     const r = { ...selectedRecord, items: parseItems(selectedRecord.items) };
     const vendorDisplay = r.vendor || r.vendor_id || "N/A";
-    const hasPatient = r.ip_number || r.patient_name || r.surgeon_id;
+    const hasPatient =
+      r.ip_number || r.patient_name || r.surgeon_name || r.surgeon_id;
     const InfoRow = ({ label, value }) => (
       <div style={detailItem}>
         <span style={detailLabel}>{label}</span>
@@ -1376,7 +1381,10 @@ const InvoiceReport = () => {
                   {r.patient_name && (
                     <InfoRow label="Patient Name" value={r.patient_name} />
                   )}
-                  {r.surgeon_id && (
+                  {r.surgeon_name && (
+                    <InfoRow label="Surgeon" value={r.surgeon_name} />
+                  )}
+                  {r.surgeon_id && !r.surgeon_name && (
                     <InfoRow label="Surgeon" value={r.surgeon_id} />
                   )}
                 </div>
@@ -1790,7 +1798,9 @@ const InvoiceReport = () => {
                     </Td>
                     <Td>{row.invoice_no || "N/A"}</Td>
                     <Td style={{ minWidth: 100 }}>{row.patient_name || "—"}</Td>
-                    <Td style={{ minWidth: 100 }}>{row.surgeon_id || "—"}</Td>
+                    <Td style={{ minWidth: 100 }}>
+                      {row.surgeon_name || row.surgeon_id || "—"}
+                    </Td>
                     <Td>{row.ip_number || "—"}</Td>
                     {/* <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
