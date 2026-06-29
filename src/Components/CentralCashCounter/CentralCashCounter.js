@@ -1341,21 +1341,25 @@ export default function CentralCashCounter() {
 
       data.forEach((item, idx) => {
         // Use return_bill_date as primary date field
-        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
+        // hospital_investrefund uses camelCase "refundBillDate" — add it to the fallback chain
+        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || item.refundBillDate || null;
 
         const row = {
           id: item._id || `ret-${idx}`,
           date: formatDate(dateRaw),
           time: formatTime(dateRaw),
-          return_bill_no: item.return_bill_no || item.return_bill_no || "-",
+          return_bill_no: item.return_bill_no || item.refund_bill_no || item.refundBillNo || "-",
           return_bill_date: formatDate(dateRaw),
-          bill_no: item.bill_no || "-",
+          // hospital_investrefund uses "investBillNo" as the original bill number
+          bill_no: item.bill_no || item.investBillNo || "-",
           bill_type_name: item.bill_type_name || item.collection_name || "-",
           uhid_no: item.uhid || item.UHID || "-",
           patient: item.patient_name || "-",
-          return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          document_status: item.document_status || item.status || "-",
+          // hospital_investrefund uses "refund_finalPrice" for the amount field
+          return_amount: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
+          total: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
+          // hospital_investrefund uses "paymentStatus" instead of "status" — add it to the fallback chain
+          document_status: item.document_status || item.status || item.paymentStatus || "-",
           counter_name: item.counter_name || "-",
           collection_name: item.collection_name || "-",
           raw: item,
