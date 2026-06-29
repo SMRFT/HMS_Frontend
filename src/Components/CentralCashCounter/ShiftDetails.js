@@ -133,7 +133,7 @@ const statusLabel = (s) =>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, onShiftChange, activeShiftData }) {
+export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, onShiftChange, activeShiftData, cashCounterId }) {
 
   const [formData,       setFormData]       = useState({});
   const [loading,        setLoading]        = useState(false);
@@ -177,8 +177,8 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
 
     setFormData({
       shiftNo:         d.shiftno          || "",
-      cashCounter:     d.CashCounter      || d.outlet_code || "",
-      cashCounterName: d.CashCounter      || d.outlet_code || "",
+      cashCounter:     d.CashCounter      || d.cashcounter?.counter_id || d.outlet_code || "",
+      cashCounterName: d.CashCounterName  || d.CashCounter || d.cashcounter?.counter_name || d.cashcounter?.counter_id || d.outlet_code || "",
       cashierID:       d.CashierID        || "",
       branchCode:      d.branch_code      || "",
       hospitalCode:    d.hospital_code    || "",
@@ -269,8 +269,8 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
     // Pre-fill outlet before GET returns
     setFormData((prev) => ({
       ...prev,
-      cashCounter:     resolvedOutlet,
-      cashCounterName: resolvedName,
+      cashCounter:     cashCounterId || resolvedOutlet,
+      cashCounterName: cashCounterId || resolvedName,
       openingBalance:  prev.openingBalance  || "0.00",
       closingBalance:  prev.closingBalance  || "0.00",
     }));
@@ -281,9 +281,9 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
     }
 
     // Always confirm from backend (handles page refresh, other sessions)
-    fetchActiveShift(resolvedOutlet);
+    fetchActiveShift(cashCounterId || resolvedOutlet);
 
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, cashCounterId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── START COUNTER ─────────────────────────────────────────────────────────
   const handleStartCounter = async () => {
@@ -318,7 +318,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
         addAlert("success", `Shift started — ${res.data.data.shiftno}`);
 
         // ✅ Immediate GET to refresh all fields from DB
-        const fresh = await fetchActiveShift(resolvedOutlet);
+        const fresh = await fetchActiveShift(cashCounterId || resolvedOutlet);
         if (onShiftChange) onShiftChange(fresh || res.data);
 
       } else {
@@ -371,7 +371,7 @@ export default function ShiftDetails({ isOpen, onClose, outletCode, outletName, 
 
         // ✅ Immediate GET — closed shift won't return from get_active_shift,
         // so fall back to PATCH data for parent notification
-        const fresh = await fetchActiveShift(resolvedOutlet);
+        const fresh = await fetchActiveShift(cashCounterId || resolvedOutlet);
         if (onShiftChange) onShiftChange(fresh || res.data);
 
       } else {

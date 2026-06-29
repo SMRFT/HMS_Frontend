@@ -767,7 +767,7 @@ export default function CentralCashCounter() {
     if (!rpAmount || isNaN(rpAmount) || parseFloat(rpAmount) <= 0)
       return rpShowAlert("error", "Please enter a valid Amount.");
 
-    const CashCounter = localStorage.getItem("selected_outlet") || "";
+    const CashCounter = cashCounterId || localStorage.getItem("selected_outlet") || "";
     let description = null;
     if (rpSelectedHeadName === "ROOM ACCESS CARD") {
       if (!rpDescFields.patient_name || !rpDescFields.room_no)
@@ -963,22 +963,28 @@ export default function CentralCashCounter() {
       const res = await apiRequest(
         `${HmsBaseUrl}get_active_shift/`,
         "POST",
-        { CashCounter: outletCode }
+        { CashCounter: cashCounterId || outletCode }
       );
       if (res?.success && res?.data) {
+        if (res.data.cashcounter?.counter_id) {
+          setCashCounterId(res.data.cashcounter.counter_id);
+        }
         setActiveShift(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(res.data)) {
+          if (JSON.stringify(prev) !== JSON.stringify(res.data.data)) {
             return res.data.data;
           }
           return prev;
         });
       } else if (res && !res.success) {
+        if (res.data?.cashcounter?.counter_id) {
+          setCashCounterId(res.data.cashcounter.counter_id);
+        }
         setActiveShift(prev => (prev ? null : prev));
       }
     } catch (err) {
       console.error("Failed to refresh active shift:", err);
     }
-  }, []);
+  }, [cashCounterId]);
 
   useEffect(() => {
     refreshActiveShift();
@@ -1372,6 +1378,7 @@ export default function CentralCashCounter() {
         bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
         payment_details,
         shiftno: activeShift?.shiftno || "",
+        counter_id: cashCounterId,
       };
       const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
       const ipRes = res?.data || res;
@@ -1431,6 +1438,7 @@ export default function CentralCashCounter() {
       ...statusFields,
       payment_details,
       shiftno: activeShift?.shiftno || "",
+      counter_id: cashCounterId,
       ...(pendingAmount > 0 ? { pendingAmount } : {}),
     };
 
@@ -2573,6 +2581,7 @@ export default function CentralCashCounter() {
         }
         onShiftChange={handleShiftChange}
         activeShiftData={activeShift}
+        cashCounterId={cashCounterId}
       />
 
       {/* ══════════════ PAYMENT MODAL ══════════════ */}
