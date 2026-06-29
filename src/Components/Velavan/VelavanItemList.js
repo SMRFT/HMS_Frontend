@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
-import { FiEdit, FiTrash2, FiSearch, FiPlus } from "react-icons/fi";
+import React, { useEffect, useState, useRef } from "react";
+import { FiEdit, FiTrash2, FiSearch, FiPlus, FiPrinter } from "react-icons/fi";
 import { FaHistory } from "react-icons/fa";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import {
   colors,
@@ -16,6 +16,12 @@ import {
   SearchInput,
   TableWrapper,
 } from "../GlobalStyles";
+
+// ─── Animations ───────────────────────────────────────────────────────────────
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+`;
 
 // ─── Styled Components ────────────────────────────────────────────────────────
 
@@ -57,6 +63,123 @@ const HeaderContainer = styled.div`
     margin: 0;
     color: ${colors.primary};
   }
+`;
+
+// ─── Count Cards ──────────────────────────────────────────────────────────────
+
+const CardsRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+  animation: ${fadeIn} 0.3s ease;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+`;
+
+const CountCard = styled.button`
+  background: ${(p) => (p.active ? p.activeBg : "white")};
+  border: 2px solid ${(p) => (p.active ? p.borderColor : colors.border)};
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  box-shadow: ${(p) =>
+    p.active ? `0 4px 14px ${p.shadowColor}` : "0 1px 3px rgba(0,0,0,0.06)"};
+
+  &:hover {
+    border-color: ${(p) => p.borderColor};
+    box-shadow: 0 4px 14px ${(p) => p.shadowColor};
+    transform: translateY(-1px);
+  }
+`;
+
+const CardIcon = styled.div`
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: ${(p) => p.bg};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+`;
+
+const CardInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`;
+
+const CardCount = styled.div`
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: ${(p) => p.color};
+  line-height: 1;
+`;
+
+const CardLabel = styled.div`
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+`;
+
+const CardSub = styled.div`
+  font-size: 0.68rem;
+  color: ${(p) => p.color};
+  font-weight: 500;
+  margin-top: 1px;
+`;
+
+// ─── Table toolbar (print button only) ───────────────────────────────────────
+
+const TableToolbar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+`;
+
+const PrintBtn = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: ${colors.primary};
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  &:hover {
+    background: ${colors.primaryDark};
+  }
+`;
+
+const CategoryBadge = styled.span`
+  background: ${(p) =>
+    p.cat === "DRUG" ? "#dbeafe" : p.cat === "IMPLANT" ? "#dcfce7" : "#f1f5f9"};
+  color: ${(p) =>
+    p.cat === "DRUG"
+      ? "#1d4ed8"
+      : p.cat === "IMPLANT"
+        ? "#166534"
+        : colors.textMuted};
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
 `;
 
 // ─── History Modal Styled Components ─────────────────────────────────────────
@@ -185,13 +308,100 @@ const Spinner = styled.div`
   }
 `;
 
+// ─── Print styles (injected into <head> once) ─────────────────────────────────
+const PRINT_STYLE_ID = "velavan-item-print-styles";
+const injectPrintStyles = () => {
+  if (document.getElementById(PRINT_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = PRINT_STYLE_ID;
+  style.innerHTML = `
+    @media print {
+      body > *:not(#velavan-print-root) { display: none !important; }
+      #velavan-print-root {
+        display: block !important;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        color: #1e293b;
+      }
+      #velavan-print-root .print-header {
+        text-align: center;
+        margin-bottom: 18px;
+        border-bottom: 2px solid #1e3a5f;
+        padding-bottom: 10px;
+      }
+      #velavan-print-root .print-header h1 {
+        margin: 0 0 4px;
+        font-size: 18px;
+        color: #1e3a5f;
+      }
+      #velavan-print-root .print-header p {
+        margin: 0;
+        font-size: 11px;
+        color: #64748b;
+      }
+      #velavan-print-root table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      #velavan-print-root th {
+        background: #1e3a5f !important;
+        color: white !important;
+        padding: 7px 10px;
+        font-size: 11px;
+        text-align: left;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #velavan-print-root td {
+        padding: 6px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 11px;
+      }
+      #velavan-print-root tr:nth-child(even) td {
+        background: #f8fafc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #velavan-print-root .badge {
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-weight: 700;
+        font-size: 10px;
+      }
+      #velavan-print-root .badge-drug {
+        background: #dbeafe !important;
+        color: #1d4ed8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #velavan-print-root .badge-implant {
+        background: #dcfce7 !important;
+        color: #166534 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      #velavan-print-root .print-footer {
+        margin-top: 20px;
+        font-size: 10px;
+        color: #64748b;
+        display: flex;
+        justify-content: space-between;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const VelavanItemList = () => {
   const navigate = useNavigate();
+  const printRootRef = useRef(null);
+
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("ALL"); // ALL | DRUG | IMPLANT | UNCATEGORIZED
   const [editingItem, setEditingItem] = useState(null);
   const [form, setForm] = useState({});
 
@@ -209,6 +419,11 @@ const VelavanItemList = () => {
 
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  // Inject print CSS once
+  useEffect(() => {
+    injectPrintStyles();
+  }, []);
+
   // ── Fetch items ────────────────────────────────────────────────────────────
   const fetchItems = async () => {
     try {
@@ -223,9 +438,7 @@ const VelavanItemList = () => {
           if (!itemId) return velavanItem;
           try {
             const res = await apiRequest(`${HMSURL}get_item/${itemId}/`, "GET");
-            if (res.status === 200) {
-              return { ...res.data, ...velavanItem };
-            }
+            if (res.status === 200) return { ...res.data, ...velavanItem };
           } catch {
             return velavanItem;
           }
@@ -234,7 +447,6 @@ const VelavanItemList = () => {
       );
 
       setItems(detailedItems);
-      setFilteredItems(detailedItems);
     } catch (err) {
       console.error("Fetch items error", err);
     }
@@ -242,19 +454,119 @@ const VelavanItemList = () => {
 
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, []); // eslint-disable-line
 
-  // ── Search filter ──────────────────────────────────────────────────────────
+  // ── Combined filter: search + category + alphabetical sort ────────────────
   useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredItems(items);
-    } else {
-      const filtered = items.filter((item) =>
-        item.itemName?.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-      setFilteredItems(filtered);
+    let result = [...items];
+
+    if (categoryFilter === "DRUG") {
+      result = result.filter((i) => i.category === "DRUG");
+    } else if (categoryFilter === "IMPLANT") {
+      result = result.filter((i) => i.category === "IMPLANT");
+    } else if (categoryFilter === "UNCATEGORIZED") {
+      result = result.filter((i) => !i.category || i.category.trim() === "");
     }
-  }, [searchQuery, items]);
+
+    if (searchQuery.trim()) {
+      result = result.filter((i) =>
+        i.itemName?.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+    }
+
+    // Sort alphabetically by item name
+    result.sort((a, b) =>
+      (a.itemName || "")
+        .toLowerCase()
+        .localeCompare((b.itemName || "").toLowerCase()),
+    );
+
+    setFilteredItems(result);
+  }, [searchQuery, categoryFilter, items]);
+
+  // ── Counts ─────────────────────────────────────────────────────────────────
+  const counts = {
+    total: items.length,
+    drug: items.filter((i) => i.category === "DRUG").length,
+    implant: items.filter((i) => i.category === "IMPLANT").length,
+    uncategorized: items.filter((i) => !i.category || i.category.trim() === "")
+      .length,
+  };
+
+  // ── Print ──────────────────────────────────────────────────────────────────
+  const handlePrint = () => {
+    const title =
+      categoryFilter === "DRUG"
+        ? "DRUG LIST"
+        : categoryFilter === "IMPLANT"
+          ? "IMPLANT LIST"
+          : categoryFilter === "UNCATEGORIZED"
+            ? "UNCATEGORIZED ITEMS"
+            : "ALL ITEMS LIST";
+
+    // filteredItems is already sorted alphabetically and filtered by category/search
+    const rows = filteredItems
+      .map(
+        (item, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${item.itemName || "—"}</td>
+          <td>${item.hsn || "—"}</td>
+          <td>
+            <span class="badge ${
+              item.category === "DRUG"
+                ? "badge-drug"
+                : item.category === "IMPLANT"
+                  ? "badge-implant"
+                  : ""
+            }">
+              ${item.category || "—"}
+            </span>
+          </td>
+        </tr>`,
+      )
+      .join("");
+
+    const filterNote = searchQuery.trim()
+      ? ` &nbsp;|&nbsp; Search: "${searchQuery}"`
+      : "";
+
+    const html = `
+      <div class="print-header">
+        <h1>SHANMUGA HOSPITAL LIMITED</h1>
+        <p>51/24, Saradha College Road, Salem - 636007 &nbsp;|&nbsp; Ph: 04272706666</p>
+        <h2 style="margin:10px 0 0;font-size:14px;color:#1e3a5f;">${title}</h2>
+        <p>Total: ${filteredItems.length} item${filteredItems.length !== 1 ? "s" : ""}${filterNote} &nbsp;|&nbsp; Printed on: ${new Date().toLocaleString("en-IN")}</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item Name</th>
+            <th>HSN Code</th>
+            <th>Category</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="print-footer">
+        <span>Generated by: ${localStorage.getItem("employeeId") || "N/A"}</span>
+        <span>${new Date().toLocaleString("en-IN")}</span>
+      </div>
+    `;
+
+    // Write into the hidden print root div
+    if (printRootRef.current) {
+      printRootRef.current.innerHTML = html;
+    }
+
+    window.print();
+
+    // Clean up after print dialog closes
+    setTimeout(() => {
+      if (printRootRef.current) printRootRef.current.innerHTML = "";
+    }, 1000);
+  };
 
   // ── History ────────────────────────────────────────────────────────────────
   const handleShowHistory = async (item) => {
@@ -293,17 +605,11 @@ const VelavanItemList = () => {
   };
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
-  const calculateStock = (item) => {
-    const total = item.total_quantity || 0;
-    const approved = item.approved_quantity || 0;
-    return total - approved;
-  };
-
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
       await apiRequest(`${HMSURL}velavan_delete_item/${id}/`, "PATCH");
-      setItems((prevItems) => prevItems.filter((item) => item._id !== id));
+      fetchItems();
     } catch (err) {
       console.error("Delete failed", err);
     }
@@ -347,6 +653,13 @@ const VelavanItemList = () => {
   // ─── JSX ──────────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Hidden div used as print root — visible only during @media print */}
+      <div
+        id="velavan-print-root"
+        ref={printRootRef}
+        style={{ display: "none" }}
+      />
+
       <HeaderContainer>
         <h2>Item Management</h2>
         <ActionButton
@@ -367,6 +680,87 @@ const VelavanItemList = () => {
         </ActionButton>
       </HeaderContainer>
 
+      {/* ── Count Cards ── */}
+      <CardsRow>
+        {/* All Items */}
+        <CountCard
+          active={categoryFilter === "ALL"}
+          activeBg="#eff6ff"
+          borderColor="#3b82f6"
+          shadowColor="rgba(59,130,246,0.15)"
+          onClick={() => setCategoryFilter("ALL")}
+        >
+          <CardIcon bg="#dbeafe">📦</CardIcon>
+          <CardInfo>
+            <CardCount color="#1d4ed8">{counts.total}</CardCount>
+            <CardLabel>Total Items</CardLabel>
+            <CardSub color="#3b82f6">
+              {categoryFilter === "ALL" ? "● Showing all" : "Click to show all"}
+            </CardSub>
+          </CardInfo>
+        </CountCard>
+
+        {/* Drug */}
+        <CountCard
+          active={categoryFilter === "DRUG"}
+          activeBg="#eff6ff"
+          borderColor="#2563eb"
+          shadowColor="rgba(37,99,235,0.15)"
+          onClick={() => setCategoryFilter("DRUG")}
+        >
+          <CardIcon bg="#dbeafe">💊</CardIcon>
+          <CardInfo>
+            <CardCount color="#1d4ed8">{counts.drug}</CardCount>
+            <CardLabel>Drugs</CardLabel>
+            <CardSub color="#2563eb">
+              {counts.total > 0
+                ? `${((counts.drug / counts.total) * 100).toFixed(1)}% of total`
+                : "0%"}
+            </CardSub>
+          </CardInfo>
+        </CountCard>
+
+        {/* Implant */}
+        <CountCard
+          active={categoryFilter === "IMPLANT"}
+          activeBg="#f0fdf4"
+          borderColor="#16a34a"
+          shadowColor="rgba(22,163,74,0.15)"
+          onClick={() => setCategoryFilter("IMPLANT")}
+        >
+          <CardIcon bg="#dcfce7">🔩</CardIcon>
+          <CardInfo>
+            <CardCount color="#166534">{counts.implant}</CardCount>
+            <CardLabel>Implants</CardLabel>
+            <CardSub color="#16a34a">
+              {counts.total > 0
+                ? `${((counts.implant / counts.total) * 100).toFixed(1)}% of total`
+                : "0%"}
+            </CardSub>
+          </CardInfo>
+        </CountCard>
+
+        {/* Uncategorized */}
+        <CountCard
+          active={categoryFilter === "UNCATEGORIZED"}
+          activeBg="#fefce8"
+          borderColor="#ca8a04"
+          shadowColor="rgba(202,138,4,0.15)"
+          onClick={() => setCategoryFilter("UNCATEGORIZED")}
+        >
+          <CardIcon bg="#fef9c3">❓</CardIcon>
+          <CardInfo>
+            <CardCount color="#92400e">{counts.uncategorized}</CardCount>
+            <CardLabel>Uncategorized</CardLabel>
+            <CardSub color="#ca8a04">
+              {counts.uncategorized > 0
+                ? "Needs category"
+                : "All categorized ✓"}
+            </CardSub>
+          </CardInfo>
+        </CountCard>
+      </CardsRow>
+
       {/* Search Filter */}
       <SearchContainer>
         <SearchIconWrapper>
@@ -381,12 +775,68 @@ const VelavanItemList = () => {
         </SearchIconWrapper>
       </SearchContainer>
 
+      {/* ── Table Toolbar: print button only ── */}
+      <TableToolbar>
+        <PrintBtn onClick={handlePrint} title="Print filtered list">
+          <FiPrinter size={14} />
+          Print{" "}
+          {categoryFilter === "ALL"
+            ? "All Items"
+            : categoryFilter === "DRUG"
+              ? "Drug List"
+              : categoryFilter === "IMPLANT"
+                ? "Implant List"
+                : "Uncategorized List"}
+        </PrintBtn>
+      </TableToolbar>
+
+      {/* Result count strip */}
+      {(searchQuery || categoryFilter !== "ALL") && (
+        <div
+          style={{
+            fontSize: "0.75rem",
+            color: colors.textMuted,
+            marginBottom: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span>
+            Showing <strong>{filteredItems.length}</strong> of{" "}
+            <strong>{items.length}</strong> items
+          </span>
+          {(searchQuery || categoryFilter !== "ALL") && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setCategoryFilter("ALL");
+              }}
+              style={{
+                background: "none",
+                border: "none",
+                color: colors.primary,
+                cursor: "pointer",
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                padding: 0,
+                textDecoration: "underline",
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
       <TableWrapper>
         <Table>
           <thead>
             <tr>
+              <Th>#</Th>
               <Th>Item Name</Th>
               <Th>HSN</Th>
+              <Th>Category</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
@@ -394,21 +844,37 @@ const VelavanItemList = () => {
             {filteredItems.length === 0 ? (
               <Tr>
                 <Td
-                  colSpan={3}
-                  style={{ textAlign: "center", padding: "20px" }}
+                  colSpan={5}
+                  style={{ textAlign: "center", padding: "32px" }}
                 >
-                  {searchQuery
-                    ? "No items found matching your search"
-                    : "No items found"}
+                  <div style={{ fontSize: "1.8rem", marginBottom: 8 }}>📭</div>
+                  <div style={{ color: colors.textMuted, fontSize: "0.85rem" }}>
+                    {searchQuery
+                      ? "No items found matching your search"
+                      : categoryFilter !== "ALL"
+                        ? `No ${categoryFilter.toLowerCase()} items found`
+                        : "No items found"}
+                  </div>
                 </Td>
               </Tr>
             ) : (
-              filteredItems.map((item) => {
+              filteredItems.map((item, idx) => {
                 const id = item._id || item.id;
                 const isEditing = editingItem === id;
 
                 return (
                   <Tr key={id}>
+                    {/* S.No */}
+                    <Td
+                      style={{
+                        color: colors.textMuted,
+                        fontWeight: 600,
+                        width: 50,
+                      }}
+                    >
+                      {idx + 1}
+                    </Td>
+
                     {/* Item Name */}
                     <Td>
                       {isEditing ? (
@@ -437,6 +903,34 @@ const VelavanItemList = () => {
                       )}
                     </Td>
 
+                    {/* Category */}
+                    <Td>
+                      {isEditing ? (
+                        <select
+                          value={form.category || ""}
+                          onChange={(e) =>
+                            handleChange("category", e.target.value)
+                          }
+                          style={{
+                            padding: "6px 8px",
+                            border: `1px solid ${colors.border}`,
+                            borderRadius: 6,
+                            fontSize: "0.85rem",
+                            width: "100%",
+                            maxWidth: 160,
+                          }}
+                        >
+                          <option value="">Select</option>
+                          <option value="DRUG">DRUG</option>
+                          <option value="IMPLANT">IMPLANT</option>
+                        </select>
+                      ) : (
+                        <CategoryBadge cat={item.category}>
+                          {item.category || "—"}
+                        </CategoryBadge>
+                      )}
+                    </Td>
+
                     {/* Actions */}
                     <Td>
                       {isEditing ? (
@@ -453,7 +947,6 @@ const VelavanItemList = () => {
                         </>
                       ) : (
                         <>
-                          {/* History — always visible if HSN exists */}
                           {item.hsn && String(item.hsn).trim() && (
                             <ActionButton
                               color="#7c3aed"
@@ -464,7 +957,6 @@ const VelavanItemList = () => {
                               <FaHistory />
                             </ActionButton>
                           )}
-
                           {canEdit && (
                             <ActionButton
                               color="blue"
@@ -474,7 +966,6 @@ const VelavanItemList = () => {
                               <FiEdit />
                             </ActionButton>
                           )}
-
                           {canDelete && (
                             <ActionButton
                               color="red"
@@ -499,7 +990,6 @@ const VelavanItemList = () => {
       {showHistoryModal && selectedItemForHistory && (
         <HistOverlay onClick={closeHistoryModal}>
           <HistBox onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
             <HistHead>
               <div style={{ flex: 1 }}>
                 <HistTitle>
@@ -551,7 +1041,6 @@ const VelavanItemList = () => {
               </CloseBtn>
             </HistHead>
 
-            {/* Body */}
             <HistScroll>
               {historyLoading ? (
                 <div
@@ -578,12 +1067,10 @@ const VelavanItemList = () => {
                 </EmptyState>
               ) : (
                 (() => {
-                  // Resolve matched items first, then compute price stats
-                  const resolved = historyData.map((h) => {
-                    const it = h.matched_item || {};
-                    return { h, it };
-                  });
-
+                  const resolved = historyData.map((h) => ({
+                    h,
+                    it: h.matched_item || {},
+                  }));
                   const prices = resolved.map(({ it }) =>
                     parseFloat(it.unitPrice || 0),
                   );
@@ -673,7 +1160,6 @@ const VelavanItemList = () => {
                               >
                                 {it.quantity || "—"}
                               </td>
-                              {/* Unit Price — color coded */}
                               <td
                                 style={{
                                   textAlign: "right",

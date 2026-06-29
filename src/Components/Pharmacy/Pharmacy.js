@@ -1608,36 +1608,48 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     // ── Step 4: Resolve medicine rows ─────────────────────────────────────────
     const rawMeds = parseOrderedDictMeds(estimate.medicine_particulars);
 
-    const loadedMedicines = rawMeds.map((m) => {
-      const price = parseFloat(m.price || m.Price || m.mrp || 0);
-      const qty   = parseFloat(m.qty   || m.quantity || 0);
+    // ── Fix: in convertWardRequest, replace the loadedMedicines map ──────────
+const loadedMedicines = rawMeds.map((item) => {
+  const stockMatch =
+    medicines.find(
+      (s) =>
+        String(s.item_id) === String(item.item_id) &&
+        String(s.batch_number) === String(item.batch_number)
+    ) ||
+    medicines.find((s) => String(s.item_id) === String(item.item_id));
 
-      const stockMatch =
-        medicines.find(
-          (s) =>
-            String(s.item_id)     === String(m.item_id) &&
-            String(s.batch_number) === String(m.batch_number)
-        ) ||
-        medicines.find((s) => String(s.item_id) === String(m.item_id));
+  // MRP: prefer item directly (API already enriched it), fallback to stock
+  const mrp = parseFloat(item.mrp ?? stockMatch?.mrp ?? 0);
+  // Price for total calculation: use mrp (ward requests use mrp as rate)
+  const price = parseFloat(stockMatch?.price || mrp);
+  const qty   = Number(item.qty ?? item.quantity ?? 0);
 
-      return {
-        item_id:         m.item_id,
-        name:            stockMatch?.name     || m.item_name || m.name || `Item #${m.item_id}`,
-        batch_number:    m.batch_number       || "",
-        quantity:        qty,
-        price:           price,
-        mrp:             stockMatch?.mrp      ?? price,
-        hsn_code:        stockMatch?.hsn_code    || "—",
-        cgst_rate:       stockMatch?.cgst_rate   || 0,
-        cgst_amount:     stockMatch?.cgst_amount || 0,
-        sgst_rate:       stockMatch?.sgst_rate   || 0,
-        sgst_amount:     stockMatch?.sgst_amount || 0,
-        expiry_date:     stockMatch?.expiry_date || "—",
-        total:           qty * price,
-        available_stock: 9999,
-        edit_history:    m.edit_history || [],
-      };
-    });
+  // Per-unit GST amounts from API; scale by qty for display
+  const cgstRatePerUnit   = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate   ?? 0);
+  const sgstRatePerUnit   = parseFloat(item.SGST_Percentage ?? stockMatch?.sgst_rate   ?? 0);
+  const cgstAmtPerUnit    = parseFloat(item.CGST_Amt        ?? stockMatch?.cgst_amount ?? 0);
+  const sgstAmtPerUnit    = parseFloat(item.SGST_Amt        ?? stockMatch?.sgst_amount ?? 0);
+
+  return {
+    item_id:         item.item_id,
+    name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+    batch_number:    item.batch_number || stockMatch?.batch_number || "",
+    quantity:        qty,
+    price:           price,
+    mrp:             mrp,
+    hsn_code:        stockMatch?.hsn_code  || "—",
+    cgst_rate:       cgstRatePerUnit,
+    cgst_amount:     parseFloat((cgstAmtPerUnit * qty).toFixed(2)),   // ← scaled by qty
+    sgst_rate:       sgstRatePerUnit,
+    sgst_amount:     parseFloat((sgstAmtPerUnit * qty).toFixed(2)),   // ← scaled by qty
+    expiry_date:     stockMatch?.expiry_date || "—",
+    available_stock: item.available_stock    ?? stockMatch?.available_stock ?? 9999,
+    dosage:          item.dosage             || "",
+    noOfDays:        item.noOfDays           || "",
+    total:           parseFloat((qty * mrp).toFixed(2)),               // ← qty × mrp
+    edit_history:    [],
+  };
+});
 
     setAddedMedicines(loadedMedicines);
     setOverallDiscountType(estimate.overall_discount_type || "percent");

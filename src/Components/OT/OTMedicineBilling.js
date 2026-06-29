@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { Search, Plus, X, Package as PackageIcon, Eye } from "lucide-react";
+import { Plus, X, Package as PackageIcon, Eye } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 
-// ─── GlobalStyles imports ─────────────────────────────────────────────────────
 import {
   colors as globalColors,
   Container,
@@ -20,7 +19,6 @@ import {
   NoResults,
 } from "../GlobalStyles";
 
-// ─── Color palette ────────────────────────────────────────────────────────────
 const colors = {
   primary: "#136A63",
   primaryDark: "#0B4C47",
@@ -46,7 +44,6 @@ const colors = {
   packageTag: "#1d4ed8",
 };
 
-// ─── Styled Components ────────────────────────────────────────────────────────
 const PageWrapper = styled.div`
   width: 100%;
   min-height: 100vh;
@@ -475,11 +472,12 @@ const LegendItem = styled.div`
   color: white;
 `;
 
-// ─── Searchable Dropdown ──────────────────────────────────────────────────────
+// ─── Dropdown shared styles ───────────────────────────────────────────────────
 const SearchWrapper = styled.div`
   position: relative;
   width: 100%;
 `;
+
 const DropdownList = styled.ul`
   position: absolute;
   top: 100%;
@@ -488,19 +486,24 @@ const DropdownList = styled.ul`
   background: white;
   border: 1px solid ${colors.primary};
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
   z-index: 1000;
   margin: 0;
   padding: 0;
   list-style: none;
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 6px 6px;
 `;
+
 const DropdownItem = styled.li`
   padding: 10px 15px;
   font-size: 0.88rem;
   cursor: pointer;
   border-bottom: 1px solid #f0f0f0;
+  color: ${colors.textMain};
+  &:last-child {
+    border-bottom: none;
+  }
   &:hover {
     background: ${colors.background};
     color: ${colors.primaryDark};
@@ -508,7 +511,6 @@ const DropdownItem = styled.li`
   }
 `;
 
-// Special "Select Package" row pinned at the top of the medicine-name dropdown
 const PackageOptionItem = styled.li`
   padding: 10px 15px;
   font-size: 0.88rem;
@@ -525,6 +527,7 @@ const PackageOptionItem = styled.li`
   }
 `;
 
+// ─── Searchable Dropdown (used for Doctor field) ──────────────────────────────
 const SearchableDropdown = ({
   value,
   onChange,
@@ -535,17 +538,23 @@ const SearchableDropdown = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
 
+  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target))
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setIsOpen(false);
+        setActiveIdx(-1);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Sync display when value changes externally
   useEffect(() => {
     if (value) {
       const sel = options.find((o) =>
@@ -557,10 +566,62 @@ const SearchableDropdown = ({
     }
   }, [value, options, displayKey, valueKey]);
 
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (activeIdx >= 0 && listRef.current) {
+      const item = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeIdx]);
+
   const filtered = options.filter((o) => {
     const txt = typeof o === "string" ? o : o[displayKey];
     return txt.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  const selectOption = (o) => {
+    const val = typeof o === "string" ? o : o[valueKey];
+    const txt = typeof o === "string" ? o : o[displayKey];
+    onChange(val);
+    setSearchTerm(txt);
+    setIsOpen(false);
+    setActiveIdx(-1);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!isOpen && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      setIsOpen(true);
+      setActiveIdx(0);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((p) => (p + 1) % filtered.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((p) => (p - 1 + filtered.length) % filtered.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIdx >= 0 && filtered[activeIdx]) {
+        selectOption(filtered[activeIdx]);
+      } else if (filtered.length === 1) {
+        selectOption(filtered[0]);
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setActiveIdx(-1);
+    } else if (e.key === "Tab") {
+      // Auto-select top match on Tab so user can move forward without Enter
+      if (isOpen && filtered.length > 0) {
+        const pick = activeIdx >= 0 ? filtered[activeIdx] : filtered[0];
+        selectOption(pick);
+      }
+      setIsOpen(false);
+      setActiveIdx(-1);
+      // Do NOT preventDefault — let Tab move focus naturally
+    }
+  };
 
   return (
     <SearchWrapper ref={wrapperRef}>
@@ -570,22 +631,30 @@ const SearchableDropdown = ({
         placeholder={placeholder}
         onChange={(e) => {
           setSearchTerm(e.target.value);
+          setActiveIdx(-1);
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        aria-autocomplete="list"
+        aria-expanded={isOpen}
       />
       {isOpen && filtered.length > 0 && (
-        <DropdownList>
+        <DropdownList ref={listRef} role="listbox">
           {filtered.map((o, i) => (
             <DropdownItem
               key={i}
-              onClick={() => {
-                const val = typeof o === "string" ? o : o[valueKey];
-                const txt = typeof o === "string" ? o : o[displayKey];
-                onChange(val);
-                setSearchTerm(txt);
-                setIsOpen(false);
+              data-idx={i}
+              role="option"
+              aria-selected={activeIdx === i}
+              style={{
+                background: activeIdx === i ? "#f0fdf4" : undefined,
+                fontWeight: activeIdx === i ? 600 : undefined,
+                color: activeIdx === i ? colors.primary : undefined,
               }}
+              onMouseEnter={() => setActiveIdx(i)}
+              onClick={() => selectOption(o)}
             >
               {typeof o === "string" ? o : o[displayKey]}
             </DropdownItem>
@@ -596,12 +665,9 @@ const SearchableDropdown = ({
   );
 };
 
-// ─── Medicine Name field with integrated "Select Package" option ─────────────
-// This wraps the medicine-name search input. Typing filters nothing on its own
-// (the real search still happens through the existing Search button/modal) —
-// this component only adds a dropdown affordance so the user can either:
-//   1. keep typing to do a normal medicine search, or
-//   2. click "📦 Select from Package" to switch into package mode.
+// ─── Medicine Name Field — inline keyboard-navigable dropdown ─────────────────
+// No modal. Type 2+ chars → debounced search → inline dropdown.
+// Keys: ↓/↑ navigate, Enter selects, Escape closes, Tab closes & moves focus.
 const MedicineNameField = ({
   searchQuery,
   setSearchQuery,
@@ -609,50 +675,173 @@ const MedicineNameField = ({
   setSelectedDrug,
   onOpenPackageList,
   disabled,
+  onSearch, // async (query: string) => void  — updates searchResults in parent
+  searchResults, // array of { item_id, name }
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
+  const debounceRef = useRef(null);
 
+  // Close on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target))
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setIsOpen(false);
+        setActiveIdx(-1);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (activeIdx >= 0 && listRef.current) {
+      const item = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
+      item?.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeIdx]);
+
+  const selectItem = (item) => {
+    setSelectedDrug(item);
+    setSearchQuery(item.name);
+    setIsOpen(false);
+    setActiveIdx(-1);
+  };
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    if (selectedDrug) setSelectedDrug(null);
+    setSearchQuery(val);
+    setActiveIdx(-1);
+
+    clearTimeout(debounceRef.current);
+    if (val.length >= 2) {
+      setIsOpen(true);
+      debounceRef.current = setTimeout(() => onSearch(val), 300);
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    // row 0 = "Select from Package", rows 1..n = search results
+    const total = 1 + searchResults.length;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
+      setActiveIdx((p) => (p + 1) % total);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((p) => (p - 1 + total) % total);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!isOpen) return;
+      if (activeIdx === 0) {
+        setIsOpen(false);
+        setActiveIdx(-1);
+        onOpenPackageList();
+      } else if (activeIdx > 0) {
+        selectItem(searchResults[activeIdx - 1]);
+      } else if (searchResults.length === 1) {
+        // nothing highlighted but only one result — auto-pick it
+        selectItem(searchResults[0]);
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setActiveIdx(-1);
+    } else if (e.key === "Tab") {
+      // Let Tab move focus naturally — just close the dropdown
+      setIsOpen(false);
+      setActiveIdx(-1);
+      // Do NOT preventDefault — browser handles focus movement
+    }
+  };
+
+  const displayValue = selectedDrug ? selectedDrug.name : searchQuery;
 
   return (
     <SearchWrapper ref={wrapperRef}>
       <StyledInput
         type="text"
         disabled={disabled}
-        placeholder="Search medicine (min 3 chars)..."
-        value={selectedDrug ? selectedDrug.name : searchQuery}
-        onChange={(e) => {
-          if (selectedDrug) setSelectedDrug(null);
-          setSearchQuery(e.target.value);
+        placeholder="Search medicine (min 2 chars)..."
+        value={displayValue}
+        onChange={handleChange}
+        onFocus={() => {
+          if (searchQuery.length >= 2 || searchResults.length > 0)
+            setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onKeyDown={handleKeyDown}
+        autoComplete="off"
+        aria-autocomplete="list"
+        aria-expanded={isOpen}
       />
+
       {isOpen && !disabled && (
-        <DropdownList>
+        <DropdownList ref={listRef} role="listbox">
+          {/* Pinned "Select from Package" row — always index 0 */}
           <PackageOptionItem
+            data-idx={0}
+            role="option"
+            aria-selected={activeIdx === 0}
+            style={{
+              background: activeIdx === 0 ? "#dbeafe" : undefined,
+              outline: "none",
+            }}
+            onMouseEnter={() => setActiveIdx(0)}
             onClick={() => {
               setIsOpen(false);
+              setActiveIdx(-1);
               onOpenPackageList();
             }}
           >
-            <PackageIcon size={15} /> Select from Package
+            <PackageIcon size={15} aria-hidden="true" /> Select from Package
           </PackageOptionItem>
+
+          {/* Results */}
+          {searchResults.length === 0 && searchQuery.length >= 2 && (
+            <DropdownItem
+              style={{
+                color: colors.textMuted,
+                fontStyle: "italic",
+                cursor: "default",
+              }}
+            >
+              No items found
+            </DropdownItem>
+          )}
+          {searchResults.map((item, i) => {
+            const idx = i + 1;
+            return (
+              <DropdownItem
+                key={item.item_id}
+                data-idx={idx}
+                role="option"
+                aria-selected={activeIdx === idx}
+                style={{
+                  background: activeIdx === idx ? "#f0fdf4" : undefined,
+                  fontWeight: activeIdx === idx ? 600 : undefined,
+                  color: activeIdx === idx ? colors.primary : undefined,
+                  outline: "none",
+                }}
+                onMouseEnter={() => setActiveIdx(idx)}
+                onClick={() => selectItem(item)}
+              >
+                {item.name}
+              </DropdownItem>
+            );
+          })}
         </DropdownList>
       )}
     </SearchWrapper>
   );
 };
 
-// ─── View Medicines Modal (Eye icon in Request History) ──────────────────────
-// Shows full medicine list with dosage/qty/route details for a single request.
+// ─── View Medicines Modal ─────────────────────────────────────────────────────
 const ViewMedicinesModal = ({ request, onClose }) => {
   if (!request) return null;
   const medicines = request.medicines || [];
@@ -799,7 +988,6 @@ const OTMedicineBilling = () => {
   const location = useLocation();
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // ── Patient data from navigation state ────────────────────────────────────
   const pd = location.state?.patientData || {};
 
   const resolvedPatient = {
@@ -808,7 +996,6 @@ const OTMedicineBilling = () => {
     name: pd.patient_name || pd.firstName || "Unknown Patient",
     age: pd.age || "-",
     gender: pd.gender || "-",
-    admitting: "-",
     admittingDr: pd.admittingDoctor || "-",
     roomBed: `${pd.roomNo || "-"} | ${pd.bedNo || "-"}`,
     customerType: pd.customerType || pd.customer_type || "-",
@@ -817,33 +1004,26 @@ const OTMedicineBilling = () => {
     is_emergency: !!pd.is_emergency,
   };
 
-  // ── State ─────────────────────────────────────────────────────────────────
+  // ── State ──────────────────────────────────────────────────────────────────
   const [requests, setRequests] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
 
-  // ── Edit mode state ───────────────────────────────────────────────────────
   const [editMode, setEditMode] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState(null);
 
-  // ── Package mode state ─────────────────────────────────────────────────────
-  // selectedPackageId holds medPackage_id, which is sent as Package_id on save.
-  // When set, the individual-medicine inputs are locked (package-only mode).
   const [packages, setPackages] = useState([]);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [selectedPackageName, setSelectedPackageName] = useState("");
   const [packageLoading, setPackageLoading] = useState(false);
 
-  // ── View medicines modal (Eye icon in Request History) ────────────────────
   const [viewingRequest, setViewingRequest] = useState(null);
 
-  // Fixed for OT: always IP pharmacy
   const pharmacyDept = "OLET001";
+
   const [selectedDrug, setSelectedDrug] = useState(null);
   const [doctor, setDoctor] = useState("");
   const [doctorName, setDoctorName] = useState("");
@@ -857,15 +1037,15 @@ const OTMedicineBilling = () => {
   const [dosageOptions, setDosageOptions] = useState([]);
   const [showDosageModal, setShowDosageModal] = useState(false);
   const [newDosageName, setNewDosageName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ── Init ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchRequests();
     fetchDoctors();
     fetchDosages();
   }, []); // eslint-disable-line
 
-  // Pre-fill admitting doctor from navigation state once doctors load
   useEffect(() => {
     if (!doctors.length || !pd.admittingDoctor) return;
     const match = doctors.find(
@@ -876,12 +1056,10 @@ const OTMedicineBilling = () => {
     if (match) {
       setDoctor(match.employeeId);
       setDoctorName(match.employeeName);
-    } else {
-      setDoctor(pd.admittingDoctor);
-    }
+    } else setDoctor(pd.admittingDoctor);
   }, [doctors, pd.admittingDoctor]); // eslint-disable-line
 
-  // ── API calls ─────────────────────────────────────────────────────────────
+  // ── API calls ──────────────────────────────────────────────────────────────
   const fetchDosages = async () => {
     const res = await apiRequest(`${HmsBaseUrl}dosage_master/`, "GET");
     if (res.success) setDosageOptions(res.data?.data || []);
@@ -918,7 +1096,33 @@ const OTMedicineBilling = () => {
     }
   };
 
-  // Fetch packages from hospital_medicine_package collection, scoped to this outlet
+  // ── Medicine search — queries item master directly (no stock/batch) ────────
+  const handleMedicineSearch = async (val) => {
+    if (val.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const res = await apiRequest(
+      `${HmsBaseUrl}get_pharmacy_items/?search=${encodeURIComponent(val)}`,
+      "GET",
+    );
+    const list = res.success
+      ? Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+          ? res.data
+          : []
+      : [];
+    setSearchResults(
+      list.map((i) => ({
+        id: i.item_id,
+        item_id: i.item_id,
+        name: i.item_name,
+      })),
+    );
+  };
+
+  // ── Package helpers ────────────────────────────────────────────────────────
   const fetchPackages = async () => {
     const res = await apiRequest(
       `${HmsBaseUrl}get_medicine_packages/?outlet_code=${pharmacyDept}`,
@@ -939,8 +1143,6 @@ const OTMedicineBilling = () => {
     fetchPackages();
   };
 
-  // Look up the current price for a given item_id from stock,
-  // since the package collection only stores item_id/item_name/qty.
   const lookupItemPrice = async (itemId, itemName) => {
     try {
       const res = await apiRequest(
@@ -961,12 +1163,9 @@ const OTMedicineBilling = () => {
     }
   };
 
-  // ── Selecting a package: pulls items+qty, looks up price per item,
-  //     and REPLACES selectedMedicines (package-only mode) ─────────────────
   const handleSelectPackage = async (pkg) => {
     setPackageLoading(true);
     setIsPackageModalOpen(false);
-
     const items = pkg.items || [];
     const priced = await Promise.all(
       items.map(async (it) => {
@@ -976,8 +1175,6 @@ const OTMedicineBilling = () => {
           itemName: it.item_name,
           qty: it.qty,
           price,
-          // Other per-item fields are not applicable for package items —
-          // sent as empty strings, matching backend setdefault() handling.
           noOfDays: "",
           dosage: "",
           dose: "",
@@ -987,12 +1184,9 @@ const OTMedicineBilling = () => {
         };
       }),
     );
-
     setSelectedMedicines(priced);
     setSelectedPackageId(pkg.medPackage_id);
     setSelectedPackageName(pkg.medPackage_name);
-
-    // Clear any in-progress single-medicine entry, since we're now in package mode
     resetDrugFields();
     setPackageLoading(false);
   };
@@ -1003,38 +1197,7 @@ const OTMedicineBilling = () => {
     setSelectedMedicines([]);
   };
 
-  const handleMedicineSearch = async (val) => {
-    if (val.length < 3) {
-      setSearchResults([]);
-      return;
-    }
-    const res = await apiRequest(
-      `${HmsBaseUrl}get_ippharmacy_stock/?outlet_code=${pharmacyDept}&search=${val}`,
-      "GET",
-    );
-    const list = res.success
-      ? Array.isArray(res.data?.data)
-        ? res.data.data
-        : Array.isArray(res.data)
-          ? res.data
-          : []
-      : [];
-    setSearchResults(
-      list
-        .filter((i) => i.item_name?.toLowerCase().includes(val.toLowerCase()))
-        .map((i) => ({
-          id: `${i.item_id}_${i.batch_number}`,
-          item_id: i.item_id,
-          batch_number: i.batch_number,
-          name: i.item_name,
-          price: i.mrp,
-          total_stock: i.total_stock || 0,
-          expiry_date: i.expiry_date || "-",
-        })),
-    );
-  };
-
-  // Auto-calculate quantity
+  // ── Auto-calculate qty ─────────────────────────────────────────────────────
   useEffect(() => {
     if (dosage && noOfDays) {
       const times = dosage.includes("-")
@@ -1045,8 +1208,9 @@ const OTMedicineBilling = () => {
     }
   }, [dosage, noOfDays]);
 
+  // ── Add medicine ───────────────────────────────────────────────────────────
   const handleAddMedicine = () => {
-    if (selectedPackageId) return; // package-only mode: individual add disabled
+    if (selectedPackageId) return;
     if (!selectedDrug) return alert("Select a drug from search.");
     if (!dosage) return alert("Enter Dosage.");
     if (!noOfDays) return alert("Enter No. of days.");
@@ -1056,7 +1220,7 @@ const OTMedicineBilling = () => {
       item_id: selectedDrug.item_id,
       itemName: selectedDrug.name,
       qty: Number(qty),
-      price: selectedDrug.price,
+      price: 0, // price resolved at billing time
       noOfDays,
       dosage,
       dose,
@@ -1068,7 +1232,6 @@ const OTMedicineBilling = () => {
     resetDrugFields();
   };
 
-  // Reset only the drug-input fields, not doctor or edit state
   const resetDrugFields = () => {
     setSelectedDrug(null);
     setNoOfDays("");
@@ -1079,9 +1242,9 @@ const OTMedicineBilling = () => {
     setRemark("");
     setDosage("");
     setSearchQuery("");
+    setSearchResults([]);
   };
 
-  // Full reset including edit state — used when closing the form
   const resetForm = () => {
     resetDrugFields();
     setEditMode(false);
@@ -1091,9 +1254,8 @@ const OTMedicineBilling = () => {
     setSelectedPackageName("");
   };
 
-  // ── Open Edit: pre-fill form with existing request data ──────────────────
+  // ── Edit ───────────────────────────────────────────────────────────────────
   const openEditModal = (req) => {
-    // Pre-fill doctor
     const match = doctors.find(
       (d) =>
         d.employeeId === req.doctor_id ||
@@ -1104,7 +1266,6 @@ const OTMedicineBilling = () => {
       match ? match.employeeName : req.doctorName || req.doctor || "",
     );
 
-    // Pre-fill medicines into selectedMedicines
     const prefilled = (req.medicines || []).map((m) => ({
       item_id: m.item_id,
       itemName: m.itemName || m.name,
@@ -1117,10 +1278,8 @@ const OTMedicineBilling = () => {
       route: m.route || "",
       remark: m.remark || "",
     }));
-
     setSelectedMedicines(prefilled);
 
-    // Pre-fill package info if this request originated from a package
     if (req.Package_id || req.package_id) {
       setSelectedPackageId(req.Package_id || req.package_id);
       setSelectedPackageName(req.packageName || req.package_name || "");
@@ -1130,7 +1289,7 @@ const OTMedicineBilling = () => {
     }
 
     setEditMode(true);
-    setEditingRequestId(req.bill_id || req.bill_id);
+    setEditingRequestId(req.bill_id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1140,35 +1299,33 @@ const OTMedicineBilling = () => {
     const res = await apiRequest(
       `${HmsBaseUrl}mark_ot_medicine_received/`,
       "PUT",
-      { bill_id: req.bill_id },
+      {
+        bill_id: req.bill_id,
+      },
     );
     if (res.success) {
       alert("Marked as received successfully");
       fetchRequests();
-    } else {
-      alert(res.error || res.message || "Failed to mark as received");
-    }
+    } else alert(res.error || res.message || "Failed to mark as received");
   };
 
   const handleDelete = async (req) => {
     if (!window.confirm("Are you sure you want to delete this ward request?"))
       return;
-
     const res = await apiRequest(
       `${HmsBaseUrl}delete_ot_medicine_ward_request/`,
       "PUT",
-      { bill_id: req.bill_id || req.Bill_id },
+      {
+        bill_id: req.bill_id || req.Bill_id,
+      },
     );
-
     if (res.success) {
       alert("Ward request deleted successfully");
       fetchRequests();
-    } else {
-      alert(res.error || res.message || "Delete failed");
-    }
+    } else alert(res.error || res.message || "Delete failed");
   };
 
-  // ── Confirm: create new OR update existing ────────────────────────────────
+  // ── Confirm / Update ───────────────────────────────────────────────────────
   const handleConfirm = async () => {
     if (!selectedMedicines.length) return alert("No medicines added.");
 
@@ -1178,7 +1335,6 @@ const OTMedicineBilling = () => {
     );
 
     if (editMode) {
-      // UPDATE existing request
       const payload = {
         bill_id: editingRequestId,
         medicine_particulars: selectedMedicines,
@@ -1196,11 +1352,8 @@ const OTMedicineBilling = () => {
         resetForm();
         setShowForm(false);
         fetchRequests();
-      } else {
-        alert(res.error || "Update failed");
-      }
+      } else alert(res.error || "Update failed");
     } else {
-      // CREATE new request
       const payload = {
         uhid: resolvedPatient.uhid,
         ipNumber: resolvedPatient.ipNo,
@@ -1227,9 +1380,6 @@ const OTMedicineBilling = () => {
   };
 
   const removeSelectedMed = (i) => {
-    // Removing an item from a package-derived list breaks the 1:1 package
-    // mapping, so drop the package association — the rest of the items
-    // stay in the list as plain medicines.
     if (selectedPackageId) {
       setSelectedPackageId(null);
       setSelectedPackageName("");
@@ -1245,11 +1395,9 @@ const OTMedicineBilling = () => {
     return colors.legRegular;
   };
 
-  // Add this alongside getStatusColor:
   const getDispatchColor = (isDispatched) =>
-    isDispatched ? "#136A63" : "#F88C22"; // green = Dispatched, orange = Pending
+    isDispatched ? "#136A63" : "#F88C22";
 
-  // ── Handle toggle form button ─────────────────────────────────────────────
   const handleToggleForm = () => {
     if (showForm) {
       setShowForm(false);
@@ -1260,10 +1408,9 @@ const OTMedicineBilling = () => {
     }
   };
 
-  // ─── JSX ──────────────────────────────────────────────────────────────────
+  // ─── JSX ───────────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
-      {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <TopBar>
         <BackBtn onClick={() => navigate(-1)}>← Back</BackBtn>
         <PageTitle>
@@ -1278,49 +1425,29 @@ const OTMedicineBilling = () => {
       </TopBar>
 
       <div style={{ padding: "20px" }}>
-        {/* ── Patient panel ─────────────────────────────────────────────── */}
+        {/* Patient panel */}
         <PatientPanel>
           <PatientGrid>
-            <FieldBox>
-              <FieldLabel>IP No</FieldLabel>
-              <FieldValue>{resolvedPatient.ipNo}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>UHID</FieldLabel>
-              <FieldValue>{resolvedPatient.uhid}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Name</FieldLabel>
-              <FieldValue>{resolvedPatient.name}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Age</FieldLabel>
-              <FieldValue>{resolvedPatient.age}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Gender</FieldLabel>
-              <FieldValue>{resolvedPatient.gender}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Admitting Dr</FieldLabel>
-              <FieldValue>{resolvedPatient.admittingDr}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Room | Bed</FieldLabel>
-              <FieldValue>{resolvedPatient.roomBed}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Customer Type</FieldLabel>
-              <FieldValue>{resolvedPatient.customerType}</FieldValue>
-            </FieldBox>
-            <FieldBox>
-              <FieldLabel>Company</FieldLabel>
-              <FieldValue>{resolvedPatient.companyName}</FieldValue>
-            </FieldBox>
+            {[
+              ["IP No", resolvedPatient.ipNo],
+              ["UHID", resolvedPatient.uhid],
+              ["Name", resolvedPatient.name],
+              ["Age", resolvedPatient.age],
+              ["Gender", resolvedPatient.gender],
+              ["Admitting Dr", resolvedPatient.admittingDr],
+              ["Room | Bed", resolvedPatient.roomBed],
+              ["Customer Type", resolvedPatient.customerType],
+              ["Company", resolvedPatient.companyName],
+            ].map(([label, val]) => (
+              <FieldBox key={label}>
+                <FieldLabel>{label}</FieldLabel>
+                <FieldValue>{val}</FieldValue>
+              </FieldBox>
+            ))}
           </PatientGrid>
         </PatientPanel>
 
-        {/* ── New / Edit Request toggle ─────────────────────────────────── */}
+        {/* Toggle form button */}
         <TopActionBar>
           <RequestBtn onClick={handleToggleForm}>
             {showForm
@@ -1331,10 +1458,9 @@ const OTMedicineBilling = () => {
           </RequestBtn>
         </TopActionBar>
 
-        {/* ── Request Form ──────────────────────────────────────────────── */}
+        {/* Form */}
         {showForm && (
           <>
-            {/* Edit mode banner */}
             {editMode && (
               <EditModeBanner>
                 ✏️ You are editing an existing request. Modify the medicines in
@@ -1343,7 +1469,6 @@ const OTMedicineBilling = () => {
               </EditModeBanner>
             )}
 
-            {/* Package mode banner */}
             {selectedPackageId && (
               <PackageModeBanner>
                 <span>
@@ -1360,7 +1485,7 @@ const OTMedicineBilling = () => {
             <RequestFormWrapper>
               <FormPanel>
                 <FormGrid>
-                  {/* Bill Type — fixed, read-only */}
+                  {/* Bill type — read-only */}
                   <FormItem>
                     <FormLabel>Medicine Bill Type</FormLabel>
                     <StyledInput
@@ -1374,7 +1499,7 @@ const OTMedicineBilling = () => {
                     />
                   </FormItem>
 
-                  {/* Medicine Name search + Select-Package option */}
+                  {/* ── Medicine Name — inline dropdown, no modal ── */}
                   <FormItem style={{ gridColumn: "span 2" }}>
                     <FormLabel>
                       Medicine Name{" "}
@@ -1390,44 +1515,16 @@ const OTMedicineBilling = () => {
                         </span>
                       )}
                     </FormLabel>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <div style={{ flex: 1 }}>
-                        <MedicineNameField
-                          searchQuery={searchQuery}
-                          setSearchQuery={setSearchQuery}
-                          selectedDrug={selectedDrug}
-                          setSelectedDrug={setSelectedDrug}
-                          onOpenPackageList={handleOpenPackageList}
-                          disabled={!!selectedPackageId}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        disabled={!!selectedPackageId}
-                        onClick={() => {
-                          if (searchQuery.length > 2) {
-                            setIsSearchModalOpen(true);
-                            handleMedicineSearch(searchQuery);
-                          } else alert("Enter at least 3 characters.");
-                        }}
-                        style={{
-                          background: selectedPackageId
-                            ? "#cbd5e1"
-                            : colors.primary,
-                          color: "white",
-                          padding: "0 16px",
-                          borderRadius: "4px",
-                          border: "none",
-                          cursor: selectedPackageId ? "not-allowed" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          fontSize: "14px",
-                        }}
-                      >
-                        <Search size={16} /> Search
-                      </button>
-                    </div>
+                    <MedicineNameField
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
+                      selectedDrug={selectedDrug}
+                      setSelectedDrug={setSelectedDrug}
+                      onOpenPackageList={handleOpenPackageList}
+                      disabled={!!selectedPackageId}
+                      onSearch={handleMedicineSearch}
+                      searchResults={searchResults}
+                    />
                   </FormItem>
 
                   {/* Doctor */}
@@ -1563,7 +1660,7 @@ const OTMedicineBilling = () => {
                 </ActionButtons>
               </FormPanel>
 
-              {/* ── Side panel ──────────────────────────────────────────── */}
+              {/* Side panel */}
               <SidePanel>
                 <SidePanelHeader>
                   {selectedPackageId
@@ -1678,7 +1775,7 @@ const OTMedicineBilling = () => {
           </>
         )}
 
-        {/* ── Request History ───────────────────────────────────────────── */}
+        {/* Request History */}
         <TabsBar>
           <Tab active={true}>Request History</Tab>
         </TabsBar>
@@ -1700,7 +1797,7 @@ const OTMedicineBilling = () => {
             {requests.length === 0 ? (
               <tr>
                 <td
-                  colSpan="7"
+                  colSpan="8"
                   style={{
                     textAlign: "center",
                     padding: "30px",
@@ -1717,43 +1814,30 @@ const OTMedicineBilling = () => {
                     {req.reqDate} {req.reqTime}
                   </td>
                   <td>
-                    <div
+                    <button
+                      title="View medicine details"
+                      onClick={() => setViewingRequest(req)}
                       style={{
+                        background: "none",
+                        border: "none",
+                        color: colors.primary,
+                        cursor: "pointer",
+                        padding: "4px",
                         display: "flex",
                         alignItems: "center",
-                        gap: "8px",
                       }}
                     >
-                      <button
-                        title="View medicine details"
-                        onClick={() => setViewingRequest(req)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: colors.primary,
-                          cursor: "pointer",
-                          padding: "4px",
-                          display: "flex",
-                          alignItems: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Eye size={16} />
-                      </button>
-                    </div>
+                      <Eye size={16} />
+                    </button>
                   </td>
-
                   <td>{req.wardName || ""}</td>
                   <td>{req.doctorName || req.doctor}</td>
                   <td>{req.billName}</td>
-                  {/* Dispatch Status */}
                   <td>
                     <LegendItem color={getDispatchColor(req.is_dispatched)}>
                       {req.is_dispatched ? "Dispatched" : "Pending"}
                     </LegendItem>
                   </td>
-
-                  {/* Payment Status */}
                   <td>
                     <LegendItem
                       color={getStatusColor(req.billingStatus || "Pending")}
@@ -1761,8 +1845,6 @@ const OTMedicineBilling = () => {
                       {req.billingStatus || "Pending"}
                     </LegendItem>
                   </td>
-
-                  {/* Action */}
                   <td>
                     <div
                       style={{
@@ -1829,7 +1911,6 @@ const OTMedicineBilling = () => {
                         🗑️ Delete
                       </button>
 
-                      {/* Received checkbox — only visible when dispatched and not yet received */}
                       {req.is_dispatched && !req.is_received && (
                         <label
                           style={{
@@ -1842,7 +1923,6 @@ const OTMedicineBilling = () => {
                             cursor: "pointer",
                             whiteSpace: "nowrap",
                           }}
-                          title="Mark as Received"
                         >
                           <input
                             type="checkbox"
@@ -1857,7 +1937,6 @@ const OTMedicineBilling = () => {
                         </label>
                       )}
 
-                      {/* Already received — show read-only tick */}
                       {req.is_dispatched && req.is_received && (
                         <span
                           style={{
@@ -1894,153 +1973,7 @@ const OTMedicineBilling = () => {
         </LegendContainer>
       </div>
 
-      {/* ── Medicine Search Modal ─────────────────────────────────────────── */}
-      {isSearchModalOpen && (
-        <ModalOverlay style={{ zIndex: 2000 }}>
-          <ModalContainer
-            style={{ width: "80%", height: "80%", maxWidth: "1000px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Header>
-              <HeaderTitle>Select Medicine ({pharmacyDept})</HeaderTitle>
-              <button onClick={() => setIsSearchModalOpen(false)}>×</button>
-            </Header>
-            <ContentBody>
-              <div
-                style={{ display: "flex", gap: "8px", marginBottom: "16px" }}
-              >
-                <StyledInput
-                  style={{ flex: 1 }}
-                  placeholder="Search again..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && searchQuery.length > 2)
-                      handleMedicineSearch(searchQuery);
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (searchQuery.length > 2)
-                      handleMedicineSearch(searchQuery);
-                  }}
-                  style={{
-                    background: colors.primary,
-                    color: "white",
-                    padding: "0 16px",
-                    borderRadius: "4px",
-                    border: "none",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "14px",
-                  }}
-                >
-                  <Search size={16} /> Search
-                </button>
-              </div>
-              {searchResults.length > 0 ? (
-                <div
-                  style={{
-                    overflowX: "auto",
-                    border: `1px solid ${colors.border}`,
-                    borderRadius: "8px",
-                  }}
-                >
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      fontSize: "0.9rem",
-                    }}
-                  >
-                    <thead>
-                      <tr
-                        style={{ background: colors.headerBg, color: "#fff" }}
-                      >
-                        <th style={{ padding: "10px", textAlign: "left" }}>
-                          Item Name
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "left" }}>
-                          Batch No
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "left" }}>
-                          Expiry
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "right" }}>
-                          MRP (₹)
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "right" }}>
-                          Stock
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "center" }}>
-                          Action
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {searchResults.map((item, i) => (
-                        <tr
-                          key={i}
-                          style={{ borderBottom: `1px solid ${colors.border}` }}
-                        >
-                          <td style={{ padding: "10px" }}>{item.name}</td>
-                          <td style={{ padding: "10px" }}>
-                            {item.batch_number}
-                          </td>
-                          <td style={{ padding: "10px" }}>
-                            {item.expiry_date && item.expiry_date !== "-"
-                              ? new Date(item.expiry_date).toLocaleDateString()
-                              : "-"}
-                          </td>
-                          <td style={{ padding: "10px", textAlign: "right" }}>
-                            {Number(item.price).toFixed(2)}
-                          </td>
-                          <td style={{ padding: "10px", textAlign: "right" }}>
-                            {item.total_stock}
-                          </td>
-                          <td style={{ padding: "10px", textAlign: "center" }}>
-                            <button
-                              style={{
-                                background: colors.primary,
-                                color: "white",
-                                border: "none",
-                                padding: "6px 12px",
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                              }}
-                              onClick={() => {
-                                setSelectedDrug(item);
-                                setIsSearchModalOpen(false);
-                              }}
-                            >
-                              Select
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: "40px",
-                    textAlign: "center",
-                    color: colors.textMuted,
-                  }}
-                >
-                  No stock found matching your search in {pharmacyDept}.
-                </div>
-              )}
-            </ContentBody>
-          </ModalContainer>
-        </ModalOverlay>
-      )}
-
-      {/* ── Medicine Package Selection Modal ──────────────────────────────── */}
-      {/* Rendered as a simple list of medPackage_name rows, not cards. */}
+      {/* Package Selection Modal */}
       {isPackageModalOpen && (
         <ModalOverlay style={{ zIndex: 2000 }}>
           <ModalContainer
@@ -2059,13 +1992,7 @@ const OTMedicineBilling = () => {
             </Header>
             <ContentBody style={{ padding: 0 }}>
               {packages.length > 0 ? (
-                <ul
-                  style={{
-                    margin: 0,
-                    padding: 0,
-                    listStyle: "none",
-                  }}
-                >
+                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
                   {packages.map((pkg, idx) => (
                     <li
                       key={pkg.medPackage_id}
@@ -2132,7 +2059,7 @@ const OTMedicineBilling = () => {
         </ModalOverlay>
       )}
 
-      {/* ── View Medicines Modal (Eye icon, Request History) ──────────────── */}
+      {/* View Medicines Modal */}
       {viewingRequest && (
         <ViewMedicinesModal
           request={viewingRequest}
@@ -2140,7 +2067,7 @@ const OTMedicineBilling = () => {
         />
       )}
 
-      {/* ── Add Dosage Modal ──────────────────────────────────────────────── */}
+      {/* Add Dosage Modal */}
       {showDosageModal && (
         <div
           style={{

@@ -62,9 +62,12 @@ const ModalContainer = styled.div`
     -apple-system,
     sans-serif;
   @media (max-width: 768px) {
-    width: 100%;
-    height: 100vh;
-    border-radius: 0;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
   }
 `;
 
@@ -917,6 +920,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       billTypeNo,
       billTypeName,
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
+      roomNo: resolvedPatient.roomBed || "-",
       medicine_particulars: selectedMedicines,
       total_amount: selectedMedicines.reduce(
         (acc, m) => acc + (m.price || 0) * (m.qty || 0),

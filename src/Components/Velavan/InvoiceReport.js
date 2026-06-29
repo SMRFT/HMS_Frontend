@@ -959,8 +959,8 @@ const InvoiceReport = () => {
       });
       // Footer total row for this vendor
       tableRows += `<tr style="background:#fff3cd;font-weight:bold">
-  <td colspan="4" style="text-align:right;padding:8px">Total</td>
-  <td style="text-align:right;padding:8px" colspan="2">${formatCurrency(total)}</td>
+  <td colspan="4" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
+  <td style="text-align:right;padding:8px;border:1px solid #000" colspan="2">${formatCurrency(total)}</td>
 </tr>`;
     });
 
@@ -1052,8 +1052,8 @@ const InvoiceReport = () => {
       // Footer total row
       tableRows += `
 <tr style="background:#fff3cd;font-weight:bold">
-  <td colspan="3" style="text-align:right;padding:8px">Total</td>
-  <td style="text-align:right;padding:8px" colspan="2">${formatCurrency(total)}</td>
+  <td colspan="3" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
+  <td style="text-align:right;padding:8px;border:1px solid #000" colspan="2">${formatCurrency(total)}</td>
 </tr>`;
     });
 

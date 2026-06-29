@@ -134,10 +134,14 @@ const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
 
     setSaving(true);
     try {
-      const itemsPayload = itemKeys.map(k => ({
-        item: k,
-        qty: selectedItems[k]
-      }));
+      const itemsPayload = itemKeys.map(k => {
+        const foundItem = laundryItems.find(li => li.item_name === k);
+        return {
+          item_id: foundItem ? foundItem.item_id : "",
+          item: k,
+          qty: selectedItems[k]
+        };
+      });
 
       const payload = {
         uhid: rp.uhid,

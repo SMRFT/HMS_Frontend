@@ -139,6 +139,33 @@ const GLOBAL_CSS = `
   }
 `;
 
+/* ─── fieldsData array helpers ───────────────────────────────────────────
+   fieldsData is stored/returned as an array of { key, value } objects
+   instead of a plain { key: value } object. normalizeFieldsData() also
+   tolerates the older object shape (and a JSON string of either), so
+   summaries saved before this change still print correctly.
+──────────────────────────────────────────────────────────────────────── */
+const normalizeFieldsData = (fd) => {
+  let parsed = fd;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = [];
+    }
+  }
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && typeof parsed === "object") {
+    return Object.entries(parsed).map(([key, value]) => ({ key, value }));
+  }
+  return [];
+};
+
+const getFieldValue = (fieldsDataArr, key) => {
+  const entry = fieldsDataArr.find((f) => f.key === key);
+  return entry ? entry.value : undefined;
+};
+
 /* ═══════════════════════════════════════════════════════════ */
 const SummaryPrint = () => {
   const { ipNo } = useParams();
@@ -552,13 +579,11 @@ const SummaryPrint = () => {
 
     const isApproved = summaryData.approve === true;
 
-    let fieldsData = {};
-    try {
-      fieldsData =
-        typeof summaryData.fieldsData === "string"
-          ? JSON.parse(summaryData.fieldsData)
-          : summaryData.fieldsData || {};
-    } catch {}
+    // fieldsData now arrives as an array of { key, value } objects.
+    // normalizeFieldsData() also accepts the older object shape (or either
+    // wrapped in a JSON string), so summaries saved before this change
+    // still render correctly.
+    const fieldsData = normalizeFieldsData(summaryData.fieldsData);
 
     const signaturesData = summaryData.signatures || [];
     const microSignaturesData = summaryData.micro_signatures || [];
@@ -989,11 +1014,15 @@ const SummaryPrint = () => {
       "VITALS",
       "COURSE IN THE HOSPITAL",
       "ONCOLOGY NOTES",
+      "SPECIAL NEEDS AFTER DISCHARGE",
       "VACCINATION HISTORY",
       "SURGERIES / PROCEDURES PERFORMED",
       "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
       "SURGICAL NOTES",
       "INVESTIGATIONS",
+      "ADVICE ON DIET", // ← was missing
+      "ADVICE ON LIFE STYLE", // ← was missing
+      "ADVICE ON IMMUNIZATION",
       "CONDITION ON DISCHARGE",
       "ADMISSION DIAGNOSIS",
       "ADVICE ON DISCHARGE",
@@ -1129,7 +1158,7 @@ const SummaryPrint = () => {
 
               <div className="sp-body" ref={bodyRef}>
                 {SECTION_ORDER.map((key) => {
-                  const content = fieldsData[key];
+                  const content = getFieldValue(fieldsData, key);
                   const hasContent = content && String(content).trim();
                   const hasLab =
                     key === "INVESTIGATIONS" &&

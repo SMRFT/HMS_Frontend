@@ -48,7 +48,8 @@ export const Container = styled.div`
   margin: 0;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  animation: ${fadeIn} 0.4s ease-out;
+  animation-name: fadeIn;
+  animation: fadeIn 0.4s ease-out;
   box-sizing: border-box;
   overflow: hidden;
 `;
@@ -394,6 +395,15 @@ export const ModalContainer = styled.div`
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   display: flex;
   flex-direction: column;
+
+  @media (max-width: 768px) {
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
 `;
 
 export const ModalHeader = styled.div`

@@ -143,16 +143,6 @@ const ViewIcon = styled(ActionIcon)`
   color: #7c3aed;
 `;
 
-const PrintBtn = styled(Button)`
-  background: ${colors.primary};
-  padding: 3px 10px;
-  font-size: 0.72rem;
-  margin-right: 4px;
-  &:hover {
-    background: ${colors.primaryDark};
-  }
-`;
-
 const ConvertBtn = styled(Button)`
   background: ${colors.secondary};
   padding: 3px 10px;
@@ -262,6 +252,39 @@ const EmptyState = styled.div`
     margin-bottom: 8px;
   }
 `;
+const PrintIconBtn = styled.span`
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  color: ${colors.primary};
+  transition: transform 0.2s;
+  &:hover {
+    transform: scale(1.15);
+    background: #f0f0f0;
+  }
+`;
+
+const PrintSVG = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="6 9 6 2 18 2 18 9" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <rect x="6" y="14" width="12" height="8" />
+  </svg>
+);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -551,9 +574,12 @@ const EstimateBillsReport = () => {
                     <Td>{bill.created_by}</Td>
                     <Td>
                       <ActionGroup>
-                        <PrintBtn onClick={() => handlePrint(bill)}>
-                          🖨 Print
-                        </PrintBtn>
+                        <PrintIconBtn
+                          onClick={() => handlePrint(bill)}
+                          title="Print"
+                        >
+                          <PrintSVG />
+                        </PrintIconBtn>
                         <ViewIcon
                           onClick={() => setViewBill(bill)}
                           title="View Items"
