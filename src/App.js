@@ -97,6 +97,7 @@ import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
 import SurgerySchedule from "./Components/OT/SurgerySchedule";
 import OTMedicineBilling from "./Components/OT/OTMedicineBilling";
+import OTImplantRequest from "./Components/OT/OTImplantRequest";
 import PharmacyTabs from "./Components/Pharmacy/pharmacytabs";
 
 // import CustomerType from "./Components/BillingMaster/CustomerType";
@@ -1150,6 +1151,16 @@ function App() {
                 <Route
                   path="/OTMedicineBilling"
                   element={<OTMedicineBilling />}
+                />
+              )}
+              {hasPagePermission(
+                "/OTImplantRequest",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/OTImplantRequest"
+                  element={<OTImplantRequest />}
                 />
               )}
 
