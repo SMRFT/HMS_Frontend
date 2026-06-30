@@ -370,6 +370,7 @@ const LaundryAdmin = () => {
                     <StyledTh>Patient Info</StyledTh>
                     <StyledTh>Location</StyledTh>
                     <StyledTh>Items Requested</StyledTh>
+                    <StyledTh style={{ textAlign: 'right' }}>Total Amount</StyledTh>
                     <StyledTh>Priority</StyledTh>
                     <StyledTh>Status</StyledTh>
                     <StyledTh>Actions</StyledTh>
@@ -377,9 +378,9 @@ const LaundryAdmin = () => {
                 </thead>
                 <tbody>
                   {loadingRequests ? (
-                    <Tr><Td colSpan={7} style={{ textAlign: 'center' }}>Loading...</Td></Tr>
+                    <Tr><Td colSpan={8} style={{ textAlign: 'center' }}>Loading...</Td></Tr>
                   ) : filteredRequests.length === 0 ? (
-                    <Tr><Td colSpan={7} style={{ textAlign: 'center' }}>No requests found.</Td></Tr>
+                    <Tr><Td colSpan={8} style={{ textAlign: 'center' }}>No requests found.</Td></Tr>
                   ) : (
                     filteredRequests.map(req => (
                       <Tr key={req.id}>
@@ -391,8 +392,18 @@ const LaundryAdmin = () => {
                         <Td>{req.wardName} / {req.roomNo} / {req.bedNo}</Td>
                         <Td>
                           {Array.isArray(req.items) && req.items.map((it, i) => (
-                            <div key={i}>{it.item} (x{it.qty})</div>
+                            <div key={i} style={{ marginBottom: '4px' }}>
+                              <span style={{ fontWeight: 600 }}>{it.item}</span> (x{it.qty})
+                              {it.rate !== undefined && (
+                                <span style={{ fontSize: '0.8rem', color: colors.textMuted, marginLeft: '6px' }}>
+                                  @ ₹{Number(it.rate).toFixed(2)} = ₹{Number(it.total || (it.qty * it.rate)).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
                           ))}
+                        </Td>
+                        <Td style={{ textAlign: 'right', fontWeight: 700 }}>
+                          ₹{req.total_amount ? Number(req.total_amount).toFixed(2) : "0.00"}
                         </Td>
                         <Td>
                           <span style={{ color: req.request_type === 'Urgent' ? colors.danger : colors.textMain, fontWeight: req.request_type === 'Urgent' ? 700 : 500 }}>
