@@ -710,7 +710,8 @@ const OTImplantRequest = () => {
     name: pd.patient_name || pd.firstName || "Unknown Patient",
     age: pd.age || "-",
     gender: pd.gender || "-",
-    admittingDr: pd.admittingDoctor || "-",
+    surgeonName: pd.surgeonName || "-",
+    surgeonId: pd.surgeonId || "-",
     roomBed: `${pd.roomNo || "-"} | ${pd.bedNo || "-"}`,
     customerType: pd.customerType || pd.customer_type || "-",
     companyName: pd.companyName || pd.company_name || "-",
@@ -832,7 +833,7 @@ const OTImplantRequest = () => {
       return;
     const res = await apiRequest(
       `${HmsBaseUrl}delete_implant_request/`,
-      "PUT",
+      "PATCH",
       { request_id: req.request_id },
     );
     if (res.success) {
@@ -867,7 +868,7 @@ const OTImplantRequest = () => {
         {
           uhid: resolvedPatient.uhid,
           ipNumber: resolvedPatient.ipNo,
-          patient_name: resolvedPatient.name,
+          surgeon_id: resolvedPatient.surgeonId,
           surgeryRef: resolvedPatient.surgeryRef,
           items: selectedItems,
         },
@@ -925,7 +926,7 @@ const OTImplantRequest = () => {
               ["Name", resolvedPatient.name],
               ["Age", resolvedPatient.age],
               ["Gender", resolvedPatient.gender],
-              ["Admitting Dr", resolvedPatient.admittingDr],
+              ["Surgeon", resolvedPatient.surgeonName],
               ["Room | Bed", resolvedPatient.roomBed],
               ["Customer Type", resolvedPatient.customerType],
               ["Company", resolvedPatient.companyName],

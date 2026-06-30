@@ -385,6 +385,16 @@ const StatusBadge = styled.span`
               : "#374151"};
 `;
 
+const AdmissionBadge = styled.span`
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  background: ${({ a }) =>
+    a === "Admitted" ? "#dcfce7" : a === "Discharged" ? "#dbeafe" : "#fee2e2"};
+  color: ${({ a }) =>
+    a === "Admitted" ? "#16a34a" : a === "Discharged" ? "#1d4ed8" : "#dc2626"};
+`;
 // Blinking red dot for emergency cases
 const EmergencyDot = styled.span`
   display: inline-block;
@@ -551,6 +561,15 @@ const ActionPopover = ({
   const lockMain = isConfirmed || isCancelled;
   const lockConfirm = isConfirmed || isCancelled;
   const lockCssd = s.is_pack_request_CSSD && s.is_pack_return_CSSD;
+  // Admission / discharge gating for request icons (Lab / Medicine / Implant)
+  const admissionCancelled = !s.is_admitted && !s.is_discharged;
+  const discharged = !s.is_admitted && s.is_discharged;
+  const requestLockReason = admissionCancelled
+    ? "Admission cancelled"
+    : discharged
+      ? "Discharged"
+      : "";
+  const requestsDisabled = !isConfirmed || admissionCancelled || discharged;
 
   const [pos, setPos] = React.useState({ top: 0, left: 0 });
 
@@ -622,23 +641,23 @@ const ActionPopover = ({
       items: [
         canLab && {
           icon: <FlaskConical size={15} />,
-          label: "Lab request",
+          label: requestLockReason || "Lab request",
           color: "#0891b2",
-          disabled: !isConfirmed,
+          disabled: requestsDisabled,
           onClick: onLab,
         },
         canMedicine && {
           icon: <Pill size={15} />,
-          label: "Medicine",
+          label: requestLockReason || "Medicine",
           color: "#7c3aed",
-          disabled: !isConfirmed,
+          disabled: requestsDisabled,
           onClick: onMedicine,
         },
         canImplant && {
           icon: <Hammer size={15} />,
-          label: "Implant",
+          label: requestLockReason || "Implant",
           color: "#b45309",
-          disabled: !isConfirmed,
+          disabled: requestsDisabled,
           onClick: onImplant,
         },
       ].filter(Boolean),
@@ -836,7 +855,8 @@ const SurgerySchedule = () => {
           companyName: s.company_name || "",
           company_code: s.company_code || "",
           is_emergency: !!s.is_emergency,
-          admittingDoctor: s.surgeon_name || s.surgeon_id || "",
+          surgeonName: s.surgeon_name || "",
+          surgeonId: s.surgeon_id || "",
           roomNo: s.ot_name || s.ot_id || "",
           bedNo: "",
           surgeryRef: s.reference_no || "",
@@ -1505,6 +1525,12 @@ const SurgerySchedule = () => {
     win.document.close();
   };
 
+  const getAdmissionStatus = (s) => {
+    if (s.is_admitted) return "Admitted";
+    if (s.is_discharged) return "Discharged";
+    return "Cancelled";
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <Container>
@@ -2107,6 +2133,7 @@ const SurgerySchedule = () => {
                   <Th>Surgery Name</Th>
                   <Th>Anesthesia</Th>
                   <Th>Theater</Th>
+                  <Th>Admission Status</Th>
                   <Th>Action</Th>
                 </tr>
               </thead>
@@ -2245,6 +2272,11 @@ const SurgerySchedule = () => {
                       <Td>{s.surgery_name}</Td>
                       <Td>{s.anesthesia_name || s.anesthesia_id || "—"}</Td>
                       <Td>{s.ot_name || s.ot_id}</Td>
+                      <Td>
+                        <AdmissionBadge a={getAdmissionStatus(s)}>
+                          {getAdmissionStatus(s)}
+                        </AdmissionBadge>
+                      </Td>
                       <Td>
                         <div
                           className="action-popover-wrap"
