@@ -5,352 +5,398 @@ import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
 import {
   PageWrapper,
-  Container,
   TableWrapper,
   Table,
   Th,
   Td,
   Tr,
+  Button,
+  Input,
+  Select,
+  Label,
+  InputWrapper,
 } from "../GlobalStyles";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
-const tokens = {
-  navy: "#0d9488",
-  slate: "#1E2D45",
-  sky: "#2563EB",
-  skyL: "#3B82F6",
-  teal: "#0EA5E9",
-  green: "#10B981",
-  amber: "#F59E0B",
-  red: "#EF4444",
-  muted: "#64748B",
-  border: "#E2E8F0",
-  bg: "#F0F4F8",
-  white: "#FFFFFF",
-  card: "#FFFFFF",
-  text: "#0F172A",
+const T = {
+  teal: "#0d9488",
+  tealDk: "#0f766e",
+  tealLt: "#ccfbf1",
+  sky: "#0ea5e9",
+  skyLt: "#e0f2fe",
+  slate: "#1e293b",
+  muted: "#64748b",
+  border: "#e2e8f0",
+  bg: "#f1f5f9",
+  bgAlt: "#f8fafc",
+  white: "#ffffff",
+  text: "#0f172a",
   textSm: "#475569",
+  green: "#22c55e",
+  amber: "#f59e0b",
+  red: "#ef4444",
 };
 
-/* ─── Inline styles ──────────────────────────────────────────────────────── */
-const css = {
+/* ─── Utility styles ─────────────────────────────────────────────────────── */
+const S = {
+  /* Page shell */
   page: {
     minHeight: "100vh",
-    background: `linear-gradient(135deg, ${tokens.bg} 0%, #E8EFF8 100%)`,
-    fontFamily: "'IBM Plex Sans', 'Segoe UI', sans-serif",
-    padding: "32px 24px",
+    background: T.bg,
+    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    padding: "20px 16px",
   },
-  inner: { maxWidth: 1400, margin: "0 auto" },
+  inner: { maxWidth: 1320, margin: "0 auto" },
 
-  /* Page header */
-  pageHeader: {
+  /* Top bar */
+  topBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 28,
+    marginBottom: 20,
   },
   pageTitle: {
-    fontSize: 26,
-    fontWeight: 700,
-    color: tokens.navy,
-    letterSpacing: "-0.5px",
     display: "flex",
     alignItems: "center",
     gap: 10,
+    fontSize: 20,
+    fontWeight: 700,
+    color: T.teal,
+    letterSpacing: "-0.3px",
+    margin: 0,
   },
-  titleDot: {
-    width: 10,
-    height: 10,
-    borderRadius: "50%",
-    background: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
-    display: "inline-block",
+  titleIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 16,
   },
-  dateBadge: {
-    background: tokens.slate,
-    color: tokens.white,
-    borderRadius: 8,
-    padding: "6px 14px",
-    fontSize: 13,
+  datePill: {
+    background: T.slate,
+    color: T.white,
+    borderRadius: 20,
+    padding: "5px 14px",
+    fontSize: 12,
     fontWeight: 500,
+    letterSpacing: "0.2px",
   },
 
   /* Edit banner */
   editBanner: {
-    background: `linear-gradient(90deg, ${tokens.sky}18, ${tokens.teal}18)`,
-    border: `1px solid ${tokens.sky}40`,
-    borderRadius: 10,
-    padding: "10px 18px",
-    marginBottom: 20,
+    background: T.skyLt,
+    border: `1px solid ${T.sky}50`,
+    borderRadius: 8,
+    padding: "8px 14px",
+    marginBottom: 14,
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    fontSize: 14,
-    color: tokens.slate,
+    gap: 8,
+    fontSize: 13,
+    color: T.slate,
     fontWeight: 500,
-  },
-  editBannerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: "50%",
-    background: tokens.sky,
-    flexShrink: 0,
   },
 
   /* Card */
   card: {
-    background: tokens.card,
-    borderRadius: 16,
-    border: `1px solid ${tokens.border}`,
-    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
-    marginBottom: 24,
-    padding: "24px 28px",
+    background: T.white,
+    borderRadius: 12,
+    border: `1px solid ${T.border}`,
+    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
+    marginBottom: 16,
+    overflow: "hidden",
   },
-  cardTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    textTransform: "uppercase",
-    letterSpacing: "1px",
-    color: tokens.sky,
-    marginBottom: 18,
+  cardHead: {
+    padding: "10px 16px",
+    background: `linear-gradient(90deg, ${T.teal}14, ${T.sky}0a)`,
+    borderBottom: `1px solid ${T.border}`,
     display: "flex",
     alignItems: "center",
     gap: 8,
+    fontSize: 11,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: "0.8px",
+    color: T.teal,
   },
-  sectionLine: {
-    width: 24,
-    height: 3,
+  cardHeadBar: {
+    width: 3,
+    height: 14,
     borderRadius: 2,
-    background: `linear-gradient(90deg, ${tokens.sky}, ${tokens.teal})`,
+    background: `linear-gradient(${T.teal}, ${T.sky})`,
   },
+  cardBody: { padding: "14px 16px" },
 
-  /* Grid */
+  /* Compact grid */
   grid: (cols) => ({
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gap: "14px 18px",
+    gap: "10px 12px",
+    marginBottom: 10,
   }),
 
-  /* Field */
-  fieldWrap: { display: "flex", flexDirection: "column", gap: 5 },
-  label: {
-    fontSize: 11,
+  /* Compact input */
+  inp: {
+    height: 32,
+    padding: "0 9px",
+    fontSize: 13,
+    color: T.text,
+    background: T.white,
+    border: `1px solid ${T.border}`,
+    borderRadius: 6,
+    outline: "none",
+    width: "100%",
+    fontFamily: "inherit",
+    transition: "border-color .15s, box-shadow .15s",
+  },
+  sel: {
+    height: 32,
+    padding: "0 28px 0 9px",
+    fontSize: 13,
+    color: T.text,
+    background: T.white,
+    border: `1px solid ${T.border}`,
+    borderRadius: 6,
+    outline: "none",
+    width: "100%",
+    fontFamily: "inherit",
+    cursor: "pointer",
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+    backgroundPosition: "right 6px center",
+    backgroundRepeat: "no-repeat",
+    backgroundSize: "1.1em",
+  },
+  lbl: {
+    fontSize: 10,
     fontWeight: 600,
     textTransform: "uppercase",
-    letterSpacing: "0.7px",
-    color: tokens.muted,
+    letterSpacing: "0.6px",
+    color: T.muted,
+    marginBottom: 3,
+    display: "block",
   },
-  input: {
-    height: 38,
-    padding: "0 12px",
-    fontSize: 14,
-    color: tokens.text,
-    background: tokens.white,
-    border: `1.5px solid ${tokens.border}`,
-    borderRadius: 8,
-    outline: "none",
-    transition: "border-color .2s",
-    width: "100%",
-    fontFamily: "inherit",
-  },
-  inputFocus: { borderColor: tokens.sky },
-  select: {
-    height: 38,
-    padding: "0 12px",
-    fontSize: 14,
-    color: tokens.text,
-    background: tokens.white,
-    border: `1.5px solid ${tokens.border}`,
-    borderRadius: 8,
-    outline: "none",
-    width: "100%",
-    fontFamily: "inherit",
-    cursor: "pointer",
-  },
+  fld: { display: "flex", flexDirection: "column" },
 
-  /* Search button */
-  searchBtn: {
-    marginTop: 6,
-    height: 32,
-    padding: "0 14px",
-    fontSize: 12,
+  /* Search micro-btn */
+  searchMicroBtn: {
+    marginTop: 4,
+    height: 24,
+    padding: "0 10px",
+    fontSize: 11,
     fontWeight: 600,
-    background: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
-    color: tokens.white,
+    background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+    color: T.white,
     border: "none",
-    borderRadius: 7,
+    borderRadius: 5,
     cursor: "pointer",
-    letterSpacing: "0.3px",
   },
 
   /* Notes layout */
-  notesLayout: { display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 },
+  notesLayout: {
+    display: "grid",
+    gridTemplateColumns: "210px 1fr",
+    gap: 16,
+    marginBottom: 16,
+  },
 
   /* Sidebar */
   sidebar: {
-    background: tokens.card,
-    borderRadius: 16,
-    border: `1px solid ${tokens.border}`,
-    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    background: T.white,
+    borderRadius: 12,
+    border: `1px solid ${T.border}`,
+    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
     overflow: "hidden",
+    alignSelf: "start",
   },
-  sidebarHeader: {
-    padding: "14px 16px",
-    fontSize: 11,
+  sidebarHead: {
+    padding: "10px 12px",
+    background: `linear-gradient(135deg, ${T.teal}, ${T.tealDk})`,
+    fontSize: 10,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "1px",
-    color: tokens.white,
-    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
+    color: T.white,
   },
   sidebarItem: (active) => ({
-    padding: "9px 14px",
+    padding: "7px 12px",
     cursor: "pointer",
-    fontSize: 12,
-    fontWeight: active ? 700 : 500,
-    color: active ? tokens.white : tokens.textSm,
+    fontSize: 11.5,
+    fontWeight: active ? 700 : 400,
+    color: active ? T.white : T.textSm,
     background: active
-      ? `linear-gradient(90deg, ${tokens.sky}, ${tokens.teal})`
+      ? `linear-gradient(90deg, ${T.teal}, ${T.sky})`
       : "transparent",
-    borderLeft: active ? `3px solid ${tokens.teal}` : "3px solid transparent",
-    transition: "all .15s",
-    borderBottom: `1px solid ${tokens.border}`,
+    borderLeft: `3px solid ${active ? T.sky : "transparent"}`,
+    borderBottom: `1px solid ${T.border}`,
+    transition: "all .12s",
+    lineHeight: 1.3,
   }),
 
-  /* Notes area */
+  /* Notes main area */
   notesCard: {
-    background: tokens.card,
-    borderRadius: 16,
-    border: `1px solid ${tokens.border}`,
-    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
-    padding: 24,
+    background: T.white,
+    borderRadius: 12,
+    border: `1px solid ${T.border}`,
+    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
+    padding: 16,
     display: "flex",
     flexDirection: "column",
-    gap: 16,
+    gap: 12,
   },
-  notesTitle: {
-    fontSize: 15,
+  notesActiveLabel: {
+    fontSize: 13,
     fontWeight: 700,
-    color: tokens.navy,
-    letterSpacing: "-0.2px",
+    color: T.teal,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
   },
   textarea: {
-    minHeight: 620,
+    minHeight: 540,
     resize: "vertical",
-    padding: 14,
-    fontSize: 13.5,
-    color: tokens.text,
-    background: tokens.bg,
-    border: `1.5px solid ${tokens.border}`,
-    borderRadius: 10,
+    padding: 12,
+    fontSize: 13,
+    color: T.text,
+    background: T.bgAlt,
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
     outline: "none",
     fontFamily: "inherit",
-    lineHeight: 1.6,
+    lineHeight: 1.65,
+    transition: "border-color .15s",
   },
 
   /* Action row */
-  actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
-  outlineBtn: (color = tokens.sky) => ({
-    padding: "7px 14px",
-    fontSize: 12,
+  actionRow: { display: "flex", gap: 8, flexWrap: "wrap" },
+  outBtn: (color) => ({
+    padding: "5px 12px",
+    fontSize: 11.5,
     fontWeight: 600,
     border: `1.5px solid ${color}`,
     color: color,
     background: "transparent",
-    borderRadius: 8,
+    borderRadius: 6,
     cursor: "pointer",
-    transition: "all .15s",
+    transition: "all .12s",
   }),
 
-  /* Primary/danger buttons */
-  btn: (variant = "primary") => {
+  /* Primary/variant buttons */
+  btn: (v = "primary") => {
     const map = {
       primary: {
-        bg: `linear-gradient(135deg, ${tokens.sky}, ${tokens.teal})`,
-        color: tokens.white,
+        bg: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
+        color: T.white,
       },
       danger: {
-        bg: `linear-gradient(135deg, ${tokens.red}, #F87171)`,
-        color: tokens.white,
+        bg: `linear-gradient(135deg, ${T.red}, #f87171)`,
+        color: T.white,
       },
       success: {
-        bg: `linear-gradient(135deg, ${tokens.green}, #34D399)`,
-        color: tokens.white,
+        bg: `linear-gradient(135deg, ${T.green}, #4ade80)`,
+        color: T.white,
       },
-      ghost: { bg: tokens.slate, color: tokens.white },
+      ghost: { bg: T.slate, color: T.white },
     };
-    const v = map[variant] || map.primary;
+    const s = map[v] || map.primary;
     return {
-      padding: "8px 18px",
-      fontSize: 13,
+      padding: "7px 16px",
+      fontSize: 12.5,
       fontWeight: 600,
-      background: v.bg,
-      color: v.color,
+      background: s.bg,
+      color: s.color,
       border: "none",
-      borderRadius: 9,
+      borderRadius: 8,
       cursor: "pointer",
-      boxShadow: "0 2px 8px rgba(0,0,0,.12)",
+      boxShadow: "0 2px 6px rgba(0,0,0,.10)",
       transition: "opacity .15s",
-      letterSpacing: "0.2px",
+      letterSpacing: "0.1px",
     };
   },
 
   /* Table */
   tableWrap: {
-    background: tokens.card,
-    borderRadius: 16,
-    border: `1px solid ${tokens.border}`,
-    boxShadow: "0 4px 24px rgba(10,22,40,.07)",
+    background: T.white,
+    borderRadius: 12,
+    border: `1px solid ${T.border}`,
+    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
     overflow: "hidden",
+    marginTop: 24,
   },
-  tableHeader: {
-    padding: "16px 24px",
-    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
-    fontSize: 15,
-    fontWeight: 700,
-    color: tokens.white,
-    letterSpacing: "-0.2px",
+  tableHead: {
+    padding: "14px 20px",
+    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  tableTitle: { fontSize: 14, fontWeight: 700, color: T.white },
+  tableCount: { fontSize: 11, color: "rgba(255,255,255,.6)", fontWeight: 500 },
+  filterBar: {
+    padding: "12px 16px",
+    background: T.bgAlt,
+    borderBottom: `1px solid ${T.border}`,
+  },
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1.2fr 1fr 1fr auto auto",
+    gap: "8px 10px",
+    alignItems: "end",
+    marginBottom: 8,
+  },
+  filterGrid2: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 5fr",
+    gap: "8px 10px",
+    alignItems: "end",
   },
   th: {
-    padding: "11px 16px",
-    fontSize: 11,
+    padding: "9px 12px",
+    fontSize: 10,
     fontWeight: 700,
     textTransform: "uppercase",
-    letterSpacing: "0.8px",
-    color: tokens.muted,
-    background: tokens.bg,
-    borderBottom: `2px solid ${tokens.border}`,
+    letterSpacing: "0.7px",
+    color: T.muted,
+    background: T.bgAlt,
+    borderBottom: `2px solid ${T.border}`,
+    whiteSpace: "nowrap",
   },
   td: {
-    padding: "11px 16px",
-    fontSize: 13,
-    color: tokens.text,
-    borderBottom: `1px solid ${tokens.border}`,
+    padding: "9px 12px",
+    fontSize: 12.5,
+    color: T.text,
+    borderBottom: `1px solid ${T.border}`,
     verticalAlign: "middle",
   },
-  statusBadge: (approved) => ({
+
+  /* Status badge */
+  badge: (ok) => ({
     display: "inline-flex",
     alignItems: "center",
-    gap: 5,
-    padding: "3px 10px",
+    gap: 4,
+    padding: "2px 9px",
     borderRadius: 20,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: 700,
-    background: approved ? `${tokens.green}18` : `${tokens.amber}18`,
-    color: approved ? tokens.green : tokens.amber,
-    border: `1px solid ${approved ? tokens.green : tokens.amber}40`,
+    background: ok ? `${T.green}18` : `${T.amber}18`,
+    color: ok ? T.green : T.amber,
+    border: `1px solid ${ok ? T.green : T.amber}40`,
   }),
-  statusDot: (approved) => ({
-    width: 6,
-    height: 6,
+  dot: (ok) => ({
+    width: 5,
+    height: 5,
     borderRadius: "50%",
-    background: approved ? tokens.green : tokens.amber,
+    background: ok ? T.green : T.amber,
   }),
 
   /* Modal */
-  modalOverlay: {
+  overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(10,22,40,.6)",
+    background: "rgba(15,23,42,.55)",
     backdropFilter: "blur(4px)",
     zIndex: 1050,
     display: "flex",
@@ -358,83 +404,105 @@ const css = {
     justifyContent: "center",
   },
   modalBox: {
-    background: tokens.white,
-    borderRadius: 16,
-    width: "min(700px, 94vw)",
+    background: T.white,
+    borderRadius: 14,
+    width: "min(680px, 94vw)",
     maxHeight: "85vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 24px 80px rgba(10,22,40,.25)",
+    boxShadow: "0 20px 60px rgba(15,23,42,.22)",
     overflow: "hidden",
   },
   modalHead: {
-    padding: "18px 24px",
-    background: `linear-gradient(135deg, ${tokens.navy}, ${tokens.slate})`,
+    padding: "14px 20px",
+    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexShrink: 0,
   },
-  modalTitle: { fontSize: 16, fontWeight: 700, color: tokens.white },
+  modalTitle: { fontSize: 14, fontWeight: 700, color: T.white },
   modalClose: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: "50%",
     background: "rgba(255,255,255,.15)",
     border: "none",
-    color: tokens.white,
+    color: T.white,
     cursor: "pointer",
-    fontSize: 16,
+    fontSize: 14,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
   },
-  modalBody: { padding: 20, overflowY: "auto", flexGrow: 1 },
+  modalBody: { padding: 16, overflowY: "auto", flexGrow: 1 },
   modalFoot: {
-    padding: "14px 20px",
-    borderTop: `1px solid ${tokens.border}`,
+    padding: "12px 16px",
+    borderTop: `1px solid ${T.border}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 10,
+    gap: 8,
     flexShrink: 0,
   },
-  invCard: (selected, warned) => ({
-    borderRadius: 10,
-    padding: "12px 14px",
-    marginBottom: 10,
+  invCard: (sel, warn) => ({
+    borderRadius: 8,
+    padding: "10px 12px",
+    marginBottom: 8,
     cursor: "pointer",
-    transition: "all .15s",
-    border: selected
-      ? `2px solid ${tokens.sky}`
-      : warned
-        ? `2px solid ${tokens.amber}`
-        : `1.5px solid ${tokens.border}`,
-    background: selected
-      ? `${tokens.sky}10`
-      : warned
-        ? `${tokens.amber}08`
-        : tokens.white,
-    boxShadow: selected ? `0 2px 12px ${tokens.sky}30` : "none",
+    border: sel
+      ? `2px solid ${T.teal}`
+      : warn
+        ? `2px solid ${T.amber}`
+        : `1.5px solid ${T.border}`,
+    background: sel ? `${T.teal}0d` : warn ? `${T.amber}08` : T.white,
+    transition: "all .12s",
   }),
 };
 
 /* ─── Tiny helpers ───────────────────────────────────────────────────────── */
-const Field = ({ label, children }) => (
-  <div style={css.fieldWrap}>
-    <span style={css.label}>{label}</span>
+const Fld = ({ label, children }) => (
+  <div style={S.fld}>
+    <span style={S.lbl}>{label}</span>
     {children}
   </div>
 );
 
-const Inp = ({ style, ...props }) => (
+const CInp = ({ style, ...props }) => (
   <input
-    style={{ ...css.input, ...style }}
-    onFocus={(e) => (e.target.style.borderColor = tokens.sky)}
-    onBlur={(e) => (e.target.style.borderColor = tokens.border)}
+    style={{ ...S.inp, ...style }}
+    onFocus={(e) => {
+      e.target.style.borderColor = T.teal;
+      e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
+    }}
+    onBlur={(e) => {
+      e.target.style.borderColor = T.border;
+      e.target.style.boxShadow = "none";
+    }}
     {...props}
   />
 );
+
+/* ─── fieldsData array helpers ───────────────────────────────────────────── */
+const getFieldValue = (fieldsData, key) => {
+  if (!Array.isArray(fieldsData)) return "";
+  const entry = fieldsData.find((f) => f.key === key);
+  return entry ? entry.value : "";
+};
+const setFieldValue = (fieldsData, key, value) => {
+  const arr = Array.isArray(fieldsData) ? fieldsData : [];
+  const idx = arr.findIndex((f) => f.key === key);
+  if (idx === -1) return [...arr, { key, value }];
+  const next = [...arr];
+  next[idx] = { ...next[idx], value };
+  return next;
+};
+const normalizeFieldsData = (fd) => {
+  if (Array.isArray(fd)) return fd;
+  if (fd && typeof fd === "object")
+    return Object.entries(fd).map(([key, value]) => ({ key, value }));
+  return [];
+};
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
 const Summary = () => {
@@ -456,6 +524,7 @@ const Summary = () => {
   const [medicines, setMedicines] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
   const [medicinesLoading, setMedicinesLoading] = useState(false);
+  const [medicineModalType, setMedicineModalType] = useState("");
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
@@ -480,12 +549,15 @@ const Summary = () => {
     "INVESTIGATIONS",
     "SURGERIES / PROCEDURES PERFORMED",
     "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY",
+    "ADVICE ON DIET",
+    "ADVICE ON LIFE STYLE",
+    "ADVICE ON IMMUNIZATION",
     "CONDITION ON DISCHARGE",
     "ADVICE ON DISCHARGE",
     "DOA AND DOD",
   ];
 
-  const [formData, setFormData] = useState({
+  const emptyForm = {
     date: "",
     ipNo: "",
     uhid: "",
@@ -522,50 +594,39 @@ const Summary = () => {
     conditionOnDischarge: "",
     adviceOnDischarge: "",
     notes: "",
-    fieldsData: {},
+    fieldsData: [],
     currentField: "",
     approve: false,
     approve_time: null,
-  });
+  };
 
+  const [formData, setFormData] = useState(emptyForm);
   const notesRef = useRef(null);
 
-  /* ── Fetch doctors ── */
   useEffect(() => {
     const fetchDoctors = async () => {
-      const result = await apiRequest(
-        `${HMSURL}doctor_list_diagnostics/`,
-        "GET",
-      );
-      if (result.success) setDoctors(result.data);
-      else console.error("Failed to fetch doctors:", result.error);
+      const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
+      if (r.success) setDoctors(r.data);
     };
     fetchDoctors();
   }, [HMSURL]);
 
-  /* ── Fetch summary types ── */
   useEffect(() => {
     const fetchSummaryTypes = async () => {
-      const result = await apiRequest(`${HMSURL}summary-type/`, "GET");
-      if (result.success) {
-        setSummaryTypeOptions(result.data);
-      } else {
-        console.error("Failed to fetch summary types:", result.error);
-      }
+      const r = await apiRequest(`${HMSURL}summary-type/`, "GET");
+      if (r.success) setSummaryTypeOptions(r.data);
     };
     fetchSummaryTypes();
   }, [HMSURL]);
 
-  /* ── Fetch summaries ── */
   const fetchSummaries = async (params = {}) => {
-    const query = new URLSearchParams();
-    if (params.fromDate) query.append("fromDate", params.fromDate);
-    if (params.toDate) query.append("toDate", params.toDate);
-    if (params.summaryType) query.append("summaryType", params.summaryType);
-    const url = `${HMSURL}summaries/${query.toString() ? "?" + query.toString() : ""}`;
-    const result = await apiRequest(url, "GET");
-    if (result.success) setSummaries(result.data);
-    else console.error("Error fetching summaries:", result.error);
+    const q = new URLSearchParams();
+    if (params.fromDate) q.append("fromDate", params.fromDate);
+    if (params.toDate) q.append("toDate", params.toDate);
+    if (params.summaryType) q.append("summaryType", params.summaryType);
+    const url = `${HMSURL}summaries/${q.toString() ? "?" + q.toString() : ""}`;
+    const r = await apiRequest(url, "GET");
+    if (r.success) setSummaries(r.data);
   };
 
   useEffect(() => {
@@ -575,19 +636,18 @@ const Summary = () => {
     });
   }, []);
 
-  /* ── Fetch IP patient ── */
   const fetchIpPatient = async (overrideIp) => {
-    const ipToFetch = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
-    if (!ipToFetch) {
+    const ip = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
+    if (!ip) {
       alert("Please enter IP Number");
       return;
     }
-    const result = await apiRequest(
-      `${HMSURL}ip-patient/${encodeURIComponent(ipToFetch)}/`,
+    const r = await apiRequest(
+      `${HMSURL}ip-patient/${encodeURIComponent(ip)}/`,
       "GET",
     );
-    if (result.success) {
-      const d = result.data;
+    if (r.success) {
+      const d = r.data;
       const fullName =
         `${d.salutation || ""} ${d.firstName || ""} ${d.lastName || ""}`
           .trim()
@@ -605,22 +665,17 @@ const Summary = () => {
         doctor: d.admittingDoctor || "",
         address: fullAddress,
       }));
-    } else {
-      alert("Patient not found");
-    }
+    } else alert("Patient not found");
   };
 
   useEffect(() => {
-    if (location.state && location.state.ipNo) {
+    if (location.state?.ipNo) {
       setFormData((prev) => ({ ...prev, ipNo: location.state.ipNo }));
       fetchIpPatient(location.state.ipNo);
-      // Clear state so it doesn't refetch if the user navigates away and back
       navigate(location.pathname, { replace: true, state: {} });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
-  /* ── Investigations ── */
   const fetchInvestigations = async () => {
     if (!formData.ipNo?.trim()) {
       alert("Please enter a valid IP Number first");
@@ -629,21 +684,15 @@ const Summary = () => {
     setLoading(true);
     setInvestigations([]);
     setSelectedInvestigations([]);
-    const result = await apiRequest(
+    const r = await apiRequest(
       `${HMSURL}patient-investigations/${encodeURIComponent(formData.ipNo)}/`,
       "GET",
     );
     setLoading(false);
-    if (
-      result.success &&
-      Array.isArray(result.data) &&
-      result.data.length > 0
-    ) {
-      setInvestigations(result.data);
+    if (r.success && Array.isArray(r.data) && r.data.length > 0) {
+      setInvestigations(r.data);
       setShowInvestigations(true);
-    } else {
-      alert("No investigations found for this patient");
-    }
+    } else alert("No investigations found for this patient");
   };
 
   const toggleInvestigationSelection = (inv) => {
@@ -673,7 +722,7 @@ const Summary = () => {
     let text = "INVESTIGATIONS:\n";
     selectedInvestigations.forEach((inv, idx) => {
       if (idx > 0) text += "\n---------------------\n";
-      text += `${inv.reportType}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n\nStatus: ${inv.is_approved ? "Approved" : "PENDING APPROVAL - Results not finalized"}\n`;
+      text += `${inv.reportType}: \n${inv.investigation || "No details available"}\n\nImpression: \n${inv.impression || "No impression available"}\n`;
     });
     if (formData.currentField === "INVESTIGATIONS") {
       setFormData((prev) => ({
@@ -682,15 +731,19 @@ const Summary = () => {
       }));
     } else {
       setFormData((prev) => {
-        const fd = { ...prev.fieldsData, [prev.currentField]: prev.notes };
-        fd["INVESTIGATIONS"] = fd["INVESTIGATIONS"]
-          ? `${fd["INVESTIGATIONS"]}\n\n${text}`
-          : text;
+        const fd = setFieldValue(
+          prev.fieldsData,
+          prev.currentField,
+          prev.notes,
+        );
+        const existing = getFieldValue(fd, "INVESTIGATIONS");
+        const merged = existing ? `${existing}\n\n${text}` : text;
+        const fdWith = setFieldValue(fd, "INVESTIGATIONS", merged);
         return {
           ...prev,
-          fieldsData: fd,
+          fieldsData: fdWith,
           currentField: "INVESTIGATIONS",
-          notes: fd["INVESTIGATIONS"],
+          notes: merged,
         };
       });
       setSelectedField("INVESTIGATIONS");
@@ -707,21 +760,36 @@ const Summary = () => {
     setMedicinesLoading(true);
     setMedicines([]);
     setSelectedMedicines([]);
-    const result = await apiRequest(
+    const r = await apiRequest(
       `${HMSURL}patient-medicines/${encodeURIComponent(formData.ipNo)}/`,
       "GET",
     );
     setMedicinesLoading(false);
-    if (
-      result.success &&
-      Array.isArray(result.data) &&
-      result.data.length > 0
-    ) {
-      setMedicines(result.data);
+    if (r.success && Array.isArray(r.data) && r.data.length > 0) {
+      setMedicines(r.data);
+      setMedicineModalType("admission");
       setShowMedicines(true);
-    } else {
-      alert("No medicines found for this patient");
+    } else alert("No medicines found for this patient");
+  };
+
+  const fetchDischargeMedicines = async () => {
+    if (!formData.ipNo?.trim()) {
+      alert("Please enter a valid IP Number first");
+      return;
     }
+    setMedicinesLoading(true);
+    setMedicines([]);
+    setSelectedMedicines([]);
+    const r = await apiRequest(
+      `${HMSURL}patient-discharge-medicines/${encodeURIComponent(formData.ipNo)}/`,
+      "GET",
+    );
+    setMedicinesLoading(false);
+    if (r.success && Array.isArray(r.data) && r.data.length > 0) {
+      setMedicines(r.data);
+      setMedicineModalType("discharge");
+      setShowMedicines(true);
+    } else alert("No medicines found for this patient");
   };
 
   const toggleMedicineSelection = (med, idx) => {
@@ -738,26 +806,30 @@ const Summary = () => {
       alert("Please select at least one medicine");
       return;
     }
-    const header = "DISCHARGE MEDICINES:\n";
+    const isDischarge = medicineModalType === "discharge";
+    const header = isDischarge
+      ? "DISCHARGE MEDICINES:"
+      : "MEDICINES USED ON ADMISSION:";
+    const targetField = isDischarge
+      ? "ADVICE ON DISCHARGE"
+      : "SPECIFIC MEDICATION GIVEN DURING HOSPITAL STAY";
     const rows = selectedMedicines
       .map(
         (m) =>
           `• ${m.itemName}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`,
       )
       .join("\n");
-    const text = header + rows;
-
-    const targetField = "ADVICE ON DISCHARGE";
+    const newBlock = `${header}\n${rows}`;
     setFormData((prev) => {
-      const fd = { ...prev.fieldsData, [prev.currentField]: prev.notes };
-      fd[targetField] = fd[targetField]
-        ? `${fd[targetField]}\n\n${text}`
-        : text;
+      const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
+      const existing = getFieldValue(fd, targetField);
+      const merged = existing ? `${existing}\n${newBlock}` : newBlock;
+      const fdWith = setFieldValue(fd, targetField, merged);
       return {
         ...prev,
-        fieldsData: fd,
+        fieldsData: fdWith,
         currentField: targetField,
-        notes: fd[targetField],
+        notes: merged,
       };
     });
     setSelectedField(targetField);
@@ -765,7 +837,6 @@ const Summary = () => {
     setSelectedMedicines([]);
   };
 
-  /* ── Form changes ── */
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
     setFormData((prev) => ({
@@ -777,16 +848,18 @@ const Summary = () => {
 
   const handleButtonClick = (fieldName) => {
     setSelectedField(fieldName);
-    setFormData((prev) => ({
-      ...prev,
-      fieldsData: { ...prev.fieldsData, [prev.currentField]: prev.notes },
-      currentField: fieldName,
-      notes: prev.fieldsData[fieldName] || "",
-    }));
+    setFormData((prev) => {
+      const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
+      return {
+        ...prev,
+        fieldsData: fd,
+        currentField: fieldName,
+        notes: getFieldValue(fd, fieldName),
+      };
+    });
     notesRef.current?.focus();
   };
 
-  /* ── Disease helpers ── */
   const prepareDiseasesPayload = () => {
     if (!selectedDiseases.length) return { diseaseCode: "", disease: "" };
     return {
@@ -795,13 +868,16 @@ const Summary = () => {
     };
   };
 
-  /* ── Submit / Update ── */
   const handleSubmit = async () => {
-    if (formData.currentField && formData.notes)
-      setFormData((prev) => ({
-        ...prev,
-        fieldsData: { ...prev.fieldsData, [prev.currentField]: prev.notes },
-      }));
+    let fds = formData.fieldsData;
+    if (formData.currentField && formData.notes) {
+      fds = setFieldValue(
+        formData.fieldsData,
+        formData.currentField,
+        formData.notes,
+      );
+      setFormData((prev) => ({ ...prev, fieldsData: fds }));
+    }
     const dp = prepareDiseasesPayload();
     const payload = {
       ...formData,
@@ -809,18 +885,10 @@ const Summary = () => {
       diseaseCode: dp.diseaseCode,
       disease: dp.disease,
       selectedDiseases,
-      fieldsData: Object.fromEntries(
-        Object.entries(formData.fieldsData).filter(
-          ([k, v]) => k !== "undefined" && v !== "",
-        ),
-      ),
+      fieldsData: fds.filter((f) => f.key !== "undefined" && f.value !== ""),
     };
-    const result = await apiRequest(
-      `${HMSURL}summaries/create/`,
-      "POST",
-      payload,
-    );
-    if (result.success) {
+    const r = await apiRequest(`${HMSURL}summaries/create/`, "POST", payload);
+    if (r.success) {
       alert("Summary successfully created!");
       resetForm();
       fetchSummaries({
@@ -828,25 +896,24 @@ const Summary = () => {
         toDate: filters.toDate,
         summaryType: filters.summaryType,
       });
-    } else alert(result.error || "Failed to submit summary.");
+    } else alert(r.error || "Failed to submit summary.");
   };
 
   const handleUpdate = async () => {
-    const fd = {
-      ...formData.fieldsData,
-      [formData.currentField]: formData.notes,
-    };
-    const filtered = Object.fromEntries(
-      Object.entries(fd).filter(
-        ([k, v]) => v !== undefined && v !== "" && k !== "undefined",
-      ),
+    const fd = setFieldValue(
+      formData.fieldsData,
+      formData.currentField,
+      formData.notes,
     );
-    if (!Object.keys(filtered).length) {
+    const filtered = fd.filter(
+      (f) => f.value !== undefined && f.value !== "" && f.key !== "undefined",
+    );
+    if (!filtered.length) {
       alert("Please fill in the required fields.");
       return;
     }
     const dp = prepareDiseasesPayload();
-    const result = await apiRequest(
+    const r = await apiRequest(
       `${HMSURL}update-summary/${editingIpNo}/`,
       "PATCH",
       {
@@ -857,7 +924,7 @@ const Summary = () => {
         fieldsData: filtered,
       },
     );
-    if (result.success) {
+    if (r.success) {
       alert("Summary updated successfully!");
       resetForm();
       fetchSummaries({
@@ -865,53 +932,11 @@ const Summary = () => {
         toDate: filters.toDate,
         summaryType: filters.summaryType,
       });
-    } else
-      alert(`Failed to update summary: ${result.error || "Unknown error"}`);
+    } else alert(`Failed to update summary: ${r.error || "Unknown error"}`);
   };
 
   const resetForm = () => {
-    setFormData({
-      date: "",
-      ipNo: "",
-      uhid: "",
-      patient: "",
-      doa: "",
-      doaTime: "",
-      dod: "",
-      dodTime: "17:00",
-      roomNo: "",
-      age: "",
-      surgeryDate: "",
-      nextReviewDate: "",
-      doctor: "",
-      gender: "",
-      summaryType: "",
-      heading: "",
-      address: "",
-      diseaseCode: "",
-      disease: "",
-      specialNeeds: "",
-      vaccinationHistory: "",
-      dischargeType: "",
-      admissionDiagnosis: "",
-      dischargeDiagnosis: "",
-      consultant: "",
-      briefHistory: "",
-      pastMedicalHistory: "",
-      generalExamination: "",
-      vitals: "",
-      hospitalCourse: "",
-      investigations: "",
-      proceduresPerformed: "",
-      specificMedications: "",
-      conditionOnDischarge: "",
-      adviceOnDischarge: "",
-      notes: "",
-      fieldsData: {},
-      currentField: "",
-      approve: false,
-      approve_time: null,
-    });
+    setFormData(emptyForm);
     setSelectedField("");
     setIsEditMode(false);
     setEditingIpNo(null);
@@ -919,34 +944,31 @@ const Summary = () => {
   };
 
   const handleEdit = async (ipNo) => {
-    const result = await apiRequest(
+    const r = await apiRequest(
       `${HMSURL}get-editsummary/${encodeURIComponent(ipNo)}/`,
       "GET",
     );
-    if (result.success) {
-      const d = result.data;
-      let parsedFD = {};
+    if (r.success) {
+      const d = r.data;
+      let parsedFD = [];
       try {
-        parsedFD =
+        const raw =
           typeof d.fieldsData === "string"
             ? JSON.parse(d.fieldsData)
-            : d.fieldsData || {};
+            : d.fieldsData || [];
+        parsedFD = normalizeFieldsData(raw);
       } catch {}
       let parsedDiseases = [];
-      // First try selectedDiseases array if it exists
       try {
         const raw =
           typeof d.selectedDiseases === "string"
             ? JSON.parse(d.selectedDiseases)
             : d.selectedDiseases;
-        if (Array.isArray(raw) && raw.length > 0) {
-          parsedDiseases = raw;
-        }
+        if (Array.isArray(raw) && raw.length > 0) parsedDiseases = raw;
       } catch {}
-      // Always fall back to diseaseCode/disease strings if parsedDiseases is still empty
       if (parsedDiseases.length === 0 && d.diseaseCode && d.disease) {
-        const codes = d.diseaseCode.split(", ");
-        const names = d.disease.split("; ");
+        const codes = d.diseaseCode.split(", "),
+          names = d.disease.split("; ");
         parsedDiseases = codes.map((code, i) => ({
           id: `${code}-${Date.now()}-${i}`,
           code: code.trim(),
@@ -971,28 +993,24 @@ const Summary = () => {
     navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`);
   const handleDelete = async (ipNo) => {
     if (window.confirm("Are you sure you want to delete this summary?")) {
-      const result = await apiRequest(
-        `${HMSURL}delete-summary/${ipNo}/`,
-        "PATCH",
-      );
-      if (result.success) {
+      const r = await apiRequest(`${HMSURL}delete-summary/${ipNo}/`, "PATCH");
+      if (r.success) {
         alert("Summary deleted successfully");
         setSummaries((prev) => prev.filter((s) => s.ipNo !== ipNo));
-      } else alert("Error deleting summary: " + result.error);
+      } else alert("Error deleting summary: " + r.error);
     }
   };
   const handleApprove = async (ipNo) => {
-    const result = await apiRequest(
-      `${HMSURL}approve-summary/${ipNo}/`,
-      "PATCH",
-      { approve: true, approve_time: new Date().toISOString() },
-    );
-    if (result.success) {
+    const r = await apiRequest(`${HMSURL}approve-summary/${ipNo}/`, "PATCH", {
+      approve: true,
+      approve_time: new Date().toISOString(),
+    });
+    if (r.success) {
       setSummaries((prev) =>
         prev.map((s) => (s.ipNo === ipNo ? { ...s, approve: true } : s)),
       );
       alert("Summary approved!");
-    } else alert("Error approving summary: " + result.error);
+    } else alert("Error approving summary: " + r.error);
   };
   const handleCancelEdit = () => {
     if (window.confirm("Cancel editing? Unsaved changes will be lost."))
@@ -1019,7 +1037,7 @@ const Summary = () => {
         })
       : "—";
 
-  const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const todayStr = new Date().toISOString().split("T")[0];
   const [filters, setFilters] = useState({
     fromDate: todayStr,
     toDate: todayStr,
@@ -1061,8 +1079,8 @@ const Summary = () => {
       toDate: filters.toDate,
       summaryType: filters.summaryType,
     });
-  const filteredSummaries = summaries.filter((s) => {
-    return (
+  const filteredSummaries = summaries.filter(
+    (s) =>
       (!filters.patient ||
         (s.patient || "")
           .toLowerCase()
@@ -1075,239 +1093,237 @@ const Summary = () => {
         (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase())) &&
       (!filters.summaryType ||
         (s.summaryType || "").toLowerCase() ===
-          filters.summaryType.toLowerCase())
-    );
-  });
+          filters.summaryType.toLowerCase()),
+  );
 
-  /* ─── Render ─────────────────────────────────────────────────────────── */
+  /* ─── Filter input style (compact) ───────────────────────────────────── */
+  const fi = { ...S.inp, height: 30, fontSize: 12 };
+  const fs = { ...S.sel, height: 30, fontSize: 12 };
+
+  /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
-    <div style={css.page}>
-      <div style={css.inner}>
-        {/* ── Page header ── */}
-        <div style={css.pageHeader}>
-          <h1 style={css.pageTitle}>
-            <span style={css.titleDot} />
-            {isEditMode ? "Edit Summary" : "Discharge Summary"}
+    <PageWrapper>
+      <div style={S.inner}>
+        {/* Top bar */}
+        <div style={S.topBar}>
+          <h1 style={S.pageTitle}>
+            <span style={S.titleIcon}>🏥</span>
+            {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
           </h1>
-          <div style={css.dateBadge}>📅 {currentDate}</div>
+          <div style={S.datePill}>📅 {currentDate}</div>
         </div>
 
-        {/* ── Edit banner ── */}
+        {/* Edit banner */}
         {isEditMode && (
-          <div style={css.editBanner}>
-            <div style={css.editBannerDot} />
-            Editing summary for IP No:{" "}
-            <strong style={{ color: tokens.sky }}>{editingIpNo}</strong>
+          <div style={S.editBanner}>
+            <span>✏️</span>
+            Editing summary for IP No:&nbsp;
+            <strong style={{ color: T.teal }}>{editingIpNo}</strong>
+            &nbsp;— scroll down to the notes section to make changes.
           </div>
         )}
 
-        {/* ══════════════════ PATIENT INFO CARD ══════════════════ */}
-        <div style={css.card}>
-          <div style={css.cardTitle}>
-            <div style={css.sectionLine} /> Patient Information
+        {/* ── Patient Info ── */}
+        <div style={S.card}>
+          <div style={S.cardHead}>
+            <div style={S.cardHeadBar} />
+            Patient Information
           </div>
-
-          {/* Row 1 */}
-          <div style={{ ...css.grid(6), marginBottom: 16 }}>
-            <Field label="Summary Date">
-              <Inp
-                type="text"
-                value={isEditMode ? fmtDate(formData.date) : currentDate}
-                readOnly
-              />
-            </Field>
-
-            <Field label="IP Number">
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <Inp
-                  type="text"
+          <div style={S.cardBody}>
+            {/* Row 1: 8 cols */}
+            <div style={S.grid(8)}>
+              <Fld label="Summary Date">
+                <CInp
+                  value={isEditMode ? fmtDate(formData.date) : currentDate}
+                  readOnly
+                  style={{ background: T.bgAlt }}
+                />
+              </Fld>
+              <Fld label="IP Number">
+                <CInp
                   name="ipNo"
                   value={formData.ipNo}
                   onChange={handleChange}
                   readOnly={isEditMode}
-                  placeholder="Enter IP No"
+                  placeholder="IP No"
                 />
                 {!isEditMode && (
-                  <button style={css.searchBtn} onClick={fetchIpPatient}>
+                  <button style={S.searchMicroBtn} onClick={fetchIpPatient}>
                     🔍 Search
                   </button>
                 )}
-              </div>
-            </Field>
+              </Fld>
+              <Fld label="UHID">
+                <CInp
+                  name="uhid"
+                  value={formData.uhid}
+                  onChange={handleChange}
+                  placeholder="UHID"
+                />
+              </Fld>
+              <Fld label="Patient Name">
+                <CInp
+                  name="patient"
+                  value={formData.patient}
+                  onChange={handleChange}
+                  placeholder="Full Name"
+                  style={{ gridColumn: "span 2" }}
+                />
+              </Fld>
+              <Fld label="Age">
+                <CInp
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  placeholder="Age"
+                />
+              </Fld>
+              <Fld label="Gender">
+                <CInp
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  placeholder="Gender"
+                />
+              </Fld>
+              <Fld label="Room No">
+                <CInp
+                  name="roomNo"
+                  value={formData.roomNo}
+                  onChange={handleChange}
+                  placeholder="Room"
+                />
+              </Fld>
+            </div>
 
-            <Field label="UHID">
-              <Inp
-                name="uhid"
-                value={formData.uhid}
-                onChange={handleChange}
-                placeholder="UHID"
-              />
-            </Field>
+            {/* Row 2: 8 cols */}
+            <div style={S.grid(8)}>
+              <Fld label="D.O.A">
+                <CInp
+                  name="doa"
+                  value={formData.doa}
+                  onChange={handleChange}
+                  placeholder="DD/MM/YYYY"
+                />
+              </Fld>
+              <Fld label="DOA Time">
+                <CInp
+                  name="doaTime"
+                  value={formData.doaTime}
+                  onChange={handleChange}
+                  placeholder="HH:MM"
+                />
+              </Fld>
+              <Fld label="D.O.D">
+                <CInp
+                  type="date"
+                  name="dod"
+                  value={formData.dod}
+                  onChange={handleChange}
+                />
+              </Fld>
+              <Fld label="DOD Time">
+                <CInp
+                  type="time"
+                  name="dodTime"
+                  value={formData.dodTime}
+                  onChange={handleChange}
+                />
+              </Fld>
+              <Fld label="Surgery Date">
+                <CInp
+                  type="date"
+                  name="surgeryDate"
+                  value={formData.surgeryDate}
+                  onChange={handleChange}
+                />
+              </Fld>
+              <Fld label="Next Review">
+                <CInp
+                  type="date"
+                  name="nextReviewDate"
+                  value={formData.nextReviewDate}
+                  onChange={handleChange}
+                />
+              </Fld>
+              <Fld label="Doctor">
+                <select
+                  name="doctor"
+                  value={formData.doctor}
+                  onChange={handleChange}
+                  style={S.sel}
+                >
+                  <option value="">— Doctor —</option>
+                  {doctors.map((doc, i) => (
+                    <option key={doc.employeeId || i} value={doc.employeeName}>
+                      {doc.employeeName}
+                    </option>
+                  ))}
+                </select>
+              </Fld>
+              <Fld label="Summary Type">
+                <select
+                  name="summaryType"
+                  value={formData.summaryType}
+                  onChange={handleChange}
+                  style={S.sel}
+                >
+                  <option value="">— Type —</option>
+                  {summaryTypeOptions.map((t, i) => (
+                    <option key={t.summaryNo || i} value={t.summaryType}>
+                      {t.summaryType}
+                    </option>
+                  ))}
+                </select>
+              </Fld>
+            </div>
 
-            <Field label="Patient Name">
-              <Inp
-                name="patient"
-                value={formData.patient}
-                onChange={handleChange}
-                placeholder="Full Name"
-              />
-            </Field>
-
-            <Field label="Age">
-              <Inp
-                name="age"
-                value={formData.age}
-                onChange={handleChange}
-                placeholder="Age"
-              />
-            </Field>
-
-            <Field label="Room No">
-              <Inp
-                name="roomNo"
-                value={formData.roomNo}
-                onChange={handleChange}
-                placeholder="Room No"
-              />
-            </Field>
-          </div>
-
-          {/* Row 2 */}
-          <div style={{ ...css.grid(7), marginBottom: 16 }}>
-            <Field label="D.O.A">
-              <Inp
-                name="doa"
-                value={formData.doa}
-                onChange={handleChange}
-                placeholder="DD/MM/YYYY"
-              />
-            </Field>
-            <Field label="DOA Time">
-              <Inp
-                name="doaTime"
-                value={formData.doaTime}
-                onChange={handleChange}
-                placeholder="HH:MM"
-              />
-            </Field>
-            <Field label="D.O.D">
-              <Inp
-                type="date"
-                name="dod"
-                value={formData.dod}
-                onChange={handleChange}
-              />
-            </Field>
-            <Field label="DOD Time">
-              <Inp
-                type="time"
-                name="dodTime"
-                value={formData.dodTime}
-                onChange={handleChange}
-              />
-            </Field>
-            <Field label="Surgery Date">
-              <Inp
-                type="date"
-                name="surgeryDate"
-                value={formData.surgeryDate}
-                onChange={handleChange}
-              />
-            </Field>
-            <Field label="Next Review Date">
-              <Inp
-                type="date"
-                name="nextReviewDate"
-                value={formData.nextReviewDate}
-                onChange={handleChange}
-              />
-            </Field>
-            <Field label="Gender">
-              <Inp
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                placeholder="Gender"
-              />
-            </Field>
-          </div>
-
-          {/* Row 3 */}
-          <div style={css.grid(4)}>
-            {/* ── Doctor Dropdown ── */}
-            <Field label="Doctor">
-              <select
-                name="doctor"
-                value={formData.doctor}
-                onChange={handleChange}
-                style={css.select}
-              >
-                <option value="">— Select Doctor —</option>
-                {doctors.map((doc, i) => (
-                  <option key={doc.employeeId || i} value={doc.employeeName}>
-                    {doc.employeeName}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Summary Type">
-              <select
-                name="summaryType"
-                value={formData.summaryType}
-                onChange={handleChange}
-                style={css.select}
-              >
-                <option value="">— Select Type —</option>
-                {summaryTypeOptions.map((t, i) => (
-                  <option key={t.summaryNo || i} value={t.summaryType}>
-                    {t.summaryType}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Heading">
-              <Inp
-                name="heading"
-                value={formData.heading}
-                onChange={handleChange}
-                placeholder="Heading"
-              />
-            </Field>
-
-            <Field label="Address">
-              <Inp
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="Address"
-              />
-            </Field>
+            {/* Row 3: 2 cols */}
+            <div style={S.grid(2)}>
+              <Fld label="Heading">
+                <CInp
+                  name="heading"
+                  value={formData.heading}
+                  onChange={handleChange}
+                  placeholder="Heading"
+                />
+              </Fld>
+              <Fld label="Address">
+                <CInp
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="Area, City, State"
+                />
+              </Fld>
+            </div>
           </div>
         </div>
 
-        {/* ══════════════════ ICD-11 SEARCH ══════════════════ */}
-        <div style={css.card}>
-          <div style={css.cardTitle}>
-            <div style={css.sectionLine} /> ICD‑11 Disease Coding
+        {/* ── ICD-11 ── */}
+        <div style={S.card}>
+          <div style={S.cardHead}>
+            <div style={S.cardHeadBar} />
+            ICD‑11 Disease Coding
           </div>
-          <ICD11SearchComponent
-            key={editingIpNo || "new"}
-            onDiseasesChange={(diseases) => setSelectedDiseases(diseases)}
-            initialDiseases={selectedDiseases}
-          />
+          <div style={S.cardBody}>
+            <ICD11SearchComponent
+              key={editingIpNo || "new"}
+              onDiseasesChange={(d) => setSelectedDiseases(d)}
+              initialDiseases={selectedDiseases}
+            />
+          </div>
         </div>
 
-        {/* ══════════════════ NOTES SECTION ══════════════════ */}
-        <div style={css.notesLayout}>
+        {/* ── Notes ── */}
+        <div style={S.notesLayout}>
           {/* Sidebar */}
-          <div style={css.sidebar}>
-            <div style={css.sidebarHeader}>Clinical Fields</div>
+          <div style={S.sidebar}>
+            <div style={S.sidebarHead}>Clinical Fields</div>
             {noteFields.map((field) => (
               <div
                 key={field}
-                style={css.sidebarItem(selectedField === field)}
+                style={S.sidebarItem(selectedField === field)}
                 onClick={() => handleButtonClick(field)}
               >
                 {field}
@@ -1316,50 +1332,70 @@ const Summary = () => {
           </div>
 
           {/* Notes area */}
-          <div style={css.notesCard}>
-            <div style={css.notesTitle}>
-              {selectedField || "Select a field from the left"}
+          <div style={S.notesCard}>
+            <div style={S.notesActiveLabel}>
+              {selectedField ? (
+                <>
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: T.teal,
+                      display: "inline-block",
+                    }}
+                  />
+                  {selectedField}
+                </>
+              ) : (
+                <span style={{ color: T.muted, fontSize: 12 }}>
+                  ← Select a clinical field from the sidebar
+                </span>
+              )}
             </div>
 
             <textarea
               ref={notesRef}
-              style={css.textarea}
+              style={S.textarea}
               name="notes"
-              placeholder="Type your clinical notes here…"
+              placeholder="Type clinical notes here…"
               value={formData.notes}
               onChange={handleChange}
+              onFocus={(e) => {
+                e.target.style.borderColor = T.teal;
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = T.border;
+              }}
             />
 
-            {/* Quick-add buttons */}
-            <div style={css.actionRow}>
-              <button
-                style={css.outlineBtn(tokens.sky)}
-                onClick={fetchInvestigations}
-              >
-                + Add Investigations
+            {/* Quick-add */}
+            <div style={S.actionRow}>
+              <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
+                ＋ Investigations
               </button>
-              <button style={css.outlineBtn(tokens.teal)}>
-                + Add Medicines
+              <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
+                ＋ Admission Medicines
               </button>
               <button
-                style={css.outlineBtn(tokens.green)}
-                onClick={fetchMedicines}
+                style={S.outBtn(T.green)}
+                onClick={fetchDischargeMedicines}
               >
-                + Discharge Medicines
+                ＋ Discharge Medicines
               </button>
             </div>
 
-            {/* Submit row */}
+            {/* Submit */}
             <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}
+              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
             >
               {isEditMode && (
-                <button style={css.btn("danger")} onClick={handleCancelEdit}>
-                  ✕ Cancel Edit
+                <button style={S.btn("danger")} onClick={handleCancelEdit}>
+                  ✕ Cancel
                 </button>
               )}
               <button
-                style={css.btn("primary")}
+                style={S.btn("primary")}
                 onClick={isEditMode ? handleUpdate : handleSubmit}
               >
                 {isEditMode ? "💾 Update Summary" : "⬆ Upload Summary"}
@@ -1368,53 +1404,45 @@ const Summary = () => {
           </div>
         </div>
 
-        {/* ══════════════════ INVESTIGATIONS MODAL ══════════════════ */}
+        {/* ══ INVESTIGATIONS MODAL ══ */}
         {showInvestigations && (
-          <div style={css.modalOverlay}>
-            <div style={css.modalBox}>
-              <div style={css.modalHead}>
-                <span style={css.modalTitle}>🔬 Patient Investigations</span>
+          <div style={S.overlay}>
+            <div style={S.modalBox}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>🔬 Patient Investigations</span>
                 <button
-                  style={css.modalClose}
+                  style={S.modalClose}
                   onClick={() => setShowInvestigations(false)}
                 >
                   ✕
                 </button>
               </div>
-              <div style={css.modalBody}>
+              <div style={S.modalBody}>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: 32 }}>
                     <div className="spinner-border text-primary" />
-                    <p style={{ marginTop: 12, color: tokens.muted }}>
+                    <p style={{ marginTop: 12, color: T.muted, fontSize: 13 }}>
                       Loading investigations…
                     </p>
                   </div>
                 ) : investigations.length === 0 ? (
                   <p
-                    style={{
-                      textAlign: "center",
-                      color: tokens.muted,
-                      padding: 32,
-                    }}
+                    style={{ textAlign: "center", color: T.muted, padding: 32 }}
                   >
                     No investigations found.
                   </p>
                 ) : (
                   <>
                     <p
-                      style={{
-                        color: tokens.muted,
-                        fontSize: 13,
-                        marginBottom: 16,
-                      }}
+                      style={{ color: T.muted, fontSize: 12, marginBottom: 12 }}
                     >
-                      Click to select investigations.{" "}
-                      <span style={{ color: tokens.amber }}>
+                      Click to select.{" "}
+                      <span style={{ color: T.amber }}>
                         ⚠ Yellow = Pending Approval.
                       </span>
                     </p>
                     {investigations.map((inv, i) => {
-                      const selected = selectedInvestigations.some(
+                      const sel = selectedInvestigations.some(
                         (si) =>
                           si.reportType === inv.reportType &&
                           si.investigation === inv.investigation,
@@ -1422,7 +1450,7 @@ const Summary = () => {
                       return (
                         <div
                           key={i}
-                          style={css.invCard(selected, !inv.is_approved)}
+                          style={S.invCard(sel, !inv.is_approved)}
                           onClick={() => toggleInvestigationSelection(inv)}
                         >
                           <div
@@ -1430,34 +1458,32 @@ const Summary = () => {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              marginBottom: 6,
+                              marginBottom: 4,
                             }}
                           >
-                            <strong
-                              style={{ fontSize: 14, color: tokens.navy }}
-                            >
+                            <strong style={{ fontSize: 13, color: T.teal }}>
                               {inv.reportType}
                             </strong>
                             {!inv.is_approved && (
                               <span
                                 style={{
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: 700,
-                                  color: tokens.amber,
-                                  background: `${tokens.amber}18`,
-                                  padding: "2px 8px",
+                                  color: T.amber,
+                                  background: `${T.amber}18`,
+                                  padding: "2px 7px",
                                   borderRadius: 20,
                                 }}
                               >
-                                Pending Approval
+                                Pending
                               </span>
                             )}
                           </div>
                           <p
                             style={{
-                              fontSize: 13,
-                              color: tokens.textSm,
-                              marginBottom: 4,
+                              fontSize: 12,
+                              color: T.textSm,
+                              marginBottom: 3,
                               whiteSpace: "pre-wrap",
                             }}
                           >
@@ -1465,7 +1491,7 @@ const Summary = () => {
                               ? `${inv.investigation.substring(0, 120)}…`
                               : inv.investigation}
                           </p>
-                          <small style={{ color: tokens.muted }}>
+                          <small style={{ color: T.muted, fontSize: 11 }}>
                             Impression:{" "}
                             {inv.impression?.length > 60
                               ? `${inv.impression.substring(0, 60)}…`
@@ -1477,13 +1503,13 @@ const Summary = () => {
                   </>
                 )}
               </div>
-              <div style={css.modalFoot}>
+              <div style={S.modalFoot}>
                 {selectedInvestigations.length > 0 && (
                   <span
                     style={{
                       marginRight: "auto",
-                      fontSize: 13,
-                      color: tokens.sky,
+                      fontSize: 12,
+                      color: T.teal,
                       fontWeight: 600,
                     }}
                   >
@@ -1491,14 +1517,14 @@ const Summary = () => {
                   </span>
                 )}
                 <button
-                  style={css.btn("ghost")}
+                  style={S.btn("ghost")}
                   onClick={() => setShowInvestigations(false)}
                 >
                   Cancel
                 </button>
                 <button
                   style={{
-                    ...css.btn("primary"),
+                    ...S.btn("primary"),
                     opacity: selectedInvestigations.length ? 1 : 0.4,
                   }}
                   onClick={addInvestigationsToNotes}
@@ -1511,56 +1537,51 @@ const Summary = () => {
           </div>
         )}
 
-        {/* ══════════════════ MEDICINES MODAL ══════════════════ */}
+        {/* ══ MEDICINES MODAL ══ */}
         {showMedicines && (
-          <div style={css.modalOverlay}>
-            <div style={css.modalBox}>
-              <div style={css.modalHead}>
-                <span style={css.modalTitle}>💊 Patient Medicines</span>
+          <div style={S.overlay}>
+            <div style={S.modalBox}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  💊{" "}
+                  {medicineModalType === "discharge"
+                    ? "Discharge Medicines"
+                    : "Admission Medicines"}
+                </span>
                 <button
-                  style={css.modalClose}
+                  style={S.modalClose}
                   onClick={() => setShowMedicines(false)}
                 >
                   ✕
                 </button>
               </div>
-              <div style={css.modalBody}>
+              <div style={S.modalBody}>
                 {medicinesLoading ? (
                   <div style={{ textAlign: "center", padding: 32 }}>
                     <div className="spinner-border text-primary" />
-                    <p style={{ marginTop: 12, color: tokens.muted }}>
+                    <p style={{ marginTop: 12, color: T.muted, fontSize: 13 }}>
                       Loading medicines…
                     </p>
                   </div>
                 ) : medicines.length === 0 ? (
                   <p
-                    style={{
-                      textAlign: "center",
-                      color: tokens.muted,
-                      padding: 32,
-                    }}
+                    style={{ textAlign: "center", color: T.muted, padding: 32 }}
                   >
                     No medicines found.
                   </p>
                 ) : (
                   <>
                     <p
-                      style={{
-                        color: tokens.muted,
-                        fontSize: 13,
-                        marginBottom: 16,
-                      }}
+                      style={{ color: T.muted, fontSize: 12, marginBottom: 12 }}
                     >
-                      Click to select medicines to add to the discharge summary.
+                      Click to select medicines to add to the summary.
                     </p>
                     {medicines.map((med, i) => {
-                      const selected = selectedMedicines.some(
-                        (m) => m._idx === i,
-                      );
+                      const sel = selectedMedicines.some((m) => m._idx === i);
                       return (
                         <div
                           key={i}
-                          style={css.invCard(selected, false)}
+                          style={S.invCard(sel, false)}
                           onClick={() => toggleMedicineSelection(med, i)}
                         >
                           <div
@@ -1568,23 +1589,21 @@ const Summary = () => {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              marginBottom: 6,
+                              marginBottom: 4,
                             }}
                           >
-                            <strong
-                              style={{ fontSize: 14, color: tokens.navy }}
-                            >
+                            <strong style={{ fontSize: 13, color: T.teal }}>
                               {med.itemName}
                             </strong>
-                            <div style={{ display: "flex", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 4 }}>
                               {med.is_discharge_medicine && (
                                 <span
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: 700,
-                                    color: tokens.green,
-                                    background: `${tokens.green}18`,
-                                    padding: "2px 8px",
+                                    color: T.green,
+                                    background: `${T.green}18`,
+                                    padding: "2px 7px",
                                     borderRadius: 20,
                                   }}
                                 >
@@ -1594,11 +1613,11 @@ const Summary = () => {
                               {med.is_regular_medicine && (
                                 <span
                                   style={{
-                                    fontSize: 11,
+                                    fontSize: 10,
                                     fontWeight: 700,
-                                    color: tokens.sky,
-                                    background: `${tokens.sky}18`,
-                                    padding: "2px 8px",
+                                    color: T.sky,
+                                    background: `${T.sky}18`,
+                                    padding: "2px 7px",
                                     borderRadius: 20,
                                   }}
                                 >
@@ -1610,38 +1629,33 @@ const Summary = () => {
                           <div
                             style={{
                               display: "flex",
-                              gap: 18,
+                              gap: 14,
                               flexWrap: "wrap",
                             }}
                           >
                             {med.dosage && (
-                              <small style={{ color: tokens.textSm }}>
-                                <span style={{ fontWeight: 600 }}>Dosage:</span>{" "}
-                                {med.dosage}
+                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                                <b>Dosage:</b> {med.dosage}
                               </small>
                             )}
                             {med.noOfDays && (
-                              <small style={{ color: tokens.textSm }}>
-                                <span style={{ fontWeight: 600 }}>Days:</span>{" "}
-                                {med.noOfDays}
+                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                                <b>Days:</b> {med.noOfDays}
                               </small>
                             )}
                             {med.qty && (
-                              <small style={{ color: tokens.textSm }}>
-                                <span style={{ fontWeight: 600 }}>Qty:</span>{" "}
-                                {med.qty} {med.doseUnit}
+                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                                <b>Qty:</b> {med.qty} {med.doseUnit}
                               </small>
                             )}
                             {med.route && (
-                              <small style={{ color: tokens.textSm }}>
-                                <span style={{ fontWeight: 600 }}>Route:</span>{" "}
-                                {med.route}
+                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                                <b>Route:</b> {med.route}
                               </small>
                             )}
                             {med.remark && med.remark !== "Nil" && (
-                              <small style={{ color: tokens.muted }}>
-                                <span style={{ fontWeight: 600 }}>Remark:</span>{" "}
-                                {med.remark}
+                              <small style={{ color: T.muted, fontSize: 11 }}>
+                                <b>Remark:</b> {med.remark}
                               </small>
                             )}
                           </div>
@@ -1651,13 +1665,13 @@ const Summary = () => {
                   </>
                 )}
               </div>
-              <div style={css.modalFoot}>
+              <div style={S.modalFoot}>
                 {selectedMedicines.length > 0 && (
                   <span
                     style={{
                       marginRight: "auto",
-                      fontSize: 13,
-                      color: tokens.sky,
+                      fontSize: 12,
+                      color: T.teal,
                       fontWeight: 600,
                     }}
                   >
@@ -1665,14 +1679,14 @@ const Summary = () => {
                   </span>
                 )}
                 <button
-                  style={css.btn("ghost")}
+                  style={S.btn("ghost")}
                   onClick={() => setShowMedicines(false)}
                 >
                   Cancel
                 </button>
                 <button
                   style={{
-                    ...css.btn("primary"),
+                    ...S.btn("primary"),
                     opacity: selectedMedicines.length ? 1 : 0.4,
                   }}
                   onClick={addMedicinesToNotes}
@@ -1685,361 +1699,286 @@ const Summary = () => {
           </div>
         )}
 
-        {/* ══════════════════ SUMMARY TABLE ══════════════════ */}
-        <div style={{ marginTop: 36 }}>
-          <div style={css.tableWrap}>
-            {/* Table header + result count */}
-            <div
-              style={{
-                ...css.tableHeader,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span>📋 Summary Reports</span>
-              <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.75 }}>
-                {filteredSummaries.length} of {summaries.length} records
-              </span>
-            </div>
+        {/* ══ SUMMARY TABLE ══ */}
+        <div style={S.tableWrap}>
+          <div style={S.tableHead}>
+            <span style={S.tableTitle}>📋 Summary Reports</span>
+            <span style={S.tableCount}>
+              {filteredSummaries.length} of {summaries.length} records
+            </span>
+          </div>
 
-            {/* ── Filter bar ── */}
-            <div
-              style={{
-                padding: "16px 20px",
-                background: tokens.bg,
-                borderBottom: `1px solid ${tokens.border}`,
-              }}
-            >
-              {/* Row 1: date range + summary type + search btn */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 1.4fr 1fr 1fr auto auto",
-                  gap: "10px 12px",
-                  alignItems: "end",
-                  marginBottom: 10,
-                }}
-              >
-                {/* From Date */}
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    🗓 From Date
-                  </span>
-                  <input
-                    type="date"
-                    name="fromDate"
-                    value={filters.fromDate}
-                    onChange={handleFilterChange}
-                    style={{ ...css.input, height: 34, fontSize: 12 }}
-                  />
-                </div>
-
-                {/* To Date */}
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    🗓 To Date
-                  </span>
-                  <input
-                    type="date"
-                    name="toDate"
-                    value={filters.toDate}
-                    onChange={handleFilterChange}
-                    style={{ ...css.input, height: 34, fontSize: 12 }}
-                  />
-                </div>
-
-                {/* Summary Type Dropdown */}
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    📄 Summary Type
-                  </span>
-                  <select
-                    name="summaryType"
-                    value={filters.summaryType}
-                    onChange={handleSummaryTypeFilterChange}
-                    style={{ ...css.select, height: 34, fontSize: 12 }}
-                  >
-                    <option value="">All Types</option>
-                    {summaryTypeOptions.map((t, i) => (
-                      <option key={t.summaryNo || i} value={t.summaryType}>
-                        {t.summaryType}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Patient */}
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    👤 Patient Name
-                  </span>
-                  <input
-                    name="patient"
-                    value={filters.patient}
-                    onChange={handleFilterChange}
-                    placeholder="Search name…"
-                    style={{ ...css.input, height: 34, fontSize: 12 }}
-                  />
-                </div>
-
-                {/* Status */}
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    🔖 Status
-                  </span>
-                  <select
-                    name="status"
-                    value={filters.status}
-                    onChange={handleFilterChange}
-                    style={{ ...css.select, height: 34, fontSize: 12 }}
-                  >
-                    <option value="">All</option>
-                    <option value="approved">Approved</option>
-                    <option value="pending">Pending</option>
-                  </select>
-                </div>
-
-                {/* Search button */}
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <button
-                    onClick={applyServerFilters}
-                    style={{
-                      ...css.btn("primary"),
-                      height: 34,
-                      padding: "0 18px",
-                      fontSize: 12,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    🔍 Search
-                  </button>
-                </div>
-
-                {/* Clear button */}
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
-                  <button
-                    onClick={clearFilters}
-                    style={{
-                      height: 34,
-                      padding: "0 14px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      border: `1.5px solid ${tokens.border}`,
-                      borderRadius: 8,
-                      background: tokens.white,
-                      color: tokens.muted,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      transition: "all .15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.borderColor = tokens.red;
-                      e.target.style.color = tokens.red;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.borderColor = tokens.border;
-                      e.target.style.color = tokens.muted;
-                    }}
-                  >
-                    ✕ Clear
-                  </button>
-                </div>
+          {/* Filter bar */}
+          <div style={S.filterBar}>
+            <div style={S.filterGrid}>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>From Date</span>
+                <input
+                  type="date"
+                  name="fromDate"
+                  value={filters.fromDate}
+                  onChange={handleFilterChange}
+                  style={fi}
+                />
               </div>
-
-              {/* Row 2: UHID + IP No */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr 5fr",
-                  gap: "10px 12px",
-                  alignItems: "end",
-                }}
-              >
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    🆔 UHID
-                  </span>
-                  <input
-                    name="uhid"
-                    value={filters.uhid}
-                    onChange={handleFilterChange}
-                    placeholder="Search UHID…"
-                    style={{ ...css.input, height: 34, fontSize: 12 }}
-                  />
-                </div>
-                <div style={css.fieldWrap}>
-                  <span style={{ ...css.label, color: tokens.sky }}>
-                    🏥 IP No
-                  </span>
-                  <input
-                    name="ipNo"
-                    value={filters.ipNo}
-                    onChange={handleFilterChange}
-                    placeholder="Search IP No…"
-                    style={{ ...css.input, height: 34, fontSize: 12 }}
-                  />
-                </div>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>To Date</span>
+                <input
+                  type="date"
+                  name="toDate"
+                  value={filters.toDate}
+                  onChange={handleFilterChange}
+                  style={fi}
+                />
               </div>
-            </div>
-
-            {/* ── Table ── */}
-            {summaries.length === 0 ? (
-              <p
-                style={{
-                  textAlign: "center",
-                  padding: 40,
-                  color: tokens.muted,
-                }}
-              >
-                No summary reports found.
-              </p>
-            ) : filteredSummaries.length === 0 ? (
-              <p
-                style={{
-                  textAlign: "center",
-                  padding: 40,
-                  color: tokens.muted,
-                }}
-              >
-                No records match your filters.{" "}
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>Summary Type</span>
+                <select
+                  name="summaryType"
+                  value={filters.summaryType}
+                  onChange={handleSummaryTypeFilterChange}
+                  style={fs}
+                >
+                  <option value="">All Types</option>
+                  {summaryTypeOptions.map((t, i) => (
+                    <option key={t.summaryNo || i} value={t.summaryType}>
+                      {t.summaryType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>Patient Name</span>
+                <input
+                  name="patient"
+                  value={filters.patient}
+                  onChange={handleFilterChange}
+                  placeholder="Search…"
+                  style={fi}
+                />
+              </div>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>Status</span>
+                <select
+                  name="status"
+                  value={filters.status}
+                  onChange={handleFilterChange}
+                  style={fs}
+                >
+                  <option value="">All</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <button
+                  onClick={applyServerFilters}
+                  style={{
+                    ...S.btn("primary"),
+                    height: 30,
+                    padding: "0 14px",
+                    fontSize: 11.5,
+                  }}
+                >
+                  🔍 Search
+                </button>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button
                   onClick={clearFilters}
                   style={{
-                    background: "none",
-                    border: "none",
-                    color: tokens.sky,
-                    cursor: "pointer",
+                    height: 30,
+                    padding: "0 12px",
+                    fontSize: 11.5,
                     fontWeight: 600,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 6,
+                    background: T.white,
+                    color: T.muted,
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.borderColor = T.red;
+                    e.target.style.color = T.red;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.borderColor = T.border;
+                    e.target.style.color = T.muted;
                   }}
                 >
-                  Clear filters
+                  ✕ Clear
                 </button>
-              </p>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {[
-                        "Date",
-                        "Patient Name",
-                        "Status",
-                        "Summary Type",
-                        "UHID",
-                        "IP No",
-                        "Approved On",
-                        "Actions",
-                      ].map((h) => (
-                        <th key={h} style={css.th}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSummaries.map((s, i) => (
-                      <tr
-                        key={s.id || i}
-                        style={{
-                          background: i % 2 === 0 ? tokens.white : "#F8FAFC",
-                        }}
-                      >
-                        <td style={css.td}>{fmtDate(s.date)}</td>
-                        <td
-                          style={{
-                            ...css.td,
-                            fontWeight: 600,
-                            color: tokens.navy,
-                          }}
+              </div>
+            </div>
+            <div style={S.filterGrid2}>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>UHID</span>
+                <input
+                  name="uhid"
+                  value={filters.uhid}
+                  onChange={handleFilterChange}
+                  placeholder="Search UHID…"
+                  style={fi}
+                />
+              </div>
+              <div style={S.fld}>
+                <span style={{ ...S.lbl, color: T.teal }}>IP No</span>
+                <input
+                  name="ipNo"
+                  value={filters.ipNo}
+                  onChange={handleFilterChange}
+                  placeholder="Search IP No…"
+                  style={fi}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          {summaries.length === 0 ? (
+            <p
+              style={{
+                textAlign: "center",
+                padding: 40,
+                color: T.muted,
+                fontSize: 13,
+              }}
+            >
+              No summary reports found.
+            </p>
+          ) : filteredSummaries.length === 0 ? (
+            <p
+              style={{
+                textAlign: "center",
+                padding: 40,
+                color: T.muted,
+                fontSize: 13,
+              }}
+            >
+              No records match your filters.{" "}
+              <button
+                onClick={clearFilters}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.teal,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Clear filters
+              </button>
+            </p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {[
+                      "Date",
+                      "Patient Name",
+                      "Status",
+                      "Summary Type",
+                      "UHID",
+                      "IP No",
+                      "Approved On",
+                      "Actions",
+                    ].map((h) => (
+                      <th key={h} style={S.th}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSummaries.map((s, i) => (
+                    <tr
+                      key={s.id || i}
+                      style={{ background: i % 2 === 0 ? T.white : T.bgAlt }}
+                    >
+                      <td style={S.td}>{fmtDate(s.date)}</td>
+                      <td style={{ ...S.td, fontWeight: 600, color: T.teal }}>
+                        {s.patient}
+                      </td>
+                      <td style={S.td}>
+                        <span style={S.badge(s.approve)}>
+                          <span style={S.dot(s.approve)} />
+                          {s.approve ? "Approved" : "Pending"}
+                        </span>
+                      </td>
+                      <td style={{ ...S.td, fontSize: 12 }}>{s.summaryType}</td>
+                      <td style={S.td}>{s.uhid}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{s.ipNo}</td>
+                      <td style={{ ...S.td, fontSize: 12 }}>
+                        {fmtDateTime(s.approve_time)}
+                      </td>
+                      <td style={S.td}>
+                        <div
+                          style={{ display: "flex", gap: 5, flexWrap: "wrap" }}
                         >
-                          {s.patient}
-                        </td>
-                        <td style={css.td}>
-                          <span style={css.statusBadge(s.approve)}>
-                            <span style={css.statusDot(s.approve)} />
-                            {s.approve ? "Approved" : "Pending"}
-                          </span>
-                        </td>
-                        <td style={{ ...css.td, fontSize: 12 }}>
-                          {s.summaryType}
-                        </td>
-                        <td style={css.td}>{s.uhid}</td>
-                        <td style={{ ...css.td, fontWeight: 600 }}>{s.ipNo}</td>
-                        <td style={css.td}>{fmtDateTime(s.approve_time)}</td>
-                        <td style={css.td}>
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 6,
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            {canEdit && (
-                              <button
-                                style={{
-                                  ...css.btn("ghost"),
-                                  padding: "5px 12px",
-                                  fontSize: 12,
-                                  opacity: s.approve ? 0.4 : 1,
-                                }}
-                                onClick={() => handleEdit(s.ipNo)}
-                                disabled={s.approve}
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button
-                                style={{
-                                  ...css.btn("danger"),
-                                  padding: "5px 12px",
-                                  fontSize: 12,
-                                  opacity: s.approve ? 0.4 : 1,
-                                }}
-                                onClick={() => handleDelete(s.ipNo)}
-                                disabled={s.approve}
-                              >
-                                Delete
-                              </button>
-                            )}
-                            {canApprove && (
-                              <button
-                                style={{
-                                  ...css.btn("success"),
-                                  padding: "5px 12px",
-                                  fontSize: 12,
-                                  opacity: s.approve ? 0.4 : 1,
-                                }}
-                                onClick={() => handleApprove(s.ipNo)}
-                                disabled={s.approve}
-                              >
-                                Approve
-                              </button>
-                            )}
+                          {canEdit && (
                             <button
                               style={{
-                                ...css.btn("primary"),
-                                padding: "5px 12px",
-                                fontSize: 12,
+                                ...S.btn("ghost"),
+                                padding: "4px 10px",
+                                fontSize: 11.5,
+                                opacity: s.approve ? 0.4 : 1,
                               }}
-                              onClick={() => handlePrint(s.ipNo)}
+                              onClick={() => handleEdit(s.ipNo)}
+                              disabled={s.approve}
                             >
-                              Print
+                              Edit
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                          )}
+                          {canDelete && (
+                            <button
+                              style={{
+                                ...S.btn("danger"),
+                                padding: "4px 10px",
+                                fontSize: 11.5,
+                                opacity: s.approve ? 0.4 : 1,
+                              }}
+                              onClick={() => handleDelete(s.ipNo)}
+                              disabled={s.approve}
+                            >
+                              Delete
+                            </button>
+                          )}
+                          {canApprove && (
+                            <button
+                              style={{
+                                ...S.btn("success"),
+                                padding: "4px 10px",
+                                fontSize: 11.5,
+                                opacity: s.approve ? 0.4 : 1,
+                              }}
+                              onClick={() => handleApprove(s.ipNo)}
+                              disabled={s.approve}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          <button
+                            style={{
+                              ...S.btn("primary"),
+                              padding: "4px 10px",
+                              fontSize: 11.5,
+                            }}
+                            onClick={() => handlePrint(s.ipNo)}
+                          >
+                            Print
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
-      {/* /inner */}
-    </div>
+    </PageWrapper>
   );
 };
 

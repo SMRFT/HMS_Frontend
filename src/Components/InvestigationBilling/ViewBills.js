@@ -139,9 +139,39 @@ const ActionIcon = styled.span`
   }
 `;
 
-const PrintIcon = styled(ActionIcon)`
+const PrintIconBtn = styled.span`
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
   color: ${colors.primary};
+  transition: transform 0.2s;
+  &:hover {
+    transform: scale(1.15);
+    background: #f0f0f0;
+  }
 `;
+
+const PrintSVG = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="6 9 6 2 18 2 18 9" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <rect x="6" y="14" width="12" height="8" />
+  </svg>
+);
 const ViewIcon = styled(ActionIcon)`
   color: #7c3aed;
 `;
@@ -268,19 +298,21 @@ const ConfirmRefundBtn = styled(Button)`
 // ─── Frozen-column table ──────────────────────────────────────────────────────
 // border-collapse:separate is required for position:sticky to work on td/th.
 
+// Update FrozenTableWrapper — remove fixed min-width so scrollable cols shrink-wrap
 const FrozenTableWrapper = styled.div`
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: 65vh;
   border-radius: 6px;
   border: 1px solid ${colors.border};
 
   table {
     border-collapse: separate;
     border-spacing: 0;
-    min-width: 1500px;
-    width: 100%;
+    width: max-content; /* ← was min-width:1500px; now hugs content */
+    min-width: 100%; /* ← still fills container when few columns */
   }
 `;
-
 // Frozen columns and their cumulative left offsets
 //  Col 1  Sl.No        44px   left:   0
 //  Col 2  Date/Time   150px   left:  44
@@ -289,13 +321,14 @@ const FrozenTableWrapper = styled.div`
 //  Col 5  IP No        80px   left: 424
 //  Col 6  Patient Name 160px  left: 504  ← last frozen (shadow here)
 
+// Replace the COL object
 const COL = {
-  slNo: { width: 44, left: 0 },
-  dateTime: { width: 150, left: 44 },
-  billNo: { width: 130, left: 194 },
-  uhid: { width: 100, left: 324 },
-  ipNo: { width: 80, left: 424 },
-  patientName: { width: 160, left: 504 },
+  slNo: { width: 50, left: 0 },
+  dateTime: { width: 170, left: 50 },
+  billNo: { width: 145, left: 220 },
+  uhid: { width: 115, left: 365 },
+  ipNo: { width: 90, left: 480 },
+  patientName: { width: 180, left: 570 },
 };
 
 const frozenShadow = `
@@ -311,26 +344,30 @@ const frozenShadow = `
 
 const StickyTh = styled(Th)`
   position: sticky;
+  top: 0;
   left: ${({ $left }) => $left}px;
   min-width: ${({ $width }) => $width}px;
-  max-width: ${({ $width }) => $width}px;
-  z-index: 3;
+  z-index: 4;
   background: ${colors.tabBg || "#f1f5f9"};
   white-space: nowrap;
   border-right: 1px solid ${colors.border};
   ${({ $last }) => ($last ? frozenShadow : "")}
 `;
 
+const ScrollableTh = styled(Th)`
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: ${colors.tabBg || "#f1f5f9"};
+`;
+
 const StickyTd = styled(Td)`
   position: sticky;
   left: ${({ $left }) => $left}px;
   min-width: ${({ $width }) => $width}px;
-  max-width: ${({ $width }) => $width}px;
   z-index: 2;
   background: white;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   border-right: 1px solid ${colors.border};
   ${({ $last }) => ($last ? frozenShadow : "")}
 `;
@@ -357,6 +394,13 @@ const RemarksTd = styled(Td)`
   color: ${colors.textMuted};
   vertical-align: top;
   padding-top: 6px;
+`;
+
+const RemarksScrollableTh = styled(RemarksTh)`
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: ${colors.tabBg || "#f1f5f9"};
 `;
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
@@ -540,6 +584,38 @@ const ConfirmBtn = styled(Button)`
     background: #d97706;
   }
 `;
+const RefundHistoryIconBtn = styled.span`
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  color: #7c3aed;
+  transition: transform 0.2s;
+  &:hover {
+    transform: scale(1.15);
+    background: #f0f0f0;
+  }
+`;
+const RefundHistorySVG = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l4 2" />
+  </svg>
+);
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -568,6 +644,9 @@ const BillsReport = () => {
   const [refundBill, setRefundBill] = useState(null);
   const [refundSelected, setRefundSelected] = useState([]);
   const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundRemarks, setRefundRemarks] = useState("");
+  const [refundRemarksErr, setRefundRemarksErr] = useState(false);
+  const [viewRefundBill, setViewRefundBill] = useState(null);
 
   // Print modal state — { bill, isEstimate }
   const [printJob, setPrintJob] = useState(null);
@@ -599,32 +678,33 @@ const BillsReport = () => {
   };
 
   // ── Fetch bills ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const fetchBills = async () => {
-      try {
-        const qp = new URLSearchParams();
-        Object.entries(filters).forEach(([k, v]) => {
-          if (v && v !== "ALL") qp.append(k, v);
-        });
-        qp.append("start_date", fromDate.format("YYYY-MM-DD"));
-        qp.append("end_date", toDate.format("YYYY-MM-DD"));
+  const fetchBills = async () => {
+    try {
+      const qp = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v && v !== "ALL") qp.append(k, v);
+      });
+      qp.append("start_date", fromDate.format("YYYY-MM-DD"));
+      qp.append("end_date", toDate.format("YYYY-MM-DD"));
 
-        const result = await apiRequest(
-          `${HMSURL}investBillingGet/?${qp.toString()}`,
-          "GET",
-        );
-        if (result.success) {
-          setEstimateBills(result.data);
-          setFilteredBills(result.data);
-        } else {
-          toast.error(result.error || "Failed to fetch bills");
-        }
-      } catch {
-        toast.error("An unexpected error occurred");
+      const result = await apiRequest(
+        `${HMSURL}investBillingGet/?${qp.toString()}`,
+        "GET",
+      );
+      if (result.success) {
+        setEstimateBills(result.data);
+        setFilteredBills(result.data);
+      } else {
+        toast.error(result.error || "Failed to fetch bills");
       }
-    };
+    } catch {
+      toast.error("An unexpected error occurred");
+    }
+  };
+
+  useEffect(() => {
     fetchBills();
-  }, [filters, fromDate, toDate, HMSURL]); // eslint-disable-line
+  }, [filters, fromDate, toDate, HMSURL]);
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -773,12 +853,16 @@ const BillsReport = () => {
   const handleRefund = (bill) => {
     setRefundBill({ ...bill });
     setRefundSelected([]);
+    setRefundRemarks(""); // ← ADD
+    setRefundRemarksErr(false); // ← ADD
   };
 
   const handleRefundCancel = () => {
     setRefundBill(null);
     setRefundSelected([]);
     setRefundSubmitting(false);
+    setRefundRemarks(""); // ← ADD
+    setRefundRemarksErr(false); // ← ADD
   };
 
   const toggleRefundItem = (idx) => {
@@ -802,6 +886,13 @@ const BillsReport = () => {
 
   const handleRefundConfirm = async () => {
     if (!refundSelected.length) return;
+
+    // ← ADD validation
+    if (!refundRemarks.trim()) {
+      setRefundRemarksErr(true);
+      return;
+    }
+
     setRefundSubmitting(true);
     try {
       const selectedItems = refundSelected.map((idx) => refundBill.item[idx]);
@@ -814,6 +905,7 @@ const BillsReport = () => {
         refund_finalPrice: refundTotal.toFixed(2),
         item: selectedItems,
         investBillDate: refundBill.investBillDate || refundBill.EstBillDate,
+        refundRemarks: refundRemarks.trim(), // ← ADD
       };
 
       const result = await apiRequest(
@@ -823,6 +915,7 @@ const BillsReport = () => {
       );
       if (result.success) {
         toast.success(`Refund created — ${result.data?.refundBillNo || ""}`);
+        await fetchBills();
         handleRefundCancel();
       } else {
         toast.error(result.error || "Failed to create refund");
@@ -965,17 +1058,18 @@ const BillsReport = () => {
                     Patient Name
                   </StickyTh>
                   {/* ── Scrollable header cells ── */}
-                  <Th>Age</Th>
-                  <Th>Room No</Th>
-                  <Th>Bill Type</Th>
-                  <Th>Bill Amount</Th>
-                  <Th>Payment Method</Th>
-                  <Th>Doctor</Th>
-                  <Th>Billed By</Th>
-                  <Th>Edited By</Th>
-                  <RemarksTh>Remarks</RemarksTh>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
+                  <ScrollableTh>Age</ScrollableTh>
+                  <ScrollableTh>Room No</ScrollableTh>
+                  <ScrollableTh>Bill Type</ScrollableTh>
+                  <ScrollableTh>Bill Amount</ScrollableTh>
+                  <ScrollableTh>Payment Method</ScrollableTh>
+                  <ScrollableTh>Doctor</ScrollableTh>
+                  <ScrollableTh>Billed By</ScrollableTh>
+                  <ScrollableTh>Edited By</ScrollableTh>
+                  <RemarksScrollableTh>Remarks</RemarksScrollableTh>{" "}
+                  {/* see below */}
+                  <ScrollableTh>Status</ScrollableTh>
+                  <ScrollableTh>Actions</ScrollableTh>
                 </tr>
               </thead>
               <tbody>
@@ -1071,12 +1165,12 @@ const BillsReport = () => {
                     <Td>{bill.paymentStatus}</Td>
                     <Td>
                       <ActionGroup>
-                        <PrintIcon
+                        <PrintIconBtn
                           onClick={() => handlePrint(bill)}
                           title="Print"
                         >
-                          🖨
-                        </PrintIcon>
+                          <PrintSVG />
+                        </PrintIconBtn>
                         <ViewIcon
                           onClick={() => setViewBill(bill)}
                           title="View Items"
@@ -1130,6 +1224,14 @@ const BillsReport = () => {
                         >
                           💸
                         </RefundIcon>
+                        {bill.refunds && bill.refunds.length > 0 && (
+                          <RefundHistoryIconBtn
+                            onClick={() => setViewRefundBill(bill)}
+                            title="View Refunds"
+                          >
+                            <RefundHistorySVG />
+                          </RefundHistoryIconBtn>
+                        )}
                       </ActionGroup>
                     </Td>
                   </Tr>
@@ -1356,6 +1458,29 @@ const BillsReport = () => {
                     </ItemCheckRow>
                   ))}
 
+                  <div style={{ marginTop: 4 }}>
+                    <Label>
+                      Remarks{" "}
+                      <span style={{ color: colors.danger, marginLeft: 2 }}>
+                        *
+                      </span>
+                    </Label>
+                    <RemarksTextarea
+                      $error={refundRemarksErr}
+                      placeholder="Enter reason for refund..."
+                      value={refundRemarks}
+                      onChange={(e) => {
+                        setRefundRemarks(e.target.value);
+                        if (e.target.value.trim()) setRefundRemarksErr(false);
+                      }}
+                    />
+                    {refundRemarksErr && (
+                      <ErrorText>
+                        ⚠ Remarks is required to process refund.
+                      </ErrorText>
+                    )}
+                  </div>
+
                   <RefundSummaryBar>
                     <span>
                       {refundSelected.length} item
@@ -1386,6 +1511,144 @@ const BillsReport = () => {
               </ConfirmRefundBtn>
             </RemarksModalFooter>
           </RefundModalBox>
+        </ModalOverlay>
+      )}
+      {/* ── Refund History Modal ── */}
+      {viewRefundBill && (
+        <ModalOverlay onClick={() => setViewRefundBill(null)}>
+          <ModalBox
+            style={{ maxWidth: 640 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader style={{ background: "#0f766e" }}>
+              <ModalTitle>
+                🔁 Refunds — Bill No:{" "}
+                {viewRefundBill.investBillNo || viewRefundBill.EstBillNo}
+              </ModalTitle>
+              <ModalClose onClick={() => setViewRefundBill(null)}>✕</ModalClose>
+            </ModalHeader>
+
+            <ModalBody>
+              {viewRefundBill.refunds.map((r, ri) => (
+                <div
+                  key={ri}
+                  style={{
+                    marginBottom: 14,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: 6,
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Refund bill header */}
+                  <div
+                    style={{
+                      background: "#f1f5f9",
+                      padding: "6px 10px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: "0.78rem",
+                      fontWeight: 600,
+                      color: colors.textMain,
+                    }}
+                  >
+                    <span>📄 {r.refundBillNo || `Refund #${ri + 1}`}</span>
+                    <span style={{ fontWeight: 400, color: colors.textMuted }}>
+                      {r.refundBillDate ? formatBillDate(r.refundBillDate) : ""}
+                    </span>
+                  </div>
+
+                  {/* Remarks */}
+                  {r.refundRemarks && (
+                    <div
+                      style={{
+                        padding: "5px 10px",
+                        fontSize: "0.76rem",
+                        color: colors.textMuted,
+                        borderBottom: `1px solid ${colors.border}`,
+                        background: "#fffbeb",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: colors.textMain }}>
+                        Remarks:{" "}
+                      </span>
+                      {r.refundRemarks}
+                    </div>
+                  )}
+
+                  {/* Items table */}
+                  <ModalTable>
+                    <thead>
+                      <tr>
+                        <ModalTh>Sl.No</ModalTh>
+                        <ModalTh>Item Name</ModalTh>
+                        <ModalTh>Qty</ModalTh>
+                        <ModalTh>Price</ModalTh>
+                        <ModalTh>Amount</ModalTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(r.item) && r.item.length > 0 ? (
+                        r.item.map((it, idx) => (
+                          <tr key={idx}>
+                            <ModalTd>{idx + 1}</ModalTd>
+                            <ModalTd>{it.itemName}</ModalTd>
+                            <ModalTd>{it.quantity || 1}</ModalTd>
+                            <ModalTd>
+                              ₹ {parseFloat(it.price || 0).toFixed(2)}
+                            </ModalTd>
+                            <ModalTd>
+                              ₹{" "}
+                              {(
+                                parseFloat(it.price || 0) *
+                                parseInt(it.quantity || 1, 10)
+                              ).toFixed(2)}
+                            </ModalTd>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <ModalTd
+                            colSpan={5}
+                            style={{
+                              textAlign: "center",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            No items
+                          </ModalTd>
+                        </tr>
+                      )}
+                    </tbody>
+                  </ModalTable>
+
+                  {/* Refund subtotal */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      padding: "6px 10px",
+                      fontSize: "0.8rem",
+                      fontWeight: 700,
+                      color: "#0891b2",
+                      borderTop: `1px solid ${colors.border}`,
+                    }}
+                  >
+                    Refund Total: ₹{" "}
+                    {(Array.isArray(r.item) ? r.item : [])
+                      .reduce(
+                        (s, it) =>
+                          s +
+                          parseFloat(it.price || 0) *
+                            parseInt(it.quantity || 1, 10),
+                        0,
+                      )
+                      .toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </ModalBody>
+          </ModalBox>
         </ModalOverlay>
       )}
       {/* ── Print Modal (fast in-page preview, replaces window.open) ── */}
