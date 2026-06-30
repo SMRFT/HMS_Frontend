@@ -3,10 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
-import { Container, Button, Label, Input } from "../GlobalStyles";
+import {
+  Container,
+  Button,
+  Label,
+  Input,
+  Select,
+  colors,
+} from "../GlobalStyles";
 import styled from "styled-components";
-import { colors } from "../GlobalStyles";
-
 const MaxWidthContainer = styled.div`
   width: 100%;
   max-width: 1100px;
@@ -140,7 +145,11 @@ const CloseBtn = styled.button`
 // ─────────────────────────────────────────────────────────────────────────────
 const ItemForm = ({ onSuccess, onCancel, isModal = false }) => {
   const [errorMsg, setErrorMsg] = useState("");
-  const [formData, setFormData] = useState({ itemName: "", hsn: "" });
+  const [formData, setFormData] = useState({
+    itemName: "",
+    hsn: "",
+    category: "",
+  });
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const handleInputChange = (e) => {
@@ -153,6 +162,7 @@ const ItemForm = ({ onSuccess, onCancel, isModal = false }) => {
     const missingFields = Object.entries({
       itemName: "Item Name",
       hsn: "HSN Code",
+      category: "Category",
     })
       .filter(([field]) => !formData[field] || formData[field].trim() === "")
       .map(([_, label]) => label);
@@ -207,6 +217,20 @@ const ItemForm = ({ onSuccess, onCancel, isModal = false }) => {
             onChange={handleInputChange}
             placeholder="Enter HSN code"
           />
+        </FormGroup>
+        <FormGroup>
+          <Label>
+            Category <Required>*</Required>
+          </Label>
+          <Select
+            name="category"
+            value={formData.category}
+            onChange={handleInputChange}
+          >
+            <option value="">Select category</option>
+            <option value="DRUG">DRUG</option>
+            <option value="IMPLANT">IMPLANT</option>
+          </Select>
         </FormGroup>
       </FormGrid>
 

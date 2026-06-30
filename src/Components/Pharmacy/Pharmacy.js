@@ -1107,26 +1107,29 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     handleModalClose();
   };
 
-  const handleQuantityChange = (index, value) => {
-    const updatedMedicines = [...addedMedicines];
-    const quantity = Math.max(0, parseInt(value, 10) || 0);
-    const medicine = updatedMedicines[index];
-
-    if (
-      medicine.available_stock !== 9999 &&
-      medicine.available_stock != null &&
-      quantity > medicine.available_stock
-    ) {
-      toast.warning(
-        `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
-        { toastId: `stock-excess-${index}`, autoClose: 2000 }
-      );
-    }
-
-    updatedMedicines[index] = { ...medicine, quantity };
-    setAddedMedicines(updatedMedicines);
-  };
-
+ const handleQuantityChange = (index, value) => {
+  const updatedMedicines = [...addedMedicines];
+  const quantity = Math.max(0, parseInt(value, 10) || 0);
+  const medicine = updatedMedicines[index];
+ 
+  if (
+    medicine.available_stock !== 9999 &&
+    medicine.available_stock != null &&
+    quantity > medicine.available_stock
+  ) {
+    toast.warning(
+      `"${medicine.name}" has only ${medicine.available_stock} units in stock. Please enter ${medicine.available_stock} or less.`,
+      { toastId: `stock-excess-${index}`, autoClose: 2000 }
+    );
+  }
+ 
+  // ✅ Recalculate row total whenever qty changes
+  const price  = parseFloat(medicine.price || medicine.mrp || 0);
+  const total  = parseFloat((quantity * price).toFixed(2));
+ 
+  updatedMedicines[index] = { ...medicine, quantity, total };
+  setAddedMedicines(updatedMedicines);
+};
   useEffect(() => {
     const fetchdoctor_names = async () => {
       try {
@@ -1246,19 +1249,76 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       // finalize_bill handles: bill_no generation, stock update (blocked_quantity),
       // and setting billing_status → "Billed".
       if (isWardRequest && intentStatus !== "Estimate") {
-        const hasBillId = recordId !== undefined && recordId !== null && recordId !== "" && recordId !== 0;
+        const hasBillId =
+          recordId !== undefined &&
+          recordId !== null &&
+          recordId !== "" &&
+          recordId !== 0;
 
         if (!hasBillId) {
-          toast.error("Cannot finalize: Bill_id is missing for this ward request.", { autoClose: 3000 });
+          toast.error("Cannot finalize: Bill_id is missing for this ward request.", {
+            autoClose: 3000,
+          });
           setSaving(false);
           return;
         }
 
-        console.log("🏥 Ward request → calling finalize_bill directly | Bill_id:", recordId);
+        // ── Build updated medicine list from current addedMedicines state ─────
+        // The user may have changed quantities on the Pharmacy page before clicking
+        // "Bill", so we always use the live frontend state rather than DB values.
+        const finalMedicines = addedMedicines.map((m) => {
+          const qty   = Number(m.quantity || 0);
+          const price = parseFloat(m.price || m.mrp || 0);
+          return {
+            item_id:          Number(m.item_id),
+            item_name:        m.name || m.item_name || "",
+            batch_number:     String(m.batch_number || ""),
+            qty,                             // backend reads "qty" for ward meds
+            quantity:         qty,           // belt-and-braces
+            price,
+            mrp:              parseFloat(m.mrp || price),
+            calculated_price: parseFloat((qty * price).toFixed(2)),
+            edit_history:     m.edit_history || [],
+            CGST_Percentage:  m.cgst_rate    || 0,
+            SGST_Percentage:  m.sgst_rate    || 0,
+            CGST_Amt:         m.cgst_amount  || 0,
+            SGST_Amt:         m.sgst_amount  || 0,
+            discount:         m.discount     || 0,
+            expiry_date:      m.expiry_date  || "",
+          };
+        });
+
+        // ── Recalculate totals from live frontend state ───────────────────────
+        const updatedTotalAmount = parseFloat(
+          finalMedicines.reduce((s, m) => s + m.calculated_price, 0).toFixed(2)
+        );
+
+        const overallDiscAmtFinal =
+          overallDiscountType === "amount"
+            ? parseFloat(overallDiscountValue || 0)
+            : updatedTotalAmount * (parseFloat(overallDiscountValue || 0) / 100);
+
+        const updatedNetAmount = Math.round(
+          Math.max(0, updatedTotalAmount - overallDiscAmtFinal)
+        );
+
+        console.log(
+          "🏥 Ward request → calling finalize_bill | Bill_id:", recordId,
+          "| updatedTotalAmount:", updatedTotalAmount,
+          "| updatedNetAmount:", updatedNetAmount
+        );
 
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
-          Bill_id: parseInt(recordId),
-          current_total_amount: parseFloat(totalAmount.toFixed(2)),
+          Bill_id:              parseInt(recordId),
+
+          // ── Send updated medicine list & amounts so backend uses them ──
+          medicine_particulars:      finalMedicines,
+          total_amount:              updatedTotalAmount,
+          net_amount:                updatedNetAmount,
+          overall_discount_type:     overallDiscountValue && parseFloat(overallDiscountValue) > 0
+                                       ? overallDiscountType : null,
+          overall_discount_value:    parseFloat(overallDiscountValue || 0),
+          overall_discount_amount:   parseFloat(overallDiscAmtFinal.toFixed(2)),
         });
 
         console.log("finalize_bill RESPONSE:", finalizeRes);
@@ -1266,25 +1326,30 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         if (finalizeRes.success) {
           const savedBillNo = finalizeRes.data?.bill_no || finalizeRes.bill_no || "";
           const backendMsg  = finalizeRes.data?.message || finalizeRes.message;
-          toast.success(backendMsg || `Bill finalized successfully! #${savedBillNo}`, { autoClose: 2000 });
+          toast.success(backendMsg || `Bill finalized successfully! #${savedBillNo}`, {
+            autoClose: 2000,
+          });
 
-          const selectedDoctor = doctor_names.find(d => String(d.employeeId) === String(formData.doctor_id));
-          const doctorName = selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
+          const selectedDoctor = doctor_names.find(
+            (d) => String(d.employeeId) === String(formData.doctor_id)
+          );
+          const doctorName =
+            selectedDoctor ? selectedDoctor.employeeName : formData.doctor_id || "—";
 
           setPrintBillData({
-            billNo: savedBillNo,
-            billDate: formData.billDate,
-            patientName: formData.name,
-            uhid: formData.uhid,
+            billNo:               savedBillNo,
+            billDate:             formData.billDate,
+            patientName:          formData.name,
+            uhid:                 formData.uhid,
             doctorName,
-            patientAge: patientAge || "",
-            cashierId: formData.cashier_id || "",
-            medicines: [...addedMedicines],
-            totalAmount,
+            patientAge:           patientAge || "",
+            cashierId:            formData.cashier_id || "",
+            medicines:            [...addedMedicines],
+            totalAmount:          updatedTotalAmount,
             totalItemDiscount,
             overallDiscountType,
             overallDiscountValue,
-            netAmount,
+            netAmount:            updatedNetAmount,
             paymentMode,
           });
           setShowPrintModal(true);
@@ -1292,8 +1357,31 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           setTodayBillDate();
           fetchMedicines();
         } else {
-          const backendErr = finalizeRes.data?.error || finalizeRes.error;
-          toast.error(backendErr || "Finalize bill failed.", { autoClose: 2000 });
+          // ── Surface ip_advance exceed error prominently ───────────────────
+          const backendErr =
+            finalizeRes.data?.error ||
+            finalizeRes.error ||
+            "Finalize bill failed.";
+
+          if (
+            backendErr === "Billing Exceeds From IP Advance" ||
+            (finalizeRes.data?.ip_advance !== undefined)
+          ) {
+            const ipAdv  = parseFloat(finalizeRes.data?.ip_advance)       || 0;
+            const cumul  = parseFloat(finalizeRes.data?.cumulative_total) || 0;
+            const exist  = parseFloat(finalizeRes.data?.existing_billed)  || 0;
+
+            toast.error(
+              `⚠️ Billing Exceeds From IP Advance\n` +
+              `IP Advance: ₹${ipAdv.toFixed(2)} | ` +
+              `Already Billed: ₹${exist.toFixed(2)} | ` +
+              `Current Bill: ₹${(cumul - exist).toFixed(2)} | ` +
+              `Total: ₹${cumul.toFixed(2)}`,
+              { autoClose: 6000 }
+            );
+          } else {
+            toast.error(backendErr, { autoClose: 3000 });
+          }
         }
 
         return; // ← done; skip the normal save_oppharmacy_bill path below
@@ -1610,7 +1698,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const rawMeds = parseOrderedDictMeds(estimate.medicine_particulars);
 
     // ── Fix: in convertWardRequest, replace the loadedMedicines map ──────────
-const loadedMedicines = items.map((item) => {
+const loadedMedicines = rawMeds.map((item) => {
   const stockMatch =
     medicines.find(
       (s) =>

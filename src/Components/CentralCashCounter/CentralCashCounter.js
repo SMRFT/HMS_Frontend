@@ -768,7 +768,7 @@ export default function CentralCashCounter() {
     if (!rpAmount || isNaN(rpAmount) || parseFloat(rpAmount) <= 0)
       return rpShowAlert("error", "Please enter a valid Amount.");
 
-    const CashCounter = localStorage.getItem("selected_outlet") || "";
+    const CashCounter = cashCounterId || localStorage.getItem("selected_outlet") || "";
     let description = null;
     if (rpSelectedHeadName === "ROOM ACCESS CARD") {
       if (!rpDescFields.patient_name || !rpDescFields.room_no)
@@ -964,22 +964,28 @@ export default function CentralCashCounter() {
       const res = await apiRequest(
         `${HmsBaseUrl}get_active_shift/`,
         "POST",
-        { CashCounter: outletCode }
+        { CashCounter: cashCounterId || outletCode }
       );
       if (res?.success && res?.data) {
+        if (res.data.cashcounter?.counter_id) {
+          setCashCounterId(res.data.cashcounter.counter_id);
+        }
         setActiveShift(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(res.data)) {
+          if (JSON.stringify(prev) !== JSON.stringify(res.data.data)) {
             return res.data.data;
           }
           return prev;
         });
       } else if (res && !res.success) {
+        if (res.data?.cashcounter?.counter_id) {
+          setCashCounterId(res.data.cashcounter.counter_id);
+        }
         setActiveShift(prev => (prev ? null : prev));
       }
     } catch (err) {
       console.error("Failed to refresh active shift:", err);
     }
-  }, []);
+  }, [cashCounterId]);
 
   useEffect(() => {
     refreshActiveShift();
@@ -1335,21 +1341,25 @@ export default function CentralCashCounter() {
 
       data.forEach((item, idx) => {
         // Use return_bill_date as primary date field
-        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || null;
+        // hospital_investrefund uses camelCase "refundBillDate" — add it to the fallback chain
+        const dateRaw = item.return_bill_date || item.created_date || item.refund_date || item.refundBillDate || null;
 
         const row = {
           id: item._id || `ret-${idx}`,
           date: formatDate(dateRaw),
           time: formatTime(dateRaw),
-          return_bill_no: item.return_bill_no || item.return_bill_no || "-",
+          return_bill_no: item.return_bill_no || item.refund_bill_no || item.refundBillNo || "-",
           return_bill_date: formatDate(dateRaw),
-          bill_no: item.bill_no || "-",
+          // hospital_investrefund uses "investBillNo" as the original bill number
+          bill_no: item.bill_no || item.investBillNo || "-",
           bill_type_name: item.bill_type_name || item.collection_name || "-",
           uhid_no: item.uhid || item.UHID || "-",
           patient: item.patient_name || "-",
-          return_amount: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          total: parseFloat(item.return_amount || item.refund_amount || item.amount || 0),
-          document_status: item.document_status || item.status || "-",
+          // hospital_investrefund uses "refund_finalPrice" for the amount field
+          return_amount: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
+          total: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
+          // hospital_investrefund uses "paymentStatus" instead of "status" — add it to the fallback chain
+          document_status: item.document_status || item.status || item.paymentStatus || "-",
           counter_name: item.counter_name || "-",
           collection_name: item.collection_name || "-",
           raw: item,
@@ -1419,6 +1429,7 @@ export default function CentralCashCounter() {
         bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
         payment_details,
         shiftno: activeShift?.shiftno || "",
+        counter_id: cashCounterId,
       };
       const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
       const ipRes = res?.data || res;
@@ -1478,6 +1489,7 @@ export default function CentralCashCounter() {
       ...statusFields,
       payment_details,
       shiftno: activeShift?.shiftno || "",
+      counter_id: cashCounterId,
       ...(pendingAmount > 0 ? { pendingAmount } : {}),
     };
 
@@ -2661,6 +2673,7 @@ export default function CentralCashCounter() {
         }
         onShiftChange={handleShiftChange}
         activeShiftData={activeShift}
+        cashCounterId={cashCounterId}
       />
 
       {/* ══════════════ PAYMENT MODAL ══════════════ */}

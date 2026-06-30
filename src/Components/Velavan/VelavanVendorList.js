@@ -59,6 +59,9 @@ const HeaderContainer = styled.div`
   }
 `;
 
+const sortByName = (arr) =>
+  [...arr].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
 const VelavanVendorList = () => {
   const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
@@ -78,8 +81,9 @@ const VelavanVendorList = () => {
     try {
       const res = await apiRequest(`${HMSURL}velavan_get_vendors/`, "GET");
       if (res.status === 200 && res.data.status === "success") {
-        setVendors(res.data.data);
-        setFilteredVendors(res.data.data);
+        const sorted = sortByName(res.data.data);
+        setVendors(sorted);
+        setFilteredVendors(sorted);
       } else {
         console.error("Failed to fetch vendors", res.data);
       }
@@ -174,6 +178,20 @@ const VelavanVendorList = () => {
           />
         </SearchIconWrapper>
       </SearchContainer>
+
+      <div
+        style={{
+          marginBottom: "10px",
+          fontSize: "0.9rem",
+          color: colors.textMuted,
+        }}
+      >
+        Showing <strong>{filteredVendors.length}</strong>
+        {searchQuery && filteredVendors.length !== vendors.length
+          ? ` of ${vendors.length}`
+          : ""}{" "}
+        vendor{vendors.length !== 1 ? "s" : ""}
+      </div>
 
       <TableWrapper>
         <Table>
