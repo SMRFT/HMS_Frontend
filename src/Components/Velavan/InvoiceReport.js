@@ -924,6 +924,153 @@ const InvoiceReport = () => {
 
     openPrintWindow(`Velavan Invoice - ${record.grn_number}`, css, body);
   };
+
+  // ── Sales Tax Register ───────────────────────────────────────────
+  const handleSalesTaxRegisterPrint = () => {
+    const sortedData = [...filteredData].sort(
+      (a, b) => new Date(a.invoice_date) - new Date(b.invoice_date),
+    );
+
+    const RATE_BUCKETS = ["exempt", "5", "12", "18"];
+
+    const emptyBucket = () => ({ amount: 0, sgst: 0, cgst: 0, total: 0 });
+
+    let grand = {
+      exempt: emptyBucket(),
+      5: emptyBucket(),
+      12: emptyBucket(),
+      18: emptyBucket(),
+      total: emptyBucket(),
+    };
+
+    const rows = sortedData.map((row) => {
+      const items = parseItems(row.items);
+      const buckets = {
+        exempt: emptyBucket(),
+        5: emptyBucket(),
+        12: emptyBucket(),
+        18: emptyBucket(),
+      };
+
+      items.forEach((item) => {
+        const rate = parseFloat(item.sellingTax ?? item.tax ?? 0);
+        const qty = parseFloat(item.quantity || 0);
+        const amount = parseFloat(item.sellingCostBeforeGst || 0) || 0;
+        const sgst = parseFloat(item.sellingSgstAmt || 0);
+        const cgst = parseFloat(item.sellingCgstAmt || 0);
+        const total = parseFloat(item.sellingCost || 0);
+
+        let key = "exempt";
+        if (rate >= 17) key = "18";
+        else if (rate >= 11) key = "12";
+        else if (rate >= 4) key = "5";
+        else if (rate > 0) key = "5"; // fallback: any positive small rate goes to 5% bucket
+
+        if (rate === 0) key = "exempt";
+
+        buckets[key].amount += amount;
+        buckets[key].sgst += sgst;
+        buckets[key].cgst += cgst;
+        buckets[key].total += total;
+      });
+
+      const rowTotal = RATE_BUCKETS.reduce(
+        (acc, k) => ({
+          amount: acc.amount + buckets[k].amount,
+          sgst: acc.sgst + buckets[k].sgst,
+          cgst: acc.cgst + buckets[k].cgst,
+          total: acc.total + buckets[k].total,
+        }),
+        emptyBucket(),
+      );
+
+      RATE_BUCKETS.forEach((k) => {
+        grand[k].amount += buckets[k].amount;
+        grand[k].sgst += buckets[k].sgst;
+        grand[k].cgst += buckets[k].cgst;
+        grand[k].total += buckets[k].total;
+      });
+      grand.total.amount += rowTotal.amount;
+      grand.total.sgst += rowTotal.sgst;
+      grand.total.cgst += rowTotal.cgst;
+      grand.total.total += rowTotal.total;
+
+      return { row, buckets, rowTotal };
+    });
+
+    const fmt = (n) =>
+      n === 0
+        ? ""
+        : n.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+
+    const bucketCells = (b) =>
+      `<td class="r">${fmt(b.amount)}</td><td class="r">${fmt(b.sgst)}</td><td class="r">${fmt(b.cgst)}</td><td class="r tot-col">${fmt(b.total)}</td>`;
+
+    const tableRows = rows
+      .map(
+        ({ row, buckets, rowTotal }) => `
+        <tr>
+          <td>${formatDate(row.invoice_date)}</td>
+          <td>PHARMACY OP BILL (SH)</td>
+          <td>${row.grn_number || "N/A"}</td>
+          ${bucketCells(buckets.exempt)}
+          ${bucketCells(buckets["5"])}
+          ${bucketCells(buckets["12"])}
+          ${bucketCells(buckets["18"])}
+          ${bucketCells(rowTotal)}
+        </tr>`,
+      )
+      .join("");
+
+    const css = `
+      body{font-family:Arial,sans-serif;padding:10px;font-size:11px}
+      h1{text-align:left;font-size:13px;margin:0 0 4px;font-weight:bold}
+      .pageno{text-align:right;font-size:11px;margin-bottom:4px}
+      table{border-collapse:collapse;width:100%;font-size:10px}
+      th,td{border:1px solid #000;padding:4px 5px;text-align:center;white-space:nowrap}
+      th{background:#f1f5f9;font-weight:bold}
+      .r{text-align:right}
+      .tot-col{font-weight:bold}
+      .grand td{font-weight:bold;background:#e5e7eb}
+      .grp-hdr{background:#e0f2fe;font-weight:bold}
+    `;
+
+    const body = `
+      <h1>Sales Tax Register From ${getDateRangeLabel()}</h1>
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="3">BILLDATE</th>
+            <th rowspan="3">BILLNAME</th>
+            <th rowspan="3">BILLS</th>
+            <th colspan="4" class="grp-hdr">EXEMPTED GST</th>
+            <th colspan="4" class="grp-hdr">RATE OF 5%</th>
+            <th colspan="4" class="grp-hdr">RATE OF 12%</th>
+            <th colspan="4" class="grp-hdr">RATE OF 18%</th>
+            <th colspan="4" class="grp-hdr">Total</th>
+          </tr>
+          <tr>
+            ${"<th>AMOUNT</th><th>SGST</th><th>CGST</th><th>TOTAL</th>".repeat(5)}
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr class="grand">
+            <td colspan="3">Grand Total</td>
+            ${bucketCells(grand.exempt)}
+            ${bucketCells(grand["5"])}
+            ${bucketCells(grand["12"])}
+            ${bucketCells(grand["18"])}
+            ${bucketCells(grand.total)}
+          </tr>
+        </tbody>
+      </table>`;
+
+    openPrintWindow("Sales Tax Register", css, body);
+  };
   // ── Velavan Purchase Report ──────────────────────────────────────
   const handlePurchasePrint = () => {
     const sortedData = [...filteredData].sort((a, b) =>
@@ -1718,6 +1865,15 @@ const InvoiceReport = () => {
               style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
             >
               <Printer size={14} /> Sales Report
+            </Button>
+          )}
+          {canPurP && (
+            <Button
+              success
+              onClick={handleSalesTaxRegisterPrint}
+              style={{ background: "#0891b2", borderColor: "#0891b2" }}
+            >
+              <Printer size={14} /> Sales Tax Register
             </Button>
           )}
           {canPurP && (

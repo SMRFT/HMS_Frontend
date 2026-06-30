@@ -452,7 +452,13 @@ const Inp = ({ style, ...props }) => (
   />
 );
 
-const EMPTY_FORM = { BillType: "", billTypeNo: "", is_active: true, Items: [] };
+const EMPTY_FORM = {
+  BillType: "",
+  billTypeNo: "",
+  department_code: "",
+  is_active: true,
+  Items: [],
+};
 
 /* ════════════════════════════════════════════════════════════════════
    Component
@@ -470,6 +476,7 @@ const InvestigationPrice = () => {
   const [viewRecord, setViewRecord] = useState(null);
   const [newItemName, setNewItemName] = useState("");
   const [filters, setFilters] = useState({ search: "", is_active: "" });
+  const [departments, setDepartments] = useState([]);
 
   // ✅ Tracks which item tag is currently being inline-edited { index, value }
   const [inlineEdit, setInlineEdit] = useState(null);
@@ -519,8 +526,20 @@ const InvestigationPrice = () => {
     setLoading(false);
   };
 
+  const fetchDepartments = async () => {
+    const result = await apiRequest(`${HMSURL}complaints/departments/`, "GET");
+    if (result.success) {
+      const list =
+        result.data?.departments ||
+        result.data?.records ||
+        (Array.isArray(result.data) ? result.data : []);
+      setDepartments(list);
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
+    fetchDepartments();
   }, []);
 
   /* ── Items tag management ────────────────────────────────────────── */
@@ -657,8 +676,8 @@ const InvestigationPrice = () => {
     setFormData({
       BillType: rec.BillType || "",
       billTypeNo: rec.billTypeNo || "",
+      department_code: rec.department_code || "",
       is_active: rec.is_active !== false,
-      // ✅ Preserve item_id for existing items
       Items: Array.isArray(rec.Items)
         ? rec.Items.map((i) => ({
             itemName: i.itemName || "",
@@ -691,10 +710,11 @@ const InvestigationPrice = () => {
     const payload = {
       BillType: formData.BillType,
       billTypeNo: formData.billTypeNo,
+      department_code: formData.department_code,
       is_active: formData.is_active,
       Items: formData.Items.map((i) => {
         const obj = { itemName: i.itemName };
-        if (i.item_id !== undefined) obj.item_id = i.item_id; // ✅ send existing item_id
+        if (i.item_id !== undefined) obj.item_id = i.item_id;
         return obj;
       }),
     };
@@ -731,6 +751,148 @@ const InvestigationPrice = () => {
     fetchRecords();
   };
 
+  /* ─── Print ──────────────────────────────────────────────────────── */
+  const handlePrint = () => {
+    if (!records || records.length === 0) {
+      alert("No data to print.");
+      return;
+    }
+
+    const blocksHtml = records
+      .map((rec) => {
+        const deptName =
+          departments.find((d) => d.department_code === rec.department_code)
+            ?.department_name ||
+          rec.department_code ||
+          "—";
+
+        const items = Array.isArray(rec.Items) ? rec.Items : [];
+        const itemRows = items.length
+          ? items
+              .map(
+                (it) =>
+                  `<tr><td>${it.item_id !== undefined ? "#" + it.item_id : "—"}</td><td>${it.itemName}</td></tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="2" style="text-align:center;color:#64748B;">No items added.</td></tr>`;
+
+        return `
+        <div class="block">
+          <table class="main-table">
+            <thead>
+              <tr><th>Bill Type</th><th>Bill Type No</th><th>Department</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${rec.BillType || ""}</td>
+                <td>${rec.billTypeNo || ""}</td>
+                <td>${deptName}</td>
+                <td>${rec.is_active ? "Active" : "Inactive"}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="items-title">Items (${items.length})</div>
+          <table class="items-table">
+            <thead><tr><th style="width:80px">ID</th><th>Item Name</th></tr></thead>
+            <tbody>${itemRows}</tbody>
+          </table>
+        </div>`;
+      })
+      .join("");
+
+    const html = `
+    <html>
+      <head>
+        <title>Investigation Prices</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #0F172A; }
+          h2 { margin-bottom: 16px; }
+          .block { margin-bottom: 28px; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+          th, td { border: 1px solid #E2E8F0; padding: 8px 10px; text-align: left; }
+          th { background: #F0F4F8; }
+          .main-table { page-break-inside: avoid; }
+          .items-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563EB; margin: 10px 0 6px; page-break-after: avoid; }
+          .items-table tr { page-break-inside: avoid; }
+          .items-table thead { display: table-header-group; }
+        </style>
+      </head>
+      <body>
+        <h2>Investigation Price Master</h2>
+        ${blocksHtml}
+      </body>
+    </html>
+  `;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  /* ─── Export CSV ─────────────────────────────────────────────────── */
+  const handleExportCSV = () => {
+    if (!records || records.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const escapeCell = (val) => {
+      const str = val === null || val === undefined ? "" : String(val);
+      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    };
+
+    const header = [
+      "Bill Type",
+      "Bill Type No",
+      "Department",
+      "Status",
+      "Item ID",
+      "Item Name",
+    ].join(",");
+
+    const lines = [];
+    records.forEach((rec) => {
+      const deptName =
+        departments.find((d) => d.department_code === rec.department_code)
+          ?.department_name ||
+        rec.department_code ||
+        "";
+      const baseCols = [
+        rec.BillType,
+        rec.billTypeNo,
+        deptName,
+        rec.is_active ? "Active" : "Inactive",
+      ];
+
+      const items = Array.isArray(rec.Items) ? rec.Items : [];
+      if (items.length === 0) {
+        lines.push([...baseCols, "", ""].map(escapeCell).join(","));
+      } else {
+        items.forEach((it) => {
+          lines.push(
+            [...baseCols, it.item_id ?? "", it.itemName]
+              .map(escapeCell)
+              .join(","),
+          );
+        });
+      }
+    });
+
+    const csvContent = `${header}\n${lines.join("\n")}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "investigation-prices.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   /* ─── Render ─────────────────────────────────────────────────── */
   return (
     <PageWrapper>
@@ -743,6 +905,12 @@ const InvestigationPrice = () => {
           </h1>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <div style={css.dateBadge}>📅 {currentDate}</div>
+            <button style={css.smallBtn("ghost")} onClick={handlePrint}>
+              🖨 Print
+            </button>
+            <button style={css.smallBtn("ghost")} onClick={handleExportCSV}>
+              ⬇ Export CSV
+            </button>
             <button style={css.btn("primary")} onClick={openCreate}>
               + New Item
             </button>
@@ -860,6 +1028,7 @@ const InvestigationPrice = () => {
                       "#",
                       "Bill Type",
                       "Bill Type No",
+                      "Department",
                       "Items",
                       "Status",
                       "Actions",
@@ -897,6 +1066,13 @@ const InvestigationPrice = () => {
                         >
                           {rec.billTypeNo}
                         </span>
+                      </Td>
+                      <Td>
+                        {departments.find(
+                          (d) => d.department_code === rec.department_code,
+                        )?.department_name ||
+                          rec.department_code ||
+                          "—"}
                       </Td>
                       <Td>
                         <span style={css.countBadge}>
@@ -1016,6 +1192,28 @@ const InvestigationPrice = () => {
                     >
                       <option value="true">Active</option>
                       <option value="false">Inactive</option>
+                    </select>
+                  </Field>
+                  <Field label="Department">
+                    <select
+                      value={formData.department_code}
+                      onChange={(e) =>
+                        setFormData((p) => ({
+                          ...p,
+                          department_code: e.target.value,
+                        }))
+                      }
+                      style={css.select}
+                    >
+                      <option value="">-- Select Department --</option>
+                      {departments.map((d) => (
+                        <option
+                          key={d.department_code}
+                          value={d.department_code}
+                        >
+                          {d.department_name}
+                        </option>
+                      ))}
                     </select>
                   </Field>
                 </div>
@@ -1212,6 +1410,15 @@ const InvestigationPrice = () => {
                 {[
                   { label: "Bill Type", val: viewRecord.BillType },
                   { label: "Bill Type No", val: viewRecord.billTypeNo },
+                  {
+                    label: "Department",
+                    val:
+                      departments.find(
+                        (d) => d.department_code === viewRecord.department_code,
+                      )?.department_name ||
+                      viewRecord.department_code ||
+                      "—",
+                  },
                   {
                     label: "Status",
                     val: viewRecord.is_active ? "Active" : "Inactive",

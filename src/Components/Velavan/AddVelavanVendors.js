@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
 import { toast } from "react-toastify";
@@ -179,6 +179,64 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
   const [formData, setFormData] = useState(EMPTY_VENDOR);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  // ── States / Cities (India) ──────────────────────────────────────────────
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(true);
+  const [loadingCities, setLoadingCities] = useState(false);
+
+  useEffect(() => {
+    const fetchStates = async () => {
+      try {
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/states",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ country: "India" }),
+          },
+        );
+        const data = await res.json();
+        setStates(data.data.states);
+      } catch {
+        toast.error("Failed to load states");
+      } finally {
+        setLoadingStates(false);
+      }
+    };
+    fetchStates();
+  }, []);
+
+  const handleStateChange = async (e) => {
+    const stateName = e.target.value;
+    setErrorMsg("");
+    setFormData((prev) => ({ ...prev, state: stateName, city: "" }));
+    setCities([]);
+    if (!stateName) return;
+    setLoadingCities(true);
+    try {
+      const res = await fetch(
+        "https://countriesnow.space/api/v0.1/countries/state/cities",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ country: "India", state: stateName }),
+        },
+      );
+      const data = await res.json();
+      setCities(data.data || []);
+    } catch {
+      toast.error("Failed to load cities");
+    } finally {
+      setLoadingCities(false);
+    }
+  };
+
+  const handleCityChange = (e) => {
+    setErrorMsg("");
+    setFormData((prev) => ({ ...prev, city: e.target.value }));
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setErrorMsg("");
@@ -206,6 +264,7 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
       if (result.success) {
         toast.success("Vendor added successfully!");
         setFormData(EMPTY_VENDOR); // reset for next entry
+        setCities([]);
         if (onSuccess) onSuccess(result.data);
       } else {
         setErrorMsg(result.error || result.message || "Unknown error occurred");
@@ -219,7 +278,7 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
   return (
     <>
       <FormGrid>
-        {/* ── Basic Info ── */}
+        {/* ── Basic Info ── (unchanged) */}
         <SectionLabel>Basic Information</SectionLabel>
 
         <FormGroup style={{ gridColumn: "span 2" }}>
@@ -313,25 +372,41 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
         </FormGroup>
 
         <FormGroup>
-          <Label>City</Label>
-          <Input
-            type="text"
-            name="city"
-            value={formData.city}
-            onChange={handleInputChange}
-            placeholder="City"
-          />
+          <Label>State</Label>
+          <Select
+            name="state"
+            value={formData.state}
+            onChange={handleStateChange}
+            disabled={loadingStates}
+          >
+            <option value="">
+              {loadingStates ? "Loading states..." : "Select State"}
+            </option>
+            {states.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
         </FormGroup>
 
         <FormGroup>
-          <Label>State</Label>
-          <Input
-            type="text"
-            name="state"
-            value={formData.state}
-            onChange={handleInputChange}
-            placeholder="State"
-          />
+          <Label>City</Label>
+          <Select
+            name="city"
+            value={formData.city}
+            onChange={handleCityChange}
+            disabled={!formData.state || loadingCities}
+          >
+            <option value="">
+              {loadingCities ? "Loading cities..." : "Select City"}
+            </option>
+            {cities.map((c, i) => (
+              <option key={i} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
         </FormGroup>
 
         <FormGroup>
@@ -345,7 +420,7 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
           />
         </FormGroup>
 
-        {/* ── Contact ── */}
+        {/* ── Contact ── (unchanged) */}
         <SectionLabel>Contact Details</SectionLabel>
 
         <FormGroup>
@@ -409,7 +484,6 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
     </>
   );
 };
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Mini Modal — used from Invoice.js via:
 // <AddVendorMiniModal onClose={...} onSuccess={...} />

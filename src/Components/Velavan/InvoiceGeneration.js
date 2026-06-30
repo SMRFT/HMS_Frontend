@@ -707,8 +707,12 @@ const Invoice = () => {
     try {
       setLoadingVendors(true);
       const r = await apiRequest(`${HMSURL}velavan_vendors/list/`, "GET");
-      if (r.success) setVendors(r.data || []);
-      else {
+      if (r.success) {
+        const sorted = [...(r.data || [])].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+        setVendors(sorted);
+      } else {
         toast.error("Failed to load vendors");
         setVendors([]);
       }
@@ -719,7 +723,6 @@ const Invoice = () => {
       setLoadingVendors(false);
     }
   };
-
   const fetchItems = async () => {
     try {
       setLoadingItems(true);
