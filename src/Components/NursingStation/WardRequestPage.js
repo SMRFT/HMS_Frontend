@@ -71,6 +71,37 @@ const ModalContainer = styled.div`
   }
 `;
 
+
+const ModalHeader = styled.div`
+  padding: 14px 18px;
+  border-bottom: 2px solid ${colors.border};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: ${(props) => props.$bg || "#546E7A"};
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: ${colors.textMuted};
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${colors.border};
+    color: ${colors.textMain};
+  }
+`;
+
 const Header = styled.div`
   display: flex;
   justify-content: space-between;
@@ -690,6 +721,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [returnItems, setReturnItems] = useState({});
   const [returnSaving, setReturnSaving] = useState(false);
 
+  // ── Medicine Packages State ──────────────────────────────────────────
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageSearch, setPackageSearch] = useState("");
+
   useEffect(() => {
     // Note: Patient object might have doctor name OR ID under different fields.
     // If it's the admitting doctor, it's usually an ID but maybe a name after backend formatting.
@@ -888,6 +925,71 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     setDoseUnit("");
     setRoute("");
     setRemark("");
+  };
+
+  const handleOpenPackageList = async () => {
+    setIsPackageModalOpen(true);
+    setPackageSearch("");
+    setPackageLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_medicine_packages/?outlet_code=${pharmacyDept}`,
+        "GET"
+      );
+      if (res.success) {
+        const list = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+        setPackages(list.filter((p) => p.is_active !== false));
+      }
+    } catch (e) {
+      console.error("Error fetching packages:", e);
+    } finally {
+      setPackageLoading(false);
+    }
+  };
+
+  const handleSelectPackage = async (pkg) => {
+    setPackageLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
+        "GET"
+      );
+      const stockList = res.success
+        ? Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : []
+        : [];
+
+      const items = pkg.items || [];
+      const mapped = items.map((it) => {
+        const match = stockList.find((s) => String(s.item_id) === String(it.item_id));
+        return {
+          item_id: it.item_id,
+          name: it.item_name || `Item ${it.item_id}`,
+          batch_number: match ? match.batch_number : "",
+          qty: Number(it.qty || 1),
+          price: match ? Number(match.mrp) || 0 : 0,
+          noOfDays: "1",
+          dosage: "1-0-0",
+          dose: "1",
+          doseunit: "Nos",
+        };
+      });
+
+      setSelectedMedicines((prev) => [...prev, ...mapped]);
+      setIsPackageModalOpen(false);
+    } catch (err) {
+      console.error("Error selecting package:", err);
+      alert("Error loading package items.");
+    } finally {
+      setPackageLoading(false);
+    }
   };
 
   // Load a selected medicine back into the form for editing
@@ -1138,6 +1240,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     return colors.legRegular;
   };
 
+  const filteredPackages = packages.filter((pkg) =>
+    pkg.medPackage_name?.toLowerCase().includes(packageSearch.toLowerCase())
+  );
+
   return (
     <>
       <div style={{ padding: "20px" }}>
@@ -1262,6 +1368,24 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       }}
                     >
                       <Search size={16} /> Search
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPackageList}
+                      style={{
+                        background: colors.secondary || "#f59e0b",
+                        color: "white",
+                        padding: "0 16px",
+                        borderRadius: "4px",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      🎁 Package
                     </button>
                   </div>
                 </FormItem>
@@ -2058,6 +2182,105 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               >
                 {returnSaving ? "Processing..." : "Submit Return"}
               </RequestBtn>
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* Package Selection Modal */}
+      {isPackageModalOpen && (
+        <ModalOverlay style={{ zIndex: 2000 }}>
+          <ModalContainer
+            style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🎁</span>
+                <h3 style={{ color: "#fff", margin: 0 }}>Select Medicine Package</h3>
+              </div>
+              <CloseButton onClick={() => setIsPackageModalOpen(false)} style={{ color: "rgba(255,255,255,0.8)", background: 'transparent' }}>
+                ✕
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: colors.background }}>
+              {/* Package Search Input */}
+              <div style={{ marginBottom: "16px", position: "relative" }}>
+                <StyledInput
+                  type="text"
+                  placeholder="Search package by name..."
+                  value={packageSearch}
+                  onChange={(e) => setPackageSearch(e.target.value)}
+                  style={{
+                    paddingLeft: "36px",
+                    borderRadius: "8px",
+                    border: `1px solid ${colors.border}`,
+                    background: "white",
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <Search
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: colors.textMuted
+                  }}
+                />
+              </div>
+
+              {packageLoading ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  Loading packages...
+                </div>
+              ) : filteredPackages.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  No medicine packages found.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {filteredPackages.map((pkg) => (
+                    <div
+                      key={pkg.medPackage_id}
+                      onClick={() => handleSelectPackage(pkg)}
+                      style={{
+                        padding: "16px",
+                        background: "white",
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = colors.primary;
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(13, 148, 136, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = colors.border;
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: colors.textMain, fontSize: "0.95rem" }}>
+                          {pkg.medPackage_name}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: colors.textMuted, marginTop: "4px" }}>
+                          {(pkg.items || []).map(it => `${it.item_name} (x${it.qty})`).join(", ")}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: "0.8rem", color: colors.primary, fontWeight: 700 }}>
+                        Select →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ModalContainer>
         </ModalOverlay>

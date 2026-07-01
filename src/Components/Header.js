@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { colors } from "./GlobalStyles";
 import Favilogo from "./Images/smrft_logo.png";
+import Swal from "sweetalert2";
 import PharmacyNotification from "./InventoryMaster/PharmacyNotification";
 
 // ─── Animations ──────────────────────────────────────────────────────────────
@@ -702,10 +703,21 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
   const handleLogout = () => {
     setDropdownOpen(false);
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.clear();
-      window.location.href = "/secure";
-    }
+    Swal.fire({
+      title: "Logout Confirmation",
+      text: "Are you sure you want to logout?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#0d9488",
+      cancelButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Logout",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        localStorage.clear();
+        window.location.href = "/secure";
+      }
+    });
   };
 
   const handleRefresh = () => window.location.reload();

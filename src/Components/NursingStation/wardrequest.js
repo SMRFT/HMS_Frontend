@@ -9,6 +9,7 @@ import RadiologyWardRequest from "./RadiologyWardRequest";
 import DietOrderModal from "./DietOrderModal";
 import RoomShifting from "./RoomShifting";
 import LaundryWardRequest from "./LaundryWardRequest";
+import ImplantWardRequest from "./ImplantWardRequest";
 import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody, NoResults } from "../GlobalStyles";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +28,8 @@ import {
   FiList,
   FiCheckCircle,
   FiRefreshCcw,
-  FiCreditCard
+  FiCreditCard,
+  FiLayers
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant, MdLocalLaundryService } from "react-icons/md";
 
@@ -709,6 +711,7 @@ const WardRequest = () => {
   const [showRoomShiftModal, setShowRoomShiftModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLaundryModal, setShowLaundryModal] = useState(false);
+  const [showImplantModal, setShowImplantModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
@@ -1686,6 +1689,21 @@ const WardRequest = () => {
                   style={{
                     padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
+                  onClick={() => { setShowImplantModal(true); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiLayers size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Implant Request</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Surgical Implants</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
                   onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
@@ -1847,6 +1865,36 @@ const WardRequest = () => {
             </ModalHeader>
             <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
               <LaundryWardRequest patient={selectedPatient} onClose={() => setShowLaundryModal(false)} />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* Implant Modal */}
+      {showImplantModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowImplantModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="icon-wrapper" style={{ background: "rgba(255,255,255,0.2)", borderRadius: '8px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FiLayers size={22} color="#fff" />
+                </div>
+                <h3 style={{ color: "#fff", margin: 0 }}>
+                  Implant Ward Request
+                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem', marginLeft: '10px' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+                </h3>
+              </div>
+              <CloseButton
+                onClick={() => setShowImplantModal(false)}
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <ImplantWardRequest patient={selectedPatient} onClose={() => setShowImplantModal(false)} />
             </div>
           </ModalContainer>
         </ModalOverlay>
