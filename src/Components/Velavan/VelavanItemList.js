@@ -430,23 +430,7 @@ const VelavanItemList = () => {
       const listRes = await apiRequest(`${HMSURL}velavan_get_items/`, "GET");
       if (listRes.status !== 200 || listRes.data.status !== "success") return;
 
-      const velavanItems = listRes.data.data;
-
-      const detailedItems = await Promise.all(
-        velavanItems.map(async (velavanItem) => {
-          const itemId = velavanItem.item_id || velavanItem.item;
-          if (!itemId) return velavanItem;
-          try {
-            const res = await apiRequest(`${HMSURL}get_item/${itemId}/`, "GET");
-            if (res.status === 200) return { ...res.data, ...velavanItem };
-          } catch {
-            return velavanItem;
-          }
-          return velavanItem;
-        }),
-      );
-
-      setItems(detailedItems);
+      setItems(listRes.data.data);
     } catch (err) {
       console.error("Fetch items error", err);
     }
@@ -605,10 +589,10 @@ const VelavanItemList = () => {
   };
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
-  const handleDelete = async (id) => {
+  const handleDelete = async (item_id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
-      await apiRequest(`${HMSURL}velavan_delete_item/${id}/`, "PATCH");
+      await apiRequest(`${HMSURL}velavan_delete_item/${item_id}/`, "PATCH");
       fetchItems();
     } catch (err) {
       console.error("Delete failed", err);
@@ -616,7 +600,7 @@ const VelavanItemList = () => {
   };
 
   const handleEdit = (item) => {
-    setEditingItem(item._id || item.id);
+    setEditingItem(item.item_id);
     setForm({ ...item });
   };
 
@@ -859,7 +843,7 @@ const VelavanItemList = () => {
               </Tr>
             ) : (
               filteredItems.map((item, idx) => {
-                const id = item._id || item.id;
+                const id = item.item_id;
                 const isEditing = editingItem === id;
 
                 return (

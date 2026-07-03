@@ -10,6 +10,7 @@ import apiRequest from "../../Auth/apiRequest";
 import styled from "styled-components";
 import { AddItemMiniModal } from "./AddVelavanItems";
 import { AddVendorMiniModal } from "./AddVelavanVendors";
+import PendingImplantRequestNotifier from "./PendingImplantRequestNotifier";
 
 // ─── Import from GlobalStyles ─────────────────────────────────────────────────
 import {
@@ -549,6 +550,7 @@ const SellingAmountBox = styled.div`
 const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const EMPTY_MODAL = {
+  item_id: "",
   name: "",
   hsn: "",
   batch_no: "",
@@ -707,8 +709,12 @@ const Invoice = () => {
     try {
       setLoadingVendors(true);
       const r = await apiRequest(`${HMSURL}velavan_vendors/list/`, "GET");
-      if (r.success) setVendors(r.data || []);
-      else {
+      if (r.success) {
+        const sorted = [...(r.data || [])].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+        setVendors(sorted);
+      } else {
         toast.error("Failed to load vendors");
         setVendors([]);
       }
@@ -719,7 +725,6 @@ const Invoice = () => {
       setLoadingVendors(false);
     }
   };
-
   const fetchItems = async () => {
     try {
       setLoadingItems(true);
@@ -1049,6 +1054,7 @@ const Invoice = () => {
         ...prev,
         name: value,
         hsn: sel ? sel.hsn : "",
+        item_id: sel ? sel.item_id : "",
       }));
       return;
     }
@@ -1261,6 +1267,10 @@ const Invoice = () => {
       toast.error("Item Name is required");
       return;
     }
+    if (!modalForm.item_id) {
+      toast.error("Please select a valid item from the list");
+      return;
+    }
     if (!modalForm.batch_no) {
       toast.error("Batch Number is required");
       return;
@@ -1329,21 +1339,18 @@ const Invoice = () => {
 
   // ─── History ───────────────────────────────────────────────────────────────
   const handleShowHistory = async (item) => {
+    const itemId = item?.item_id;
     const hsn = String(item?.hsn ?? "").trim();
-    const itemName = String(item?.name ?? "").trim();
-    if (!itemName) {
+    const itemName = String(item?.name ?? "").trim(); // ← declare it
+    if (!itemId) {
       toast.error("Please select an item first");
-      return;
-    }
-    if (!hsn) {
-      toast.error("HSN code is required");
       return;
     }
     setSelectedItemForHistory({ ...item, hsn, itemName });
     setShowHistoryModal(true);
     setHistoryLoading(true);
     try {
-      const url = `${HMSURL}velavan/previous-purchases/?hsn=${encodeURIComponent(hsn)}&item_name=${encodeURIComponent(itemName)}`;
+      const url = `${HMSURL}velavan/previous-purchases/?item_id=${encodeURIComponent(itemId || "")}&hsn=${encodeURIComponent(hsn || "")}&item_name=${encodeURIComponent(itemName || "")}`;
       const r = await apiRequest(url, "GET");
       if (r.success && r.data?.status === "success")
         setHistoryData(r.data.data || []);
@@ -1354,7 +1361,6 @@ const Invoice = () => {
       setHistoryLoading(false);
     }
   };
-
   // ─── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = () => {
     if (!formData.invoiceNo?.trim()) {
@@ -1394,7 +1400,7 @@ const Invoice = () => {
       invoiceDate: fmt(formData.invoiceDate),
       date: fmt(formData.date || new Date().toISOString().split("T")[0]),
       vendor_id: formData.vendor_id?.trim() || null,
-      items,
+      items: items.map(({ name, ...rest }) => rest), // ← drop name, keep item_id
       summary,
       created_date: new Date().toISOString(),
       lastmodified_date: new Date().toISOString(),
@@ -3965,6 +3971,7 @@ const Invoice = () => {
           onSuccess={() => fetchVendors()} // refreshes the vendor dropdown after saving
         />
       )}
+      <PendingImplantRequestNotifier />
     </PageWrapper>
   );
 };

@@ -826,6 +826,168 @@ const Package = () => {
     } else alert("Error deleting package: " + result.error);
   };
 
+  /* ─── Print ──────────────────────────────────────────────────────── */
+  const handlePrint = () => {
+    if (!packages || packages.length === 0) {
+      alert("No data to print.");
+      return;
+    }
+
+    const blocksHtml = packages
+      .map((pkg) => {
+        const outletName = pkg.outlet_name || pkg.outlet || "—";
+        const items = Array.isArray(pkg.items) ? pkg.items : [];
+        const itemRows = items.length
+          ? items
+              .map(
+                (it) => `<tr>
+                <td>${it.itemName || ""}</td>
+                <td style="text-align:right">₹${parseFloat(it.price || 0).toLocaleString("en-IN")}</td>
+                <td style="text-align:center">${it.quantity ?? 1}</td>
+                <td>${it.billTypeNo || "—"}</td>
+                <td>${it.test_id || "—"}</td>
+              </tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="5" style="text-align:center;color:#64748B;">No items added.</td></tr>`;
+
+        return `
+        <div class="block">
+          <table class="main-table">
+            <thead>
+              <tr><th>Package No</th><th>Package Name</th><th>Outlet</th><th>Outlet Code</th><th>Total Price</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${pkg.packageNo ?? ""}</td>
+                <td>${pkg.packageName || ""}</td>
+                <td>${outletName}</td>
+                <td>${pkg.outlet_code || "—"}</td>
+                <td>₹${parseFloat(pkg.totalPrice || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                <td>${pkg.is_active ? "Active" : "Inactive"}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="items-title">Items (${items.length})</div>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th style="text-align:right">Price (₹)</th>
+                <th style="text-align:center;width:50px">Qty</th>
+                <th>Bill Type No</th>
+                <th>Test ID</th>
+              </tr>
+            </thead>
+            <tbody>${itemRows}</tbody>
+          </table>
+        </div>`;
+      })
+      .join("");
+
+    const html = `
+    <html>
+      <head>
+        <title>Packages</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 24px; color: #0F172A; }
+          h2 { margin-bottom: 16px; }
+          .block { margin-bottom: 28px; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+          th, td { border: 1px solid #E2E8F0; padding: 8px 10px; text-align: left; }
+          th { background: #F0F4F8; }
+          .main-table { page-break-inside: avoid; }
+          .items-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563EB; margin: 10px 0 6px; page-break-after: avoid; }
+          .items-table tr { page-break-inside: avoid; }
+          .items-table thead { display: table-header-group; }
+        </style>
+      </head>
+      <body>
+        <h2>Package Configuration</h2>
+        ${blocksHtml}
+      </body>
+    </html>
+  `;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  /* ─── Export CSV ─────────────────────────────────────────────────── */
+  const handleExportCSV = () => {
+    if (!packages || packages.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const escapeCell = (val) => {
+      const str = val === null || val === undefined ? "" : String(val);
+      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    };
+
+    const header = [
+      "Package No",
+      "Package Name",
+      "Outlet",
+      "Outlet Code",
+      "Total Price",
+      "Status",
+      "Item Name",
+      "Item Price",
+      "Qty",
+      "Bill Type No",
+      "Test ID",
+    ].join(",");
+
+    const lines = [];
+    packages.forEach((pkg) => {
+      const outletName = pkg.outlet_name || pkg.outlet || "";
+      const baseCols = [
+        pkg.packageNo,
+        pkg.packageName,
+        outletName,
+        pkg.outlet_code,
+        parseFloat(pkg.totalPrice || 0).toFixed(2),
+        pkg.is_active ? "Active" : "Inactive",
+      ];
+
+      const items = Array.isArray(pkg.items) ? pkg.items : [];
+      if (items.length === 0) {
+        lines.push([...baseCols, "", "", "", "", ""].map(escapeCell).join(","));
+      } else {
+        items.forEach((it) => {
+          lines.push(
+            [
+              ...baseCols,
+              it.itemName,
+              parseFloat(it.price || 0).toFixed(2),
+              it.quantity ?? 1,
+              it.billTypeNo || "",
+              it.test_id || "",
+            ]
+              .map(escapeCell)
+              .join(","),
+          );
+        });
+      }
+    });
+
+    const csvContent = `${header}\n${lines.join("\n")}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "packages.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <PageWrapper>
       <Container>
@@ -836,6 +998,12 @@ const Package = () => {
           </h1>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <div style={css.dateBadge}>📅 {currentDate}</div>
+            <button style={css.smallBtn("ghost")} onClick={handlePrint}>
+              🖨 Print
+            </button>
+            <button style={css.smallBtn("ghost")} onClick={handleExportCSV}>
+              ⬇ Export CSV
+            </button>
             <button style={css.btn("primary")} onClick={openCreate}>
               + New Package
             </button>
