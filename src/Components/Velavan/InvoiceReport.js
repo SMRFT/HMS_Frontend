@@ -12,6 +12,8 @@ import {
   History,
   ArrowLeft,
   CheckCircle, // ← add CheckCircle
+  ShoppingCart,
+  RotateCcw,
 } from "lucide-react";
 
 import {
@@ -303,12 +305,17 @@ const InvoiceReport = () => {
   const [historyData, setHistoryData] = useState([]);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [returnModalRecord, setReturnModalRecord] = useState(null);
+  const [returnLines, setReturnLines] = useState([]);
+  const [returnLoading, setReturnLoading] = useState(false);
+  const [returnLinesLoading, setReturnLinesLoading] = useState(false);
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
+  const canPurReturn = allowedActions.includes("HMS-P-VIN-RW");
   const canView = allowedActions.includes("HMS-P-VEV");
   const canPurP = allowedActions.includes("HMS-P-VPP");
-  const canVelP = allowedActions.includes("HMS-P-VVP");
+  const canSalBil = allowedActions.includes("HMS-P-VS-RW");
   const canEdit = allowedActions.includes("HMS-P-VINE-RW");
   const canApprove = allowedActions.includes("HMS-P-VINA-RW");
 
@@ -326,10 +333,10 @@ const InvoiceReport = () => {
   }, []);
 
   // ── History ──────────────────────────────────────────────────────
-  const fetchPreviousPurchases = async (hsn, itemName) => {
+  const fetchPreviousPurchases = async (itemId, hsn, itemName) => {
     setHistoryLoading(true);
     try {
-      const url = `${HMSURL}velavan/previous-purchases/?hsn=${encodeURIComponent(hsn)}&item_name=${encodeURIComponent(itemName)}`;
+      const url = `${HMSURL}velavan/previous-purchases/?item_id=${encodeURIComponent(itemId || "")}&hsn=${encodeURIComponent(hsn || "")}&item_name=${encodeURIComponent(itemName || "")}`;
       const result = await apiRequest(url, "GET");
       if (!result.success) return [];
       return result.data?.status === "success" ? result.data.data || [] : [];
@@ -341,15 +348,16 @@ const InvoiceReport = () => {
   };
 
   const handleShowHistory = async (item) => {
-    const hsn = String(item.hsn ?? "").trim();
-    const itemName = String(item.name ?? "").trim();
-    if (!hsn || !itemName) {
-      toast.error("HSN and item name are required");
+    const itemId = item?.item_id;
+    const hsn = String(item?.hsn ?? "").trim();
+    const itemName = String(item?.name ?? "").trim();
+    if (!itemId && !(hsn && itemName)) {
+      toast.error("Item ID or HSN + item name is required");
       return;
     }
-    setSelectedItemForHistory({ hsn, name: itemName });
+    setSelectedItemForHistory({ hsn, name: itemName, item_id: itemId });
     setShowHistoryModal(true);
-    setHistoryData(await fetchPreviousPurchases(hsn, itemName));
+    setHistoryData(await fetchPreviousPurchases(itemId, hsn, itemName));
   };
 
   // ── Fetch ────────────────────────────────────────────────────────
@@ -490,6 +498,153 @@ const InvoiceReport = () => {
       );
     } catch (err) {
       toast.error(err.message || "Approval failed");
+    }
+  };
+
+  const openPurchaseReturnModal = async (record) => {
+    setReturnModalRecord(record);
+    setReturnLines([]);
+    setReturnLinesLoading(true);
+    try {
+      const url = `${HMSURL}velavan/stock/by-grn/?grn_number=${encodeURIComponent(record.grn_number)}`;
+      const result = await apiRequest(url, "GET");
+      const stockRows =
+        result.success && result.data?.status === "success"
+          ? result.data.data || []
+          : [];
+
+      const invoiceItems = parseItems(record.items);
+
+      const lines = stockRows.map((s) => {
+        // pricing fields (cgstPercent, unitCostWithGst, etc.) live on the
+        // invoice item, not on the stock doc — match by item_id + batch_no
+        const match =
+          invoiceItems.find(
+            (it) =>
+              String(it.item_id) === String(s.item_id) &&
+              it.batch_no === s.batch_no,
+          ) || {};
+        return {
+          lineId: `${s.item_id}-${s.batch_no}`,
+          item_id: s.item_id,
+          name: s.itemName || match.name,
+          hsn: s.hsn || match.hsn,
+          batch_no: s.batch_no,
+          expiry: s.expiry,
+          maxQuantity: parseFloat(s.available_quantity) || 0,
+          quantity: 0,
+          cgstPercent: match.cgstPercent,
+          sgstPercent: match.sgstPercent,
+          unitCostWithGst: match.unitCostWithGst,
+        };
+      });
+
+      if (lines.length === 0) {
+        toast.info("No returnable stock available for this GRN");
+      }
+      setReturnLines(lines);
+    } catch {
+      toast.error("Failed to load available stock for this GRN");
+    } finally {
+      setReturnLinesLoading(false);
+    }
+  };
+  const handleReturnQtyChange = (lineId, value) => {
+    setReturnLines((prev) =>
+      prev.map((l) => {
+        if (l.lineId !== lineId) return l;
+        let q = parseFloat(value) || 0;
+        if (q < 0) q = 0;
+        if (q > l.maxQuantity) q = l.maxQuantity;
+        return { ...l, quantity: q };
+      }),
+    );
+  };
+
+  const computePurchaseReturnLine = (line) => {
+    const unitCostWithGst = parseFloat(line.unitCostWithGst) || 0;
+    const cgstP = parseFloat(line.cgstPercent) || 0;
+    const sgstP = parseFloat(line.sgstPercent) || 0;
+    const gstRate = cgstP + sgstP;
+    const qty = parseFloat(line.quantity) || 0;
+    const lineTotal = unitCostWithGst * qty;
+    const lineBeforeGst =
+      gstRate > 0 ? lineTotal / (1 + gstRate / 100) : lineTotal;
+    return {
+      lineBeforeGst: lineBeforeGst.toFixed(2),
+      lineCgst: (lineBeforeGst * (cgstP / 100)).toFixed(2),
+      lineSgst: (lineBeforeGst * (sgstP / 100)).toFixed(2),
+      lineTotal: lineTotal.toFixed(2),
+    };
+  };
+
+  const submitPurchaseReturn = async () => {
+    const toReturn = returnLines.filter((l) => l.quantity > 0);
+    if (toReturn.length === 0) {
+      toast.error("Select at least one item with quantity > 0");
+      return;
+    }
+    const computed = toReturn.map((l) => ({
+      ...l,
+      calc: computePurchaseReturnLine(l),
+    }));
+
+    const rawTotals = computed.reduce(
+      (s, l) => ({
+        taxableAmount: s.taxableAmount + parseFloat(l.calc.lineBeforeGst),
+        cgst: s.cgst + parseFloat(l.calc.lineCgst),
+        sgst: s.sgst + parseFloat(l.calc.lineSgst),
+        totalAmount: s.totalAmount + parseFloat(l.calc.lineTotal),
+      }),
+      { taxableAmount: 0, cgst: 0, sgst: 0, totalAmount: 0 },
+    );
+
+    const decimal = rawTotals.totalAmount - Math.floor(rawTotals.totalAmount);
+    const roundAmount = decimal >= 0.5 ? 1 - decimal : -decimal;
+    const summary = {
+      ...rawTotals,
+      roundAmount,
+      totalAmount: rawTotals.totalAmount + roundAmount,
+    };
+
+    const payload = {
+      grn_number: returnModalRecord.grn_number,
+      items: computed.map((l) => ({
+        item_id: l.item_id,
+        hsn: l.hsn,
+        batch_no: l.batch_no,
+        expiry: l.expiry,
+        quantity: l.quantity,
+        cgstPercent: l.cgstPercent,
+        cgstAmt: l.calc.lineCgst,
+        sgstPercent: l.sgstPercent,
+        sgstAmt: l.calc.lineSgst,
+        unitCostWithGst: l.unitCostWithGst,
+        taxableAmount: l.calc.lineBeforeGst,
+        totalAmount: l.calc.lineTotal,
+      })),
+      summary,
+      "auth-user-id": localStorage.getItem("employeeId"),
+    };
+
+    setReturnLoading(true);
+    try {
+      const r = await apiRequest(
+        `${HMSURL}velavan/purchase-return/`,
+        "POST",
+        payload,
+      );
+      if (r.success) {
+        toast.success(`Return ${r.data?.return_number} created`);
+        setReturnModalRecord(null);
+        fetchData(filters.from_date, filters.to_date);
+      } else {
+        toast.error(r.error || "Failed to create purchase return");
+      }
+    } catch {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setReturnLoading(false);
     }
   };
 
@@ -709,368 +864,6 @@ const InvoiceReport = () => {
 
     openPrintWindow(`GRN Invoice - ${record.grn_number}`, css, body);
   };
-
-  // ── Velavan Print ────────────────────────────────────────────────
-  const handleVelavanPrint = (record) => {
-    const items = parseItems(record.items);
-
-    const sellingTaxableAmt = items.reduce(
-      (sum, item) => sum + parseFloat(item.sellingCostBeforeGst || 0),
-      0,
-    );
-
-    const sellingCgst = items.reduce(
-      (s, i) => s + parseFloat(i.sellingCgstAmt || 0),
-      0,
-    );
-
-    const sellingSgst = items.reduce(
-      (s, i) => s + parseFloat(i.sellingSgstAmt || 0),
-      0,
-    );
-
-    const sellingTotal = items.reduce(
-      (sum, item) => sum + parseFloat(item.sellingCost || 0),
-      0,
-    );
-    // ── Round-off logic ──────────────────────────────────────────
-    const decimal = sellingTotal - Math.floor(sellingTotal);
-    let roundOff = 0;
-    if (decimal >= 0.5) {
-      roundOff = 1 - decimal; // add to reach next whole number
-    } else {
-      roundOff = -decimal; // subtract to reach previous whole number
-    }
-    const roundedTotal = sellingTotal + roundOff;
-    // ─────────────────────────────────────────────────────────────
-
-    const hasPatient =
-      record.ip_number || record.patient_name || record.surgeon_name;
-
-    const css = `
-  body{font-family:Arial,sans-serif;margin:20px;font-size:12px;line-height:1.5}
-  h1{font-size:17px;font-weight:bold;color:#000;text-align:center;margin:0 0 3px}
-  .sub{text-align:center;font-size:10.5px;margin:2px 0;color:#000}
-  .divider{border-top:2px solid #000;margin:8px 0}
-  .doctype{font-size:14px;font-weight:bold;margin:12px 0;padding:8px;
-    background:#fff;border:2px solid #000;color:#000;text-align:center}
-  .grid{width:100%;border-collapse:collapse;margin-bottom:12px;border:2px solid #000;table-layout:fixed}
-  .sec{border-right:1px solid #000;vertical-align:top}
-  .sec:last-child{border-right:none}
-  .hdr{background:#fff;padding:5px 8px;font-weight:bold;border-bottom:1px solid #000;text-align:center;color:#000;font-size:13px}
-  .cnt{padding:8px;text-align:left;vertical-align:top}
-  .row{margin:4px 0;font-size:13px;white-space:normal;word-break:break-word;overflow-wrap:break-word}
-  .row b{white-space:nowrap}
-  table.items{width:100%;border-collapse:collapse;margin:14px 0;font-size:10px;border:2px solid #000}
-  table.items th,table.items td{border:1px solid #000;padding:5px;text-align:center;vertical-align:middle}
-  table.items th{background:#fff;font-weight:bold;color:#000;font-size:9.5px;white-space:nowrap}
-  .r{text-align:right;padding-right:5px}.l{text-align:left;padding-left:5px}
-  .tot{background:#fff;font-weight:bold}
-  .summary{display:flex;gap:10px;margin-top:14px}
-  .gst{flex:1;border:2px solid #000;background:#fff;padding:10px}
-  .gst-title{font-weight:bold;font-size:12px;margin-bottom:8px;color:#000;border-bottom:1px solid #000;padding-bottom:4px}
-  .gst-row{display:flex;justify-content:space-between;margin:4px 0;font-size:11px;font-weight:bold;color:#000}
-  .amts{min-width:240px;border:2px solid #000}
-  .amt-row{display:flex;justify-content:space-between;border-bottom:1px solid #000;font-size:11px;padding:6px 12px;font-weight:bold;color:#000}
-  .amt-row:last-child{border-bottom:none;background:#fff;color:#000}
-  .words{margin:12px 0;padding:10px;background:#fff;border:2px solid #000;font-size:11px}
-  .footer{display:flex;justify-content:space-between;margin-top:28px;padding-top:12px;border-top:1px dashed #000}
-`;
-
-    const colWidth = hasPatient ? "33%" : "50%";
-
-    const itemsHtml =
-      items.length > 0
-        ? `
-      <table class="items">
-        <thead>
-          <tr>
-            <th rowspan="2">Sl.</th>
-            <th rowspan="2" class="l" style="min-width:130px">Product</th>
-            <th rowspan="2">HSN</th>
-            <th rowspan="2">Batch No</th>
-            <th rowspan="2">Expiry</th>
-            <th rowspan="2">Qty</th>
-            <th rowspan="2">Unit Price</th>
-            <th rowspan="2">MRP</th>
-            <th rowspan="2">Disc. %</th>
-            <th rowspan="2">Disc. Amt</th>
-            <th rowspan="2">Taxable Amt</th>
-            <th colspan="2" style="border-left:2px solid #000">CGST</th>
-            <th colspan="2">SGST</th>
-            <th rowspan="2">Total Amt</th>
-          </tr>
-          <tr>
-            <th style="border-left:2px solid #000">Rate %</th><th>Amt (₹)</th>
-            <th>Rate %</th><th>Amt (₹)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items
-            .map((item, i) => {
-              const qty = parseFloat(item.quantity || 0);
-              const unitSelling =
-                parseFloat(item.sellingCostBeforeGst || 0) / qty;
-              const nonTaxableAmt = unitSelling * qty;
-              const cgstAmt = parseFloat(item.sellingCgstAmt || 0);
-              const sgstAmt = parseFloat(item.sellingSgstAmt || 0);
-              const sellingDiscAmt = parseFloat(item.sellingDiscountedAmt || 0);
-              // const lineTotal = parseFloat(item.unitSellingCost || 0) * qty;
-              return `<tr>
-              <td>${i + 1}</td>
-              <td class="l">${item.name || "N/A"}</td>
-              <td>${item.hsn || "N/A"}</td>
-              <td>${item.batch_no || "—"}</td>
-              <td>${item.expiry || "—"}</td>
-              <td><b>${item.quantity || 0}</b></td>
-              <td class="r">₹${unitSelling.toFixed(2)}</td>
-              <td class="r">₹${item.mrp || 0}</td>
-              <td class="r">${item.sellingDiscountPercent || "0"}%</td>
-              <td class="r">₹${sellingDiscAmt.toFixed(2)}</td>
-              <td class="r">₹${nonTaxableAmt.toFixed(2)}</td>
-              <td style="border-left:2px solid #000">${item.sellingCgstPercent || 0}%</td>
-              <td class="r">₹${cgstAmt.toFixed(2)}</td>
-              <td>${item.sellingsgstPercent || 0}%</td>
-              <td class="r">₹${sgstAmt.toFixed(2)}</td>
-              <td class="r"><b>₹${item.sellingCost || 0}</b></td>
-            </tr>`;
-            })
-            .join("")}
-          <tr class="tot">
-            <td colspan="10" class="r"><b>TOTAL</b></td>
-            <td class="r">₹${sellingTaxableAmt.toFixed(2)}</td>
-            <td style="border-left:2px solid #000"></td>
-            <td class="r">₹${sellingCgst.toFixed(2)}</td>
-            <td></td>
-            <td class="r">₹${sellingSgst.toFixed(2)}</td>
-            <td class="r"><b>₹${items.reduce((s, i) => s + parseFloat(i.sellingCost || 0), 0).toFixed(2)}</b></td>
-          </tr>
-        </tbody>
-      </table>`
-        : "<p style='text-align:center;color:#888'>No items</p>";
-
-    const body = `
-      <h1>VELAVAN HOSPITAL NEEDS PRIVATE LIMITED</h1>
-      <div class="sub">51/24, Basement, Shanmuga Hospital Campus, Saradha College Road, Salem - 636007</div>
-      <div class="sub">State: 33 - Tamil Nadu &nbsp;|&nbsp; Mobile: 8248456660</div>
-      <div class="sub">DL No.: TN/SLE/20B/0028 &nbsp;&amp;&nbsp; TN/SLE/21B/0028 &nbsp;|&nbsp; GSTIN No.: 33AAICV7109G1ZC</div>
-      <div class="divider"></div>
-      <div class="doctype">TAX INVOICE — ${record.grn_number}</div>
-
-      <table class="grid">
-        <thead>
-          <tr>
-            <td class="sec hdr" style="width:${colWidth}">Invoice Details</td>
-            <td class="sec hdr" style="width:${colWidth}">Billed To</td>
-            ${hasPatient ? `<td class="sec hdr" style="width:34%">Patient Details</td>` : ""}
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              <div class="row"><b>Invoice No:</b> ${record.grn_number || "N/A"}</div>
-              <div class="row"><b>Invoice Date:</b> ${formatDate(record.invoice_date)}</div>
-            </td>
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              <div class="row"><b>Hospital Name:</b> SHANMUGA HOSPITAL LIMITED</div>
-              <div class="row"><b>Address:</b><br/>51/24, Saradha College Road,<br/>Salem - 636007</div>
-              <div class="row"><b>Phone:</b> 04272706666</div>
-              <div class="row"><b>GSTIN:</b> 33ABDCS8326A1ZP</div>
-              <div class="row"><b>State:</b> 33 - Tamil Nadu</div>
-            </td>
-            ${
-              hasPatient
-                ? `
-            <td class="sec cnt" style="text-align:left;vertical-align:top">
-              ${record.ip_number ? `<div class="row"><b>IP Number:</b> ${record.ip_number}</div>` : ""}
-              ${record.patient_name ? `<div class="row"><b>Patient:</b> ${record.patient_name}</div>` : ""}
-              ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name || record.surgeon_id}</div>` : ""}
-              ${record.customer_type ? `<div class="row"><b>Customer Type:</b> ${record.customer_type}${record.company_name ? ` - ${record.company_name}` : ""}</div>` : ""}
-            </td>`
-                : ""
-            }
-          </tr>
-        </tbody>
-      </table>
-
-      ${itemsHtml}
-      <div class="summary">
-        <div class="gst">
-          <div class="gst-title">GST Summary</div>
-          <div class="gst-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
-          <div class="gst-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="gst-row" style="border-top:1px solid #000;padding-top:4px;margin-top:6px">
-            <span>Total GST</span><span>₹${(sellingCgst + sellingSgst).toFixed(2)}</span>
-          </div>
-        </div>
-        <div class="amts">
-          <div class="amt-row"><span>Taxable Amount</span><span>₹${sellingTaxableAmt.toFixed(2)}</span></div>
-          <div class="amt-row"><span>CGST</span><span>₹${sellingCgst.toFixed(2)}</span></div>
-          <div class="amt-row"><span>SGST</span><span>₹${sellingSgst.toFixed(2)}</span></div>
-          <div class="amt-row">
-  <span>Round Off</span>
-  <span style="${roundOff === 0 ? "color:#999" : "color:#000"}">
-    ${roundOff > 0 ? "+" : ""}₹${roundOff.toFixed(2)}
-  </span>
-</div>
-          <div class="amt-row"><span><b>Total Amount</b></span><span><b>₹${roundedTotal.toFixed(2)}</b></span></div>
-        </div>
-      </div>
-      <div class="words"><b>Amount in Words:</b> ${numberToWords(roundedTotal)}</div>
-      <div class="footer">
-        <div><b>Prepared By:</b> ${record.created_by || "N/A"}</div>
-        <div style="text-align:center"><b>Authorized Signatory</b><br/><br/>________________________</div>
-      </div>`;
-
-    openPrintWindow(`Velavan Invoice - ${record.grn_number}`, css, body);
-  };
-
-  // ── Sales Tax Register ───────────────────────────────────────────
-  const handleSalesTaxRegisterPrint = () => {
-    const sortedData = [...filteredData].sort(
-      (a, b) => new Date(a.invoice_date) - new Date(b.invoice_date),
-    );
-
-    const RATE_BUCKETS = ["exempt", "5", "12", "18"];
-
-    const emptyBucket = () => ({ amount: 0, sgst: 0, cgst: 0, total: 0 });
-
-    let grand = {
-      exempt: emptyBucket(),
-      5: emptyBucket(),
-      12: emptyBucket(),
-      18: emptyBucket(),
-      total: emptyBucket(),
-    };
-
-    const rows = sortedData.map((row) => {
-      const items = parseItems(row.items);
-      const buckets = {
-        exempt: emptyBucket(),
-        5: emptyBucket(),
-        12: emptyBucket(),
-        18: emptyBucket(),
-      };
-
-      items.forEach((item) => {
-        const rate = parseFloat(item.sellingTax ?? item.tax ?? 0);
-        const qty = parseFloat(item.quantity || 0);
-        const amount = parseFloat(item.sellingCostBeforeGst || 0) || 0;
-        const sgst = parseFloat(item.sellingSgstAmt || 0);
-        const cgst = parseFloat(item.sellingCgstAmt || 0);
-        const total = parseFloat(item.sellingCost || 0);
-
-        let key = "exempt";
-        if (rate >= 17) key = "18";
-        else if (rate >= 11) key = "12";
-        else if (rate >= 4) key = "5";
-        else if (rate > 0) key = "5"; // fallback: any positive small rate goes to 5% bucket
-
-        if (rate === 0) key = "exempt";
-
-        buckets[key].amount += amount;
-        buckets[key].sgst += sgst;
-        buckets[key].cgst += cgst;
-        buckets[key].total += total;
-      });
-
-      const rowTotal = RATE_BUCKETS.reduce(
-        (acc, k) => ({
-          amount: acc.amount + buckets[k].amount,
-          sgst: acc.sgst + buckets[k].sgst,
-          cgst: acc.cgst + buckets[k].cgst,
-          total: acc.total + buckets[k].total,
-        }),
-        emptyBucket(),
-      );
-
-      RATE_BUCKETS.forEach((k) => {
-        grand[k].amount += buckets[k].amount;
-        grand[k].sgst += buckets[k].sgst;
-        grand[k].cgst += buckets[k].cgst;
-        grand[k].total += buckets[k].total;
-      });
-      grand.total.amount += rowTotal.amount;
-      grand.total.sgst += rowTotal.sgst;
-      grand.total.cgst += rowTotal.cgst;
-      grand.total.total += rowTotal.total;
-
-      return { row, buckets, rowTotal };
-    });
-
-    const fmt = (n) =>
-      n === 0
-        ? ""
-        : n.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          });
-
-    const bucketCells = (b) =>
-      `<td class="r">${fmt(b.amount)}</td><td class="r">${fmt(b.sgst)}</td><td class="r">${fmt(b.cgst)}</td><td class="r tot-col">${fmt(b.total)}</td>`;
-
-    const tableRows = rows
-      .map(
-        ({ row, buckets, rowTotal }) => `
-        <tr>
-          <td>${formatDate(row.invoice_date)}</td>
-          <td>PHARMACY OP BILL (SH)</td>
-          <td>${row.grn_number || "N/A"}</td>
-          ${bucketCells(buckets.exempt)}
-          ${bucketCells(buckets["5"])}
-          ${bucketCells(buckets["12"])}
-          ${bucketCells(buckets["18"])}
-          ${bucketCells(rowTotal)}
-        </tr>`,
-      )
-      .join("");
-
-    const css = `
-      body{font-family:Arial,sans-serif;padding:10px;font-size:11px}
-      h1{text-align:left;font-size:13px;margin:0 0 4px;font-weight:bold}
-      .pageno{text-align:right;font-size:11px;margin-bottom:4px}
-      table{border-collapse:collapse;width:100%;font-size:10px}
-      th,td{border:1px solid #000;padding:4px 5px;text-align:center;white-space:nowrap}
-      th{background:#f1f5f9;font-weight:bold}
-      .r{text-align:right}
-      .tot-col{font-weight:bold}
-      .grand td{font-weight:bold;background:#e5e7eb}
-      .grp-hdr{background:#e0f2fe;font-weight:bold}
-    `;
-
-    const body = `
-      <h1>Sales Tax Register From ${getDateRangeLabel()}</h1>
-      <table>
-        <thead>
-          <tr>
-            <th rowspan="3">BILLDATE</th>
-            <th rowspan="3">BILLNAME</th>
-            <th rowspan="3">BILLS</th>
-            <th colspan="4" class="grp-hdr">EXEMPTED GST</th>
-            <th colspan="4" class="grp-hdr">RATE OF 5%</th>
-            <th colspan="4" class="grp-hdr">RATE OF 12%</th>
-            <th colspan="4" class="grp-hdr">RATE OF 18%</th>
-            <th colspan="4" class="grp-hdr">Total</th>
-          </tr>
-          <tr>
-            ${"<th>AMOUNT</th><th>SGST</th><th>CGST</th><th>TOTAL</th>".repeat(5)}
-          </tr>
-        </thead>
-        <tbody>
-          ${tableRows}
-          <tr class="grand">
-            <td colspan="3">Grand Total</td>
-            ${bucketCells(grand.exempt)}
-            ${bucketCells(grand["5"])}
-            ${bucketCells(grand["12"])}
-            ${bucketCells(grand["18"])}
-            ${bucketCells(grand.total)}
-          </tr>
-        </tbody>
-      </table>`;
-
-    openPrintWindow("Sales Tax Register", css, body);
-  };
   // ── Velavan Purchase Report ──────────────────────────────────────
   const handlePurchasePrint = () => {
     const sortedData = [...filteredData].sort((a, b) =>
@@ -1091,174 +884,81 @@ const InvoiceReport = () => {
 
     let tableRows = "";
     let sl = 1;
+    let grandReturn = 0;
+    let grandNet = 0;
     Object.keys(vendorGroups).forEach((vendor) => {
       const { rows, total } = vendorGroups[vendor];
       rows.sort((a, b) =>
         (a.grn_number || "").localeCompare(b.grn_number || ""),
       );
       tableRows += `<tr style="background:#e0f2fe">
-  <td colspan="7" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
-</tr>`;
+      <td colspan="7" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
+    </tr>`;
+
+      let vendorReturn = 0;
+      let vendorNet = 0;
       rows.forEach((row) => {
+        const ret = parseFloat(row.purchase_return_amount || 0);
+        const net = parseFloat(
+          row.net_amount_after_return ??
+            parseFloat(row.net_invoice_amount || 0) - ret,
+        );
+        vendorReturn += ret;
+        vendorNet += net;
+        grandReturn += ret;
+        grandNet += net;
+
         tableRows += `<tr>
-    <td style="text-align:center">${sl++}</td>
-    <td>${row.grn_number || "N/A"}</td>
-    <td>${row.invoice_no || "N/A"}</td>
-    <td>${formatDate(row.invoice_date)}</td>
-    <td style="text-align:right" colspan="2">${formatCurrency(row.net_invoice_amount)}</td>
-  </tr>`;
+        <td style="text-align:center">${sl++}</td>
+        <td>${row.grn_number || "N/A"}</td>
+        <td>${row.invoice_no || "N/A"}</td>
+        <td>${formatDate(row.invoice_date)}</td>
+        <td style="text-align:right">${formatCurrency(row.net_invoice_amount)}</td>
+        <td style="text-align:right;color:#dc2626">${ret > 0 ? "- " + formatCurrency(ret) : "—"}</td>
+        <td style="text-align:right;font-weight:bold">${formatCurrency(net)}</td>
+      </tr>`;
       });
-      // Footer total row for this vendor
+
       tableRows += `<tr style="background:#fff3cd;font-weight:bold">
-  <td colspan="4" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
-  <td style="text-align:right;padding:8px;border:1px solid #000" colspan="2">${formatCurrency(total)}</td>
-</tr>`;
+      <td colspan="4" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
+      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(total)}</td>
+      <td style="text-align:right;padding:8px;border:1px solid #000">${vendorReturn > 0 ? "- " + formatCurrency(vendorReturn) : "—"}</td>
+      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(vendorNet)}</td>
+    </tr>`;
     });
 
     const css = `
-      body{font-family:Arial,sans-serif;padding:10px;font-size:18px}
-      h1{text-align:center;font-size:21px;margin:10px 0}
-      h2{text-align:center;font-size:18px;color:#555;margin:0 0 10px}
-      table{border-collapse:collapse;width:100%;border:1px solid #333;font-size:15px}
-      th,td{border:1px dashed #999;padding:8px 13px;vertical-align:top;word-wrap:break-word}
-      th{background:#e0e0e0;font-weight:bold;text-align:center}
-    `;
-    const body = `
-      <h1>Velavan Purchase Report</h1>
-      <h2>${getDateRangeLabel()}</h2>
-      <table>
-        <thead><tr>
-          <th>Sl.</th><th>GRN Number</th><th>Invoice No</th>
-          <th>Inv. Date</th><th style="text-align:right">Bill Amount</th>
-        </tr></thead>
-        <tbody>
-          ${tableRows}
-          <tr style="background:#d4edda;font-weight:bold">
-            <td colspan="4" style="text-align:right;padding:8px">Grand Total:</td>
-            <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
-          </tr>
-        </tbody>
-      </table>`;
-
-    openPrintWindow("Velavan Purchase Report", css, body);
-  };
-
-  // ── Velavan Sales Report ─────────────────────────────────────────
-  const handleSalesReportPrint = () => {
-    const sortedData = [...filteredData].sort((a, b) =>
-      (a.vendor || a.vendor_id || "")
-        .toLowerCase()
-        .localeCompare((b.vendor || b.vendor_id || "").toLowerCase()),
-    );
-
-    const vendorGroups = {};
-    let grandTotal = 0;
-
-    sortedData.forEach((row) => {
-      const vendor = "SHANMUGA HOSPITAL LIMITED";
-      if (!vendorGroups[vendor]) vendorGroups[vendor] = { rows: [], total: 0 };
-      vendorGroups[vendor].rows.push(row);
-
-      const rowItems = parseItems(row.items);
-      const sellingAmt = rowItems.reduce(
-        (sum, item) => sum + parseFloat(item.sellingCost || 0),
-        0,
-      );
-
-      // ── Round-off logic ──────────────────────────────────────────
-      const decimal = sellingAmt - Math.floor(sellingAmt);
-      const roundOff = decimal >= 0.5 ? 1 - decimal : -decimal;
-      const roundedSellingAmt = sellingAmt + roundOff;
-      // ─────────────────────────────────────────────────────────────
-
-      vendorGroups[vendor].total += roundedSellingAmt;
-      grandTotal += roundedSellingAmt;
-      row._sellingTotal = roundedSellingAmt;
-    });
-
-    let tableRows = "";
-    let sl = 1;
-
-    Object.keys(vendorGroups).forEach((vendor) => {
-      const { rows, total } = vendorGroups[vendor];
-      rows.sort((a, b) =>
-        (a.grn_number || "").localeCompare(b.grn_number || ""),
-      );
-
-      tableRows += `
-<tr style="background:#e0f2fe">
-  <td colspan="4" style="font-weight:bold;padding:8px;color:#1e40af;font-size:14px">
-    ${vendor}
-  </td>
-</tr>`;
-      rows.forEach((row) => {
-        tableRows += `
-  <tr>
-    <td style="text-align:center">${sl++}</td>
-    <td style="text-align:center">${row.grn_number || "N/A"}</td>
-    <td style="text-align:center">${formatDate(row.invoice_date)}</td>
-    <td style="text-align:right" colspan="2">${formatCurrency(row._sellingTotal)}</td>
-  </tr>`;
-      });
-      // Footer total row
-      tableRows += `
-<tr style="background:#fff3cd;font-weight:bold">
-  <td colspan="3" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
-  <td style="text-align:right;padding:8px;border:1px solid #000" colspan="2">${formatCurrency(total)}</td>
-</tr>`;
-    });
-
-    const css = `
-    body { font-family: Arial, sans-serif; padding: 10px; font-size: 13px; }
-    h1   { text-align: center; font-size: 18px; margin: 10px 0; font-weight: bold; text-decoration: underline; }
-    h2   { text-align: center; font-size: 14px; color: #555; margin: 0 0 14px; }
-    table { border-collapse: collapse; width: 100%; border: 1px solid #333; }
-    th, td { border: 1px dashed #999; padding: 7px 12px; vertical-align: middle; word-wrap: break-word; }
-    th { background: #d0d0d0; font-weight: bold; text-align: center; font-size: 13px; }
-    td { font-size: 13px; }
-    .grand-row td { background: #d4edda; font-weight: bold; }
-
-    col.sl   { width: 5%;  }
-    col.inv  { width: 18%; }
-    col.invd { width: 13%; }
-    col.sell { width: 22%; }
-
-    @media print {
-      body { padding: 0; }
-      @page { margin: 10mm; }
-    }
+    body{font-family:Arial,sans-serif;padding:10px;font-size:18px}
+    h1{text-align:center;font-size:21px;margin:10px 0}
+    h2{text-align:center;font-size:18px;color:#555;margin:0 0 10px}
+    table{border-collapse:collapse;width:100%;border:1px solid #333;font-size:15px}
+    th,td{border:1px dashed #999;padding:8px 13px;vertical-align:top;word-wrap:break-word}
+    th{background:#e0e0e0;font-weight:bold;text-align:center}
   `;
-
     const body = `
-    <h1>Velavan Sales Report</h1>
+    <h1>Velavan Purchase Report</h1>
     <h2>${getDateRangeLabel()}</h2>
     <table>
-      <colgroup>
-        <col class="sl">
-        <col class="inv">
-        <col class="invd">
-        <col class="sell">
-      </colgroup>
-      <thead>
-        <tr>
-          <th>Sl.</th>
-          <th>Invoice No</th>
-          <th>Inv. Date</th>
-          <th style="text-align:right">Selling Amount</th>
-        </tr>
-      </thead>
+      <thead><tr>
+        <th>Sl.</th><th>GRN Number</th><th>Invoice No</th>
+        <th>Inv. Date</th>
+        <th style="text-align:right">Bill Amount</th>
+        <th style="text-align:right">Return Amt</th>
+        <th style="text-align:right">Net Amount</th>
+      </tr></thead>
       <tbody>
         ${tableRows}
-        <tr class="grand-row">
-          <td colspan="3" style="text-align:right;padding:8px">Grand Total:</td>
-          <td style="text-align:right;padding:8px;white-space:nowrap">${formatCurrency(grandTotal)}</td>
+        <tr style="background:#d4edda;font-weight:bold">
+          <td colspan="4" style="text-align:right;padding:8px">Grand Total:</td>
+          <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
+          <td style="text-align:right;padding:8px">${grandReturn > 0 ? "- " + formatCurrency(grandReturn) : "—"}</td>
+          <td style="text-align:right;padding:8px">${formatCurrency(grandNet)}</td>
         </tr>
       </tbody>
     </table>`;
 
-    openPrintWindow("Velavan Sales Report", css, body);
+    openPrintWindow("Velavan Purchase Report", css, body);
   };
-
   // ── Export CSV ───────────────────────────────────────────────────
   const exportToExcel = () => {
     const headers = [
@@ -1858,24 +1558,7 @@ const InvoiceReport = () => {
               <Printer size={14} /> Purchase Report
             </Button>
           )}
-          {canPurP && (
-            <Button
-              success
-              onClick={handleSalesReportPrint}
-              style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
-            >
-              <Printer size={14} /> Sales Report
-            </Button>
-          )}
-          {canPurP && (
-            <Button
-              success
-              onClick={handleSalesTaxRegisterPrint}
-              style={{ background: "#0891b2", borderColor: "#0891b2" }}
-            >
-              <Printer size={14} /> Sales Tax Register
-            </Button>
-          )}
+
           {canPurP && (
             <Button onClick={exportToExcel}>
               <Download size={14} /> Export CSV
@@ -1913,8 +1596,9 @@ const InvoiceReport = () => {
                   "Patient",
                   "Surgeon",
                   "IP Number",
-                  // "Purchase Amount", // ← renamed from "Total Amount"
-                  // "Selling Amount", // ← new column
+                  "Purchase Amount",
+                  "Purchase Return Amount",
+                  "Amount To Be Paid",
                   "Actions",
                 ].map((h) => (
                   <Th key={h} style={{ whiteSpace: "nowrap" }}>
@@ -1958,31 +1642,34 @@ const InvoiceReport = () => {
                       {row.surgeon_name || row.surgeon_id || "—"}
                     </Td>
                     <Td>{row.ip_number || "—"}</Td>
-                    {/* <Td style={{ textAlign: "right", fontWeight: 600 }}>
+                    <Td style={{ textAlign: "right", fontWeight: 600 }}>
                       {formatCurrency(row.net_invoice_amount)}
-                    </Td> */}
-
-                    {/* Selling Amount with round-off */}
-                    {/* <Td
+                    </Td>
+                    <Td
                       style={{
                         textAlign: "right",
-                        fontWeight: 600,
-                        color: "#7c3aed",
+                        color:
+                          row.purchase_return_amount > 0
+                            ? "#dc2626"
+                            : colors.textMuted,
                       }}
                     >
-                      {(() => {
-                        const rowItems = parseItems(row.items);
-                        const sellingAmt = rowItems.reduce(
-                          (sum, item) =>
-                            sum + parseFloat(item.sellingCost || 0),
-                          0,
-                        );
-                        const decimal = sellingAmt - Math.floor(sellingAmt);
-                        const roundOff =
-                          decimal >= 0.5 ? 1 - decimal : -decimal;
-                        return formatCurrency(sellingAmt + roundOff);
-                      })()}
-                    </Td> */}
+                      {row.purchase_return_amount > 0
+                        ? `- ${formatCurrency(row.purchase_return_amount)}`
+                        : "—"}
+                    </Td>
+                    <Td
+                      style={{
+                        textAlign: "right",
+                        fontWeight: 700,
+                        color:
+                          row.net_amount_after_return <= 0
+                            ? "#16a34a"
+                            : colors.textMain,
+                      }}
+                    >
+                      {formatCurrency(row.net_amount_after_return)}
+                    </Td>
                     <Td style={{ whiteSpace: "nowrap" }}>
                       {/* View */}
                       {canView && (
@@ -2050,42 +1737,88 @@ const InvoiceReport = () => {
                         </button>
                       )}
 
-                      {/* Velavan Print */}
-                      {canVelP && (
-                        <button
-                          style={{
-                            ...actionBtn,
-                            color: row.is_approved
-                              ? "#7c3aed"
-                              : colors.textMuted,
-                            borderColor: row.is_approved
-                              ? "#7c3aed"
-                              : colors.border,
-                            opacity: row.is_approved ? 1 : 0.35,
-                            cursor: row.is_approved ? "pointer" : "not-allowed",
-                          }}
-                          title={
-                            row.is_approved
-                              ? "Velavan Print"
-                              : "Approve invoice to enable Velavan Print"
-                          }
-                          onClick={() =>
-                            row.is_approved && handleVelavanPrint(row)
-                          }
-                          disabled={!row.is_approved}
-                        >
-                          <Printer size={14} />
-                          <span
-                            style={{
-                              fontSize: "0.65rem",
-                              marginLeft: 2,
-                              fontWeight: 600,
-                            }}
-                          >
-                            V
-                          </span>
-                        </button>
-                      )}
+                      {(() => {
+                        const amountToBePaid = parseFloat(
+                          row.net_amount_after_return || 0,
+                        );
+                        const canBill =
+                          row.is_approved &&
+                          !row.has_sales_bill &&
+                          amountToBePaid > 0;
+
+                        const canReturnStock =
+                          row.is_approved && row.has_returnable_stock;
+
+                        const cartTitle =
+                          amountToBePaid <= 0
+                            ? "Nothing to bill — amount to be paid is ₹0"
+                            : row.has_sales_bill
+                              ? "Already billed — a sales bill exists for this GRN"
+                              : row.is_approved
+                                ? "Bill this invoice"
+                                : "Approve invoice to enable billing";
+
+                        const returnTitle = !row.is_approved
+                          ? "Approve invoice to enable purchase return"
+                          : !row.has_returnable_stock
+                            ? "No returnable stock remaining for this GRN"
+                            : "Purchase Return";
+
+                        return (
+                          <>
+                            {canSalBil && (
+                              <button
+                                type="button"
+                                style={{
+                                  ...actionBtn,
+                                  color: canBill ? "#0891b2" : colors.textMuted,
+                                  borderColor: canBill
+                                    ? "#0891b2"
+                                    : colors.border,
+                                  opacity: canBill ? 1 : 0.35,
+                                  cursor: canBill ? "pointer" : "not-allowed",
+                                }}
+                                title={cartTitle}
+                                onClick={() =>
+                                  canBill &&
+                                  navigate("/SalesBilling", {
+                                    state: { record: row },
+                                  })
+                                }
+                                disabled={!canBill}
+                              >
+                                <ShoppingCart size={14} />
+                              </button>
+                            )}
+
+                            {canPurReturn && (
+                              <button
+                                type="button"
+                                style={{
+                                  ...actionBtn,
+                                  color: canReturnStock
+                                    ? "#dc2626"
+                                    : colors.textMuted,
+                                  borderColor: canReturnStock
+                                    ? "#dc2626"
+                                    : colors.border,
+                                  opacity: canReturnStock ? 1 : 0.35,
+                                  cursor: canReturnStock
+                                    ? "pointer"
+                                    : "not-allowed",
+                                }}
+                                title={returnTitle}
+                                onClick={() =>
+                                  canReturnStock && openPurchaseReturnModal(row)
+                                }
+                                disabled={!canReturnStock}
+                              >
+                                <RotateCcw size={14} />
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </Td>
                   </Tr>
                 ))
@@ -2160,6 +1893,92 @@ const InvoiceReport = () => {
         historyData={historyData}
         loading={historyLoading}
       />
+      {returnModalRecord && (
+        <ModalOverlay onClick={() => setReturnModalRecord(null)}>
+          <ModalContainer
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 900 }}
+          >
+            <ModalHeader>
+              <ModalTitle>
+                Purchase Return — {returnModalRecord.grn_number}
+              </ModalTitle>
+              <button
+                onClick={() => setReturnModalRecord(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </ModalHeader>
+            <ModalBody>
+              <TableWrapper>
+                <Table>
+                  <thead>
+                    <Tr>
+                      {[
+                        "Item",
+                        "HSN",
+                        "Batch",
+                        "Expiry",
+                        "Purchased Qty",
+                        "Return Qty",
+                        "Unit Cost (w/ GST)",
+                      ].map((h) => (
+                        <Th key={h}>{h}</Th>
+                      ))}
+                    </Tr>
+                  </thead>
+                  <tbody>
+                    {returnLines.map((l) => (
+                      <Tr key={l.lineId}>
+                        <Td style={{ fontWeight: 600 }}>{l.name}</Td>
+                        <Td>{l.hsn}</Td>
+                        <Td>{l.batch_no}</Td>
+                        <Td>{l.expiry}</Td>
+                        <Td>{l.maxQuantity}</Td>
+                        <Td>
+                          <Input
+                            type="number"
+                            min="0"
+                            max={l.maxQuantity}
+                            value={l.quantity}
+                            onChange={(e) =>
+                              handleReturnQtyChange(l.lineId, e.target.value)
+                            }
+                            style={{ width: 90 }}
+                          />
+                        </Td>
+                        <Td>
+                          ₹{parseFloat(l.unitCostWithGst || 0).toFixed(2)}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableWrapper>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  marginTop: 16,
+                }}
+              >
+                <Button secondary onClick={() => setReturnModalRecord(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={submitPurchaseReturn} disabled={returnLoading}>
+                  {returnLoading ? "Processing…" : "Confirm Return"}
+                </Button>
+              </div>
+            </ModalBody>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
     </Container>
   );
 };

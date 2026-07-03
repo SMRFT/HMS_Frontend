@@ -153,6 +153,11 @@ import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyR
 import Complaints from "./Components/ComplaintsTickets/complaints";
 import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
 import PrintModal from "./Components/InvestigationBilling/PrintModal";
+import ImplantRequestReport from "./Components/Velavan/ImplantRequestReport";
+import PendingImplantRequestNotifier from "./Components/Velavan/PendingImplantRequestNotifier";
+import SalesBilling from "./Components/Velavan/SalesBilling";
+import SalesReport from "./Components/Velavan/SalesReport";
+import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -1037,6 +1042,56 @@ function App() {
                 <Route
                   path="/VelavanVendorList"
                   element={<VelavanVendorList />}
+                />
+              )}
+              {hasPagePermission(
+                "/ImplantRequestReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/ImplantRequestReport"
+                  element={<ImplantRequestReport />} // Replace with the correct component
+                />
+              )}
+              {hasPagePermission(
+                "/PendingImplantRequestNotifier",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/PendingImplantRequestNotifier"
+                  element={<PendingImplantRequestNotifier />} // Replace with the correct component
+                />
+              )}
+              {hasPagePermission(
+                "/SalesBilling",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/SalesBilling"
+                  element={<SalesBilling />} // Replace with the correct component
+                />
+              )}
+              {hasPagePermission(
+                "/SalesReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/SalesReport"
+                  element={<SalesReport />} // Replace with the correct component
+                />
+              )}
+              {hasPagePermission(
+                "/AddVelavanCustomers",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/AddVelavanCustomers"
+                  element={<AddVelavanCustomers />} // Replace with the correct component
                 />
               )}
               {hasPagePermission("/Items", allowedActions) && (
