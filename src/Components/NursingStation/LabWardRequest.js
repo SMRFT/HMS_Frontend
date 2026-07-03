@@ -13,7 +13,11 @@ import {
   Select,
   Label,
   InputWrapper,
-  Button
+  Button,
+  ModalOverlay,
+  ModalContainer,
+  ModalHeader,
+  CloseButton
 } from "../GlobalStyles";
 
 // ─── Patient Info Panel ───────────────────────────────────────────────────────
@@ -509,6 +513,10 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
   const [investigationItems, setInvestigationItems] = useState([]);
   const [selectedTests, setSelectedTests] = useState([]);
   const [billTypeOptions, setBillTypeOptions] = useState([]);
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageSearch, setPackageSearch] = useState("");
 
   useEffect(() => {
     if (patientProp?.admittingDoctor) {
@@ -571,6 +579,51 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
     } catch (error) {
       console.error("Error fetching doctors:", error.message);
     }
+  };
+
+  const handleOpenPackageList = async () => {
+    setIsPackageModalOpen(true);
+    setPackageSearch("");
+    setPackageLoading(true);
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}packages_crud/`, "GET");
+      const list = res.success && Array.isArray(res.data) ? res.data : [];
+      const labPkgs = list.filter((p) =>
+        p.is_active !== false &&
+        (p.items || []).some((it) => it.billTypeNo === "LAB01")
+      );
+      setPackages(labPkgs);
+    } catch (e) {
+      console.error("Error fetching packages:", e);
+    } finally {
+      setPackageLoading(false);
+    }
+  };
+
+  const handleSelectPackage = (pkgObj) => {
+    const items = pkgObj.items || [];
+    const labItems = items.filter((it) => it.billTypeNo === "LAB01");
+
+    const newTests = [...selectedTests];
+    labItems.forEach((it) => {
+      const exists = newTests.find(
+        (t) =>
+          (it.test_id && String(t.test_id) === String(it.test_id)) ||
+          (it.item_id && String(t.test_id) === String(it.item_id)) ||
+          t.itemName === it.itemName
+      );
+      if (!exists) {
+        newTests.push({
+          test_id: it.test_id || it.item_id || "",
+          itemName: it.itemName,
+          price: it.price || "0.00",
+          bill_type: billtype,
+        });
+      }
+    });
+
+    setSelectedTests(newTests);
+    setIsPackageModalOpen(false);
   };
 
 
@@ -665,16 +718,15 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
 
     const mappedTests = selectedTests.map(t => ({
       test_id: t.test_id || "",
-      itemCode: t.itemCode || "",
       itemName: t.itemName,
       price: t.price,
+      bill_type: billtype,
       is_emergency: emergency
     }));
 
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
-      bill_type: billtype,
       doctor: doctor,
       wardName: resolvedPatient.roomBed.split("|")[0].trim() || "SUITE",
       item: mappedTests,
@@ -874,10 +926,30 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
                       }}
                       placeholder="Search for a test..."
                     />
-                    <SearchIconBtn type="button" onClick={fetchInvestigationItems}>
-                      🔍
-                    </SearchIconBtn>
-                  </div>
+                     <SearchIconBtn type="button" onClick={fetchInvestigationItems}>
+                       🔍
+                     </SearchIconBtn>
+                     <button
+                       type="button"
+                       onClick={handleOpenPackageList}
+                       style={{
+                         background: colors.secondary || "#f59e0b",
+                         color: "white",
+                         padding: "0 12px",
+                         marginLeft: "6px",
+                         borderRadius: "4px",
+                         border: "none",
+                         cursor: "pointer",
+                         display: "flex",
+                         alignItems: "center",
+                         justifyContent: "center",
+                         fontSize: "14px",
+                         fontWeight: "600",
+                       }}
+                     >
+                       🎁 Package
+                     </button>
+                   </div>
                   {investigationItems.length > 0 && (
                     <div
                       style={{
@@ -1178,6 +1250,108 @@ export default function LabWardRequest({ patient: patientProp, onClose }) {
           <PageBtn disabled>Next</PageBtn>
         </PaginationBtns>
       </Pagination>
+
+      {/* Package Selection Modal */}
+      {isPackageModalOpen && (
+        <ModalOverlay style={{ zIndex: 2000 }}>
+          <ModalContainer
+            style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🎁</span>
+                <h3 style={{ color: "#fff", margin: 0 }}>Select Lab Package</h3>
+              </div>
+              <CloseButton onClick={() => setIsPackageModalOpen(false)} style={{ color: "rgba(255,255,255,0.8)", background: 'transparent' }}>
+                ✕
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: colors.background }}>
+              {/* Package Search Input */}
+              <div style={{ marginBottom: "16px", position: "relative" }}>
+                <Input
+                  type="text"
+                  placeholder="Search package by name..."
+                  value={packageSearch}
+                  onChange={(e) => setPackageSearch(e.target.value)}
+                  style={{
+                    paddingLeft: "36px",
+                    borderRadius: "8px",
+                    border: `1px solid ${colors.border}`,
+                    background: "white",
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: colors.textMuted
+                  }}
+                >
+                  🔍
+                </span>
+              </div>
+
+              {packageLoading ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  Loading packages...
+                </div>
+              ) : packages.filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase())).length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  No packages found.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {packages
+                    .filter(p => p.packageName.toLowerCase().includes(packageSearch.toLowerCase()))
+                    .map((pkgObj) => (
+                      <div
+                        key={pkgObj.packageNo}
+                        onClick={() => handleSelectPackage(pkgObj)}
+                        style={{
+                          padding: "16px",
+                          background: "white",
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: "12px",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = colors.primary;
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(19, 106, 99, 0.08)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = colors.border;
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: colors.textMain, fontSize: "0.95rem" }}>
+                            {pkgObj.packageName}
+                          </div>
+                          <div style={{ fontSize: "0.8rem", color: colors.textMuted, marginTop: "4px" }}>
+                            {(pkgObj.items || []).filter(it => it.billTypeNo === "LAB01").map(it => `${it.itemName} (x${it.quantity || 1})`).join(", ")}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: "0.8rem", color: colors.primary, fontWeight: 700 }}>
+                          Select →
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
     </PageWrapper>
   );
 }

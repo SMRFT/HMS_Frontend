@@ -19,16 +19,16 @@ const colors = {
   white: "#FFFFFF",
   rowHighlight: "#E0F2F1",
   headerBg: "#546E7A",
-  // Legend Colors
-  legPending: "#FFC107",
-  legSubstituted: "#B366CC",
-  legBilled: "#28A745",
-  legCancelled: "#6C757D",
-  legStopped: "#FA6680",
-  legEmergency: "#DC3545",
-  legInsurance: "#007BFF",
-  legDischarge: "#48D1CC",
-  legRegular: "#136A63",
+  // Legend Colors (Refined for better UI)
+  legPending: "#F59E0B",     // Rich amber
+  legSubstituted: "#8B5CF6", // Vibrant purple
+  legBilled: "#10B981",      // Emerald green
+  legCancelled: "#6B7280",   // Cool gray
+  legStopped: "#EF4444",     // Red
+  legEmergency: "#DC2626",   // Deeper Red
+  legInsurance: "#3B82F6",   // Blue
+  legDischarge: "#06B6D4",   // Cyan
+  legRegular: "#0D9488",     // Teal
 };
 
 // ─── Styled Components ────────────────────────────────────────────────────────
@@ -62,9 +62,43 @@ const ModalContainer = styled.div`
     -apple-system,
     sans-serif;
   @media (max-width: 768px) {
-    width: 100%;
-    height: 100vh;
-    border-radius: 0;
+    width: 100% !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+`;
+
+
+const ModalHeader = styled.div`
+  padding: 14px 18px;
+  border-bottom: 2px solid ${colors.border};
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: ${(props) => props.$bg || "#546E7A"};
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: ${colors.textMuted};
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: ${colors.border};
+    color: ${colors.textMain};
   }
 `;
 
@@ -449,26 +483,50 @@ const StyledTable = styled.table`
 `;
 
 const LegendContainer = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 15px;
   margin-top: 25px;
-  padding: 15px;
+  padding: 20px;
   background: white;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid ${colors.border};
-  flex-wrap: wrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+`;
+
+const LegendItemWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fdfdfd;
+  border: 1px solid #f0f0f0;
+  transition: all 0.2s;
+  &:hover {
+    background: #f8fafb;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
 `;
 
 const LegendItem = styled.div`
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
   font-size: 0.75rem;
   font-weight: 700;
   padding: 4px 12px;
   border-radius: 20px;
   background: ${(props) => props.color};
   color: white;
+  width: fit-content;
+  box-shadow: 0 2px 6px ${(props) => props.color}40;
+`;
+
+const LegendDescription = styled.div`
+  font-size: 0.75rem;
+  color: ${colors.textMuted};
+  line-height: 1.3;
 `;
 
 // ─── Searchable Dropdown Helper ───────────────────────────────────────────────
@@ -630,9 +688,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // UI States
-  const [showForm,       setShowForm]       = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
-  const [editSaving,     setEditSaving]     = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   // Form Fields
   const [pharmacyDept, setPharmacyDept] = useState("OLET001");
@@ -662,6 +720,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   const [selectedReturnReq, setSelectedReturnReq] = useState(null);
   const [returnItems, setReturnItems] = useState({});
   const [returnSaving, setReturnSaving] = useState(false);
+
+  // ── Medicine Packages State ──────────────────────────────────────────
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [packages, setPackages] = useState([]);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageSearch, setPackageSearch] = useState("");
 
   useEffect(() => {
     // Note: Patient object might have doctor name OR ID under different fields.
@@ -777,15 +841,14 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     if (val.length > 2) {
       try {
         const res = await apiRequest(
-          `${HmsBaseUrl}get_oppharmacy_stock/?department_code=${pharmacyDept}`,
+          `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
           "GET",
         );
-        // Fix for standard apiRequest return shape: { success, data }
         const list = res.success
           ? Array.isArray(res.data?.data)
-            ? res.data.data
-            : Array.isArray(res.data)
-              ? res.data
+            ? res.data?.data
+            : Array.isArray(res.data?.data)
+              ? res.data.data
               : []
           : [];
 
@@ -864,6 +927,71 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     setRemark("");
   };
 
+  const handleOpenPackageList = async () => {
+    setIsPackageModalOpen(true);
+    setPackageSearch("");
+    setPackageLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_medicine_packages/?outlet_code=${pharmacyDept}`,
+        "GET"
+      );
+      if (res.success) {
+        const list = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+        setPackages(list.filter((p) => p.is_active !== false));
+      }
+    } catch (e) {
+      console.error("Error fetching packages:", e);
+    } finally {
+      setPackageLoading(false);
+    }
+  };
+
+  const handleSelectPackage = async (pkg) => {
+    setPackageLoading(true);
+    try {
+      const res = await apiRequest(
+        `${HmsBaseUrl}get_pharmacy_stock/?outlet_code=${pharmacyDept}`,
+        "GET"
+      );
+      const stockList = res.success
+        ? Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data)
+            ? res.data
+            : []
+        : [];
+
+      const items = pkg.items || [];
+      const mapped = items.map((it) => {
+        const match = stockList.find((s) => String(s.item_id) === String(it.item_id));
+        return {
+          item_id: it.item_id,
+          name: it.item_name || `Item ${it.item_id}`,
+          batch_number: match ? match.batch_number : "",
+          qty: Number(it.qty || 1),
+          price: match ? Number(match.mrp) || 0 : 0,
+          noOfDays: "1",
+          dosage: "1-0-0",
+          dose: "1",
+          doseunit: "Nos",
+        };
+      });
+
+      setSelectedMedicines((prev) => [...prev, ...mapped]);
+      setIsPackageModalOpen(false);
+    } catch (err) {
+      console.error("Error selecting package:", err);
+      alert("Error loading package items.");
+    } finally {
+      setPackageLoading(false);
+    }
+  };
+
   // Load a selected medicine back into the form for editing
   const handleEditSelectedMed = (idx) => {
     const med = selectedMedicines[idx];
@@ -894,6 +1022,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       billTypeNo,
       billTypeName,
       wardName: resolvedPatient.roomBed?.split("|")[0].trim() || "-",
+      roomNo: resolvedPatient.roomBed || "-",
       medicine_particulars: selectedMedicines,
       total_amount: selectedMedicines.reduce(
         (acc, m) => acc + (m.price || 0) * (m.qty || 0),
@@ -904,6 +1033,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       billing_status: "Ward Request",
       billing_mode: "WARD REQUEST",
       outlet_code: pharmacyDept,
+      is_discharge: isDischarge,
     };
 
     try {
@@ -915,6 +1045,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
       if (res.success) {
         alert("Ward Request saved successfully");
         setSelectedMedicines([]);
+        setIsDischarge(false);
         fetchRequests();
       }
     } catch (e) {
@@ -1109,6 +1240,10 @@ const MedicineWardRequest = ({ patient, onClose }) => {
     return colors.legRegular;
   };
 
+  const filteredPackages = packages.filter((pkg) =>
+    pkg.medPackage_name?.toLowerCase().includes(packageSearch.toLowerCase())
+  );
+
   return (
     <>
       <div style={{ padding: "20px" }}>
@@ -1124,7 +1259,7 @@ const MedicineWardRequest = ({ patient, onClose }) => {
               </div>
             </PatientIdentity>
           </PatientHeader>
-          
+
           <PatientGrid>
             <FieldBox>
               <FieldLabel>Admitting Dr</FieldLabel>
@@ -1233,6 +1368,24 @@ const MedicineWardRequest = ({ patient, onClose }) => {
                       }}
                     >
                       <Search size={16} /> Search
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenPackageList}
+                      style={{
+                        background: colors.secondary || "#f59e0b",
+                        color: "white",
+                        padding: "0 16px",
+                        borderRadius: "4px",
+                        border: "none",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "14px",
+                      }}
+                    >
+                      🎁 Package
                     </button>
                   </div>
                 </FormItem>
@@ -1499,190 +1652,217 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         {/* ── Medicine History Table ── */}
         <div style={{ overflowX: "auto", borderRadius: "8px", border: `1px solid ${colors.border}` }}>
           <StyledTable>
-          <thead>
-            <tr>
-              <th>Req Date & Time</th>
-              <th>Medicine Name</th>
-              <th>Dosage</th>
-              <th>No Of Days</th>
-              <th>Qty.</th>
-              <th>Route</th>
-              <th>Doctor</th>
-              <th>Bill Name</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.length === 0 ? (
+            <thead>
               <tr>
-                <td
-                  colSpan="10"
-                  style={{
-                    textAlign: "center",
-                    padding: "30px",
-                    color: colors.textMuted,
-                  }}
-                >
-                  No request history found.
-                </td>
+                <th>Req Date & Time</th>
+                <th>Medicine Name</th>
+                <th>Dosage</th>
+                <th>No Of Days</th>
+                <th>Qty.</th>
+                <th>Route</th>
+                <th>Doctor</th>
+                <th>Bill Name</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              Array.isArray(requests) && requests.map((req, i) => (
-                <tr key={i}>
-                  <td>
-                    {req.reqDate} {req.reqTime}
+            </thead>
+            <tbody>
+              {requests.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="10"
+                    style={{
+                      textAlign: "center",
+                      padding: "30px",
+                      color: colors.textMuted,
+                    }}
+                  >
+                    No request history found.
                   </td>
-                  <td>
-                    {req.medicines
-                      ?.filter((m) => !m.is_deleted)
-                      .map((m, idx, arr) => (
+                </tr>
+              ) : (
+                Array.isArray(requests) && requests.map((req, i) => (
+                  <tr key={i}>
+                    <td>
+                      {req.reqDate} {req.reqTime}
+                    </td>
+                    <td>
+                      {req.medicines
+                        ?.filter((m) => !m.is_deleted)
+                        .map((m, idx, arr) => (
+                          <div
+                            key={idx}
+                            style={{
+                              borderBottom:
+                                idx < arr.length - 1
+                                  ? "1px solid #eee"
+                                  : "none",
+                              padding: "4px 0",
+                            }}
+                          >
+                            {m.item_name || m.name || `(ID: ${m.item_id})`}
+                          </div>
+                        ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
                         <div
                           key={idx}
                           style={{
                             borderBottom:
-                              idx < arr.length - 1
+                              idx < req.medicines.length - 1
                                 ? "1px solid #eee"
                                 : "none",
                             padding: "4px 0",
                           }}
                         >
-                          {m.item_name || m.name || `(ID: ${m.item_id})`}
+                          {m.dosage}
                         </div>
                       ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.noOfDays}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.quantity}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      {req.medicines?.map((m, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            borderBottom:
+                              idx < req.medicines.length - 1
+                                ? "1px solid #eee"
+                                : "none",
+                            padding: "4px 0",
+                          }}
+                        >
+                          {m.route}
+                        </div>
+                      ))}
+                    </td>
+                    <td>{req.doctorName || req.doctor}</td>
+                    <td>{req.billName}</td>
+                    <td>
+                      <LegendItem
+                        color={getStatusColor(req.status || "Pending", req.isDischarge)}
                       >
-                        {m.dosage}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.noOfDays}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.quantity}
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    {req.medicines?.map((m, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          borderBottom:
-                            idx < req.medicines.length - 1
-                              ? "1px solid #eee"
-                              : "none",
-                          padding: "4px 0",
-                        }}
-                      >
-                        {m.route}
-                      </div>
-                    ))}
-                  </td>
-                  <td>{req.doctorName || req.doctor}</td>
-                  <td>{req.billName}</td>
-                  <td>
-                    <LegendItem
-                      color={getStatusColor(req.status || "Pending", false)}
-                    >
-                      {req.status || "Pending"}
-                    </LegendItem>
-                  </td>
-                  <td>
-                    {(() => {
-                      const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some(pr => pr.status === "Pending");
-                      const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
-                      return (
-                        <>
-                          <button
-                            onClick={() => handleOpenEdit(req)}
-                            disabled={req.status === "Billed" || req.status === "Cancelled"}
-                            style={{
-                              background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
-                              color: "white",
-                              border: "none",
-                              borderRadius: "5px",
-                              padding: "5px 12px",
-                              cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "600",
-                            }}
-                          >
-                            ✎ Edit
-                          </button>
-                          <button
-                            onClick={() => handleOpenReturn(req)}
-                            disabled={!canReturn}
-                            style={{
-                              background: !canReturn ? "#ccc" : colors.orange,
-                              color: "white",
-                              border: "none",
-                              borderRadius: "5px",
-                              padding: "5px 12px",
-                              cursor: !canReturn ? "not-allowed" : "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "600",
-                              marginLeft: "8px"
-                            }}
-                          >
-                            {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
-                          </button>
-                        </>
-                      );
-                    })()}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </StyledTable>
+                        {req.isDischarge ? "Discharge Medicine" : (req.status || "Pending")}
+                      </LegendItem>
+                    </td>
+                    <td>
+                      {(() => {
+                        const hasPendingReturn = Array.isArray(req.pending_returns) && req.pending_returns.some(pr => pr.status === "Pending");
+                        const canReturn = ["Billed", "Paid"].includes(req.status) && !hasPendingReturn;
+                        return (
+                          <>
+                            <button
+                              onClick={() => handleOpenEdit(req)}
+                              disabled={req.status === "Billed" || req.status === "Cancelled"}
+                              style={{
+                                background: req.status === "Billed" || req.status === "Cancelled" ? "#ccc" : "#136A63",
+                                color: "white",
+                                border: "none",
+                                borderRadius: "5px",
+                                padding: "5px 12px",
+                                cursor: req.status === "Billed" || req.status === "Cancelled" ? "not-allowed" : "pointer",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                              }}
+                            >
+                              ✎ Edit
+                            </button>
+                            <button
+                              onClick={() => handleOpenReturn(req)}
+                              disabled={!canReturn}
+                              style={{
+                                background: !canReturn ? "#ccc" : colors.orange,
+                                color: "white",
+                                border: "none",
+                                borderRadius: "5px",
+                                padding: "5px 12px",
+                                cursor: !canReturn ? "not-allowed" : "pointer",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                marginLeft: "8px"
+                              }}
+                            >
+                              {hasPendingReturn ? "⌛ Return Pending" : "↺ Return"}
+                            </button>
+                          </>
+                        );
+                      })()}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </StyledTable>
         </div>
         <LegendContainer>
-          <LegendItem color={colors.legPending}>Pending</LegendItem>
-          <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
-          <LegendItem color={colors.legBilled}>Billed</LegendItem>
-          <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
-          <LegendItem color={colors.legStopped}>Stopped</LegendItem>
-          <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
-          <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
-          <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
-          <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legPending}>Pending</LegendItem>
+            <LegendDescription>Request is placed but not yet processed or billed.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legSubstituted}>Substituted</LegendItem>
+            <LegendDescription>Requested medicine was replaced with an alternative.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legBilled}>Billed</LegendItem>
+            <LegendDescription>Medicine has been billed and issued to the patient.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legCancelled}>Cancelled</LegendItem>
+            <LegendDescription>The request was cancelled before processing.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legStopped}>Stopped</LegendItem>
+            <LegendDescription>Medication has been stopped by the doctor.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legEmergency}>Emergency</LegendItem>
+            <LegendDescription>High priority urgent medicine request.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legInsurance}>Insurance Item</LegendItem>
+            <LegendDescription>Medicine covered under patient's insurance plan.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legDischarge}>Discharge Med</LegendItem>
+            <LegendDescription>Medicines prescribed for patient at the time of discharge.</LegendDescription>
+          </LegendItemWrapper>
+          <LegendItemWrapper>
+            <LegendItem color={colors.legRegular}>Regular Med</LegendItem>
+            <LegendDescription>Standard ongoing medicines for the admitted patient.</LegendDescription>
+          </LegendItemWrapper>
         </LegendContainer>
       </div>
 
@@ -1942,8 +2122,8 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             </Header>
             <ContentBody style={{ overflowY: "auto" }}>
               <div style={{ marginBottom: "16px", background: "#fff8e1", padding: "12px", borderRadius: "8px", borderLeft: `4px solid ${colors.orange}` }}>
-                <strong>Request Date:</strong> {selectedReturnReq.reqDate} {selectedReturnReq.reqTime} <br/>
-                <strong>Bill ID:</strong> {selectedReturnReq.Bill_id} <br/>
+                <strong>Request Date:</strong> {selectedReturnReq.reqDate} {selectedReturnReq.reqTime} <br />
+                <strong>Bill ID:</strong> {selectedReturnReq.Bill_id} <br />
                 <strong>Doctor:</strong> {selectedReturnReq.doctorName || selectedReturnReq.doctor}
               </div>
               <div style={{ overflowX: "auto" }}>
@@ -1995,13 +2175,112 @@ const MedicineWardRequest = ({ patient, onClose }) => {
             </ContentBody>
             <div style={{ padding: "16px", borderTop: "1px solid #CFD8DC", display: "flex", justifyContent: "flex-end", gap: "12px", background: "#f5f7f8" }}>
               <CancelBtn onClick={() => setIsReturnModalOpen(false)}>Cancel</CancelBtn>
-              <RequestBtn 
-                onClick={handleReturnSubmit} 
+              <RequestBtn
+                onClick={handleReturnSubmit}
                 disabled={returnSaving}
                 style={{ background: returnSaving ? "#ccc" : colors.orange }}
               >
                 {returnSaving ? "Processing..." : "Submit Return"}
               </RequestBtn>
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* Package Selection Modal */}
+      {isPackageModalOpen && (
+        <ModalOverlay style={{ zIndex: 2000 }}>
+          <ModalContainer
+            style={{ width: "90%", maxWidth: "700px", height: "70vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🎁</span>
+                <h3 style={{ color: "#fff", margin: 0 }}>Select Medicine Package</h3>
+              </div>
+              <CloseButton onClick={() => setIsPackageModalOpen(false)} style={{ color: "rgba(255,255,255,0.8)", background: 'transparent' }}>
+                ✕
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: colors.background }}>
+              {/* Package Search Input */}
+              <div style={{ marginBottom: "16px", position: "relative" }}>
+                <StyledInput
+                  type="text"
+                  placeholder="Search package by name..."
+                  value={packageSearch}
+                  onChange={(e) => setPackageSearch(e.target.value)}
+                  style={{
+                    paddingLeft: "36px",
+                    borderRadius: "8px",
+                    border: `1px solid ${colors.border}`,
+                    background: "white",
+                    width: "100%",
+                    boxSizing: "border-box"
+                  }}
+                />
+                <Search
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: colors.textMuted
+                  }}
+                />
+              </div>
+
+              {packageLoading ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  Loading packages...
+                </div>
+              ) : filteredPackages.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                  No medicine packages found.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {filteredPackages.map((pkg) => (
+                    <div
+                      key={pkg.medPackage_id}
+                      onClick={() => handleSelectPackage(pkg)}
+                      style={{
+                        padding: "16px",
+                        background: "white",
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: "12px",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = colors.primary;
+                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(13, 148, 136, 0.08)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = colors.border;
+                        e.currentTarget.style.boxShadow = "none";
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: colors.textMain, fontSize: "0.95rem" }}>
+                          {pkg.medPackage_name}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: colors.textMuted, marginTop: "4px" }}>
+                          {(pkg.items || []).map(it => `${it.item_name} (x${it.qty})`).join(", ")}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: "0.8rem", color: colors.primary, fontWeight: 700 }}>
+                        Select →
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </ModalContainer>
         </ModalOverlay>

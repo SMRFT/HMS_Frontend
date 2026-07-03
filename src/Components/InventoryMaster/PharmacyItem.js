@@ -597,7 +597,7 @@ const PharmacyItemMaster = () => {
 
   const fetchItems = async () => {
     try {
-      const res = await apiRequest(`${baseUrl}pharmacy-items/`, "GET");
+      const res = await apiRequest(`${baseUrl}pharmacy_items/`, "GET");
       if (res.success) setItems(Array.isArray(res.data) ? res.data : []);
     } catch {
       showToast("Failed to fetch items", "error");
@@ -660,7 +660,7 @@ const PharmacyItemMaster = () => {
 
     setLoading(true);
     try {
-      const url = editId ? `${baseUrl}pharmacy-items/${editId}/` : `${baseUrl}pharmacy-items/`;
+      const url = editId ? `${baseUrl}pharmacy_items/${editId}/` : `${baseUrl}pharmacy_items/`;
       const method = editId ? "PUT" : "POST";
 
       const payload = {
@@ -731,7 +731,7 @@ const PharmacyItemMaster = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this item?")) return;
     try {
-      const res = await apiRequest(`${baseUrl}pharmacy-items/${id}/`, "DELETE");
+      const res = await apiRequest(`${baseUrl}pharmacy_items/${id}/`, "DELETE");
       if (res.success) { showToast("Item deleted"); fetchItems(); }
       else showToast("Delete failed", "error");
     } catch {

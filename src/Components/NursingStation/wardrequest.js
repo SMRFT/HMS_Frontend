@@ -9,6 +9,7 @@ import RadiologyWardRequest from "./RadiologyWardRequest";
 import DietOrderModal from "./DietOrderModal";
 import RoomShifting from "./RoomShifting";
 import LaundryWardRequest from "./LaundryWardRequest";
+import ImplantWardRequest from "./ImplantWardRequest";
 import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody, NoResults } from "../GlobalStyles";
 import { useNavigate } from "react-router-dom";
 
@@ -26,7 +27,9 @@ import {
   FiGrid,
   FiList,
   FiCheckCircle,
-  FiRefreshCcw
+  FiRefreshCcw,
+  FiCreditCard,
+  FiLayers
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant, MdLocalLaundryService } from "react-icons/md";
 
@@ -162,7 +165,7 @@ const SegmentButton = styled.button`
 
 const GridContainer = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
   gap: 20px;
   padding: 10px 0;
   animation: ${fadeIn} 0.4s ease-out;
@@ -244,28 +247,57 @@ const RoomHeader = styled.div`
 const getStatusColors = (status) => {
   switch (status?.toLowerCase()) {
     case "admitted":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
     case "discharged":
-      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" };
+      return { bg: "#f3f4f6", text: "#6b7280", border: "#e5e7eb" }; // Gray
     case "mark for discharge":
-      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" };
+      return { bg: "#fff7ed", text: "#f59e0b", border: "#ffedd5" }; // Orange
     case "discharge confirmation":
-      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" };
+      return { bg: "#fdf2f8", text: "#db2777", border: "#fbcfe8" }; // Pink
     case "sent for billing":
-      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" };
+      return { bg: "#f5f3ff", text: "#8b5cf6", border: "#ede9fe" }; // Purple
     case "billed":
-      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" };
+      return { bg: "#f0fdfa", text: colors.success, border: "#ccfbf1" }; // Green
     case "pending":
-      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" };
+      return { bg: "#fff1f2", text: "#e11d48", border: "#ffe4e6" }; // Red
     default:
-      return { bg: "#f8fafc", text: "#64748b", border: "#f1f5f9" };
+      return { bg: "#eff6ff", text: "#3b82f6", border: "#dbeafe" }; // Blue
   }
 };
 
 const BedsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 16px;
+`;
+
+const LegendContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  border: 1px solid ${colors.border};
+`;
+
+const LegendItemWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: ${colors.textMain};
+
+  .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: ${(props) => props.$color};
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
 `;
 
 const BedItem = styled.div`
@@ -290,12 +322,12 @@ const BedItem = styled.div`
     width: 54px;
     height: 38px;
     background: ${(props) => {
-      if (props.$occupied) {
-        const color = getStatusColors(props.$status).text;
-        return `linear-gradient(135deg, ${color}, ${color}cc)`;
-      }
-      return props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)";
-    }};
+    if (props.$occupied) {
+      const color = getStatusColors(props.$status).text;
+      return `linear-gradient(135deg, ${color}, ${color}cc)`;
+    }
+    return props.$blocked ? "linear-gradient(135deg, " + colors.secondary + ", #d97706)" : "linear-gradient(135deg, " + colors.success + ", #15803d)";
+  }};
     border-radius: 10px 10px 6px 6px;
     position: relative;
     transition: all 0.3s ease;
@@ -663,7 +695,7 @@ const WardRequest = () => {
   const [roomNo, setRoomNo] = useState("ALL");
   const [selectedDoctor, setSelectedDoctor] = useState("ALL");
   const [doctorSearch, setDoctorSearch] = useState("");
-  const [billingStatusFilter, setBillingStatusFilter] = useState("ALL");
+  const [insuranceCompanyFilter, setInsuranceCompanyFilter] = useState("ALL");
   //  const [roomCategories, setRoomCategories] = useState([]);
   const [locationMapping, setLocationMapping] = useState([]); // Master map
   const [statusFilter, setStatusFilter] = useState("all");
@@ -679,10 +711,12 @@ const WardRequest = () => {
   const [showRoomShiftModal, setShowRoomShiftModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLaundryModal, setShowLaundryModal] = useState(false);
+  const [showImplantModal, setShowImplantModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
   const [rooms, setRooms] = useState([]);
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
 
   const menuRef = useRef(null);
 
@@ -697,6 +731,16 @@ const WardRequest = () => {
         setRooms(mappingData);
       }
     } catch (err) { console.error("Location mapping fetch failed", err); }
+  };
+
+  const fetchInsuranceProviders = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}insurance-providers/`, "GET");
+      if (res.success) {
+        const data = Array.isArray(res.data) ? res.data : Array.isArray(res.data?.data) ? res.data.data : [];
+        setInsuranceProviders(data);
+      }
+    } catch (err) { console.error("Insurance providers fetch failed", err); }
   };
 
   const fetchAdmissions = async () => {
@@ -740,7 +784,14 @@ const WardRequest = () => {
 
   useEffect(() => {
     fetchLocationMapping();
+    fetchInsuranceProviders();
   }, []);
+
+  const getInsuranceCompanyName = (code) => {
+    if (!code) return "";
+    const provider = insuranceProviders.find(p => String(p.company_code || p.id) === String(code));
+    return provider ? (provider.company_name || code) : code;
+  };
 
   // Compute master lists dynamically from locationMapping
   const wards = useMemo(() => {
@@ -801,6 +852,16 @@ const WardRequest = () => {
     });
     return Array.from(docs).sort();
   }, [admissions]);
+
+  const availableInsuranceCompanies = useMemo(() => {
+    const companies = new Set();
+    admissions.forEach(adm => {
+      const code = getField(adm, "company_code") || getField(adm, "insuranceCompanyName") || getField(adm, "insurance_company_name");
+      const name = getInsuranceCompanyName(code);
+      if (name) companies.add(name);
+    });
+    return Array.from(companies).sort();
+  }, [admissions, insuranceProviders]);
 
   // availableBlocks depends on selected NursingStation, RoomCategory and RoomNo
   const availableBlocks = useMemo(() => {
@@ -931,11 +992,11 @@ const WardRequest = () => {
     const selectedWardObj = wards.find(w => String(w.id) === String(nursingStation) || String(w._id) === String(nursingStation));
     const wardName = selectedWardObj ? selectedWardObj.ward_name : "";
 
-    const matchesStation = nursingStation === "ALL" || 
-      String(stationId) === String(nursingStation) || 
+    const matchesStation = nursingStation === "ALL" ||
+      String(stationId) === String(nursingStation) ||
       String(stationName) === String(wardName) ||
       String(stationName) === String(nursingStation);
-    
+
     if (!matchesStation) return false;
 
     const catId = getField(item, "room_category_id") || item.room_category_id;
@@ -958,10 +1019,10 @@ const WardRequest = () => {
       if (!docName.toLowerCase().includes(doctorSearch.toLowerCase())) return false;
     }
 
-    // Temporary logic for billing status using is_billed or fallback
-    const billingStatus = getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending");
-    const matchesBilling = billingStatusFilter === "ALL" || billingStatus === billingStatusFilter;
-    if (!matchesBilling) return false;
+    const rawCompany = getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name") || "";
+    const insuranceCompany = getInsuranceCompanyName(rawCompany);
+    const matchesInsurance = insuranceCompanyFilter === "ALL" || insuranceCompany === insuranceCompanyFilter;
+    if (!matchesInsurance) return false;
 
     return true;
   });
@@ -1052,6 +1113,7 @@ const WardRequest = () => {
                   const occupant = occupants.find(o => String(getField(o, "bedNo")) === String(bed.bed_number));
                   const initials = occupant ? getInitials(`${getField(occupant, "firstName") || ""} ${getField(occupant, "lastName") || ""}`.trim()) : "";
                   const bedStatus = occupant ? (getField(occupant, "ward_status") || (getField(occupant, "is_discharged") ? "Discharged" : "Admitted")) : "";
+                  const customerType = occupant ? (getField(occupant, "customer_type") || getField(occupant, "customerType") || "Normal") : "";
                   const statusColors = getStatusColors(bedStatus);
 
                   return (
@@ -1060,6 +1122,7 @@ const WardRequest = () => {
                       $occupied={!!occupant}
                       $blocked={bed.blocked}
                       $status={bedStatus}
+                      $customerType={customerType}
                       onClick={() => {
                         if (occupant) {
                           setSelectedPatient(occupant);
@@ -1067,7 +1130,14 @@ const WardRequest = () => {
                         }
                       }}
                     >
-                      <div className="bed-icon" />
+                      <div className="bed-icon">
+                        {occupant && customerType.toLowerCase() === "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#a855f7', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Insurance Patient" />
+                        )}
+                        {occupant && customerType.toLowerCase() !== "insurance" && (
+                          <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '14px', height: '14px', borderRadius: '50%', background: '#3b82f6', border: '2px solid white', zIndex: 3, boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} title="Normal Pay Patient" />
+                        )}
+                      </div>
                       {/* {initials && <div className="patient-initials">{initials}</div>} */}
                       <div className="bed-label">{bed.bed_number}</div>
                       {occupant && (
@@ -1082,9 +1152,25 @@ const WardRequest = () => {
                             setSelectedPatient(occupant);
                             setShowStatusModal(true);
                           }}
-                          style={{ marginTop: "6px", padding: "4px 8px", fontSize: "0.6rem", fontWeight: "600", borderRadius: "12px", background: statusColors.text, color: "#fff", cursor: "pointer", zIndex: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%", textAlign: "center" }}
+                          style={{ 
+                            marginTop: "6px", 
+                            padding: "4px 8px", 
+                            fontSize: "0.6rem", 
+                            fontWeight: "700", 
+                            borderRadius: "12px", 
+                            background: statusColors.bg, 
+                            color: statusColors.text, 
+                            border: `1px solid ${statusColors.border}`,
+                            cursor: "pointer", 
+                            zIndex: 2, 
+                            whiteSpace: "nowrap", 
+                            overflow: "hidden", 
+                            textOverflow: "ellipsis", 
+                            maxWidth: "95%", 
+                            textAlign: "center" 
+                          }}
                         >
-                          Update Status
+                          {bedStatus || "Update Status"}
                         </div>
                       )}
 
@@ -1094,7 +1180,8 @@ const WardRequest = () => {
                           <div><strong>UHID:</strong> {getField(occupant, "uhid")}</div>
                           <div><strong>IP No:</strong> {occupant.ipNumber}</div>
                           <div><strong>Doctor:</strong> {getField(occupant, "doctorName")}</div>
-                          <div><strong>Billing:</strong> {getField(occupant, "billing_status") || (getField(occupant, "is_billed") ? "Billed" : "Pending")}</div>
+                          <div><strong>Patient Type:</strong> {customerType}</div>
+                          <div><strong>Insurance:</strong> {getInsuranceCompanyName(getField(occupant, "company_code") || getField(occupant, "insuranceCompanyName") || getField(occupant, "insurance_company_name")) || "-"}</div>
                           {getField(occupant, "ward_status") && (
                             <div><strong>Ward Status:</strong> {getField(occupant, "ward_status")}</div>
                           )}
@@ -1310,13 +1397,14 @@ const WardRequest = () => {
 
               <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
                 <StyledSelect
-                  value={billingStatusFilter}
-                  onChange={(e) => setBillingStatusFilter(e.target.value)}
-                  style={{ width: "140px" }}
+                  value={insuranceCompanyFilter}
+                  onChange={(e) => setInsuranceCompanyFilter(e.target.value)}
+                  style={{ width: "160px" }}
                 >
-                  <option value="ALL">All Billing</option>
-                  <option value="Billed">Billed</option>
-                  <option value="Pending">Pending</option>
+                  <option value="ALL">All Insurance</option>
+                  {availableInsuranceCompanies.map((comp, i) => (
+                    <option key={i} value={comp}>{comp}</option>
+                  ))}
                 </StyledSelect>
               </div>
 
@@ -1338,109 +1426,148 @@ const WardRequest = () => {
         </div>
 
         <div style={{ flex: 1, overflowY: "auto", overflowX: "auto", padding: "0 24px 20px", minHeight: 0 }}>
+          {viewMode === "grid" && (
+            <LegendContainer>
+              <LegendItemWrapper $color="linear-gradient(135deg, #10b981, #15803d)">
+                <div className="legend-color" />
+                Available
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #3b82f6, #3b82f6cc)">
+                <div className="legend-color" />
+                Admitted
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #f59e0b, #f59e0bcc)">
+                <div className="legend-color" />
+                Mark for Discharge
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #db2777, #db2777cc)">
+                <div className="legend-color" />
+                Discharge Confirmation
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #8b5cf6, #8b5cf6cc)">
+                <div className="legend-color" />
+                Sent for Billing
+              </LegendItemWrapper>
+              <LegendItemWrapper $color="linear-gradient(135deg, #64748b, #64748bcc)">
+                <div className="legend-color" />
+                Blocked
+              </LegendItemWrapper>
+              
+              <div style={{ width: "1px", height: "24px", background: colors.border, margin: "0 8px" }} />
+              
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#a855f7', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Insurance
+              </LegendItemWrapper>
+              <LegendItemWrapper>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3b82f6', border: '1px solid white', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                Normal Pay
+              </LegendItemWrapper>
+            </LegendContainer>
+          )}
           <Card style={{ padding: viewMode === "list" ? 0 : "20px", overflow: "visible", background: viewMode === "list" ? colors.surface : "transparent", border: viewMode === "list" ? `1px solid ${colors.border}` : "none", boxShadow: viewMode === "list" ? "0 4px 12px rgba(0,0,0,0.03)" : "none" }}>
             {viewMode === "list" ? (
               <div style={{ width: "100%", overflowX: "auto", paddingBottom: "10px" }}>
-              <Table>
-                <thead>
-                  <Tr>
-                    <Th>Patient Info</Th>
-                    <Th>UHID / IP No</Th>
-                    <Th>Admitted On</Th>
-                    <Th>Room & Bed</Th>
-                    <Th>Doctor</Th>
-                    <Th>Billing</Th>
-                    <Th>Status</Th>
-                    <Th style={{ textAlign: "center" }}>Actions</Th>
-                  </Tr>
-                </thead>
-                <tbody>
-                  {displayedAdmissions.length === 0 ? (
+                <Table>
+                  <thead>
                     <Tr>
-                      <Td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: colors.textMuted }}>
-                        No admissions found matching your criteria.
-                      </Td>
+                      <Th>Patient Info</Th>
+                      <Th>UHID / IP No</Th>
+                      <Th>Admitted On</Th>
+                      <Th>Room & Bed</Th>
+                      <Th>Doctor</Th>
+                      <Th>Insurance Co.</Th>
+                      <Th>Ward Status</Th>
+                      <Th style={{ textAlign: "center" }}>Actions</Th>
                     </Tr>
-                  ) : (
-                    displayedAdmissions.map((item, index) => {
-                      const fullName = [
-                        getField(item, "salutation"), getField(item, "firstName"),
-                        getField(item, "middleName"), getField(item, "lastName")
-                      ].filter(Boolean).join(" ");
+                  </thead>
+                  <tbody>
+                    {displayedAdmissions.length === 0 ? (
+                      <Tr>
+                        <Td colSpan="8" style={{ textAlign: "center", padding: "40px 0", color: colors.textMuted }}>
+                          No admissions found matching your criteria.
+                        </Td>
+                      </Tr>
+                    ) : (
+                      displayedAdmissions.map((item, index) => {
+                        const fullName = [
+                          getField(item, "salutation"), getField(item, "firstName"),
+                          getField(item, "middleName"), getField(item, "lastName")
+                        ].filter(Boolean).join(" ");
 
-                      const isDischarged = getField(item, "is_discharged");
+                        const isDischarged = getField(item, "is_discharged");
 
-                      return (
-                        <Tr key={item.id || index}>
-                          <Td>
-                            <PatientCell>
-                              <div className="info">
-                                <strong>{fullName || "Unknown"}</strong>
-                                <small>{getField(item, "gender")} • {getField(item, "age") || "-"} yrs</small>
+                        return (
+                          <Tr key={item.id || index}>
+                            <Td>
+                              <PatientCell>
+                                <div className="info">
+                                  <strong>{fullName || "Unknown"}</strong>
+                                  <small>{getField(item, "gender")} • {getField(item, "age") || "-"} yrs</small>
+                                </div>
+                              </PatientCell>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ fontWeight: 500 }}>{getField(item, "uhid") || "-"}</span>
+                                <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>{item.ipNumber || "-"}</span>
                               </div>
-                            </PatientCell>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                              <span style={{ fontWeight: 500 }}>{getField(item, "uhid") || "-"}</span>
-                              <span style={{ fontSize: "0.8rem", color: colors.textMuted }}>{item.ipNumber || "-"}</span>
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: colors.textMuted }}>
-                              <FiClock /> {formatDateTime(getField(item, "admissionDateTime"))}
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", flexDirection: "column" }}>
-                              <strong style={{ color: colors.textMain }}>{getField(item, "roomNo") || "-"}</strong>
-                              <small style={{ color: colors.textMuted }}>Bed: {getField(item, "bedNo") || "-"}</small>
-                            </div>
-                          </Td>
-                          <Td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <FiUser color={colors.primary} />
-                              {getField(item, "doctorName") || "-"}
-                            </div>
-                          </Td>
-                          <Td>
-                            <StatusBadge $status={getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}>
-                              {getField(item, "billing_status") || (getField(item, "is_billed") ? "Billed" : "Pending")}
-                            </StatusBadge>
-                          </Td>
-                          <Td>
-                            <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
-                              {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
-                            </StatusBadge>
-                          </Td>
-                          <Td style={{ textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                              <Button
-                                style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.success + "15", color: colors.success, border: `1px solid ${colors.success}30` }}
-                                onClick={() => {
-                                  setSelectedPatient(item);
-                                  setShowStatusModal(true);
-                                }}
-                              >
-                                Update Status
-                              </Button>
-                              <Button
-                                style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
-                                onClick={() => {
-                                  setSelectedPatient(item);
-                                  setShowActionModal(true);
-                                }}
-                              >
-                                Select Request
-                              </Button>
-                            </div>
-                          </Td>
-                        </Tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </Table>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px", color: colors.textMuted }}>
+                                <FiClock /> {formatDateTime(getField(item, "admissionDateTime"))}
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", flexDirection: "column" }}>
+                                <strong style={{ color: colors.textMain }}>{getField(item, "roomNo") || "-"}</strong>
+                                <small style={{ color: colors.textMuted }}>Bed: {getField(item, "bedNo") || "-"}</small>
+                              </div>
+                            </Td>
+                            <Td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <FiUser color={colors.primary} />
+                                {getField(item, "doctorName") || "-"}
+                              </div>
+                            </Td>
+                            <Td>
+                              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: colors.textMain }}>
+                                {getInsuranceCompanyName(getField(item, "company_code") || getField(item, "insuranceCompanyName") || getField(item, "insurance_company_name")) || "-"}
+                              </span>
+                            </Td>
+                            <Td>
+                              <StatusBadge $status={getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}>
+                                {getField(item, "ward_status") || (isDischarged ? "Discharged" : "Admitted")}
+                              </StatusBadge>
+                            </Td>
+                            <Td style={{ textAlign: "center" }}>
+                              <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                                <Button
+                                  style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.success + "15", color: colors.success, border: `1px solid ${colors.success}30` }}
+                                  onClick={() => {
+                                    setSelectedPatient(item);
+                                    setShowStatusModal(true);
+                                  }}
+                                >
+                                  Update Status
+                                </Button>
+                                <Button
+                                  style={{ padding: "6px 12px", borderRadius: "20px", fontSize: "0.75rem", background: colors.primary + "15", color: colors.primary, border: `1px solid ${colors.primary}30` }}
+                                  onClick={() => {
+                                    setSelectedPatient(item);
+                                    setShowActionModal(true);
+                                  }}
+                                >
+                                  Select Request
+                                </Button>
+                              </div>
+                            </Td>
+                          </Tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </Table>
               </div>
             ) : (
               <WardGridView />
@@ -1480,12 +1607,12 @@ const WardRequest = () => {
               </button>
             </div>
 
-            <div style={{ padding: "24px", background: "#ffffff" }}>
+            <div style={{ padding: "24px", background: "#ffffff", overflowY: "auto", flex: 1, minHeight: 0 }}>
               <div style={{ marginBottom: "16px", fontWeight: 800, color: colors.textMuted, textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: "1.2px" }}>Select Request Type</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "12px" }}>
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowLabModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1500,7 +1627,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowMedicineModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1515,7 +1642,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowRadiologyModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1530,7 +1657,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowDietModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1545,7 +1672,7 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowLaundryModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1560,7 +1687,22 @@ const WardRequest = () => {
 
                 <div
                   style={{
-                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
+                  onClick={() => { setShowImplantModal(true); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiLayers size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Implant Request</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Surgical Implants</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
                   onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
@@ -1601,6 +1743,21 @@ const WardRequest = () => {
                   </div>
                   <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Summary</div>
                   <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>View/Edit Summary</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px", background: "#f8fafc", borderRadius: "16px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
+                  onClick={() => { navigate("/DischargeBilling", { state: { ipNo: selectedPatient.ipNumber } }); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiCreditCard size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Discharge Billing</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Generate Final Bill</div>
                 </div>
               </div>
 
@@ -1687,7 +1844,7 @@ const WardRequest = () => {
           </ModalContainer>
         </ModalOverlay>
       )}
-      
+
       {/* Laundry Modal */}
       {showLaundryModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowLaundryModal(false)}>
@@ -1713,6 +1870,36 @@ const WardRequest = () => {
         </ModalOverlay>
       )}
 
+      {/* Implant Modal */}
+      {showImplantModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowImplantModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="icon-wrapper" style={{ background: "rgba(255,255,255,0.2)", borderRadius: '8px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FiLayers size={22} color="#fff" />
+                </div>
+                <h3 style={{ color: "#fff", margin: 0 }}>
+                  Implant Ward Request
+                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem', marginLeft: '10px' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+                </h3>
+              </div>
+              <CloseButton
+                onClick={() => setShowImplantModal(false)}
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <ImplantWardRequest patient={selectedPatient} onClose={() => setShowImplantModal(false)} />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
       {showDietModal && selectedPatient && (
         <DietOrderModal
           patient={selectedPatient}
@@ -1724,76 +1911,76 @@ const WardRequest = () => {
           }}
         />
       )}
-        {/* Room Shift Modal */}
-        {showRoomShiftModal && selectedPatient && (
-          <ModalOverlay onClick={() => setShowRoomShiftModal(false)}>
-            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ width: "96%", maxWidth: "1500px", height: "92vh" }}>
-              <ModalHeader>
-                <ModalTitle>Room Shifting</ModalTitle>
-                <CloseButton onClick={() => setShowRoomShiftModal(false)}>✕</CloseButton>
-              </ModalHeader>
-              <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
-                <RoomShifting 
-                  patient={selectedPatient} 
-                  onClose={() => setShowRoomShiftModal(false)}
-                  onSaved={() => {
-                    fetchAdmissions();
-                    setShowRoomShiftModal(false);
-                  }}
-                />
-              </div>
-            </ModalContainer>
-          </ModalOverlay>
-        )}
+      {/* Room Shift Modal */}
+      {showRoomShiftModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowRoomShiftModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ width: "96%", maxWidth: "1500px", height: "92vh" }}>
+            <ModalHeader>
+              <ModalTitle>Room Shifting</ModalTitle>
+              <CloseButton onClick={() => setShowRoomShiftModal(false)}>✕</CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <RoomShifting
+                patient={selectedPatient}
+                onClose={() => setShowRoomShiftModal(false)}
+                onSaved={() => {
+                  fetchAdmissions();
+                  setShowRoomShiftModal(false);
+                }}
+              />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
 
-        {/* STATUS UPDATE MODAL */}
-        {showStatusModal && selectedPatient && (
-          <ModalOverlay onClick={() => setShowStatusModal(false)}>
-            <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
-              <ModalHeader>
-                <ModalTitle>Update Status - {selectedPatient.firstName} {selectedPatient.lastName}</ModalTitle>
-                <CloseButton onClick={() => setShowStatusModal(false)}>✕</CloseButton>
-              </ModalHeader>
-              <div style={{ padding: "24px" }}>
-                <div style={{ marginBottom: "20px", padding: "16px", background: colors.primary + "10", borderRadius: "10px", border: `1px solid ${colors.primary}30` }}>
-                  <div style={{ fontSize: "0.9rem", color: colors.textMuted, marginBottom: "4px" }}>Current Status</div>
-                  <div style={{ fontSize: "1.1rem", fontWeight: "700", color: colors.primary }}>
-                    {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted / Pending")}
-                  </div>
-                </div>
-                <div style={{ marginBottom: "24px" }}>
-                  <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: colors.textMain }}>
-                    Select Status
-                  </label>
-                  <select
-                    style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
-                    value={statusToUpdate}
-                    onChange={(e) => setStatusToUpdate(e.target.value)}
-                  >
-                    <option value="">Select a status...</option>
-                    <option value="Mark for discharge">Mark for discharge</option>
-                    <option value="Discharge confirmation">Discharge confirmation</option>
-                    <option value="Sent for billing">Sent for billing</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-                  <button 
-                    onClick={() => setShowStatusModal(false)}
-                    style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "#f8f9fa", cursor: "pointer" }}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleUpdateStatus}
-                    style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: colors.primary, color: "#fff", cursor: "pointer" }}
-                  >
-                    Save Status
-                  </button>
+      {/* STATUS UPDATE MODAL */}
+      {showStatusModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowStatusModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+            <ModalHeader>
+              <ModalTitle>Update Status - {selectedPatient.firstName} {selectedPatient.lastName}</ModalTitle>
+              <CloseButton onClick={() => setShowStatusModal(false)}>✕</CloseButton>
+            </ModalHeader>
+            <div style={{ padding: "24px" }}>
+              <div style={{ marginBottom: "20px", padding: "16px", background: colors.primary + "10", borderRadius: "10px", border: `1px solid ${colors.primary}30` }}>
+                <div style={{ fontSize: "0.9rem", color: colors.textMuted, marginBottom: "4px" }}>Current Status</div>
+                <div style={{ fontSize: "1.1rem", fontWeight: "700", color: colors.primary }}>
+                  {getField(selectedPatient, "ward_status") || (getField(selectedPatient, "is_discharged") ? "Discharged" : "Admitted / Pending")}
                 </div>
               </div>
-            </ModalContainer>
-          </ModalOverlay>
-        )}
+              <div style={{ marginBottom: "24px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", color: colors.textMain }}>
+                  Select Status
+                </label>
+                <select
+                  style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd" }}
+                  value={statusToUpdate}
+                  onChange={(e) => setStatusToUpdate(e.target.value)}
+                >
+                  <option value="">Select a status...</option>
+                  <option value="Mark for discharge">Mark for discharge</option>
+                  <option value="Discharge confirmation">Discharge confirmation</option>
+                  <option value="Sent for billing">Sent for billing</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  onClick={() => setShowStatusModal(false)}
+                  style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ddd", background: "#f8f9fa", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateStatus}
+                  style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: colors.primary, color: "#fff", cursor: "pointer" }}
+                >
+                  Save Status
+                </button>
+              </div>
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
 
     </PageWrapper>
   );

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { colors } from "./GlobalStyles";
 import Favilogo from "./Images/smrft_logo.png";
+import Swal from "sweetalert2";
 import PharmacyNotification from "./InventoryMaster/PharmacyNotification";
 
 // ─── Animations ──────────────────────────────────────────────────────────────
@@ -218,7 +219,6 @@ const TimeText = styled.div`
   font-weight: 700;
   color: ${colors.textMain};
   letter-spacing: 0.4px;
-  animation: ${tickFlip} 0.25s ease both;
   line-height: 1.2;
 `;
 
@@ -703,10 +703,21 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
   const handleLogout = () => {
     setDropdownOpen(false);
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.clear();
-      window.location.href = "/secure";
-    }
+    Swal.fire({
+      title: "Logout Confirmation",
+      text: "Are you sure you want to logout?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#0d9488",
+      cancelButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Logout",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        localStorage.clear();
+        window.location.href = "/secure";
+      }
+    });
   };
 
   const handleRefresh = () => window.location.reload();
@@ -792,7 +803,7 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
           <Clock size={14} />
         </ClockIconBox>
         <ClockTexts>
-          <TimeText key={time.getSeconds()}>{formatTime(time)}</TimeText>
+          <TimeText>{formatTime(time)}</TimeText>
           <DateText>{formatDate(time)}</DateText>
         </ClockTexts>
       </ClockSection>

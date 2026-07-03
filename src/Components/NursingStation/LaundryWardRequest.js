@@ -50,7 +50,7 @@ const getIconForName = (name) => {
   return "🧺";
 };
 
-const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
+const LaundryWardRequest = ({ patient, onClose, onSaved }) => {
   const [laundryItems, setLaundryItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState({});
   const [selectedItemName, setSelectedItemName] = useState("");
@@ -59,6 +59,7 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const [requestType, setRequestType] = useState("Normal");
   const [saving, setSaving] = useState(false);
   const [history, setHistory] = useState([]);
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const pd = patient?.patient_details || {};
   const rp = {
@@ -109,12 +110,23 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const handleAddItem = () => {
     if (!selectedItemName) return;
     if (selectedQty < 1) return;
-    
-    setSelectedItems(prev => ({
-      ...prev,
-      [selectedItemName]: (prev[selectedItemName] || 0) + selectedQty
-    }));
-    
+
+    const foundItem = laundryItems.find(li => li.item_name === selectedItemName);
+    const rate = foundItem ? parseFloat(foundItem.price) || 0 : 0;
+    const item_id = foundItem ? foundItem.item_id : "";
+
+    setSelectedItems(prev => {
+      const existing = prev[selectedItemName] || { qty: 0, rate: rate, item_id: item_id };
+      return {
+        ...prev,
+        [selectedItemName]: {
+          qty: existing.qty + selectedQty,
+          rate: rate,
+          item_id: item_id
+        }
+      };
+    });
+
     setSelectedItemName("");
     setSelectedQty(1);
   };
@@ -130,13 +142,20 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
   const handleSubmit = async () => {
     const itemKeys = Object.keys(selectedItems);
     if (itemKeys.length === 0) return alert("Please select at least one laundry item.");
-    
+
     setSaving(true);
     try {
-      const itemsPayload = itemKeys.map(k => ({
-        item: k,
-        qty: selectedItems[k]
-      }));
+      const itemsPayload = itemKeys.map(k => {
+        return {
+          item_id: selectedItems[k].item_id,
+          item: k,
+          qty: selectedItems[k].qty,
+          rate: selectedItems[k].rate,
+          total: selectedItems[k].qty * selectedItems[k].rate
+        };
+      });
+
+      const totalAmount = itemsPayload.reduce((acc, curr) => acc + curr.total, 0);
 
       const payload = {
         uhid: rp.uhid,
@@ -146,6 +165,7 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
         roomNo: rp.room,
         bedNo: rp.bed,
         items: itemsPayload,
+        total_amount: totalAmount,
         request_type: requestType,
         remarks: remarks,
         requested_by: localStorage.getItem("employee_id") || "Unknown"
@@ -200,28 +220,30 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
           <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", marginBottom: "20px" }}>
             <div style={{ flex: 2 }}>
               <Label style={{ display: "block", marginBottom: "6px" }}>Select Item</Label>
-              <Select 
-                value={selectedItemName} 
+              <Select
+                value={selectedItemName}
                 onChange={e => setSelectedItemName(e.target.value)}
                 style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
               >
                 <option value="">-- Choose Item --</option>
                 {laundryItems.map(item => (
-                  <option key={item.id} value={item.item_name}>{item.item_name}</option>
+                  <option key={item.id} value={item.item_name}>
+                    {item.item_name} {item.price ? `(₹${item.price})` : ""}
+                  </option>
                 ))}
               </Select>
             </div>
             <div style={{ flex: 1 }}>
               <Label style={{ display: "block", marginBottom: "6px" }}>Quantity</Label>
-              <Input 
-                type="number" 
-                min="1" 
+              <Input
+                type="number"
+                min="1"
                 value={selectedQty}
                 onChange={e => setSelectedQty(parseInt(e.target.value) || 1)}
                 style={{ width: "100%", padding: "10px", fontSize: "0.9rem" }}
               />
             </div>
-            <GlobalButton 
+            <GlobalButton
               onClick={handleAddItem}
               style={{ padding: "10px 24px", fontSize: "0.9rem", height: "42px" }}
             >
@@ -234,84 +256,98 @@ const LaundryWardRequest = ({ patient, HmsBaseUrl, onClose, onSaved }) => {
               <thead>
                 <Tr>
                   <Th>Item Name</Th>
+                  <Th style={{ textAlign: "right" }}>Rate</Th>
                   <Th style={{ textAlign: "center" }}>Quantity</Th>
+                  <Th style={{ textAlign: "right" }}>Total</Th>
                   <Th style={{ textAlign: "right" }}>Action</Th>
                 </Tr>
               </thead>
               <tbody>
-                {Object.keys(selectedItems).map(itemName => (
-                  <Tr key={itemName}>
-                    <Td style={{ fontWeight: 600 }}>{getIconForName(itemName)} {itemName}</Td>
-                    <Td style={{ textAlign: "center", fontWeight: 700 }}>{selectedItems[itemName]}</Td>
-                    <Td style={{ textAlign: "right" }}>
-                      <GlobalButton danger style={{ padding: "6px 10px", marginLeft: "auto" }} onClick={() => handleRemoveItem(itemName)}>
-                        <FiTrash2 /> Remove
-                      </GlobalButton>
-                    </Td>
-                  </Tr>
-                ))}
+                {Object.keys(selectedItems).map(itemName => {
+                  const itemInfo = selectedItems[itemName];
+                  const total = itemInfo.qty * itemInfo.rate;
+                  return (
+                    <Tr key={itemName}>
+                      <Td style={{ fontWeight: 600 }}>{getIconForName(itemName)} {itemName}</Td>
+                      <Td style={{ textAlign: "right" }}>₹{Number(itemInfo.rate).toFixed(2)}</Td>
+                      <Td style={{ textAlign: "center", fontWeight: 700 }}>{itemInfo.qty}</Td>
+                      <Td style={{ textAlign: "right", fontWeight: 700 }}>₹{total.toFixed(2)}</Td>
+                      <Td style={{ textAlign: "right" }}>
+                        <GlobalButton danger style={{ padding: "6px 10px", marginLeft: "auto" }} onClick={() => handleRemoveItem(itemName)}>
+                          <FiTrash2 /> Remove
+                        </GlobalButton>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
           )}
         </section>
 
         <section style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
-           <div style={{ flex: 1, minWidth: "200px" }}>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Request Priority</h3>
-              </GlobalSectionHeader>
-              <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600 }}>
-                      <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, color: colors.danger }}>
-                      <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
-                  </label>
-              </div>
-           </div>
-           <div style={{ flex: 2, minWidth: "300px" }}>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Remarks</h3>
-              </GlobalSectionHeader>
-              <Input 
-                type="text" 
-                value={remarks} 
-                onChange={e => setRemarks(e.target.value)} 
-                placeholder="Any specific instructions..." 
-                style={{ width: "100%", padding: "10px", marginTop: "12px" }}
-              />
-           </div>
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Request Priority</h3>
+            </GlobalSectionHeader>
+            <div style={{ display: "flex", gap: "16px", marginTop: "12px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600 }}>
+                <input type="radio" checked={requestType === "Normal"} onChange={() => setRequestType("Normal")} /> Normal
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 600, color: colors.danger }}>
+                <input type="radio" checked={requestType === "Urgent"} onChange={() => setRequestType("Urgent")} /> Urgent
+              </label>
+            </div>
+          </div>
+          <div style={{ flex: 2, minWidth: "300px" }}>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Remarks</h3>
+            </GlobalSectionHeader>
+            <Input
+              type="text"
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder="Any specific instructions..."
+              style={{ width: "100%", padding: "10px", marginTop: "12px" }}
+            />
+          </div>
         </section>
 
         {history.length > 0 && (
           <section>
-              <GlobalSectionHeader>
-                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Recent Requests</h3>
-              </GlobalSectionHeader>
-              <Table>
-                <thead>
-                  <Tr>
-                    <Th>Date</Th>
-                    <Th>Items</Th>
-                    <Th>Status</Th>
+            <GlobalSectionHeader>
+              <h3 style={{ fontSize: "1rem", fontWeight: 700, color: colors.textMain }}>Recent Requests</h3>
+            </GlobalSectionHeader>
+            <Table>
+              <thead>
+                <Tr>
+                  <Th>Date</Th>
+                  <Th>Items</Th>
+                  <Th style={{ textAlign: "right" }}>Total Amount</Th>
+                  <Th>Status</Th>
+                </Tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 3).map((h, i) => (
+                  <Tr key={i}>
+                    <Td>{h.requested_date}</Td>
+                    <Td style={{ fontWeight: 600 }}>
+                      {Array.isArray(h.items)
+                        ? h.items.map(it => `${it.item} (x${it.qty})${it.rate ? ` @ ₹${it.rate}` : ""}`).join(', ')
+                        : '-'}
+                    </Td>
+                    <Td style={{ textAlign: "right", fontWeight: 700 }}>
+                      ₹{h.total_amount ? Number(h.total_amount).toFixed(2) : "0.00"}
+                    </Td>
+                    <Td>
+                      <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
+                        {h.status}
+                      </span>
+                    </Td>
                   </Tr>
-                </thead>
-                <tbody>
-                  {history.slice(0, 3).map((h, i) => (
-                    <Tr key={i}>
-                      <Td>{h.requested_date}</Td>
-                      <Td style={{ fontWeight: 600 }}>
-                          {Array.isArray(h.items) ? h.items.map(it => `${it.item} (x${it.qty})`).join(', ') : '-'}
-                      </Td>
-                      <Td>
-                        <span style={{ padding: "4px 10px", borderRadius: "20px", fontSize: "0.75rem", background: h.status === "Completed" ? colors.success + "15" : h.status === "Pending" ? "#fff7ed" : colors.primary + "15", color: h.status === "Completed" ? colors.success : h.status === "Pending" ? "#ea580c" : colors.primary, fontWeight: 700, border: `1px solid ${h.status === "Completed" ? colors.success + "30" : h.status === "Pending" ? "#ffedd5" : colors.primary + "30"}` }}>
-                          {h.status}
-                        </span>
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
+                ))}
+              </tbody>
+            </Table>
           </section>
         )}
       </Body>
