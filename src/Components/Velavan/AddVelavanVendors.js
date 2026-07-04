@@ -166,6 +166,8 @@ const EMPTY_VENDOR = {
   phone: "",
   email: "",
   kgstTinNumber: "",
+  msme: "",
+  pan: "",
   gstin: "",
   payment: "",
   tdsPercent: "",
@@ -302,6 +304,28 @@ const VendorForm = ({ onSuccess, onCancel, isModal = false }) => {
             type="text"
             name="gstin"
             value={formData.gstin}
+            onChange={handleInputChange}
+            placeholder="e.g. 29ABCDE1234F1Z5"
+          />
+        </FormGroup>
+
+        <FormGroup>
+          <Label>PAN</Label>
+          <Input
+            type="text"
+            name="pan"
+            value={formData.pan}
+            onChange={handleInputChange}
+            placeholder="e.g. 29ABCDE1234F1Z5"
+          />
+        </FormGroup>
+
+        <FormGroup>
+          <Label>MSME</Label>
+          <Input
+            type="text"
+            name="msme"
+            value={formData.msme}
             onChange={handleInputChange}
             placeholder="e.g. 29ABCDE1234F1Z5"
           />

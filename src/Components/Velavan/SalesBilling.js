@@ -692,7 +692,7 @@ const SalesBilling = () => {
             <InputWrapper style={{ margin: 0 }}>
               <Label>Surgeon</Label>
               <Input
-                value={patient.surgeonName}
+                value={patient.surgeonName || patient.surgeon_id}
                 onChange={(e) =>
                   setPatient((p) => ({
                     ...p,
@@ -880,6 +880,7 @@ const SalesBilling = () => {
                 }}
               >
                 <option value="CASH">CASH</option>
+                <option value="CREDIT">CREDIT</option>
                 <option value="CARD">CARD</option>
                 <option value="UPI">UPI</option>
                 <option value="NEFT">NEFT</option>

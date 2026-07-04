@@ -62,79 +62,82 @@ const HeaderContainer = styled.div`
 const sortByName = (arr) =>
   [...arr].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-const VelavanVendorList = () => {
+const VelavanCustomerList = () => {
   const navigate = useNavigate();
-  const [vendors, setVendors] = useState([]);
-  const [filteredVendors, setFilteredVendors] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingVendor, setEditingVendor] = useState(null);
+  const [editingCustomer, setEditingCustomer] = useState(null);
   const [form, setForm] = useState({});
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
-  const canEdit = allowedActions.includes("HMS-P-VVE-RW");
-  const canDelete = allowedActions.includes("HMS-P-VVD-RW");
+  const canEdit = allowedActions.includes("HMS-P-VCE-RW");
+  const canDelete = allowedActions.includes("HMS-P-VCD-RW");
 
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  const fetchVendors = async () => {
+  const fetchCustomers = async () => {
     try {
-      const res = await apiRequest(`${HMSURL}velavan_get_vendors/`, "GET");
+      const res = await apiRequest(`${HMSURL}velavan_customers/list/`, "GET");
       if (res.status === 200 && res.data.status === "success") {
         const sorted = sortByName(res.data.data);
-        setVendors(sorted);
-        setFilteredVendors(sorted);
+        setCustomers(sorted);
+        setFilteredCustomers(sorted);
       } else {
-        console.error("Failed to fetch vendors", res.data);
+        console.error("Failed to fetch customers", res.data);
       }
     } catch (err) {
-      console.error("Error fetching vendors", err);
+      console.error("Error fetching customers", err);
     }
   };
 
   useEffect(() => {
-    fetchVendors();
+    fetchCustomers();
   }, []);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
-      setFilteredVendors(vendors);
+      setFilteredCustomers(customers);
     } else {
-      const filtered = vendors.filter((vendor) =>
-        vendor.name?.toLowerCase().includes(searchQuery.toLowerCase()),
+      const filtered = customers.filter((customer) =>
+        customer.name?.toLowerCase().includes(searchQuery.toLowerCase()),
       );
-      setFilteredVendors(filtered);
+      setFilteredCustomers(filtered);
     }
-  }, [searchQuery, vendors]);
+  }, [searchQuery, customers]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this vendor?")) return;
+    if (!window.confirm("Are you sure you want to delete this customer?"))
+      return;
     try {
-      await apiRequest(`${HMSURL}velavan_delete_vendor/${id}/`, "PATCH");
-      setVendors((prevVendors) =>
-        prevVendors.filter((vendor) => (vendor._id || vendor.id) !== id),
+      await apiRequest(`${HMSURL}velavan_delete_customer/${id}/`, "PATCH");
+      setCustomers((prevCustomers) =>
+        prevCustomers.filter(
+          (customer) => (customer._id || customer.customer_id) !== id,
+        ),
       );
-      fetchVendors();
+      fetchCustomers();
     } catch (err) {
       console.error("Delete failed", err);
     }
   };
 
-  const handleEdit = (vendor) => {
-    setEditingVendor(vendor._id || vendor.id);
-    setForm({ ...vendor });
+  const handleEdit = (customer) => {
+    setEditingCustomer(customer.customer_id);
+    setForm({ ...customer });
   };
 
   const handleSave = async () => {
     try {
       await apiRequest(
-        `${HMSURL}velavan_update_vendor/${editingVendor}/`,
+        `${HMSURL}velavan_update_customer/${editingCustomer}/`,
         "PATCH",
         form,
       );
-      setEditingVendor(null);
+      setEditingCustomer(null);
       setForm({});
-      fetchVendors();
+      fetchCustomers();
     } catch (err) {
       console.error("Update failed", err);
     }
@@ -147,11 +150,11 @@ const VelavanVendorList = () => {
   return (
     <div>
       <HeaderContainer>
-        <h2>Vendor Management</h2>
+        <h2>Customer Management</h2>
         <ActionButton
           color={colors.success}
-          onClick={() => navigate("/AddVelavanVendors")}
-          title="Add new vendor"
+          onClick={() => navigate("/AddVelavanCustomers")}
+          title="Add new customer"
           style={{
             fontSize: "0.82rem",
             display: "flex",
@@ -162,7 +165,7 @@ const VelavanVendorList = () => {
             padding: "5px 12px",
           }}
         >
-          <FiPlus /> Add Vendor
+          <FiPlus /> Add Customer
         </ActionButton>
       </HeaderContainer>
 
@@ -171,7 +174,7 @@ const VelavanVendorList = () => {
           <FiSearch />
           <SearchInput
             type="text"
-            placeholder="Search by Vendor Name..."
+            placeholder="Search by Customer Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ paddingLeft: "40px" }}
@@ -186,53 +189,52 @@ const VelavanVendorList = () => {
           color: colors.textMuted,
         }}
       >
-        Showing <strong>{filteredVendors.length}</strong>
-        {searchQuery && filteredVendors.length !== vendors.length
-          ? ` of ${vendors.length}`
+        Showing <strong>{filteredCustomers.length}</strong>
+        {searchQuery && filteredCustomers.length !== customers.length
+          ? ` of ${customers.length}`
           : ""}{" "}
-        vendor{vendors.length !== 1 ? "s" : ""}
+        customer{customers.length !== 1 ? "s" : ""}
       </div>
 
       <TableWrapper>
         <Table>
           <thead>
             <tr>
-              <Th>Vendor ID</Th>
+              <Th>Customer ID</Th>
               <Th>Name</Th>
-              <Th>Contact</Th>
+              <Th>Customer Type</Th>
+              <Th>Company Name</Th>
               <Th>Phone</Th>
               <Th>Email</Th>
               <Th>Address</Th>
               <Th>City</Th>
               <Th>State</Th>
               <Th>Pincode</Th>
-              <Th>KGST/TIN</Th>
               <Th>GSTIN</Th>
               <Th>PAN</Th>
               <Th>MSME</Th>
-              <Th>TDS %</Th>
               <Th>Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {filteredVendors.length === 0 ? (
+            {filteredCustomers.length === 0 ? (
               <Tr>
                 <Td
-                  colSpan={13}
+                  colSpan={12}
                   style={{ textAlign: "center", padding: "20px" }}
                 >
                   {searchQuery
-                    ? "No vendors found matching your search"
-                    : "No vendors found"}
+                    ? "No customers found matching your search"
+                    : "No customers found"}
                 </Td>
               </Tr>
             ) : (
-              filteredVendors.map((vendor) => {
-                const id = vendor._id || vendor.id;
-                const isEditing = editingVendor === id;
+              filteredCustomers.map((customer) => {
+                const id = customer.customer_id;
+                const isEditing = editingCustomer === id;
                 return (
-                  <Tr key={id}>
-                    <Td>{vendor.vendor_id || "-"}</Td>
+                  <Tr key={id || customer._id}>
+                    <Td>{customer.customer_id || "-"}</Td>
                     <Td>
                       {isEditing ? (
                         <Input
@@ -240,19 +242,31 @@ const VelavanVendorList = () => {
                           onChange={(e) => handleChange("name", e.target.value)}
                         />
                       ) : (
-                        vendor.name || "-"
+                        customer.name || "-"
                       )}
                     </Td>
                     <Td>
                       {isEditing ? (
                         <Input
-                          value={form.contactPerson}
+                          value={form.customer_type}
                           onChange={(e) =>
-                            handleChange("contactPerson", e.target.value)
+                            handleChange("customer_type", e.target.value)
                           }
                         />
                       ) : (
-                        vendor.contactPerson || "-"
+                        customer.customer_type || "-"
+                      )}
+                    </Td>
+                    <Td>
+                      {isEditing ? (
+                        <Input
+                          value={form.company_name}
+                          onChange={(e) =>
+                            handleChange("company_name", e.target.value)
+                          }
+                        />
+                      ) : (
+                        customer.company_name || "-"
                       )}
                     </Td>
                     <Td>
@@ -264,7 +278,7 @@ const VelavanVendorList = () => {
                           }
                         />
                       ) : (
-                        vendor.phone || "-"
+                        customer.phone || "-"
                       )}
                     </Td>
                     <Td>
@@ -276,7 +290,7 @@ const VelavanVendorList = () => {
                           }
                         />
                       ) : (
-                        vendor.email || "-"
+                        customer.email || "-"
                       )}
                     </Td>
                     <Td>
@@ -298,8 +312,8 @@ const VelavanVendorList = () => {
                         </>
                       ) : (
                         <>
-                          {vendor.addressLine1 || "-"} <br />
-                          {vendor.addressLine2 || ""}
+                          {customer.addressLine1 || "-"} <br />
+                          {customer.addressLine2 || ""}
                         </>
                       )}
                     </Td>
@@ -310,7 +324,7 @@ const VelavanVendorList = () => {
                           onChange={(e) => handleChange("city", e.target.value)}
                         />
                       ) : (
-                        vendor.city || "-"
+                        customer.city || "-"
                       )}
                     </Td>
                     <Td>
@@ -322,7 +336,7 @@ const VelavanVendorList = () => {
                           }
                         />
                       ) : (
-                        vendor.state || "-"
+                        customer.state || "-"
                       )}
                     </Td>
                     <Td>
@@ -334,19 +348,7 @@ const VelavanVendorList = () => {
                           }
                         />
                       ) : (
-                        vendor.pincode || "-"
-                      )}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.kgstTinNumber}
-                          onChange={(e) =>
-                            handleChange("kgstTinNumber", e.target.value)
-                          }
-                        />
-                      ) : (
-                        vendor.kgstTinNumber || "-"
+                        customer.pincode || "-"
                       )}
                     </Td>
                     <Td>
@@ -358,7 +360,7 @@ const VelavanVendorList = () => {
                           }
                         />
                       ) : (
-                        vendor.gstin || "-"
+                        customer.gstin || "-"
                       )}
                     </Td>
                     <Td>
@@ -366,9 +368,11 @@ const VelavanVendorList = () => {
                         <Input
                           value={form.pan}
                           onChange={(e) => handleChange("pan", e.target.value)}
+                          maxLength={10}
+                          style={{ textTransform: "uppercase" }}
                         />
                       ) : (
-                        vendor.pan || "-"
+                        customer.pan || "-"
                       )}
                     </Td>
                     <Td>
@@ -378,19 +382,7 @@ const VelavanVendorList = () => {
                           onChange={(e) => handleChange("msme", e.target.value)}
                         />
                       ) : (
-                        vendor.msme || "-"
-                      )}
-                    </Td>
-                    <Td>
-                      {isEditing ? (
-                        <Input
-                          value={form.tdsPercent}
-                          onChange={(e) =>
-                            handleChange("tdsPercent", e.target.value)
-                          }
-                        />
-                      ) : (
-                        vendor.tdsPercent || "-"
+                        customer.msme || "-"
                       )}
                     </Td>
                     <Td>
@@ -401,7 +393,7 @@ const VelavanVendorList = () => {
                           </ActionButton>
                           <ActionButton
                             color="gray"
-                            onClick={() => setEditingVendor(null)}
+                            onClick={() => setEditingCustomer(null)}
                           >
                             ❌ Cancel
                           </ActionButton>
@@ -411,7 +403,7 @@ const VelavanVendorList = () => {
                           {canEdit && (
                             <ActionButton
                               color="blue"
-                              onClick={() => handleEdit(vendor)}
+                              onClick={() => handleEdit(customer)}
                             >
                               <FiEdit />
                             </ActionButton>
@@ -438,4 +430,4 @@ const VelavanVendorList = () => {
   );
 };
 
-export default VelavanVendorList;
+export default VelavanCustomerList;
