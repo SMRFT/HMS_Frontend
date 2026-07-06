@@ -479,6 +479,7 @@ const InvoiceReport = () => {
         throw new Error(response.data?.message || "Approval failed");
       }
       toast.success(`${record.grn_number} approved successfully`);
+      fetchData(filters.from_date, filters.to_date);
       // Refresh local state
       setAllData((prev) =>
         prev.map((r) =>
@@ -936,7 +937,7 @@ const InvoiceReport = () => {
     th{background:#e0e0e0;font-weight:bold;text-align:center}
   `;
     const body = `
-    <h1>Velavan Purchase Report</h1>
+    <h1>Velavan Party-wise Purchase Report</h1>
     <h2>${getDateRangeLabel()}</h2>
     <table>
       <thead><tr>

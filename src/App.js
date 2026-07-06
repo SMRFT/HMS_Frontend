@@ -162,6 +162,7 @@ import PendingImplantRequestNotifier from "./Components/Velavan/PendingImplantRe
 import SalesBilling from "./Components/Velavan/SalesBilling";
 import SalesReport from "./Components/Velavan/SalesReport";
 import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
+import VelavanCustomerList from "./Components/Velavan/VelavanCustomerList";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -1137,6 +1138,16 @@ function App() {
                 <Route
                   path="/AddVelavanCustomers"
                   element={<AddVelavanCustomers />} // Replace with the correct component
+                />
+              )}
+              {hasPagePermission(
+                "/VelavanCustomerList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route
+                  path="/VelavanCustomerList"
+                  element={<VelavanCustomerList />} // Replace with the correct component
                 />
               )}
               {hasPagePermission("/Items", allowedActions) && (
