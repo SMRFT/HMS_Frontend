@@ -339,7 +339,7 @@ const SalesBilling = () => {
   const [loading, setLoading] = useState(false);
   const [lines, setLines] = useState([]);
   const userId = localStorage.getItem("employeeId");
-  const [paymentMode, setPaymentMode] = useState("CASH");
+  const [paymentMode, setPaymentMode] = useState("CREDIT");
   const [paymentStatus, setPaymentStatus] = useState("PAID");
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
