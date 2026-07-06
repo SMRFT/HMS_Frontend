@@ -329,9 +329,12 @@ const SalesReport = () => {
       );
       if (!r.success || r.data?.status !== "success")
         throw new Error(r.error || "Failed to load");
-      const sorted = [...(r.data.data || [])].sort(
-        (a, b) => new Date(b.bill_date) - new Date(a.bill_date),
-      );
+      const billNum = (bn) => parseInt((bn || "").split("/").pop(), 10) || 0;
+      const sorted = [...(r.data.data || [])].sort((a, b) => {
+        const dateDiff = new Date(b.bill_date) - new Date(a.bill_date);
+        if (dateDiff !== 0) return dateDiff;
+        return billNum(b.bill_number) - billNum(a.bill_number);
+      });
       setBills(sorted);
       setFilteredBills(sorted);
     } catch (e) {
@@ -2011,10 +2014,10 @@ const SalesReport = () => {
         >
           <Search size={13} /> Search
         </Button>
-        <div style={{ ...filterGroup, minWidth: 500 }}>
+        <div style={{ ...filterGroup, minWidth: 300 }}>
           <label style={{ fontSize: "0.75rem", fontWeight: 600 }}>Search</label>
           <Input
-            placeholder="Bill No, GRN, Customer, Patient, Surgeon, IP, HSN, Item, Batch No..."
+            placeholder="Bill No, GRN, Customer, Patient, Surgeon, IP, HSN, Item, Batch..."
             value={filters.search}
             onChange={(e) =>
               setFilters((p) => ({ ...p, search: e.target.value }))
