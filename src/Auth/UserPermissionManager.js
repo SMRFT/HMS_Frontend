@@ -61,9 +61,18 @@ const Container = styled.div`
     z-index: 0;
   }
 
+  @media (max-width: 1200px) {
+    padding: 24px 20px;
+  }
+
   @media (max-width: 850px) {
     padding: 16px 12px;
     height: calc(100vh - 64px);
+  }
+
+  @media (max-width: 480px) {
+    padding: 12px 8px;
+    height: calc(100dvh - 60px);
   }
 `;
 
@@ -82,8 +91,16 @@ const HeaderContainer = styled.div`
     margin: 0;
     letter-spacing: -0.5px;
     
+    @media (max-width: 1200px) {
+      font-size: 1.75rem;
+    }
+
     @media (max-width: 850px) {
       font-size: 1.5rem;
+    }
+
+    @media (max-width: 480px) {
+      font-size: 1.25rem;
     }
   }
 
@@ -103,6 +120,13 @@ const HeaderContainer = styled.div`
       width: 40px;
       height: 40px;
       svg { width: 20px; height: 20px; }
+    }
+    
+    @media (max-width: 480px) {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      svg { width: 18px; height: 18px; }
     }
   }
 
@@ -138,12 +162,21 @@ const ListPanel = styled.div`
   animation: ${slideInLeft} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
 
+  @media (max-width: 1200px) {
+    width: 320px;
+  }
+
+  @media (max-width: 992px) {
+    width: 280px;
+  }
+
   @media (max-width: 850px) {
     width: 100%;
     min-height: auto;
     max-height: none;
     flex: 1;
     display: ${props => props.visible ? 'flex' : 'none'};
+    border-radius: 16px;
   }
 `;
 
@@ -369,14 +402,20 @@ const DetailHeader = styled.div`
   z-index: 10;
   gap: 16px;
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1200px) {
     flex-wrap: wrap;
     padding: 20px;
   }
 
-  @media (max-width: 550px) {
+  @media (max-width: 850px) {
     padding: 16px;
     gap: 12px;
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
   }
 `;
 
@@ -427,6 +466,10 @@ const UserHeaderInfo = styled.div`
     }
   }
 
+  @media (max-width: 1200px) {
+    order: 1;
+  }
+
   @media (max-width: 850px) {
     h3 {
       font-size: 1.2rem;
@@ -434,6 +477,12 @@ const UserHeaderInfo = styled.div`
     .mobile-back-btn {
       display: flex !important;
     }
+  }
+
+  @media (max-width: 480px) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
 `;
 
@@ -467,6 +516,16 @@ const SaveButton = styled.button`
     cursor: not-allowed;
     transform: none;
   }
+
+  @media (max-width: 1200px) {
+    order: 2;
+    margin-left: auto;
+  }
+
+  @media (max-width: 480px) {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
 `;
 
 const PermissionsContent = styled.div`
@@ -483,8 +542,12 @@ const PermissionsContent = styled.div`
     border: 1px solid rgba(255,255,255,0.5);
   }
 
-  @media (max-width: 550px) {
-    padding: 16px;
+  @media (max-width: 850px) {
+    padding: 20px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px 12px;
   }
 `;
 
@@ -514,7 +577,12 @@ const PermissionsGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
 
-  @media (max-width: 550px) {
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: 16px;
   }
@@ -703,12 +771,20 @@ const HeaderTools = styled.div`
     }
   }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1200px) {
+    order: 3;
+    margin: 4px 0 0 0;
+    width: 100%;
+    flex: 1 1 100%;
+    justify-content: space-between;
+    .compact-search {
+      max-width: 300px;
+    }
+  }
+
+  @media (max-width: 650px) {
     flex-direction: column;
     align-items: stretch;
-    margin: 12px 0 0 0;
-    width: 100%;
-    gap: 10px;
     .compact-search {
       max-width: 100%;
     }

@@ -76,6 +76,12 @@ const PageHeader = styled.div`
       box-shadow: 0 4px 12px ${colors.primary}40;
     }
   }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
 `;
 
 const Card = styled.div`
@@ -87,6 +93,11 @@ const Card = styled.div`
   padding: 24px;
   margin-bottom: 24px;
   transition: all 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
 `;
 
 const FilterGrid = styled.div`
@@ -94,6 +105,11 @@ const FilterGrid = styled.div`
   flex-wrap: wrap;
   gap: 16px;
   align-items: flex-end;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const FormGroup = styled.div`
@@ -110,6 +126,10 @@ const FormGroup = styled.div`
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+  }
 `;
 
 // const StyledInput = styled.input`...`
@@ -123,6 +143,11 @@ const Toolbar = styled.div`
   margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const SegmentedControl = styled.div`
@@ -132,6 +157,11 @@ const SegmentedControl = styled.div`
   border-radius: 12px;
   border: 1px solid ${colors.border};
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  overflow-x: auto;
+  
+  &::-webkit-scrollbar { display: none; }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 `;
 
 const SegmentButton = styled.button`
@@ -169,6 +199,11 @@ const GridContainer = styled.div`
   gap: 20px;
   padding: 10px 0;
   animation: ${fadeIn} 0.4s ease-out;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 `;
 
 const RoomCard = styled.div`
@@ -277,10 +312,14 @@ const LegendContainer = styled.div`
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   border: 1px solid ${colors.border};
+  position: sticky;
+  top: 0;
+  z-index: 10;
 `;
 
 const LegendItemWrapper = styled.div`
@@ -590,6 +629,10 @@ const SummaryGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
 `;
 
 const SummaryCard = styled.div`
