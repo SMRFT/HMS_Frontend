@@ -371,7 +371,7 @@ export default function ImplantWardRequest({ patient, onClose }) {
     setLoading(true);
     try {
       const res = await apiRequest(
-        `${HmsBaseUrl}get_implant_requests/?uhid=${rp.uhid}&ipNumber=${rp.ipNo}`,
+        `${HmsBaseUrl}get_ward_implant_requests/?uhid=${rp.uhid}&ipNumber=${rp.ipNo}`,
         "GET"
       );
       if (res.success) {
@@ -609,6 +609,7 @@ export default function ImplantWardRequest({ patient, onClose }) {
                     <Th style={{ width: "120px" }}>Date & Time</Th>
                     <Th style={{ width: "140px" }}>Doctor</Th>
                     <Th>Requested Items</Th>
+                    <Th style={{ width: "100px", textAlign: "center" }}>Paid Status</Th>
                     <Th style={{ width: "100px", textAlign: "center" }}>Status</Th>
                   </Tr>
                 </thead>
@@ -636,6 +637,9 @@ export default function ImplantWardRequest({ patient, onClose }) {
                             </ReqItemBadge>
                           ))}
                         </div>
+                      </Td>
+                      <Td style={{ textAlign: "center" }}>
+                        <StatusBadge $status={req.paid_status}>{req.paid_status}</StatusBadge>
                       </Td>
                       <Td style={{ textAlign: "center" }}>
                         <StatusBadge $status={req.status}>{req.status}</StatusBadge>
