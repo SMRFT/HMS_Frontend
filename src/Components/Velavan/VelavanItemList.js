@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { ToastContainer, toast } from "react-toastify";
 import {
   colors,
   Input,
@@ -553,28 +554,24 @@ const VelavanItemList = () => {
   };
 
   // ── History ────────────────────────────────────────────────────────────────
+  // ─── History ───────────────────────────────────────────────────────────────
   const handleShowHistory = async (item) => {
-    const hsn = String(item.hsn ?? "").trim();
-    const itemName = String(item.itemName ?? "").trim();
-
-    if (!hsn || !itemName) {
-      alert("HSN code and item name are required to view history.");
+    const itemId = item?.item_id;
+    const hsn = String(item?.hsn ?? "").trim();
+    const itemName = String(item?.name ?? "").trim(); // ← declare it
+    if (!itemId) {
+      toast.error("Please select an item first");
       return;
     }
-
-    setSelectedItemForHistory({ hsn, name: itemName });
-    setHistoryData([]);
+    setSelectedItemForHistory({ ...item, hsn, itemName });
     setShowHistoryModal(true);
     setHistoryLoading(true);
-
     try {
-      const url = `${HMSURL}velavan/previous-purchases/?hsn=${encodeURIComponent(hsn)}&item_name=${encodeURIComponent(itemName)}`;
-      const result = await apiRequest(url, "GET");
-      if (result.success && result.data?.status === "success") {
-        setHistoryData(result.data.data || []);
-      } else {
-        setHistoryData([]);
-      }
+      const url = `${HMSURL}velavan/previous-purchases/?item_id=${encodeURIComponent(itemId || "")}&hsn=${encodeURIComponent(hsn || "")}&item_name=${encodeURIComponent(itemName || "")}`;
+      const r = await apiRequest(url, "GET");
+      if (r.success && r.data?.status === "success")
+        setHistoryData(r.data.data || []);
+      else setHistoryData([]);
     } catch {
       setHistoryData([]);
     } finally {
