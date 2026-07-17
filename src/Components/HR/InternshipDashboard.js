@@ -105,18 +105,20 @@ const ControlBar = styled.div`
 
 const SearchInputWrapper = styled.div`
   position: relative;
-  flex: 1;
-  min-width: 250px;
+  width: 300px;
   display: flex;
   align-items: center;
+  @media (max-width: 768px) {
+    width: 100%;
+  }
 `;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 10px 10px 10px 34px;
+  padding: 6px 10px 6px 28px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   &:focus {
     outline: none;
     border-color: ${colors.primary};
@@ -134,10 +136,10 @@ const DateFilterWrapper = styled.div`
 `;
 
 const DateInput = styled.input`
-  padding: 8px 10px;
+  padding: 5px 8px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   color: ${colors.textMain};
   &:focus {
     outline: none;
@@ -152,10 +154,10 @@ const DateLabel = styled.span`
 `;
 
 const SelectFilter = styled.select`
-  padding: 10px;
+  padding: 6px 10px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   min-width: 150px;
   background: white;
   cursor: pointer;
@@ -203,6 +205,10 @@ const RegisterBtn = styled.button`
 
 const TableScrollWrapper = styled.div`
   overflow-x: auto;
+  transform: rotateX(180deg);
+  @media print {
+    transform: none;
+  }
 `;
 
 const TableContainer = styled.div`
@@ -223,24 +229,26 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 14px;
+  font-size: 13px;
+  transform: rotateX(180deg);
   
   @media print {
-    font-size: 12px;
+    font-size: 11px;
     width: 100%;
+    transform: none;
   }
 `;
 
 const Th = styled.th`
   background: #f8fafc;
-  padding: 14px 16px;
+  padding: 10px 12px;
   font-weight: 600;
   color: ${colors.textMain};
   border-bottom: 2px solid ${colors.border};
 `;
 
 const Td = styled.td`
-  padding: 14px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid #f1f5f9;
   color: ${colors.textMain};
   vertical-align: middle;
@@ -592,10 +600,18 @@ export default function InternshipDashboard() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState("");
   const [collegeFilter, setCollegeFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const allowedActions = JSON.parse(
+    localStorage.getItem("allowedActions") || "[]"
+  );
+  const canHR = allowedActions.includes("HMS-P-HRIN-RW");
+  const canApprove = allowedActions.includes("HMS-P-HRINA-RW");
+  const canPayment = allowedActions.includes("HMS-P-HRINP-RW");
 
   // Modal controls
   const [selectedIntern, setSelectedIntern] = useState(null);
@@ -613,6 +629,8 @@ export default function InternshipDashboard() {
   const [approvers, setApprovers] = useState([]);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [availableTemplates, setAvailableTemplates] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Edit states
   const [editName, setEditName] = useState("");
@@ -679,8 +697,31 @@ export default function InternshipDashboard() {
     if (collegeFilter !== "" && (item.college || "").trim() !== collegeFilter) return false;
     if (departmentFilter !== "" && (item.department || "").trim() !== departmentFilter) return false;
     if (courseFilter !== "" && (item.degree || "").trim() !== courseFilter) return false;
+    if (approvalFilter !== "") {
+      if (approvalFilter === "Pending for Approval") {
+        if (item.approved_by) return false;
+        if (item.payment_status === "Pending" || item.payment_status === "Partially Paid") return false;
+        if (item.payment_status === "Fully Paid" && !item.cert_description) return false;
+      } else if (approvalFilter === "Pending for Certification Generation") {
+        if (item.approved_by) return false;
+        if (item.payment_status !== "Fully Paid" || !!item.cert_description) return false;
+      } else if (approvalFilter === "Payment Pending") {
+        if (item.approved_by) return false;
+        if (item.payment_status !== "Pending" && item.payment_status !== "Partially Paid") return false;
+      } else if (approvalFilter === "Approved") {
+        if (!item.approved_by) return false;
+      } else if (approvalFilter === "Email") {
+        if (!item.email_count || item.email_count <= 0) return false;
+      } else if (approvalFilter === "Whatsapp") {
+        if (!item.whatsapp_count || item.whatsapp_count <= 0) return false;
+      }
+    }
     return true;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, fromDate, toDate, statusFilter, collegeFilter, departmentFilter, courseFilter, approvalFilter]);
 
   // Close the floating dropdown menu on outside click, scroll, or resize
   useEffect(() => {
@@ -728,7 +769,7 @@ export default function InternshipDashboard() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await apiRequest(`${HMSURL}hr/internships/${internId}/`, "DELETE");
+          const res = await apiRequest(`${HMSURL}hr/internships/edit/${internId}/`, "DELETE");
           if (res.success) {
             Swal.fire("Deleted", "Internship record soft deleted successfully.", "success");
             fetchInterns();
@@ -812,6 +853,27 @@ export default function InternshipDashboard() {
       }
     } else {
       setApprovers([]);
+    }
+  };
+
+  const handleTextareaKeyDown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      const textarea = e.target;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const val = textarea.value;
+      if (start === undefined || end === undefined) return;
+      const selected = val.substring(start, end);
+      const replacement = `<strong>${selected}</strong>`;
+      const newText = val.substring(0, start) + replacement + val.substring(end);
+      setCertDescription(newText);
+      
+      setTimeout(() => {
+        textarea.focus();
+        textarea.selectionStart = start + 8;
+        textarea.selectionEnd = start + 8 + selected.length;
+      }, 0);
     }
   };
 
@@ -1039,7 +1101,7 @@ export default function InternshipDashboard() {
             </h2>
           </div>
           
-          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 80px; text-indent: 50px;">
+          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 80px; text-indent: 50px; white-space: pre-wrap;">
             ${formattedText}
           </div>
           
@@ -1286,7 +1348,7 @@ export default function InternshipDashboard() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await apiRequest(`${HMSURL}hr/internships/${selectedIntern.intern_id}/`, "POST", {
+      const res = await apiRequest(`${HMSURL}hr/internships/edit/${selectedIntern.intern_id}/`, "POST", {
         student_name: editName,
         email: editEmail,
         mobile_number: editMobile,
@@ -1326,27 +1388,38 @@ export default function InternshipDashboard() {
       setEditDuration("Invalid dates");
       return;
     }
-    const diffTime = Math.abs(end - start);
+
+    // Inclusive calculation (end date is inclusive, so add 1 day for differences)
+    const endForCalc = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    const diffTime = Math.abs(endForCalc - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    if (end.getDate() < start.getDate()) {
-      months -= 1;
+    // Calendar months and days difference
+    let yearsDiff = endForCalc.getFullYear() - start.getFullYear();
+    let monthsDiff = endForCalc.getMonth() - start.getMonth();
+    let daysDiff = endForCalc.getDate() - start.getDate();
+
+    if (daysDiff < 0) {
+      monthsDiff -= 1;
+      const prevMonthDate = new Date(endForCalc.getFullYear(), endForCalc.getMonth(), 0);
+      daysDiff += prevMonthDate.getDate();
     }
 
+    if (monthsDiff < 0) {
+      yearsDiff -= 1;
+      monthsDiff += 12;
+    }
+
+    const totalMonths = yearsDiff * 12 + monthsDiff;
+
     let desc = "";
-    if (diffDays < 30) {
-      desc = `${diffDays} days`;
-    } else {
-      const remainingDays = diffDays - (months * 30);
-      if (months > 0) {
-        desc = `${months} month${months > 1 ? 's' : ''}`;
-        if (remainingDays > 0 && remainingDays < 30) {
-          desc += ` and ${remainingDays} day${remainingDays > 1 ? 's' : ''}`;
-        }
-      } else {
-        desc = `${diffDays} days`;
+    if (totalMonths > 0) {
+      desc = `${totalMonths} month${totalMonths > 1 ? 's' : ''}`;
+      if (daysDiff > 0) {
+        desc += ` and ${daysDiff} day${daysDiff > 1 ? 's' : ''}`;
       }
+    } else {
+      desc = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
     }
     setEditDuration(desc);
 
@@ -1354,43 +1427,41 @@ export default function InternshipDashboard() {
     const hFee = editIsHosteller ? (parseFloat(editHostelFeePerMonth) || 0) : 0;
     const discount = parseFloat(editDiscountAmount) || 0;
 
-    if (diffDays < 30) {
-      setEditTotalFee(Math.max(0, (fee + hFee) - discount).toString());
-    } else {
-      const calculatedMonths = Math.max(1, Math.round(diffDays / 30));
-      setEditTotalFee(Math.max(0, ((fee + hFee) * calculatedMonths) - discount).toString());
-    }
+    const calculatedMonths = Math.max(1, totalMonths + (daysDiff > 0 ? 1 : 0));
+    setEditTotalFee(Math.max(0, ((fee + hFee) * calculatedMonths) - discount).toString());
   }, [editStartDate, editEndDate, editFeePerMonth, editHostelFeePerMonth, editIsHosteller, editDiscountAmount, modalType]);
 
   const handlePrint = () => {
     const reportDate = new Date().toLocaleDateString('en-IN');
     const filterText = fromDate || toDate ? `Date Filters: ${fromDate || "Start"} to ${toDate || "End"}` : "All Dates";
 
-    // Construct Table rows
     const rowsHtml = filteredInterns.map((item) => `
       <tr>
         <td style="font-weight: 600; text-align: center; border: 1px solid #cbd5e1; padding: 8px;">${item.intern_id}</td>
         <td style="border: 1px solid #cbd5e1; padding: 8px;">
-          <div style="font-weight: 600;">${item.student_name}</div>
+          <div style="font-weight: 600; font-size: 13px;">${item.student_name}</div>
           <div style="font-size: 11px; color: #64748b; margin-top: 3px;">
             ${item.mobile_number ? `📞 ${item.mobile_number}` : ""} ${item.email ? `✉️ ${item.email}` : ""}
           </div>
+          <div style="font-size: 12px; margin-top: 4px;">
+            <span style="color: #64748b; font-weight: 600;">College:</span> ${item.college} ${item.degree ? `(${item.degree})` : ""}
+          </div>
+          ${item.department ? `
+          <div style="font-size: 12px; margin-top: 2px;">
+            <span style="color: #64748b; font-weight: 600;">Dept:</span> ${item.department}
+          </div>
+          ` : ""}
+          <div style="font-size: 12px; margin-top: 2px;">
+            <span style="color: #64748b; font-weight: 600;">Duration:</span> ${item.duration} <span style="font-size: 11px; font-weight: 600; color: #0f172a;">(${formatDateDMY(item.start_date)} to ${formatDateDMY(item.end_date)})</span>
+          </div>
         </td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px;">
-          <div>${item.college}</div>
-          <div style="font-size: 11px; color: #64748b;">${item.degree} ${item.department ? `· ${item.department}` : ""}</div>
-        </td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px;">
-          <div>${item.duration}</div>
-          <div style="font-size: 11px; color: #64748b;">${item.start_date} to ${item.end_date}</div>
-        </td>
-        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 8px;">${item.is_hosteller ? "🏡 Yes" : "No"}</td>
-        <td style="font-weight: 600; border: 1px solid #cbd5e1; padding: 8px;">₹${item.total_fee.toLocaleString('en-IN')}</td>
-        <td style="color: #166534; font-weight: 600; border: 1px solid #cbd5e1; padding: 8px;">₹${item.amount_paid.toLocaleString('en-IN')}</td>
-        <td style="color: ${item.pending_amount > 0 ? '#991b1b' : '#64748b'}; font-weight: 600; border: 1px solid #cbd5e1; padding: 8px;">
+        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 6px;">${item.is_hosteller ? "🏡 Yes" : "No"}</td>
+        <td style="font-weight: 600; border: 1px solid #cbd5e1; padding: 6px; text-align: right;">₹${item.total_fee.toLocaleString('en-IN')}</td>
+        <td style="color: #166534; font-weight: 600; border: 1px solid #cbd5e1; padding: 6px; text-align: right;">₹${item.amount_paid.toLocaleString('en-IN')}</td>
+        <td style="color: ${item.pending_amount > 0 ? '#991b1b' : '#64748b'}; font-weight: 600; border: 1px solid #cbd5e1; padding: 6px; text-align: right;">
           ₹${item.pending_amount.toLocaleString('en-IN')}
         </td>
-        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 8px; font-size: 11px; font-weight: 600;">
+        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 6px; font-size: 11px; font-weight: 600;">
           ${item.approved_by ? `
             <div style="display: flex; flex-direction: column; gap: 2px; align-items: center;">
               <span style="color: ${item.email_count > 0 ? '#166534' : '#64748b'}; background: ${item.email_count > 0 ? '#dcfce7' : '#f1f5f9'}; padding: 2px 6px; border-radius: 4px; display: inline-block;">✉️ Email-${item.email_count || 0}</span>
@@ -1398,20 +1469,18 @@ export default function InternshipDashboard() {
             </div>
           ` : '<span style="color: #64748b; font-style: italic;">Not Approved</span>'}
         </td>
-        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 8px;">
-          <span style="padding: 4px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase;
+        <td style="text-align: center; border: 1px solid #cbd5e1; padding: 6px;">
+          <span style="padding: 4px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase;
                        background-color: ${item.payment_status === "Fully Paid" ? "#dcfce7" : item.payment_status === "Partially Paid" ? "#fef3c7" : "#fee2e2"};
                        color: ${item.payment_status === "Fully Paid" ? "#166534" : item.payment_status === "Partially Paid" ? "#92400e" : "#991b1b"};">
             ${item.payment_status}
           </span>
         </td>
-        <td style="border: 1px solid #cbd5e1; padding: 8px; font-size: 11px; line-height: 1.4;">
+        <td style="border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; line-height: 1.4; vertical-align: top;">
           ${item.payment_details && item.payment_details.length > 0
         ? item.payment_details.map(p => `
-                <div style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; margin-bottom: 4px;">
-                  <strong>Date:</strong> ${p.date}<br/>
-                  <strong>Method:</strong> ${p.method}<br/>
-                  <strong>Amount Paid:</strong> ₹${p.amount.toLocaleString('en-IN')}
+                <div style="border-bottom: 1px solid #f1f5f9; padding: 2px 0; white-space: nowrap;">
+                  <strong>${formatDateDMY(p.date)}</strong> - ${p.method} - <strong>₹${p.amount.toLocaleString('en-IN')}</strong>
                 </div>
               `).join("")
         : `<span style="color: #64748b;">No payments</span>`
@@ -1428,20 +1497,18 @@ export default function InternshipDashboard() {
             Report Date: ${reportDate} | ${filterText}
           </p>
         </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid #cbd5e1;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #cbd5e1;">
           <thead>
             <tr style="background-color: #f8fafc;">
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: center; color: #0f172a;">ID</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Student Details</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">College / Department</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Duration</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: center; color: #0f172a;">Hostel</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Total Fee</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Paid Amount</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Outstanding</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: center; color: #0f172a;">Dispatch Status</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: center; color: #0f172a;">Status</th>
-              <th style="border: 1px solid #cbd5e1; padding: 10px; font-weight: 600; text-align: left; color: #0f172a;">Payment Details</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 70px;">ID</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: left; color: #0f172a;">Student Details</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 50px;">Hostel</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 75px;">Total Fee</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 85px;">Paid Amount</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 85px;">Outstanding</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 95px;">Dispatch Status</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 80px;">Status</th>
+              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: left; color: #0f172a; width: 220px;">Payment Details</th>
             </tr>
           </thead>
           <tbody>
@@ -1518,8 +1585,8 @@ export default function InternshipDashboard() {
       item.department || "",
       item.degree || "",
       item.duration,
-      item.start_date,
-      item.end_date,
+      formatDateDMY(item.start_date),
+      formatDateDMY(item.end_date),
       item.total_fee,
       item.amount_paid,
       item.pending_amount,
@@ -1557,9 +1624,11 @@ export default function InternshipDashboard() {
             <ActionBtnIcon title="Export to CSV" onClick={handleExportCSV}>
               <Download size={16} />
             </ActionBtnIcon>
-            <RegisterBtn onClick={() => navigate("/Internship")}>
-              <Plus size={16} /> Register New Intern
-            </RegisterBtn>
+            {canHR && (
+              <RegisterBtn onClick={() => navigate("/Internship")}>
+                <Plus size={16} /> Register New Intern
+              </RegisterBtn>
+            )}
           </HeaderActions>
         </DashboardHeader>
 
@@ -1584,10 +1653,10 @@ export default function InternshipDashboard() {
 
         <ControlBar>
           <SearchInputWrapper>
-            <Search size={16} style={{ position: "absolute", left: 10, color: colors.textMuted }} />
+            <Search size={14} style={{ position: "absolute", left: 8, color: colors.textMuted }} />
             <SearchInput
               type="text"
-              placeholder="Search by Student Name or College..."
+              placeholder="Search by Intern ID, Student Name or College..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1615,6 +1684,16 @@ export default function InternshipDashboard() {
             <option value="Fully Paid">Fully Paid</option>
           </SelectFilter>
 
+          <SelectFilter value={approvalFilter} onChange={(e) => setApprovalFilter(e.target.value)}>
+            <option value="">All Approval/Dispatch</option>
+            <option value="Payment Pending">Payment Pending</option>
+            <option value="Pending for Certification Generation">Pending for Certification Generation</option>
+            <option value="Pending for Approval">Pending for Approval</option>
+            <option value="Approved">Approved</option>
+            <option value="Email">Email (Sent)</option>
+            <option value="Whatsapp">Whatsapp (Sent)</option>
+          </SelectFilter>
+
           <SelectFilter value={collegeFilter} onChange={(e) => setCollegeFilter(e.target.value)}>
             <option value="">All Colleges</option>
             {uniqueColleges.map((col, idx) => (
@@ -1638,46 +1717,47 @@ export default function InternshipDashboard() {
         </ControlBar>
 
         <TableContainer id="printable-table">
-          <TableScrollWrapper>
-            {loading ? (
-              <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }} className="no-print">Loading Dashboard...</div>
-            ) : filteredInterns.length === 0 ? (
-              <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>No internship records found.</div>
-            ) : (
+          {loading ? (
+            <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }} className="no-print">Loading Dashboard...</div>
+          ) : filteredInterns.length === 0 ? (
+            <div style={{ padding: "40px", textAlign: "center", color: colors.textMuted }}>No internship records found.</div>
+          ) : (
+            <TableScrollWrapper>
               <Table>
                 <thead>
                   <tr>
-                    <Th>ID</Th>
+                    <Th style={{ width: "80px" }}>ID</Th>
                     <Th>Student Details</Th>
-                    <Th>College / Department</Th>
-                    <Th>Duration</Th>
-                    <Th>Hostel</Th>
-                    <Th>Total Fee</Th>
-                    <Th>Paid Amount</Th>
-                    <Th>Outstanding</Th>
-                    <Th style={{ textAlign: "center" }}>Dispatch Status</Th>
-                    <Th style={{ textAlign: "center" }}>Status</Th>
-                    <Th style={{ textAlign: "center" }} className="no-print">Actions</Th>
+                    <Th style={{ width: "80px" }}>Hostel</Th>
+                    <Th style={{ width: "100px" }}>Total Fee</Th>
+                    <Th style={{ width: "100px" }}>Paid Amount</Th>
+                    <Th style={{ width: "110px" }}>Outstanding</Th>
+                    <Th style={{ width: "130px", textAlign: "center" }}>Dispatch Status</Th>
+                    <Th style={{ width: "120px", textAlign: "center" }}>Status</Th>
+                    <Th style={{ width: "120px", textAlign: "center" }} className="no-print">Actions</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInterns.map((item) => (
+                  {filteredInterns.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => (
                     <tr key={item.intern_id}>
                       <Td style={{ fontWeight: 600 }}>{item.intern_id}</Td>
-                      <Td style={{ fontWeight: 600 }}>
-                        <div>{item.student_name}</div>
-                        <div style={{ fontSize: "11px", fontWeight: "normal", color: colors.textMuted, display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "3px" }}>
+                      <Td>
+                        <div style={{ fontWeight: 700, color: colors.textMain, fontSize: "13px" }}>{item.student_name}</div>
+                        <div style={{ fontSize: "11px", fontWeight: "normal", color: colors.textMuted, display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px", marginBottom: "4px" }}>
                           {item.mobile_number && <span>📞 {item.mobile_number}</span>}
                           {item.email && <span>✉️ {item.email}</span>}
                         </div>
-                      </Td>
-                      <Td>
-                        <div>{item.college}</div>
-                        <div style={{ fontSize: "11px", color: colors.textMuted }}>{item.degree} {item.department && `· ${item.department}`}</div>
-                      </Td>
-                      <Td>
-                        <div>{item.duration}</div>
-                        <div style={{ fontSize: "11px", color: colors.textMuted }}>{item.start_date} to {item.end_date}</div>
+                        <div style={{ fontSize: "12px", color: colors.textMain, margin: "2px 0" }}>
+                          <span style={{ color: colors.textMuted, fontWeight: "600" }}>College:</span> {item.college} {item.degree && `(${item.degree})`}
+                        </div>
+                        {item.department && (
+                          <div style={{ fontSize: "12px", color: colors.textMain, margin: "2px 0" }}>
+                            <span style={{ color: colors.textMuted, fontWeight: "600" }}>Dept:</span> {item.department}
+                          </div>
+                        )}
+                        <div style={{ fontSize: "12px", color: colors.textMain, margin: "2px 0" }}>
+                          <span style={{ color: colors.textMuted, fontWeight: "600" }}>Duration:</span> {item.duration} <span style={{ color: colors.textMain, fontSize: "11px", fontWeight: "600" }}>({formatDateDMY(item.start_date)} to {formatDateDMY(item.end_date)})</span>
+                        </div>
                       </Td>
                       <Td>{item.is_hosteller ? "🏡 Yes" : "No"}</Td>
                       <Td style={{ fontWeight: 600 }}>₹{item.total_fee.toLocaleString('en-IN')}</Td>
@@ -1688,6 +1768,17 @@ export default function InternshipDashboard() {
                       <Td style={{ textAlign: "center", fontSize: "11px", fontWeight: "600", verticalAlign: "middle" }}>
                         {item.approved_by ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "3px", alignItems: "center", justifyContent: "center" }}>
+                            <span style={{
+                              color: colors.success,
+                              background: "#dcfce7",
+                              padding: "2px 8px",
+                              borderRadius: "4px",
+                              display: "inline-block",
+                              fontWeight: "bold",
+                              fontSize: "10px"
+                            }}>
+                              Approved
+                            </span>
                             <span style={{
                               color: item.email_count > 0 ? colors.success : colors.textMuted,
                               background: item.email_count > 0 ? "#dcfce7" : "#f1f5f9",
@@ -1709,8 +1800,42 @@ export default function InternshipDashboard() {
                               📱 Whatsapp-{item.whatsapp_count || 0}
                             </span>
                           </div>
+                        ) : (item.payment_status === "Pending" || item.payment_status === "Partially Paid") ? (
+                          <span style={{
+                            color: "#dc2626",
+                            background: "#fee2e2",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            display: "inline-block",
+                            fontWeight: "bold",
+                            fontSize: "10px"
+                          }}>
+                            Payment Pending
+                          </span>
+                        ) : (item.payment_status === "Fully Paid" && !item.cert_description) ? (
+                          <span style={{
+                            color: "#2563eb",
+                            background: "#dbeafe",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            display: "inline-block",
+                            fontWeight: "bold",
+                            fontSize: "10px"
+                          }}>
+                            Pending for Certification Generation
+                          </span>
                         ) : (
-                          <span style={{ color: colors.textMuted, fontStyle: "italic" }}>Not Approved</span>
+                          <span style={{
+                            color: "#b45309",
+                            background: "#fef3c7",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            display: "inline-block",
+                            fontWeight: "bold",
+                            fontSize: "10px"
+                          }}>
+                            Pending for Approval
+                          </span>
                         )}
                       </Td>
                       <Td style={{ textAlign: "center" }}>
@@ -1720,66 +1845,165 @@ export default function InternshipDashboard() {
                         <ActionBtn title="View Transactions" onClick={() => handleOpenLedger(item)}>
                           <Eye size={16} />
                         </ActionBtn>
-                        <ActionBtn title="Record Payment" $color={colors.success} onClick={() => handleOpenPayment(item)} disabled={item.pending_amount <= 0}>
-                          ₹
-                        </ActionBtn>
-                        <ActionBtn title="Edit Profile" $color="#3b82f6" onClick={() => handleOpenEdit(item)}>
-                          <Edit size={16} />
-                        </ActionBtn>
-                        <ActionBtn
-                          title="Make Certificate"
-                          $color="#10b981"
-                          onClick={() => handleOpenCertificateModal(item, "make_certificate")}
-                          disabled={item.payment_status !== "Fully Paid" || !!item.cert_description}
-                        >
-                          <Award size={16} />
-                        </ActionBtn>
-                        <ActionBtn
-                          title="Preview Certificate"
-                          $color="#06b6d4"
-                          onClick={() => handleOpenCertificateModal(item, "preview_certificate")}
-                          disabled={!item.cert_description}
-                        >
-                          <FileCheck size={16} />
-                        </ActionBtn>
-
-                        <DropdownTriggerWrapper>
-                          <ActionBtn
-                            title="Print Approved Certificate"
-                            $color="#9333ea"
-                            disabled={!item.approved_by}
-                            onClick={(e) => item.approved_by && toggleMenu("print", item.intern_id, e)}
-                          >
-                            <Printer size={16} />
+                        {canPayment && (
+                          <ActionBtn title="Record Payment" $color={colors.success} onClick={() => handleOpenPayment(item)} disabled={item.pending_amount <= 0}>
+                            ₹
                           </ActionBtn>
-                        </DropdownTriggerWrapper>
-
-                        <DropdownTriggerWrapper>
-                          <ActionBtn
-                            title="Send Certificate"
-                            $color="#0891b2"
-                            disabled={!item.approved_by}
-                            onClick={(e) => item.approved_by && toggleMenu("send", item.intern_id, e)}
-                          >
-                            <Send size={16} />
+                        )}
+                        {canHR && (
+                          <ActionBtn title="Edit Profile" $color="#3b82f6" onClick={() => handleOpenEdit(item)}>
+                            <Edit size={16} />
                           </ActionBtn>
-                        </DropdownTriggerWrapper>
+                        )}
+                        {canHR && (
+                          <ActionBtn
+                            title="Make Certificate"
+                            $color="#10b981"
+                            onClick={() => handleOpenCertificateModal(item, "make_certificate")}
+                            disabled={item.payment_status !== "Fully Paid" || !!item.cert_description}
+                          >
+                            <Award size={16} />
+                          </ActionBtn>
+                        )}
+                        {canApprove && (
+                          <ActionBtn
+                            title="Preview Certificate"
+                            $color="#06b6d4"
+                            onClick={() => handleOpenCertificateModal(item, "preview_certificate")}
+                            disabled={!item.cert_description}
+                          >
+                            <FileCheck size={16} />
+                          </ActionBtn>
+                        )}
 
-                        <ActionBtn
-                          title="Delete Record"
-                          $color={colors.danger}
-                          onClick={() => handleDelete(item.intern_id, item.student_name)}
-                          disabled={item.payment_status !== "Pending"}
-                        >
-                          <Trash2 size={16} />
-                        </ActionBtn>
+                        {canHR && (
+                          <DropdownTriggerWrapper>
+                            <ActionBtn
+                              title="Print Approved Certificate"
+                              $color="#9333ea"
+                              disabled={!item.approved_by}
+                              onClick={(e) => item.approved_by && toggleMenu("print", item.intern_id, e)}
+                            >
+                              <Printer size={16} />
+                            </ActionBtn>
+                          </DropdownTriggerWrapper>
+                        )}
+
+                        {canHR && (
+                          <DropdownTriggerWrapper>
+                            <ActionBtn
+                              title="Send Certificate"
+                              $color="#0891b2"
+                              disabled={!item.approved_by}
+                              onClick={(e) => item.approved_by && toggleMenu("send", item.intern_id, e)}
+                            >
+                              <Send size={16} />
+                            </ActionBtn>
+                          </DropdownTriggerWrapper>
+                        )}
+
+                        {canHR && (
+                          <ActionBtn
+                            title="Delete Record"
+                            $color={colors.danger}
+                            onClick={() => handleDelete(item.intern_id, item.student_name)}
+                            disabled={item.payment_status !== "Pending"}
+                          >
+                            <Trash2 size={16} />
+                          </ActionBtn>
+                        )}
                       </Td>
                     </tr>
                   ))}
                 </tbody>
               </Table>
-            )}
-          </TableScrollWrapper>
+            </TableScrollWrapper>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredInterns.length > itemsPerPage && (
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: "16px",
+              padding: "10px 16px",
+              background: "#f8fafc",
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0"
+            }} className="no-print">
+              <div style={{ fontSize: "13px", color: colors.textMuted }}>
+                Showing <strong>{Math.min(filteredInterns.length, (currentPage - 1) * itemsPerPage + 1)}</strong> to{" "}
+                <strong>{Math.min(filteredInterns.length, currentPage * itemsPerPage)}</strong> of{" "}
+                <strong>{filteredInterns.length}</strong> interns
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: currentPage === 1 ? "#f1f5f9" : "#ffffff",
+                    color: currentPage === 1 ? "#94a3b8" : colors.textMain,
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  Previous
+                </button>
+                {Array.from({ length: Math.ceil(filteredInterns.length / itemsPerPage) }).map((_, idx) => {
+                  const pageNum = idx + 1;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        borderRadius: "6px",
+                        border: currentPage === pageNum ? "none" : "1px solid #cbd5e1",
+                        background: currentPage === pageNum ? colors.primary : "#ffffff",
+                        color: currentPage === pageNum ? "#ffffff" : colors.textMain,
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  disabled={currentPage === Math.ceil(filteredInterns.length / itemsPerPage)}
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(filteredInterns.length / itemsPerPage), prev + 1))}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    background: currentPage === Math.ceil(filteredInterns.length / itemsPerPage) ? "#f1f5f9" : "#ffffff",
+                    color: currentPage === Math.ceil(filteredInterns.length / itemsPerPage) ? "#94a3b8" : colors.textMain,
+                    cursor: currentPage === Math.ceil(filteredInterns.length / itemsPerPage) ? "not-allowed" : "pointer",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </TableContainer>
       </>
 
@@ -2104,6 +2328,7 @@ export default function InternshipDashboard() {
                       rows={8}
                       value={certDescription}
                       onChange={(e) => setCertDescription(e.target.value)}
+                      onKeyDown={handleTextareaKeyDown}
                       placeholder="Enter certificate body text..."
                       required
                       disabled={modalType === "preview_certificate"}
@@ -2203,12 +2428,16 @@ export default function InternshipDashboard() {
                         <ModalButton type="button" style={{ background: "#94a3b8", width: "auto", padding: "10px 24px" }} onClick={() => setModalType(null)}>
                           Close
                         </ModalButton>
-                        <ModalButton type="button" style={{ background: "#3b82f6", width: "auto", padding: "10px 24px" }} onClick={() => setModalType("make_certificate")}>
-                          ✏️ Edit Description
-                        </ModalButton>
-                        <ModalButton type="button" style={{ background: "#10b981", width: "auto", padding: "10px 24px" }} onClick={handleApproveCertificateConfirm}>
-                          ✍️ Approve Certificate
-                        </ModalButton>
+                        {canHR && (
+                          <ModalButton type="button" style={{ background: "#3b82f6", width: "auto", padding: "10px 24px" }} onClick={() => setModalType("make_certificate")}>
+                            ✏️ Edit Description
+                          </ModalButton>
+                        )}
+                        {canApprove && (
+                          <ModalButton type="button" style={{ background: "#10b981", width: "auto", padding: "10px 24px" }} onClick={handleApproveCertificateConfirm}>
+                            ✍️ Approve Certificate
+                          </ModalButton>
+                        )}
                       </>
                     ) : (
                       <ModalButton type="button" style={{ background: "#94a3b8", width: "auto", padding: "10px 24px" }} onClick={() => setModalType(null)}>
@@ -2224,7 +2453,7 @@ export default function InternshipDashboard() {
       )}
 
       {showTemplatePicker && (
-        <ModalOverlay style={{ zIndex: 1100 }}>
+        <ModalOverlay style={{ zIndex: 1020 }}>
           <ModalContent style={{ maxWidth: "800px", width: "90%", maxHeight: "85vh", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: "12px", marginBottom: "20px" }}>
               <h3 style={{ margin: 0, color: colors.primary, fontWeight: 700 }}>Select Certificate Template</h3>
@@ -2294,7 +2523,7 @@ export default function InternshipDashboard() {
                         onMouseLeave={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fee2e2"; }}
                         title="Delete Template"
                       >
-                        <X size={12} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                     <p style={{
