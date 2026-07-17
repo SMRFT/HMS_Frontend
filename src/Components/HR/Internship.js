@@ -333,6 +333,13 @@ export default function Internship() {
       return;
     }
 
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) {
+      Swal.fire("Validation Error", "End Date must be greater than or equal to Start Date (at least 1 day must be selected).", "error");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
