@@ -283,28 +283,37 @@ export default function Internship() {
       return;
     }
 
-    const diffTime = Math.abs(end - start);
+    // Inclusive calculation (end date is inclusive, so add 1 day for differences)
+    const endForCalc = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    const diffTime = Math.abs(endForCalc - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // Calendar months difference
-    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-    if (end.getDate() < start.getDate()) {
-      months -= 1;
+    // Calendar months and days difference
+    let yearsDiff = endForCalc.getFullYear() - start.getFullYear();
+    let monthsDiff = endForCalc.getMonth() - start.getMonth();
+    let daysDiff = endForCalc.getDate() - start.getDate();
+
+    if (daysDiff < 0) {
+      monthsDiff -= 1;
+      const prevMonthDate = new Date(endForCalc.getFullYear(), endForCalc.getMonth(), 0);
+      daysDiff += prevMonthDate.getDate();
     }
 
+    if (monthsDiff < 0) {
+      yearsDiff -= 1;
+      monthsDiff += 12;
+    }
+
+    const totalMonths = yearsDiff * 12 + monthsDiff;
+
     let desc = "";
-    if (diffDays < 30) {
-      desc = `${diffDays} days`;
-    } else {
-      const remainingDays = diffDays - (months * 30);
-      if (months > 0) {
-        desc = `${months} month${months > 1 ? 's' : ''}`;
-        if (remainingDays > 0 && remainingDays < 30) {
-          desc += ` and ${remainingDays} day${remainingDays > 1 ? 's' : ''}`;
-        }
-      } else {
-        desc = `${diffDays} days`;
+    if (totalMonths > 0) {
+      desc = `${totalMonths} month${totalMonths > 1 ? 's' : ''}`;
+      if (daysDiff > 0) {
+        desc += ` and ${daysDiff} day${daysDiff > 1 ? 's' : ''}`;
       }
+    } else {
+      desc = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
     }
     setDuration(desc);
 
@@ -314,15 +323,9 @@ export default function Internship() {
       const hFee = isHosteller ? (parseFloat(hostelFeePerMonth) || 0) : 0;
       const discount = parseFloat(discountAmount) || 0;
 
-      if (diffDays < 30) {
-        // Below 1 month, baseline to 1 month or editable input
-        setTotalFee(Math.max(0, (fee + hFee) - discount).toString());
-      } else {
-        // Round to nearest month for billing
-        const calculatedMonths = Math.max(1, Math.round(diffDays / 30));
-        const total = ((fee + hFee) * calculatedMonths) - discount;
-        setTotalFee(Math.max(0, total).toString());
-      }
+      const calculatedMonths = Math.max(1, totalMonths + (daysDiff > 0 ? 1 : 0));
+      const total = ((fee + hFee) * calculatedMonths) - discount;
+      setTotalFee(Math.max(0, total).toString());
     }
   }, [startDate, endDate, feePerMonth, hostelFeePerMonth, isHosteller, isManualTotal, discountAmount]);
 
