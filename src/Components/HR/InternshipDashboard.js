@@ -971,7 +971,9 @@ export default function InternshipDashboard() {
     }
 
     try {
-      Swal.showLoading();
+      if (!returnBlob) {
+        Swal.showLoading();
+      }
 
       const res = await apiRequest(`${HMSURL}employee-signature/?employee_id=${approverId}`, "GET");
       if (res.success && res.data) {
@@ -979,10 +981,14 @@ export default function InternshipDashboard() {
         approverName = res.data.employeeName || approverName;
         approverDesignation = res.data.designation || approverDesignation;
       }
-      Swal.close();
+      if (!returnBlob) {
+        Swal.close();
+      }
     } catch (err) {
       console.warn("Could not fetch signature image:", err);
-      Swal.close();
+      if (!returnBlob) {
+        Swal.close();
+      }
     }
 
     // Process text replacements using stored cert_description
@@ -1174,7 +1180,14 @@ export default function InternshipDashboard() {
     if (userEmail === null) return;
     const cleanEmail = userEmail.trim();
     if (!cleanEmail) { alert("Email address is required."); return; }
-    Swal.showLoading();
+    Swal.fire({
+      title: "Sending Email...",
+      text: "Please wait while the certificate is being generated and emailed.",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
     try {
       const { blob, studentName } = await handleDirectPrintCertificate(intern, true, true);
       const formData = new FormData();
@@ -1188,8 +1201,10 @@ export default function InternshipDashboard() {
       formData.append("attachments", new File([blob], `${studentName}_Internship_Certificate.pdf`, { type: "application/pdf" }));
       const res = await apiRequest(`${HMSURL}send-email/`, "POST", formData);
       Swal.close();
-      if (res.success) { Swal.fire("Sent!", "Internship certificate sent via Email.", "success"); }
-      else { Swal.fire("Error", res.error || "Failed to send email.", "error"); }
+      if (res.success) {
+        Swal.fire("Sent!", "Internship certificate sent via Email.", "success");
+        fetchInterns();
+      } else { Swal.fire("Error", res.error || "Failed to send email.", "error"); }
     } catch (err) {
       Swal.close();
       Swal.fire("Error", "Error sending email: " + (err.message || err), "error");
@@ -1202,7 +1217,14 @@ export default function InternshipDashboard() {
     if (userPhone === null) return;
     const cleanPhone = userPhone.trim();
     if (!cleanPhone) { alert("Phone number is required."); return; }
-    Swal.showLoading();
+    Swal.fire({
+      title: "Sending WhatsApp...",
+      text: "Please wait while the certificate is being generated and sent.",
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
     try {
       const { blob, studentName } = await handleDirectPrintCertificate(intern, true, true);
       const pdfFile = new File([blob], `${studentName}_Internship_Certificate.pdf`, { type: "application/pdf" });
@@ -1224,8 +1246,10 @@ export default function InternshipDashboard() {
       };
       const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", payload);
       Swal.close();
-      if (waRes.success) { Swal.fire("Sent!", "Internship certificate sent via WhatsApp.", "success"); }
-      else { Swal.fire("Error", waRes.error || "Failed to send WhatsApp.", "error"); }
+      if (waRes.success) {
+        Swal.fire("Sent!", "Internship certificate sent via WhatsApp.", "success");
+        fetchInterns();
+      } else { Swal.fire("Error", waRes.error || "Failed to send WhatsApp.", "error"); }
     } catch (err) {
       Swal.close();
       Swal.fire("Error", "Error sending WhatsApp: " + (err.message || err), "error");
@@ -2249,23 +2273,29 @@ export default function InternshipDashboard() {
                       <h4 style={{ margin: 0, color: colors.textMain, fontWeight: "600", fontSize: "14px" }}>
                         {tpl.title}
                       </h4>
-                      {tpl.template_id !== 1 && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteTemplate(tpl.template_id, e)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            color: colors.danger,
-                            padding: "2px",
-                            borderRadius: "4px"
-                          }}
-                          title="Delete Template"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTemplate(tpl.template_id, e)}
+                        style={{
+                          background: "#fee2e2",
+                          border: "none",
+                          cursor: "pointer",
+                          color: colors.danger,
+                          padding: "2px",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "20px",
+                          height: "20px",
+                          transition: "background 0.2s"
+                        }}
+                        onMouseEnter={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fca5a5"; }}
+                        onMouseLeave={(e) => { e.stopPropagation(); e.currentTarget.style.background = "#fee2e2"; }}
+                        title="Delete Template"
+                      >
+                        <X size={12} />
+                      </button>
                     </div>
                     <p style={{
                       fontSize: "12px",
