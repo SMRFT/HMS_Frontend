@@ -46,13 +46,16 @@ const HeaderActions = styled.div`
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin-bottom: 24px;
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 768px) {
     grid-template-columns: repeat(2, 1fr);
   }
-  @media (max-width: 600px) {
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
   }
   @media print {
@@ -681,6 +684,27 @@ export default function InternshipDashboard() {
   const totalPaid = interns.reduce((sum, item) => sum + item.amount_paid, 0);
   const totalFeeExpected = interns.reduce((sum, item) => sum + item.total_fee, 0);
   const totalPending = totalFeeExpected - totalPaid;
+
+  const todayObj = new Date();
+  const year = todayObj.getFullYear();
+  const month = String(todayObj.getMonth() + 1).padStart(2, '0');
+  const day = String(todayObj.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+
+  const collectStart = fromDate || todayStr;
+  const collectEnd = toDate || todayStr;
+
+  const periodCollected = interns.reduce((sum, item) => {
+    const payments = item.payment_details || [];
+    const periodSum = payments.reduce((pSum, p) => {
+      const pDate = p.date;
+      if (pDate && pDate >= collectStart && pDate <= collectEnd) {
+        return pSum + (parseFloat(p.amount) || 0);
+      }
+      return pSum;
+    }, 0);
+    return sum + periodSum;
+  }, 0);
 
   const getUniqueValues = (key) => {
     const vals = interns.map(item => item[key] || "");
@@ -1648,6 +1672,10 @@ export default function InternshipDashboard() {
           <StatCard $color={colors.danger}>
             <StatLabel>Total Outstanding</StatLabel>
             <StatVal>₹{totalPending.toLocaleString('en-IN')}</StatVal>
+          </StatCard>
+          <StatCard $color="#0d9488">
+            <StatLabel>{(fromDate || toDate) ? "Collected (Date Range)" : "Collected (Today)"}</StatLabel>
+            <StatVal>₹{periodCollected.toLocaleString('en-IN')}</StatVal>
           </StatCard>
         </StatsGrid>
 
