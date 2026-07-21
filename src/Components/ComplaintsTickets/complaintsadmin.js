@@ -254,7 +254,17 @@ const ComplaintsAdmin = () => {
       } else {
         toast.error("Failed to load complaints list");
       }
-      setEmployees(emps || []);
+      const uniqueEmps = [];
+      const seen = new Set();
+      if (Array.isArray(emps)) {
+        emps.forEach(emp => {
+          if (emp && emp.employeeId && !seen.has(emp.employeeId)) {
+            seen.add(emp.employeeId);
+            uniqueEmps.push(emp);
+          }
+        });
+      }
+      setEmployees(uniqueEmps);
     } catch (err) {
       toast.error("An error occurred loading admin dashboard data");
     }
@@ -389,6 +399,7 @@ const ComplaintsAdmin = () => {
       "Environment",
       "Ticket Type",
       "Department",
+      "Modules",
       "Status",
       "Priority",
       "Severity",
@@ -412,6 +423,7 @@ const ComplaintsAdmin = () => {
         escapeCSV(ticket.environment),
         escapeCSV(ticket.ticket_type),
         escapeCSV(ticket.department),
+        escapeCSV(ticket.modules),
         escapeCSV(ticket.status),
         escapeCSV(ticket.priority),
         escapeCSV(ticket.severity),
@@ -975,7 +987,7 @@ const ComplaintsAdmin = () => {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px" }}>
                   <div>
                     <DetailLabel>Reporter</DetailLabel>
                     <DetailValue>{selectedTicket.reporter_name ? `${selectedTicket.reporter_name} (${selectedTicket.reporter})` : selectedTicket.reporter}</DetailValue>
@@ -983,6 +995,10 @@ const ComplaintsAdmin = () => {
                   <div>
                     <DetailLabel>Department</DetailLabel>
                     <DetailValue>{selectedTicket.department || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Set</span>}</DetailValue>
+                  </div>
+                  <div>
+                    <DetailLabel>Modules</DetailLabel>
+                    <DetailValue>{selectedTicket.modules || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Set</span>}</DetailValue>
                   </div>
                   <div>
                     <DetailLabel>Reported Date</DetailLabel>

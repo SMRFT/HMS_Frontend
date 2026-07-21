@@ -542,8 +542,13 @@ export default function RadiologyWardRequest({ patient, onClose }) {
     setPackageSearch("");
 
     if (val === "PACK") {
-      const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
-      if (res.success) setPackages(res.data?.packages || []);
+      const res = await apiRequest(`${HmsBaseUrl}packages_crud/`, "GET");
+      const list = res.success && Array.isArray(res.data) ? res.data : [];
+      const radPkgs = list.filter(p => 
+        p.is_active !== false && 
+        (p.outlet_code === "OLET004" || (p.items || []).some(it => it.billTypeNo !== "LAB01"))
+      );
+      setPackages(radPkgs);
       setInvestigationItems([]);
     } else {
       const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(val));
@@ -705,6 +710,7 @@ export default function RadiologyWardRequest({ patient, onClose }) {
                 <FormLabel>Bill Type</FormLabel>
                 <FormSelect value={selectedBillType} onChange={(e) => handleBillTypeChange(e.target.value)}>
                   <option value="">Select Bill Type</option>
+                  <option value="PACK">Packages</option>
                   {billTypes.map((o, idx) => <option key={`${o.bill_type}_${idx}`} value={o.bill_type}>{o.bill_name}</option>)}
                 </FormSelect>
               </div>

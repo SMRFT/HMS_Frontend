@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { ToastContainer, toast } from "react-toastify";
 import {
   colors,
   Input,
@@ -430,23 +431,7 @@ const VelavanItemList = () => {
       const listRes = await apiRequest(`${HMSURL}velavan_get_items/`, "GET");
       if (listRes.status !== 200 || listRes.data.status !== "success") return;
 
-      const velavanItems = listRes.data.data;
-
-      const detailedItems = await Promise.all(
-        velavanItems.map(async (velavanItem) => {
-          const itemId = velavanItem.item_id || velavanItem.item;
-          if (!itemId) return velavanItem;
-          try {
-            const res = await apiRequest(`${HMSURL}get_item/${itemId}/`, "GET");
-            if (res.status === 200) return { ...res.data, ...velavanItem };
-          } catch {
-            return velavanItem;
-          }
-          return velavanItem;
-        }),
-      );
-
-      setItems(detailedItems);
+      setItems(listRes.data.data);
     } catch (err) {
       console.error("Fetch items error", err);
     }
@@ -569,28 +554,24 @@ const VelavanItemList = () => {
   };
 
   // ── History ────────────────────────────────────────────────────────────────
+  // ─── History ───────────────────────────────────────────────────────────────
   const handleShowHistory = async (item) => {
-    const hsn = String(item.hsn ?? "").trim();
-    const itemName = String(item.itemName ?? "").trim();
-
-    if (!hsn || !itemName) {
-      alert("HSN code and item name are required to view history.");
+    const itemId = item?.item_id;
+    const hsn = String(item?.hsn ?? "").trim();
+    const itemName = String(item?.name ?? "").trim(); // ← declare it
+    if (!itemId) {
+      toast.error("Please select an item first");
       return;
     }
-
-    setSelectedItemForHistory({ hsn, name: itemName });
-    setHistoryData([]);
+    setSelectedItemForHistory({ ...item, hsn, itemName });
     setShowHistoryModal(true);
     setHistoryLoading(true);
-
     try {
-      const url = `${HMSURL}velavan/previous-purchases/?hsn=${encodeURIComponent(hsn)}&item_name=${encodeURIComponent(itemName)}`;
-      const result = await apiRequest(url, "GET");
-      if (result.success && result.data?.status === "success") {
-        setHistoryData(result.data.data || []);
-      } else {
-        setHistoryData([]);
-      }
+      const url = `${HMSURL}velavan/previous-purchases/?item_id=${encodeURIComponent(itemId || "")}&hsn=${encodeURIComponent(hsn || "")}&item_name=${encodeURIComponent(itemName || "")}`;
+      const r = await apiRequest(url, "GET");
+      if (r.success && r.data?.status === "success")
+        setHistoryData(r.data.data || []);
+      else setHistoryData([]);
     } catch {
       setHistoryData([]);
     } finally {
@@ -605,10 +586,10 @@ const VelavanItemList = () => {
   };
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
-  const handleDelete = async (id) => {
+  const handleDelete = async (item_id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
-      await apiRequest(`${HMSURL}velavan_delete_item/${id}/`, "PATCH");
+      await apiRequest(`${HMSURL}velavan_delete_item/${item_id}/`, "PATCH");
       fetchItems();
     } catch (err) {
       console.error("Delete failed", err);
@@ -616,7 +597,7 @@ const VelavanItemList = () => {
   };
 
   const handleEdit = (item) => {
-    setEditingItem(item._id || item.id);
+    setEditingItem(item.item_id);
     setForm({ ...item });
   };
 
@@ -859,7 +840,7 @@ const VelavanItemList = () => {
               </Tr>
             ) : (
               filteredItems.map((item, idx) => {
-                const id = item._id || item.id;
+                const id = item.item_id;
                 const isEditing = editingItem === id;
 
                 return (

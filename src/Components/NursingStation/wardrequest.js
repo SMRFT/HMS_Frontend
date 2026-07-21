@@ -9,6 +9,7 @@ import RadiologyWardRequest from "./RadiologyWardRequest";
 import DietOrderModal from "./DietOrderModal";
 import RoomShifting from "./RoomShifting";
 import LaundryWardRequest from "./LaundryWardRequest";
+import ImplantWardRequest from "./ImplantWardRequest";
 import { PageWrapper, Container, colors, Table, Th, Td, Tr, Button, Input, Select, ModalOverlay, ModalContainer, ModalHeader, ModalTitle, CloseButton, ModalBody, NoResults } from "../GlobalStyles";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +28,8 @@ import {
   FiList,
   FiCheckCircle,
   FiRefreshCcw,
-  FiCreditCard
+  FiCreditCard,
+  FiLayers
 } from "react-icons/fi";
 import { MdOutlineScience, MdOutlineMedication, MdOutlineRestaurant, MdLocalLaundryService } from "react-icons/md";
 
@@ -74,6 +76,12 @@ const PageHeader = styled.div`
       box-shadow: 0 4px 12px ${colors.primary}40;
     }
   }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
 `;
 
 const Card = styled.div`
@@ -85,6 +93,11 @@ const Card = styled.div`
   padding: 24px;
   margin-bottom: 24px;
   transition: all 0.3s ease;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
 `;
 
 const FilterGrid = styled.div`
@@ -92,6 +105,11 @@ const FilterGrid = styled.div`
   flex-wrap: wrap;
   gap: 16px;
   align-items: flex-end;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const FormGroup = styled.div`
@@ -108,6 +126,10 @@ const FormGroup = styled.div`
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+  }
 `;
 
 // const StyledInput = styled.input`...`
@@ -121,6 +143,11 @@ const Toolbar = styled.div`
   margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 16px;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const SegmentedControl = styled.div`
@@ -130,6 +157,11 @@ const SegmentedControl = styled.div`
   border-radius: 12px;
   border: 1px solid ${colors.border};
   box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+  overflow-x: auto;
+  
+  &::-webkit-scrollbar { display: none; }
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 `;
 
 const SegmentButton = styled.button`
@@ -167,6 +199,11 @@ const GridContainer = styled.div`
   gap: 20px;
   padding: 10px 0;
   animation: ${fadeIn} 0.4s ease-out;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 `;
 
 const RoomCard = styled.div`
@@ -275,10 +312,14 @@ const LegendContainer = styled.div`
   gap: 12px;
   margin-bottom: 20px;
   padding: 16px;
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
   border: 1px solid ${colors.border};
+  position: sticky;
+  top: 0;
+  z-index: 10;
 `;
 
 const LegendItemWrapper = styled.div`
@@ -588,6 +629,10 @@ const SummaryGrid = styled.div`
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
 `;
 
 const SummaryCard = styled.div`
@@ -709,6 +754,7 @@ const WardRequest = () => {
   const [showRoomShiftModal, setShowRoomShiftModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showLaundryModal, setShowLaundryModal] = useState(false);
+  const [showImplantModal, setShowImplantModal] = useState(false);
   const [statusToUpdate, setStatusToUpdate] = useState("");
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [viewMode, setViewMode] = useState("grid"); // "list" or "grid"
@@ -1686,6 +1732,21 @@ const WardRequest = () => {
                   style={{
                     padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
                   }}
+                  onClick={() => { setShowImplantModal(true); setShowActionModal(false); }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: colors.primary + "15", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 10px" }}>
+                    <FiLayers size={24} color={colors.primary} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: "0.95rem", color: colors.textMain }}>Implant Request</div>
+                  <div style={{ fontSize: "0.7rem", color: colors.textMuted, marginTop: "2px" }}>Surgical Implants</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: "12px", background: "#f8fafc", borderRadius: "12px", border: `1px solid #e2e8f0`, textAlign: "center", cursor: "pointer", transition: "all 0.2s ease"
+                  }}
                   onClick={() => { setShowStatusModal(true); setShowActionModal(false); }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primary; e.currentTarget.style.background = "#fff"; e.currentTarget.style.boxShadow = "0 8px 20px rgba(13, 148, 136, 0.08)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.boxShadow = "none"; }}
@@ -1847,6 +1908,36 @@ const WardRequest = () => {
             </ModalHeader>
             <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
               <LaundryWardRequest patient={selectedPatient} onClose={() => setShowLaundryModal(false)} />
+            </div>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
+
+      {/* Implant Modal */}
+      {showImplantModal && selectedPatient && (
+        <ModalOverlay onClick={() => setShowImplantModal(false)}>
+          <ModalContainer onClick={(e) => e.stopPropagation()} style={{ maxWidth: "1200px", width: "95%" }}>
+            <ModalHeader $bg="#136A63">
+              <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="icon-wrapper" style={{ background: "rgba(255,255,255,0.2)", borderRadius: '8px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FiLayers size={22} color="#fff" />
+                </div>
+                <h3 style={{ color: "#fff", margin: 0 }}>
+                  Implant Ward Request
+                  <span className="subtitle" style={{ color: "rgba(255,255,255,0.8)", fontSize: '0.85rem', marginLeft: '10px' }}>| {getField(selectedPatient, "firstName")} {getField(selectedPatient, "lastName")} | Dr. {getField(selectedPatient, "doctorName") || "-"}</span>
+                </h3>
+              </div>
+              <CloseButton
+                onClick={() => setShowImplantModal(false)}
+                style={{ color: "rgba(255,255,255,0.8)", transition: 'all 0.2s', background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'transparent'; }}
+              >
+                <FiX />
+              </CloseButton>
+            </ModalHeader>
+            <div style={{ flex: 1, overflowY: "auto", background: colors.background }}>
+              <ImplantWardRequest patient={selectedPatient} onClose={() => setShowImplantModal(false)} />
             </div>
           </ModalContainer>
         </ModalOverlay>

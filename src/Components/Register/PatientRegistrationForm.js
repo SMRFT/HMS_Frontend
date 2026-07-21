@@ -278,6 +278,7 @@ const PatientRegistrationForm = () => {
     })
 
     const [isMlc, setIsMlc] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
 
     // Search states
     const [uhid, setUhid] = useState("")
@@ -841,127 +842,135 @@ const PatientRegistrationForm = () => {
             return;
         }
 
-        const formData = new FormData()
+        setSubmitting(true)
+        try {
+            const formData = new FormData()
 
-        const backendKeys = {
-            salutation: "salutation",
-            permanentAddress: "permanent_address",
-            homePhone: "home_phone",
-            bloodGroup: "blood_group",
-            spouseName: "spouse_name",
-            mlcType: "mlc_type",
-            mlcDoc: "mlc_doc",
-            mlcRemarks: "mlc_remarks",
-            passAlertToAuthority: "pass_alert_to_authority",
-            birthTime: "birth_time",
-            birthTimeAmPm: "birth_time_am_pm",
-            mothersUhidNo: "mothers_uhid_no",
-            pediatricianResponsible: "pediatrician_responsible",
-            doctorId: "employeeId", // Map to backend field
-            emergencyContact: "emergency_contact",
-            referredDoctorPhone: "referred_doctor_phone",
-            customerType: "customer_type",
-            insuranceProviderCode: "company_code",
-        }
-
-        // Append all patient data to formData
-        Object.keys(patient).forEach((key) => {
-            const backendKey = backendKeys[key] || key
-
-            // Skip MLC fields if isMlc is false
-            if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
-                return;
+            const backendKeys = {
+                salutation: "salutation",
+                permanentAddress: "permanent_address",
+                homePhone: "home_phone",
+                bloodGroup: "blood_group",
+                spouseName: "spouse_name",
+                mlcType: "mlc_type",
+                mlcDoc: "mlc_doc",
+                mlcRemarks: "mlc_remarks",
+                passAlertToAuthority: "pass_alert_to_authority",
+                birthTime: "birth_time",
+                birthTimeAmPm: "birth_time_am_pm",
+                mothersUhidNo: "mothers_uhid_no",
+                pediatricianResponsible: "pediatrician_responsible",
+                doctorId: "employeeId", // Map to backend field
+                emergencyContact: "emergency_contact",
+                referredDoctorPhone: "referred_doctor_phone",
+                customerType: "customer_type",
+                insuranceProviderCode: "company_code",
             }
 
-            if (key === "mlcDoc" && patient[key]) {
-                formData.append(backendKey, patient[key])
-            } else if (patient[key] !== null && patient[key] !== undefined) {
-                formData.append(backendKey, patient[key])
-            }
-        })
+            // Append all patient data to formData
+            Object.keys(patient).forEach((key) => {
+                const backendKey = backendKeys[key] || key
 
-        const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
+                // Skip MLC fields if isMlc is false
+                if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
+                    return;
+                }
 
-        if (result.success) {
-            console.log("Patient Registered:", result.data)
-
-            const resultConfirm = await Swal.fire({
-                title: 'Registration successful!',
-                html: `Patient registered successfully with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you need a print?`,
-                icon: 'success',
-                showCancelButton: true,
-                confirmButtonColor: '#0d9488',
-                cancelButtonColor: '#ef4444',
-                confirmButtonText: 'Yes, print it!',
-                cancelButtonText: 'No, thanks'
-            });
-
-            if (resultConfirm.isConfirmed) {
-                const visitObj = {
-                    uhid: result.data.uhid,
-                    patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
-                    age: patient.age,
-                    gender: patient.gender,
-                    spouseName: patient.spouseName,
-                    address: patient.permanentAddress,
-                    mobile: patient.mobilePhone,
-                    doctorName: patient.doctorName,
-                    consultingFee: consultingFee,
-                    registrationFee: registrationFee,
-                    billAmount: totalFees,
-                    date: new Date().toLocaleDateString(),
-                    paymentMethod: "Cash"
-                };
-                handlePrintBill(visitObj);
-            } else {
-                toast.success("Registration successful!");
-            }
-
-            // Reset form
-            setPatient({
-                salutation: "",
-                firstName: "",
-                lastName: "",
-                name: "",
-                dob: "",
-                age: "",
-                gender: "",
-                permanentAddress: "",
-                area: "",
-                zipcode: "",
-                city: "",
-                state: "",
-                email: "",
-                mobilePhone: "",
-                homePhone: "",
-                bloodGroup: "",
-                spouseName: "",
-                referredBy: "",
-                doctorName: "",
-                doctorId: "",
-                registrationFee: 0,
-                consultingFee: 0,
-                totalFees: 0,
-                mlcType: "",
-                mlcDoc: null,
-                mlcRemarks: "",
-                passAlertToAuthority: false,
-                birthTime: "",
-                birthTimeAmPm: "AM",
-                weight: "",
-                mothersUhidNo: "",
-                pediatricianResponsible: "",
+                if (key === "mlcDoc" && patient[key]) {
+                    formData.append(backendKey, patient[key])
+                } else if (patient[key] !== null && patient[key] !== undefined) {
+                    formData.append(backendKey, patient[key])
+                }
             })
-            setIsMlc(false)
 
-            // Reset fee calculator
-            setSelectedDoctor({})
-            setRegistrationFee(0)
-            setConsultingFee(0)
-            setTotalFees(0)
-        } else {
-            console.error("Error:", result.error)
-            alert("Error registering patient: " + (result.error || "Check console for details."))
+            const result = await apiRequest(`${Hmsbaseurl}patients/register/`, "POST", formData);
+
+            if (result.success) {
+                console.log("Patient Registered:", result.data)
+
+                const resultConfirm = await Swal.fire({
+                    title: 'Registration successful!',
+                    html: `Patient registered successfully with UHID: <strong>${result.data.uhid}</strong><br/><br/>Do you need a print?`,
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0d9488',
+                    cancelButtonColor: '#ef4444',
+                    confirmButtonText: 'Yes, print it!',
+                    cancelButtonText: 'No, thanks'
+                });
+
+                if (resultConfirm.isConfirmed) {
+                    const visitObj = {
+                        uhid: result.data.uhid,
+                        patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
+                        age: patient.age,
+                        gender: patient.gender,
+                        spouseName: patient.spouseName,
+                        address: patient.permanentAddress,
+                        mobile: patient.mobilePhone,
+                        doctorName: patient.doctorName,
+                        consultingFee: consultingFee,
+                        registrationFee: registrationFee,
+                        billAmount: totalFees,
+                        date: new Date().toLocaleDateString(),
+                        paymentMethod: "Cash"
+                    };
+                    handlePrintBill(visitObj);
+                } else {
+                    toast.success("Registration successful!");
+                }
+
+                // Reset form
+                setPatient({
+                    salutation: "",
+                    firstName: "",
+                    lastName: "",
+                    name: "",
+                    dob: "",
+                    age: "",
+                    gender: "",
+                    permanentAddress: "",
+                    area: "",
+                    zipcode: "",
+                    city: "",
+                    state: "",
+                    email: "",
+                    mobilePhone: "",
+                    homePhone: "",
+                    bloodGroup: "",
+                    spouseName: "",
+                    referredBy: "",
+                    doctorName: "",
+                    doctorId: "",
+                    registrationFee: 0,
+                    consultingFee: 0,
+                    totalFees: 0,
+                    mlcType: "",
+                    mlcDoc: null,
+                    mlcRemarks: "",
+                    passAlertToAuthority: false,
+                    birthTime: "",
+                    birthTimeAmPm: "AM",
+                    weight: "",
+                    mothersUhidNo: "",
+                    pediatricianResponsible: "",
+                })
+                setIsMlc(false)
+
+                // Reset fee calculator
+                setSelectedDoctor({})
+                setRegistrationFee(0)
+                setConsultingFee(0)
+                setTotalFees(0)
+            } else {
+                console.error("Error:", result.error)
+                alert("Error registering patient: " + (result.error || "Check console for details."))
+            }
+        } catch (error) {
+            console.error("Registration failed:", error)
+            alert("An error occurred during registration. Please try again.")
+        } finally {
+            setSubmitting(false)
         }
     }
 
@@ -2152,8 +2161,8 @@ const PatientRegistrationForm = () => {
                             </CollapsibleSection>
 
                             <ButtonContainer>
-                                <Button type="submit" primary>
-                                    {patient.mothersUhidNo ? "Save New Born & Patient" : "Save Patient"}
+                                <Button type="submit" primary disabled={submitting}>
+                                    {submitting ? "Saving..." : (patient.mothersUhidNo ? "Save New Born & Patient" : "Save Patient")}
                                 </Button>
                                 <Button type="button" onClick={() => navigate(-1)}>
                                     Cancel

@@ -128,6 +128,10 @@ const css = {
         color: tokens.white,
       },
       ghost: { bg: tokens.slate, color: tokens.white },
+      outline: {
+        bg: tokens.white,
+        color: tokens.sky,
+      },
     };
     const v = map[variant] || map.primary;
     return {
@@ -136,7 +140,7 @@ const css = {
       fontWeight: 600,
       background: v.bg,
       color: v.color,
-      border: "none",
+      border: variant === "outline" ? `1.5px solid ${tokens.sky}` : "none",
       borderRadius: 9,
       cursor: "pointer",
       whiteSpace: "nowrap",
@@ -365,6 +369,177 @@ const BillType = () => {
     if (result.success) fetchRecords();
   };
 
+  /* ─── Print / Export helpers (operate on currently filtered rows) ──── */
+  const exportColumns = [
+    { label: "Code", value: (r) => r.billTypeNo },
+    { label: "Bill Name", value: (r) => r.bill_name },
+    { label: "Bill Type ID", value: (r) => r.bill_type },
+    {
+      label: "Outlet",
+      value: (r) =>
+        outlets.find((o) => o.outlet_code === r.outlet_code)?.outlet_name ||
+        r.outlet_code ||
+        "",
+    },
+    { label: "Status", value: (r) => (r.is_active ? "Active" : "Inactive") },
+  ];
+
+  /* ─── Helper: get all priced items for a record's bill_type ────────── */
+  const getInvPricesForRecord = (rec, invCategories) => {
+    const billTypeKey = String(rec.bill_type);
+    const cat = invCategories.find((c) =>
+      (c.Items || []).some((item) => item[billTypeKey] !== undefined),
+    );
+    if (!cat) return { catName: "", items: [] };
+    const items = (cat.Items || [])
+      .filter((item) => item[billTypeKey] !== undefined)
+      .map((item) => ({ name: item.itemName, price: item[billTypeKey] }));
+    return { catName: cat.BillType, items };
+  };
+
+  /* ─── CSV export ─────────────────────────────────────────────────── */
+  const handleExportCSV = () => {
+    if (!records || records.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+
+    const escapeCell = (val) => {
+      const str = val === null || val === undefined ? "" : String(val);
+      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    };
+
+    const header = [
+      "Code",
+      "Bill Name",
+      "Bill Type ID",
+      "Outlet",
+      "Status",
+      "Investigation Category",
+      "Item Name",
+      "Price",
+    ].join(",");
+
+    const lines = [];
+    records.forEach((rec) => {
+      const outletName =
+        outlets.find((o) => o.outlet_code === rec.outlet_code)?.outlet_name ||
+        rec.outlet_code ||
+        "";
+      const { catName, items } = getInvPricesForRecord(rec, invCategories);
+
+      const baseCols = [
+        rec.billTypeNo,
+        rec.bill_name,
+        rec.bill_type,
+        outletName,
+        rec.is_active ? "Active" : "Inactive",
+      ];
+
+      if (items.length === 0) {
+        lines.push([...baseCols, "", "", ""].map(escapeCell).join(","));
+      } else {
+        items.forEach((it) => {
+          lines.push(
+            [...baseCols, catName, it.name, it.price].map(escapeCell).join(","),
+          );
+        });
+      }
+    });
+
+    const csvContent = `${header}\n${lines.join("\n")}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "bill-types.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  /* ─── Print ──────────────────────────────────────────────────────── */
+  const handlePrint = () => {
+    if (!records || records.length === 0) {
+      alert("No data to print.");
+      return;
+    }
+
+    const blocksHtml = records
+      .map((rec) => {
+        const outletName =
+          outlets.find((o) => o.outlet_code === rec.outlet_code)?.outlet_name ||
+          rec.outlet_code ||
+          "—";
+        const { catName, items } = getInvPricesForRecord(rec, invCategories);
+
+        const priceRows = items.length
+          ? items
+              .map(
+                (it) =>
+                  `<tr><td>${it.name}</td><td style="text-align:right">₹${it.price}</td></tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="2" style="text-align:center;color:#64748B;">No investigation prices set.</td></tr>`;
+
+        return `
+        <div class="bill-block">
+          <table class="main-table">
+            <thead>
+              <tr><th>Code</th><th>Bill Name</th><th>Bill Type ID</th><th>Outlet</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>${rec.billTypeNo || ""}</td>
+                <td>${rec.bill_name || ""}</td>
+                <td>${rec.bill_type ?? ""}</td>
+                <td>${outletName}</td>
+                <td>${rec.is_active ? "Active" : "Inactive"}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="inv-title">Investigation Prices${catName ? ` — ${catName}` : ""}</div>
+          <table class="price-table">
+            <thead><tr><th>Item Name</th><th style="text-align:right">Price (₹)</th></tr></thead>
+            <tbody>${priceRows}</tbody>
+          </table>
+        </div>`;
+      })
+      .join("");
+
+    const html = `
+  <html>
+    <head>
+      <title>Bill Types</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 24px; color: #0F172A; }
+        h2 { margin-bottom: 16px; }
+        .bill-block { margin-bottom: 28px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+        th, td { border: 1px solid #E2E8F0; padding: 8px 10px; text-align: left; }
+        th { background: #F0F4F8; }
+        .main-table { page-break-inside: avoid; }
+        .inv-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #2563EB; margin: 10px 0 6px; page-break-after: avoid; }
+        .price-table tr { page-break-inside: avoid; }
+        .price-table thead { display: table-header-group; }
+      </style>
+    </head>
+    <body>
+      <h2>Bill Type Configuration</h2>
+      ${blocksHtml}
+    </body>
+  </html>
+`;
+
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
   return (
     <PageWrapper>
       <Container>
@@ -384,10 +559,12 @@ const BillType = () => {
               borderBottom: `1px solid ${tokens.border}`,
               display: "flex",
               gap: 10,
+              alignItems: "center",
+              flexWrap: "wrap",
             }}
           >
             <input
-              style={css.input}
+              style={{ ...css.input, maxWidth: 280 }}
               placeholder="Search by name or code..."
               value={filters.search}
               onChange={(e) => setFilters({ search: e.target.value })}
@@ -395,6 +572,15 @@ const BillType = () => {
             />
             <button style={css.btn("ghost")} onClick={fetchRecords}>
               Search
+            </button>
+
+            <div style={{ flex: 1 }} />
+
+            <button style={css.btn("outline")} onClick={handlePrint}>
+              🖨 Print
+            </button>
+            <button style={css.btn("outline")} onClick={handleExportCSV}>
+              ⬇ Export CSV
             </button>
           </div>
 
@@ -456,6 +642,7 @@ const BillType = () => {
                         rec.outlet_code ||
                         "—"}
                     </Td>
+
                     <Td>
                       <span style={css.statusBadge(rec.is_active)}>
                         {rec.is_active ? "Active" : "Inactive"}

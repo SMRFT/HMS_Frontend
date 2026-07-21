@@ -296,7 +296,8 @@ const Complaints = () => {
     const payload = {
       title: editTitle.trim(),
       description: editDescription.trim(),
-      attachments: editAttachments
+      attachments: editAttachments,
+      modules: editModules.trim()
     };
 
     const res = await apiRequest(`${Hmsbaseurl}/complaints/${selectedTicket.issue_id}/`, "PATCH", payload);
@@ -322,6 +323,8 @@ const Complaints = () => {
   const [ticketType, setTicketType] = useState("Issue");
   const [departments, setDepartments] = useState([]);
   const [department, setDepartment] = useState("");
+  const [modules, setModules] = useState("");
+  const [editModules, setEditModules] = useState("");
   const [previewFile, setPreviewFile] = useState(null);
 
   // Auto-detect environment details and fetch history on mount
@@ -459,6 +462,7 @@ const Complaints = () => {
       environment: environment.trim(),
       ticket_type: ticketType,
       department: department,
+      modules: modules.trim(),
       labels_tags: tags,
       attachments: attachments,
       reporter: employeeId,
@@ -474,6 +478,7 @@ const Complaints = () => {
       setSteps("");
       setTicketType("Issue");
       setDepartment("");
+      setModules("");
       setTags([]);
       setAttachments([]);
       setIsFormOpen(false);
@@ -566,14 +571,14 @@ const Complaints = () => {
                   </S.InputWrapper>
                 </S.FormRow>
 
-                <S.FormRow style={{ gridTemplateColumns: "1fr", marginTop: "12px" }}>
+                <S.FormRow style={{ gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "12px" }}>
                   <S.InputWrapper>
                     <S.Label required>Related Department</S.Label>
                     <S.Select
                       value={department}
                       onChange={e => setDepartment(e.target.value)}
                       required
-                      style={{ width: "50%", height: "38px" }}
+                      style={{ width: "100%", height: "38px" }}
                     >
                       <option value="">-- Select Department --</option>
                       {departments.map(dept => (
@@ -582,6 +587,14 @@ const Complaints = () => {
                         </option>
                       ))}
                     </S.Select>
+                  </S.InputWrapper>
+                  <S.InputWrapper>
+                    <S.Label>Related Module(s)</S.Label>
+                    <S.Input 
+                      placeholder="e.g. Pharmacy, Billing, Laboratory"
+                      value={modules}
+                      onChange={e => setModules(e.target.value)}
+                    />
                   </S.InputWrapper>
                 </S.FormRow>
 
@@ -841,6 +854,7 @@ const Complaints = () => {
                         setEditTitle(selectedTicket.title || "");
                         setEditDescription(selectedTicket.description || "");
                         setEditAttachments(selectedTicket.attachments || []);
+                        setEditModules(selectedTicket.modules || "");
                         setIsEditing(true);
                       }} 
                       style={{ padding: "6px 16px", background: "#f59e0b", borderColor: "#f59e0b", color: "white" }}
@@ -897,7 +911,7 @@ const Complaints = () => {
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "16px" }}>
                 <div>
                   <DetailLabel>Date Reported</DetailLabel>
                   <DetailValue>{dayjs(selectedTicket.reported_date).format("DD/MM/YYYY hh:mm A")}</DetailValue>
@@ -905,6 +919,19 @@ const Complaints = () => {
                 <div>
                   <DetailLabel>Department</DetailLabel>
                   <DetailValue>{selectedTicket.department || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Set</span>}</DetailValue>
+                </div>
+                <div>
+                  <DetailLabel>Modules</DetailLabel>
+                  {isEditing ? (
+                    <S.Input 
+                      value={editModules} 
+                      onChange={e => setEditModules(e.target.value)} 
+                      placeholder="e.g. Billing, Lab" 
+                      style={{ padding: "4px 8px" }}
+                    />
+                  ) : (
+                    <DetailValue>{selectedTicket.modules || <span style={{ color: "#94a3b8", fontStyle: "italic" }}>Not Set</span>}</DetailValue>
+                  )}
                 </div>
                 <div>
                   <DetailLabel>Assignee</DetailLabel>

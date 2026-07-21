@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { colors } from "./GlobalStyles";
 import Favilogo from "./Images/smrft_logo.png";
+import Swal from "sweetalert2";
 import PharmacyNotification from "./InventoryMaster/PharmacyNotification";
 
 // ─── Animations ──────────────────────────────────────────────────────────────
@@ -368,8 +369,8 @@ const IconBtn = styled.button`
     width: 32px;
     height: 32px;
     ${({ $hideOnMobile }) =>
-      $hideOnMobile &&
-      css`
+    $hideOnMobile &&
+    css`
         display: none;
       `}
   }
@@ -654,9 +655,9 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
   const [sessionDuration, setSessionDuration] = useState("0m");
   const dropdownRef = useRef(null);
 
-  const employeeId   = localStorage.getItem("employeeId")  || "EMP001";
-  const employeeName = localStorage.getItem("name")         || "Hospital Staff";
-  const userRole     = localStorage.getItem("role")         || "Member";
+  const employeeId = localStorage.getItem("employeeId") || "EMP001";
+  const employeeName = localStorage.getItem("name") || "Hospital Staff";
+  const userRole = localStorage.getItem("role") || "Member";
 
   // Live Clock + session duration
   useEffect(() => {
@@ -702,10 +703,20 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
   const handleLogout = () => {
     setDropdownOpen(false);
-    if (window.confirm("Are you sure you want to logout?")) {
-      localStorage.clear();
-      window.location.href = "/secure";
-    }
+    Swal.fire({
+      title: "Logout Confirmation",
+      text: "Are you sure you want to logout?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#0d9488",
+      cancelButtonColor: "#ef4444",
+      confirmButtonText: "Yes, Logout",
+      cancelButtonText: "Cancel",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        window.location.href = "/secure";
+      }
+    });
   };
 
   const handleRefresh = () => window.location.reload();
