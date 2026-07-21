@@ -590,9 +590,10 @@ const PrintHeader = styled.div`
 
 const formatDateDMY = (dateStr) => {
   if (!dateStr) return "";
-  const parts = dateStr.split("-");
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const cleanStr = dateStr.toString().split("T")[0].split(" ")[0].trim();
+  const parts = cleanStr.split("-");
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
   }
   return dateStr;
 };
@@ -633,9 +634,11 @@ export default function InternshipDashboard() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [availableTemplates, setAvailableTemplates] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showTodayPaidOnly, setShowTodayPaidOnly] = useState(false);
   const itemsPerPage = 10;
 
   // Edit states
+  const [editSalutation, setEditSalutation] = useState("Mr.");
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editMobile, setEditMobile] = useState("");
@@ -697,7 +700,7 @@ export default function InternshipDashboard() {
   const periodCollected = interns.reduce((sum, item) => {
     const payments = item.payment_details || [];
     const periodSum = payments.reduce((pSum, p) => {
-      const pDate = p.date;
+      const pDate = p.date ? p.date.toString().split("T")[0].split(" ")[0].trim() : "";
       if (pDate && pDate >= collectStart && pDate <= collectEnd) {
         return pSum + (parseFloat(p.amount) || 0);
       }
@@ -717,6 +720,15 @@ export default function InternshipDashboard() {
   const uniqueCourses = getUniqueValues("degree");
 
   const filteredInterns = interns.filter((item) => {
+    if (showTodayPaidOnly) {
+      const payments = item.payment_details || [];
+      const paidInPeriod = payments.some(p => {
+        if (!p.date) return false;
+        const pDate = p.date.toString().split("T")[0].split(" ")[0].trim();
+        return pDate >= collectStart && pDate <= collectEnd;
+      });
+      if (!paidInPeriod) return false;
+    }
     if (statusFilter !== "" && item.payment_status !== statusFilter) return false;
     if (collegeFilter !== "" && (item.college || "").trim() !== collegeFilter) return false;
     if (departmentFilter !== "" && (item.department || "").trim() !== departmentFilter) return false;
@@ -745,7 +757,7 @@ export default function InternshipDashboard() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, fromDate, toDate, statusFilter, collegeFilter, departmentFilter, courseFilter, approvalFilter]);
+  }, [search, fromDate, toDate, statusFilter, collegeFilter, departmentFilter, courseFilter, approvalFilter, showTodayPaidOnly]);
 
   // Close the floating dropdown menu on outside click, scroll, or resize
   useEffect(() => {
@@ -823,7 +835,17 @@ export default function InternshipDashboard() {
 
   const handleOpenEdit = (intern) => {
     setSelectedIntern(intern);
-    setEditName(intern.student_name);
+    let rawName = (intern.student_name || "").trim();
+    let sal = "Mr.";
+    if (rawName.startsWith("Ms.")) {
+      sal = "Ms.";
+      rawName = rawName.substring(3).trim();
+    } else if (rawName.startsWith("Mr.")) {
+      sal = "Mr.";
+      rawName = rawName.substring(3).trim();
+    }
+    setEditSalutation(sal);
+    setEditName(rawName);
     setEditEmail(intern.email || "");
     setEditMobile(intern.mobile_number || "");
     setEditCollege(intern.college);
@@ -834,7 +856,8 @@ export default function InternshipDashboard() {
     setEditDuration(intern.duration);
     setEditIsHosteller(intern.is_hosteller);
     setEditFeePerMonth(intern.fee_per_month.toString());
-    setEditHostelFeePerMonth(intern.hostel_fee_per_month.toString());
+    const hFeeVal = (intern.hostel_fee_per_month && intern.hostel_fee_per_month > 0) ? intern.hostel_fee_per_month.toString() : "3000";
+    setEditHostelFeePerMonth(hFeeVal);
     setEditDiscountAmount((intern.discount_amount || 0).toString());
     setEditDiscountRemarks(intern.discount_remarks || "");
     setEditTotalFee(intern.total_fee.toString());
@@ -1372,8 +1395,10 @@ export default function InternshipDashboard() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
+      let cleanEditName = editName.trim().replace(/^(Mr\.|Ms\.|Mrs\.|Mr|Ms|Mrs)\s*/i, '');
+      const fullEditName = `${editSalutation}${cleanEditName}`;
       const res = await apiRequest(`${HMSURL}hr/internships/edit/${selectedIntern.intern_id}/`, "POST", {
-        student_name: editName,
+        student_name: fullEditName,
         email: editEmail,
         mobile_number: editMobile,
         college: editCollege,
@@ -1388,18 +1413,24 @@ export default function InternshipDashboard() {
         discount_amount: parseFloat(editDiscountAmount) || 0,
         discount_remarks: editDiscountRemarks,
         total_fee: parseFloat(editTotalFee) || 0,
+        pending_amount: parseFloat(editTotalFee || 0) - (selectedIntern.amount_paid || 0),
+        auth_user_id: localStorage.getItem("user_id") || "system"
       });
       if (res.success) {
-        Swal.fire("Saved", "Intern details updated successfully!", "success");
+        Swal.fire({
+          title: "Updated!",
+          text: "Intern details updated successfully.",
+          icon: "success",
+          confirmButtonColor: colors.primary
+        });
         setModalType(null);
-        setSelectedIntern(null);
         fetchInterns();
       } else {
-        Swal.fire("Error", res.error || "Failed to save details", "error");
+        Swal.fire("Update Failed", res.error || "Failed to update intern details", "error");
       }
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", "Server error while saving details.", "error");
+      Swal.fire("Error", "Server error updating intern details.", "error");
     }
   };
 
@@ -1478,6 +1509,11 @@ export default function InternshipDashboard() {
           <div style="font-size: 12px; margin-top: 2px;">
             <span style="color: #64748b; font-weight: 600;">Duration:</span> ${item.duration} <span style="font-size: 11px; font-weight: 600; color: #0f172a;">(${formatDateDMY(item.start_date)} to ${formatDateDMY(item.end_date)})</span>
           </div>
+          ${item.created_date ? `
+          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+            <span style="font-weight: 600;">Reg Date:</span> ${formatDateDMY(item.created_date)}
+          </div>
+          ` : ""}
         </td>
         <td style="text-align: center; border: 1px solid #cbd5e1; padding: 6px;">${item.is_hosteller ? "🏡 Yes" : "No"}</td>
         <td style="font-weight: 600; border: 1px solid #cbd5e1; padding: 6px; text-align: right;">₹${item.total_fee.toLocaleString('en-IN')}</td>
@@ -1523,16 +1559,16 @@ export default function InternshipDashboard() {
         </div>
         <table style="width: 100%; border-collapse: collapse; font-size: 12px; border: 1px solid #cbd5e1;">
           <thead>
-            <tr style="background-color: #f8fafc;">
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 70px;">ID</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: left; color: #0f172a;">Student Details</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 50px;">Hostel</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 75px;">Total Fee</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 85px;">Paid Amount</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: right; color: #0f172a; width: 85px;">Outstanding</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 95px;">Dispatch Status</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: center; color: #0f172a; width: 80px;">Status</th>
-              <th style="border: 1px solid #cbd5e1; padding: 6px; font-weight: 600; text-align: left; color: #0f172a; width: 220px;">Payment Details</th>
+            <tr style="background-color: #f1f5f9; color: #0f172a;">
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 60px;">ID</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px;">Student Details</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 60px;">Hostel</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 90px; text-align: right;">Total Fee</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 90px; text-align: right;">Paid Amount</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 90px; text-align: right;">Outstanding</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 110px;">Dispatch Status</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 90px;">Status</th>
+              <th style="border: 1px solid #cbd5e1; padding: 8px; width: 140px;">Payment Details</th>
             </tr>
           </thead>
           <tbody>
@@ -1543,10 +1579,9 @@ export default function InternshipDashboard() {
     `;
 
     const css = `
-      body { margin: 0; padding: 0; background: white; }
       @media print {
         .no-print { display: none !important; }
-        body { margin: 0; }
+        body { margin: 0; padding: 0; background: #fff; }
         @page { size: landscape; margin: 10mm; }
       }
     `;
@@ -1588,9 +1623,9 @@ export default function InternshipDashboard() {
           pb.style.background  = isP  ? '#e0f2fe' : '#fff';
           pb.style.borderColor = isP  ? '#0ea5e9' : '#cbd5e1';
           pb.style.color       = isP  ? '#1e40af' : '#64748b';
-          lb.style.background  = !isP ? '#e0f2fe' : '#fff';
-          lb.style.borderColor = !isP ? '#0ea5e9' : '#cbd5e1';
-          lb.style.color       = !isP ? '#1e40af' : '#64748b';
+          lb.style.background  = isP  ? '#fff'    : '#e0f2fe';
+          lb.style.borderColor = isP  ? '#cbd5e1' : '#0ea5e9';
+          lb.style.color       = isP  ? '#64748b' : '#1e40af';
         }
       </script>
       ${bodyHtml}
@@ -1599,10 +1634,11 @@ export default function InternshipDashboard() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Intern ID", "Student Name", "Email", "Mobile", "College", "Department", "Degree", "Duration", "Start Date", "End Date", "Total Fee", "Paid Amount", "Outstanding", "Status", "Payment History"];
+    const headers = ["Intern ID", "Student Name", "Reg Date", "Email", "Mobile", "College", "Department", "Degree", "Duration", "Start Date", "End Date", "Total Fee", "Paid Amount", "Outstanding", "Status", "Payment History"];
     const rows = filteredInterns.map(item => [
       item.intern_id,
       item.student_name,
+      formatDateDMY(item.created_date || item.start_date),
       item.email || "",
       item.mobile_number || "",
       item.college,
@@ -1616,7 +1652,7 @@ export default function InternshipDashboard() {
       item.pending_amount,
       item.payment_status,
       item.payment_details && item.payment_details.length > 0
-        ? item.payment_details.map(p => `Date: ${p.date}, Method: ${p.method}, Amount: ₹${p.amount}`).join(" | ")
+        ? item.payment_details.map(p => `Date: ${formatDateDMY(p.date)}, Method: ${p.method}, Amount: ₹${p.amount}`).join(" | ")
         : "No payments"
     ]);
 
@@ -1673,8 +1709,25 @@ export default function InternshipDashboard() {
             <StatLabel>Total Outstanding</StatLabel>
             <StatVal>₹{totalPending.toLocaleString('en-IN')}</StatVal>
           </StatCard>
-          <StatCard $color="#0d9488">
-            <StatLabel>{(fromDate || toDate) ? "Collected (Date Range)" : "Collected (Today)"}</StatLabel>
+          <StatCard
+            $color="#0d9488"
+            onClick={() => setShowTodayPaidOnly(prev => !prev)}
+            style={{
+              cursor: "pointer",
+              boxShadow: showTodayPaidOnly ? "0 0 0 2px #0d9488, 0 4px 12px rgba(13, 148, 136, 0.25)" : "none",
+              border: showTodayPaidOnly ? "2px solid #0d9488" : "1px solid transparent",
+              transition: "all 0.2s ease-in-out"
+            }}
+            title="Click to toggle filter for students who paid in this period"
+          >
+            <StatLabel style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>{(fromDate || toDate) ? "Collected (Date Range)" : "Collected (Today)"}</span>
+              {showTodayPaidOnly && (
+                <span style={{ fontSize: "10px", backgroundColor: "#0d9488", color: "#fff", padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>
+                  Active Filter
+                </span>
+              )}
+            </StatLabel>
             <StatVal>₹{periodCollected.toLocaleString('en-IN')}</StatVal>
           </StatCard>
         </StatsGrid>
@@ -1786,6 +1839,11 @@ export default function InternshipDashboard() {
                         <div style={{ fontSize: "12px", color: colors.textMain, margin: "2px 0" }}>
                           <span style={{ color: colors.textMuted, fontWeight: "600" }}>Duration:</span> {item.duration} <span style={{ color: colors.textMain, fontSize: "11px", fontWeight: "600" }}>({formatDateDMY(item.start_date)} to {formatDateDMY(item.end_date)})</span>
                         </div>
+                        {item.created_date && (
+                          <div style={{ fontSize: "11px", color: colors.textMuted, marginTop: "2px" }}>
+                            <span style={{ fontWeight: "600" }}>Reg Date:</span> {formatDateDMY(item.created_date)}
+                          </div>
+                        )}
                       </Td>
                       <Td>{item.is_hosteller ? "🏡 Yes" : "No"}</Td>
                       <Td style={{ fontWeight: 600 }}>₹{item.total_fee.toLocaleString('en-IN')}</Td>
@@ -2177,7 +2235,7 @@ export default function InternshipDashboard() {
                 <tbody>
                   {selectedIntern.payment_details.map((p, idx) => (
                     <tr key={idx}>
-                      <LedgerTd>{p.date}</LedgerTd>
+                      <LedgerTd>{formatDateDMY(p.date)}</LedgerTd>
                       <LedgerTd><CreditCard size={12} style={{ marginRight: 4 }} /> {p.method}</LedgerTd>
                       <LedgerTd style={{ fontWeight: 600, color: colors.success }}>₹{p.amount.toLocaleString('en-IN')}</LedgerTd>
                     </tr>
@@ -2200,8 +2258,35 @@ export default function InternshipDashboard() {
             <ModalForm onSubmit={handleEditSubmit}>
               <Grid>
                 <FormGroup>
-                  <ModalLabel>Student Name</ModalLabel>
-                  <ModalInput type="text" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+                  <ModalLabel>Student Name *</ModalLabel>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <select
+                      value={editSalutation}
+                      onChange={(e) => setEditSalutation(e.target.value)}
+                      required
+                      style={{
+                        width: "80px",
+                        padding: "8px 4px",
+                        border: `1px solid ${colors.border}`,
+                        borderRight: "none",
+                        borderRadius: "6px 0 0 6px",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        backgroundColor: "#f8fafc",
+                        cursor: "pointer"
+                      }}
+                    >
+                      <option value="Mr.">Mr.</option>
+                      <option value="Ms.">Ms.</option>
+                    </select>
+                    <ModalInput
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      style={{ borderRadius: "0 6px 6px 0", flex: 1 }}
+                      required
+                    />
+                  </div>
                 </FormGroup>
                 <FormGroup>
                   <ModalLabel>Email Address</ModalLabel>
@@ -2242,7 +2327,13 @@ export default function InternshipDashboard() {
                       type="checkbox"
                       id="editIsHosteller"
                       checked={editIsHosteller}
-                      onChange={(e) => setEditIsHosteller(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setEditIsHosteller(checked);
+                        if (checked && (!editHostelFeePerMonth || parseFloat(editHostelFeePerMonth) === 0)) {
+                          setEditHostelFeePerMonth("3000");
+                        }
+                      }}
                     />
                     <label htmlFor="editIsHosteller">Hostel Resident</label>
                   </div>
