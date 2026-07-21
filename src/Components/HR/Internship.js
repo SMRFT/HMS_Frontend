@@ -107,6 +107,24 @@ const Input = styled.input`
   }
 `;
 
+const SalutationSelect = styled.select`
+  width: 85px;
+  padding: 10px 6px;
+  border: 1px solid ${colors.border};
+  border-radius: 6px 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${colors.textMain};
+  background-color: #f8fafc;
+  cursor: pointer;
+  border-right: none;
+  flex-shrink: 0;
+  &:focus {
+    outline: none;
+    border-color: ${colors.primary};
+  }
+`;
+
 const Select = styled.select`
   width: 100%;
   padding: 10px 10px 10px 34px;
@@ -222,6 +240,7 @@ const RecalculateButton = styled.button`
 `;
 
 export default function Internship() {
+  const [salutation, setSalutation] = useState("Mr.");
   const [studentName, setStudentName] = useState("");
   const [email, setEmail] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -343,10 +362,18 @@ export default function Internship() {
       return;
     }
 
+    if (!salutation) {
+      Swal.fire("Validation Error", "Please select a salutation (Mr. or Ms.).", "error");
+      return;
+    }
+
+    let cleanName = studentName.trim().replace(/^(Mr\.|Ms\.|Mrs\.|Mr|Ms|Mrs)\s*/i, '');
+    const fullStudentName = `${salutation}${cleanName}`;
+
     setSubmitting(true);
     try {
       const payload = {
-        student_name: studentName,
+        student_name: fullStudentName,
         email: email,
         mobile_number: mobileNumber,
         college,
@@ -375,6 +402,7 @@ export default function Internship() {
           confirmButtonColor: colors.primary
         }).then(() => {
           // Reset form
+          setSalutation("Mr.");
           setStudentName("");
           setEmail("");
           setMobileNumber("");
@@ -417,14 +445,25 @@ export default function Internship() {
             <FormGroup>
               <Label><User size={14} /> Student Name *</Label>
               <InputWrapper>
-                <IconLeft><User size={16} /></IconLeft>
-                <Input
-                  type="text"
-                  placeholder="Enter Student Full Name"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
+                <SalutationSelect
+                  value={salutation}
+                  onChange={(e) => setSalutation(e.target.value)}
                   required
-                />
+                >
+                  <option value="Mr.">Mr.</option>
+                  <option value="Ms.">Ms.</option>
+                </SalutationSelect>
+                <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center" }}>
+                  <IconLeft><User size={16} /></IconLeft>
+                  <Input
+                    type="text"
+                    placeholder="Enter Student Full Name"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    style={{ borderRadius: "0 6px 6px 0" }}
+                    required
+                  />
+                </div>
               </InputWrapper>
             </FormGroup>
 
