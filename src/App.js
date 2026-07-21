@@ -156,6 +156,8 @@ import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyR
 import Complaints from "./Components/ComplaintsTickets/complaints";
 import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
 import PrintModal from "./Components/InvestigationBilling/PrintModal";
+import LicenceMaster from "./Components/companysecretary/LicenceMaster";
+import CreateLicinecename from "./Components/companysecretary/CreateLicinecename";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -1335,6 +1337,24 @@ function App() {
               ) && (
                 <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
               )}
+
+              {hasPagePermission(
+                "/LicenceMaster",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/LicenceMaster" element={<LicenceMaster />} />
+              )}
+
+              {hasPagePermission(
+                "/CreateLicinecename",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
+              )}
+
+
             </Routes>
           </ContentWrapper>
         </>
