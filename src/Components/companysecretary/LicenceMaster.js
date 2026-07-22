@@ -4,6 +4,7 @@ import {
   getLicenceMaster,
   getLicenceDetails,
   saveLicenceDetails,
+  updateLicenceDetails,
   getInchargeList,
 } from "./companysecretary";
 import {
@@ -109,6 +110,9 @@ const LicenceMaster = () => {
   const [showRespectivePersonSuggestions, setShowRespectivePersonSuggestions] =
     useState(false);
 
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingSNo, setEditingSNo] = useState(null);
+
   const loadData = () => {
     getLicenceDetails().then((res) => {
       if (res.success && Array.isArray(res.data)) setRecords(res.data);
@@ -207,6 +211,24 @@ const LicenceMaster = () => {
     setShowRespectivePersonSuggestions(false);
   };
 
+  const handleEditClick = (rec) => {
+    setIsEditMode(true);
+    setEditingSNo(rec.s_no);
+    setForm({
+      licence_name: rec.licence_name || "",
+      license_number: rec.license_number || "",
+      valid_from: rec.valid_from ? rec.valid_from.slice(0, 10) : "",
+      expiry_date: rec.expiry_date ? rec.expiry_date.slice(0, 10) : "",
+      incharge: rec.incharge || "",
+      respective_person: rec.respective_person || "",
+    });
+    setInchargeQuery(inchargeNameById[rec.incharge] || "");
+    setRespectivePersonQuery(inchargeNameById[rec.respective_person] || "");
+    setErrors({});
+    setSaveError("");
+    setActiveTab("add");
+  };
+
   const validate = () => {
     const newErrors = {};
     if (!form.licence_name.trim()) newErrors.licence_name = "Required";
@@ -224,6 +246,8 @@ const LicenceMaster = () => {
     setRespectivePersonQuery("");
     setErrors({});
     setSaveError("");
+    setIsEditMode(false);
+    setEditingSNo(null);
   };
 
   const handleSubmit = async () => {
@@ -241,7 +265,9 @@ const LicenceMaster = () => {
     setSaving(true);
     setSaveError("");
     try {
-      const res = await saveLicenceDetails(payload);
+      const res = isEditMode
+        ? await updateLicenceDetails(editingSNo, payload)
+        : await saveLicenceDetails(payload);
 
       if (!res.success) {
         const message =
@@ -252,17 +278,24 @@ const LicenceMaster = () => {
             ? "Please check the details and try again."
             : res.status >= 500
             ? "Server error. Please try again later."
-            : "Failed to save licence details.");
+            : `Failed to ${isEditMode ? "update" : "save"} licence details.`);
         setSaveError(message);
         toast.error(message, { position: "top-right" });
         return;
       }
 
-      toast.success("Licence record saved successfully", {
-        position: "top-right",
-      });
+      toast.success(
+        isEditMode
+          ? "Licence record updated successfully"
+          : "Licence record saved successfully",
+        { position: "top-right" }
+      );
 
-      if (res.data && res.data._id) {
+      if (isEditMode) {
+        setRecords((prev) =>
+          prev.map((r) => (r.s_no === editingSNo ? { ...r, ...res.data } : r))
+        );
+      } else if (res.data && res.data._id) {
         setRecords((prev) => [...prev, res.data]);
       }
 
@@ -270,8 +303,11 @@ const LicenceMaster = () => {
       loadData();
       setActiveTab("list");
     } catch (err) {
-      console.error("Failed to save licence details", err);
-      const message = "Failed to save licence details.";
+      console.error(
+        `Failed to ${isEditMode ? "update" : "save"} licence details`,
+        err
+      );
+      const message = `Failed to ${isEditMode ? "update" : "save"} licence details.`;
       setSaveError(message);
       toast.error(message, { position: "top-right" });
     } finally {
@@ -298,9 +334,12 @@ const LicenceMaster = () => {
         <TabButton
           type="button"
           $active={activeTab === "add"}
-          onClick={() => setActiveTab("add")}
+          onClick={() => {
+            if (isEditMode) resetForm();
+            setActiveTab("add");
+          }}
         >
-          + Add Licence
+          {isEditMode ? "Edit Licence" : "+ Add Licence"}
         </TabButton>
         <TabButton
           type="button"
@@ -397,7 +436,13 @@ const LicenceMaster = () => {
               Clear
             </SecondaryButton>
             <PrimaryButton onClick={handleSubmit} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
+              {saving
+                ? isEditMode
+                  ? "Updating..."
+                  : "Saving..."
+                : isEditMode
+                ? "Update"
+                : "Save"}
             </PrimaryButton>
           </ModalActions>
         </FormCard>
@@ -416,6 +461,7 @@ const LicenceMaster = () => {
                 <Th>Intimation date about expiry</Th>
                 <Th>Incharge</Th>
                 <Th>Respective Person</Th>
+                <Th align="center">Actions</Th>
               </tr>
             </thead>
             <tbody>
@@ -435,12 +481,29 @@ const LicenceMaster = () => {
                         rec.respective_person ||
                         "-"}
                     </Td>
+                    <Td align="center">
+                      <button
+                        type="button"
+                        onClick={() => handleEditClick(rec)}
+                        title="Edit"
+                        aria-label={`Edit licence ${rec.licence_name}`}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "16px",
+                          padding: "4px",
+                        }}
+                      >
+                        ✎
+                      </button>
+                    </Td>
                   </tr>
                 );
               })}
               {records.length === 0 && (
                 <tr>
-                  <Td colSpan={8} align="center">
+                  <Td colSpan={9} align="center">
                     No licence records found
                   </Td>
                 </tr>

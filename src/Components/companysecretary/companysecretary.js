@@ -21,3 +21,7 @@ export const saveLicenceDetails = (payload) => {
 export const getInchargeList = () => {
   return apiRequest(`${HmsBaseUrl}get_incharge_list/`, "GET");
 };
+
+export const updateLicenceDetails = (s_no, payload) => {
+  return apiRequest(`${HmsBaseUrl}licence_master_details/${s_no}/`, "PUT", payload);
+};
