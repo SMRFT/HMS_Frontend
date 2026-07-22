@@ -6,6 +6,7 @@ import {
   saveLicenceDetails,
   updateLicenceDetails,
   getInchargeList,
+  renewLicenceDetails,
 } from "./companysecretary";
 import {
   Wrapper,
@@ -23,6 +24,10 @@ import {
   Label,
   Input,
   ErrorText,
+  ModalOverlay,
+  ModalBox,
+  ModalTitle,
+  CloseButton,
   ModalActions,
   PrimaryButton,
   SecondaryButton,
@@ -30,6 +35,12 @@ import {
   SuggestionsList,
   SuggestionItem,
   FieldRow,
+  ChipsWrapper,
+  Chip,
+  ChipRemove,
+  CheckboxLabel,
+  ActionIconsRow,
+  IconButton,
 } from "./LicenceMaster.styles";
 
 const EMPTY_FORM = {
@@ -37,8 +48,13 @@ const EMPTY_FORM = {
   license_number: "",
   valid_from: "",
   expiry_date: "",
-  incharge: "",
-  respective_person: "",
+  incharge: [],
+  respective_person: [],
+};
+
+const EMPTY_RENEWAL_FORM = {
+  renewal_date: "",
+  expiry_date: "",
 };
 
 const INTIMATION_TEXT = "90 Days Before the Due Date";
@@ -91,6 +107,90 @@ const SearchableField = ({
   );
 };
 
+/* Multi-select variant: checkbox dropdown + removable chips for the
+   selected values. Used for Incharge and Respective Person, which are
+   stored as arrays of employeeId. Defined outside LicenceMaster so it
+   doesn't remount (and lose focus) on every parent re-render. */
+const MultiSelectField = ({
+  label,
+  placeholder,
+  query,
+  onQueryChange,
+  options, // [{ id, name }]
+  selectedIds,
+  onToggleOption,
+  onRemoveSelected,
+  showSuggestions,
+  setShowSuggestions,
+  error,
+}) => {
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((opt) => opt.name.toLowerCase().includes(q));
+  }, [options, query]);
+
+  const selectedOptions = useMemo(
+    () => options.filter((opt) => selectedIds.includes(opt.id)),
+    [options, selectedIds]
+  );
+
+  return (
+    <FormRow>
+      <Label>{label}</Label>
+      <AutocompleteWrapper>
+        <Input
+          autoComplete="off"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          placeholder={placeholder}
+        />
+        {showSuggestions && filtered.length > 0 && (
+          <SuggestionsList>
+            {filtered.map((opt) => (
+              <SuggestionItem
+                key={opt.id}
+                active={selectedIds.includes(opt.id)}
+                // onMouseDown (not onClick) fires before the input's onBlur,
+                // and preventDefault stops focus loss so the dropdown stays
+                // open across multiple selections.
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onToggleOption(opt.id);
+                }}
+              >
+                <CheckboxLabel>
+                  <input type="checkbox" checked={selectedIds.includes(opt.id)} readOnly />
+                  {opt.name}
+                </CheckboxLabel>
+              </SuggestionItem>
+            ))}
+          </SuggestionsList>
+        )}
+      </AutocompleteWrapper>
+      {selectedOptions.length > 0 && (
+        <ChipsWrapper>
+          {selectedOptions.map((opt) => (
+            <Chip key={opt.id}>
+              {opt.name}
+              <ChipRemove
+                type="button"
+                onClick={() => onRemoveSelected(opt.id)}
+                aria-label={`Remove ${opt.name}`}
+              >
+                ×
+              </ChipRemove>
+            </Chip>
+          ))}
+        </ChipsWrapper>
+      )}
+      {error && <ErrorText>{error}</ErrorText>}
+    </FormRow>
+  );
+};
+
 const LicenceMaster = () => {
   const [records, setRecords] = useState([]);
   const [licenceOptions, setLicenceOptions] = useState([]);
@@ -112,6 +212,13 @@ const LicenceMaster = () => {
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingSNo, setEditingSNo] = useState(null);
+
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
+  const [renewalTarget, setRenewalTarget] = useState(null);
+  const [renewalForm, setRenewalForm] = useState(EMPTY_RENEWAL_FORM);
+  const [renewalErrors, setRenewalErrors] = useState({});
+  const [renewing, setRenewing] = useState(false);
+  const [renewalError, setRenewalError] = useState("");
 
   const loadData = () => {
     getLicenceDetails().then((res) => {
@@ -145,8 +252,12 @@ const LicenceMaster = () => {
     [licenceOptions]
   );
 
-  const employeeNameOptions = useMemo(
-    () => inchargeOptions.map((emp) => emp.employeeName),
+  const employeeSelectOptions = useMemo(
+    () =>
+      inchargeOptions.map((emp) => ({
+        id: emp.employeeId,
+        name: emp.employeeName,
+      })),
     [inchargeOptions]
   );
 
@@ -178,37 +289,48 @@ const LicenceMaster = () => {
     setShowLicenceSuggestions(false);
   };
 
-  /* --- Incharge (stores employeeId; query is the display text) --- */
+  /* --- Incharge (multi-select; stores an array of employeeId) --- */
   const handleInchargeQueryChange = (text) => {
     setInchargeQuery(text);
-    setForm((prev) => ({ ...prev, incharge: "" }));
-    setErrors((prev) => ({ ...prev, incharge: "" }));
     setShowInchargeSuggestions(true);
   };
-  const handleSelectIncharge = (name) => {
-    const emp = inchargeOptions.find((e) => e.employeeName === name);
-    setInchargeQuery(name);
-    setForm((prev) => ({ ...prev, incharge: emp ? emp.employeeId : "" }));
-    setErrors((prev) => ({ ...prev, incharge: "" }));
-    setShowInchargeSuggestions(false);
-  };
-
-  /* --- Respective person (stores employeeId; query is the display text) --- */
-  const handleRespectivePersonQueryChange = (text) => {
-    setRespectivePersonQuery(text);
-    setForm((prev) => ({ ...prev, respective_person: "" }));
-    setErrors((prev) => ({ ...prev, respective_person: "" }));
-    setShowRespectivePersonSuggestions(true);
-  };
-  const handleSelectRespectivePerson = (name) => {
-    const emp = inchargeOptions.find((e) => e.employeeName === name);
-    setRespectivePersonQuery(name);
+  const handleToggleIncharge = (employeeId) => {
     setForm((prev) => ({
       ...prev,
-      respective_person: emp ? emp.employeeId : "",
+      incharge: prev.incharge.includes(employeeId)
+        ? prev.incharge.filter((id) => id !== employeeId)
+        : [...prev.incharge, employeeId],
+    }));
+    setErrors((prev) => ({ ...prev, incharge: "" }));
+  };
+  const handleRemoveIncharge = (employeeId) => {
+    setForm((prev) => ({
+      ...prev,
+      incharge: prev.incharge.filter((id) => id !== employeeId),
+    }));
+  };
+
+  /* --- Respective person (multi-select; stores an array of employeeId) --- */
+  const handleRespectivePersonQueryChange = (text) => {
+    setRespectivePersonQuery(text);
+    setShowRespectivePersonSuggestions(true);
+  };
+  const handleToggleRespectivePerson = (employeeId) => {
+    setForm((prev) => ({
+      ...prev,
+      respective_person: prev.respective_person.includes(employeeId)
+        ? prev.respective_person.filter((id) => id !== employeeId)
+        : [...prev.respective_person, employeeId],
     }));
     setErrors((prev) => ({ ...prev, respective_person: "" }));
-    setShowRespectivePersonSuggestions(false);
+  };
+  const handleRemoveRespectivePerson = (employeeId) => {
+    setForm((prev) => ({
+      ...prev,
+      respective_person: prev.respective_person.filter(
+        (id) => id !== employeeId
+      ),
+    }));
   };
 
   const handleEditClick = (rec) => {
@@ -219,11 +341,13 @@ const LicenceMaster = () => {
       license_number: rec.license_number || "",
       valid_from: rec.valid_from ? rec.valid_from.slice(0, 10) : "",
       expiry_date: rec.expiry_date ? rec.expiry_date.slice(0, 10) : "",
-      incharge: rec.incharge || "",
-      respective_person: rec.respective_person || "",
+      incharge: Array.isArray(rec.incharge) ? rec.incharge : [],
+      respective_person: Array.isArray(rec.respective_person)
+        ? rec.respective_person
+        : [],
     });
-    setInchargeQuery(inchargeNameById[rec.incharge] || "");
-    setRespectivePersonQuery(inchargeNameById[rec.respective_person] || "");
+    setInchargeQuery("");
+    setRespectivePersonQuery("");
     setErrors({});
     setSaveError("");
     setActiveTab("add");
@@ -235,7 +359,7 @@ const LicenceMaster = () => {
     if (!form.license_number.trim()) newErrors.license_number = "Required";
     if (!form.valid_from) newErrors.valid_from = "Required";
     if (!form.expiry_date) newErrors.expiry_date = "Required";
-    if (!form.incharge) newErrors.incharge = "Required";
+    if (!form.incharge.length) newErrors.incharge = "Required";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -312,6 +436,79 @@ const LicenceMaster = () => {
       toast.error(message, { position: "top-right" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleOpenRenewal = (rec) => {
+    setRenewalTarget(rec);
+    setRenewalForm({
+      renewal_date: "",
+      expiry_date: rec.expiry_date ? rec.expiry_date.slice(0, 10) : "",
+    });
+    setRenewalErrors({});
+    setRenewalError("");
+    setShowRenewalModal(true);
+  };
+
+  const handleCloseRenewal = () => {
+    setShowRenewalModal(false);
+    setRenewalTarget(null);
+  };
+
+  const handleRenewalChange = (e) => {
+    const { name, value } = e.target;
+    setRenewalForm((prev) => ({ ...prev, [name]: value }));
+    setRenewalErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const validateRenewal = () => {
+    const newErrors = {};
+    if (!renewalForm.renewal_date) newErrors.renewal_date = "Required";
+    if (!renewalForm.expiry_date) newErrors.expiry_date = "Required";
+    setRenewalErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRenewalSubmit = async () => {
+    if (!validateRenewal() || !renewalTarget) return;
+
+    setRenewing(true);
+    setRenewalError("");
+    try {
+      const res = await renewLicenceDetails(renewalTarget.s_no, {
+        renewal_date: renewalForm.renewal_date,
+        expiry_date: renewalForm.expiry_date,
+      });
+
+      if (!res.success) {
+        const message =
+          res.error ||
+          (res.status === 401
+            ? "Unauthorized. Please log in again."
+            : res.status === 400
+            ? "Please check the details and try again."
+            : res.status >= 500
+            ? "Server error. Please try again later."
+            : "Failed to renew licence.");
+        setRenewalError(message);
+        toast.error(message, { position: "top-right" });
+        return;
+      }
+
+      toast.success("Licence renewed successfully", { position: "top-right" });
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.s_no === renewalTarget.s_no ? { ...r, ...res.data } : r
+        )
+      );
+      handleCloseRenewal();
+    } catch (err) {
+      console.error("Failed to renew licence", err);
+      const message = "Failed to renew licence.";
+      setRenewalError(message);
+      toast.error(message, { position: "top-right" });
+    } finally {
+      setRenewing(false);
     }
   };
 
@@ -404,25 +601,29 @@ const LicenceMaster = () => {
           </FieldRow>
 
           <FieldRow>
-            <SearchableField
+            <MultiSelectField
               label="Incharge"
               placeholder="Search incharge"
               query={inchargeQuery}
               onQueryChange={handleInchargeQueryChange}
-              options={employeeNameOptions}
-              onSelectOption={handleSelectIncharge}
+              options={employeeSelectOptions}
+              selectedIds={form.incharge}
+              onToggleOption={handleToggleIncharge}
+              onRemoveSelected={handleRemoveIncharge}
               showSuggestions={showInchargeSuggestions}
               setShowSuggestions={setShowInchargeSuggestions}
               error={errors.incharge}
             />
 
-            <SearchableField
+            <MultiSelectField
               label="Respective Person"
               placeholder="Search respective person"
               query={respectivePersonQuery}
               onQueryChange={handleRespectivePersonQueryChange}
-              options={employeeNameOptions}
-              onSelectOption={handleSelectRespectivePerson}
+              options={employeeSelectOptions}
+              selectedIds={form.respective_person}
+              onToggleOption={handleToggleRespectivePerson}
+              onRemoveSelected={handleRemoveRespectivePerson}
               showSuggestions={showRespectivePersonSuggestions}
               setShowSuggestions={setShowRespectivePersonSuggestions}
               error={errors.respective_person}
@@ -475,28 +676,35 @@ const LicenceMaster = () => {
                     <Td>{formatDate(rec.valid_from)}</Td>
                     <Td highlight={highlight}>{formatDate(rec.expiry_date)}</Td>
                     <Td>{INTIMATION_TEXT}</Td>
-                    <Td>{inchargeNameById[rec.incharge] || rec.incharge || "-"}</Td>
                     <Td>
-                      {inchargeNameById[rec.respective_person] ||
-                        rec.respective_person ||
-                        "-"}
+                      {(rec.incharge || [])
+                        .map((id) => inchargeNameById[id] || id)
+                        .join(", ") || "-"}
+                    </Td>
+                    <Td>
+                      {(rec.respective_person || [])
+                        .map((id) => inchargeNameById[id] || id)
+                        .join(", ") || "-"}
                     </Td>
                     <Td align="center">
-                      <button
-                        type="button"
-                        onClick={() => handleEditClick(rec)}
-                        title="Edit"
-                        aria-label={`Edit licence ${rec.licence_name}`}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "16px",
-                          padding: "4px",
-                        }}
-                      >
-                        ✎
-                      </button>
+                      <ActionIconsRow>
+                        <IconButton
+                          type="button"
+                          onClick={() => handleEditClick(rec)}
+                          title="Edit"
+                          aria-label={`Edit licence ${rec.licence_name}`}
+                        >
+                          ✎
+                        </IconButton>
+                        <IconButton
+                          type="button"
+                          onClick={() => handleOpenRenewal(rec)}
+                          title="Renewal"
+                          aria-label={`Renew licence ${rec.licence_name}`}
+                        >
+                          ↻
+                        </IconButton>
+                      </ActionIconsRow>
                     </Td>
                   </tr>
                 );
@@ -511,6 +719,58 @@ const LicenceMaster = () => {
             </tbody>
           </Table>
         </TableWrapper>
+      )}
+
+      {showRenewalModal && renewalTarget && (
+        <ModalOverlay onMouseDown={handleCloseRenewal}>
+          <ModalBox onMouseDown={(e) => e.stopPropagation()}>
+            <CloseButton
+              type="button"
+              onClick={handleCloseRenewal}
+              aria-label="Close"
+            >
+              ×
+            </CloseButton>
+            <ModalTitle>Renew Licence — {renewalTarget.licence_name}</ModalTitle>
+
+            <FormRow>
+              <Label>Renewal Date</Label>
+              <Input
+                type="date"
+                name="renewal_date"
+                value={renewalForm.renewal_date}
+                onChange={handleRenewalChange}
+              />
+              {renewalErrors.renewal_date && (
+                <ErrorText>{renewalErrors.renewal_date}</ErrorText>
+              )}
+            </FormRow>
+
+            <FormRow>
+              <Label>New Expiry Date</Label>
+              <Input
+                type="date"
+                name="expiry_date"
+                value={renewalForm.expiry_date}
+                onChange={handleRenewalChange}
+              />
+              {renewalErrors.expiry_date && (
+                <ErrorText>{renewalErrors.expiry_date}</ErrorText>
+              )}
+            </FormRow>
+
+            {renewalError && <ErrorText>{renewalError}</ErrorText>}
+
+            <ModalActions>
+              <SecondaryButton type="button" onClick={handleCloseRenewal}>
+                Cancel
+              </SecondaryButton>
+              <PrimaryButton onClick={handleRenewalSubmit} disabled={renewing}>
+                {renewing ? "Renewing..." : "Renew"}
+              </PrimaryButton>
+            </ModalActions>
+          </ModalBox>
+        </ModalOverlay>
       )}
     </Wrapper>
   );
