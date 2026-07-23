@@ -11,6 +11,7 @@ import QRRegistrationModal from "./QRRegistrationModal";
 import QRRegistrationSidebar from "./QRRegistrationSidebar";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
+import CreateABHAModal from "./CreateABHAModal";
 
 
 // Modal component for search results
@@ -301,7 +302,10 @@ const PatientRegistrationForm = () => {
     const [visitList, setVisitList] = useState([]);
     const [selectedVisit, setSelectedVisit] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showReferenceForm, setShowReferenceForm] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
+    const [showQRSidebar, setShowQRSidebar] = useState(false);
+    const [showABHAModal, setShowABHAModal] = useState(false);
     const [unusedQRCount, setUnusedQRCount] = useState(0);
     const [showEditVisitModal, setShowEditVisitModal] = useState(false);
     const [showRefundVisitModal, setShowRefundVisitModal] = useState(false);
@@ -865,6 +869,9 @@ const PatientRegistrationForm = () => {
                 referredDoctorPhone: "referred_doctor_phone",
                 customerType: "customer_type",
                 insuranceProviderCode: "company_code",
+                
+                // ABDM Integration Fields
+                abhaNumber: "abha_number",
             }
 
             // Append all patient data to formData
@@ -1230,6 +1237,39 @@ const PatientRegistrationForm = () => {
 
             <MainContentWrapper>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                    <CreateABHAModal 
+                        show={showABHAModal} 
+                        onClose={() => setShowABHAModal(false)}
+                        onSuccess={(abhaData) => {
+                            // Map ABDM ABHA profile to our registration form
+                            setPatient(prev => ({
+                                ...prev,
+                                firstName: abhaData.firstName || prev.firstName,
+                                lastName: abhaData.lastName || prev.lastName,
+                                // Keep middleName if we want, but DB only has firstName/lastName
+                                dob: abhaData.dob || abhaData.yearOfBirth ? `${abhaData.yearOfBirth}-01-01` : prev.dob,
+                                gender: abhaData.gender === 'M' ? 'Male' : abhaData.gender === 'F' ? 'Female' : prev.gender,
+                                permanentAddress: abhaData.address || prev.permanentAddress,
+                                mobilePhone: abhaData.mobile || prev.mobilePhone,
+                                zipcode: abhaData.pinCode || abhaData.pincode || abhaData.abha_pincode || ((abhaData.address || abhaData.permanentAddress || "").match(/\b\d{6}\b/)?.[0]) || prev.zipcode,
+                                city: abhaData.districtName || abhaData.abha_district_name || prev.city,
+                                state: abhaData.stateName || abhaData.abha_state_name || prev.state,
+                                
+                                // Store ABHA specific fields mapping to backendKeys
+                                abhaNumber: abhaData.ABHANumber || abhaData.abhaNumber || prev.abhaNumber,
+                            }));
+                            // Convert dob to age if possiblee
+                            if (abhaData.dob) {
+                                const year = abhaData.dob.split('-')[2];
+                                const age = new Date().getFullYear() - parseInt(year);
+                                setPatient(prev => ({ ...prev, age: age.toString() }));
+                            } else if (abhaData.yearOfBirth) {
+                                const age = new Date().getFullYear() - parseInt(abhaData.yearOfBirth);
+                                setPatient(prev => ({ ...prev, age: age.toString() }));
+                            }
+                        }}
+                    />
 
                     {/* Visit List Modal */}
                     <Modal
@@ -1704,10 +1744,67 @@ const PatientRegistrationForm = () => {
                             </InputWrapper>
                         </SearchRow>
                     </SearchContainer >
-
-
                     {/* Patient Registration Form */}
                     < FormContainer >
+                        {/* ABHA Banner at Top */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%)',
+                            borderRadius: '12px',
+                            padding: '16px 24px',
+                            marginBottom: '20px',
+                            gap: '16px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    borderRadius: '10px',
+                                    padding: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <svg width="24" height="24" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div style={{ color: 'white', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.3px' }}>ABHA (Ayushman Bharat Health Account)</div>
+                                    <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', marginTop: '2px' }}>Link or create ABHA to auto-fill patient details from Aadhaar</div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setShowABHAModal(true); }}
+                                style={{
+                                    background: 'white',
+                                    color: '#0369a1',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '10px 20px',
+                                    fontWeight: 700,
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Create / Link ABHA
+                            </button>
+                        </div>
+
                         {/* <ContainerTitle>Patient Registration</ContainerTitle> */}
                         <form onSubmit={handleSubmit}>
                             {/* Basic Information Section Removed */}

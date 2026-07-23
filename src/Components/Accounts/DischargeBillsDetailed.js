@@ -126,6 +126,7 @@ const PrintSignatures = styled.div`
 const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
+    const [discountOnly, setDiscountOnly] = useState(false);
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -140,12 +141,14 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
         if (fromDate && toDate) {
             fetchReport();
         }
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, discountOnly]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&status=Billed`, "GET");
+            const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
+            if (discountOnly) params.set("discount_only", "true");
+            const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
             if (response.success && response.data && Array.isArray(response.data.data)) {
                 setReportData(response.data.data);
             }
@@ -195,6 +198,13 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                             format="DD/MM/YYYY"
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>&nbsp;</Label>
+                        <label style={{ display: "flex", alignItems: "center", gap: "8px", height: "40px", fontSize: "0.9rem", fontWeight: 600, color: colors.textMain, cursor: "pointer" }}>
+                            <input type="checkbox" checked={discountOnly} onChange={(e) => setDiscountOnly(e.target.checked)} />
+                            Discounted bills only
+                        </label>
                     </InputWrapper>
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
