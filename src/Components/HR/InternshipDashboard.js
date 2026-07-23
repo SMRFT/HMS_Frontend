@@ -1376,7 +1376,7 @@ export default function InternshipDashboard() {
       waForm.append("phone", cleanPhone);
       waForm.append("pdf_name", `${studentName}_Internship_Certificate.pdf`);
       waForm.append("patient_id", intern.intern_id?.toString() || "");
-      waForm.append("template_name", "hr_internship_certificate_final");
+      waForm.append("template_name", "sh_hr_intership_final");
 
       const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
       Swal.close();
