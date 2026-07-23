@@ -671,7 +671,7 @@ const SummaryPrint = () => {
       waForm.append("phone", cleanPhone);
       waForm.append("pdf_name", `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`);
       waForm.append("patient_id", summaryData.uhid || "");
-      waForm.append("template_name", "sh_discharge_summary");
+      waForm.append("template_name", "sh_discharge_summary_final");
 
       const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
 
