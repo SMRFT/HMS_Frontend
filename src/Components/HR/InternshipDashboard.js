@@ -915,7 +915,7 @@ export default function InternshipDashboard() {
       const replacement = `<strong>${selected}</strong>`;
       const newText = val.substring(0, start) + replacement + val.substring(end);
       setCertDescription(newText);
-      
+
       setTimeout(() => {
         textarea.focus();
         textarea.selectionStart = start + 8;
@@ -1068,6 +1068,28 @@ export default function InternshipDashboard() {
     });
   };
 
+  const getBase64FromUrl = (url) => {
+    return new Promise((resolve) => {
+      if (!url) return resolve("");
+      if (typeof url === "string" && url.startsWith("data:")) return resolve(url);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth || img.width || 794;
+          canvas.height = img.naturalHeight || img.height || 140;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch (e) {
+          resolve(url);
+        }
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+  };
+
   const handleDirectPrintCertificate = async (intern, withLetterpad = true, returnBlob = false) => {
     let signatureBase64 = null;
     let approverName = "";
@@ -1100,6 +1122,17 @@ export default function InternshipDashboard() {
       }
     }
 
+    let headerSrc = headerImage;
+    let footerSrc = footerImage;
+    if (withLetterpad) {
+      try {
+        headerSrc = await getBase64FromUrl(headerImage);
+        footerSrc = await getBase64FromUrl(footerImage);
+      } catch (e) {
+        console.warn("Base64 image conversion error:", e);
+      }
+    }
+
     // Process text replacements using stored cert_description
     const descToUse = intern.cert_description || "";
     let formattedText = descToUse
@@ -1121,7 +1154,7 @@ export default function InternshipDashboard() {
     const headerHtml = withLetterpad
       ? `
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${headerImage}" alt="Header" style="width: 100%; height: auto; display: block;" crossorigin="anonymous" />
+          <img src="${headerSrc}" alt="Header" style="width: 100%; height: auto; display: block;" />
         </div>
       `
       : `<div style="height: 140px;"></div>`;
@@ -1129,7 +1162,7 @@ export default function InternshipDashboard() {
     const footerHtml = withLetterpad
       ? `
         <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center;">
-          <img src="${footerImage}" alt="Footer" style="width: 100%; height: auto; display: block;" crossorigin="anonymous" />
+          <img src="${footerSrc}" alt="Footer" style="width: 100%; height: auto; display: block;" />
         </div>
       `
       : ``;
@@ -1337,23 +1370,15 @@ export default function InternshipDashboard() {
     try {
       const { blob, studentName } = await handleDirectPrintCertificate(intern, true, true);
       const pdfFile = new File([blob], `${studentName}_Internship_Certificate.pdf`, { type: "application/pdf" });
-      const uploadForm = new FormData();
-      uploadForm.append("file", pdfFile);
-      const uploadRes = await apiRequest(`${HMSURL}upload-pdf/`, "POST", uploadForm);
-      if (!uploadRes.success || !uploadRes.data?.file_url) {
-        Swal.fire("Error", "File upload failed: " + (uploadRes.error || "Unknown error"), "error"); return;
-      }
-      const payload = {
-        patient_name: studentName,
-        phone: cleanPhone,
-        collection_time: "N/A",
-        collected_date: formatDateDMY(intern.start_date) || "N/A",
-        file_url: uploadRes.data.file_url,
-        pdf_name: `${studentName}_Internship_Certificate.pdf`,
-        patient_id: intern.intern_id?.toString() || "",
-        template_name: "internship_certificate",
-      };
-      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", payload);
+      const waForm = new FormData();
+      waForm.append("file", pdfFile);
+      waForm.append("patient_name", studentName);
+      waForm.append("phone", cleanPhone);
+      waForm.append("pdf_name", `${studentName}_Internship_Certificate.pdf`);
+      waForm.append("patient_id", intern.intern_id?.toString() || "");
+      waForm.append("template_name", "hr_internship_certificate_final");
+
+      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
       Swal.close();
       if (waRes.success) {
         Swal.fire("Sent!", "Internship certificate sent via WhatsApp.", "success");
