@@ -47,6 +47,9 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 
+
+import ABHAPatients from "./Components/Register/ABHAPatients";
+
 import Enquiry from "./Components/Register/Enquiry";
 
 import VendorManagement from "./Components/InventoryMaster/VendorManagement";
@@ -82,6 +85,7 @@ import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
+import ABDMSettings from "./Components/Admin/ABDMSettings";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
@@ -155,6 +159,7 @@ import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+import SalesReturnReport from "./Components/Reports/SalesReturnReport";
 
 import Complaints from "./Components/ComplaintsTickets/complaints";
 import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
@@ -327,6 +332,7 @@ function App() {
       "/Pharmacystock": "Pharmacy Stock",
       "/PharmacyExpiryReport": "Pharmacy Expiry Report",
       "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
+      "/SalesReturnReport": "Sales Return Report",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -524,6 +530,18 @@ function App() {
                   />
                 )}
 
+              {/* ABDM Settings */}
+              {hasPagePermission(
+                "/ABDMSettings",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/ABDMSettings"
+                    element={<ABDMSettings />}
+                  />
+                )}
+
               {/* Front Office */}
               {hasPagePermission(
                 "/Admission",
@@ -550,10 +568,13 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route
-                    path="/PatientRegistrationForm"
-                    element={<PatientRegistrationForm />}
-                  />
+                  <>
+                    <Route
+                      path="/PatientRegistrationForm"
+                      element={<PatientRegistrationForm />}
+                    />
+                    <Route path="/ABHAPatients" element={<ABHAPatients />} />
+                  </>
                 )}
               {hasPagePermission(
                 "/Enquiry",
@@ -1393,6 +1414,16 @@ function App() {
                   <Route
                     path="/PreDayRoomOccupancyReport"
                     element={<PreDayRoomOccupancyReport />}
+                  />
+                )}
+              {hasPagePermission(
+                "/SalesReturnReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/SalesReturnReport"
+                    element={<SalesReturnReport />}
                   />
                 )}
 
