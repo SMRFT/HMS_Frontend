@@ -635,6 +635,10 @@ export default function IPAdvance() {
   const [billAdv, setBillAdv]         = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [saving, setSaving]           = useState(false);
+  const [billTypes, setBillTypes]     = useState([]);
+  const [selectedBillType, setSelectedBillType] = useState("");
+  const [selectedBillTypeNo, setSelectedBillTypeNo] = useState("");
+  const [loadingBillTypes, setLoadingBillTypes] = useState(false);
 
   // ── Edit state ────────────────────────────────────────────────────────────
   const [editingRecord, setEditingRecord] = useState(null);
@@ -703,6 +707,7 @@ export default function IPAdvance() {
   // ── Load today on mount ───────────────────────────────────────────────────
   useEffect(() => {
     fetchAdvancesByDate(today(), today());
+    fetchBillTypes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -715,7 +720,14 @@ export default function IPAdvance() {
       if (toDate)   paramObj.to_date   = toDate;
       const qs  = new URLSearchParams(paramObj).toString();
       const res = await apiRequest(`${BASE}admission-advance/?${qs}`, "GET");
-      if (!res.success) throw new Error(res.error || "Failed to fetch advances");
+      if (!res.success) {
+        if (res.status === 404) {
+          setPayments([]);
+          setFilteredPayments([]);
+          return;
+        }
+        throw new Error(res.error || "Failed to fetch advances");
+      }
       const list = Array.isArray(res.data?.data) ? res.data.data : [];
       setPayments(list);
       applyClientFilters(list, filterPaymentMode, filterStatus);
@@ -723,6 +735,21 @@ export default function IPAdvance() {
       toast.error(e.message || "Failed to load advances");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBillTypes = async () => {
+    setLoadingBillTypes(true);
+    try {
+      const res = await apiRequest(`${BASE}bill-types/`, "GET");
+      if (!res.success) throw new Error(res.error || "Failed to fetch bill types");
+      const list = Array.isArray(res.data?.billTypes) ? res.data.billTypes : [];
+      setBillTypes(list);
+    } catch (e) {
+      console.error("Failed to load bill types:", e);
+      setBillTypes([]);
+    } finally {
+      setLoadingBillTypes(false);
     }
   };
 
@@ -751,6 +778,7 @@ export default function IPAdvance() {
     try {
       const qs  = new URLSearchParams(params).toString();
       const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
+      if (!res.success) return toast.error(res.error || "No active admission found");
       const adm = res?.data?.data ?? res?.data ?? res;
 
       if (!adm?.ipNumber && !adm?.uhid) {
@@ -763,10 +791,15 @@ export default function IPAdvance() {
       let roomNo = adm.roomNo || "";
       let bedNo  = adm.bedNo || "";
 
-      if (!roomNo && Array.isArray(adm.room_details)) {
-        const active = [...adm.room_details].reverse().find(r => r?.is_roomActive);
-        roomNo = active?.roomNo || "";
-        bedNo  = active?.bedNo  || "";
+      if (!roomNo && adm.room_details) {
+        const roomDetails = typeof adm.room_details === 'string'
+          ? JSON.parse(adm.room_details)
+          : adm.room_details;
+        if (Array.isArray(roomDetails)) {
+          const active = [...roomDetails].reverse().find(r => r?.is_roomActive);
+          roomNo = active?.roomNo || "";
+          bedNo  = active?.bedNo  || "";
+        }
       }
 
       const nameParts = [
@@ -831,26 +864,41 @@ export default function IPAdvance() {
     loadActiveAdmission({ ip_number: ip });
   };
 
+  const handleSearch = () => {
+    const ip = common.ipNumber.trim();
+    const u = common.uhid.trim();
+    if (ip) searchByIP();
+    else if (u) searchByUHID();
+    else toast.warning("Enter UHID or IP Number to search");
+  };
+
   // ── Save (new or edited) ──────────────────────────────────────────────────
   const handleSave = async () => {
     if (!admissionId)             return toast.warning("Load an admission first");
     if (total <= 0)               return toast.warning("Enter a valid advance amount");
+    if (!selectedBillType || !selectedBillTypeNo)
+      return toast.warning("Select a Bill Type");
     if (splitTouched && !splitOk)
       return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
 
     setSaving(true);
     try {
+      const payload = {
+        date,
+        advance_amount: total,
+        ip_advance: splitIP,
+        billing_advance: splitBill,
+        payment_mode: paymentMode,
+        bill_type: selectedBillType,
+        billTypeNo: selectedBillTypeNo,
+      };
       if (editingRecord) {
         const res = await apiRequest(
           `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
           "PUT",
           {
-            advance_id:      editingRecord.advance_id,
-            date,
-            advance_amount:  total,
-            ip_advance:      splitIP,
-            billing_advance: splitBill,
-            payment_mode:    paymentMode,
+            ...payload,
+            advance_id: editingRecord.advance_id,
           }
         );
         if (!res.success) throw new Error(res.error || "Edit failed");
@@ -860,12 +908,13 @@ export default function IPAdvance() {
         const res = await apiRequest(
           `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
           "POST",
-          { date, advance_amount: total, ip_advance: splitIP, billing_advance: splitBill, payment_mode: paymentMode }
+          payload
         );
         if (!res.success) throw new Error(res.error || "Save failed");
         toast.success("Advance saved!");
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
+      setSelectedBillType(""); setSelectedBillTypeNo("");
       fetchAdvancesByDate(filterFromDate, filterToDate);
     } catch (e) {
       toast.error(e.message || "Failed to save advance");
@@ -883,6 +932,8 @@ export default function IPAdvance() {
     setBillAdv(String(record.billing_advance || ""));
     setPaymentMode(record.payment_mode || "Cash");
     setEditingRecord(record);
+    setSelectedBillType(String(record.bill_type || ""));
+    setSelectedBillTypeNo(record.billTypeNo || "");
     loadActiveAdmission({ ip_number: ipNo });
     setTimeout(() => {
       advanceFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -893,6 +944,7 @@ export default function IPAdvance() {
   const cancelEditMode = () => {
     setEditingRecord(null);
     setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
+    setSelectedBillType(""); setSelectedBillTypeNo("");
   };
 
   // ── Cancel advance ────────────────────────────────────────────────────────
@@ -919,7 +971,7 @@ export default function IPAdvance() {
       return toast.warning("No refundable amount remaining for this advance");
     }
     setRefundRecord(record);
-    setRefundAmount("");
+    setRefundAmount(String(refundable));
     setRefundPaymentMode("Cash");
     setRefundRemarks("");
     setRefundAmountError("");
@@ -937,12 +989,12 @@ export default function IPAdvance() {
   const validateRefundAmount = (val) => {
     const entered = parseFloat(val) || 0;
     const refundable = getRefundableAmount(refundRecord);
-    if (entered <= 0) {
-      setRefundAmountError("Refund amount must be greater than 0");
+    if (Math.abs(entered - refundable) > 0.01) {
+      setRefundAmountError(`Refund must equal the full remaining amount of ₹${fmt(refundable)}`);
       return false;
     }
-    if (entered > refundable) {
-      setRefundAmountError(`Cannot exceed refundable amount ₹${fmt(refundable)}`);
+    if (entered <= 0) {
+      setRefundAmountError("Refund amount must be greater than 0");
       return false;
     }
     setRefundAmountError("");
@@ -972,6 +1024,8 @@ export default function IPAdvance() {
           refund_amount:  parseFloat(refundAmount),
           payment_mode:   refundPaymentMode,
           remarks:        refundRemarks.trim(),
+          bill_type:      refundRecord.bill_type,
+          billTypeNo:     refundRecord.billTypeNo,
         }
       );
       if (!res.success) throw new Error(res.error || "Refund failed");
@@ -1040,14 +1094,15 @@ export default function IPAdvance() {
               <div class="bill-subtitle">Ph: 04272706666</div>
               <div class="bill-adv">Advance Slip</div>
             </div>
-            <div class="section">
-              <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || "—"}</span></div>
-              <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || "—"}</span></div>
-              <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
-              <div class="row"><span class="lbl">Bill No</span><span class="val" style="font-weight:bold">${printRecord.bill_no || "—"}</span></div>
-              <div class="row"><span class="lbl">Payment Mode</span><span class="val">${payMode}</span></div>
-              <div class="row"><span class="lbl">Paid Date</span><span class="val">${paidDate}</span></div>
-            </div>
+             <div class="section">
+               <div class="row"><span class="lbl">IP Number</span><span class="val">${printRecord.ip_number || "—"}</span></div>
+               <div class="row"><span class="lbl">Name</span><span class="val">${printRecord.patient_name || "—"}</span></div>
+               <div class="row"><span class="lbl">Bill Date</span><span class="val">${billDate}</span></div>
+               <div class="row"><span class="lbl">Bill No</span><span class="val" style="font-weight:bold">${printRecord.bill_no || "—"}</span></div>
+               <div class="row"><span class="lbl">Bill Type</span><span class="val">${printRecord.bill_type || "—"} ${printRecord.billTypeNo ? `(${printRecord.billTypeNo})` : ""}</span></div>
+               <div class="row"><span class="lbl">Payment Mode</span><span class="val">${payMode}</span></div>
+               <div class="row"><span class="lbl">Paid Date</span><span class="val">${paidDate}</span></div>
+             </div>
             <div class="section">
               <div class="row divider"><span class="lbl">Description</span><span class="val">Amount</span></div>
               <div class="row"><span>1. IP Advance</span><span class="val bold">₹${fmt(printRecord.ip_advance)}</span></div>
@@ -1086,6 +1141,7 @@ export default function IPAdvance() {
     setCommon(EMPTY_COMMON);
     setAdmId(null);
     cancelEditMode();
+    setSelectedBillType(""); setSelectedBillTypeNo("");
   };
 
   const handleAmountChange = (val) => { setAmount(val); setIpAdv(""); setBillAdv(""); };
@@ -1133,7 +1189,7 @@ export default function IPAdvance() {
                   onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
                   onKeyDown={e => e.key === "Enter" && searchByIP()} />
               </F>
-              <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={searchByUHID}>🔍 Search</Btn></F>
+               <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={handleSearch}>🔍 Search</Btn></F>
               <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
 
               <GroupLabel c="teal">Patient Info</GroupLabel>
@@ -1186,7 +1242,26 @@ export default function IPAdvance() {
                     value={amount} placeholder="Enter total advance amount"
                     onChange={e => handleAmountChange(e.target.value)} />
                 </F>
-                <F span={2} />
+                <F span={2}>
+                  <Lbl>Bill Type *</Lbl>
+                  <Select
+                    value={selectedBillType}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSelectedBillType(val);
+                      const found = billTypes.find(b => String(b.bill_type) === val);
+                      setSelectedBillTypeNo(found ? found.billTypeNo : "");
+                    }}
+                    disabled={!!editingRecord}
+                  >
+                    <option value="">Select Bill Type</option>
+                    {billTypes.map(bt => (
+                      <option key={bt.bill_type} value={String(bt.bill_type)}>
+                        {bt.bill_name} ({bt.billTypeNo})
+                      </option>
+                    ))}
+                  </Select>
+                </F>
 
                 <SplitBox>
                   <SplitHeader>↳ Split Advance</SplitHeader>
@@ -1291,6 +1366,7 @@ export default function IPAdvance() {
                   <Th>Bill No</Th>
                   <Th>IP No</Th>
                   <Th>Patient Name</Th>
+                  <Th>Bill Type</Th>
                   <Th>Payment Mode</Th>
                   <Th>Paid Date</Th>
                   <Th right>Advance Amount</Th>
@@ -1305,13 +1381,13 @@ export default function IPAdvance() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                    <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                       ⏳ Loading records…
                     </Td>
                   </tr>
                 ) : filteredPayments.length === 0 ? (
                   <tr>
-                    <Td colSpan={14} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                    <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
                       No advance records found for the selected date range / filters
                     </Td>
                   </tr>
@@ -1321,6 +1397,7 @@ export default function IPAdvance() {
                     const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
                     const patientName = p.patient_name || p.name || p.patientName || "—";
                     const ipNo        = p.ip_number    || p.ipNumber || "—";
+                    const billTypeStr = p.bill_type ? `${p.bill_type} (${p.billTypeNo || ""})` : "—";
                     const menuId      = p.advance_id || `row-${i}`;
                     const totalRefunded = getTotalRefunded(p);
                     const netBalance    = (parseFloat(p.advance_amount) || 0) - totalRefunded;
@@ -1338,9 +1415,10 @@ export default function IPAdvance() {
                           {p.bill_no || "—"}
                         </Td>
                         <Td style={{ fontWeight: 700, color: T.tealDark }}>{ipNo}</Td>
-                        <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                       <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
                           {patientName}
                         </Td>
+                        <Td style={{ fontSize: "0.68rem" }}>{billTypeStr}</Td>
                         <Td>{p.payment_mode || "-"}</Td>
                         <Td>
                           {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
@@ -1471,7 +1549,6 @@ export default function IPAdvance() {
         const refundable     = getRefundableAmount(refundRecord);
         const refundHistory  = Array.isArray(refundRecord.refund_details) ? refundRecord.refund_details : [];
         const enteredAmount  = parseFloat(refundAmount) || 0;
-        const afterRefund    = refundable - enteredAmount;
 
         return (
           <ModalOverlay onClick={closeRefundModal}>
@@ -1496,6 +1573,10 @@ export default function IPAdvance() {
                     <RefundSummaryLabel>Bill No</RefundSummaryLabel>
                     <RefundSummaryValue style={{ fontFamily: "monospace" }}>{refundRecord.bill_no || "—"}</RefundSummaryValue>
                   </RefundSummaryRow>
+                  <RefundSummaryRow>
+                    <RefundSummaryLabel>Bill Type</RefundSummaryLabel>
+                    <RefundSummaryValue>{`${refundRecord.bill_type || "-"} (${refundRecord.billTypeNo || "-"})`}</RefundSummaryValue>
+                  </RefundSummaryRow>
                   <div style={{ height: 1, background: "#d8b4fe", margin: "4px 0" }} />
                   <RefundSummaryRow>
                     <RefundSummaryLabel>Total Advance Amount</RefundSummaryLabel>
@@ -1511,15 +1592,9 @@ export default function IPAdvance() {
                     <RefundSummaryLabel>Refundable Balance</RefundSummaryLabel>
                     <RefundSummaryValue color={T.purple} large>₹{fmt(refundable)}</RefundSummaryValue>
                   </RefundSummaryRow>
-                  {enteredAmount > 0 && !refundAmountError && (
-                    <RefundSummaryRow style={{ borderTop: "1px dashed #d8b4fe", paddingTop: 4, marginTop: 4 }}>
-                      <RefundSummaryLabel>Remaining after this refund</RefundSummaryLabel>
-                      <RefundSummaryValue color={afterRefund <= 0 ? T.red : T.green}>
-                        ₹{fmt(Math.max(0, afterRefund))}
-                      </RefundSummaryValue>
-                    </RefundSummaryRow>
-                  )}
                 </RefundSummaryBox>
+
+                <RefundWarning>⚠ Full amount refund only — partial / split refunds are not allowed.</RefundWarning>
 
                 {/* Refund Amount Input */}
                 <RefundInputWrap>
@@ -1528,30 +1603,13 @@ export default function IPAdvance() {
                     type="number"
                     min="0.01"
                     step="0.01"
-                    max={refundable}
                     value={refundAmount}
-                    placeholder={`Enter amount (max ₹${fmt(refundable)})`}
-                    error={!!refundAmountError}
+                    readOnly
                     onChange={e => handleRefundAmountChange(e.target.value)}
                   />
                   {refundAmountError && (
                     <RefundWarning>⚠ {refundAmountError}</RefundWarning>
                   )}
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {[25, 50, 75, 100].map(pct => {
-                      const val = ((refundable * pct) / 100).toFixed(2);
-                      return (
-                        <Btn
-                          key={pct}
-                          c="purple"
-                          style={{ height: 24, fontSize: "0.68rem", padding: "0 10px" }}
-                          onClick={() => handleRefundAmountChange(val)}
-                        >
-                          {pct}% — ₹{fmt(val)}
-                        </Btn>
-                      );
-                    })}
-                  </div>
                 </RefundInputWrap>
 
                 {/* Payment Mode */}
@@ -1677,6 +1735,10 @@ export default function IPAdvance() {
                           <BillValue>{printRecord.bill_date ? new Date(printRecord.bill_date).toLocaleString("en-IN") : "—"}</BillValue>
                         </BillRow>
                         <BillRow><BillLabel>Bill No</BillLabel><BillValue style={{ fontWeight: "bold" }}>{printRecord.bill_no || "—"}</BillValue></BillRow>
+                        <BillRow>
+                          <BillLabel>Bill Type</BillLabel>
+                          <BillValue>{printRecord.bill_type || "—"} {printRecord.billTypeNo ? `(${printRecord.billTypeNo})` : ""}</BillValue>
+                        </BillRow>
                         <BillRow><BillLabel>Payment Mode</BillLabel><BillValue>{payMode}</BillValue></BillRow>
                         <BillRow>
                           <BillLabel>Paid Date</BillLabel>
