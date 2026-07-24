@@ -92,7 +92,7 @@ const SidebarContainer = styled.div`
   @media (max-width: 1024px) {
     width: 260px;
     transform: ${({ $isCollapsed }) =>
-      $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
+    $isCollapsed ? "translateX(-100%)" : "translateX(0)"};
   }
 
   @media (max-width: 768px) {
@@ -101,7 +101,7 @@ const SidebarContainer = styled.div`
     height: 100vh;
     top: 0;
     transform: ${({ $isCollapsed }) =>
-      $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
+    $isCollapsed ? "translateX(0)" : "translateX(-100%)"};
     transition: transform 0.3s ease;
   }
 `;
@@ -557,8 +557,8 @@ const Sidebar = ({ role, allowedActions, isCollapsed, setIsCollapsed }) => {
               const hasDefinedPermissions = Array.isArray(perms)
                 ? perms.length > 0
                 : perms &&
-                  typeof perms === "object" &&
-                  Object.keys(perms).length > 0;
+                typeof perms === "object" &&
+                Object.keys(perms).length > 0;
 
               if (
                 hasDefinedPermissions &&

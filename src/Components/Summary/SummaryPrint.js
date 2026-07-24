@@ -31,6 +31,10 @@ const GLOBAL_CSS = `
   }
   .sp-btn-primary { background: #2563a8; color: #fff; box-shadow: 0 2px 8px rgba(37,99,168,.28); }
   .sp-btn-primary:hover:not(:disabled) { background: #1a4d8a; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,99,168,.38); }
+  .sp-btn-whatsapp { background: #25d366; color: #fff; box-shadow: 0 2px 8px rgba(37,211,102,.28); }
+  .sp-btn-whatsapp:hover:not(:disabled) { background: #128c7e; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,211,102,.38); }
+  .sp-btn-email { background: #ea4335; color: #fff; box-shadow: 0 2px 8px rgba(234,67,53,.28); }
+  .sp-btn-email:hover:not(:disabled) { background: #c53023; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(234,67,53,.38); }
   .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
   .sp-btn-spinner {
     display: inline-block; width: 13px; height: 13px;
@@ -137,6 +141,45 @@ const GLOBAL_CSS = `
     font-size: 13px; font-weight: 600; color: #856404;
     font-family: 'Source Sans 3', Arial, sans-serif;
   }
+  .sp-dropdown-container {
+    position: relative;
+    display: inline-block;
+  }
+  .sp-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: #fff;
+    border: 1px solid #cdd8ec;
+    border-radius: 6px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 170px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sp-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    font-family: 'Source Sans 3', Arial, sans-serif;
+  }
+  .sp-dropdown-item:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+  }
 `;
 
 /* ─── fieldsData array helpers ───────────────────────────────────────────
@@ -172,6 +215,7 @@ const SummaryPrint = () => {
   const bodyRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showSendDropdown, setShowSendDropdown] = useState(false);
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   useEffect(() => {
@@ -195,6 +239,16 @@ const SummaryPrint = () => {
       }
     })();
   }, [ipNo, HMSURL]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest(".sp-dropdown-container")) {
+        setShowSendDropdown(false);
+      }
+    };
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
+  }, []);
 
   const safeStr = (v) => (v != null ? String(v) : "");
   const safeUpper = (v) => (v != null ? String(v).toUpperCase() : "");
@@ -226,7 +280,7 @@ const SummaryPrint = () => {
   /* ══════════════════════════════════════════════════════════
      PDF GENERATION
   ══════════════════════════════════════════════════════════ */
-  const handlePrint = async () => {
+  const handlePrint = async (returnBlob = false) => {
     if (!summaryData || !bodyRef.current) return;
     setLoading(true);
     try {
@@ -400,7 +454,7 @@ const SummaryPrint = () => {
        * the overlay condition fires, and the header row is drawn correctly
        * above the first data row.
        */
-      const snapCut = (proposedCut) => {
+      const snapCut = (proposedCut, yOffset) => {
         // Level 1: table row boundaries
         for (const {
           tableTop,
@@ -426,7 +480,11 @@ const SummaryPrint = () => {
         // Level 2: non-table blocks (signatures, dept headers, etc.)
         for (const { elTop, elBot } of nonTableBlockBounds) {
           if (proposedCut > elTop && proposedCut < elBot) {
-            return elTop;
+            const blockHeight = elBot - elTop;
+            const availPageHeight = proposedCut - yOffset;
+            if (blockHeight <= availPageHeight) {
+              return elTop;
+            }
           }
         }
 
@@ -467,7 +525,7 @@ const SummaryPrint = () => {
 
         const rawEnd = yOffset + availH;
         const sliceEnd =
-          rawEnd >= bodyCanvas.height ? bodyCanvas.height : snapCut(rawEnd);
+          rawEnd >= bodyCanvas.height ? bodyCanvas.height : snapCut(rawEnd, yOffset);
 
         const sliceH = Math.max(sliceEnd - yOffset, 1);
         if (sliceH <= 0) break;
@@ -562,10 +620,133 @@ const SummaryPrint = () => {
         pageIdx++;
       }
 
-      window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+      const pdfBlob = doc.output("blob");
+      if (returnBlob) {
+        return pdfBlob;
+      } else {
+        window.open(URL.createObjectURL(pdfBlob), "_blank");
+      }
     } catch (err) {
       console.error("PDF error:", err);
       alert("PDF error: " + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!summaryData) return;
+
+    let phone = summaryData.mobilePhone || "";
+    const userPhone = window.prompt(
+      "Enter WhatsApp phone number (with or without country code):",
+      phone
+    );
+    if (userPhone === null) return; // User cancelled
+
+    const cleanPhone = userPhone.trim();
+    if (!cleanPhone) {
+      alert("Phone number is required to send WhatsApp message.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Generate PDF blob
+      const pdfBlob = await handlePrint(true);
+      if (!pdfBlob) {
+        alert("Failed to generate PDF summary.");
+        return;
+      }
+
+      // 2. Prepare FormData & Send WhatsApp directly
+      const pdfFile = new File(
+        [pdfBlob],
+        `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`,
+        { type: "application/pdf" }
+      );
+      const waForm = new FormData();
+      waForm.append("file", pdfFile);
+      waForm.append("patient_name", summaryData.patient || "Valued Patient");
+      waForm.append("phone", cleanPhone);
+      waForm.append("pdf_name", `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`);
+      waForm.append("patient_id", summaryData.uhid || "");
+      waForm.append("template_name", "sh_discharge_summary_final");
+
+      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
+
+      if (waRes.success) {
+        alert("Discharge summary sent successfully on WhatsApp!");
+      } else {
+        alert("Failed to send WhatsApp: " + (waRes.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("WhatsApp sending error:", err);
+      alert("Error sending WhatsApp: " + (err.message || err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailShare = async () => {
+    if (!summaryData) return;
+
+    let email = summaryData.email || "";
+    const userEmail = window.prompt(
+      "Enter recipient email address (comma-separated for multiple):",
+      email
+    );
+    if (userEmail === null) return; // User cancelled
+
+    const cleanEmail = userEmail.trim();
+    if (!cleanEmail) {
+      alert("Email address is required to send the summary.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Generate PDF blob
+      const pdfBlob = await handlePrint(true);
+      if (!pdfBlob) {
+        alert("Failed to generate PDF summary.");
+        return;
+      }
+
+      // 2. Prepare FormData
+      const formData = new FormData();
+      formData.append("subject", `Discharge Summary for ${summaryData.patient || "Patient"}`);
+      formData.append(
+        "message",
+        `Dear ${summaryData.patient || "Recipient"},\n\nPlease find attached the discharge summary for ${summaryData.patient || "the patient"}.\n\nThank you.`
+      );
+      
+      // Parse comma-separated emails and append each
+      const emails = cleanEmail.split(",").map(e => e.trim()).filter(Boolean);
+      emails.forEach(emailAddr => {
+        formData.append("recipients", emailAddr);
+      });
+
+      formData.append("patient_id", summaryData.uhid || "");
+      formData.append("patient_name", summaryData.patient || "");
+      formData.append(
+        "attachments",
+        new File([pdfBlob], `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`, {
+          type: "application/pdf",
+        })
+      );
+
+      // 3. Send Email
+      const emailResponse = await apiRequest(`${HMSURL}send-email/`, "POST", formData);
+
+      if (emailResponse.success) {
+        alert("Discharge summary sent successfully via Email!");
+      } else {
+        alert("Failed to send email: " + (emailResponse.error || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Email sending error:", err);
+      alert("Error sending email: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -1063,34 +1244,111 @@ const SummaryPrint = () => {
             </div>
           </div>
           {isApproved ? (
-            <button
-              className="sp-btn sp-btn-primary"
-              onClick={handlePrint}
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <span className="sp-btn-spinner" /> Generating…
-                </>
-              ) : (
-                <>
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="12" y1="18" x2="12" y2="12" />
-                    <polyline points="9 15 12 18 15 15" />
-                  </svg>
-                  Open PDF
-                </>
-              )}
-            </button>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                className="sp-btn sp-btn-primary"
+                onClick={() => handlePrint(false)}
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="sp-btn-spinner" /> Generating…
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="12" y1="18" x2="12" y2="12" />
+                      <polyline points="9 15 12 18 15 15" />
+                    </svg>
+                    Open PDF
+                  </>
+                )}
+              </button>
+              <div className="sp-dropdown-container">
+                <button
+                  className="sp-btn sp-btn-primary"
+                  onClick={() => setShowSendDropdown((prev) => !prev)}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span className="sp-btn-spinner" /> Sharing…
+                    </>
+                  ) : (
+                    <>
+                      Send
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        style={{
+                          marginLeft: "2px",
+                          transform: showSendDropdown ? "rotate(180deg)" : "none",
+                          transition: "transform 0.15s",
+                        }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </>
+                  )}
+                </button>
+                {showSendDropdown && !loading && (
+                  <div className="sp-dropdown-menu">
+                    <button
+                      className="sp-dropdown-item"
+                      onClick={() => {
+                        setShowSendDropdown(false);
+                        handleWhatsAppShare();
+                      }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="#25d366"
+                        style={{ marginRight: "4px" }}
+                      >
+                        <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.464L0 24zm6.59-4.846c1.6.95 3.197 1.45 4.817 1.452 5.43 0 9.851-4.378 9.854-9.76.002-2.607-1.012-5.059-2.859-6.908C16.575 2.088 14.12 1.072 11.5 1.072c-5.436 0-9.858 4.38-9.86 9.762-.001 1.777.478 3.515 1.387 5.061l-.921 3.36 3.451-.905zm12.39-4.86c-.33-.165-1.953-.964-2.253-1.074-.3-.109-.519-.165-.738.165-.219.329-.848 1.074-1.039 1.293-.191.219-.382.247-.712.082-.33-.165-1.393-.513-2.653-1.637-.98-.874-1.643-1.953-1.835-2.282-.19-.33-.02-.508.145-.671.148-.147.33-.384.495-.576.165-.191.22-.329.33-.548.11-.219.055-.411-.028-.576-.082-.165-.738-1.779-1.011-2.438-.266-.641-.532-.553-.73-.564-.19-.01-.41-.01-.628-.01-.219 0-.576.082-.876.411-.3.33-1.147 1.123-1.147 2.739 0 1.616 1.177 3.178 1.341 3.397.165.219 2.316 3.537 5.612 4.96.783.338 1.396.54 1.873.691.787.25 1.5.214 2.065.13.63-.094 1.953-.799 2.226-1.572.273-.773.273-1.438.191-1.572-.082-.134-.3-.213-.63-.378z" />
+                      </svg>
+                      WhatsApp
+                    </button>
+                    <button
+                      className="sp-dropdown-item"
+                      onClick={() => {
+                        setShowSendDropdown(false);
+                        handleEmailShare();
+                      }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ea4335"
+                        strokeWidth="2.5"
+                        style={{ marginRight: "4px" }}
+                      >
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                        <polyline points="22,6 12,13 2,6" />
+                      </svg>
+                      Email
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="sp-not-approved">
               <svg
@@ -1165,7 +1423,7 @@ const SummaryPrint = () => {
                     summaryData.testdetails?.length > 0;
                   if (!hasContent && !hasLab) return null;
                   return (
-                    <div key={key} className="sp-section">
+                    <div key={key} className="sp-section" data-block-top="true">
                       <div className="sp-section-title">{key}</div>
                       {hasContent && (
                         <div className="sp-section-content">{content}</div>
@@ -1174,7 +1432,7 @@ const SummaryPrint = () => {
                     </div>
                   );
                 })}
-                <div className="sp-explained">
+                <div className="sp-explained" data-block-top="true">
                   <div className="sp-explained-col">
                     <div className="sp-explained-title">Explained By</div>
                     <div className="sp-explained-field">Doctor Name :</div>

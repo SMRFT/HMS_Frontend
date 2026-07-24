@@ -16,7 +16,16 @@ import {
     LayoutDashboard,
     X,
     Maximize2,
-    Filter
+    Filter,
+    RotateCcw,
+    Banknote,
+    Wallet,
+    MinusCircle,
+    History,
+    Percent,
+    Package,
+    Search,
+    Inbox
 } from "lucide-react";
 import styled, { keyframes } from "styled-components";
 import { Modal, DatePicker, Button, Tooltip, Spin } from "antd";
@@ -34,6 +43,14 @@ const DischargeBillsDetailed = lazy(() => import("../Accounts/DischargeBillsDeta
 const AdvanceRegistration = lazy(() => import("../Accounts/AdvanceRegistration"));
 const AdvanceRegistrationInsurence = lazy(() => import("../Accounts/AdvanceRegistrationInsurence"));
 const BillCancelReport = lazy(() => import("../Accounts/BillCancelReport"));
+const CreditCardReport = lazy(() => import("../Accounts/CreditCardReport"));
+const DatewiseCollectionSummary = lazy(() => import("../Accounts/DatewiseCollectionSummary"));
+const MiscellaneousPaymentReport = lazy(() => import("../Accounts/MiscellaneousPaymentReport"));
+const DailyCashReport = lazy(() => import("../Accounts/DailyCashReport"));
+const DebitBillsReport = lazy(() => import("../Accounts/DebitBillsReport"));
+const AuditReport = lazy(() => import("../Accounts/AuditReport"));
+const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
+const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 
 const { RangePicker } = DatePicker;
 
@@ -63,6 +80,58 @@ const Header = styled.div`
       font-size: 1rem;
     }
   }
+`;
+
+const SearchBox = styled.div`
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+
+  svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: ${colors.textMuted};
+  }
+
+  input {
+    width: 100%;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid ${colors.border};
+    background: ${colors.surface};
+    padding: 0 14px 0 40px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: ${colors.textMain};
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: ${colors.primary};
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    }
+  }
+
+  @media (max-width: 640px) {
+    width: 100%;
+  }
+`;
+
+const NoResults = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+  color: ${colors.textMuted};
+  grid-column: 1 / -1;
+
+  svg { margin-bottom: 14px; opacity: 0.5; }
+  .title { font-weight: 700; color: ${colors.textMain}; font-size: 1.05rem; margin-bottom: 6px; }
+  .sub { font-size: 0.88rem; }
 `;
 
 const Grid = styled.div`
@@ -261,6 +330,7 @@ const ReportsDashboard = () => {
     const [isReportModalVisible, setIsReportModalVisible] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
     const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()]);
+    const [searchTerm, setSearchTerm] = useState("");
 
     const closeModal = () => {
         setIsConfigModalVisible(false);
@@ -355,8 +425,86 @@ const ReportsDashboard = () => {
             icon: <ClipboardList size={24} />,
             path: "/PharmacyExpiryReport",
             color: colors.primary
+        },
+        {
+            id: "sales_return",
+            title: "Sales Return Report",
+            description: "IP and OP pharmacy sales returns with patient, doctor, and item details",
+            icon: <RotateCcw size={24} />,
+            path: "/SalesReturnReport",
+            color: colors.primary
+        },
+        {
+            id: "credit_card",
+            title: "Credit Card Report",
+            description: "Card-mode collections across Registration (OP), Pharmacy, and Discharge billing",
+            icon: <CreditCard size={24} />,
+            component: CreditCardReport,
+            color: colors.primary
+        },
+        {
+            id: "datewise_collection",
+            title: "Date-wise Collection Summary",
+            description: "Hospital-wide daily collection totals across every billing department",
+            icon: <Calendar size={24} />,
+            component: DatewiseCollectionSummary,
+            color: colors.primary
+        },
+        {
+            id: "misc_payment",
+            title: "Miscellaneous Payment Report",
+            description: "Receipt & Payment vouchers posted against any account head",
+            icon: <Wallet size={24} />,
+            component: MiscellaneousPaymentReport,
+            color: colors.primary
+        },
+        {
+            id: "daily_cash",
+            title: "A/c Papers — Daily Cash Report",
+            description: "Cash Book: daily cash in/out across Registration, Pharmacy, Discharge & vouchers",
+            icon: <Banknote size={24} />,
+            component: DailyCashReport,
+            color: colors.primary
+        },
+        {
+            id: "debit_bills",
+            title: "Debit Bills Report",
+            description: "Bill edits that increased the billed amount",
+            icon: <MinusCircle size={24} />,
+            component: DebitBillsReport,
+            color: colors.primary
+        },
+        {
+            id: "audit_report",
+            title: "Audit Report (Edit View)",
+            description: "Cross-record edit trail across Registration, Pharmacy, Sales Return & Investigation billing",
+            icon: <History size={24} />,
+            component: AuditReport,
+            color: colors.primary
+        },
+        {
+            id: "sales_tax_register",
+            title: "Sales Tax Register (GST)",
+            description: "Rate-wise GST register for pharmacy OP/IP sales and returns (approximate)",
+            icon: <Percent size={24} />,
+            component: SalesTaxRegister,
+            color: colors.primary
+        },
+        {
+            id: "stock_report_ip_op",
+            title: "Stock Report — IP vs OP",
+            description: "Pharmacy consumption split by IP and OP bills, item-wise",
+            icon: <Package size={24} />,
+            component: StockReportIpOp,
+            color: colors.primary
         }
     ];
+
+    const filteredReports = reportsList.filter(report => {
+        if (!searchTerm.trim()) return true;
+        const term = searchTerm.toLowerCase();
+        return report.title.toLowerCase().includes(term) || report.description.toLowerCase().includes(term);
+    });
 
     const handleCardClick = (report) => {
         if (report.path) {
@@ -394,36 +542,45 @@ const ReportsDashboard = () => {
                     <h1>Accounts Reports Dashboard</h1>
                     <p>Select a report to view detailed financial analytics</p>
                 </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    {/* <Tooltip title="Refresh Dashboard">
-                        <Button shape="circle" icon={<Activity size={18} />} />
-                    </Tooltip> */}
-                    {/* <Button type="primary" icon={<LayoutDashboard size={18} />} style={{ borderRadius: '10px', height: '40px', fontWeight: 600 }}>
-                        Dashboard View
-                    </Button> */}
-                </div>
+                <SearchBox>
+                    <Search size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search reports..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </SearchBox>
             </Header>
 
             <Grid>
-                {reportsList.map((report) => (
-                    <ReportCard 
-                        key={report.id} 
-                        color={report.color} 
-                        onClick={() => handleCardClick(report)}
-                    >
-                        <div className="icon-wrapper">
-                            {report.icon}
-                        </div>
-                        <div className="content">
-                            <h3>{report.title}</h3>
-                            <p>{report.description}</p>
-                        </div>
-                        <div className="footer">
-                            <span className="view-text">Generate Report</span>
-                            <ArrowRight className="arrow-icon" size={18} />
-                        </div>
-                    </ReportCard>
-                ))}
+                {filteredReports.length > 0 ? (
+                    filteredReports.map((report) => (
+                        <ReportCard
+                            key={report.id}
+                            color={report.color}
+                            onClick={() => handleCardClick(report)}
+                        >
+                            <div className="icon-wrapper">
+                                {report.icon}
+                            </div>
+                            <div className="content">
+                                <h3>{report.title}</h3>
+                                <p>{report.description}</p>
+                            </div>
+                            <div className="footer">
+                                <span className="view-text">{report.path ? "Open Report" : "Generate Report"}</span>
+                                <ArrowRight className="arrow-icon" size={18} />
+                            </div>
+                        </ReportCard>
+                    ))
+                ) : (
+                    <NoResults>
+                        <Inbox size={48} />
+                        <div className="title">No reports found</div>
+                        <div className="sub">Try a different search term.</div>
+                    </NoResults>
+                )}
             </Grid>
 
             {/* Date Configuration Modal */}

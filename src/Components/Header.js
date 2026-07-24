@@ -369,8 +369,8 @@ const IconBtn = styled.button`
     width: 32px;
     height: 32px;
     ${({ $hideOnMobile }) =>
-      $hideOnMobile &&
-      css`
+    $hideOnMobile &&
+    css`
         display: none;
       `}
   }
@@ -655,9 +655,9 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
   const [sessionDuration, setSessionDuration] = useState("0m");
   const dropdownRef = useRef(null);
 
-  const employeeId   = localStorage.getItem("employeeId")  || "EMP001";
-  const employeeName = localStorage.getItem("name")         || "Hospital Staff";
-  const userRole     = localStorage.getItem("role")         || "Member";
+  const employeeId = localStorage.getItem("employeeId") || "EMP001";
+  const employeeName = localStorage.getItem("name") || "Hospital Staff";
+  const userRole = localStorage.getItem("role") || "Member";
 
   // Live Clock + session duration
   useEffect(() => {
@@ -714,7 +714,6 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
       cancelButtonText: "Cancel",
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.clear();
         window.location.href = "/secure";
       }
     });
