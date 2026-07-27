@@ -1,25 +1,29 @@
 import React, { useState, useRef, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { useNavigate, useLocation } from "react-router-dom";
+import Swal from "sweetalert2";
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  CheckCircle,
+  Printer,
+  Calendar,
+  FileText,
+  Activity,
+  User,
+  Stethoscope,
+  X,
+  Pill,
+} from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import ICD11SearchComponent from "./ICD11SearchComponent";
-import {
-  PageWrapper,
-  TableWrapper,
-  Table,
-  Th,
-  Td,
-  Tr,
-  Button,
-  Input,
-  Select,
-  Label,
-  InputWrapper,
-} from "../GlobalStyles";
+import { PageWrapper, colors } from "../GlobalStyles";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
 const T = {
-  teal: "#0d9488",
+  teal: colors.primary || "#0d9488",
   tealDk: "#0f766e",
   tealLt: "#ccfbf1",
   sky: "#0ea5e9",
@@ -27,77 +31,79 @@ const T = {
   slate: "#1e293b",
   muted: "#64748b",
   border: "#e2e8f0",
-  bg: "#f1f5f9",
-  bgAlt: "#f8fafc",
+  bg: "#f8fafc",
+  bgAlt: "#f1f5f9",
   white: "#ffffff",
   text: "#0f172a",
   textSm: "#475569",
-  green: "#22c55e",
-  amber: "#f59e0b",
-  red: "#ef4444",
+  green: "#16a34a",
+  amber: "#d97706",
+  red: "#dc2626",
 };
 
 /* ─── Utility styles ─────────────────────────────────────────────────────── */
 const S = {
-  /* Page shell */
-  page: {
-    minHeight: "100vh",
-    background: T.bg,
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-    padding: "20px 16px",
-  },
-  inner: { maxWidth: 1320, margin: "0 auto" },
+  inner: { maxWidth: 1320, margin: "0 auto", paddingBottom: 40 },
 
-  /* Top bar */
+  /* Header */
   topBar: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 24,
+    padding: "18px 24px",
+    background: "white",
+    borderRadius: 12,
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
   },
   pageTitle: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    fontSize: 20,
+    gap: 12,
+    fontSize: 22,
     fontWeight: 700,
-    color: T.teal,
-    letterSpacing: "-0.3px",
+    color: T.slate,
+    letterSpacing: "-0.4px",
     margin: 0,
   },
   titleIcon: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 16,
+    color: "white",
+    boxShadow: "0 4px 10px rgba(13, 148, 136, 0.25)",
   },
   datePill: {
-    background: T.slate,
-    color: T.white,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    background: T.bgAlt,
+    color: T.slate,
+    border: `1px solid ${T.border}`,
     borderRadius: 20,
-    padding: "5px 14px",
-    fontSize: 12,
-    fontWeight: 500,
-    letterSpacing: "0.2px",
+    padding: "6px 16px",
+    fontSize: 13,
+    fontWeight: 600,
   },
 
   /* Edit banner */
   editBanner: {
     background: T.skyLt,
-    border: `1px solid ${T.sky}50`,
-    borderRadius: 8,
-    padding: "8px 14px",
-    marginBottom: 14,
+    border: `1px solid ${T.sky}60`,
+    borderRadius: 10,
+    padding: "12px 18px",
+    marginBottom: 20,
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    fontSize: 13,
+    gap: 10,
+    fontSize: 14,
     color: T.slate,
     fontWeight: 500,
+    boxShadow: "0 2px 8px rgba(14, 165, 233, 0.1)",
   },
 
   /* Card */
@@ -105,102 +111,107 @@ const S = {
     background: T.white,
     borderRadius: 12,
     border: `1px solid ${T.border}`,
-    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
-    marginBottom: 16,
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    marginBottom: 20,
     overflow: "hidden",
   },
   cardHead: {
-    padding: "10px 16px",
-    background: `linear-gradient(90deg, ${T.teal}14, ${T.sky}0a)`,
+    padding: "14px 20px",
+    background: `linear-gradient(90deg, #f8fafc, #f1f5f9)`,
     borderBottom: `1px solid ${T.border}`,
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    fontSize: 11,
+    gap: 10,
+    fontSize: 13,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.8px",
     color: T.teal,
   },
   cardHeadBar: {
-    width: 3,
-    height: 14,
+    width: 4,
+    height: 16,
     borderRadius: 2,
     background: `linear-gradient(${T.teal}, ${T.sky})`,
   },
-  cardBody: { padding: "14px 16px" },
+  cardBody: { padding: "20px" },
 
   /* Compact grid */
   grid: (cols) => ({
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gap: "10px 12px",
-    marginBottom: 10,
+    gap: "12px 14px",
+    marginBottom: 14,
   }),
 
-  /* Compact input */
+  /* Inputs & Selects */
   inp: {
-    height: 32,
-    padding: "0 9px",
+    height: 36,
+    padding: "0 11px",
     fontSize: 13,
     color: T.text,
     background: T.white,
     border: `1px solid ${T.border}`,
-    borderRadius: 6,
+    borderRadius: 7,
     outline: "none",
     width: "100%",
     fontFamily: "inherit",
-    transition: "border-color .15s, box-shadow .15s",
+    transition: "all .15s",
   },
   sel: {
-    height: 32,
-    padding: "0 28px 0 9px",
+    height: 36,
+    padding: "0 28px 0 11px",
     fontSize: 13,
     color: T.text,
     background: T.white,
     border: `1px solid ${T.border}`,
-    borderRadius: 6,
+    borderRadius: 7,
     outline: "none",
     width: "100%",
     fontFamily: "inherit",
     cursor: "pointer",
     appearance: "none",
     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-    backgroundPosition: "right 6px center",
+    backgroundPosition: "right 8px center",
     backgroundRepeat: "no-repeat",
     backgroundSize: "1.1em",
   },
   lbl: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 600,
     textTransform: "uppercase",
-    letterSpacing: "0.6px",
+    letterSpacing: "0.5px",
     color: T.muted,
-    marginBottom: 3,
+    marginBottom: 5,
     display: "block",
   },
   fld: { display: "flex", flexDirection: "column" },
 
-  /* Search micro-btn */
+  /* Search button inside input block */
   searchMicroBtn: {
     marginTop: 4,
-    height: 24,
-    padding: "0 10px",
-    fontSize: 11,
+    height: 28,
+    padding: "0 12px",
+    fontSize: 12,
     fontWeight: 600,
     background: `linear-gradient(135deg, ${T.teal}, ${T.sky})`,
     color: T.white,
     border: "none",
-    borderRadius: 5,
+    borderRadius: 6,
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    transition: "opacity 0.2s",
   },
 
   /* Notes layout */
   notesLayout: {
     display: "grid",
-    gridTemplateColumns: "210px 1fr",
-    gap: 16,
-    marginBottom: 16,
+    gridTemplateColumns: "240px 1fr",
+    gap: 20,
+    marginBottom: 24,
   },
 
   /* Sidebar */
@@ -208,32 +219,33 @@ const S = {
     background: T.white,
     borderRadius: 12,
     border: `1px solid ${T.border}`,
-    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
     overflow: "hidden",
     alignSelf: "start",
   },
   sidebarHead: {
-    padding: "10px 12px",
-    background: `linear-gradient(135deg, ${T.teal}, ${T.tealDk})`,
-    fontSize: 10,
+    padding: "14px 16px",
+    background: `linear-gradient(135deg, ${T.slate}, #334155)`,
+    fontSize: 11,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "1px",
     color: T.white,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
   },
   sidebarItem: (active) => ({
-    padding: "7px 12px",
+    padding: "9px 14px",
     cursor: "pointer",
-    fontSize: 11.5,
-    fontWeight: active ? 700 : 400,
-    color: active ? T.white : T.textSm,
-    background: active
-      ? `linear-gradient(90deg, ${T.teal}, ${T.sky})`
-      : "transparent",
-    borderLeft: `3px solid ${active ? T.sky : "transparent"}`,
+    fontSize: 12,
+    fontWeight: active ? 700 : 500,
+    color: active ? T.teal : T.textSm,
+    background: active ? `${T.teal}10` : "transparent",
+    borderLeft: `4px solid ${active ? T.teal : "transparent"}`,
     borderBottom: `1px solid ${T.border}`,
-    transition: "all .12s",
-    lineHeight: 1.3,
+    transition: "all .15s",
+    lineHeight: 1.35,
   }),
 
   /* Notes main area */
@@ -241,47 +253,50 @@ const S = {
     background: T.white,
     borderRadius: 12,
     border: `1px solid ${T.border}`,
-    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
-    padding: 16,
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
+    padding: 20,
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 14,
   },
   notesActiveLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 700,
     color: T.teal,
     display: "flex",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   textarea: {
-    minHeight: 540,
+    minHeight: 520,
     resize: "vertical",
-    padding: 12,
-    fontSize: 13,
+    padding: 14,
+    fontSize: 13.5,
     color: T.text,
-    background: T.bgAlt,
+    background: T.bg,
     border: `1px solid ${T.border}`,
     borderRadius: 8,
     outline: "none",
     fontFamily: "inherit",
     lineHeight: 1.65,
-    transition: "border-color .15s",
+    transition: "all .15s",
   },
 
   /* Action row */
-  actionRow: { display: "flex", gap: 8, flexWrap: "wrap" },
+  actionRow: { display: "flex", gap: 10, flexWrap: "wrap" },
   outBtn: (color) => ({
-    padding: "5px 12px",
-    fontSize: 11.5,
+    padding: "6px 14px",
+    fontSize: 12,
     fontWeight: 600,
     border: `1.5px solid ${color}`,
     color: color,
-    background: "transparent",
-    borderRadius: 6,
+    background: "white",
+    borderRadius: 7,
     cursor: "pointer",
-    transition: "all .12s",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    transition: "all .15s",
   }),
 
   /* Primary/variant buttons */
@@ -292,28 +307,30 @@ const S = {
         color: T.white,
       },
       danger: {
-        bg: `linear-gradient(135deg, ${T.red}, #f87171)`,
+        bg: `linear-gradient(135deg, ${T.red}, #ef4444)`,
         color: T.white,
       },
       success: {
-        bg: `linear-gradient(135deg, ${T.green}, #4ade80)`,
+        bg: `linear-gradient(135deg, ${T.green}, #22c55e)`,
         color: T.white,
       },
       ghost: { bg: T.slate, color: T.white },
     };
     const s = map[v] || map.primary;
     return {
-      padding: "7px 16px",
-      fontSize: 12.5,
+      padding: "8px 18px",
+      fontSize: 13,
       fontWeight: 600,
       background: s.bg,
       color: s.color,
       border: "none",
-      borderRadius: 8,
+      borderRadius: 7,
       cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(0,0,0,.10)",
+      boxShadow: "0 2px 6px rgba(0,0,0,.12)",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
       transition: "opacity .15s",
-      letterSpacing: "0.1px",
     };
   },
 
@@ -322,51 +339,51 @@ const S = {
     background: T.white,
     borderRadius: 12,
     border: `1px solid ${T.border}`,
-    boxShadow: "0 2px 12px rgba(15,23,42,.06)",
+    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.04)",
     overflow: "hidden",
-    marginTop: 24,
+    marginTop: 28,
   },
   tableHead: {
-    padding: "14px 20px",
+    padding: "16px 20px",
     background: `linear-gradient(135deg, ${T.slate}, #334155)`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  tableTitle: { fontSize: 14, fontWeight: 700, color: T.white },
-  tableCount: { fontSize: 11, color: "rgba(255,255,255,.6)", fontWeight: 500 },
+  tableTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
+  tableCount: { fontSize: 12, color: "rgba(255,255,255,.75)", fontWeight: 500 },
   filterBar: {
-    padding: "12px 16px",
-    background: T.bgAlt,
+    padding: "14px 18px",
+    background: T.bg,
     borderBottom: `1px solid ${T.border}`,
   },
   filterGrid: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 1.2fr 1fr 1fr auto auto",
-    gap: "8px 10px",
+    gap: "10px 12px",
     alignItems: "end",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   filterGrid2: {
     display: "grid",
     gridTemplateColumns: "1fr 1fr 5fr",
-    gap: "8px 10px",
+    gap: "10px 12px",
     alignItems: "end",
   },
   th: {
-    padding: "9px 12px",
-    fontSize: 10,
+    padding: "10px 14px",
+    fontSize: 11,
     fontWeight: 700,
     textTransform: "uppercase",
     letterSpacing: "0.7px",
     color: T.muted,
-    background: T.bgAlt,
+    background: T.bg,
     borderBottom: `2px solid ${T.border}`,
     whiteSpace: "nowrap",
   },
   td: {
-    padding: "9px 12px",
-    fontSize: 12.5,
+    padding: "11px 14px",
+    fontSize: 13,
     color: T.text,
     borderBottom: `1px solid ${T.border}`,
     verticalAlign: "middle",
@@ -376,27 +393,27 @@ const S = {
   badge: (ok) => ({
     display: "inline-flex",
     alignItems: "center",
-    gap: 4,
-    padding: "2px 9px",
+    gap: 5,
+    padding: "3px 10px",
     borderRadius: 20,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: 700,
-    background: ok ? `${T.green}18` : `${T.amber}18`,
-    color: ok ? T.green : T.amber,
-    border: `1px solid ${ok ? T.green : T.amber}40`,
+    background: ok ? `#dcfce7` : `#fef3c7`,
+    color: ok ? `#15803d` : `#b45309`,
+    border: `1px solid ${ok ? "#86efac" : "#fde68a"}`,
   }),
   dot: (ok) => ({
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: "50%",
-    background: ok ? T.green : T.amber,
+    background: ok ? "#16a34a" : "#d97706",
   }),
 
-  /* Modal */
+  /* Modals */
   overlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(15,23,42,.55)",
+    background: "rgba(15,23,42,.6)",
     backdropFilter: "blur(4px)",
     zIndex: 1050,
     display: "flex",
@@ -406,25 +423,25 @@ const S = {
   modalBox: {
     background: T.white,
     borderRadius: 14,
-    width: "min(680px, 94vw)",
+    width: "min(700px, 94vw)",
     maxHeight: "85vh",
     display: "flex",
     flexDirection: "column",
-    boxShadow: "0 20px 60px rgba(15,23,42,.22)",
+    boxShadow: "0 20px 60px rgba(15,23,42,.25)",
     overflow: "hidden",
   },
   modalHead: {
-    padding: "14px 20px",
+    padding: "16px 20px",
     background: `linear-gradient(135deg, ${T.slate}, #334155)`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     flexShrink: 0,
   },
-  modalTitle: { fontSize: 14, fontWeight: 700, color: T.white },
+  modalTitle: { fontSize: 15, fontWeight: 700, color: T.white, display: "flex", alignItems: "center", gap: 8 },
   modalClose: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: "50%",
     background: "rgba(255,255,255,.15)",
     border: "none",
@@ -435,20 +452,20 @@ const S = {
     alignItems: "center",
     justifyContent: "center",
   },
-  modalBody: { padding: 16, overflowY: "auto", flexGrow: 1 },
+  modalBody: { padding: 18, overflowY: "auto", flexGrow: 1 },
   modalFoot: {
-    padding: "12px 16px",
+    padding: "14px 18px",
     borderTop: `1px solid ${T.border}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 8,
+    gap: 10,
     flexShrink: 0,
   },
   invCard: (sel, warn) => ({
-    borderRadius: 8,
-    padding: "10px 12px",
-    marginBottom: 8,
+    borderRadius: 9,
+    padding: "12px 14px",
+    marginBottom: 10,
     cursor: "pointer",
     border: sel
       ? `2px solid ${T.teal}`
@@ -456,7 +473,22 @@ const S = {
         ? `2px solid ${T.amber}`
         : `1.5px solid ${T.border}`,
     background: sel ? `${T.teal}0d` : warn ? `${T.amber}08` : T.white,
-    transition: "all .12s",
+    transition: "all .15s",
+  }),
+
+  /* Table action button icon */
+  actionBtn: (color = T.teal) => ({
+    background: "white",
+    border: `1px solid ${T.border}`,
+    color: color,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    transition: "all 0.15s",
   }),
 };
 
@@ -527,7 +559,7 @@ const Summary = () => {
   const [medicineModalType, setMedicineModalType] = useState("");
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
   const allowedActions = JSON.parse(
-    localStorage.getItem("allowedActions") || "[]",
+    localStorage.getItem("allowedActions") || "[]"
   );
   const canEdit = allowedActions.includes("HMS-P-SUME-RW");
   const canDelete = allowedActions.includes("HMS-P-SUMD-RW");
@@ -638,13 +670,13 @@ const Summary = () => {
 
   const fetchIpPatient = async (overrideIp) => {
     const ip = typeof overrideIp === "string" ? overrideIp : formData.ipNo;
-    if (!ip) {
-      alert("Please enter IP Number");
+    if (!ip?.trim()) {
+      Swal.fire("Validation Error", "Please enter IP Number", "warning");
       return;
     }
     const r = await apiRequest(
       `${HMSURL}ip-patient/${encodeURIComponent(ip)}/`,
-      "GET",
+      "GET"
     );
     if (r.success) {
       const d = r.data;
@@ -665,7 +697,9 @@ const Summary = () => {
         doctor: d.admittingDoctor || "",
         address: fullAddress,
       }));
-    } else alert("Patient not found");
+    } else {
+      Swal.fire("Error", "Patient not found for the entered IP Number", "error");
+    }
   };
 
   useEffect(() => {
@@ -678,7 +712,7 @@ const Summary = () => {
 
   const fetchInvestigations = async () => {
     if (!formData.ipNo?.trim()) {
-      alert("Please enter a valid IP Number first");
+      Swal.fire("Validation Error", "Please enter a valid IP Number first", "warning");
       return;
     }
     setLoading(true);
@@ -686,13 +720,15 @@ const Summary = () => {
     setSelectedInvestigations([]);
     const r = await apiRequest(
       `${HMSURL}patient-investigations/${encodeURIComponent(formData.ipNo)}/`,
-      "GET",
+      "GET"
     );
     setLoading(false);
     if (r.success && Array.isArray(r.data) && r.data.length > 0) {
       setInvestigations(r.data);
       setShowInvestigations(true);
-    } else alert("No investigations found for this patient");
+    } else {
+      Swal.fire("Info", "No investigations found for this patient", "info");
+    }
   };
 
   const toggleInvestigationSelection = (inv) => {
@@ -700,23 +736,23 @@ const Summary = () => {
       const exists = prev.some(
         (i) =>
           i.reportType === inv.reportType &&
-          i.investigation === inv.investigation,
+          i.investigation === inv.investigation
       );
       return exists
         ? prev.filter(
-            (i) =>
-              !(
-                i.reportType === inv.reportType &&
-                i.investigation === inv.investigation
-              ),
-          )
+          (i) =>
+            !(
+              i.reportType === inv.reportType &&
+              i.investigation === inv.investigation
+            )
+        )
         : [...prev, inv];
     });
   };
 
   const addInvestigationsToNotes = () => {
     if (!selectedInvestigations.length) {
-      alert("Please select at least one investigation");
+      Swal.fire("Warning", "Please select at least one investigation", "warning");
       return;
     }
     let text = "INVESTIGATIONS:\n";
@@ -734,7 +770,7 @@ const Summary = () => {
         const fd = setFieldValue(
           prev.fieldsData,
           prev.currentField,
-          prev.notes,
+          prev.notes
         );
         const existing = getFieldValue(fd, "INVESTIGATIONS");
         const merged = existing ? `${existing}\n\n${text}` : text;
@@ -754,7 +790,7 @@ const Summary = () => {
 
   const fetchMedicines = async () => {
     if (!formData.ipNo?.trim()) {
-      alert("Please enter a valid IP Number first");
+      Swal.fire("Validation Error", "Please enter a valid IP Number first", "warning");
       return;
     }
     setMedicinesLoading(true);
@@ -762,19 +798,21 @@ const Summary = () => {
     setSelectedMedicines([]);
     const r = await apiRequest(
       `${HMSURL}patient-medicines/${encodeURIComponent(formData.ipNo)}/`,
-      "GET",
+      "GET"
     );
     setMedicinesLoading(false);
     if (r.success && Array.isArray(r.data) && r.data.length > 0) {
       setMedicines(r.data);
       setMedicineModalType("admission");
       setShowMedicines(true);
-    } else alert("No medicines found for this patient");
+    } else {
+      Swal.fire("Info", "No medicines found for this patient", "info");
+    }
   };
 
   const fetchDischargeMedicines = async () => {
     if (!formData.ipNo?.trim()) {
-      alert("Please enter a valid IP Number first");
+      Swal.fire("Validation Error", "Please enter a valid IP Number first", "warning");
       return;
     }
     setMedicinesLoading(true);
@@ -782,14 +820,16 @@ const Summary = () => {
     setSelectedMedicines([]);
     const r = await apiRequest(
       `${HMSURL}patient-discharge-medicines/${encodeURIComponent(formData.ipNo)}/`,
-      "GET",
+      "GET"
     );
     setMedicinesLoading(false);
     if (r.success && Array.isArray(r.data) && r.data.length > 0) {
       setMedicines(r.data);
       setMedicineModalType("discharge");
       setShowMedicines(true);
-    } else alert("No medicines found for this patient");
+    } else {
+      Swal.fire("Info", "No medicines found for this patient", "info");
+    }
   };
 
   const toggleMedicineSelection = (med, idx) => {
@@ -803,7 +843,7 @@ const Summary = () => {
 
   const addMedicinesToNotes = () => {
     if (!selectedMedicines.length) {
-      alert("Please select at least one medicine");
+      Swal.fire("Warning", "Please select at least one medicine", "warning");
       return;
     }
     const isDischarge = medicineModalType === "discharge";
@@ -816,7 +856,7 @@ const Summary = () => {
     const rows = selectedMedicines
       .map(
         (m) =>
-          `• ${m.itemName}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`,
+          `• ${m.itemName}  |  Dosage: ${m.dosage || "—"}  |  Days: ${m.noOfDays || "—"}  |  Unit: ${m.doseUnit || "—"}${m.route ? "  |  Route: " + m.route : ""}${m.remark && m.remark !== "Nil" ? "  |  Remark: " + m.remark : ""}`
       )
       .join("\n");
     const newBlock = `${header}\n${rows}`;
@@ -874,7 +914,7 @@ const Summary = () => {
       fds = setFieldValue(
         formData.fieldsData,
         formData.currentField,
-        formData.notes,
+        formData.notes
       );
       setFormData((prev) => ({ ...prev, fieldsData: fds }));
     }
@@ -889,27 +929,29 @@ const Summary = () => {
     };
     const r = await apiRequest(`${HMSURL}summaries/create/`, "POST", payload);
     if (r.success) {
-      alert("Summary successfully created!");
+      Swal.fire("Success", "Summary successfully created!", "success");
       resetForm();
       fetchSummaries({
         fromDate: filters.fromDate,
         toDate: filters.toDate,
         summaryType: filters.summaryType,
       });
-    } else alert(r.error || "Failed to submit summary.");
+    } else {
+      Swal.fire("Error", r.error || "Failed to submit summary.", "error");
+    }
   };
 
   const handleUpdate = async () => {
     const fd = setFieldValue(
       formData.fieldsData,
       formData.currentField,
-      formData.notes,
+      formData.notes
     );
     const filtered = fd.filter(
-      (f) => f.value !== undefined && f.value !== "" && f.key !== "undefined",
+      (f) => f.value !== undefined && f.value !== "" && f.key !== "undefined"
     );
     if (!filtered.length) {
-      alert("Please fill in the required fields.");
+      Swal.fire("Validation Error", "Please fill in the required fields.", "warning");
       return;
     }
     const dp = prepareDiseasesPayload();
@@ -922,17 +964,19 @@ const Summary = () => {
         disease: dp.disease,
         selectedDiseases,
         fieldsData: filtered,
-      },
+      }
     );
     if (r.success) {
-      alert("Summary updated successfully!");
+      Swal.fire("Success", "Summary updated successfully!", "success");
       resetForm();
       fetchSummaries({
         fromDate: filters.fromDate,
         toDate: filters.toDate,
         summaryType: filters.summaryType,
       });
-    } else alert(`Failed to update summary: ${r.error || "Unknown error"}`);
+    } else {
+      Swal.fire("Error", `Failed to update summary: ${r.error || "Unknown error"}`, "error");
+    }
   };
 
   const resetForm = () => {
@@ -946,7 +990,7 @@ const Summary = () => {
   const handleEdit = async (ipNo) => {
     const r = await apiRequest(
       `${HMSURL}get-editsummary/${encodeURIComponent(ipNo)}/`,
-      "GET",
+      "GET"
     );
     if (r.success) {
       const d = r.data;
@@ -957,7 +1001,7 @@ const Summary = () => {
             ? JSON.parse(d.fieldsData)
             : d.fieldsData || [];
         parsedFD = normalizeFieldsData(raw);
-      } catch {}
+      } catch { }
       let parsedDiseases = [];
       try {
         const raw =
@@ -965,7 +1009,7 @@ const Summary = () => {
             ? JSON.parse(d.selectedDiseases)
             : d.selectedDiseases;
         if (Array.isArray(raw) && raw.length > 0) parsedDiseases = raw;
-      } catch {}
+      } catch { }
       if (parsedDiseases.length === 0 && d.diseaseCode && d.disease) {
         const codes = d.diseaseCode.split(", "),
           names = d.disease.split("; ");
@@ -986,20 +1030,36 @@ const Summary = () => {
       setIsEditMode(true);
       setEditingIpNo(ipNo);
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } else alert("Summary not found");
+    } else {
+      Swal.fire("Error", "Summary not found", "error");
+    }
   };
 
   const handlePrint = (ipNo) =>
     navigate(`/SummaryPrint/${encodeURIComponent(ipNo)}`);
+
   const handleDelete = async (ipNo) => {
-    if (window.confirm("Are you sure you want to delete this summary?")) {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "Do you want to delete this discharge summary?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete it!"
+    });
+
+    if (result.isConfirmed) {
       const r = await apiRequest(`${HMSURL}delete-summary/${ipNo}/`, "PATCH");
       if (r.success) {
-        alert("Summary deleted successfully");
+        Swal.fire("Deleted!", "Summary deleted successfully.", "success");
         setSummaries((prev) => prev.filter((s) => s.ipNo !== ipNo));
-      } else alert("Error deleting summary: " + r.error);
+      } else {
+        Swal.fire("Error", "Error deleting summary: " + (r.error || "Unknown error"), "error");
+      }
     }
   };
+
   const handleApprove = async (ipNo) => {
     const r = await apiRequest(`${HMSURL}approve-summary/${ipNo}/`, "PATCH", {
       approve: true,
@@ -1007,34 +1067,48 @@ const Summary = () => {
     });
     if (r.success) {
       setSummaries((prev) =>
-        prev.map((s) => (s.ipNo === ipNo ? { ...s, approve: true } : s)),
+        prev.map((s) => (s.ipNo === ipNo ? { ...s, approve: true } : s))
       );
-      alert("Summary approved!");
-    } else alert("Error approving summary: " + r.error);
+      Swal.fire("Approved!", "Summary approved successfully!", "success");
+    } else {
+      Swal.fire("Error", "Error approving summary: " + (r.error || "Unknown error"), "error");
+    }
   };
-  const handleCancelEdit = () => {
-    if (window.confirm("Cancel editing? Unsaved changes will be lost."))
+
+  const handleCancelEdit = async () => {
+    const result = await Swal.fire({
+      title: "Cancel editing?",
+      text: "Unsaved changes will be lost.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, cancel"
+    });
+
+    if (result.isConfirmed) {
       resetForm();
+    }
   };
 
   const fmtDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        })
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
       : "—";
   const fmtDateTime = (d) =>
     d
       ? new Date(d).toLocaleString("en-GB", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        })
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
       : "—";
 
   const todayStr = new Date().toISOString().split("T")[0];
@@ -1093,12 +1167,12 @@ const Summary = () => {
         (s.ipNo || "").toLowerCase().includes(filters.ipNo.toLowerCase())) &&
       (!filters.summaryType ||
         (s.summaryType || "").toLowerCase() ===
-          filters.summaryType.toLowerCase()),
+        filters.summaryType.toLowerCase())
   );
 
   /* ─── Filter input style (compact) ───────────────────────────────────── */
-  const fi = { ...S.inp, height: 30, fontSize: 12 };
-  const fs = { ...S.sel, height: 30, fontSize: 12 };
+  const fi = { ...S.inp, height: 32, fontSize: 12.5 };
+  const fs = { ...S.sel, height: 32, fontSize: 12.5 };
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
@@ -1107,19 +1181,26 @@ const Summary = () => {
         {/* Top bar */}
         <div style={S.topBar}>
           <h1 style={S.pageTitle}>
-            <span style={S.titleIcon}>🏥</span>
+            <span style={S.titleIcon}>
+              <FileText size={22} />
+            </span>
             {isEditMode ? "Edit Discharge Summary" : "Discharge Summary"}
           </h1>
-          <div style={S.datePill}>📅 {currentDate}</div>
+          <div style={S.datePill}>
+            <Calendar size={15} />
+            <span>{currentDate}</span>
+          </div>
         </div>
 
         {/* Edit banner */}
         {isEditMode && (
           <div style={S.editBanner}>
-            <span>✏️</span>
-            Editing summary for IP No:&nbsp;
-            <strong style={{ color: T.teal }}>{editingIpNo}</strong>
-            &nbsp;— scroll down to the notes section to make changes.
+            <Edit size={18} color={T.sky} />
+            <span>
+              Editing summary for IP No:&nbsp;
+              <strong style={{ color: T.teal }}>{editingIpNo}</strong>
+              &nbsp;— scroll down to the notes section to make changes.
+            </span>
           </div>
         )}
 
@@ -1127,6 +1208,7 @@ const Summary = () => {
         <div style={S.card}>
           <div style={S.cardHead}>
             <div style={S.cardHeadBar} />
+            <User size={16} />
             Patient Information
           </div>
           <div style={S.cardBody}>
@@ -1149,7 +1231,7 @@ const Summary = () => {
                 />
                 {!isEditMode && (
                   <button style={S.searchMicroBtn} onClick={fetchIpPatient}>
-                    🔍 Search
+                    <Search size={12} /> Search
                   </button>
                 )}
               </Fld>
@@ -1304,6 +1386,7 @@ const Summary = () => {
         <div style={S.card}>
           <div style={S.cardHead}>
             <div style={S.cardHeadBar} />
+            <Stethoscope size={16} />
             ICD‑11 Disease Coding
           </div>
           <div style={S.cardBody}>
@@ -1319,7 +1402,10 @@ const Summary = () => {
         <div style={S.notesLayout}>
           {/* Sidebar */}
           <div style={S.sidebar}>
-            <div style={S.sidebarHead}>Clinical Fields</div>
+            <div style={S.sidebarHead}>
+              <Activity size={14} />
+              Clinical Fields
+            </div>
             {noteFields.map((field) => (
               <div
                 key={field}
@@ -1338,8 +1424,8 @@ const Summary = () => {
                 <>
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 8,
+                      height: 8,
                       borderRadius: "50%",
                       background: T.teal,
                       display: "inline-block",
@@ -1348,7 +1434,7 @@ const Summary = () => {
                   {selectedField}
                 </>
               ) : (
-                <span style={{ color: T.muted, fontSize: 12 }}>
+                <span style={{ color: T.muted, fontSize: 13 }}>
                   ← Select a clinical field from the sidebar
                 </span>
               )}
@@ -1363,42 +1449,52 @@ const Summary = () => {
               onChange={handleChange}
               onFocus={(e) => {
                 e.target.style.borderColor = T.teal;
+                e.target.style.boxShadow = `0 0 0 3px ${T.teal}18`;
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = T.border;
+                e.target.style.boxShadow = "none";
               }}
             />
 
             {/* Quick-add */}
             <div style={S.actionRow}>
               <button style={S.outBtn(T.teal)} onClick={fetchInvestigations}>
-                ＋ Investigations
+                <Plus size={14} /> Investigations
               </button>
               <button style={S.outBtn(T.sky)} onClick={fetchMedicines}>
-                ＋ Admission Medicines
+                <Pill size={14} /> Admission Medicines
               </button>
               <button
                 style={S.outBtn(T.green)}
                 onClick={fetchDischargeMedicines}
               >
-                ＋ Discharge Medicines
+                <Pill size={14} /> Discharge Medicines
               </button>
             </div>
 
             {/* Submit */}
             <div
-              style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}
+              style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}
             >
               {isEditMode && (
                 <button style={S.btn("danger")} onClick={handleCancelEdit}>
-                  ✕ Cancel
+                  <X size={15} /> Cancel
                 </button>
               )}
               <button
                 style={S.btn("primary")}
                 onClick={isEditMode ? handleUpdate : handleSubmit}
               >
-                {isEditMode ? "💾 Update Summary" : "⬆ Upload Summary"}
+                {isEditMode ? (
+                  <>
+                    <Edit size={15} /> Update Summary
+                  </>
+                ) : (
+                  <>
+                    <Plus size={15} /> Save Summary
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1409,17 +1505,19 @@ const Summary = () => {
           <div style={S.overlay}>
             <div style={S.modalBox}>
               <div style={S.modalHead}>
-                <span style={S.modalTitle}>🔬 Patient Investigations</span>
+                <span style={S.modalTitle}>
+                  <Activity size={18} /> Patient Investigations
+                </span>
                 <button
                   style={S.modalClose}
                   onClick={() => setShowInvestigations(false)}
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
               <div style={S.modalBody}>
                 {loading ? (
-                  <div style={{ textAlign: "center", padding: 32 }}>
+                  <div style={{ textAlign: "center", padding: 36 }}>
                     <div className="spinner-border text-primary" />
                     <p style={{ marginTop: 12, color: T.muted, fontSize: 13 }}>
                       Loading investigations…
@@ -1427,7 +1525,7 @@ const Summary = () => {
                   </div>
                 ) : investigations.length === 0 ? (
                   <p
-                    style={{ textAlign: "center", color: T.muted, padding: 32 }}
+                    style={{ textAlign: "center", color: T.muted, padding: 36 }}
                   >
                     No investigations found.
                   </p>
@@ -1437,15 +1535,15 @@ const Summary = () => {
                       style={{ color: T.muted, fontSize: 12, marginBottom: 12 }}
                     >
                       Click to select.{" "}
-                      <span style={{ color: T.amber }}>
-                        ⚠ Yellow = Pending Approval.
+                      <span style={{ color: T.amber, fontWeight: 600 }}>
+                        ⚠ Yellow border = Pending Approval.
                       </span>
                     </p>
                     {investigations.map((inv, i) => {
                       const sel = selectedInvestigations.some(
                         (si) =>
                           si.reportType === inv.reportType &&
-                          si.investigation === inv.investigation,
+                          si.investigation === inv.investigation
                       );
                       return (
                         <div
@@ -1471,7 +1569,7 @@ const Summary = () => {
                                   fontWeight: 700,
                                   color: T.amber,
                                   background: `${T.amber}18`,
-                                  padding: "2px 7px",
+                                  padding: "2px 8px",
                                   borderRadius: 20,
                                 }}
                               >
@@ -1481,9 +1579,9 @@ const Summary = () => {
                           </div>
                           <p
                             style={{
-                              fontSize: 12,
+                              fontSize: 12.5,
                               color: T.textSm,
-                              marginBottom: 3,
+                              marginBottom: 4,
                               whiteSpace: "pre-wrap",
                             }}
                           >
@@ -1508,7 +1606,7 @@ const Summary = () => {
                   <span
                     style={{
                       marginRight: "auto",
-                      fontSize: 12,
+                      fontSize: 13,
                       color: T.teal,
                       fontWeight: 600,
                     }}
@@ -1525,7 +1623,7 @@ const Summary = () => {
                 <button
                   style={{
                     ...S.btn("primary"),
-                    opacity: selectedInvestigations.length ? 1 : 0.4,
+                    opacity: selectedInvestigations.length ? 1 : 0.5,
                   }}
                   onClick={addInvestigationsToNotes}
                   disabled={!selectedInvestigations.length}
@@ -1543,7 +1641,7 @@ const Summary = () => {
             <div style={S.modalBox}>
               <div style={S.modalHead}>
                 <span style={S.modalTitle}>
-                  💊{" "}
+                  <Pill size={18} />{" "}
                   {medicineModalType === "discharge"
                     ? "Discharge Medicines"
                     : "Admission Medicines"}
@@ -1552,12 +1650,12 @@ const Summary = () => {
                   style={S.modalClose}
                   onClick={() => setShowMedicines(false)}
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
               <div style={S.modalBody}>
                 {medicinesLoading ? (
-                  <div style={{ textAlign: "center", padding: 32 }}>
+                  <div style={{ textAlign: "center", padding: 36 }}>
                     <div className="spinner-border text-primary" />
                     <p style={{ marginTop: 12, color: T.muted, fontSize: 13 }}>
                       Loading medicines…
@@ -1565,7 +1663,7 @@ const Summary = () => {
                   </div>
                 ) : medicines.length === 0 ? (
                   <p
-                    style={{ textAlign: "center", color: T.muted, padding: 32 }}
+                    style={{ textAlign: "center", color: T.muted, padding: 36 }}
                   >
                     No medicines found.
                   </p>
@@ -1589,13 +1687,13 @@ const Summary = () => {
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              marginBottom: 4,
+                              marginBottom: 6,
                             }}
                           >
-                            <strong style={{ fontSize: 13, color: T.teal }}>
+                            <strong style={{ fontSize: 13.5, color: T.teal }}>
                               {med.itemName}
                             </strong>
-                            <div style={{ display: "flex", gap: 4 }}>
+                            <div style={{ display: "flex", gap: 6 }}>
                               {med.is_discharge_medicine && (
                                 <span
                                   style={{
@@ -1603,7 +1701,7 @@ const Summary = () => {
                                     fontWeight: 700,
                                     color: T.green,
                                     background: `${T.green}18`,
-                                    padding: "2px 7px",
+                                    padding: "2px 8px",
                                     borderRadius: 20,
                                   }}
                                 >
@@ -1617,7 +1715,7 @@ const Summary = () => {
                                     fontWeight: 700,
                                     color: T.sky,
                                     background: `${T.sky}18`,
-                                    padding: "2px 7px",
+                                    padding: "2px 8px",
                                     borderRadius: 20,
                                   }}
                                 >
@@ -1634,27 +1732,27 @@ const Summary = () => {
                             }}
                           >
                             {med.dosage && (
-                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                              <small style={{ color: T.textSm, fontSize: 12 }}>
                                 <b>Dosage:</b> {med.dosage}
                               </small>
                             )}
                             {med.noOfDays && (
-                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                              <small style={{ color: T.textSm, fontSize: 12 }}>
                                 <b>Days:</b> {med.noOfDays}
                               </small>
                             )}
                             {med.qty && (
-                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                              <small style={{ color: T.textSm, fontSize: 12 }}>
                                 <b>Qty:</b> {med.qty} {med.doseUnit}
                               </small>
                             )}
                             {med.route && (
-                              <small style={{ color: T.textSm, fontSize: 11 }}>
+                              <small style={{ color: T.textSm, fontSize: 12 }}>
                                 <b>Route:</b> {med.route}
                               </small>
                             )}
                             {med.remark && med.remark !== "Nil" && (
-                              <small style={{ color: T.muted, fontSize: 11 }}>
+                              <small style={{ color: T.muted, fontSize: 12 }}>
                                 <b>Remark:</b> {med.remark}
                               </small>
                             )}
@@ -1670,7 +1768,7 @@ const Summary = () => {
                   <span
                     style={{
                       marginRight: "auto",
-                      fontSize: 12,
+                      fontSize: 13,
                       color: T.teal,
                       fontWeight: 600,
                     }}
@@ -1687,7 +1785,7 @@ const Summary = () => {
                 <button
                   style={{
                     ...S.btn("primary"),
-                    opacity: selectedMedicines.length ? 1 : 0.4,
+                    opacity: selectedMedicines.length ? 1 : 0.5,
                   }}
                   onClick={addMedicinesToNotes}
                   disabled={!selectedMedicines.length}
@@ -1702,7 +1800,9 @@ const Summary = () => {
         {/* ══ SUMMARY TABLE ══ */}
         <div style={S.tableWrap}>
           <div style={S.tableHead}>
-            <span style={S.tableTitle}>📋 Summary Reports</span>
+            <span style={S.tableTitle}>
+              <Activity size={18} /> Summary Reports
+            </span>
             <span style={S.tableCount}>
               {filteredSummaries.length} of {summaries.length} records
             </span>
@@ -1775,38 +1875,41 @@ const Summary = () => {
                   onClick={applyServerFilters}
                   style={{
                     ...S.btn("primary"),
-                    height: 30,
+                    height: 32,
                     padding: "0 14px",
-                    fontSize: 11.5,
+                    fontSize: 12,
                   }}
                 >
-                  🔍 Search
+                  <Search size={13} /> Search
                 </button>
               </div>
               <div style={{ display: "flex", alignItems: "flex-end" }}>
                 <button
                   onClick={clearFilters}
                   style={{
-                    height: 30,
-                    padding: "0 12px",
-                    fontSize: 11.5,
+                    height: 32,
+                    padding: "0 14px",
+                    fontSize: 12,
                     fontWeight: 600,
                     border: `1px solid ${T.border}`,
-                    borderRadius: 6,
+                    borderRadius: 7,
                     background: T.white,
                     color: T.muted,
                     cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.borderColor = T.red;
-                    e.target.style.color = T.red;
+                    e.currentTarget.style.borderColor = T.red;
+                    e.currentTarget.style.color = T.red;
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.borderColor = T.border;
-                    e.target.style.color = T.muted;
+                    e.currentTarget.style.borderColor = T.border;
+                    e.currentTarget.style.color = T.muted;
                   }}
                 >
-                  ✕ Clear
+                  <X size={13} /> Clear
                 </button>
               </div>
             </div>
@@ -1894,7 +1997,7 @@ const Summary = () => {
                   {filteredSummaries.map((s, i) => (
                     <tr
                       key={s.id || i}
-                      style={{ background: i % 2 === 0 ? T.white : T.bgAlt }}
+                      style={{ background: i % 2 === 0 ? T.white : T.bg }}
                     >
                       <td style={S.td}>{fmtDate(s.date)}</td>
                       <td style={{ ...S.td, fontWeight: 600, color: T.teal }}>
@@ -1906,67 +2009,64 @@ const Summary = () => {
                           {s.approve ? "Approved" : "Pending"}
                         </span>
                       </td>
-                      <td style={{ ...S.td, fontSize: 12 }}>{s.summaryType}</td>
+                      <td style={{ ...S.td, fontSize: 12.5 }}>{s.summaryType}</td>
                       <td style={S.td}>{s.uhid}</td>
                       <td style={{ ...S.td, fontWeight: 600 }}>{s.ipNo}</td>
-                      <td style={{ ...S.td, fontSize: 12 }}>
+                      <td style={{ ...S.td, fontSize: 12.5 }}>
                         {fmtDateTime(s.approve_time)}
                       </td>
                       <td style={S.td}>
                         <div
-                          style={{ display: "flex", gap: 5, flexWrap: "wrap" }}
+                          style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}
                         >
                           {canEdit && (
                             <button
                               style={{
-                                ...S.btn("ghost"),
-                                padding: "4px 10px",
-                                fontSize: 11.5,
-                                opacity: s.approve ? 0.4 : 1,
+                                ...S.actionBtn(T.teal),
+                                opacity: s.approve ? 0.35 : 1,
+                                cursor: s.approve ? "not-allowed" : "pointer",
                               }}
+                              title="Edit Summary"
                               onClick={() => handleEdit(s.ipNo)}
                               disabled={s.approve}
                             >
-                              Edit
+                              <Edit size={15} />
                             </button>
                           )}
                           {canDelete && (
                             <button
                               style={{
-                                ...S.btn("danger"),
-                                padding: "4px 10px",
-                                fontSize: 11.5,
-                                opacity: s.approve ? 0.4 : 1,
+                                ...S.actionBtn(T.red),
+                                opacity: s.approve ? 0.35 : 1,
+                                cursor: s.approve ? "not-allowed" : "pointer",
                               }}
+                              title="Delete Summary"
                               onClick={() => handleDelete(s.ipNo)}
                               disabled={s.approve}
                             >
-                              Delete
+                              <Trash2 size={15} />
                             </button>
                           )}
                           {canApprove && (
                             <button
                               style={{
-                                ...S.btn("success"),
-                                padding: "4px 10px",
-                                fontSize: 11.5,
-                                opacity: s.approve ? 0.4 : 1,
+                                ...S.actionBtn(T.green),
+                                opacity: s.approve ? 0.35 : 1,
+                                cursor: s.approve ? "not-allowed" : "pointer",
                               }}
+                              title="Approve Summary"
                               onClick={() => handleApprove(s.ipNo)}
                               disabled={s.approve}
                             >
-                              Approve
+                              <CheckCircle size={15} />
                             </button>
                           )}
                           <button
-                            style={{
-                              ...S.btn("primary"),
-                              padding: "4px 10px",
-                              fontSize: 11.5,
-                            }}
+                            style={S.actionBtn(T.sky)}
+                            title="Print Summary"
                             onClick={() => handlePrint(s.ipNo)}
                           >
-                            Print
+                            <Printer size={15} />
                           </button>
                         </div>
                       </td>
