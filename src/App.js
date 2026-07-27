@@ -172,6 +172,8 @@ import SalesBilling from "./Components/Velavan/SalesBilling";
 import SalesReport from "./Components/Velavan/SalesReport";
 import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
 import VelavanCustomerList from "./Components/Velavan/VelavanCustomerList";
+import DoctorFeeCuts from "./Components/DoctorFeeCutsMaster/DoctorFeeCuts";
+import DoctorFeeCutsReport from "./Components/DoctorFeeCutsMaster/DoctorFeeCutsReport";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -917,6 +919,27 @@ function App() {
                     element={<DoctorSchedule />}
                   />
                 )}
+              {/* Doctor Fee Cuts */}
+              {hasPagePermission(
+                "/DoctorFeeCuts",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DoctorFeeCuts"
+                    element={<DoctorFeeCuts />}
+                  />
+                )}
+              {hasPagePermission(
+                "/DoctorFeeCuts",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DoctorFeeCutsReport"
+                    element={<DoctorFeeCutsReport />}
+                  />
+                )}
 
               {/* Investigation Billing */}
               {hasPagePermission(
@@ -1459,27 +1482,27 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
-              )}
+                  <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
+                )}
 
               {hasPagePermission(
                 "/LicenceMaster",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/LicenceMaster" element={<LicenceMaster />} />
-              )}
+                  <Route path="/LicenceMaster" element={<LicenceMaster />} />
+                )}
 
               {hasPagePermission(
                 "/CreateLicinecename",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
-              )}
+                  <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
+                )}
 
 
-                  <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
+              <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
                 )}
             </Routes>
           </ContentWrapper>
