@@ -273,8 +273,8 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
   const itemRows =
     items.length > 0
       ? items
-          .map(
-            (it, i) => `
+        .map(
+          (it, i) => `
       <tr>
         <td>${i + 1}</td>
         <td>${it.itemName || ""}</td>
@@ -282,8 +282,8 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
         <td style="text-align:right">${parseFloat(it.price || 0).toFixed(2)}</td>
         <td style="text-align:right">${(parseFloat(it.price || 0) * parseInt(it.quantity || 1)).toFixed(2)}</td>
       </tr>`,
-          )
-          .join("")
+        )
+        .join("")
       : `<tr><td colspan="5" style="text-align:center;color:#888">No items</td></tr>`;
 
   return `<!DOCTYPE html>
@@ -300,15 +300,14 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
   .hospital-name { font-weight: 800; letter-spacing: 0.5px; }
   .hospital-sub { font-size: 0.85em; color: #444; }
 
-  ${
-    isEstimate
+  ${isEstimate
       ? `.est-banner {
     text-align: center; font-weight: 700; color: #b45309;
     border: 2px dashed #d97706; border-radius: 4px;
     padding: 3px; margin: 6px 0; font-size: 1em;
   }`
       : ""
-  }
+    }
 
   .bill-meta { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
   .meta-col { flex: 1; min-width: 0; }
@@ -340,14 +339,13 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
     <div class="hospital-sub">CIN: L85110TZ2020PLC033974 &nbsp;|&nbsp; GST: 33ABDCS8326A1ZP</div>
   </div>
 
-  ${
-    isEstimate
+  ${isEstimate
       ? `<div class="est-banner">*** ESTIMATE BILL ***</div>`
       : `
   <div style="text-align:center;font-weight:700;margin-bottom:6px;">
     ${bill.paymentMethod || ""} &nbsp;—&nbsp; ${bill.billType || ""}
   </div>`
-  }
+    }
 
   <div class="bill-meta">
     <div class="meta-col">

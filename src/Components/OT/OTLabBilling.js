@@ -100,13 +100,15 @@ const DropdownList = styled.div`
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
-  max-height: 200px;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(650px, 90vw);
+  max-height: 240px;
   overflow-y: auto;
   background: white;
   border: 1px solid ${colors.primary};
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   margin-top: 2px;
 `;
@@ -127,6 +129,44 @@ const DropdownItem = styled.div`
 const ProductSection = styled(ContentCard)`
   background: #fafbfc;
   padding: 8px 12px;
+`;
+
+// ─── Responsive Grid Rows for Billing Details & Items ────────────────────────
+
+const BillingDetailsGrid = styled(FormRow)`
+  grid-template-columns: minmax(130px, 1fr) minmax(120px, 1fr) minmax(240px, 2fr) minmax(200px, 1.5fr) minmax(200px, 1.5fr);
+  gap: 10px 14px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ItemSelectionGrid = styled(FormRow)`
+  grid-template-columns: minmax(300px, 3.5fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+  gap: 10px 14px;
+  align-items: end;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+
+    /* Item Name takes full width on mobile */
+    > div:first-child {
+      grid-column: 1 / -1;
+    }
+
+    /* Add Item button takes full width on mobile */
+    > button {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-top: 6px;
+    }
+  }
 `;
 
 const AddBtn = styled(Button)`
@@ -396,9 +436,14 @@ const OTLabBilling = () => {
     surgeryRef: "",
     roomNo: "", // stores ot_name from navigated surgery data
     is_emergency: false,
+    billType: "",
+    bill_type: "",
+    billTypeNo: "LAB01",
   });
 
   const [doctors, setDoctors] = useState([]);
+  const [billTypes, setBillTypes] = useState([]);
+  const [selectedBillTypeNo, setSelectedBillTypeNo] = useState("LAB01");
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState("");
   const [selectedPrice, setSelectedPrice] = useState("");
@@ -435,19 +480,73 @@ const OTLabBilling = () => {
     fetchDoctors();
   }, [HMSURL]);
 
-  // ── Fetch LAB items once on mount ──────────────────────────────────────────
+  // ── Fetch LAB bill types (LAB01 & LAB02) ──────────────────────────────────
   useEffect(() => {
+    const fetchBillTypes = async () => {
+      const result = await apiRequest(`${HMSURL}bill-types/`, "GET");
+      if (result.success) {
+        const labTypes = (result.data.billTypes || [])
+          .map((bt) => ({
+            ...bt,
+            billTypeNo: bt.billTypeNo ?? bt.BillTypeNo ?? 0,
+          }))
+          .filter((bt) =>
+            ["LAB01", "LAB02"].includes(
+              String(bt.billTypeNo).trim().toUpperCase(),
+            ),
+          );
+        setBillTypes(labTypes);
+
+        const defaultLab =
+          labTypes.find(
+            (b) => String(b.billTypeNo).trim().toUpperCase() === "LAB01",
+          ) || labTypes[0];
+
+        if (defaultLab) {
+          setFormData((prev) => ({
+            ...prev,
+            billType: defaultLab.bill_name,
+            bill_type: defaultLab.bill_type,
+            billTypeNo: defaultLab.billTypeNo,
+          }));
+          setSelectedBillTypeNo(defaultLab.billTypeNo);
+        }
+      }
+    };
+    fetchBillTypes();
+  }, [HMSURL]);
+
+  // ── Fetch items when bill type changes ────────────────────────────────────
+  useEffect(() => {
+    if (!formData.bill_type || !selectedBillTypeNo) return;
     const fetchItems = async () => {
       setLoadingItems(true);
       const res = await apiRequest(
-        `${HMSURL}investigation-items/?billTypeNo=${LAB_BILL_TYPE_NO}&billType=${LAB_BILL_TYPE}`,
+        `${HMSURL}investigation-items/?billTypeNo=${selectedBillTypeNo}&billType=${formData.bill_type}`,
         "GET",
       );
       if (res.success) setItems(res.data?.items || []);
       setLoadingItems(false);
     };
     fetchItems();
-  }, [HMSURL]);
+  }, [HMSURL, selectedBillTypeNo, formData.bill_type]);
+
+  const handleBillTypeChange = (billName) => {
+    const bt = billTypes.find((b) => b.bill_name === billName);
+    if (bt) {
+      const bNo = bt.billTypeNo ?? bt.BillTypeNo ?? "LAB01";
+      setSelectedBillTypeNo(bNo);
+      setFormData((prev) => ({
+        ...prev,
+        billType: bt.bill_name,
+        bill_type: bt.bill_type,
+        billTypeNo: bNo,
+      }));
+      setSelectedItem("");
+      setSelectedPrice("");
+      setProductList([]);
+    }
+  };
 
   // ── Populate form from navigation state ───────────────────────────────────
   // UHID and IP Number now come exclusively from navigated data (no manual
@@ -518,7 +617,8 @@ const OTLabBilling = () => {
       itemName: selectedItem,
       price: selectedPrice,
       quantity,
-      billTypeNo: LAB_BILL_TYPE_NO,
+      billTypeNo: selectedBillTypeNo,
+      nabh_code: obj?.nabh_code || "",
       ...(obj?.test_id && { test_id: obj.test_id }),
       ...(obj?.item_id && { item_id: obj.item_id }),
     };
@@ -575,8 +675,8 @@ const OTLabBilling = () => {
       uhid: formData.uhid,
       ipNumber: formData.ipNumber,
       doctor: formData.doctor, // employeeId
-      bill_type: LAB_BILL_TYPE,
-      billTypeNo: LAB_BILL_TYPE_NO,
+      bill_type: formData.bill_type || LAB_BILL_TYPE,
+      billTypeNo: selectedBillTypeNo || LAB_BILL_TYPE_NO,
       referredBy: formData.referredBy, // employeeId
       discountPercent: 0,
       discount: 0,
@@ -622,9 +722,31 @@ const OTLabBilling = () => {
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
     <PageContainer>
-      <PageTitle>🧪 Lab Request Billing</PageTitle>
+      <PageTitle style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Button
+            type="button"
+            onClick={() => navigate("/SurgerySchedule")}
+            style={{
+              background: "#475569",
+              padding: "4px 10px",
+              fontSize: "0.78rem",
+              height: "auto",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            ⬅ Back
+          </Button>
+          <span>🧪 Lab Request Billing</span>
+        </div>
+      </PageTitle>
 
       <NavigationLinks>
+        <NavLink onClick={() => navigate("/SurgerySchedule")}>
+          ⬅ Back to Surgery Schedule
+        </NavLink>
         <NavLink onClick={() => navigate("/ViewBills")}>📄 View Bills</NavLink>
       </NavigationLinks>
 
@@ -745,7 +867,7 @@ const OTLabBilling = () => {
             <SectionLabel>📋 Billing Details</SectionLabel>
           </SectionHeader>
 
-          <FormRow>
+          <BillingDetailsGrid>
             <InputWrapper>
               <Label>Bill Date</Label>
               <Input
@@ -766,18 +888,13 @@ const OTLabBilling = () => {
               />
             </InputWrapper>
 
-            {/* Bill Type — fixed LAB01, shown as read-only */}
             <InputWrapper>
-              <Label>Bill Type</Label>
-              <Input
-                type="text"
-                value={`LAB (${LAB_BILL_TYPE_NO})`}
-                readOnly
-                style={{
-                  background: "#f1f5f9",
-                  color: "#1d4ed8",
-                  fontWeight: 600,
-                }}
+              <Label required>Bill Type</Label>
+              <SearchableDropdown
+                value={formData.billType}
+                onChange={handleBillTypeChange}
+                options={billTypes.map((bt) => bt.bill_name)}
+                placeholder="Select bill type..."
               />
             </InputWrapper>
 
@@ -820,7 +937,7 @@ const OTLabBilling = () => {
                 placeholder="Select doctor..."
               />
             </InputWrapper>
-          </FormRow>
+          </BillingDetailsGrid>
 
           {/* ── Lab Items ───────────────────────────────────────────────── */}
           <ProductSection>
@@ -828,11 +945,7 @@ const OTLabBilling = () => {
               <SectionLabel>🔬 Lab Tests</SectionLabel>
             </SectionHeader>
 
-            <FormRow
-              style={{
-                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-              }}
-            >
+            <ItemSelectionGrid>
               <InputWrapper>
                 <Label required>Test</Label>
                 <SearchableDropdown
@@ -872,7 +985,7 @@ const OTLabBilling = () => {
               <AddBtn type="button" onClick={addProduct}>
                 + Add Test
               </AddBtn>
-            </FormRow>
+            </ItemSelectionGrid>
 
             {productList.length > 0 ? (
               <TableWrapper>
