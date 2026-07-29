@@ -1503,7 +1503,7 @@ function App() {
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
-                )}
+
             </Routes>
           </ContentWrapper>
         </>
