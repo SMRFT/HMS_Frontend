@@ -24,6 +24,7 @@ import UserPermissionManager from "./Auth/UserPermissionManager";
 import OutletSelectionModal from "./Components/OutletSelectionModal";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
+import Vaccination from "./Components/NursingStation/Vaccination";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
@@ -552,6 +553,12 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Admission" element={<Admission />} />}
+
+              {hasPagePermission(
+                "/Vaccination",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/Vaccination" element={<Vaccination />} />}
 
               {hasPagePermission(
                 "/IPAdvance",
