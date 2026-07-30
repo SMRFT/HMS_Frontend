@@ -533,7 +533,7 @@ const InvestigationBilling = () => {
 
   useEffect(() => {
     const fetchBillTypes = async () => {
-      const result = await apiRequest(`${HMSURL}bill-types/`, "GET");
+      const result = await apiRequest(`${HMSURL}invest-bill-types/`, "GET");
       if (result.success) {
         const normalized = (result.data.billTypes || []).map((bt) => ({
           ...bt,
