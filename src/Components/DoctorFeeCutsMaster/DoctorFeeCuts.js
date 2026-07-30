@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-    Table, Button, Select, Input, Space, message, Row, Col, Card, Tag, Checkbox, Tooltip
+    Table, Button, Select, Input, Space, message, Row, Col, Card, Checkbox
 } from "antd";
 import {
     FaSearch, FaShieldAlt, FaCheck, FaSync, FaPrint, FaSave, FaUserMd, FaEdit
 } from "react-icons/fa";
 import styled from "styled-components";
 import Swal from "sweetalert2";
+import dayjs from "dayjs";
 import apiRequest from "../../Auth/apiRequest";
 import {
     PageWrapper, Container, SectionTitle, colors, fadeIn
@@ -78,6 +79,8 @@ const DoctorFeeCuts = () => {
     const [approvingIp, setApprovingIp] = useState(null);
 
     // Filters
+    const [fromDate, setFromDate] = useState(dayjs().format("YYYY-MM-DD"));
+    const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
     const [filterCompany, setFilterCompany] = useState("ALL");
     const [filterStatus, setFilterStatus] = useState("ALL");
     const [searchQuery, setSearchQuery] = useState("");
@@ -98,7 +101,7 @@ const DoctorFeeCuts = () => {
     const fetchAdmittedPatients = useCallback(async () => {
         setLoading(true);
         try {
-            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(searchQuery)}`;
+            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?from_date=${fromDate}&to_date=${toDate}&company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(searchQuery)}`;
             const res = await apiRequest(url, "GET");
             let rawData = [];
             if (res.success && Array.isArray(res.data)) {
@@ -121,7 +124,7 @@ const DoctorFeeCuts = () => {
         } finally {
             setLoading(false);
         }
-    }, [HmsBaseUrl, filterCompany, filterStatus, searchQuery]);
+    }, [HmsBaseUrl, fromDate, toDate, filterCompany, filterStatus, searchQuery]);
 
     useEffect(() => {
         fetchProviders();
@@ -413,14 +416,14 @@ const DoctorFeeCuts = () => {
         localStorage.getItem("allowedActions") || "[]"
     );
     const canApprove = allowedActions.includes("HMS-P-DFCA") ||
-                       allowedActions.includes("HMS-P-DFCA-RW") ||
-                       allowedActions.includes("HMS-P-DFCA-R") ||
-                       allowedActions.some(a => typeof a === 'string' && a.startsWith("HMS-P-DFCA"));
+        allowedActions.includes("HMS-P-DFCA-RW") ||
+        allowedActions.includes("HMS-P-DFCA-R") ||
+        allowedActions.some(a => typeof a === 'string' && a.startsWith("HMS-P-DFCA"));
 
     const canEdit = allowedActions.includes("HMS-P-DFCE") ||
-                    allowedActions.includes("HMS-P-DFCE-RW") ||
-                    allowedActions.includes("HMS-P-DFCE-R") ||
-                    allowedActions.some(a => typeof a === 'string' && a.startsWith("HMS-P-DFCE"));
+        allowedActions.includes("HMS-P-DFCE-RW") ||
+        allowedActions.includes("HMS-P-DFCE-R") ||
+        allowedActions.some(a => typeof a === 'string' && a.startsWith("HMS-P-DFCE"));
 
     const columns = [
         {
@@ -438,6 +441,11 @@ const DoctorFeeCuts = () => {
                     <div style={{ fontSize: '0.8rem', color: colors.textMain }}>
                         IP No: <strong>{record.ipNumber}</strong>
                     </div>
+                    {(record.bill_date || record.admission_date) && (
+                        <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: 2 }}>
+                            Date: {dayjs(record.bill_date || record.admission_date).format('DD/MM/YYYY')}
+                        </div>
+                    )}
                 </div>
             )
         },
@@ -748,7 +756,25 @@ const DoctorFeeCuts = () => {
                 {/* Top Filter Section */}
                 <FilterSection className="no-print">
                     <Row gutter={[16, 16]} align="bottom">
-                        <Col xs={24} sm={8} md={6}>
+                        <Col xs={24} sm={12} md={4}>
+                            <FormLabel>From Date</FormLabel>
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={e => setFromDate(e.target.value)}
+                                style={{ height: 38, borderRadius: 6 }}
+                            />
+                        </Col>
+                        <Col xs={24} sm={12} md={4}>
+                            <FormLabel>To Date</FormLabel>
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={e => setToDate(e.target.value)}
+                                style={{ height: 38, borderRadius: 6 }}
+                            />
+                        </Col>
+                        <Col xs={24} sm={12} md={5}>
                             <FormLabel>Insurance Company</FormLabel>
                             <Select
                                 style={{ width: '100%', height: 38 }}
@@ -765,7 +791,7 @@ const DoctorFeeCuts = () => {
                                 ))}
                             </Select>
                         </Col>
-                        <Col xs={24} sm={8} md={5}>
+                        <Col xs={24} sm={12} md={3}>
                             <FormLabel>Status</FormLabel>
                             <Select
                                 style={{ width: '100%', height: 38 }}
@@ -778,10 +804,10 @@ const DoctorFeeCuts = () => {
                                 <Option value="Approved">Approved</Option>
                             </Select>
                         </Col>
-                        <Col xs={24} sm={8} md={8}>
+                        <Col xs={24} sm={16} md={5}>
                             <FormLabel>Search Patient</FormLabel>
                             <Input
-                                placeholder="Search by IP Number, UHID, or Patient Name…"
+                                placeholder="Search by IP Number, UHID, Name…"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 onPressEnter={fetchAdmittedPatients}
@@ -790,7 +816,7 @@ const DoctorFeeCuts = () => {
                                 style={{ height: 38, borderRadius: 6 }}
                             />
                         </Col>
-                        <Col xs={24} sm={24} md={5} style={{ textAlign: 'right' }}>
+                        <Col xs={24} sm={8} md={3} style={{ textAlign: 'right' }}>
                             <ActionButton
                                 type="primary"
                                 icon={<FaSync />}
@@ -798,7 +824,7 @@ const DoctorFeeCuts = () => {
                                 loading={loading}
                                 style={{ width: '100%', background: colors.primary }}
                             >
-                                Refresh List
+                                Refresh
                             </ActionButton>
                         </Col>
                     </Row>

@@ -108,13 +108,15 @@ const DropdownList = styled.div`
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
-  max-height: 200px;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(650px, 90vw);
+  max-height: 240px;
   overflow-y: auto;
   background: white;
   border: 1px solid ${colors.primary};
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
   z-index: 1000;
   margin-top: 2px;
 `;
@@ -139,6 +141,44 @@ const DropdownItem = styled.div`
 const ProductSection = styled(ContentCard)`
   background: #fafbfc;
   padding: 8px 12px;
+`;
+
+// ─── Responsive Grid Rows for Billing Details & Items ────────────────────────
+
+const BillingDetailsGrid = styled(FormRow)`
+  grid-template-columns: minmax(130px, 1fr) minmax(120px, 1fr) minmax(240px, 2fr) minmax(200px, 1.5fr) minmax(200px, 1.5fr);
+  gap: 10px 14px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ItemSelectionGrid = styled(FormRow)`
+  grid-template-columns: minmax(300px, 3.5fr) minmax(100px, 1fr) minmax(120px, 1fr) auto;
+  gap: 10px 14px;
+  align-items: end;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+
+    /* Item Name takes full width on mobile */
+    > div:first-child {
+      grid-column: 1 / -1;
+    }
+
+    /* Add Item button takes full width on mobile */
+    > button {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-top: 6px;
+    }
+  }
 `;
 
 // ─── Inline search button below field ────────────────────────────────────────
@@ -493,7 +533,7 @@ const InvestigationBilling = () => {
 
   useEffect(() => {
     const fetchBillTypes = async () => {
-      const result = await apiRequest(`${HMSURL}bill-types/`, "GET");
+      const result = await apiRequest(`${HMSURL}invest-bill-types/`, "GET");
       if (result.success) {
         const normalized = (result.data.billTypes || []).map((bt) => ({
           ...bt,
@@ -607,6 +647,7 @@ const InvestigationBilling = () => {
         bt.bill_type,
         billTypeNo,
         bt.is_allowDiscount ?? true,
+        false, // preserve loaded items on initial page load
       );
     }
   }, [billTypes, location.state]); // eslint-disable-line
@@ -618,13 +659,18 @@ const InvestigationBilling = () => {
     billType,
     billTypeNo,
     allowDiscount = true,
+    clearProducts = true,
   ) => {
     setIsDiscountAllowed(allowDiscount);
+    if (clearProducts) {
+      setProductList([]);
+    }
     setFormData((prev) => ({
       ...prev,
       billType: billName,
       bill_type: billType,
       billTypeNo: billTypeNo,
+      ...(clearProducts && { item: JSON.stringify([]) }),
       ...(!allowDiscount && {
         discountPercent: "",
         discount: "",
@@ -700,6 +746,7 @@ const InvestigationBilling = () => {
         price: selectedPrice,
         quantity: quantity,
         billTypeNo: formData.billTypeNo,
+        nabh_code: obj?.nabh_code || "",
         ...(obj?.test_id && { test_id: obj.test_id }),
         ...(obj?.item_id && { item_id: obj.item_id }),
       };
@@ -791,6 +838,20 @@ const InvestigationBilling = () => {
   };
 
   const validateForm = () => {
+    if (!formData.uhid?.trim()) {
+      alert("UHID is required!");
+      return false;
+    }
+    const ageVal = String(formData.calculatedAge || formData.age || "").trim();
+    if (!ageVal) {
+      alert("Age is required!");
+      return false;
+    }
+    const ageTypeVal = String(formData.ageType || formData.age_type || "").trim();
+    if (!ageTypeVal) {
+      alert("Age Type is required!");
+      return false;
+    }
     if (!formData.doctor?.trim()) {
       alert("Doctor is required!");
       return false;
@@ -1130,7 +1191,7 @@ const InvestigationBilling = () => {
             </InputWrapper>
 
             <InputWrapper>
-              <Label>Age</Label>
+              <Label required>Age</Label>
               <Input
                 type="text"
                 name="calculatedAge"
@@ -1141,7 +1202,7 @@ const InvestigationBilling = () => {
             </InputWrapper>
 
             <InputWrapper>
-              <Label>Age Type</Label>
+              <Label required>Age Type</Label>
               <Select
                 name="ageType"
                 value={formData.ageType || ""}
@@ -1188,7 +1249,7 @@ const InvestigationBilling = () => {
             <SectionLabel>📋 Billing Details</SectionLabel>
           </SectionHeader>
 
-          <FormRow>
+          <BillingDetailsGrid>
             <InputWrapper>
               <Label>Bill Date</Label>
               <Input
@@ -1224,7 +1285,9 @@ const InvestigationBilling = () => {
                       discountPercent: "",
                       discount: "",
                       discountRemarks: "",
+                      item: JSON.stringify([]),
                     }));
+                    setProductList([]);
                     setSelectedBillTypeNo("");
                     setSelectedPackageNo("");
                     setItems([]);
@@ -1304,7 +1367,7 @@ const InvestigationBilling = () => {
                 placeholder="Select doctor..."
               />
             </InputWrapper>
-          </FormRow>
+          </BillingDetailsGrid>
 
           {/* ── Investigation Items ── */}
           <ProductSection>
@@ -1318,11 +1381,7 @@ const InvestigationBilling = () => {
             </SectionHeader>
 
             {selectedBillTypeNo !== "PACK" && (
-              <FormRow
-                style={{
-                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                }}
-              >
+              <ItemSelectionGrid>
                 <InputWrapper>
                   <Label required>Item</Label>
                   <SearchableDropdown
@@ -1362,7 +1421,7 @@ const InvestigationBilling = () => {
                 <AddBtn type="button" onClick={addProduct}>
                   + Add Item
                 </AddBtn>
-              </FormRow>
+              </ItemSelectionGrid>
             )}
 
             {productList.length > 0 ? (
