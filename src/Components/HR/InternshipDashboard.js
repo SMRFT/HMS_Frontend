@@ -1134,7 +1134,9 @@ export default function InternshipDashboard() {
     }
 
     // Process text replacements using stored cert_description
-    const descToUse = intern.cert_description || "";
+    const descToUse = (intern.cert_description || "")
+      .replace(/(\r?\n){3,}/g, '\n\n')
+      .replace(/[\r\n\s]+$/, '');
     let formattedText = descToUse
       .replace(/\[Student Name\]/g, `<strong>${intern.student_name}</strong>`)
       .replace(/\[College\]/g, `<strong>${intern.college}</strong>`)
@@ -1142,7 +1144,8 @@ export default function InternshipDashboard() {
       .replace(/\[Department\]/g, intern.department ? `<strong>${intern.department}</strong>` : "")
       .replace(/\[Duration\]/g, `<strong>${intern.duration}</strong>`)
       .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(intern.start_date)}</strong>`)
-      .replace(/\[End Date\]/g, `<strong>${formatDateDMY(intern.end_date)}</strong>`);
+      .replace(/\[End Date\]/g, `<strong>${formatDateDMY(intern.end_date)}</strong>`)
+      .replace(/[\r\n\s]+$/, '');
 
     const printDate = new Date(intern.approved_at || new Date()).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -1181,15 +1184,15 @@ export default function InternshipDashboard() {
             </h2>
           </div>
           
-          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 20px; text-indent: 50px; white-space: pre-wrap;">
+          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 0px; text-indent: 50px; white-space: pre-wrap;">
             ${formattedText}
           </div>
           
-          <div style="display: flex; justify-content: flex-start; margin-top: 15px;">
+          <div style="display: flex; justify-content: flex-start; margin-top: -18px;">
             <div style="text-align: left; min-width: 260px; font-family: 'Times New Roman', serif;">
               ${signatureBase64
-        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 120px; max-width: 260px; display: block; margin-bottom: 6px;" alt="Signature" />`
-        : `<div style="height: 80px;"></div>`
+        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 120px; max-width: 260px; display: block; margin-bottom: 4px;" alt="Signature" />`
+        : `<div style="height: 60px;"></div>`
       }
               <div style="border-top: 1px solid #000; padding-top: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase; white-space: nowrap;">
                 ${approverName}
@@ -2517,6 +2520,7 @@ export default function InternshipDashboard() {
                         style={{ textAlign: "justify", textIndent: "30px", whiteSpace: "pre-wrap" }}
                         dangerouslySetInnerHTML={{
                           __html: (certDescription || "")
+                            .replace(/(\r?\n){3,}/g, '\n\n')
                             .replace(/\[Student Name\]/g, `<strong>${selectedIntern.student_name}</strong>`)
                             .replace(/\[College\]/g, `<strong>${selectedIntern.college}</strong>`)
                             .replace(/\[Degree\]/g, `<strong>${selectedIntern.degree}</strong>`)
@@ -2524,11 +2528,12 @@ export default function InternshipDashboard() {
                             .replace(/\[Duration\]/g, `<strong>${selectedIntern.duration}</strong>`)
                             .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(selectedIntern.start_date)}</strong>`)
                             .replace(/\[End Date\]/g, `<strong>${formatDateDMY(selectedIntern.end_date)}</strong>`)
+                            .replace(/[\r\n\s]+$/, '')
                         }}
                       />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "15px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "-18px" }}>
                       {(() => {
                         const approverInfo = (Array.isArray(approvers) ? approvers : []).find(a => a.employeeId === selectedIntern.approved_by);
                         return (
@@ -2537,7 +2542,7 @@ export default function InternshipDashboard() {
                               <img
                                 src={`data:image/png;base64,${approverInfo.signatureBase64}`}
                                 alt="Signature"
-                                style={{ height: "85px", marginBottom: "6px", objectFit: "contain" }}
+                                style={{ height: "85px", marginBottom: "4px", objectFit: "contain" }}
                               />
                             ) : (
                               <div style={{ height: "60px" }}></div>
