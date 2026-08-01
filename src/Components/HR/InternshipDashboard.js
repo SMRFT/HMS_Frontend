@@ -1185,7 +1185,7 @@ export default function InternshipDashboard() {
             ${formattedText}
           </div>
           
-          <div style="display: flex; justify-content: flex-end; margin-top: 60px;">
+          <div style="display: flex; justify-content: flex-start; margin-top: 60px;">
             <div style="text-align: center; width: 220px; font-family: 'Times New Roman', serif;">
               ${signatureBase64
         ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 60px; max-width: 150px; margin-bottom: 4px;" alt="Signature" />`
@@ -2528,7 +2528,7 @@ export default function InternshipDashboard() {
                       />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "30px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "30px" }}>
                       {(() => {
                         const approverInfo = (Array.isArray(approvers) ? approvers : []).find(a => a.employeeId === selectedIntern.approved_by);
                         return (
