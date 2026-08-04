@@ -915,7 +915,7 @@ export default function InternshipDashboard() {
       const replacement = `<strong>${selected}</strong>`;
       const newText = val.substring(0, start) + replacement + val.substring(end);
       setCertDescription(newText);
-      
+
       setTimeout(() => {
         textarea.focus();
         textarea.selectionStart = start + 8;
@@ -1068,6 +1068,28 @@ export default function InternshipDashboard() {
     });
   };
 
+  const getBase64FromUrl = (url) => {
+    return new Promise((resolve) => {
+      if (!url) return resolve("");
+      if (typeof url === "string" && url.startsWith("data:")) return resolve(url);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth || img.width || 794;
+          canvas.height = img.naturalHeight || img.height || 140;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        } catch (e) {
+          resolve(url);
+        }
+      };
+      img.onerror = () => resolve(url);
+      img.src = url;
+    });
+  };
+
   const handleDirectPrintCertificate = async (intern, withLetterpad = true, returnBlob = false) => {
     let signatureBase64 = null;
     let approverName = "";
@@ -1100,8 +1122,21 @@ export default function InternshipDashboard() {
       }
     }
 
+    let headerSrc = headerImage;
+    let footerSrc = footerImage;
+    if (withLetterpad) {
+      try {
+        headerSrc = await getBase64FromUrl(headerImage);
+        footerSrc = await getBase64FromUrl(footerImage);
+      } catch (e) {
+        console.warn("Base64 image conversion error:", e);
+      }
+    }
+
     // Process text replacements using stored cert_description
-    const descToUse = intern.cert_description || "";
+    const descToUse = (intern.cert_description || "")
+      .replace(/(\r?\n){3,}/g, '\n\n')
+      .replace(/[\r\n\s]+$/, '');
     let formattedText = descToUse
       .replace(/\[Student Name\]/g, `<strong>${intern.student_name}</strong>`)
       .replace(/\[College\]/g, `<strong>${intern.college}</strong>`)
@@ -1109,7 +1144,8 @@ export default function InternshipDashboard() {
       .replace(/\[Department\]/g, intern.department ? `<strong>${intern.department}</strong>` : "")
       .replace(/\[Duration\]/g, `<strong>${intern.duration}</strong>`)
       .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(intern.start_date)}</strong>`)
-      .replace(/\[End Date\]/g, `<strong>${formatDateDMY(intern.end_date)}</strong>`);
+      .replace(/\[End Date\]/g, `<strong>${formatDateDMY(intern.end_date)}</strong>`)
+      .replace(/[\r\n\s]+$/, '');
 
     const printDate = new Date(intern.approved_at || new Date()).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -1121,7 +1157,7 @@ export default function InternshipDashboard() {
     const headerHtml = withLetterpad
       ? `
         <div style="text-align: center; margin-bottom: 30px;">
-          <img src="${headerImage}" alt="Header" style="width: 100%; height: auto; display: block;" crossorigin="anonymous" />
+          <img src="${headerSrc}" alt="Header" style="width: 100%; height: auto; display: block;" />
         </div>
       `
       : `<div style="height: 140px;"></div>`;
@@ -1129,7 +1165,7 @@ export default function InternshipDashboard() {
     const footerHtml = withLetterpad
       ? `
         <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center;">
-          <img src="${footerImage}" alt="Footer" style="width: 100%; height: auto; display: block;" crossorigin="anonymous" />
+          <img src="${footerSrc}" alt="Footer" style="width: 100%; height: auto; display: block;" />
         </div>
       `
       : ``;
@@ -1148,20 +1184,20 @@ export default function InternshipDashboard() {
             </h2>
           </div>
           
-          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 80px; text-indent: 50px; white-space: pre-wrap;">
+          <div style="font-size: 16px; text-align: justify; text-justify: inter-word; margin-bottom: 0px; text-indent: 50px; white-space: pre-wrap;">
             ${formattedText}
           </div>
           
-          <div style="display: flex; justify-content: flex-end; margin-top: 60px;">
-            <div style="text-align: center; width: 220px; font-family: 'Times New Roman', serif;">
+          <div style="display: flex; justify-content: flex-start; margin-top: -18px;">
+            <div style="text-align: left; min-width: 260px; font-family: 'Times New Roman', serif;">
               ${signatureBase64
-        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 60px; max-width: 150px; margin-bottom: 4px;" alt="Signature" />`
+        ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 120px; max-width: 260px; display: block; margin-bottom: 4px;" alt="Signature" />`
         : `<div style="height: 60px;"></div>`
       }
-              <div style="border-top: 1px solid #000; padding-top: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase;">
+              <div style="border-top: 1px solid #000; padding-top: 6px; font-weight: bold; font-size: 14px; text-transform: uppercase; white-space: nowrap;">
                 ${approverName}
               </div>
-              <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+              <div style="font-size: 12px; color: #475569; margin-top: 2px; white-space: nowrap;">
                 ${approverDesignation || "Authorized Signatory"}
               </div>
             </div>
@@ -1337,23 +1373,15 @@ export default function InternshipDashboard() {
     try {
       const { blob, studentName } = await handleDirectPrintCertificate(intern, true, true);
       const pdfFile = new File([blob], `${studentName}_Internship_Certificate.pdf`, { type: "application/pdf" });
-      const uploadForm = new FormData();
-      uploadForm.append("file", pdfFile);
-      const uploadRes = await apiRequest(`${HMSURL}upload-pdf/`, "POST", uploadForm);
-      if (!uploadRes.success || !uploadRes.data?.file_url) {
-        Swal.fire("Error", "File upload failed: " + (uploadRes.error || "Unknown error"), "error"); return;
-      }
-      const payload = {
-        patient_name: studentName,
-        phone: cleanPhone,
-        collection_time: "N/A",
-        collected_date: formatDateDMY(intern.start_date) || "N/A",
-        file_url: uploadRes.data.file_url,
-        pdf_name: `${studentName}_Internship_Certificate.pdf`,
-        patient_id: intern.intern_id?.toString() || "",
-        template_name: "internship_certificate",
-      };
-      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", payload);
+      const waForm = new FormData();
+      waForm.append("file", pdfFile);
+      waForm.append("patient_name", studentName);
+      waForm.append("phone", cleanPhone);
+      waForm.append("pdf_name", `${studentName}_Internship_Certificate.pdf`);
+      waForm.append("patient_id", intern.intern_id?.toString() || "");
+      waForm.append("template_name", "sh_hr_intership_final");
+
+      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
       Swal.close();
       if (waRes.success) {
         Swal.fire("Sent!", "Internship certificate sent via WhatsApp.", "success");
@@ -2492,6 +2520,7 @@ export default function InternshipDashboard() {
                         style={{ textAlign: "justify", textIndent: "30px", whiteSpace: "pre-wrap" }}
                         dangerouslySetInnerHTML={{
                           __html: (certDescription || "")
+                            .replace(/(\r?\n){3,}/g, '\n\n')
                             .replace(/\[Student Name\]/g, `<strong>${selectedIntern.student_name}</strong>`)
                             .replace(/\[College\]/g, `<strong>${selectedIntern.college}</strong>`)
                             .replace(/\[Degree\]/g, `<strong>${selectedIntern.degree}</strong>`)
@@ -2499,26 +2528,29 @@ export default function InternshipDashboard() {
                             .replace(/\[Duration\]/g, `<strong>${selectedIntern.duration}</strong>`)
                             .replace(/\[Start Date\]/g, `<strong>${formatDateDMY(selectedIntern.start_date)}</strong>`)
                             .replace(/\[End Date\]/g, `<strong>${formatDateDMY(selectedIntern.end_date)}</strong>`)
+                            .replace(/[\r\n\s]+$/, '')
                         }}
                       />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "30px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "-18px" }}>
                       {(() => {
                         const approverInfo = (Array.isArray(approvers) ? approvers : []).find(a => a.employeeId === selectedIntern.approved_by);
                         return (
-                          <div style={{ textAlign: "center", width: "160px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            {approverInfo?.signatureBase64 && (
+                          <div style={{ textAlign: "left", minWidth: "220px", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                            {approverInfo?.signatureBase64 ? (
                               <img
                                 src={`data:image/png;base64,${approverInfo.signatureBase64}`}
                                 alt="Signature"
-                                style={{ height: "45px", marginBottom: "4px", objectFit: "contain" }}
+                                style={{ height: "85px", marginBottom: "4px", objectFit: "contain" }}
                               />
+                            ) : (
+                              <div style={{ height: "60px" }}></div>
                             )}
-                            <div style={{ borderTop: "1px solid #cbd5e1", width: "100%", paddingTop: "4px", fontSize: "11px", fontWeight: "bold" }}>
+                            <div style={{ borderTop: "1px solid #cbd5e1", width: "100%", paddingTop: "4px", fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap" }}>
                               {approverInfo?.employeeName || selectedIntern.approved_by || "Authorized Signatory"}
                             </div>
-                            <div style={{ fontSize: "9px", color: colors.textMuted }}>
+                            <div style={{ fontSize: "9px", color: colors.textMuted, whiteSpace: "nowrap" }}>
                               {approverInfo?.designation || "Signatory Designation"}
                             </div>
                           </div>

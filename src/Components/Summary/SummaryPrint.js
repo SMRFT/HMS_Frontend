@@ -659,37 +659,21 @@ const SummaryPrint = () => {
         return;
       }
 
-      // 2. Upload PDF to GridFS
+      // 2. Prepare FormData & Send WhatsApp directly
       const pdfFile = new File(
         [pdfBlob],
         `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`,
         { type: "application/pdf" }
       );
-      const formData = new FormData();
-      formData.append("file", pdfFile);
+      const waForm = new FormData();
+      waForm.append("file", pdfFile);
+      waForm.append("patient_name", summaryData.patient || "Valued Patient");
+      waForm.append("phone", cleanPhone);
+      waForm.append("pdf_name", `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`);
+      waForm.append("patient_id", summaryData.uhid || "");
+      waForm.append("template_name", "sh_discharge_summary_final");
 
-      const uploadRes = await apiRequest(`${HMSURL}upload-pdf/`, "POST", formData);
-
-      if (!uploadRes.success || !uploadRes.data?.file_url) {
-        alert("PDF upload failed: " + (uploadRes.error || "Unknown error"));
-        return;
-      }
-
-      const fileUrl = uploadRes.data.file_url;
-
-      // 3. Send WhatsApp
-      const payload = {
-        patient_name: summaryData.patient || "Valued Patient",
-        phone: cleanPhone,
-        collection_time: fmtTime(summaryData.doaTime) || "N/A",
-        collected_date: fmtDate(summaryData.doa) || "N/A",
-        file_url: fileUrl,
-        pdf_name: `${summaryData.patient || "Patient"}_Discharge_Summary.pdf`,
-        patient_id: summaryData.uhid || "",
-        template_name: "discharge_summary",
-      };
-
-      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", payload);
+      const waRes = await apiRequest(`${HMSURL}send-whatsapp/`, "POST", waForm);
 
       if (waRes.success) {
         alert("Discharge summary sent successfully on WhatsApp!");

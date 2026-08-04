@@ -24,6 +24,7 @@ import UserPermissionManager from "./Auth/UserPermissionManager";
 import OutletSelectionModal from "./Components/OutletSelectionModal";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
+import Vaccination from "./Components/NursingStation/Vaccination";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
@@ -46,6 +47,9 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 // Investigation Reports
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
+
+
+import ABHAPatients from "./Components/Register/ABHAPatients";
 
 import Enquiry from "./Components/Register/Enquiry";
 
@@ -82,6 +86,7 @@ import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
+import ABDMSettings from "./Components/Admin/ABDMSettings";
 import LabWardRequest from "./Components/NursingStation/LabWardRequest";
 import Wardrequest from "./Components/NursingStation/wardrequest";
 import LaundryAdmin from "./Components/NursingStation/LaundryAdmin";
@@ -155,6 +160,7 @@ import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
+import SalesReturnReport from "./Components/Reports/SalesReturnReport";
 
 import Complaints from "./Components/ComplaintsTickets/complaints";
 import ComplaintsAdmin from "./Components/ComplaintsTickets/complaintsadmin";
@@ -169,6 +175,8 @@ import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
 import VelavanCustomerList from "./Components/Velavan/VelavanCustomerList";
 import DealerItems from "./Components/LabInventory/Dealeritems";
 import RaiseIndentPage from "./Components/LabInventory/raiseindent";
+import DoctorFeeCuts from "./Components/DoctorFeeCutsMaster/DoctorFeeCuts";
+import DoctorFeeCutsReport from "./Components/DoctorFeeCutsMaster/DoctorFeeCutsReport";
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -331,6 +339,7 @@ function App() {
       "/Pharmacystock": "Pharmacy Stock",
       "/PharmacyExpiryReport": "Pharmacy Expiry Report",
       "/PharmacyStockDashboard": "Pharmacy Stock Dashboard",
+      "/SalesReturnReport": "Sales Return Report",
       "/Items": "Items",
       "/StoresGRNGeneration": "Stores GRN Generation",
       "/StoresGRNReport": "Stores GRN Report",
@@ -528,12 +537,30 @@ function App() {
                   />
                 )}
 
+              {/* ABDM Settings */}
+              {hasPagePermission(
+                "/ABDMSettings",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/ABDMSettings"
+                    element={<ABDMSettings />}
+                  />
+                )}
+
               {/* Front Office */}
               {hasPagePermission(
                 "/Admission",
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Admission" element={<Admission />} />}
+
+              {hasPagePermission(
+                "/Vaccination",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/Vaccination" element={<Vaccination />} />}
 
               {hasPagePermission(
                 "/IPAdvance",
@@ -554,10 +581,13 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route
-                    path="/PatientRegistrationForm"
-                    element={<PatientRegistrationForm />}
-                  />
+                  <>
+                    <Route
+                      path="/PatientRegistrationForm"
+                      element={<PatientRegistrationForm />}
+                    />
+                    <Route path="/ABHAPatients" element={<ABHAPatients />} />
+                  </>
                 )}
               {hasPagePermission(
                 "/Enquiry",
@@ -896,6 +926,27 @@ function App() {
                   <Route
                     path="/DoctorSchedule/:employee_id"
                     element={<DoctorSchedule />}
+                  />
+                )}
+              {/* Doctor Fee Cuts */}
+              {hasPagePermission(
+                "/DoctorFeeCuts",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DoctorFeeCuts"
+                    element={<DoctorFeeCuts />}
+                  />
+                )}
+              {hasPagePermission(
+                "/DoctorFeeCuts",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/DoctorFeeCutsReport"
+                    element={<DoctorFeeCutsReport />}
                   />
                 )}
 
@@ -1399,6 +1450,16 @@ function App() {
                     element={<PreDayRoomOccupancyReport />}
                   />
                 )}
+              {hasPagePermission(
+                "/SalesReturnReport",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/SalesReturnReport"
+                    element={<SalesReturnReport />}
+                  />
+                )}
 
               {hasPagePermission(
                 "/DialysisDischargeSummary",
@@ -1430,24 +1491,24 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
-              )}
+                  <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
+                )}
 
               {hasPagePermission(
                 "/LicenceMaster",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/LicenceMaster" element={<LicenceMaster />} />
-              )}
+                  <Route path="/LicenceMaster" element={<LicenceMaster />} />
+                )}
 
               {hasPagePermission(
                 "/CreateLicinecename",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
-              )}
+                  <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
+                )}
 
           {hasPagePermission(
                 "/DealerItems",
@@ -1466,6 +1527,8 @@ function App() {
                 <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
               )}
 
+
+              <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
 
             </Routes>
 

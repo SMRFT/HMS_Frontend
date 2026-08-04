@@ -298,7 +298,17 @@ const BillType = () => {
     if (matchedCat) {
       (matchedCat.Items || []).forEach((item) => {
         const key = `${matchedCat.billTypeNo}:${item.itemName}`;
-        prices[key] = item[billTypeKey] || "";
+        const val = item[billTypeKey];
+        if (typeof val === "object" && val !== null) {
+          prices[key] = {
+            price: val.price !== undefined && val.price !== null ? String(val.price) : "",
+            nabh_code: val.nabh_code !== undefined && val.nabh_code !== null ? String(val.nabh_code) : "",
+          };
+        } else if (val !== undefined && val !== null && val !== "") {
+          prices[key] = { price: String(val), nabh_code: "" };
+        } else {
+          prices[key] = { price: "", nabh_code: "" };
+        }
       });
       setSelectedInvCat(matchedCat.billTypeNo);
       setOriginalInvCat(matchedCat.billTypeNo);
@@ -312,9 +322,41 @@ const BillType = () => {
     setShowModal(true);
   };
 
-  const handlePriceChange = (invBillTypeNo, itemName, value) => {
+  const handlePriceChange = (invBillTypeNo, itemName, fieldOrValue, value) => {
     const key = `${invBillTypeNo}:${itemName}`;
-    setItemPrices((prev) => ({ ...prev, [key]: value }));
+    if (typeof fieldOrValue === "string" && value !== undefined) {
+      const field = fieldOrValue;
+      setItemPrices((prev) => {
+        const current = prev[key] || { price: "", nabh_code: "" };
+        const currentObj =
+          typeof current === "object" && current !== null
+            ? current
+            : { price: String(current || ""), nabh_code: "" };
+        return {
+          ...prev,
+          [key]: {
+            ...currentObj,
+            [field]: value,
+          },
+        };
+      });
+    } else {
+      const val = fieldOrValue;
+      setItemPrices((prev) => {
+        const current = prev[key] || { price: "", nabh_code: "" };
+        const currentObj =
+          typeof current === "object" && current !== null
+            ? current
+            : { price: String(current || ""), nabh_code: "" };
+        return {
+          ...prev,
+          [key]: {
+            ...currentObj,
+            price: val,
+          },
+        };
+      });
+    }
   };
 
   const handleSubmit = async () => {
@@ -393,7 +435,18 @@ const BillType = () => {
     if (!cat) return { catName: "", items: [] };
     const items = (cat.Items || [])
       .filter((item) => item[billTypeKey] !== undefined)
-      .map((item) => ({ name: item.itemName, price: item[billTypeKey] }));
+      .map((item) => {
+        const val = item[billTypeKey];
+        let price = "";
+        let nabh_code = "";
+        if (typeof val === "object" && val !== null) {
+          price = val.price !== undefined && val.price !== null ? String(val.price) : "";
+          nabh_code = val.nabh_code !== undefined && val.nabh_code !== null ? String(val.nabh_code) : "";
+        } else if (val !== undefined && val !== null) {
+          price = String(val);
+        }
+        return { name: item.itemName, price, nabh_code };
+      });
     return { catName: cat.BillType, items };
   };
 
@@ -418,6 +471,7 @@ const BillType = () => {
       "Status",
       "Investigation Category",
       "Item Name",
+      "NABH Code",
       "Price",
     ].join(",");
 
@@ -438,11 +492,11 @@ const BillType = () => {
       ];
 
       if (items.length === 0) {
-        lines.push([...baseCols, "", "", ""].map(escapeCell).join(","));
+        lines.push([...baseCols, "", "", "", ""].map(escapeCell).join(","));
       } else {
         items.forEach((it) => {
           lines.push(
-            [...baseCols, catName, it.name, it.price].map(escapeCell).join(","),
+            [...baseCols, catName, it.name, it.nabh_code, it.price].map(escapeCell).join(","),
           );
         });
       }
@@ -479,10 +533,10 @@ const BillType = () => {
           ? items
               .map(
                 (it) =>
-                  `<tr><td>${it.name}</td><td style="text-align:right">₹${it.price}</td></tr>`,
+                  `<tr><td>${it.name}</td><td>${it.nabh_code || "—"}</td><td style="text-align:right">₹${it.price}</td></tr>`,
               )
               .join("")
-          : `<tr><td colspan="2" style="text-align:center;color:#64748B;">No investigation prices set.</td></tr>`;
+          : `<tr><td colspan="3" style="text-align:center;color:#64748B;">No investigation prices set.</td></tr>`;
 
         return `
         <div class="bill-block">
@@ -502,7 +556,7 @@ const BillType = () => {
           </table>
           <div class="inv-title">Investigation Prices${catName ? ` — ${catName}` : ""}</div>
           <table class="price-table">
-            <thead><tr><th>Item Name</th><th style="text-align:right">Price (₹)</th></tr></thead>
+            <thead><tr><th>Item Name</th><th>NABH Code</th><th style="text-align:right">Price (₹)</th></tr></thead>
             <tbody>${priceRows}</tbody>
           </table>
         </div>`;
@@ -828,10 +882,28 @@ const BillType = () => {
                       onChange={(e) => {
                         const val = e.target.value;
                         setSelectedInvCat(val);
-                        // Always update billTypeNo from selected category (both create and edit)
                         setFormData((prev) => ({ ...prev, billTypeNo: val }));
-                        // Clear prices when switching to a different category
-                        setItemPrices({});
+                        
+                        const billTypeKey = String(formData.bill_type);
+                        const cat = invCategories.find((c) => c.billTypeNo === val);
+                        const prices = {};
+                        if (cat) {
+                          (cat.Items || []).forEach((item) => {
+                            const key = `${cat.billTypeNo}:${item.itemName}`;
+                            const rawVal = item[billTypeKey];
+                            if (typeof rawVal === "object" && rawVal !== null) {
+                              prices[key] = {
+                                price: rawVal.price !== undefined && rawVal.price !== null ? String(rawVal.price) : "",
+                                nabh_code: rawVal.nabh_code !== undefined && rawVal.nabh_code !== null ? String(rawVal.nabh_code) : "",
+                              };
+                            } else if (rawVal !== undefined && rawVal !== null && rawVal !== "") {
+                              prices[key] = { price: String(rawVal), nabh_code: "" };
+                            } else {
+                              prices[key] = { price: "", nabh_code: "" };
+                            }
+                          });
+                        }
+                        setItemPrices(prices);
                       }}
                     >
                       <option value="">-- Select Category --</option>
@@ -902,11 +974,23 @@ const BillType = () => {
                               <th
                                 style={{
                                   padding: "8px 12px",
+                                  textAlign: "left",
+                                  fontWeight: 600,
+                                  color: tokens.muted,
+                                  borderBottom: `2px solid ${tokens.border}`,
+                                  width: 180,
+                                }}
+                              >
+                                NABH Code
+                              </th>
+                              <th
+                                style={{
+                                  padding: "8px 12px",
                                   textAlign: "right",
                                   fontWeight: 600,
                                   color: tokens.muted,
                                   borderBottom: `2px solid ${tokens.border}`,
-                                  width: 160,
+                                  width: 140,
                                 }}
                               >
                                 Price (₹)
@@ -914,50 +998,81 @@ const BillType = () => {
                             </tr>
                           </thead>
                           <tbody>
-                            {cat.Items.map((item, idx) => (
-                              <tr
-                                key={item.itemName}
-                                style={{
-                                  background:
-                                    idx % 2 === 0 ? tokens.white : tokens.bg,
-                                }}
-                              >
-                                <td
+                            {cat.Items.map((item, idx) => {
+                              const key = `${cat.billTypeNo}:${item.itemName}`;
+                              const itemData = itemPrices[key];
+                              let priceVal = "";
+                              let nabhVal = "";
+                              if (typeof itemData === "object" && itemData !== null) {
+                                priceVal = itemData.price ?? "";
+                                nabhVal = itemData.nabh_code ?? "";
+                              } else if (itemData !== undefined && itemData !== null) {
+                                priceVal = itemData;
+                              }
+
+                              return (
+                                <tr
+                                  key={item.itemName}
                                   style={{
-                                    padding: "8px 12px",
-                                    color: tokens.text,
-                                    borderBottom: `1px solid ${tokens.border}`,
+                                    background:
+                                      idx % 2 === 0 ? tokens.white : tokens.bg,
                                   }}
                                 >
-                                  {item.itemName}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "5px 12px",
-                                    borderBottom: `1px solid ${tokens.border}`,
-                                  }}
-                                >
-                                  <input
-                                    style={css.priceInput}
-                                    type="number"
-                                    min="0"
-                                    placeholder="0"
-                                    value={
-                                      itemPrices[
-                                        `${cat.billTypeNo}:${item.itemName}`
-                                      ] ?? ""
-                                    }
-                                    onChange={(e) =>
-                                      handlePriceChange(
-                                        cat.billTypeNo,
-                                        item.itemName,
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                </td>
-                              </tr>
-                            ))}
+                                  <td
+                                    style={{
+                                      padding: "8px 12px",
+                                      color: tokens.text,
+                                      borderBottom: `1px solid ${tokens.border}`,
+                                    }}
+                                  >
+                                    {item.itemName}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "5px 12px",
+                                      borderBottom: `1px solid ${tokens.border}`,
+                                    }}
+                                  >
+                                    <input
+                                      style={{ ...css.priceInput, textAlign: "left" }}
+                                      type="text"
+                                      placeholder="NABH Code"
+                                      value={nabhVal}
+                                      onChange={(e) =>
+                                        handlePriceChange(
+                                          cat.billTypeNo,
+                                          item.itemName,
+                                          "nabh_code",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "5px 12px",
+                                      borderBottom: `1px solid ${tokens.border}`,
+                                    }}
+                                  >
+                                    <input
+                                      style={css.priceInput}
+                                      type="number"
+                                      min="0"
+                                      placeholder="0"
+                                      value={priceVal}
+                                      onChange={(e) =>
+                                        handlePriceChange(
+                                          cat.billTypeNo,
+                                          item.itemName,
+                                          "price",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       )}
@@ -1178,6 +1293,18 @@ const BillType = () => {
                           <th
                             style={{
                               padding: "8px 12px",
+                              textAlign: "left",
+                              fontWeight: 600,
+                              color: tokens.muted,
+                              borderBottom: `2px solid ${tokens.border}`,
+                              width: 140,
+                            }}
+                          >
+                            NABH Code
+                          </th>
+                          <th
+                            style={{
+                              padding: "8px 12px",
                               textAlign: "right",
                               fontWeight: 600,
                               color: tokens.muted,
@@ -1190,36 +1317,57 @@ const BillType = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {itemsWithPrice.map((item, idx) => (
-                          <tr
-                            key={item.itemName}
-                            style={{
-                              background:
-                                idx % 2 === 0 ? tokens.white : tokens.bg,
-                            }}
-                          >
-                            <td
+                        {itemsWithPrice.map((item, idx) => {
+                          const val = item[billTypeKey];
+                          let price = "";
+                          let nabh_code = "";
+                          if (typeof val === "object" && val !== null) {
+                            price = val.price !== undefined && val.price !== null ? String(val.price) : "";
+                            nabh_code = val.nabh_code !== undefined && val.nabh_code !== null ? String(val.nabh_code) : "";
+                          } else if (val !== undefined && val !== null) {
+                            price = String(val);
+                          }
+                          return (
+                            <tr
+                              key={item.itemName}
                               style={{
-                                padding: "8px 12px",
-                                color: tokens.text,
-                                borderBottom: `1px solid ${tokens.border}`,
+                                background:
+                                  idx % 2 === 0 ? tokens.white : tokens.bg,
                               }}
                             >
-                              {item.itemName}
-                            </td>
-                            <td
-                              style={{
-                                padding: "8px 12px",
-                                textAlign: "right",
-                                fontWeight: 600,
-                                color: tokens.sky,
-                                borderBottom: `1px solid ${tokens.border}`,
-                              }}
-                            >
-                              ₹{item[billTypeKey]}
-                            </td>
-                          </tr>
-                        ))}
+                              <td
+                                style={{
+                                  padding: "8px 12px",
+                                  color: tokens.text,
+                                  borderBottom: `1px solid ${tokens.border}`,
+                                }}
+                              >
+                                {item.itemName}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px 12px",
+                                  color: tokens.muted,
+                                  fontWeight: 500,
+                                  borderBottom: `1px solid ${tokens.border}`,
+                                }}
+                              >
+                                {nabh_code || "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px 12px",
+                                  textAlign: "right",
+                                  fontWeight: 600,
+                                  color: tokens.sky,
+                                  borderBottom: `1px solid ${tokens.border}`,
+                                }}
+                              >
+                                ₹{price}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

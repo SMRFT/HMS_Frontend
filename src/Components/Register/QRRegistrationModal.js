@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { QRCodeCanvas } from 'qrcode.react';
 import { X, RefreshCw, Trash2, ArrowRight, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import axios from 'axios';
-
+import apiRequest from '../../Auth/apiRequest';
 const Overlay = styled.div`
   position: fixed;
   top: 0;
@@ -380,8 +379,8 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
     try {
       // Use 'all' for history view to ensure all records are visible
       const status = activeTab === 'consumed' ? 'all' : 'pending';
-      const response = await axios.get(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`);
-      if (Array.isArray(response.data)) {
+      const response = await apiRequest(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`, "GET");
+      if (response.success && Array.isArray(response.data)) {
         setPendingList(response.data);
       }
     } catch (error) {
@@ -396,9 +395,10 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   const handleConvert = async (patient) => {
     try {
       // Mark as consumed
-      await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
+      const response = await apiRequest(`${Hmsbaseurl}consume-qr-registration/`, "POST", {
         session_id: patient.session_id
       });
+      if (!response.success) throw new Error(response.error);
 
       // Fill form
       onDataReceived(patient.full_data);
@@ -416,9 +416,10 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
     try {
       // We use the same 'consume' endpoint to mark it as processed/removed from pending view
       // But we DO NOT call onDataReceived
-      await axios.post(`${Hmsbaseurl}consume-qr-registration/`, {
+      const response = await apiRequest(`${Hmsbaseurl}consume-qr-registration/`, "POST", {
         session_id: patient.session_id
       });
+      if (!response.success) throw new Error(response.error);
       fetchPendingList(); // Refresh list immediately
     } catch (error) {
       console.error("Error deleting registration", error);

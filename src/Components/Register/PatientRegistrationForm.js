@@ -4,13 +4,15 @@ import { useState, useEffect } from "react"
 import styled from "styled-components"
 import apiRequest from "../../Auth/apiRequest"
 import { useNavigate } from "react-router-dom"
-import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText, Edit, RotateCcw, History } from "lucide-react"
+import { Search, Plus, ChevronDown, ChevronUp, Info, User, MapPin, UserPlus, AlertTriangle, Baby, QrCode, List, Printer, FileText, Edit, RotateCcw, History, UserCheck } from "lucide-react"
+import ReactSelect from 'react-select'
 import ReferenceDoctorForm from "./ReferenceDoctorForm";
 
 import QRRegistrationModal from "./QRRegistrationModal";
 import QRRegistrationSidebar from "./QRRegistrationSidebar";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
+import CreateABHAModal from "./CreateABHAModal";
 
 
 // Modal component for search results
@@ -243,7 +245,7 @@ const PatientRegistrationForm = () => {
         firstName: "",
         lastName: "",
         name: "", // Keep for backward compatibility
-        dob: "",
+        dob: new Date().toISOString().split('T')[0],
         age: "",
         gender: "",
         permanentAddress: "",
@@ -269,6 +271,7 @@ const PatientRegistrationForm = () => {
         birthTime: "",
         birthTimeAmPm: "AM",
         weight: "",
+        weightUnit: "kg",
         mothersUhidNo: "",
         pediatricianResponsible: "",
         emergencyContact: "",
@@ -285,6 +288,7 @@ const PatientRegistrationForm = () => {
     const [ipNumber, setIpNumber] = useState("")
     const [mobile, setMobile] = useState("")
     const [patients, setPatients] = useState([])
+    const [motherName, setMotherName] = useState("")
     const [searchDoctorTerm, setSearchDoctorTerm] = useState("") // New state for searching referredBy
     const [lastUhid, setLastUhid] = useState("") // State for last UHID
     const [insuranceProviders, setInsuranceProviders] = useState([]) // New state for insurance
@@ -301,7 +305,10 @@ const PatientRegistrationForm = () => {
     const [visitList, setVisitList] = useState([]);
     const [selectedVisit, setSelectedVisit] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showReferenceForm, setShowReferenceForm] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
+    const [showQRSidebar, setShowQRSidebar] = useState(false);
+    const [showABHAModal, setShowABHAModal] = useState(false);
     const [unusedQRCount, setUnusedQRCount] = useState(0);
     const [showEditVisitModal, setShowEditVisitModal] = useState(false);
     const [showRefundVisitModal, setShowRefundVisitModal] = useState(false);
@@ -321,6 +328,19 @@ const PatientRegistrationForm = () => {
                 updated.name = `${f} ${l}`.trim();
             }
             if (data.dob) updated.age = calculateAgeFromDOB(data.dob);
+
+            if (data.weight) {
+                let w = data.weight.toString().trim();
+                if (w.endsWith(" kg")) {
+                    updated.weight = w.replace(" kg", "");
+                    updated.weightUnit = "kg";
+                } else if (w.endsWith(" g")) {
+                    updated.weight = w.replace(" g", "");
+                    updated.weightUnit = "g";
+                } else {
+                    updated.weight = w;
+                }
+            }
             return updated;
         });
     };
@@ -670,7 +690,7 @@ const PatientRegistrationForm = () => {
                     <table class="info-table">
                         <tr>
                             <td>Bill Number</td>
-                            <td>: ${visit.billNumber || 'N/A'}</td>
+                            <td>: ${visit.billNumber || visit.bill_number || visit.bill_no || 'N/A'}</td>
                         </tr>
                         <tr>
                             <td>Op Number</td>
@@ -774,6 +794,8 @@ const PatientRegistrationForm = () => {
     const [registrationFee, setRegistrationFee] = useState(0)
     const [consultingFee, setConsultingFee] = useState(0)
     const [totalFees, setTotalFees] = useState(0)
+    const [includeRegFee, setIncludeRegFee] = useState(false)
+    const [includeConsFee, setIncludeConsFee] = useState(true)
 
     // Age calculation functions
     const calculateAgeFromDOB = (dob) => {
@@ -842,6 +864,29 @@ const PatientRegistrationForm = () => {
             return;
         }
 
+        const confirmResult = await Swal.fire({
+            title: 'Confirm Registration Details',
+            html: `
+                <div style="text-align: left; line-height: 1.6; font-size: 14px;">
+                    <p><b>Name:</b> ${patient.salutation || ""} ${patient.firstName || ""} ${patient.lastName || ""}</p>
+                    <p><b>Mobile:</b> ${patient.mobile || "N/A"}</p>
+                    <p><b>Age:</b> ${patient.age || "N/A"} ${patient.ageUnit || "Years"}</p>
+                    <p><b>DOB:</b> ${patient.dob || "N/A"}</p>
+                    <p><b>Doctor:</b> ${patient.doctorName || "N/A"}</p>
+                    <p><b>Emergency Contact:</b> ${patient.emergencyContact || "N/A"}</p>
+                </div>
+            `,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#0d9488',
+            cancelButtonColor: '#ef4444',
+            confirmButtonText: 'Yes, Register Patient!'
+        });
+
+        if (!confirmResult.isConfirmed) {
+            return;
+        }
+
         setSubmitting(true)
         try {
             const formData = new FormData()
@@ -865,18 +910,26 @@ const PatientRegistrationForm = () => {
                 referredDoctorPhone: "referred_doctor_phone",
                 customerType: "customer_type",
                 insuranceProviderCode: "company_code",
+                
+                // ABDM Integration Fields
+                abhaNumber: "abha_number",
             }
 
             // Append all patient data to formData
             Object.keys(patient).forEach((key) => {
                 const backendKey = backendKeys[key] || key
 
+                if (key === "weightUnit") return; // Skip it
+
                 // Skip MLC fields if isMlc is false
                 if (!isMlc && (key.startsWith('mlc') || key === 'passAlertToAuthority')) {
                     return;
                 }
 
-                if (key === "mlcDoc" && patient[key]) {
+                if (key === "weight" && patient[key]) {
+                    const finalWeight = `${patient.weight} ${patient.weightUnit || 'kg'}`;
+                    formData.append("weight", finalWeight);
+                } else if (key === "mlcDoc" && patient[key]) {
                     formData.append(backendKey, patient[key])
                 } else if (patient[key] !== null && patient[key] !== undefined) {
                     formData.append(backendKey, patient[key])
@@ -902,6 +955,7 @@ const PatientRegistrationForm = () => {
                 if (resultConfirm.isConfirmed) {
                     const visitObj = {
                         uhid: result.data.uhid,
+                        billNumber: result.data.bill_number,
                         patientName: `${patient.salutation} ${patient.firstName} ${patient.lastName}`.trim(),
                         age: patient.age,
                         gender: patient.gender,
@@ -952,6 +1006,7 @@ const PatientRegistrationForm = () => {
                     birthTime: "",
                     birthTimeAmPm: "AM",
                     weight: "",
+                    weightUnit: "kg",
                     mothersUhidNo: "",
                     pediatricianResponsible: "",
                 })
@@ -996,9 +1051,24 @@ const PatientRegistrationForm = () => {
     const handleSelectPatient = (selectedPatient) => {
         const fullName = `${selectedPatient.salutation || ""} ${selectedPatient.firstName || ""} ${selectedPatient.lastName || ""}`.trim()
 
+        let parsedWeight = selectedPatient.weight || "";
+        let parsedWeightUnit = "kg";
+        if (parsedWeight && typeof parsedWeight === 'string') {
+            const w = parsedWeight.trim();
+            if (w.endsWith(" kg")) {
+                parsedWeight = w.replace(" kg", "");
+                parsedWeightUnit = "kg";
+            } else if (w.endsWith(" g")) {
+                parsedWeight = w.replace(" g", "");
+                parsedWeightUnit = "g";
+            }
+        }
+
         // Map backend registration_date to frontend regDate if it exists
         const mappedPatient = {
             ...selectedPatient,
+            weight: parsedWeight,
+            weightUnit: parsedWeightUnit,
             name: fullName
         }
 
@@ -1089,8 +1159,8 @@ const PatientRegistrationForm = () => {
     }
 
     const handleDoctorSelect = (selected) => {
-        const regFee = selected.registrationFee || 0
-        const consFee = selected.consultingFee || 0
+        const regFee = includeRegFee ? (selected.registrationFee || 0) : 0
+        const consFee = includeConsFee ? (selected.consultingFee || 0) : 0
         const total = regFee + consFee
 
         setSelectedDoctor(selected)
@@ -1109,25 +1179,53 @@ const PatientRegistrationForm = () => {
         setIsDoctorDropdownOpen(false) // Close dropdown
     }
 
+    const handleToggleRegFee = (checked) => {
+        setIncludeRegFee(checked)
+        const effectiveRegFee = checked ? (selectedDoctor.registrationFee || 0) : 0
+        setRegistrationFee(effectiveRegFee)
+        const newTotal = effectiveRegFee + (includeConsFee ? consultingFee : 0)
+        setTotalFees(newTotal)
+        setPatient(prev => ({
+            ...prev,
+            registrationFee: effectiveRegFee,
+            totalFees: newTotal
+        }))
+    }
+
+    const handleToggleConsFee = (checked) => {
+        setIncludeConsFee(checked)
+        const effectiveConsFee = checked ? (selectedDoctor.consultingFee || 0) : 0
+        setConsultingFee(effectiveConsFee)
+        const newTotal = (includeRegFee ? registrationFee : 0) + effectiveConsFee
+        setTotalFees(newTotal)
+        setPatient(prev => ({
+            ...prev,
+            consultingFee: effectiveConsFee,
+            totalFees: newTotal
+        }))
+    }
+
     // Handle fee changes
     const handleFeeChange = (feeType, value) => {
         const newFee = Number.parseFloat(value) || 0
 
         if (feeType === "registration") {
             setRegistrationFee(newFee)
-            setTotalFees(newFee + consultingFee)
+            const newTotal = newFee + (includeConsFee ? consultingFee : 0)
+            setTotalFees(newTotal)
             setPatient({
                 ...patient,
                 registrationFee: newFee,
-                totalFees: newFee + consultingFee,
+                totalFees: newTotal,
             })
         } else if (feeType === "consulting") {
             setConsultingFee(newFee)
-            setTotalFees(registrationFee + newFee)
+            const newTotal = (includeRegFee ? registrationFee : 0) + newFee
+            setTotalFees(newTotal)
             setPatient({
                 ...patient,
                 consultingFee: newFee,
-                totalFees: registrationFee + newFee,
+                totalFees: newTotal,
             })
         }
     }
@@ -1149,18 +1247,59 @@ const PatientRegistrationForm = () => {
         }))
     }
 
-    const searchMotherUhid = () => {
-        console.log("Searching for mother's UHID:", patient.mothersUhidNo)
+    const searchMotherUhid = async () => {
+        if (!patient.mothersUhidNo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Required',
+                text: 'Please enter Mother\'s UHID first.'
+            });
+            return;
+        }
+        
+        try {
+            const response = await apiRequest(`${Hmsbaseurl}create/?uhid=${patient.mothersUhidNo}`, "GET");
+            if (response.success && response.data && response.data.length > 0) {
+                const mother = response.data[0];
+                const mName = `${mother.salutation || ""} ${mother.firstName || ""} ${mother.lastName || ""}`.trim();
+                setMotherName(mName);
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Found',
+                    text: `Mother's Name: ${mName}`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                setMotherName("Not Found");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Not Found',
+                    text: 'No patient found with this UHID.'
+                });
+            }
+        } catch (error) {
+            setMotherName("Error fetching");
+        }
     }
 
     const handleNewBornRegistration = () => {
-        console.log("Registering newborn with details:", {
-            birthTime: patient.birthTime,
-            birthTimeAmPm: patient.birthTimeAmPm,
-            weight: patient.weight,
-            mothersUhidNo: patient.mothersUhidNo,
-            pediatricianResponsible: patient.pediatricianResponsible,
-        })
+        Swal.fire({
+            title: 'New Born Registration Details',
+            html: `
+                <div style="text-align: left; line-height: 1.6; font-size: 14px;">
+                    <p><b>Mother's UHID:</b> ${patient.mothersUhidNo || "N/A"}</p>
+                    <p><b>Mother's Name:</b> ${motherName || "Not Searched"}</p>
+                    <p><b>Date of Birth:</b> ${patient.dob || "N/A"}</p>
+                    <p><b>Birth Time:</b> ${patient.birthTime || "N/A"}</p>
+                    <p><b>Weight:</b> ${patient.weight ? patient.weight + ' ' + (patient.weightUnit || 'kg') : "N/A"}</p>
+                    <p><b>Pediatrician:</b> ${patient.pediatricianResponsible || "N/A"}</p>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonColor: '#be185d',
+            confirmButtonText: 'OK'
+        });
     }
 
     return (
@@ -1230,6 +1369,39 @@ const PatientRegistrationForm = () => {
 
             <MainContentWrapper>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                    <CreateABHAModal 
+                        show={showABHAModal} 
+                        onClose={() => setShowABHAModal(false)}
+                        onSuccess={(abhaData) => {
+                            // Map ABDM ABHA profile to our registration form
+                            setPatient(prev => ({
+                                ...prev,
+                                firstName: abhaData.firstName || prev.firstName,
+                                lastName: abhaData.lastName || prev.lastName,
+                                // Keep middleName if we want, but DB only has firstName/lastName
+                                dob: abhaData.dob || abhaData.yearOfBirth ? `${abhaData.yearOfBirth}-01-01` : prev.dob,
+                                gender: abhaData.gender === 'M' ? 'Male' : abhaData.gender === 'F' ? 'Female' : prev.gender,
+                                permanentAddress: abhaData.address || prev.permanentAddress,
+                                mobilePhone: abhaData.mobile || prev.mobilePhone,
+                                zipcode: abhaData.pinCode || abhaData.pincode || abhaData.abha_pincode || ((abhaData.address || abhaData.permanentAddress || "").match(/\b\d{6}\b/)?.[0]) || prev.zipcode,
+                                city: abhaData.districtName || abhaData.abha_district_name || prev.city,
+                                state: abhaData.stateName || abhaData.abha_state_name || prev.state,
+                                
+                                // Store ABHA specific fields mapping to backendKeys
+                                abhaNumber: abhaData.ABHANumber || abhaData.abhaNumber || prev.abhaNumber,
+                            }));
+                            // Convert dob to age if possiblee
+                            if (abhaData.dob) {
+                                const year = abhaData.dob.split('-')[2];
+                                const age = new Date().getFullYear() - parseInt(year);
+                                setPatient(prev => ({ ...prev, age: age.toString() }));
+                            } else if (abhaData.yearOfBirth) {
+                                const age = new Date().getFullYear() - parseInt(abhaData.yearOfBirth);
+                                setPatient(prev => ({ ...prev, age: age.toString() }));
+                            }
+                        }}
+                    />
 
                     {/* Visit List Modal */}
                     <Modal
@@ -1704,10 +1876,67 @@ const PatientRegistrationForm = () => {
                             </InputWrapper>
                         </SearchRow>
                     </SearchContainer >
-
-
                     {/* Patient Registration Form */}
                     < FormContainer >
+                        {/* ABHA Banner at Top */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%)',
+                            borderRadius: '12px',
+                            padding: '16px 24px',
+                            marginBottom: '20px',
+                            gap: '16px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{
+                                    background: 'rgba(255,255,255,0.15)',
+                                    borderRadius: '10px',
+                                    padding: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <svg width="24" height="24" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div style={{ color: 'white', fontWeight: 700, fontSize: '16px', letterSpacing: '-0.3px' }}>ABHA (Ayushman Bharat Health Account)</div>
+                                    <div style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', marginTop: '2px' }}>Link or create ABHA to auto-fill patient details from Aadhaar</div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setShowABHAModal(true); }}
+                                style={{
+                                    background: 'white',
+                                    color: '#0369a1',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '10px 20px',
+                                    fontWeight: 700,
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                Create / Link ABHA
+                            </button>
+                        </div>
+
                         {/* <ContainerTitle>Patient Registration</ContainerTitle> */}
                         <form onSubmit={handleSubmit}>
                             {/* Basic Information Section Removed */}
@@ -2074,6 +2303,17 @@ const PatientRegistrationForm = () => {
                             >
                                 <FormGrid>
                                     <InputWrapper>
+                                        <Label htmlFor="newbornDob">Date of Birth</Label>
+                                        <Input 
+                                            type="date" 
+                                            id="newbornDob" 
+                                            name="dob" 
+                                            value={patient.dob || ""} 
+                                            onChange={handleChange} 
+                                        />
+                                    </InputWrapper>
+                                    
+                                    <InputWrapper>
                                         <Label htmlFor="birthTime">Birth Time</Label>
                                         <InputGroup>
                                             <Input
@@ -2082,12 +2322,15 @@ const PatientRegistrationForm = () => {
                                                 name="birthTime"
                                                 value={patient.birthTime || ""}
                                                 onChange={handleChange}
+                                                style={{ width: '70%' }}
                                             />
                                             <Select
                                                 id="birthTimeAmPm"
                                                 name="birthTimeAmPm"
                                                 value={patient.birthTimeAmPm || "AM"}
                                                 onChange={handleChange}
+                                                className="age-unit"
+                                                style={{ width: '30%' }}
                                             >
                                                 <option value="AM">AM</option>
                                                 <option value="PM">PM</option>
@@ -2097,17 +2340,28 @@ const PatientRegistrationForm = () => {
 
                                     <InputWrapper>
                                         <Label htmlFor="weight">Weight</Label>
-                                        <Select id="weight" name="weight" value={patient.weight || ""} onChange={handleChange}>
-                                            <option value="">Select Weight</option>
-                                            <option value="1">1 kg</option>
-                                            <option value="1.5">1.5 kg</option>
-                                            <option value="2">2 kg</option>
-                                            <option value="2.5">2.5 kg</option>
-                                            <option value="3">3 kg</option>
-                                            <option value="3.5">3.5 kg</option>
-                                            <option value="4">4 kg</option>
-                                            <option value="4.5">4.5 kg</option>
-                                        </Select>
+                                        <InputGroup>
+                                            <Input
+                                                type="number"
+                                                id="weight"
+                                                name="weight"
+                                                value={patient.weight || ""}
+                                                onChange={handleChange}
+                                                placeholder="Enter Weight"
+                                                style={{ width: '70%' }}
+                                                step="any"
+                                            />
+                                            <Select 
+                                                name="weightUnit" 
+                                                value={patient.weightUnit || "kg"} 
+                                                onChange={handleChange}
+                                                className="age-unit"
+                                                style={{ width: '30%' }}
+                                            >
+                                                <option value="kg">kg</option>
+                                                <option value="g">g</option>
+                                            </Select>
+                                        </InputGroup>
                                     </InputWrapper>
 
                                     <InputWrapper>
@@ -2125,31 +2379,63 @@ const PatientRegistrationForm = () => {
                                                 <Search size={16} />
                                             </InputAddon>
                                         </InputGroup>
+                                        {motherName && (
+                                            <div style={{ fontSize: '13px', color: motherName === 'Not Found' || motherName === 'Error fetching' ? '#ef4444' : '#0d9488', marginTop: '6px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                {motherName === 'Not Found' || motherName === 'Error fetching' ? <AlertTriangle size={14}/> : <UserCheck size={14}/>} 
+                                                {motherName}
+                                            </div>
+                                        )}
                                     </InputWrapper>
 
                                     <InputWrapper>
                                         <Label htmlFor="pediatricianResponsible">Pediatrician Responsible</Label>
-                                        <Select
+                                        <ReactSelect
                                             id="pediatricianResponsible"
                                             name="pediatricianResponsible"
-                                            value={patient.pediatricianResponsible || ""}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="">Select Pediatrician</option>
-                                            {doctors
-                                                .filter((doctor) => doctor.specialty === "Pediatrician")
-                                                .map((doctor, index) => (
-                                                    <option key={`ped-${index}`} value={doctor.name}>
-                                                        {doctor.name}
-                                                    </option>
-                                                ))}
-                                            {doctors.filter((doctor) => doctor.specialty === "Pediatrician").length === 0 &&
-                                                doctors.map((doctor, index) => (
-                                                    <option key={index} value={doctor.name}>
-                                                        {doctor.name}
-                                                    </option>
-                                                ))}
-                                        </Select>
+                                            value={
+                                                patient.pediatricianResponsible 
+                                                    ? { label: patient.pediatricianResponsible, value: patient.pediatricianResponsible } 
+                                                    : null
+                                            }
+                                            onChange={(selectedOption) => {
+                                                handleChange({
+                                                    target: {
+                                                        name: 'pediatricianResponsible',
+                                                        value: selectedOption ? selectedOption.value : ""
+                                                    }
+                                                });
+                                            }}
+                                            options={
+                                                doctors.filter(doctor => doctor.specialty === "Pediatrician").length > 0
+                                                    ? doctors.filter(doctor => doctor.specialty === "Pediatrician").map(doctor => ({ label: doctor.name, value: doctor.name }))
+                                                    : doctors.map(doctor => ({ label: doctor.name, value: doctor.name }))
+                                            }
+                                            placeholder="Select Pediatrician"
+                                            isClearable
+                                            styles={{
+                                                control: (provided) => ({
+                                                    ...provided,
+                                                    border: '1px solid #cbd5e1',
+                                                    borderRadius: '12px',
+                                                    minHeight: '45px',
+                                                    boxShadow: 'none',
+                                                    backgroundColor: '#f8fafc',
+                                                    '&:hover': {
+                                                        borderColor: '#0d9488',
+                                                        backgroundColor: '#fff'
+                                                    }
+                                                }),
+                                                option: (provided, state) => ({
+                                                    ...provided,
+                                                    backgroundColor: state.isSelected ? '#0d9488' : 'white',
+                                                    color: state.isSelected ? 'white' : '#1e293b',
+                                                    '&:hover': {
+                                                        backgroundColor: '#ccfbf1',
+                                                        color: '#0d9488'
+                                                    }
+                                                })
+                                            }}
+                                        />
                                     </InputWrapper>
                                 </FormGrid>
 
@@ -2212,27 +2498,53 @@ const PatientRegistrationForm = () => {
 
                             <FeeContainer>
                                 <FeeItem>
-                                    <Label htmlFor="registrationFee">Registration Fee (₹)</Label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <Label htmlFor="registrationFee" style={{ margin: 0 }}>Registration Fee (₹)</Label>
+                                        <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: includeRegFee ? '#0d9488' : '#64748b', fontWeight: '600' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={includeRegFee}
+                                                onChange={(e) => handleToggleRegFee(e.target.checked)}
+                                                style={{ accentColor: '#0d9488', width: '14px', height: '14px', cursor: 'pointer' }}
+                                            />
+                                            Enable
+                                        </label>
+                                    </div>
                                     <Input
                                         id="registrationFee"
                                         type="number"
-                                        value={registrationFee.toFixed(2)}
+                                        disabled={!includeRegFee}
+                                        value={includeRegFee ? registrationFee : 0}
                                         onChange={(e) => handleFeeChange("registration", e.target.value)}
+                                        style={{ backgroundColor: !includeRegFee ? '#f1f5f9' : '#fff', opacity: !includeRegFee ? 0.6 : 1 }}
                                     />
                                 </FeeItem>
                                 <FeeItem>
-                                    <Label htmlFor="consultingFee">Consulting Fee (₹)</Label>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                        <Label htmlFor="consultingFee" style={{ margin: 0 }}>Consulting Fee (₹)</Label>
+                                        <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: includeConsFee ? '#0d9488' : '#64748b', fontWeight: '600' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={includeConsFee}
+                                                onChange={(e) => handleToggleConsFee(e.target.checked)}
+                                                style={{ accentColor: '#0d9488', width: '14px', height: '14px', cursor: 'pointer' }}
+                                            />
+                                            Enable
+                                        </label>
+                                    </div>
                                     <Input
                                         id="consultingFee"
                                         type="number"
-                                        value={consultingFee.toFixed(2)}
+                                        disabled={!includeConsFee}
+                                        value={includeConsFee ? consultingFee : 0}
                                         onChange={(e) => handleFeeChange("consulting", e.target.value)}
+                                        style={{ backgroundColor: !includeConsFee ? '#f1f5f9' : '#fff', opacity: !includeConsFee ? 0.6 : 1 }}
                                     />
                                 </FeeItem>
 
                                 <TotalFeeItem>
                                     <Label htmlFor="totalFee">Total Fees (₹)</Label>
-                                    <Input id="totalFee" type="number" value={totalFees.toFixed(2)} readOnly />
+                                    <Input id="totalFee" type="number" value={totalFees} readOnly />
                                 </TotalFeeItem>
                             </FeeContainer>
 

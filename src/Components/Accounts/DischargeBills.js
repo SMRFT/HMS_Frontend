@@ -128,8 +128,10 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [billType, setBillType] = useState("all");
+    const [insuranceFilter, setInsuranceFilter] = useState("all");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
@@ -143,18 +145,17 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
         if (fromDate && toDate) {
             fetchReport();
         }
-    }, [fromDate, toDate, billType]);
+    }, [fromDate, toDate, billType, insuranceFilter]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&status=Billed`, "GET");
+            const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
+            if (billType !== "all") params.set("payment_mode", billType);
+            if (insuranceFilter !== "all") params.set("insurance", insuranceFilter);
+            const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
             if (response.success && response.data && Array.isArray(response.data.data)) {
-                let filteredData = response.data.data;
-                if (billType !== "all") {
-                    filteredData = response.data.data.filter(b => b.payment_mode?.toLowerCase() === billType.toLowerCase());
-                }
-                setReportData(filteredData);
+                setReportData(response.data.data);
             }
         } catch (error) {
             console.error("Error fetching report:", error);
@@ -199,14 +200,27 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                         />
                     </InputWrapper>
                     <InputWrapper>
-                        <Label>Bill Type</Label>
+                        <Label>Payment Mode</Label>
                         <Select
                             value={billType}
                             onChange={(e) => setBillType(e.target.value)}
                         >
-                            <option value="all">All Types</option>
+                            <option value="all">All Modes</option>
                             <option value="Cash">Cash</option>
-                            <option value="Credit">Credit</option>
+                            <option value="Card">Card</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Multiple Payment">Multiple Payment</option>
+                        </Select>
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Insurance</Label>
+                        <Select
+                            value={insuranceFilter}
+                            onChange={(e) => setInsuranceFilter(e.target.value)}
+                        >
+                            <option value="all">All Patients</option>
+                            <option value="true">Insurance Only</option>
+                            <option value="false">Non-Insurance Only</option>
                         </Select>
                     </InputWrapper>
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
@@ -225,6 +239,10 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                     <SummaryLabel>Total Patients</SummaryLabel>
                     <SummaryValue>{reportData.length}</SummaryValue>
                 </SummaryCard>
+                <SummaryCard color={colors.secondary}>
+                    <SummaryLabel>Insurance Patients</SummaryLabel>
+                    <SummaryValue>{reportData.filter(b => b.has_insurance).length}</SummaryValue>
+                </SummaryCard>
                 <SummaryCard color={colors.success}>
                     <SummaryLabel>Grand Total</SummaryLabel>
                     <SummaryValue>₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
@@ -238,32 +256,67 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                             <Th>S.No</Th>
                             <Th>Patient Name</Th>
                             <Th>IP.No</Th>
+                            <Th>Branch</Th>
                             <Th>Room</Th>
                             <Th>Admission Date</Th>
                             <Th>Discharge Date</Th>
-                            <Th>Bill ID</Th>
                             <Th>Bill No</Th>
+                            <Th>Payment Mode</Th>
+                            <Th>Insurance</Th>
                             <Th style={{ textAlign: "right" }}>Total</Th>
+                            <Th className="no-print">Items</Th>
                         </Tr>
                     </thead>
                     <tbody>
                         {reportData.length > 0 ? (
                             reportData.map((bill, index) => (
-                                <Tr key={index}>
-                                    <Td>{index + 1}</Td>
-                                    <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || "N/A"}</Td>
-                                    <Td>{bill.ip_number}</Td>
-                                    <Td>{bill.patient_details?.room_no || "N/A"}</Td>
-                                    <Td>{bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : "N/A"}</Td>
-                                    <Td>{bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A"}</Td>
-                                    <Td>{bill.discharge_id}</Td>
-                                    <Td>{bill.bill_no}</Td>
-                                    <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(bill.net_amount || 0).toFixed(2)}</Td>
-                                </Tr>
+                                <React.Fragment key={index}>
+                                    <Tr>
+                                        <Td>{index + 1}</Td>
+                                        <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || "N/A"}</Td>
+                                        <Td>{bill.ip_number}</Td>
+                                        <Td>{bill.branch_code || "N/A"}</Td>
+                                        <Td>{bill.patient_details?.room_no || "N/A"}</Td>
+                                        <Td>{bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : "N/A"}</Td>
+                                        <Td>{bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A"}</Td>
+                                        <Td>{bill.bill_no}</Td>
+                                        <Td>{bill.payment_mode || "Cash"}</Td>
+                                        <Td>{bill.has_insurance ? (bill.insurance_company || "Yes") : "No"}</Td>
+                                        <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(bill.net_amount || 0).toFixed(2)}</Td>
+                                        <Td className="no-print">
+                                            {bill.department_breakdown?.length > 0 && (
+                                                <Button
+                                                    secondary
+                                                    style={{ padding: "4px 10px", fontSize: "0.75rem", height: "auto" }}
+                                                    onClick={() => setExpandedRow(expandedRow === index ? null : index)}
+                                                >
+                                                    {expandedRow === index ? "Hide" : "View"}
+                                                </Button>
+                                            )}
+                                        </Td>
+                                    </Tr>
+                                    {expandedRow === index && bill.department_breakdown?.length > 0 && (
+                                        <Tr className="no-print">
+                                            <Td colSpan="12" style={{ background: "#f8fafc", padding: "12px 20px" }}>
+                                                <strong style={{ fontSize: "0.8rem", color: colors.textMuted }}>Department-wise breakdown:</strong>
+                                                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "8px" }}>
+                                                    {bill.department_breakdown.map((d, i) => (
+                                                        <span key={i} style={{
+                                                            background: "white", border: `1px solid ${colors.border}`,
+                                                            borderRadius: "8px", padding: "4px 10px", fontSize: "0.8rem"
+                                                        }}>
+                                                            {d.category}: <strong>₹{d.amount.toFixed(2)}</strong>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </Td>
+                                        </Tr>
+                                    )}
+                                </React.Fragment>
                             ))
                         ) : (
                             <Tr>
-                                <Td colSpan="9" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
+                                <Td colSpan="12" style={{ textAlign: "center", padding: "30px", color: colors.textMuted }}>
                                     No records found for the selected period.
                                 </Td>
                             </Tr>
@@ -272,9 +325,9 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                     {reportData.length > 0 && (
                         <tfoot>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
-                                <Td colSpan="7" style={{ textAlign: "right" }}>Total Patients: {reportData.length}</Td>
-                                <Td style={{ textAlign: "right" }}>Grand Total:</Td>
+                                <Td colSpan="10" style={{ textAlign: "right" }}>Total Patients: {reportData.length}</Td>
                                 <Td style={{ textAlign: "right", color: colors.primary }}>₹{grandTotal.toFixed(2)}</Td>
+                                <Td className="no-print"></Td>
                             </Tr>
                         </tfoot>
                     )}
