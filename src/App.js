@@ -173,6 +173,8 @@ import SalesBilling from "./Components/Velavan/SalesBilling";
 import SalesReport from "./Components/Velavan/SalesReport";
 import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
 import VelavanCustomerList from "./Components/Velavan/VelavanCustomerList";
+import DealerItems from "./Components/LabInventory/Dealeritems";
+import RaiseIndentPage from "./Components/LabInventory/raiseindent";
 import DoctorFeeCuts from "./Components/DoctorFeeCutsMaster/DoctorFeeCuts";
 import DoctorFeeCutsReport from "./Components/DoctorFeeCutsMaster/DoctorFeeCutsReport";
 
@@ -1508,10 +1510,29 @@ function App() {
                   <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
                 )}
 
+          {hasPagePermission(
+                "/DealerItems",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/DealerItems" element={<DealerItems />} />
+              )}
+
+
+               {hasPagePermission(
+                "/RaiseIndentPage",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+              )}
+
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
 
             </Routes>
+
+
           </ContentWrapper>
         </>
       )}

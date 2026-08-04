@@ -236,6 +236,66 @@ export const SuggestionItem = styled.li`
 `;
 
 
+/* --- Multi-select chips / checkboxes (Incharge, Respective Person) --- */
+
+export const ChipsWrapper = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+`;
+
+export const Chip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e6f5f5;
+  color: #219c9c;
+  border: 1px solid #219c9c;
+  border-radius: 14px;
+  padding: 2px 8px;
+  font-size: 12px;
+`;
+
+export const ChipRemove = styled.button`
+  background: none;
+  border: none;
+  color: #219c9c;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+`;
+
+export const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+`;
+
+/* --- Action icons (Edit / Renewal) in the list Actions column --- */
+
+export const ActionIconsRow = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+`;
+
+export const IconButton = styled.button`
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  color: #333;
+
+  &:hover {
+    color: #219c9c;
+  }
+`;
+
 /* --- Tabs (replaces modal trigger) --- */
 
 export const TabBar = styled.div`
