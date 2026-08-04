@@ -318,6 +318,52 @@ const StoresApprovalManager = () => {
             is_approved: allApproved 
         };
 
+        // --- LAB DEPARTMENT BRANCH ---
+        // DEPT002 items go into the LabApprovedItem model instead of (in addition to)
+        // the normal stores-intent item update.
+        if (selectedIntent.department === "DEPT002") {
+            const labItemsPayload = finalItems
+                .filter(it => Number(it.new_approval_qty) > 0)
+                .map(it => ({
+                    item_id: it.item_id,
+                    name: it.name,
+                    hsn: it.hsn,
+                    quantity: Number(it.quantity),
+                    used_qty: null
+                }));
+
+            if (labItemsPayload.length === 0) {
+                toast.warning("No approved quantity entered for any item");
+                setLoading(false);
+                return;
+            }
+
+            console.log("Submitting Lab Approved Items Payload:", labItemsPayload);
+
+            const labRes = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/lab-approved-items/create/`, "POST", { items: labItemsPayload });
+
+            if (!labRes.success) {
+                toast.error(labRes.error || "Failed to save Lab Approved Items.");
+                setLoading(false);
+                return;
+            }
+
+            // Keep the intent record itself in sync so it drops out of "Pending"
+            // in this same list. Remove this block if the intent should stay
+            // untouched for lab items.
+            const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${selectedIntent.intent_id}/`, "PATCH", payload);
+            if (res.success) {
+                toast.success("Items verified and stored in Lab Approved Items");
+                setShowModal(false);
+                loadPendingIntents();
+            } else {
+                toast.error(res.error || "Lab items saved, but failed to update intent status.");
+            }
+            setLoading(false);
+            return;
+        }
+
+        // --- EXISTING FLOW (all other departments) ---
         console.log("Submitting Approval Payload:", payload);
 
         const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${selectedIntent.intent_id}/`, "PATCH", payload);
