@@ -13,6 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import headerImage from "../Images/Header.png";
 import footerImage from "../Images/Footer.png";
+import sealImage from "../Images/SHSeal.png";
 
 const DashboardHeader = styled.div`
   display: flex;
@@ -1124,10 +1125,12 @@ export default function InternshipDashboard() {
 
     let headerSrc = headerImage;
     let footerSrc = footerImage;
+    let sealSrc = sealImage;
     if (withLetterpad) {
       try {
         headerSrc = await getBase64FromUrl(headerImage);
         footerSrc = await getBase64FromUrl(footerImage);
+        sealSrc = await getBase64FromUrl(sealImage);
       } catch (e) {
         console.warn("Base64 image conversion error:", e);
       }
@@ -1164,7 +1167,10 @@ export default function InternshipDashboard() {
 
     const footerHtml = withLetterpad
       ? `
-        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center;">
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px;">
+          <div style="font-size: 11px; color: #475569; font-style: italic; text-align: left; margin-bottom: 6px; padding-left: 10px;">
+            * This is an electronically generated certificate.
+          </div>
           <img src="${footerSrc}" alt="Footer" style="width: 100%; height: auto; display: block;" />
         </div>
       `
@@ -1188,7 +1194,7 @@ export default function InternshipDashboard() {
             ${formattedText}
           </div>
           
-          <div style="display: flex; justify-content: flex-start; margin-top: -18px;">
+          <div style="display: flex; justify-content: flex-start; align-items: flex-end; gap: 20px; margin-top: -18px;">
             <div style="text-align: left; min-width: 260px; font-family: 'Times New Roman', serif;">
               ${signatureBase64
         ? `<img src="data:image/png;base64,${signatureBase64}" style="max-height: 120px; max-width: 260px; display: block; margin-bottom: 4px;" alt="Signature" />`
@@ -1201,6 +1207,11 @@ export default function InternshipDashboard() {
                 ${approverDesignation || "Authorized Signatory"}
               </div>
             </div>
+            ${withLetterpad ? `
+              <div style="margin-bottom: 4px;">
+                <img src="${sealSrc}" alt="Seal" style="max-height: 110px; max-width: 120px; object-fit: contain; display: block;" />
+              </div>
+            ` : ""}
           </div>
         </div>
         ${footerHtml}
