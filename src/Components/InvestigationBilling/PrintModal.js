@@ -245,7 +245,7 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
   // ── per-size CSS ────────────────────────────────────────────────────────────
   const sizeCSS = isThermal
     ? `
-    body { width: 80mm; font-size: 11px; padding: 4px 6px; }
+    body { width: 72mm; max-width: 100%; font-size: 11px; padding: 4px 6px 4px 14px; margin: 0 auto; }
     .hospital-name { font-size: 13px; }
     .bill-title { font-size: 12px; }
     table th, table td { padding: 3px 4px; font-size: 11px; }
@@ -256,7 +256,7 @@ function buildBillHtml(bill, doctors, size, isEstimate = false) {
     .meta-row { margin-bottom: 4px; }
     .meta-label { width: 92px; font-size: 0.95em; }
     .meta-val { font-weight: 600; }
-    @page { size: 80mm auto; margin: 2mm; }
+    @page { size: 80mm auto; margin: 0mm; }
   `
     : isA5
       ? `
