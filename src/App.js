@@ -96,6 +96,7 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -177,6 +178,18 @@ import DealerItems from "./Components/LabInventory/Dealeritems";
 import RaiseIndentPage from "./Components/LabInventory/raiseindent";
 import DoctorFeeCuts from "./Components/DoctorFeeCutsMaster/DoctorFeeCuts";
 import DoctorFeeCutsReport from "./Components/DoctorFeeCutsMaster/DoctorFeeCutsReport";
+import InPatientFeedbackForm from "./Components/QRScan/InPatientFeedbackForm";
+import OutPatientfeedForm from "./Components/QRScan/OutPatientfeedForm";
+import Feedbackreports from "./Components/QRScan/Feedbackreports";
+import OutpatientFeedbackreports from "./Components/QRScan/OutpatientFeedbackreports";
+import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
+import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
+
+
+
+
+
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -362,8 +375,10 @@ function App() {
       "/AdvanceRegistration": "Advance Registration",
 
       "/BillCancelReport": "Bill Cancel Report",
-
+      "/Feedbackreports": "InPatient Feedback Reports",
+      "/FeedbackReports": "InPatient Feedback Reports",
     };
+
 
     const path = location.pathname;
     if (path.startsWith("/SummaryPrint/")) {
@@ -390,8 +405,20 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [userOutlets]);
 
-  // Routes where sidebar is hidden (login page and mobile reg)
-  const hideSidebarRoutes = ["/", "/MobileRegistration"];
+  // Routes where sidebar is hidden (login page, mobile reg, feedback form, QR scan)
+  const hideSidebarRoutes = [
+    "/",
+    "/MobileRegistration",
+    "/InPatientFeedbackForm",
+    "/OutPatientfeedForm",
+    "/outpatientfeedform",
+    "/OutPatientFeedbackForm",
+    "/outpatientfeedbackform",
+    "/InpatientQRScan",
+    "/inpatientqrscan",
+    "/OutPatientQRScan",
+    "/outpatientqrscan"
+  ];
 
   if (isLoading)
     return (
@@ -407,8 +434,24 @@ function App() {
       </div>
     );
 
-  // Allow public access to MobileRegistration
-  if (!role && location.pathname !== "/MobileRegistration") {
+  // Allow public access to MobileRegistration, Feedback forms, and QR scan pages
+  if (
+    !role &&
+    ![
+      "/MobileRegistration",
+      "/InPatientFeedbackForm",
+      "/OutPatientfeedForm",
+      "/outpatientfeedform",
+      "/OutPatientFeedbackForm",
+      "/outpatientfeedbackform",
+      "/InpatientQRScan",
+      "/inpatientqrscan",
+      "/OutPatientQRScan",
+      "/outpatientqrscan"
+    ].includes(location.pathname)
+  ) {
+
+
     return (
       <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
         Authentication error. Refresh the page.
@@ -470,9 +513,44 @@ function App() {
                 path="/MobileRegistration"
                 element={<MobileRegistration />}
               />
+              <Route
+                path="/InPatientFeedbackForm"
+                element={<InPatientFeedbackForm />}
+              />
+              <Route
+                path="/OutPatientfeedForm"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/outpatientfeedform"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/OutPatientFeedbackForm"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/InpatientQRScan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/inpatientqrscan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/OutPatientQRScan"
+                element={<OutPatientQRScan />}
+              />
+              <Route
+                path="/outpatientqrscan"
+                element={<OutPatientQRScan />}
+              />
             </Routes>
+
+
           )}
         </div>
+
       ) : (
         <>
           <Sidebar
@@ -548,6 +626,13 @@ function App() {
                     element={<ABDMSettings />}
                   />
                 )}
+
+              {/* InPatient Feedback Form */}
+              <Route
+                path="/InPatientFeedbackForm"
+                element={<InPatientFeedbackForm />}
+              />
+
 
               {/* Front Office */}
               {hasPagePermission(
@@ -1228,6 +1313,7 @@ function App() {
                   element={<StoreIntentApproval />}
                 />
               )}
+              <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
@@ -1529,8 +1615,27 @@ function App() {
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
-
+              <Route path="/Feedbackreports" element={<Feedbackreports />} />
+              <Route path="/FeedbackReports" element={<Feedbackreports />} />
+              <Route path="/InpatientQRScan" element={<InpatientQRScan />} />
+              <Route path="/inpatientqrscan" element={<InpatientQRScan />} />
+              <Route path="/InpatientQrScan" element={<InpatientQRScan />} />
+              <Route path="/QRScan" element={<InpatientQRScan />} />
+              <Route path="/qrscan" element={<InpatientQRScan />} />
+              <Route path="/OutPatientfeedForm" element={<OutPatientfeedForm />} />
+              <Route path="/outpatientfeedform" element={<OutPatientfeedForm />} />
+              <Route path="/OutPatientFeedbackForm" element={<OutPatientfeedForm />} />
+              <Route path="/outpatientfeedbackform" element={<OutPatientfeedForm />} />
+              <Route path="/OutPatientQRScan" element={<OutPatientQRScan />} />
+              <Route path="/outpatientqrscan" element={<OutPatientQRScan />} />
+              <Route path="/OutpatientFeedbackreports" element={<OutpatientFeedbackreports />} />
+              <Route path="/OutpatientFeedbackReports" element={<OutpatientFeedbackreports />} />
             </Routes>
+
+
+
+
+
 
 
           </ContentWrapper>
