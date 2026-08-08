@@ -838,10 +838,6 @@ const InvestigationBilling = () => {
   };
 
   const validateForm = () => {
-    if (!formData.uhid?.trim()) {
-      alert("UHID is required!");
-      return false;
-    }
     const ageVal = String(formData.calculatedAge || formData.age || "").trim();
     if (!ageVal) {
       alert("Age is required!");
@@ -1108,7 +1104,7 @@ const InvestigationBilling = () => {
 
           <FormRow>
             <InputWrapper>
-              <Label required>UHID</Label>
+              <Label>UHID</Label>
               <Input
                 type="text"
                 name="uhid"
