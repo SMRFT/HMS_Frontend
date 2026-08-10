@@ -96,7 +96,21 @@ const EmptyState = styled.div`
     text-align:center;padding:60px 20px;color:#94a3b8;
     .icon{font-size:3rem;margin-bottom:12px;}
     .title{font-size:1.1rem;font-weight:600;color:#64748b;}
-    .sub{font-size:0.85rem;margin-top:6px;}
+`;
+const CommonSaveBar = styled.div`
+    position: sticky;
+    bottom: 20px;
+    margin: 20px 32px;
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    color: white;
+    padding: 16px 28px;
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(13, 148, 136, 0.4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: ${fadeIn} 0.3s ease;
+    z-index: 100;
 `;
 
 const LabDailyUsage = () => {
@@ -111,6 +125,27 @@ const LabDailyUsage = () => {
 
     const toggleSelect = (idx) => {
         setSelected(prev => ({ ...prev, [idx]: !prev[idx] }));
+    };
+
+    const toggleSelectAll = () => {
+        const availableItems = filteredItems.filter(item => {
+            const remaining = item.remaining_qty ?? (item.quantity - (item.used_qty || 0));
+            return remaining > 0;
+        });
+
+        const selectedIdxs = Object.keys(selected).filter(idx => selected[idx]);
+        if (selectedIdxs.length >= availableItems.length && availableItems.length > 0) {
+            setSelected({});
+        } else {
+            const newSel = {};
+            filteredItems.forEach((item, idx) => {
+                const remaining = item.remaining_qty ?? (item.quantity - (item.used_qty || 0));
+                if (remaining > 0) {
+                    newSel[idx] = true;
+                }
+            });
+            setSelected(newSel);
+        }
     };
 
     const selectedCount = Object.values(selected).filter(Boolean).length;
@@ -233,6 +268,8 @@ const LabDailyUsage = () => {
     const totalRemaining = items.reduce((s, i) => s + (i.remaining_qty ?? 0), 0);
     const pct = (item) => Math.round(((item.used_qty || 0) / (item.quantity || 1)) * 100);
 
+    const availableCount = filteredItems.filter(i => (i.remaining_qty ?? (i.quantity - (i.used_qty || 0))) > 0).length;
+
     return (
         <PageWrapper>
             <Header>
@@ -246,7 +283,7 @@ const LabDailyUsage = () => {
                         🔄 {loading ? 'Loading...' : 'Refresh'}
                     </Btn>
                     <Btn primary onClick={handleSaveSelected} disabled={savingAll || selectedCount === 0}>
-                        💾 {savingAll ? 'Saving...' : `Save Selected${selectedCount ? ` (${selectedCount})` : ''}`}
+                        💾 {savingAll ? 'Saving...' : `Common Save${selectedCount ? ` (${selectedCount})` : ''}`}
                     </Btn>
                 </HeaderActions>
             </Header>
@@ -299,7 +336,16 @@ const LabDailyUsage = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
-                            <Th>Select</Th><Th>#</Th><Th>Item Details</Th><Th>HSN</Th>
+                            <Th style={{ width: 40, textAlign: 'center' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={availableCount > 0 && selectedCount >= availableCount}
+                                    onChange={toggleSelectAll}
+                                    style={{ width: 16, height: 16, cursor: 'pointer' }}
+                                    title="Select / Deselect All"
+                                />
+                            </Th>
+                            <Th>#</Th><Th>Item Details</Th><Th>HSN</Th>
                             <Th>Approved Qty</Th><Th>Used Qty</Th><Th>Remaining</Th>
                             <Th>Usage Progress</Th><Th>Enter Used Qty</Th><Th>Action</Th>
                         </tr>
@@ -326,7 +372,7 @@ const LabDailyUsage = () => {
                             const isChecked = !!selected[idx];
                             return (
                                 <Tr key={idx}>
-                                    <Td>
+                                    <Td style={{ textAlign: 'center' }}>
                                         <input
                                             type="checkbox"
                                             checked={isChecked}
@@ -359,7 +405,13 @@ const LabDailyUsage = () => {
                                         <UsageInput
                                             type="number" min="1" max={remaining} placeholder="Qty"
                                             value={inputVal} disabled={isFull}
-                                            onChange={e => setUsageMap(prev => ({ ...prev, [idx]: e.target.value }))}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setUsageMap(prev => ({ ...prev, [idx]: val }));
+                                                if (parseInt(val) > 0) {
+                                                    setSelected(prev => ({ ...prev, [idx]: true }));
+                                                }
+                                            }}
                                         />
                                     </Td>
                                     <Td>
@@ -376,6 +428,41 @@ const LabDailyUsage = () => {
                     </tbody>
                 </table>
             </TableCard>
+
+            {selectedCount > 0 && (
+                <CommonSaveBar>
+                    <div>
+                        <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>
+                            💾 Common Save Bar — {selectedCount} item(s) selected
+                        </div>
+                        <div style={{ fontSize: '0.82rem', opacity: 0.9, marginTop: 3 }}>
+                            Click "Common Save" to record daily usage for all selected rows simultaneously.
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setSelected({})}
+                            style={{
+                                padding: '9px 18px', borderRadius: '8px', background: 'rgba(255,255,255,0.2)',
+                                border: '1px solid rgba(255,255,255,0.4)', color: '#fff', fontWeight: 600, cursor: 'pointer'
+                            }}
+                        >
+                            Clear Selection
+                        </button>
+                        <button
+                            onClick={handleSaveSelected}
+                            disabled={savingAll}
+                            style={{
+                                padding: '10px 24px', borderRadius: '10px', background: '#fff', color: '#0d9488',
+                                border: 'none', fontWeight: 800, fontSize: '0.95rem', cursor: savingAll ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 4px 14px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', gap: '8px'
+                            }}
+                        >
+                            💾 {savingAll ? 'Saving All...' : `Common Save (${selectedCount})`}
+                        </button>
+                    </div>
+                </CommonSaveBar>
+            )}
         </PageWrapper>
     );
 };
