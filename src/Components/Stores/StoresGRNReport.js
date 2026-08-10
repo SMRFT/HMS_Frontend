@@ -142,10 +142,17 @@ const StoresGRNReport = () => {
 
     const fetchVendors = async () => {
         try {
-            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/vendors/`, 'GET');
-            if (response.success) setVendors(response.data);
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`, 'GET');
+            if (response?.success) {
+                const list = Array.isArray(response.data)
+                    ? response.data
+                    : Array.isArray(response.data?.data)
+                    ? response.data.data
+                    : [];
+                setVendors(list);
+            }
         } catch (error) {
-            console.error("Error fetching vendors:", error);
+            console.error("Error fetching general store vendors:", error);
         }
     };
 

@@ -225,46 +225,142 @@ const CashierWiseReport = ({ startDate, endDate }) => {
     // Grouping helper to process shift blocks
     const getShiftBlocks = () => {
         if (selectedShiftId === "all") {
-            // ── ALL SHIFTS MODE ──
-            // Aggregate ALL reportData by type_name (don't filter by shiftno;
-            // many bills have empty/null shiftno and would be lost otherwise)
-            if (reportData.length === 0) return [];
+            if (reportData.length === 0 && shifts.length === 0) return [];
 
-            const grouped = reportData.reduce((acc, curr) => {
-                const name = curr.type_name || curr.type || "Other";
-                if (!acc[name]) acc[name] = { name, receipts: 0, payments: 0 };
-                const amt = parseFloat(curr.display_amount || 0);
-                if (amt < 0) {
-                    acc[name].payments += Math.abs(amt);
-                } else {
-                    acc[name].receipts += amt;
+            // Group reportData by cashier_name / shift
+            if (shifts.length > 0) {
+                const blocks = shifts.map(s => {
+                    const shiftBills = reportData.filter(b => b.shiftno === s.shiftno);
+                    const billsToUse = shiftBills.length > 0 ? shiftBills : reportData.filter(b => (b.cashier_name || b.User) === s.User);
+
+                    const grouped = billsToUse.reduce((acc, curr) => {
+                        const name = curr.type_name || curr.type || "Other";
+                        if (!acc[name]) acc[name] = { name, receipts: 0, payments: 0 };
+                        const amt = parseFloat(curr.display_amount || 0);
+                        if (amt < 0) {
+                            acc[name].payments += Math.abs(amt);
+                        } else {
+                            acc[name].receipts += amt;
+                        }
+                        return acc;
+                    }, {});
+
+                    const categories = Object.values(grouped);
+                    const openingBal = parseFloat(s.OpeningBalance || 0);
+                    if (openingBal > 0) {
+                        categories.unshift({ name: "OPENING BALANCE", receipts: openingBal, payments: 0 });
+                    }
+
+                    const totalReceipts = categories.reduce((sum, c) => sum + c.receipts, 0);
+                    const totalPayments = categories.reduce((sum, c) => sum + c.payments, 0);
+                    const closingBalance = parseFloat(s.ClosingBalance || (totalReceipts - totalPayments));
+
+                    return {
+                        shiftno: s.shiftno,
+                        cashierName: s.User || s.CashierID || "Cashier",
+                        startTime: s.StartTime || "N/A",
+                        endTime: s.EndTime || "Active",
+                        date: s.date,
+                        isAllShifts: false,
+                        categories,
+                        totalReceipts,
+                        totalPayments,
+                        closingBalance
+                    };
+                }).filter(b => b.categories.length > 0);
+
+                // Handle any bills for cashiers not present in shifts array
+                const handledShiftnos = new Set(shifts.map(s => s.shiftno));
+                const handledCashiers = new Set(shifts.map(s => s.User));
+                const unhandledBills = reportData.filter(b => !handledShiftnos.has(b.shiftno) && !handledCashiers.has(b.cashier_name));
+
+                if (unhandledBills.length > 0) {
+                    const cashierGroups = unhandledBills.reduce((acc, b) => {
+                        const cName = b.cashier_name || "Unassigned Cashier";
+                        if (!acc[cName]) acc[cName] = [];
+                        acc[cName].push(b);
+                        return acc;
+                    }, {});
+
+                    Object.entries(cashierGroups).forEach(([cName, cBills]) => {
+                        const grouped = cBills.reduce((acc, curr) => {
+                            const name = curr.type_name || curr.type || "Other";
+                            if (!acc[name]) acc[name] = { name, receipts: 0, payments: 0 };
+                            const amt = parseFloat(curr.display_amount || 0);
+                            if (amt < 0) {
+                                acc[name].payments += Math.abs(amt);
+                            } else {
+                                acc[name].receipts += amt;
+                            }
+                            return acc;
+                        }, {});
+
+                        const categories = Object.values(grouped);
+                        const totalReceipts = categories.reduce((sum, c) => sum + c.receipts, 0);
+                        const totalPayments = categories.reduce((sum, c) => sum + c.payments, 0);
+
+                        blocks.push({
+                            shiftno: "General",
+                            cashierName: cName,
+                            startTime: fromDate,
+                            endTime: toDate,
+                            date: null,
+                            isAllShifts: false,
+                            categories,
+                            totalReceipts,
+                            totalPayments,
+                            closingBalance: totalReceipts - totalPayments
+                        });
+                    });
                 }
+
+                return blocks;
+            }
+
+            // Fallback if shifts list is empty: Group reportData by cashier_name
+            const cashierMap = reportData.reduce((acc, curr) => {
+                const cName = curr.cashier_name || "Unassigned Cashier";
+                if (!acc[cName]) acc[cName] = [];
+                acc[cName].push(curr);
                 return acc;
             }, {});
 
-            const categories = Object.values(grouped);
-            const totalReceipts = categories.reduce((sum, c) => sum + c.receipts, 0);
-            const totalPayments = categories.reduce((sum, c) => sum + c.payments, 0);
+            return Object.entries(cashierMap).map(([cName, cBills]) => {
+                const grouped = cBills.reduce((acc, curr) => {
+                    const name = curr.type_name || curr.type || "Other";
+                    if (!acc[name]) acc[name] = { name, receipts: 0, payments: 0 };
+                    const amt = parseFloat(curr.display_amount || 0);
+                    if (amt < 0) {
+                        acc[name].payments += Math.abs(amt);
+                    } else {
+                        acc[name].receipts += amt;
+                    }
+                    return acc;
+                }, {});
 
-            return [{
-                shiftno: "All Shifts",
-                cashierName: reportData[0]?.cashier_name || "—",
-                startTime: fromDate,
-                endTime: toDate,
-                date: null,
-                isAllShifts: true,
-                categories,
-                totalReceipts,
-                totalPayments,
-                closingBalance: totalReceipts - totalPayments
-            }];
+                const categories = Object.values(grouped);
+                const totalReceipts = categories.reduce((sum, c) => sum + c.receipts, 0);
+                const totalPayments = categories.reduce((sum, c) => sum + c.payments, 0);
+
+                return {
+                    shiftno: "Summary",
+                    cashierName: cName,
+                    startTime: fromDate,
+                    endTime: toDate,
+                    date: null,
+                    isAllShifts: false,
+                    categories,
+                    totalReceipts,
+                    totalPayments,
+                    closingBalance: totalReceipts - totalPayments
+                };
+            });
         }
 
         // ── SINGLE SHIFT MODE ──
         const activeShifts = shifts.filter(sh => sh.shiftno === selectedShiftId);
 
         return activeShifts.map(s => {
-            // Include bills that exactly match shiftno OR have no shiftno (fallback)
             const shiftBills = reportData.filter(
                 b => b.shiftno === s.shiftno || (!b.shiftno && reportData.length > 0)
             );
@@ -282,8 +378,6 @@ const CashierWiseReport = ({ startDate, endDate }) => {
             }, {});
 
             const categories = Object.values(grouped);
-
-            // Opening Balance at top
             const openingBal = parseFloat(s.OpeningBalance || 0);
             if (openingBal > 0) {
                 categories.unshift({ name: "OPENING BALANCE", receipts: openingBal, payments: 0 });
@@ -367,24 +461,16 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "15px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "10px" }}>
                                 <FaUser color={colors.primary} />
                                 <h4 style={{ margin: 0, color: colors.primary }}>
-                                    {block.isAllShifts ? `All Shifts — ${fromDate} to ${toDate}` : `Shift No: ${block.shiftno}`}
+                                    {block.shiftno === "All Shifts"
+                                        ? `All Shifts Summary`
+                                        : `Cashier: ${block.cashierName} ${block.shiftno !== 'General' && block.shiftno !== 'Summary' ? `(Shift No: ${block.shiftno})` : ''}`}
                                 </h4>
                             </div>
                             <InfoGrid>
-                                {block.isAllShifts ? (
-                                    <>
-                                        <InfoItem><InfoLabel>From Date</InfoLabel><InfoValue>{fromDate}</InfoValue></InfoItem>
-                                        <InfoItem><InfoLabel>To Date</InfoLabel><InfoValue>{toDate}</InfoValue></InfoItem>
-                                        <InfoItem><InfoLabel>Total Bills</InfoLabel><InfoValue>{reportData.length}</InfoValue></InfoItem>
-                                    </>
-                                ) : (
-                                    <>
-                                        <InfoItem><InfoLabel>Cashier Name</InfoLabel><InfoValue>{block.cashierName}</InfoValue></InfoItem>
-                                        <InfoItem><InfoLabel>Start Time</InfoLabel><InfoValue>{block.startTime}</InfoValue></InfoItem>
-                                        <InfoItem><InfoLabel>End Time</InfoLabel><InfoValue>{block.endTime}</InfoValue></InfoItem>
-                                        <InfoItem><InfoLabel>Date</InfoLabel><InfoValue>{block.date ? format(new Date(block.date), "dd/MM/yyyy") : "N/A"}</InfoValue></InfoItem>
-                                    </>
-                                )}
+                                <InfoItem><InfoLabel>Date / Period</InfoLabel><InfoValue>{block.date ? format(new Date(block.date), "dd/MM/yyyy") : `${fromDate} to ${toDate}`}</InfoValue></InfoItem>
+                                <InfoItem><InfoLabel>Cashier</InfoLabel><InfoValue style={{ fontWeight: 700, color: colors.primary }}>{block.cashierName}</InfoValue></InfoItem>
+                                <InfoItem><InfoLabel>Shift No</InfoLabel><InfoValue>{block.shiftno}</InfoValue></InfoItem>
+                                <InfoItem><InfoLabel>Total Collection</InfoLabel><InfoValue style={{ color: colors.success, fontWeight: 700 }}>₹{block.totalReceipts.toFixed(2)}</InfoValue></InfoItem>
                             </InfoGrid>
 
                             <TableWrapper style={{ boxShadow: "none", border: `1px solid ${colors.border}` }}>
@@ -392,7 +478,7 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                                     <thead>
                                         <Tr>
                                             <Th style={{ width: "80px" }}>SlNo.</Th>
-                                            <Th>Bill Name</Th>
+                                            <Th>Bill Type / Category</Th>
                                             <Th style={{ textAlign: "right", width: "150px" }}>Receipts</Th>
                                             <Th style={{ textAlign: "right", width: "150px" }}>Payments</Th>
                                         </Tr>

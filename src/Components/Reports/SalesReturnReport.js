@@ -16,7 +16,8 @@ import {
     Search,
     Building2,
     Users,
-    Pill
+    Pill,
+    ArrowLeft
 } from "lucide-react";
 import {
     PageWrapper,
@@ -526,6 +527,7 @@ const SalesReturnReport = () => {
                     <p>Pharmacy sales returns across IP and OP bills.</p>
                 </TitleGroup>
                 <ActionButtons className="no-print">
+                    <SecondaryButton onClick={() => window.history.back()}><ArrowLeft size={20} /> Back</SecondaryButton>
                     {reportData.length > 0 && (
                         <>
                             <SecondaryButton onClick={handleExport}><Download size={20} /> Export</SecondaryButton>

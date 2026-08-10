@@ -181,6 +181,12 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
         }
     };
 
+    const getOutletName = (code) => {
+        if (!code) return '-';
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? (found.outlet_name || found.name) : code;
+    };
+
     const fetchReport = async () => {
         setLoading(true);
         try {
@@ -340,7 +346,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                         </div>
                                         <div>
                                             <SummaryLabel>Counter</SummaryLabel>
-                                            <div style={{ fontWeight: "700" }}>{group.SelectedOutlet}</div>
+                                            <div style={{ fontWeight: "700" }}>{getOutletName(group.SelectedOutlet)}</div>
                                         </div>
                                         <div>
                                             <SummaryLabel>Duration</SummaryLabel>
@@ -421,7 +427,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                 {summaryData.length > 0 ? (
                                     summaryData.map((s, i) => (
                                         <Tr key={i}>
-                                            <Td>{s.SelectedOutlet}</Td>
+                                            <Td>{getOutletName(s.SelectedOutlet)}</Td>
                                             <Td>{s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"}</Td>
                                             <Td style={{ fontWeight: "700", color: colors.primary }}>{s.shiftno}</Td>
                                             <Td>{s.User}</Td>
@@ -512,7 +518,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                     <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.ClosingBalance || 0).toFixed(2)}</td>
                                     <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.RemittedToBank || 0).toFixed(2)}</td>
                                     <td style={{ border: "1px solid black", padding: "5px", textAlign: "right" }}>{(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
-                                    <td style={{ border: "1px solid black", padding: "5px" }}>{s.SelectedOutlet}</td>
+                                    <td style={{ border: "1px solid black", padding: "5px" }}>{getOutletName(s.SelectedOutlet)}</td>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.StartTime}</td>
                                     <td style={{ border: "1px solid black", padding: "5px" }}>{s.EndTime || "Active"}</td>
                                     <td style={{ border: "1px solid black", padding: "5px", textAlign: "right", fontWeight: "bold" }}>{(s.collected_Amount || 0).toFixed(2)}</td>
@@ -645,7 +651,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                         {Array.isArray(selectedBill.items) && selectedBill.items.length > 0 ? (
                                             selectedBill.items.map((item, idx) => (
                                                 <Tr key={idx}>
-                                                    <Td style={{ padding: "8px", fontSize: "0.8rem" }}>{item.itemName || item.item_name || item.name || "N/A"}</Td>
+                                                    <Td style={{ padding: "8px", fontSize: "0.8rem" }}>{item.itemName || item.item_name || item.Item_Name || item.Particulars || item.particulars || item.service_name || item.description || item.medicine_name || item.name || "N/A"}</Td>
                                                     <Td style={{ padding: "8px", fontSize: "0.8rem", textAlign: "center" }}>{item.quantity || 1}</Td>
                                                     <Td style={{ padding: "8px", fontSize: "0.8rem", textAlign: "right" }}>₹{parseFloat(item.price || item.rate || 0).toFixed(2)}</Td>
                                                     <Td style={{ padding: "8px", fontSize: "0.8rem", textAlign: "right", fontWeight: "600" }}>₹{parseFloat(item.amount || (parseFloat(item.price || item.rate || 0) * (item.quantity || 1))).toFixed(2)}</Td>
@@ -713,7 +719,7 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                         {summaryData && summaryData.length > 0 ? (
                             summaryData.map((s, i) => (
                                 <tr key={i}>
-                                    <td>{s.SelectedOutlet}</td>
+                                    <td>{getOutletName(s.SelectedOutlet)}</td>
                                     <td>{s.date}</td>
                                     <td>{s.shiftno}</td>
                                     <td>{s.User}</td>

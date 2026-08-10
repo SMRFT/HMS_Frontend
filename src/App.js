@@ -96,6 +96,7 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
@@ -358,6 +359,8 @@ function App() {
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/Generalstorevendor": "General Store Vendor",
+      "/GeneralStoresVendor": "General Store Vendor",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -1311,6 +1314,18 @@ function App() {
                 <Route
                   path="/StoreIntentApproval"
                   element={<StoreIntentApproval />}
+                />
+              )}
+              {hasPagePermission("/Generalstorevendor", allowedActions) && (
+                <Route
+                  path="/Generalstorevendor"
+                  element={<Generalstorevendor />}
+                />
+              )}
+              {hasPagePermission("/GeneralStoresVendor", allowedActions) && (
+                <Route
+                  path="/GeneralStoresVendor"
+                  element={<Generalstorevendor />}
                 />
               )}
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />

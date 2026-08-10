@@ -769,12 +769,20 @@ const PharmacyItemMaster = () => {
             <PageTitle>💊 Pharmacy Item Master</PageTitle>
             <PageSubtitle>Manage pharmacy inventory items</PageSubtitle>
           </div>
-          <Button
-            onClick={() => { setShowForm((p) => !p); if (showForm) handleCancel(); }}
-            style={{ background: "white", color: colors.primary, fontSize: "0.85rem", padding: "7px 16px" }}
-          >
-            {showForm ? "✕ Close" : "+ Add New Item"}
-          </Button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <Button
+              onClick={() => window.history.back()}
+              style={{ background: "rgba(255,255,255,0.2)", color: "white", fontSize: "0.85rem", padding: "7px 14px", border: "1px solid rgba(255,255,255,0.4)" }}
+            >
+              ← Back
+            </Button>
+            <Button
+              onClick={() => { setShowForm((p) => !p); if (showForm) handleCancel(); }}
+              style={{ background: "white", color: colors.primary, fontSize: "0.85rem", padding: "7px 16px" }}
+            >
+              {showForm ? "✕ Close" : "+ Add New Item"}
+            </Button>
+          </div>
         </PageHeader>
 
         {/* ── Slide-down Form Drawer ── */}
