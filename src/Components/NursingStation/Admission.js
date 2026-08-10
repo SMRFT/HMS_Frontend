@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
 import RoomShifting from "./RoomShifting";          // ← Room Shifting component
 import IPAdvance from "./IPAdvance";                // ← IP Advance component
+import AdmissionGrid from "./AdmissionGrid";
 import {
   PageWrapper, Container, ModalOverlay, ModalContainer,
   ModalHeader, ModalTitle, CloseButton, ModalBody,
@@ -140,7 +141,36 @@ const RoomSourceTag = styled.span`font-size:.55rem;font-weight:700;padding:1px 5
 // ─── Dropdown ──────────────────────────────────────────────────────────────────
 const AW   = styled.div`position:relative;display:inline-block;`;
 const DotB = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#6b7280;&:hover{background:#f3f4f6;}`;
-const Drop = styled.div`position:fixed;top:${p=>p.top}px;left:${p=>p.left}px;background:#fff;border:1px solid #e5e7eb;border-radius:7px;box-shadow:0 8px 28px rgba(0,0,0,.16);z-index:9999;min-width:200px;overflow:hidden;animation:${fadeIn} .14s ease;`;
+const Drop = styled.div`
+  position: fixed;
+  ${p => p.placement === "top" ? `bottom: ${p.bottom}px;` : `top: ${p.top}px;`}
+  left: ${p => p.left}px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.16);
+  z-index: 9999;
+  min-width: 200px;
+  max-height: ${p => p.maxHeight || 280}px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: ${fadeIn} .14s ease;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+`;
 const DI   = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;display:flex;align-items:center;gap:8px;color:${p=>p.disabled?'#9ca3af':p.danger?'#dc2626':'#374151'};cursor:${p=>p.disabled?'not-allowed':'pointer'};&:hover:not(:disabled){background:${p=>p.danger?'#fff1f2':'#f0fdf4'};}`;
 
 // ─── Pagination ────────────────────────────────────────────────────────────────
@@ -625,6 +655,11 @@ export default function Admission() {
   const [form,      setForm]      = useState(EMPTY);
 
   // ── When form is in edit mode, store the editReason until submit ──────────
+  // ── Grid View ─────────────────────────────────────────────────────────────
+  const [viewMode,    setViewMode]    = useState("table");
+  const [gridData,    setGridData]    = useState([]);
+  const [gridLoading, setGridLoading] = useState(false);
+
   const [pendingEditReason, setPendingEditReason] = useState("");
 
   const [showRoom,  setShowRoom]  = useState(false);
@@ -640,7 +675,7 @@ export default function Admission() {
   const [confirmModal,   setConfirmModal]   = useState(null);
   const [infoModal,      setInfoModal]      = useState(null);
   const [openMenu,       setOpenMenu]       = useState(null);
-  const [menuPos,        setMenuPos]        = useState({ top:0, left:0 });
+  const [menuPos,        setMenuPos]        = useState({ top:0, bottom:0, left:0, placement:"bottom", maxHeight:280 });
   const menuRef = useRef(null);
 
   // ── Reason modals ─────────────────────────────────────────────────────────
@@ -668,12 +703,58 @@ export default function Admission() {
   };
 
   useEffect(() => {
-    const h = e => { if (menuRef.current && !menuRef.current.contains(e.target)) setOpenMenu(null); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const handleOutsideClick = e => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenu(null);
+      }
+    };
+    const handleScrollOrResize = e => {
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setOpenMenu(null);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
   }, []);
 
   useEffect(() => { fetchDoctors(); fetchAdmissions(); fetchPackages(); }, []);
+
+  const fetchGridData = async () => {
+    setGridLoading(true);
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
+      const apiData  = response?.data || response;
+      if (!Array.isArray(apiData)) { setGridData([]); return; }
+      const grouped = {};
+      apiData.forEach((floorEntry) => {
+        const floor = floorEntry.floor;
+        (floorEntry.rooms || []).forEach((room) => {
+          const blockName = room.block || "UNKNOWN BLOCK";
+          if (!grouped[blockName]) grouped[blockName] = { block: { block_name: blockName }, floors: {} };
+          if (!grouped[blockName].floors[floor]) grouped[blockName].floors[floor] = [];
+          grouped[blockName].floors[floor].push({ ...room, id: `${room.room_number}_${floor}` });
+        });
+      });
+      setGridData(Object.values(grouped));
+    } catch (err) {
+      console.error("Room enquiry error:", err);
+      toast.error("Failed to fetch room grid data");
+    } finally {
+      setGridLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === "grid" && gridData.length === 0) {
+      fetchGridData();
+    }
+  }, [viewMode, gridData.length]);
 
   // ── API ──────────────────────────────────────────────────────────────────────
   const fetchDoctors = async () => {
@@ -854,6 +935,12 @@ export default function Admission() {
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setFormOpen(true); };
+  const handleGridBedClick = (room, bed) => {
+    setEditingId(null);
+    setForm({ ...EMPTY, roomNo: room.room_number, bedNo: bed.bed_number });
+    setPendingEditReason("");
+    setFormOpen(true);
+  };
   const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setFormOpen(true); window.scrollTo({top:0,behavior:"smooth"}); };
   const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); };
 
@@ -952,11 +1039,31 @@ export default function Admission() {
     if (openMenu === ipNumber) { setOpenMenu(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
     const mw   = 200;
-    let left   = rect.right - mw;
-    let top    = rect.bottom + 4;
+    const windowHeight = window.innerHeight;
+    const windowWidth  = window.innerWidth;
+    const menuEstimatedHeight = 250;
+
+    let left = rect.right - mw;
     if (left < 8) left = 8;
-    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-    setMenuPos({ top, left });
+    if (left + mw > windowWidth - 8) left = windowWidth - mw - 8;
+
+    const spaceBelow = windowHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let placement = "bottom";
+    let top = rect.bottom + 4;
+    let bottom = 0;
+    let maxHeight = Math.min(280, spaceBelow - 12);
+
+    if (spaceBelow < menuEstimatedHeight && spaceAbove > spaceBelow) {
+      placement = "top";
+      bottom = windowHeight - rect.top + 4;
+      maxHeight = Math.min(280, spaceAbove - 12);
+    } else {
+      maxHeight = Math.max(120, maxHeight);
+    }
+
+    setMenuPos({ top, bottom, left, placement, maxHeight });
     setOpenMenu(ipNumber);
   };
 
@@ -1001,9 +1108,19 @@ export default function Admission() {
 
         <PageHeader>
           <PageTitle>🏥 Admission</PageTitle>
-          <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
-            {formOpen ? "− Close Form" : "+ New Admission"}
-          </NewAdmBtn>
+          <div style={{display:"flex", gap:"8px", alignItems:"center"}}>
+            <div style={{display:"flex", background:"rgba(255,255,255,0.2)", borderRadius:"5px", padding:"2px"}}>
+              <button 
+                onClick={()=>setViewMode("table")} 
+                style={{padding:"4px 10px", fontSize:".75rem", fontWeight:600, border:"none", borderRadius:"4px", cursor:"pointer", background:viewMode==="table"?"#fff":"transparent", color:viewMode==="table"?"#0d9488":"#fff", transition:"all 0.2s"}}>📋 Table</button>
+              <button 
+                onClick={()=>setViewMode("grid")} 
+                style={{padding:"4px 10px", fontSize:".75rem", fontWeight:600, border:"none", borderRadius:"4px", cursor:"pointer", background:viewMode==="grid"?"#fff":"transparent", color:viewMode==="grid"?"#0d9488":"#fff", transition:"all 0.2s"}}>🔲 Grid</button>
+            </div>
+            <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
+              {formOpen ? "− Close Form" : "+ New Admission"}
+            </NewAdmBtn>
+          </div>
         </PageHeader>
 
         <StatStrip>
@@ -1195,8 +1312,12 @@ export default function Admission() {
           </FormPanel>
         )}
 
-        {/* ── Table Controls ── */}
-        <TTBar>
+        {viewMode === "grid" ? (
+          <AdmissionGrid data={gridData} loading={gridLoading} onBedClick={handleGridBedClick} />
+        ) : (
+          <>
+            {/* ── Table Controls ── */}
+            <TTBar>
           <div style={{display:"flex",alignItems:"center",gap:6,fontSize:".75rem",color:"#6b7280"}}>
             Show&nbsp;
             <FSel style={{width:60,height:28}} value={perPage} onChange={e=>{setPerPage(Number(e.target.value));setPage(1);}}>
@@ -1282,6 +1403,8 @@ export default function Admission() {
             <PB onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}>Next</PB>
           </div>
         </Pager>
+          </>
+        )}
       </Container>
 
       {/* ══ ACTION DROPDOWN ══ */}
@@ -1291,7 +1414,14 @@ export default function Admission() {
          const t = getAdmStatus(adm);
          const isAdmitted = t==="admitted";
          return (
-           <Drop ref={menuRef} top={menuPos.top} left={menuPos.left}>
+           <Drop
+             ref={menuRef}
+             top={menuPos.top}
+             bottom={menuPos.bottom}
+             left={menuPos.left}
+             placement={menuPos.placement}
+             maxHeight={menuPos.maxHeight}
+           >
              <DI onClick={()=>{if(isAdmitted)openEditForm(adm);}} disabled={!isAdmitted}
                title={!isAdmitted?`Cannot edit — admission is ${t}`:"Edit admission"}>
                ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
