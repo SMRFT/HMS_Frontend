@@ -98,6 +98,7 @@ import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
+import LabInventoryReport from "./Components/Stores/LabInventoryReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -1329,6 +1330,7 @@ function App() {
                 />
               )}
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
+              <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
