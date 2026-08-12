@@ -93,6 +93,8 @@ function isPublicRoute() {
   return PUBLIC_ROUTES.some((route) => route.toLowerCase() === currentPath);
 }
 
+
+
 // --- Main execution ---
 (function main() {
   const isPublic = isPublicRoute();
@@ -111,7 +113,6 @@ function isPublicRoute() {
 
     // If still no token (development token is empty) and not a public route, redirect to login
     if ((!accessToken || accessToken.trim() === "") && !isPublic) {
-      localStorage.removeItem("access_token"); // Clean up
       redirectToLogin();
       return; // Stop execution here
     }
@@ -149,7 +150,6 @@ function isPublicRoute() {
         }
       } catch (tokenErr) {
         console.error("❌ Token validation failed:", tokenErr.message);
-        localStorage.removeItem("access_token");
         if (!isPublic) {
           redirectToLogin();
           return;
@@ -168,7 +168,6 @@ function isPublicRoute() {
     reportWebVitals();
   } catch (error) {
     console.error("❌ Token validation / main execution failed:", error.message);
-    localStorage.removeItem("access_token");
     if (!isPublic) {
       redirectToLogin();
     }
