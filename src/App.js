@@ -102,6 +102,9 @@ import LabInventoryReport from "./Components/Stores/LabInventoryReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
+import AssetInchargeAssign from "./Components/AssetsManagement/AssetInchargeAssign";
+import AssetMaintenanceRequest from "./Components/AssetsManagement/AssetMaintenanceRequest";
+import AssetMaintenanceApproval from "./Components/AssetsManagement/AssetMaintenanceApproval";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
@@ -373,6 +376,9 @@ function App() {
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
+      "/AssetInchargeAssign": "Asset Incharge Assigning",
+      "/AssetMaintenanceRequest": "Asset Maintenance Request",
+      "/AssetMaintenanceApproval": "Asset Maintenance Request Approval",
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
       "/pharmacytabs": "OP Pharmacy Tabs",
@@ -1362,6 +1368,24 @@ function App() {
                 <Route
                   path="/RecycleManagement"
                   element={<RecycleManagement />}
+                />
+              )}
+              {hasPagePermission("/AssetInchargeAssign", allowedActions) && (
+                <Route
+                  path="/AssetInchargeAssign"
+                  element={<AssetInchargeAssign />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceRequest", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceRequest"
+                  element={<AssetMaintenanceRequest />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceApproval", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceApproval"
+                  element={<AssetMaintenanceApproval />}
                 />
               )}
               {hasPagePermission(
