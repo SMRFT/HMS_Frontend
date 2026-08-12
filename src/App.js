@@ -287,7 +287,15 @@ function App() {
             setUserOutlets(userAssignedOutlets);
 
             const storedOutlet = localStorage.getItem("selected_outlet");
-            if (!storedOutlet) {
+            const isValidStoredOutlet =
+              storedOutlet &&
+              userAssignedOutlets.some((o) => o.outlet_code === storedOutlet);
+
+            if (!isValidStoredOutlet) {
+              localStorage.removeItem("selected_outlet");
+              localStorage.removeItem("outlet_code");
+              localStorage.removeItem("selected_outlet_name");
+
               if (userAssignedOutlets.length === 1) {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
