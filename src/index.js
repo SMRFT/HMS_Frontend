@@ -86,11 +86,22 @@ const PUBLIC_ROUTES = [
   "/inpatientqrscan",
   "/OutPatientQRScan",
   "/outpatientqrscan",
+  "/QRScan",
+  "/qrscan",
 ];
 
 function isPublicRoute() {
-  const currentPath = window.location.pathname.toLowerCase();
-  return PUBLIC_ROUTES.some((route) => route.toLowerCase() === currentPath);
+  const currentPath = window.location.pathname.toLowerCase().replace(/\/$/, "");
+  const hash = window.location.hash.toLowerCase();
+
+  return PUBLIC_ROUTES.some((route) => {
+    const r = route.toLowerCase();
+    return (
+      currentPath === r ||
+      currentPath.endsWith(r) ||
+      hash.includes(r)
+    );
+  });
 }
 
 
