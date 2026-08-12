@@ -424,8 +424,7 @@ function App() {
   }, [userOutlets]);
 
   // Routes where sidebar is hidden (login page, mobile reg, feedback form, QR scan)
-  const hideSidebarRoutes = [
-    "/",
+  const publicRoutesList = [
     "/MobileRegistration",
     "/InPatientFeedbackForm",
     "/OutPatientfeedForm",
@@ -435,8 +434,21 @@ function App() {
     "/InpatientQRScan",
     "/inpatientqrscan",
     "/OutPatientQRScan",
-    "/outpatientqrscan"
+    "/outpatientqrscan",
+    "/QRScan",
+    "/qrscan"
   ];
+
+  const normalizedPath = location.pathname.toLowerCase().replace(/\/$/, "");
+
+  const isPublicPage = publicRoutesList.some((route) => {
+    const r = route.toLowerCase();
+    return normalizedPath === r || normalizedPath.endsWith(r);
+  });
+
+  const isNoSidebarRoute =
+    location.pathname === "/" ||
+    isPublicPage;
 
   if (isLoading)
     return (
@@ -453,31 +465,13 @@ function App() {
     );
 
   // Allow public access to MobileRegistration, Feedback forms, and QR scan pages
-  if (
-    !role &&
-    ![
-      "/MobileRegistration",
-      "/InPatientFeedbackForm",
-      "/OutPatientfeedForm",
-      "/outpatientfeedform",
-      "/OutPatientFeedbackForm",
-      "/outpatientfeedbackform",
-      "/InpatientQRScan",
-      "/inpatientqrscan",
-      "/OutPatientQRScan",
-      "/outpatientqrscan"
-    ].includes(location.pathname)
-  ) {
-
-
+  if (!role && !isPublicPage) {
     return (
       <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
         Authentication error. Refresh the page.
       </div>
     );
   }
-
-  const isNoSidebarRoute = hideSidebarRoutes.includes(location.pathname);
 
   return (
     <div>
