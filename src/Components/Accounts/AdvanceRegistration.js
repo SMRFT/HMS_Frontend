@@ -53,10 +53,15 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         setLoading(true);
         try {
             const response = await apiRequest(`${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
-            if (response.success && response.data && Array.isArray(response.data.data)) {
-                const mappedData = response.data.data.map(item => ({
+            if (response.success && response.data) {
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                const mappedData = rows.map(item => ({
                     ...item,
-                    advance_amount: item.amount,
+                    advance_amount: item.amount || item.advance_amount,
                     created_by: item.cashier_id || item.created_by
                 }));
                 setReportData(mappedData);
@@ -77,8 +82,8 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const totals = reportData.reduce((acc, curr) => {
-        const amt = curr.advance_amount || 0;
-        if (curr.payment_mode?.toLowerCase() === "cash") {
+        const amt = Number(curr.advance_amount || curr.amount || 0);
+        if ((curr.payment_mode || "").toLowerCase() === "cash") {
             acc.cash += amt;
         } else {
             acc.credit += amt;
@@ -158,23 +163,24 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                     <tbody>
                         {reportData.length > 0 ? (
                             reportData.map((adv, index) => {
-                                const isCash = adv.payment_mode?.toLowerCase() === "cash";
+                                const amt = Number(adv.advance_amount || adv.amount || 0);
+                                const isCash = (adv.payment_mode || "").toLowerCase() === "cash";
                                 return (
                                     <Tr key={index}>
                                         <Td>{index + 1}</Td>
-                                        <Td style={{ fontWeight: "700" }}>{adv.ip_number}</Td>
-                                        <Td>{adv.bill_no}</Td>
+                                        <Td style={{ fontWeight: "700" }}>{adv.ip_number || adv.ipno || "—"}</Td>
+                                        <Td>{adv.bill_no || adv.billno || "—"}</Td>
                                         <Td>
-                                            <div style={{ fontWeight: "600" }}>{adv.patient_name}</div>
+                                            <div style={{ fontWeight: "600" }}>{adv.patient_name || adv.patientName || "—"}</div>
                                             <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{adv.uhid}</div>
                                         </Td>
                                         <Td style={{ textAlign: "right", color: colors.success }}>
-                                            {isCash ? `₹${adv.advance_amount.toFixed(2)}` : "—"}
+                                            {isCash ? `₹${amt.toFixed(2)}` : "—"}
                                         </Td>
                                         <Td style={{ textAlign: "right", color: colors.primary }}>
-                                            {!isCash ? `₹${adv.advance_amount.toFixed(2)}` : "—"}
+                                            {!isCash ? `₹${amt.toFixed(2)}` : "—"}
                                         </Td>
-                                        <Td>{adv.created_by}</Td>
+                                        <Td>{adv.created_by || adv.cashier_id || "Staff"}</Td>
                                     </Tr>
                                 );
                             })
@@ -252,20 +258,24 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                     </thead>
                     <tbody>
                         {reportData.length > 0 ? (
-                            reportData.map((row, index) => (
-                                <tr key={index}>
-                                    <td>{index + 1}</td>
-                                    <td>{row.ipno}</td>
-                                    <td>{row.billno}</td>
-                                    <td>
-                                        <div><strong>{row.patientName}</strong></div>
-                                        <div style={{ fontSize: "8px", color: "#666" }}>UHID: {row.uhid}</div>
-                                    </td>
-                                    <td style={{ textAlign: "right" }}>₹{(row.cashAmount || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{(row.creditAmount || 0).toFixed(2)}</td>
-                                    <td>{row.cashierName}</td>
-                                </tr>
-                            ))
+                            reportData.map((row, index) => {
+                                const amt = Number(row.advance_amount || row.amount || 0);
+                                const isCash = (row.payment_mode || "").toLowerCase() === "cash";
+                                return (
+                                    <tr key={index}>
+                                        <td>{index + 1}</td>
+                                        <td>{row.ip_number || row.ipno || "—"}</td>
+                                        <td>{row.bill_no || row.billno || "—"}</td>
+                                        <td>
+                                            <div><strong>{row.patient_name || row.patientName || "—"}</strong></div>
+                                            <div style={{ fontSize: "8px", color: "#666" }}>UHID: {row.uhid}</div>
+                                        </td>
+                                        <td style={{ textAlign: "right" }}>₹{(isCash ? amt : 0).toFixed(2)}</td>
+                                        <td style={{ textAlign: "right" }}>₹{(!isCash ? amt : 0).toFixed(2)}</td>
+                                        <td>{row.created_by || row.cashierName || "Staff"}</td>
+                                    </tr>
+                                );
+                            })
                         ) : (
                             <tr>
                                 <td colSpan="7" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>

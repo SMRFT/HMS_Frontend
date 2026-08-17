@@ -60,6 +60,9 @@ const Items = () => {
     const [showPriceModal, setShowPriceModal] = useState(false);
     const [priceData, setPriceData] = useState(null);
     const [selectedItemName, setSelectedItemName] = useState('');
+    const [selectedItemForPrice, setSelectedItemForPrice] = useState(null);
+    const [priceFromDate, setPriceFromDate] = useState('');
+    const [priceToDate, setPriceToDate] = useState('');
     const [loadingPrices, setLoadingPrices] = useState(false);
 
     // Master list states for mappings
@@ -67,6 +70,9 @@ const Items = () => {
     const [allGroups, setAllGroups] = useState([]);
     const [allCategories, setAllCategories] = useState([]);
     const [allGroupTypes, setAllGroupTypes] = useState([]);
+    const [allVendors, setAllVendors] = useState([]);
+    const [suppliers, setSuppliers] = useState([]);
+    const [manufacturers, setManufacturers] = useState([]);
 
     // Dynamic base URL detection
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
@@ -79,16 +85,63 @@ const Items = () => {
 
     const fetchMasters = async () => {
         try {
-            const [deptRes, groupRes, catRes, typeRes] = await Promise.all([
+            const [deptRes, groupRes, catRes, typeRes, storeVendorRes, generalVendorRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-type-master/`)
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-type-master/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/vendors/`)
             ]);
             if (deptRes.success) setAllDepartments(deptRes.data);
             if (groupRes.success) setAllGroups(groupRes.data);
             if (catRes.success) setAllCategories(catRes.data);
             if (typeRes.success) setAllGroupTypes(typeRes.data);
+
+            const combinedVendors = [];
+            const addVendors = (list) => {
+                if (Array.isArray(list)) {
+                    list.forEach(v => {
+                        const id = v.vendor_id || v.id;
+                        if (id && !combinedVendors.some(existing => (existing.vendor_id || existing.id) === id)) {
+                            combinedVendors.push(v);
+                        }
+                    });
+                }
+            };
+
+            if (storeVendorRes?.success) {
+                const list = Array.isArray(storeVendorRes.data)
+                    ? storeVendorRes.data
+                    : Array.isArray(storeVendorRes.data?.data)
+                    ? storeVendorRes.data.data
+                    : [];
+                addVendors(list);
+            }
+            if (generalVendorRes?.success) {
+                const list = Array.isArray(generalVendorRes.data)
+                    ? generalVendorRes.data
+                    : Array.isArray(generalVendorRes.data?.data)
+                    ? generalVendorRes.data.data
+                    : [];
+                addVendors(list);
+            }
+
+            setAllVendors(combinedVendors);
+
+            const isSupplierType = (type) => {
+                if (!type) return true;
+                const t = String(type).toUpperCase();
+                return t === "SUPPLIER" || t === "BOTH";
+            };
+            const isManufacturerType = (type) => {
+                if (!type) return true;
+                const t = String(type).toUpperCase();
+                return t === "MANUFACTURER" || t === "BOTH";
+            };
+
+            setSuppliers(combinedVendors.filter(v => isSupplierType(v.vendor_type)));
+            setManufacturers(combinedVendors.filter(v => isManufacturerType(v.vendor_type)));
         } catch (error) {
             console.error("Error fetching masters:", error);
         }
@@ -190,14 +243,26 @@ const Items = () => {
         }
     };
 
-    const fetchPriceHistory = async (item, nameField, idField) => {
-        const itemId = item[idField];
-        setSelectedItemName(item[nameField]);
+    const fetchPriceHistory = async (item, nameField, idField, overrideFromDate, overrideToDate) => {
+        const targetItem = item || selectedItemForPrice;
+        if (!targetItem) return;
+        const itemId = targetItem[idField || getIdField()];
+        setSelectedItemName(targetItem[nameField || getNameField()]);
+        setSelectedItemForPrice(targetItem);
         setLoadingPrices(true);
         setShowPriceModal(true);
-        setPriceData(null);
+
+        const fromD = overrideFromDate !== undefined ? overrideFromDate : priceFromDate;
+        const toD = overrideToDate !== undefined ? overrideToDate : priceToDate;
+
         try {
-            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/`);
+            let query = '';
+            const params = [];
+            if (fromD) params.push(`from_date=${fromD}`);
+            if (toD) params.push(`to_date=${toD}`);
+            if (params.length > 0) query = `?${params.join('&')}`;
+
+            const response = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/price-history/${itemId}/${query}`);
             if (response.success) {
                 setPriceData(response.data);
             } else {
@@ -269,6 +334,15 @@ const Items = () => {
         return type ? type.group_type_name : id;
     };
 
+    const getVendorName = (vendorId) => {
+        if (!vendorId) return '-';
+        const v = allVendors.find(vend => 
+            String(vend.vendor_id || vend.id) === String(vendorId) ||
+            String(vend.name).toLowerCase() === String(vendorId).toLowerCase()
+        );
+        return v ? v.name : vendorId;
+    };
+
     const renderFormFields = () => {
         const idField = getIdField();
         const nameField = getNameField();
@@ -332,6 +406,30 @@ const Items = () => {
                             placeholder="Select Group Type"
                             isClearable
                             required
+                            styles={{ container: base => ({ ...base, width: '100%' }) }}
+                        />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Supplier</Label>
+                        <ReactSelect
+                            name="supplier"
+                            value={suppliers.find(s => s.vendor_id === formData.supplier) ? { value: formData.supplier, label: suppliers.find(s => s.vendor_id === formData.supplier).name } : (formData.supplier ? { value: formData.supplier, label: formData.supplier } : null)}
+                            onChange={(option) => handleSelectChange('supplier', option)}
+                            options={suppliers.map(s => ({ value: s.vendor_id, label: s.name }))}
+                            placeholder="Select Supplier"
+                            isClearable
+                            styles={{ container: base => ({ ...base, width: '100%' }) }}
+                        />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Manufacturer</Label>
+                        <ReactSelect
+                            name="manufacturer"
+                            value={manufacturers.find(m => m.vendor_id === formData.manufacturer) ? { value: formData.manufacturer, label: manufacturers.find(m => m.vendor_id === formData.manufacturer).name } : (formData.manufacturer ? { value: formData.manufacturer, label: formData.manufacturer } : null)}
+                            onChange={(option) => handleSelectChange('manufacturer', option)}
+                            options={manufacturers.map(m => ({ value: m.vendor_id, label: m.name }))}
+                            placeholder="Select Manufacturer"
+                            isClearable
                             styles={{ container: base => ({ ...base, width: '100%' }) }}
                         />
                     </InputWrapper>
@@ -508,11 +606,14 @@ const Items = () => {
                                                         <Th>HSN</Th>
                                                         <Th>Group</Th>
                                                         <Th>Category</Th>
+                                                        <Th>Supplier</Th>
+                                                        <Th>Manufacturer</Th>
                                                         <Th>Quantity</Th>
                                                         <Th>Reorder Level</Th>
                                                     </>
                                                 )}
                                                 {/* <Th>Created At</Th> */}
+                                                <Th>Price History</Th>
                                                 <Th>Actions</Th>
                                             </Tr>
                                         </thead>
@@ -531,12 +632,25 @@ const Items = () => {
                                                                 <Td>{item.hsn || '-'}</Td>
                                                                 <Td>{getGroupName(item.group)}</Td>
                                                                 <Td>{getCategoryName(item.category)}</Td>
+                                                                <Td>{getVendorName(item.supplier)}</Td>
+                                                                <Td>{getVendorName(item.manufacturer)}</Td>
                                                                 <Td style={{ fontWeight: '700', color: isLowStock ? colors.danger : colors.success }}>
                                                                     {availQty}
                                                                 </Td>
                                                                 <Td style={{ color: colors.textMuted }}>{item.stockReorderLevel}</Td>
                                                             </>
                                                         )}
+                                                        <Td>
+                                                            {activeTab.id === 'item' && (
+                                                                <Button
+                                                                    onClick={() => fetchPriceHistory(item, nameField, idField)}
+                                                                    style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '6px 10px', fontSize: '0.8rem' }}
+                                                                    title="Price History"
+                                                                >
+                                                                    <LineChart size={16} style={{ marginRight: '4px' }} /> History
+                                                                </Button>
+                                                            )}
+                                                        </Td>
                                                         <Td>
                                                             <div style={{ display: 'flex', gap: '8px' }}>
                                                                 <Button
@@ -560,7 +674,7 @@ const Items = () => {
                                             })}
                                             {filteredItems.length === 0 && (
                                                 <Tr>
-                                                    <Td colSpan={activeTab.id === 'item' ? "7" : "4"} style={{ textAlign: 'center', padding: '20px' }}>No records found</Td>
+                                                    <Td colSpan={activeTab.id === 'item' ? "9" : "4"} style={{ textAlign: 'center', padding: '20px' }}>No records found</Td>
                                                 </Tr>
                                             )}
                                         </tbody>
@@ -583,6 +697,23 @@ const Items = () => {
                             </CloseButton>
                         </ModalHeader>
                         <ModalBody>
+                            {/* Date Filter Bar */}
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end', marginBottom: '20px', background: colors.tabBg, padding: '12px 16px', borderRadius: '8px' }}>
+                                <InputWrapper style={{ marginBottom: 0, flex: 1 }}>
+                                    <Label style={{ fontSize: '0.8rem' }}>From Date</Label>
+                                    <Input type="date" value={priceFromDate} onChange={(e) => setPriceFromDate(e.target.value)} style={{ height: '36px' }} />
+                                </InputWrapper>
+                                <InputWrapper style={{ marginBottom: 0, flex: 1 }}>
+                                    <Label style={{ fontSize: '0.8rem' }}>To Date</Label>
+                                    <Input type="date" value={priceToDate} onChange={(e) => setPriceToDate(e.target.value)} style={{ height: '36px' }} />
+                                </InputWrapper>
+                                <Button onClick={() => fetchPriceHistory(selectedItemForPrice)} style={{ height: '36px', padding: '0 16px', fontSize: '0.85rem' }}>
+                                    Apply Filter
+                                </Button>
+                                <Button secondary onClick={() => { setPriceFromDate(''); setPriceToDate(''); fetchPriceHistory(selectedItemForPrice, null, null); }} style={{ height: '36px', padding: '0 12px', fontSize: '0.85rem' }}>
+                                    Clear
+                                </Button>
+                            </div>
                             {loadingPrices ? (
                                 <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Loading price history...</div>
                             ) : priceData?.error ? (
@@ -620,7 +751,7 @@ const Items = () => {
                                                     <Tr key={idx}>
                                                         <Td>{record.date || '-'}</Td>
                                                         <Td style={{ fontWeight: '500' }}>{record.grn_number}</Td>
-                                                        <Td>{record.vendor_id || '-'}</Td>
+                                                        <Td>{getVendorName(record.vendor_id)}</Td>
                                                         <Td style={{ textAlign: 'right' }}>{record.quantity || 0}</Td>
                                                         <Td style={{ textAlign: 'right', fontWeight: 'bold', color: colors.primary }}>₹{record.rate}</Td>
                                                     </Tr>

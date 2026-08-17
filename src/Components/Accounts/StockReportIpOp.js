@@ -107,6 +107,11 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
 
     const handlePrint = () => window.print();
 
+    const fmtQty = (val) => {
+        const n = Number(val || 0);
+        return n % 1 === 0 ? Math.round(n) : n.toFixed(2);
+    };
+
     return (
         <PageWrapper>
             <SectionTitle className="no-print">
@@ -156,7 +161,7 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
                 <SummaryCard color={"#2563eb"}>
                     <SummaryLabel>IP Qty Consumed</SummaryLabel>
-                    <SummaryValue>{(summary.total_ip_qty || 0).toLocaleString("en-IN")}</SummaryValue>
+                    <SummaryValue>{fmtQty(summary.total_ip_qty)}</SummaryValue>
                 </SummaryCard>
                 <SummaryCard color={"#2563eb"}>
                     <SummaryLabel>IP Value</SummaryLabel>
@@ -164,7 +169,7 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                 </SummaryCard>
                 <SummaryCard color={colors.primary}>
                     <SummaryLabel>OP Qty Sold</SummaryLabel>
-                    <SummaryValue>{(summary.total_op_qty || 0).toLocaleString("en-IN")}</SummaryValue>
+                    <SummaryValue>{fmtQty(summary.total_op_qty)}</SummaryValue>
                 </SummaryCard>
                 <SummaryCard color={colors.primary}>
                     <SummaryLabel>OP Value</SummaryLabel>
@@ -192,12 +197,12 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                                 <Tr key={index}>
                                     <Td>{index + 1}</Td>
                                     <Td style={{ fontWeight: 600 }}>{row.item_name}</Td>
-                                    <Td style={{ textAlign: "right" }}>{row.ip_qty}</Td>
-                                    <Td style={{ textAlign: "right" }}>₹{row.ip_amount.toFixed(2)}</Td>
-                                    <Td style={{ textAlign: "right" }}>{row.op_qty}</Td>
-                                    <Td style={{ textAlign: "right" }}>₹{row.op_amount.toFixed(2)}</Td>
-                                    <Td style={{ textAlign: "right", fontWeight: 700 }}>{row.total_qty}</Td>
-                                    <Td style={{ textAlign: "right", fontWeight: 700 }}>₹{row.total_amount.toFixed(2)}</Td>
+                                    <Td style={{ textAlign: "right" }}>{fmtQty(row.ip_qty)}</Td>
+                                    <Td style={{ textAlign: "right" }}>₹{(row.ip_amount || 0).toFixed(2)}</Td>
+                                    <Td style={{ textAlign: "right" }}>{fmtQty(row.op_qty)}</Td>
+                                    <Td style={{ textAlign: "right" }}>₹{(row.op_amount || 0).toFixed(2)}</Td>
+                                    <Td style={{ textAlign: "right", fontWeight: 700 }}>{fmtQty(row.total_qty)}</Td>
+                                    <Td style={{ textAlign: "right", fontWeight: 700 }}>₹{(row.total_amount || 0).toFixed(2)}</Td>
                                 </Tr>
                             ))
                         ) : (
@@ -212,11 +217,11 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                         <tfoot>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
                                 <Td colSpan="2" style={{ textAlign: "right" }}>Total:</Td>
-                                <Td style={{ textAlign: "right" }}>{summary.total_ip_qty}</Td>
+                                <Td style={{ textAlign: "right" }}>{fmtQty(summary.total_ip_qty)}</Td>
                                 <Td style={{ textAlign: "right" }}>₹{(summary.total_ip_amount || 0).toFixed(2)}</Td>
-                                <Td style={{ textAlign: "right" }}>{summary.total_op_qty}</Td>
+                                <Td style={{ textAlign: "right" }}>{fmtQty(summary.total_op_qty)}</Td>
                                 <Td style={{ textAlign: "right" }}>₹{(summary.total_op_amount || 0).toFixed(2)}</Td>
-                                <Td style={{ textAlign: "right" }}>{summary.total_ip_qty + summary.total_op_qty}</Td>
+                                <Td style={{ textAlign: "right" }}>{fmtQty((summary.total_ip_qty || 0) + (summary.total_op_qty || 0))}</Td>
                                 <Td style={{ textAlign: "right" }}>₹{((summary.total_ip_amount || 0) + (summary.total_op_amount || 0)).toFixed(2)}</Td>
                             </Tr>
                         </tfoot>

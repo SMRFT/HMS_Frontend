@@ -355,43 +355,49 @@ const RecycleManagement = () => {
                         </FormGrid>
                     )}
 
-                    {/* TABLE CONTROLS */}
-                    <ControlsContainer style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-end' }}>
+                    {/* TABLE CONTROLS (3 FIELDS PER ROW) */}
+                    <ControlsContainer style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', width: '100%', alignItems: 'flex-end' }}>
                             <InputWrapper>
                                 <Label>From Date</Label>
                                 <Input type="date" value={filters.from_date} onChange={e => setFilters({ ...filters, from_date: e.target.value })} />
                             </InputWrapper>
+
                             <InputWrapper>
                                 <Label>To Date</Label>
                                 <Input type="date" value={filters.to_date} onChange={e => setFilters({ ...filters, to_date: e.target.value })} />
                             </InputWrapper>
-                            <Button secondary onClick={fetchAssets}><Search size={16} /> Filter</Button>
-                        </div>
 
-                        <SearchContainer style={{ display: 'flex', gap: '15px' }}>
-                            <div style={{ display: 'flex' }}>
-                                <InputWrapper>
-                                    <Label>Search ID/Name</Label>
+                            <InputWrapper>
+                                <Label>Search ID / Keyword</Label>
+                                <div style={{ display: 'flex', gap: '8px' }}>
                                     <Input
-                                        placeholder="Enter Keyword..."
+                                        placeholder="Enter Record ID..."
                                         value={filters.search_id}
                                         onChange={e => setFilters({ ...filters, search_id: e.target.value })}
                                         onKeyPress={(e) => e.key === 'Enter' && handleUniversalSearch()}
                                     />
-                                </InputWrapper>
-                                <Button onClick={handleUniversalSearch}><Search size={16} /></Button>
-                            </div>
+                                    <Button onClick={handleUniversalSearch} style={{ height: '30px', padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Search size={16} />
+                                    </Button>
+                                </div>
+                            </InputWrapper>
+                        </div>
 
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginLeft: 'auto' }}>
-                                <Button success onClick={handleExportCSV} title="Export current table to CSV">
-                                    <FileText size={16} style={{ marginRight: '6px' }} /> Export CSV
-                                </Button>
-                                <Button secondary onClick={handlePrintTable} title="Print table format">
-                                    <Printer size={16} style={{ marginRight: '6px' }} /> Print Table
-                                </Button>
-                            </div>
-                        </SearchContainer>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', width: '100%', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <Button secondary onClick={fetchAssets}>
+                                <Search size={16} style={{ marginRight: '6px' }} /> Filter Date
+                            </Button>
+                            <Button secondary onClick={() => { setFilters({ from_date: thirtyDaysAgo, to_date: today, search_id: '' }); fetchAssets(); }}>
+                                Reset Filters
+                            </Button>
+                            <Button success onClick={handleExportCSV} title="Export current table to CSV">
+                                <FileText size={16} style={{ marginRight: '6px' }} /> Export CSV
+                            </Button>
+                            <Button secondary onClick={handlePrintTable} title="Print table format">
+                                <Printer size={16} style={{ marginRight: '6px' }} /> Print Table
+                            </Button>
+                        </div>
                     </ControlsContainer>
 
                     {/* DATA TABLE */}

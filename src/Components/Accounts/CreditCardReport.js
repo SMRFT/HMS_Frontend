@@ -97,8 +97,17 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate }) => {
         try {
             const response = await apiRequest(`${HmsBaseUrl}credit-card-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
             if (response.success && response.data) {
-                setReportData(response.data.data || []);
-                setSummary(response.data.summary || { total_transactions: 0, total_amount: 0, by_type: {} });
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                setReportData(rows);
+                setSummary(response.data.summary || {
+                    total_transactions: rows.length,
+                    total_amount: rows.reduce((s, r) => s + (r.amount || 0), 0),
+                    by_type: {}
+                });
             }
         } catch (error) {
             console.error("Error fetching credit card report:", error);
