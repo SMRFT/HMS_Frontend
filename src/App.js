@@ -47,6 +47,8 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 // Investigation Reports
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
+import MHCList from "./Components/MHC/MHCList";
+import MHCReportForm from "./Components/MHC/MHCReportForm";
 
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
@@ -354,6 +356,7 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/MHCList": "MHC Reports",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
@@ -403,6 +406,8 @@ function App() {
       document.title = "Print Summary - Shanmuga Hospital";
     } else if (path.startsWith("/RDReportForm/")) {
       document.title = "RD Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/MHCReportForm/")) {
+      document.title = "MHC Report Form - Shanmuga Hospital";
     } else {
       const title = routeTitles[path] || "Shanmuga Hospital Management System";
       document.title = `${title} - Shanmuga Hospital`;
@@ -1100,7 +1105,32 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
-
+              {/* MHC Reports */}
+              {hasPagePermission(
+                "/MHCList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <>
+                    <Route path="/MHCList" element={<MHCList />} />
+                    <Route
+                      path="/MHCReportForm/:package_id/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm/:uhid/:subUhid"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/mhc/report/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                  </>
+                )}
               {/* Packages */}
               {hasPagePermission(
                 "/Package",
@@ -1639,22 +1669,22 @@ function App() {
                   <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
                 )}
 
-          {hasPagePermission(
+              {hasPagePermission(
                 "/DealerItems",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/DealerItems" element={<DealerItems />} />
-              )}
+                  <Route path="/DealerItems" element={<DealerItems />} />
+                )}
 
 
-               {hasPagePermission(
+              {hasPagePermission(
                 "/RaiseIndentPage",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
-              )}
+                  <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+                )}
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />

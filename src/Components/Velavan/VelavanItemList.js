@@ -498,13 +498,12 @@ const VelavanItemList = () => {
           <td>${item.itemName || "—"}</td>
           <td>${item.hsn || "—"}</td>
           <td>
-            <span class="badge ${
-              item.category === "DRUG"
-                ? "badge-drug"
-                : item.category === "IMPLANT"
-                  ? "badge-implant"
-                  : ""
-            }">
+            <span class="badge ${item.category === "DRUG"
+            ? "badge-drug"
+            : item.category === "IMPLANT"
+              ? "badge-implant"
+              : ""
+          }">
               ${item.category || "—"}
             </span>
           </td>
@@ -873,7 +872,7 @@ const VelavanItemList = () => {
                     {/* HSN */}
                     <Td>
                       {isEditing &&
-                      (!item.hsn || String(item.hsn).trim() === "") ? (
+                        (!item.hsn || String(item.hsn).trim() === "") ? (
                         <Input
                           value={form.hsn || ""}
                           onChange={(e) => handleChange("hsn", e.target.value)}
@@ -1120,12 +1119,12 @@ const VelavanItemList = () => {
                               <td style={{ whiteSpace: "nowrap" }}>
                                 {h.invoice_date
                                   ? new Date(h.invoice_date).toLocaleDateString(
-                                      "en-IN",
-                                    )
+                                    "en-IN",
+                                  )
                                   : h.date
                                     ? new Date(h.date).toLocaleDateString(
-                                        "en-IN",
-                                      )
+                                      "en-IN",
+                                    )
                                     : "—"}
                               </td>
                               <td style={{ minWidth: 120 }}>

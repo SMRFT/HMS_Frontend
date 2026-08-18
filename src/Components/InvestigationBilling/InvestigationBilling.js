@@ -484,6 +484,7 @@ const InvestigationBilling = () => {
     company_name: "",
     company_code: "",
     editRemarks: "",
+    package_id: "",
   });
 
   const [doctors, setDoctors] = useState([]);
@@ -611,7 +612,14 @@ const InvestigationBilling = () => {
       editRemarks: data.editRemarks || "",
       calculatedAge: data.calculatedAge || String(data.age || ""),
       ageType: data.ageType || data.age_type || "",
+      package_id: data.package_id || data.Package_id || data.packageNo || "",
     });
+
+    if (data.package_id || data.Package_id || data.packageNo) {
+      setSelectedPackageNo(
+        data.package_id || data.Package_id || data.packageNo,
+      );
+    }
 
     setProductList(itemsArray);
 
@@ -670,6 +678,7 @@ const InvestigationBilling = () => {
       billType: billName,
       bill_type: billType,
       billTypeNo: billTypeNo,
+      ...(billTypeNo !== "PACK" ? { package_id: "" } : {}),
       ...(clearProducts && { item: JSON.stringify([]) }),
       ...(!allowDiscount && {
         discountPercent: "",
@@ -707,8 +716,10 @@ const InvestigationBilling = () => {
     );
     if (!selectedPackage) {
       setSelectedPackageNo("");
+      setFormData((prev) => ({ ...prev, package_id: "" }));
       return;
     }
+    const pkgId = selectedPackage.packageNo ?? selectedPackage.package_id ?? "";
     setSelectedPackageNo(selectedPackage.packageNo);
 
     const result = await apiRequest(
@@ -716,15 +727,24 @@ const InvestigationBilling = () => {
       "GET",
     );
     if (result.success) {
-      const packageItems = result.data.items || [];
+      const packageItems = (result.data.items || []).map((item) => ({
+        ...item,
+        ...(pkgId ? { package_id: pkgId } : {}),
+      }));
       const packageTotalPrice = result.data.totalPrice || "0.00";
       if (packageItems.length > 0) {
         const updatedList = [...productList, ...packageItems];
         setProductList(updatedList);
         setFormData((prev) => ({
           ...prev,
+          package_id: pkgId,
           item: JSON.stringify(updatedList),
           total: parseFloat(packageTotalPrice),
+        }));
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          package_id: pkgId,
         }));
       }
     }
@@ -906,6 +926,10 @@ const InvestigationBilling = () => {
       doctor: formData.doctor,
       bill_type: formData.bill_type,
       billTypeNo: formData.billTypeNo,
+      package_id:
+        formData.package_id ||
+        (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
+        "",
       referredBy: formData.referredBy,
       discountPercent: formData.discountPercent
         ? parseFloat(formData.discountPercent)
@@ -964,6 +988,10 @@ const InvestigationBilling = () => {
       doctor: formData.doctor,
       bill_type: formData.bill_type,
       billTypeNo: formData.billTypeNo,
+      package_id:
+        formData.package_id ||
+        (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
+        "",
       referredBy: formData.referredBy,
       discountPercent: formData.discountPercent
         ? parseFloat(formData.discountPercent)
@@ -1278,6 +1306,7 @@ const InvestigationBilling = () => {
                       billType: "",
                       bill_type: "",
                       billTypeNo: "",
+                      package_id: "",
                       discountPercent: "",
                       discount: "",
                       discountRemarks: "",
