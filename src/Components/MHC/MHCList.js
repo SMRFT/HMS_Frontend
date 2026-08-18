@@ -252,37 +252,39 @@ const ActionGroup = styled.div`
 
 const ActionRow = styled.div`
   display: flex;
-  gap: 0.35rem;
+  gap: 0.3rem;
   align-items: center;
   flex-wrap: nowrap;
 `;
 
 const IconBtn = styled.button`
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  position: relative;
-
+  font-size: 1.4rem;
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+  flex-shrink: 0;
+  background: transparent;
+  box-shadow: none;
   &:hover:not(:disabled) {
-    background: #f1f5f9;
-    border-color: #94a3b8;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px) scale(1.15);
+    opacity: 0.8;
   }
   &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
   &:disabled {
-    opacity: 0.3;
+    opacity: 0.25;
     cursor: not-allowed;
+    transform: none;
   }
   &::after {
     content: attr(data-tip);
@@ -290,16 +292,16 @@ const IconBtn = styled.button`
     bottom: calc(100% + 7px);
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(20, 20, 20, 0.9);
     color: #fff;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 600;
     white-space: nowrap;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 4px 9px;
+    border-radius: 6px;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.18s;
     z-index: 99999;
   }
   &::before {
@@ -309,10 +311,10 @@ const IconBtn = styled.button`
     left: 50%;
     transform: translateX(-50%);
     border: 5px solid transparent;
-    border-top-color: rgba(15, 23, 42, 0.92);
+    border-top-color: rgba(20, 20, 20, 0.9);
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity 0.18s;
     z-index: 99999;
   }
   &:hover:not(:disabled)::after,
@@ -329,32 +331,28 @@ const PortalDropdownMenu = styled.div`
   position: fixed;
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
-  min-width: 210px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  min-width: 200px;
   z-index: 99999;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  border: 1px solid #e9ecef;
+  padding-top: 6px;
+  margin-top: -6px;
 `;
 
 const DropdownItem = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  display: block;
   width: 100%;
-  padding: 0.7rem 1rem;
+  padding: 0.75rem 1rem;
   text-align: left;
   border: none;
   background-color: white;
-  color: #1e293b;
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: black;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   &:hover {
-    background-color: #f1f5f9;
-    color: #0f766e;
+    background-color: #e9ecef;
   }
 `;
 
@@ -427,6 +425,7 @@ const MHCList = () => {
   const [searchPackage, setSearchPackage] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
+  const [searchPaymentMethod, setSearchPaymentMethod] = useState("");
   const [searchDoctor, setSearchDoctor] = useState("");
 
   // Modals
@@ -495,6 +494,11 @@ const MHCList = () => {
     }
   };
 
+  const paymentMethodOptions = useMemo(() => {
+    const methods = rows.map((r) => r.paymentMethod).filter(Boolean);
+    return [...new Set(methods)].sort();
+  }, [rows]);
+
   // ── Filtered Rows ────────────────────────────────────────────────────────────
   const filteredRows = useMemo(() => {
     return rows.filter((r) => {
@@ -524,6 +528,8 @@ const MHCList = () => {
         String(r.package_id || "").includes(searchPackage);
       const matchPayment =
         !searchPaymentStatus || r.paymentStatus === searchPaymentStatus;
+      const matchPaymentMethod =
+        !searchPaymentMethod || r.paymentMethod === searchPaymentMethod;
       const matchDoctor =
         !searchDoctor ||
         (r.doctorName || "")
@@ -535,7 +541,8 @@ const MHCList = () => {
 
       // Status matching
       let currentStatus = "Pending";
-      if (r.is_approved) currentStatus = "Approved";
+      if (r.is_Dispatched || r.dispatch_DateTime) currentStatus = "Dispatched";
+      else if (r.is_approved) currentStatus = "Approved";
       else if (r.has_report) currentStatus = "Report Generated";
 
       const matchStatus = !searchStatus || currentStatus === searchStatus;
@@ -547,6 +554,7 @@ const MHCList = () => {
         matchPatient &&
         matchPackage &&
         matchPayment &&
+        matchPaymentMethod &&
         matchDoctor &&
         matchStatus
       );
@@ -560,6 +568,7 @@ const MHCList = () => {
     searchPackage,
     searchStatus,
     searchPaymentStatus,
+    searchPaymentMethod,
     searchDoctor,
   ]);
 
@@ -568,13 +577,24 @@ const MHCList = () => {
     const total = rows.length;
     const pending = rows.filter((r) => !r.has_report).length;
     const completed = rows.filter((r) => r.has_report && !r.is_approved).length;
-    const approved = rows.filter((r) => r.is_approved).length;
-    const dispatched = rows.filter((r) => r.dispatch_DateTime).length;
+    const approved = rows.filter((r) => r.is_approved && !(r.is_Dispatched || r.dispatch_DateTime)).length;
+    const dispatched = rows.filter((r) => r.is_Dispatched || r.dispatch_DateTime).length;
     return { total, pending, completed, approved, dispatched };
   }, [rows]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
+  const isPaymentAllowed = (paymentMethod, paymentStatus) => {
+    const method = (paymentMethod || "").trim().toLowerCase();
+    const status = (paymentStatus || "").trim().toLowerCase();
+    if (method === "credit") return true;
+    return status === "paid";
+  };
+
   const handleNavigateToForm = (row) => {
+    if (!isPaymentAllowed(row.paymentMethod, row.paymentStatus)) {
+      toast.warning("Cannot open report: Payment is pending.");
+      return;
+    }
     const pkgId =
       row.package_id ||
       (row.items && row.items[0]?.package_id) ||
@@ -602,6 +622,10 @@ const MHCList = () => {
   };
 
   const handlePatientCheckIn = async (row) => {
+    if (!isPaymentAllowed(row.paymentMethod, row.paymentStatus)) {
+      toast.warning("Cannot check in: Payment is pending.");
+      return;
+    }
     try {
       const result = await apiRequest(
         `${HMSURL}mhc-reports/checkin/${encodeURIComponent(row.investBillNo)}/`,
@@ -646,6 +670,32 @@ const MHCList = () => {
     }
   };
 
+  const handleDispatchReport = async (row) => {
+    if (!row.is_approved) {
+      toast.warning("Only approved reports can be dispatched.");
+      return;
+    }
+    if (row.is_Dispatched || row.dispatch_DateTime) {
+      toast.info("Report is already dispatched.");
+      return;
+    }
+    try {
+      const result = await apiRequest(
+        `${HMSURL}mhc-reports/dispatch/${encodeURIComponent(row.investBillNo)}/`,
+        "PATCH",
+        {},
+      );
+      if (result.error) {
+        toast.error(result.error || "Dispatch failed");
+        return;
+      }
+      toast.success("Report dispatched successfully! 📤");
+      fetchData();
+    } catch {
+      toast.error("An error occurred while dispatching the report.");
+    }
+  };
+
   const handleDeleteReport = async (row) => {
     const reason = window.prompt("Reason for deleting report:");
     if (reason === null) return;
@@ -675,7 +725,7 @@ const MHCList = () => {
 
   const showPrintDropdown = (row, e) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setPrintDropdownPos({ top: rect.bottom + 4, left: Math.max(10, rect.right - 210) });
+    setPrintDropdownPos({ top: rect.bottom - 2, left: rect.right - 200 });
     setActivePrintRowId(row.investBillNo);
   };
 
@@ -802,6 +852,14 @@ const MHCList = () => {
         ]);
         repData = reportRes.data?.data || reportRes.data || row.report || null;
         fmtData = formatRes.data?.sections || formatRes.sections || {};
+        if (!fmtData || Object.keys(fmtData).length === 0) {
+          const errMsg =
+            formatRes.error ||
+            formatRes.data?.error ||
+            "There is no format for this package";
+          toast.error(errMsg);
+          return;
+        }
       }
 
       if (!repData) {
@@ -1690,9 +1748,23 @@ const MHCList = () => {
               >
                 <option value="">All Statuses</option>
                 <option value="Pending">Pending</option>
-                <option value="Slot Booked">Slot Booked</option>
                 <option value="Report Generated">Report Generated</option>
                 <option value="Approved">Approved</option>
+                <option value="Dispatched">Dispatched</option>
+              </FilterSelect>
+            </FilterField>
+            <FilterField>
+              <FilterLabel>Payment Method</FilterLabel>
+              <FilterSelect
+                value={searchPaymentMethod}
+                onChange={(e) => setSearchPaymentMethod(e.target.value)}
+              >
+                <option value="">All Methods</option>
+                {paymentMethodOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
               </FilterSelect>
             </FilterField>
             <FilterField>
@@ -1736,6 +1808,7 @@ const MHCList = () => {
                   {filteredRows.map((row, idx) => {
                     const isApproved = !!row.is_approved;
                     const hasReport = !!row.has_report;
+                    const isPaymentValid = isPaymentAllowed(row.paymentMethod, row.paymentStatus);
 
                     return (
                       <Tr key={idx}>
@@ -1784,20 +1857,36 @@ const MHCList = () => {
                             )}
                         </Td>
                         <Td>
-                          <Badge
-                            bg={
-                              row.paymentStatus === "Paid"
-                                ? "#dcfce7"
-                                : "#fef3c7"
-                            }
-                            color={
-                              row.paymentStatus === "Paid"
-                                ? "#15803d"
-                                : "#b45309"
-                            }
-                          >
-                            {row.paymentStatus || "Pending"}
-                          </Badge>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "3px", alignItems: "flex-start" }}>
+                            <Badge
+                              bg={
+                                (row.paymentMethod || "").toLowerCase() === "credit"
+                                  ? "#ede9fe"
+                                  : "#e0f2fe"
+                              }
+                              color={
+                                (row.paymentMethod || "").toLowerCase() === "credit"
+                                  ? "#6d28d9"
+                                  : "#0369a1"
+                              }
+                            >
+                              💳 {row.paymentMethod || "Cash"}
+                            </Badge>
+                            <Badge
+                              bg={
+                                row.paymentStatus === "Paid"
+                                  ? "#dcfce7"
+                                  : "#fef3c7"
+                              }
+                              color={
+                                row.paymentStatus === "Paid"
+                                  ? "#15803d"
+                                  : "#b45309"
+                              }
+                            >
+                              {row.paymentStatus || "Pending"}
+                            </Badge>
+                          </div>
                         </Td>
                         <Td>
                           {row.next_due_date ? (
@@ -1809,7 +1898,15 @@ const MHCList = () => {
                           )}
                         </Td>
                         <Td>
-                          {isApproved ? (
+                          {row.is_Dispatched || row.dispatch_DateTime ? (
+                            <Badge
+                              bg="#fdf2f8"
+                              color="#db2777"
+                              border="#fbcfe8"
+                            >
+                              📤 Dispatched
+                            </Badge>
+                          ) : isApproved ? (
                             <Badge
                               bg="#ccfbf1"
                               color="#0f766e"
@@ -1837,89 +1934,102 @@ const MHCList = () => {
                         </Td>
                         <Td style={{ textAlign: "center" }}>
                           <ActionRow style={{ justifyContent: "center" }}>
-                            {!hasReport ? (
-                              <>
-                                <IconBtn
-                                  onClick={() => handleNavigateToForm(row)}
-                                  data-tip="Go to Report"
-                                >
-                                  📋
-                                </IconBtn>
-                                <IconBtn
-                                  onClick={() => handlePatientCheckIn(row)}
-                                  data-tip="Check-in Patient"
-                                >
-                                  ✓
-                                </IconBtn>
-                              </>
-                            ) : (
-                              <>
-                                <IconBtn
-                                  onClick={() => !isApproved && handleNavigateToForm(row)}
-                                  disabled={isApproved}
-                                  data-tip={isApproved ? "Already Approved" : "Go to Report"}
-                                >
-                                  📋
-                                </IconBtn>
-                                <IconBtn
-                                  onClick={() => handleOpenPrint(row)}
-                                  disabled={!hasReport}
-                                  data-tip="Preview Report"
-                                >
-                                  👁
-                                </IconBtn>
-                                <IconBtn
-                                  onClick={() => handleApproveReport(row)}
-                                  disabled={!hasReport || isApproved}
-                                  data-tip={
-                                    isApproved
-                                      ? "Already Approved"
-                                      : "Approve Report"
-                                  }
-                                >
-                                  ✅
-                                </IconBtn>
-                                <IconBtn
-                                  onClick={() => handleNavigateToForm(row)}
-                                  disabled={!hasReport || isApproved}
-                                  data-tip="Edit Report"
-                                >
-                                  ✏️
-                                </IconBtn>
-                                <PrintDropdownWrapper
-                                  onMouseEnter={(e) =>
-                                    hasReport && showPrintDropdown(row, e)
-                                  }
-                                  onMouseLeave={hidePrintDropdown}
-                                >
-                                  <IconBtn
-                                    disabled={!hasReport}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (hasReport) {
-                                        if (activePrintRowId === row.investBillNo) {
-                                          hidePrintDropdown();
-                                        } else {
-                                          showPrintDropdown(row, e);
-                                        }
-                                      }
-                                    }}
-                                    data-tip={
-                                      !hasReport ? "No Report" : "Print Options"
-                                    }
-                                  >
-                                    🖨️
-                                  </IconBtn>
-                                </PrintDropdownWrapper>
-                                <IconBtn
-                                  onClick={() => handleDeleteReport(row)}
-                                  disabled={!hasReport || isApproved}
-                                  data-tip="Delete Report"
-                                >
-                                  🗑️
-                                </IconBtn>
-                              </>
+                            {!hasReport && !row.patientIn_DateTime && (
+                              <IconBtn
+                                onClick={() => isPaymentValid && handlePatientCheckIn(row)}
+                                disabled={!isPaymentValid}
+                                data-tip={!isPaymentValid ? "Payment Pending" : "Check-in Patient"}
+                              >
+                                ✓
+                              </IconBtn>
                             )}
+                            <IconBtn
+                              onClick={() => !hasReport && !isApproved && isPaymentValid && handleNavigateToForm(row)}
+                              disabled={hasReport || isApproved || !isPaymentValid}
+                              data-tip={
+                                !isPaymentValid
+                                  ? "Payment Pending"
+                                  : hasReport
+                                  ? "Report Already Saved"
+                                  : isApproved
+                                  ? "Already Approved"
+                                  : "Go to Report"
+                              }
+                            >
+                              📋
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => handleOpenPrint(row)}
+                              disabled={!hasReport}
+                              data-tip="Preview Report"
+                            >
+                              👁
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => handleApproveReport(row)}
+                              disabled={!hasReport || isApproved}
+                              data-tip={
+                                isApproved
+                                  ? "Already Approved"
+                                  : "Approve Report"
+                              }
+                            >
+                              ✅
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => handleNavigateToForm(row)}
+                              disabled={!hasReport || isApproved}
+                              data-tip="Edit Report"
+                            >
+                              ✏️
+                            </IconBtn>
+                            <PrintDropdownWrapper
+                              onMouseEnter={(e) =>
+                                isApproved && showPrintDropdown(row, e)
+                              }
+                              onMouseLeave={hidePrintDropdown}
+                            >
+                              <IconBtn
+                                disabled={!isApproved}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isApproved) {
+                                    if (activePrintRowId === row.investBillNo) {
+                                      hidePrintDropdown();
+                                    } else {
+                                      showPrintDropdown(row, e);
+                                    }
+                                  }
+                                }}
+                                data-tip={
+                                  !isApproved
+                                    ? "Approve report first to print"
+                                    : "Print Options"
+                                }
+                              >
+                                🖨️
+                              </IconBtn>
+                            </PrintDropdownWrapper>
+                            <IconBtn
+                              onClick={() => handleDispatchReport(row)}
+                              disabled={!isApproved || !!(row.is_Dispatched || row.dispatch_DateTime)}
+                              data-tip={
+                                row.is_Dispatched || row.dispatch_DateTime
+                                  ? "Already Dispatched"
+                                  : isApproved
+                                  ? "Dispatch Report"
+                                  : "Approve report first to dispatch"
+                              }
+                            >
+                              📤
+                            </IconBtn>
+                            <IconBtn
+                              onClick={() => handleDeleteReport(row)}
+                              disabled={!hasReport || isApproved}
+                              data-tip="Delete Report"
+                            >
+                              🗑️
+                            </IconBtn>
                           </ActionRow>
                         </Td>
                       </Tr>

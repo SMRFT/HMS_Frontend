@@ -365,7 +365,11 @@ const MHCReportForm = () => {
         sectionsData = resPayload.sections;
         setFormatSections(sectionsData);
       } else {
-        toast.warning("Could not load MHC format template for package.");
+        const errMsg =
+          resPayload.error ||
+          formatRes.error ||
+          "There is no format for this package";
+        toast.error(errMsg);
       }
 
       // 2. Fetch Existing Report if any
@@ -1695,15 +1699,7 @@ const MHCReportForm = () => {
                   style={{ background: "#0f766e" }}
                   onClick={() => handleSubmit(false)}
                 >
-                  {submitting ? "Saving..." : "💾 Save Report Draft"}
-                </Button>
-                <Button
-                  type="button"
-                  disabled={submitting}
-                  style={{ background: "#16a34a" }}
-                  onClick={() => handleSubmit(true)}
-                >
-                  {submitting ? "Approving..." : "✓ Save & Approve Report"}
+                  {submitting ? "Saving..." : "💾 Save Report"}
                 </Button>
               </ActionRow>
             </div>
