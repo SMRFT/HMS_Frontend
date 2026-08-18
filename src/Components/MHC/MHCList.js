@@ -927,133 +927,126 @@ const MHCList = () => {
       };
 
       // ── 1. Vitals Check HTML (Matching Image 1 & MHCReportForm.js) ──
-      const vitalsHtml = `
-        <div style="margin-bottom: 16px;">
-          <div class="sec-title">1. Vitals Check</div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1px solid #cbd5e1;">
-            <tbody>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%;">Height (cm)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600;">${getVal("vitals_check", "VC01") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%;">Weight (kg)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600;">${getVal("vitals_check", "VC02") || "-"}</td>
-              </tr>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">BMI (kg/m²)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC03") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">Waist / Hip (cm)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC04") || "-"}</td>
-              </tr>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">Pulse Rate (/min)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC05") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">Blood Pressure (mmHg)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC06") || "-"}</td>
-              </tr>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">Respiratory Rate (/min)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC07") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">Temperature (°F)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC08") || "-"}</td>
-              </tr>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">SpO2 (%)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC09") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">RBS (mg/dl)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC10") || "-"}</td>
-              </tr>
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">ABI (Right)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC11") || "-"}</td>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1;">ABI (Left)</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: 600;">${getVal("vitals_check", "VC12") || "-"}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
+      // ── 1. Vitals Check HTML (Dynamic from response format) ──
+      const vitalsItems = fmtData["vitals_check"] || [];
+      let vitalsHtml = "";
+      if (vitalsItems.length > 0) {
+        const vitalsRows = [];
+        for (let i = 0; i < vitalsItems.length; i += 2) {
+          const item1 = vitalsItems[i];
+          const item2 = vitalsItems[i + 1] || null;
 
-      // ── 2. Previous Medical History HTML (Matching Image 2 & MHCReportForm.js) ──
-      const prevItems = fmtData["previous_medical_history"] || [];
-      const condVal = getVal("previous_medical_history", "PMH01");
-      const conditions = Array.isArray(condVal) ? condVal : condVal ? [condVal] : [];
+          const cell1 = `
+            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-size: 11px;">${item1.test_name}</td>
+            <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 11px;">${getVal("vitals_check", item1.test_code) || "-"}</td>
+          `;
 
-      const condTags =
-        conditions.length > 0
-          ? `
-          <div style="margin-bottom: 8px;">
-            <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Known Medical Conditions:</div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              ${conditions
-                .map(
-                  (c) =>
-                    `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;">✓ ${c}</span>`,
-                )
-                .join("")}
-            </div>
-          </div>
-        `
-          : "";
+          const cell2 = item2
+            ? `
+            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-size: 11px;">${item2.test_name}</td>
+            <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 11px;">${getVal("vitals_check", item2.test_code) || "-"}</td>
+          `
+            : `
+            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
+            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
+          `;
 
-      const otherHistoryRows = [
-        { label: "Details / Duration / Medications", val: getVal("previous_medical_history", "PMH02") },
-        { label: "Past Surgical History", val: getVal("previous_medical_history", "PMH03") },
-        { label: "Family History", val: getVal("previous_medical_history", "PMH04") },
-        { label: "Allergies (Drug / Food)", val: getVal("previous_medical_history", "PMH05") },
-      ]
-        .map(
-          (h) => `
-          <tr style="border-bottom: 1px solid #cbd5e1;">
-            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 35%;">${h.label}</td>
-            <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 65%;">${h.val || "-"}</td>
-          </tr>
-        `,
-        )
-        .join("");
+          vitalsRows.push(`<tr>${cell1}${cell2}</tr>`);
+        }
 
-      // Personal History 5-column table
-      const formatPers = prevItems.find((i) => i.test_code === "PMH06");
-      let persTable = "";
-      if (formatPers && Array.isArray(formatPers.parameter)) {
-        persTable = `
-          <div style="margin-top: 8px;">
-            <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px;">Personal History:</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1px solid #cbd5e1;">
-              <thead>
-                <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                  ${formatPers.parameter
-                    .map(
-                      (p) =>
-                        `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 6px 8px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1;">${p.pm_name}</th>`,
-                    )
-                    .join("")}
-                </tr>
-              </thead>
+        vitalsHtml = `
+          <div style="margin-bottom: 12px;">
+            <div class="sec-title">1. Vitals Check</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
               <tbody>
-                <tr>
-                  ${formatPers.parameter
-                    .map(
-                      (p) =>
-                        `<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff;">${getVal("previous_medical_history", "PMH06", p.pm_code) || "-"}</td>`,
-                    )
-                    .join("")}
-                </tr>
+                ${vitalsRows.join("")}
               </tbody>
             </table>
           </div>
         `;
       }
 
-      const prevHistoryHtml = `
-        <div style="margin-bottom: 16px;">
-          <div class="sec-title">2. Previous Medical History</div>
-          ${condTags}
-          <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1px solid #cbd5e1; margin-bottom: 6px;">
-            <tbody>${otherHistoryRows}</tbody>
-          </table>
-          ${persTable}
-        </div>
-      `;
+      // ── 2. Previous Medical History HTML (Dynamic from response format) ──
+      const prevItems = fmtData["previous_medical_history"] || [];
+      let prevHistoryHtml = "";
+      if (prevItems.length > 0) {
+        const historySections = [];
+
+        prevItems.forEach((item) => {
+          const hasParams = Array.isArray(item.parameter) && item.parameter.length > 0;
+          const hasOptions = Array.isArray(item.value_options) && item.value_options.length > 0;
+
+          if (hasParams) {
+            // Multi-parameter sub-table
+            historySections.push(`
+              <div style="margin-top: 6px; margin-bottom: 6px;">
+                <div style="font-size: 11px; font-weight: 700; color: #1e3a8a; margin-bottom: 3px;">${item.test_name}:</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
+                  <thead>
+                    <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
+                      ${item.parameter
+                        .map(
+                          (p) =>
+                            `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 5px 8px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1; font-size: 10.5px;">${p.pm_name}</th>`,
+                        )
+                        .join("")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      ${item.parameter
+                        .map(
+                          (p) =>
+                            `<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff; font-size: 10.5px;">${getVal("previous_medical_history", item.test_code, p.pm_code) || "-"}</td>`,
+                        )
+                        .join("")}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            `);
+          } else if (hasOptions) {
+            // Options checklist / badges
+            const rawVal = getVal("previous_medical_history", item.test_code);
+            const selectedOpts = Array.isArray(rawVal) ? rawVal : rawVal ? [rawVal] : [];
+            if (selectedOpts.length > 0) {
+              historySections.push(`
+                <div style="margin-bottom: 6px;">
+                  <div style="font-size: 11px; font-weight: 700; color: #1e3a8a; margin-bottom: 3px;">${item.test_name}:</div>
+                  <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    ${selectedOpts
+                      .map(
+                        (c) =>
+                          `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 2px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700;">✓ ${c}</span>`,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `);
+            }
+          } else {
+            // Plain text row
+            const val = getVal("previous_medical_history", item.test_code);
+            historySections.push(`
+              <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; margin-bottom: 4px;">
+                <tbody>
+                  <tr>
+                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 35%;">${item.test_name}</td>
+                    <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 65%;">${val || "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            `);
+          }
+        });
+
+        prevHistoryHtml = `
+          <div style="margin-bottom: 12px;">
+            <div class="sec-title">2. Previous Medical History</div>
+            ${historySections.join("")}
+          </div>
+        `;
+      }
 
       // ── 3. Physical Examination HTML (Matching Image 3 & MHCReportForm.js) ──
       const physItems = fmtData["physical_examination"] || [];
@@ -1139,23 +1132,22 @@ const MHCList = () => {
       `);
 
       // 2. Vitals Check
-      flowBlocks.push(`
-        <div class="flow-item" style="margin-bottom: 8px;">
-          ${vitalsHtml}
-        </div>
-      `);
+      if (vitalsHtml) {
+        flowBlocks.push(`
+          <div class="flow-item" style="margin-bottom: 8px;">
+            ${vitalsHtml}
+          </div>
+        `);
+      }
 
       // 3. Previous Medical History
-      flowBlocks.push(`
-        <div class="flow-item" style="margin-bottom: 8px;">
-          <div class="sec-title">2. Previous Medical History</div>
-          ${condTags}
-          <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; margin-bottom: 4px;">
-            <tbody>${otherHistoryRows}</tbody>
-          </table>
-          ${persTable}
-        </div>
-      `);
+      if (prevHistoryHtml) {
+        flowBlocks.push(`
+          <div class="flow-item" style="margin-bottom: 8px;">
+            ${prevHistoryHtml}
+          </div>
+        `);
+      }
 
       // 4. Physical Examination
       if (physItems.length > 0) {
@@ -1227,6 +1219,9 @@ const MHCList = () => {
         flowBlocks.push(`
           <div class="flow-item" style="margin-bottom: 4px;">
             <div class="sec-title">5. Investigations</div>
+            <div style="font-size: 9.5px; color: #475569; font-style: italic; margin-top: 1px; margin-bottom: 5px; line-height: 1.4;">
+              Laboratory panel to be attached separately as lab report. Special investigations below to be recorded here.
+            </div>
           </div>
         `);
 
@@ -1257,7 +1252,7 @@ const MHCList = () => {
                     <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
                       <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 40%;">Parameter</th>
                       <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 35%;">Finding / Value</th>
-                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 25%;">Result / Assessment</th>
+                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 25%;">Normal / Abnormal</th>
                     </tr>
                   </thead>
                   <tbody>${rows}</tbody>
@@ -1325,6 +1320,30 @@ const MHCList = () => {
         flowBlocks.push(`
           <div class="flow-item" style="margin-bottom: 4px;">
             <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin: 3px 0 2px;">Procedure / Surgery Advised</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `);
+      }
+
+      const pediatricItems = fmtData["pediatric_master_health_check-up"] || [];
+      if (pediatricItems.length > 0) {
+        const rows = pediatricItems
+          .map((it) => {
+            const v = getVal("pediatric_master_health_check-up", it.test_code);
+            return `
+              <tr>
+                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 35%; font-size: 10.5px;">${it.test_name}</td>
+                <td style="background: #ffffff; color: #0f172a; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 65%; font-size: 10.5px;">${v || "-"}</td>
+              </tr>
+            `;
+          })
+          .join("");
+
+        flowBlocks.push(`
+          <div class="flow-item" style="margin-bottom: 4px;">
+            <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin: 3px 0 2px;">Pediatric Master Health Check-up</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
               <tbody>${rows}</tbody>
             </table>
@@ -2187,15 +2206,14 @@ const MHCList = () => {
                         return "";
                       };
 
+                      const vitalsItems = printFormat["vitals_check"] || [];
                       const prevItems = printFormat["previous_medical_history"] || [];
-                      const condVal = getModalVal("previous_medical_history", "PMH01");
-                      const conditions = Array.isArray(condVal) ? condVal : condVal ? [condVal] : [];
-                      const formatPers = prevItems.find((i) => i.test_code === "PMH06");
                       const physItems = printFormat["physical_examination"] || [];
                       const vaccineItems = printFormat["vaccination_status"] || [];
                       const investItems = printFormat["investigations"] || [];
                       const reviewItems = printFormat["summary_of_review"] || [];
                       const procedureItems = printFormat["procedure_or_suregery_advised"] || [];
+                      const pediatricItems = printFormat["pediatric_master_health_check-up"] || [];
                       const consultItems = printFormat["consultant_opinion"] || [];
                       const dueSec = valuedetails["next_master_health_check-up_due"] || [];
                       const dueItem = Array.isArray(dueSec) ? dueSec.find((i) => i.test_code === "NMHCD01") : null;
@@ -2205,8 +2223,8 @@ const MHCList = () => {
 
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                          {/* 1. Vitals Check (Matching Image 1 & MHCReportForm.js) */}
-                          {printFormat["vitals_check"] && (
+                          {/* 1. Vitals Check (Dynamic from response format) */}
+                          {vitalsItems.length > 0 && (
                             <div>
                               <div
                                 style={{
@@ -2230,48 +2248,45 @@ const MHCList = () => {
                                 }}
                               >
                                 <tbody>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%" }}>Height (cm)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%", fontWeight: 600 }}>{getModalVal("vitals_check", "VC01") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%" }}>Weight (kg)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%", fontWeight: 600 }}>{getModalVal("vitals_check", "VC02") || "-"}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>BMI (kg/m²)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC03") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>Waist / Hip (cm)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC04") || "-"}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>Pulse Rate (/min)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC05") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>Blood Pressure (mmHg)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC06") || "-"}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>Respiratory Rate (/min)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC07") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>Temperature (°F)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC08") || "-"}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>SpO2 (%)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC09") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>RBS (mg/dl)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC10") || "-"}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>ABI (Right)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC11") || "-"}</td>
-                                    <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1" }}>ABI (Left)</td>
-                                    <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", fontWeight: 600 }}>{getModalVal("vitals_check", "VC12") || "-"}</td>
-                                  </tr>
+                                  {(() => {
+                                    const rows = [];
+                                    for (let i = 0; i < vitalsItems.length; i += 2) {
+                                      const item1 = vitalsItems[i];
+                                      const item2 = vitalsItems[i + 1] || null;
+                                      rows.push(
+                                        <tr key={i}>
+                                          <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%" }}>
+                                            {item1.test_name}
+                                          </td>
+                                          <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%", fontWeight: 600 }}>
+                                            {getModalVal("vitals_check", item1.test_code) || "-"}
+                                          </td>
+                                          {item2 ? (
+                                            <>
+                                              <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%" }}>
+                                                {item2.test_name}
+                                              </td>
+                                              <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "25%", fontWeight: 600 }}>
+                                                {getModalVal("vitals_check", item2.test_code) || "-"}
+                                              </td>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <td style={{ background: "#f8fafc", border: "1px solid #cbd5e1", width: "25%" }} />
+                                              <td style={{ background: "#f8fafc", border: "1px solid #cbd5e1", width: "25%" }} />
+                                            </>
+                                          )}
+                                        </tr>
+                                      );
+                                    }
+                                    return rows;
+                                  })()}
                                 </tbody>
                               </table>
                             </div>
                           )}
 
-                          {/* 2. Previous Medical History (Matching Image 2 & MHCReportForm.js) */}
+                          {/* 2. Previous Medical History (Dynamic from response format) */}
                           {prevItems.length > 0 && (
                             <div>
                               <div
@@ -2288,93 +2303,103 @@ const MHCList = () => {
                                 2. Previous Medical History
                               </div>
 
-                              {/* Conditions Badges */}
-                              {conditions.length > 0 && (
-                                <div style={{ marginBottom: "0.5rem" }}>
-                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: "0.25rem" }}>
-                                    Known Medical Conditions:
-                                  </div>
-                                  <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                                    {conditions.map((c, cIdx) => (
-                                      <span
-                                        key={cIdx}
+                              {prevItems.map((item, idx) => {
+                                const hasParams = Array.isArray(item.parameter) && item.parameter.length > 0;
+                                const hasOptions = Array.isArray(item.value_options) && item.value_options.length > 0;
+
+                                if (hasParams) {
+                                  return (
+                                    <div key={idx} style={{ marginTop: "0.5rem", marginBottom: "0.5rem" }}>
+                                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#1e3a8a", marginBottom: "0.25rem" }}>
+                                        {item.test_name}:
+                                      </div>
+                                      <table
                                         style={{
-                                          background: "#f0fdfa",
-                                          border: "1px solid #0d9488",
-                                          color: "#0f766e",
-                                          padding: "0.15rem 0.6rem",
-                                          borderRadius: "12px",
-                                          fontSize: "0.78rem",
-                                          fontWeight: 700,
+                                          width: "100%",
+                                          borderCollapse: "collapse",
+                                          fontSize: "0.8rem",
+                                          border: "1px solid #cbd5e1",
                                         }}
                                       >
-                                        ✓ {c}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                                        <thead>
+                                          <tr style={{ background: "#1e3a8a", color: "#ffffff" }}>
+                                            {item.parameter.map((p, pIdx) => (
+                                              <th key={pIdx} style={{ padding: "0.35rem 0.5rem", textAlign: "center", color: "#ffffff", background: "#1e3a8a", fontWeight: 800, border: "1px solid #1e3a8a" }}>
+                                                {p.pm_name}
+                                              </th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <tr>
+                                            {item.parameter.map((p, pIdx) => (
+                                              <td key={pIdx} style={{ padding: "0.35rem 0.5rem", textAlign: "center", fontWeight: 700, color: "#0f172a", border: "1px solid #cbd5e1", background: "#ffffff" }}>
+                                                {getModalVal("previous_medical_history", item.test_code, p.pm_code) || "-"}
+                                              </td>
+                                            ))}
+                                          </tr>
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  );
+                                }
 
-                              {/* Other Medical History */}
-                              <table
-                                style={{
-                                  width: "100%",
-                                  borderCollapse: "collapse",
-                                  fontSize: "0.82rem",
-                                  border: "1px solid #cbd5e1",
-                                  marginBottom: "0.5rem",
-                                }}
-                              >
-                                <tbody>
-                                  {[
-                                    { label: "Details / Duration / Medications", val: getModalVal("previous_medical_history", "PMH02") },
-                                    { label: "Past Surgical History", val: getModalVal("previous_medical_history", "PMH03") },
-                                    { label: "Family History", val: getModalVal("previous_medical_history", "PMH04") },
-                                    { label: "Allergies (Drug / Food)", val: getModalVal("previous_medical_history", "PMH05") },
-                                  ].map((h, hIdx) => (
-                                    <tr key={hIdx}>
-                                      <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "35%" }}>{h.label}</td>
-                                      <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "65%" }}>{h.val || "-"}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
+                                if (hasOptions) {
+                                  const rawVal = getModalVal("previous_medical_history", item.test_code);
+                                  const selectedOpts = Array.isArray(rawVal) ? rawVal : rawVal ? [rawVal] : [];
+                                  if (selectedOpts.length === 0) return null;
+                                  return (
+                                    <div key={idx} style={{ marginBottom: "0.5rem" }}>
+                                      <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#1e3a8a", marginBottom: "0.25rem" }}>
+                                        {item.test_name}:
+                                      </div>
+                                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                        {selectedOpts.map((c, cIdx) => (
+                                          <span
+                                            key={cIdx}
+                                            style={{
+                                              background: "#f0fdfa",
+                                              border: "1px solid #0d9488",
+                                              color: "#0f766e",
+                                              padding: "0.15rem 0.6rem",
+                                              borderRadius: "12px",
+                                              fontSize: "0.78rem",
+                                              fontWeight: 700,
+                                            }}
+                                          >
+                                            ✓ {c}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                }
 
-                              {/* Personal History 5-column Table */}
-                              {formatPers && Array.isArray(formatPers.parameter) && (
-                                <div style={{ marginTop: "0.5rem" }}>
-                                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b", marginBottom: "0.25rem" }}>
-                                    Personal History:
-                                  </div>
+                                const val = getModalVal("previous_medical_history", item.test_code);
+                                return (
                                   <table
+                                    key={idx}
                                     style={{
                                       width: "100%",
                                       borderCollapse: "collapse",
-                                      fontSize: "0.8rem",
+                                      fontSize: "0.82rem",
                                       border: "1px solid #cbd5e1",
+                                      marginBottom: "0.35rem",
                                     }}
                                   >
-                                    <thead>
-                                      <tr style={{ background: "#1e3a8a", color: "#ffffff" }}>
-                                        {formatPers.parameter.map((p, pIdx) => (
-                                          <th key={pIdx} style={{ padding: "0.35rem 0.5rem", textAlign: "center", color: "#ffffff", background: "#1e3a8a", fontWeight: 800, border: "1px solid #1e3a8a" }}>
-                                            {p.pm_name}
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
                                     <tbody>
                                       <tr>
-                                        {formatPers.parameter.map((p, pIdx) => (
-                                          <td key={pIdx} style={{ padding: "0.35rem 0.5rem", textAlign: "center", fontWeight: 700, color: "#0f172a", border: "1px solid #cbd5e1", background: "#ffffff" }}>
-                                            {getModalVal("previous_medical_history", "PMH06", p.pm_code) || "-"}
-                                          </td>
-                                        ))}
+                                        <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "35%" }}>
+                                          {item.test_name}
+                                        </td>
+                                        <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "65%" }}>
+                                          {val || "-"}
+                                        </td>
                                       </tr>
                                     </tbody>
                                   </table>
-                                </div>
-                              )}
+                                );
+                              })}
                             </div>
                           )}
 
@@ -2490,11 +2515,22 @@ const MHCList = () => {
                                   color: "#1e3a8a",
                                   borderBottom: "2px solid #1e3a8a",
                                   paddingBottom: "0.25rem",
-                                  marginBottom: "0.5rem",
+                                  marginBottom: "0.25rem",
                                   textTransform: "uppercase",
                                 }}
                               >
                                 5. Investigations
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "0.8rem",
+                                  color: "#475569",
+                                  fontStyle: "italic",
+                                  marginBottom: "0.6rem",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                Laboratory panel to be attached separately as lab report. Special investigations below to be recorded here.
                               </div>
 
                               {investItems.map((inv, iIdx) => {
@@ -2534,7 +2570,7 @@ const MHCList = () => {
                                               Finding / Value
                                             </th>
                                             <th style={{ padding: "0.35rem 0.6rem", textAlign: "left", width: "25%", border: "1px solid #1e3a8a", background: "#1e3a8a", color: "#ffffff", fontWeight: 800 }}>
-                                              Result / Assessment
+                                              Normal / Abnormal
                                             </th>
                                           </tr>
                                         </thead>
@@ -2636,6 +2672,37 @@ const MHCList = () => {
                                         </td>
                                         <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "65%" }}>
                                           {getModalVal("procedure_or_suregery_advised", item.test_code) || "-"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* Pediatric Master Health Check-up Table */}
+                            {pediatricItems.length > 0 && (
+                              <div style={{ marginTop: "0.6rem" }}>
+                                <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e3a8a", marginBottom: "0.3rem" }}>
+                                  Pediatric Master Health Check-up
+                                </div>
+                                <table
+                                  style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    fontSize: "0.82rem",
+                                    border: "1px solid #cbd5e1",
+                                    marginBottom: "0.6rem",
+                                  }}
+                                >
+                                  <tbody>
+                                    {pediatricItems.map((item, idx) => (
+                                      <tr key={idx}>
+                                        <td style={{ background: "#e8f0fe", color: "#1e293b", fontWeight: 700, padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "35%" }}>
+                                          {item.test_name}
+                                        </td>
+                                        <td style={{ background: "#ffffff", color: "#0f172a", padding: "0.4rem 0.6rem", border: "1px solid #cbd5e1", width: "65%" }}>
+                                          {getModalVal("pediatric_master_health_check-up", item.test_code) || "-"}
                                         </td>
                                       </tr>
                                     ))}
