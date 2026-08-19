@@ -1002,13 +1002,13 @@ const MHCReportForm = () => {
               consultItems.length > 0 ||
               nextDueItems.length > 0 ||
               pediatricItems.length > 0) && (
-              <SectionTab
-                active={activeTab === "review"}
-                onClick={() => setActiveTab("review")}
-              >
-                6. Summary & Opinion
-              </SectionTab>
-            )}
+                <SectionTab
+                  active={activeTab === "review"}
+                  onClick={() => setActiveTab("review")}
+                >
+                  6. Summary & Opinion
+                </SectionTab>
+              )}
           </SectionNav>
 
           {loadingFormat ? (

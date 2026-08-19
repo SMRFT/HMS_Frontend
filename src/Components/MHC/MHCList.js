@@ -1651,6 +1651,14 @@ const MHCList = () => {
           <TopBar>
             <PageTitle>Master Health Check-up (MHC) Reports</PageTitle>
             <ActionGroup>
+              <ActionBtn
+                onClick={() => navigate("/MHCReviewList")}
+                bg="#0d9488"
+                style={{ fontWeight: 700 }}
+                title="View Next Due & Review Schedule"
+              >
+                📅 Review & Due Reminders
+              </ActionBtn>
               <ActionBtn onClick={fetchData} bg="#0f766e">
                 🔄 Refresh
               </ActionBtn>

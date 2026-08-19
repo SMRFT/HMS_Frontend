@@ -49,6 +49,7 @@ import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
@@ -357,6 +358,7 @@ function App() {
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
       "/MHCList": "MHC Reports",
+      "/MHCReviewList": "MHC Review & Due List",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
@@ -1106,13 +1108,19 @@ function App() {
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
               {/* MHC Reports */}
-              {hasPagePermission(
+              {(hasPagePermission(
                 "/MHCList",
                 allowedActions,
                 dynamicPermissions,
-              ) && (
+              ) ||
+                hasPagePermission(
+                  "/MHCReviewList",
+                  allowedActions,
+                  dynamicPermissions,
+                )) && (
                   <>
                     <Route path="/MHCList" element={<MHCList />} />
+                    <Route path="/MHCReviewList" element={<MHCReviewList />} />
                     <Route
                       path="/MHCReportForm/:package_id/:investBillNo"
                       element={<MHCReportForm />}
