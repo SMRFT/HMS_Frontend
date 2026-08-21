@@ -117,18 +117,9 @@ const StoresApprovalManager = () => {
 
     const [showModal, setShowModal] = useState(false);
     const [selectedIntent, setSelectedIntent] = useState(null);
-    const [departments, setDepartments] = useState([]);
     const [approvalItems, setApprovalItems] = useState([]);
 
-    useEffect(() => { 
-        loadPendingIntents(); 
-        fetchDepartments();
-    }, []);
-
-    const fetchDepartments = async () => {
-        const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/department-master/`, "GET");
-        if (res.success) setDepartments(res.data || []);
-    };
+    useEffect(() => { loadPendingIntents(); }, []);
 
     const loadPendingIntents = async () => {
         setLoading(true);
@@ -239,14 +230,14 @@ const StoresApprovalManager = () => {
         setApprovalItems(intent.items.map(it => ({
             ...it,
             original_approved_qty: Number(it.approved_quantity || 0),
-            new_approval_qty: 0 
+            new_approval_qty: 0
         })));
         setShowModal(true);
     };
 
     const handleExportExcel = () => {
         if (intents.length === 0) return toast.info("No data to export");
-        
+
         const flattenedData = [];
         intents.forEach(intent => {
             intent.items.forEach(item => {
@@ -268,7 +259,7 @@ const StoresApprovalManager = () => {
 
         // Column widths
         const wscols = [
-            {wch: 15}, {wch: 20}, {wch: 25}, {wch: 35}, {wch: 15}, {wch: 15}, {wch: 15}
+            { wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
         ];
         ws['!cols'] = wscols;
 
@@ -277,13 +268,13 @@ const StoresApprovalManager = () => {
 
     const submitFinalApproval = async () => {
         setLoading(true);
-        
+
         const finalItems = approvalItems.map(it => {
             if (Number(it.new_approval_qty) === 0) return it;
 
             const totalApproved = Number(it.original_approved_qty) + Number(it.new_approval_qty);
             const currentApprovals = it.approval?.approvals || [];
-            
+
             // If it's the old single-object format, convert it to array format
             if (it.approval?.approved_at && currentApprovals.length === 0) {
                 currentApprovals.push({
@@ -315,13 +306,13 @@ const StoresApprovalManager = () => {
 
         const payload = {
             items: finalItems,
-            is_approved: allApproved 
+            is_approved: allApproved
         };
 
         console.log("Submitting Approval Payload:", payload);
 
         const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/update/${selectedIntent.intent_id}/`, "PATCH", payload);
-        
+
         console.log("Approval Response:", res);
 
         if (res.success) {
@@ -353,20 +344,20 @@ const StoresApprovalManager = () => {
                         <p style={{ margin: '4px 0 0', color: S.colors.textMuted, fontSize: '0.9rem' }}>Verify and manage inter-departmental store requests</p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
-                        <S.Button 
-                            secondary 
+                        <S.Button
+                            secondary
                             onClick={handleExportExcel}
-                            style={{ 
+                            style={{
                                 padding: '10px 20px',
                                 borderRadius: '8px',
                                 fontWeight: '600'
                             }}
                         >📊 Export Excel</S.Button>
-                        <S.Button 
+                        <S.Button
                             onClick={() => navigate('/StoresIntent')}
-                            style={{ 
+                            style={{
                                 background: S.colors.primary,
-                                color: 'white', 
+                                color: 'white',
                                 padding: '10px 20px',
                                 borderRadius: '8px',
                                 fontWeight: '600'
@@ -419,9 +410,9 @@ const StoresApprovalManager = () => {
                     }}
                 >
                     <div style={{
-                        background: 'white', 
-                        margin: '20px 22px 0', 
-                        padding: '24px', 
+                        background: 'white',
+                        margin: '20px 22px 0',
+                        padding: '24px',
                         borderRadius: '16px',
                         boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
                         border: `1px solid ${S.colors.border}`
@@ -429,41 +420,23 @@ const StoresApprovalManager = () => {
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                 <S.Label style={{ margin: 0 }}>From</S.Label>
-                                <DatePicker 
+                                <DatePicker
                                     value={filter.from_date ? dayjs(filter.from_date) : null}
-                                    onChange={(d) => setFilter({...filter, from_date: d ? d.format('YYYY-MM-DD') : ''})}
+                                    onChange={(d) => setFilter({ ...filter, from_date: d ? d.format('YYYY-MM-DD') : '' })}
                                     format="DD/MM/YYYY"
                                     style={{ height: '38px', borderRadius: '8px' }}
                                 />
                             </div>
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                                 <S.Label style={{ margin: 0 }}>To</S.Label>
-                                <DatePicker 
+                                <DatePicker
                                     value={filter.to_date ? dayjs(filter.to_date) : null}
-                                    onChange={(d) => setFilter({...filter, to_date: d ? d.format('YYYY-MM-DD') : ''})}
+                                    onChange={(d) => setFilter({ ...filter, to_date: d ? d.format('YYYY-MM-DD') : '' })}
                                     format="DD/MM/YYYY"
                                     style={{ height: '38px', borderRadius: '8px' }}
                                 />
                             </div>
                             <S.Button onClick={loadPendingIntents} style={{ background: '#0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>🔍 Search</S.Button>
-                            <S.Button 
-                                onClick={async () => {
-                                    setLoading(true);
-                                    const res = await apiRequest(`${Hmsbaseurl.replace(/\/$/, '')}/stores-intent/`, "POST", {});
-                                    if (res.success) {
-                                        const filtered = (res.data || []).filter(intent => {
-                                            const status = getIntentStatus(intent);
-                                            return status === 'Pending' || status === 'Partially Approved';
-                                        });
-                                        setIntents(filtered);
-                                        toast.info(`Found ${filtered.length} pending/partially approved intents`);
-                                    }
-                                    setLoading(false);
-                                }} 
-                                style={{ background: '#f59e0b', color: 'white', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}
-                            >
-                                ⏳ Pending Actions
-                            </S.Button>
                             <S.Button secondary style={{ background: '#64748b', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }} onClick={() => loadPendingIntents()}>✕ Clear</S.Button>
                             <S.Button secondary onClick={handleExportExcel} style={{ background: '#f8fafc', color: '#0d9488', border: '1px solid #0d9488', padding: '10px 25px', borderRadius: '8px', fontWeight: '600' }}>
                                 📥 Export Excel
@@ -491,14 +464,12 @@ const StoresApprovalManager = () => {
                                         <div style={{ color: S.colors.primary, fontWeight: '800', fontSize: '0.95rem' }}>{item.intent_id}</div>
                                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{new Date(item.date).toLocaleDateString()}</div>
                                     </S.Td>
-                                    <S.Td style={{ fontWeight: '700', color: '#334155' }}>
-                                        {item.department_name || departments.find(d => d.department_id === item.department)?.department_name || item.department}
-                                    </S.Td>
+                                    <S.Td style={{ fontWeight: '700', color: '#334155' }}>{item.department_name}</S.Td>
                                     <S.Td>
                                         <div style={{ fontSize: '0.85rem' }}>
                                             {item.items.map((it, idx) => (
-                                                <div key={idx} style={{ 
-                                                    padding: '4px 0', 
+                                                <div key={idx} style={{
+                                                    padding: '4px 0',
                                                     borderBottom: idx === item.items.length - 1 ? 'none' : '1px solid #f1f5f9',
                                                     color: '#334155'
                                                 }}>
@@ -511,16 +482,16 @@ const StoresApprovalManager = () => {
                                         </div>
                                     </S.Td>
                                     <S.Td>
-                                        <Badge 
+                                        <Badge
                                             type={
-                                                getIntentStatus(item) === 'Approved' ? 'SUCCESS' : 
-                                                (getIntentStatus(item) === 'Rejected' ? 'DANGER' : 'WARNING')
+                                                getIntentStatus(item) === 'Approved' ? 'SUCCESS' :
+                                                    (getIntentStatus(item) === 'Rejected' ? 'DANGER' : 'WARNING')
                                             }
                                             style={
-                                                getIntentStatus(item) === 'Approved' ? {} : 
-                                                (getIntentStatus(item) === 'Rejected' ? {} : 
-                                                (getIntentStatus(item) === 'Partially Approved' ? {background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe'} :
-                                                {background: '#fffbeb', color: '#b45309', borderColor: '#fef3c7'}))
+                                                getIntentStatus(item) === 'Approved' ? {} :
+                                                    (getIntentStatus(item) === 'Rejected' ? {} :
+                                                        (getIntentStatus(item) === 'Partially Approved' ? { background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' } :
+                                                            { background: '#fffbeb', color: '#b45309', borderColor: '#fef3c7' }))
                                             }
                                         >
                                             {getIntentStatus(item)}
@@ -528,16 +499,16 @@ const StoresApprovalManager = () => {
                                     </S.Td>
                                     <S.Td>
                                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                            <ActionSquare 
-                                                bg="#10b981" 
-                                                title="Approve" 
+                                            <ActionSquare
+                                                bg="#10b981"
+                                                title="Approve"
                                                 disabled={getIntentStatus(item) === 'Rejected'}
                                                 onClick={() => openApprovalModal(item)}
                                             >✔</ActionSquare>
                                             <ActionSquare bg="#3b82f6" title="Print" onClick={() => handlePrint(item)}>⎙</ActionSquare>
-                                            <ActionSquare 
-                                                bg="#ef4444" 
-                                                title="Reject" 
+                                            <ActionSquare
+                                                bg="#ef4444"
+                                                title="Reject"
                                                 disabled={getIntentStatus(item) !== 'Pending'}
                                                 onClick={() => handleReject(item)}
                                             >✖</ActionSquare>
@@ -552,50 +523,50 @@ const StoresApprovalManager = () => {
 
                 {showModal && (
                     <S.ModalOverlay>
-                        <S.ModalContainer style={{maxWidth: '800px'}}>
-                            <S.ModalHeader style={{background: S.colors.primary, color: '#fff'}}>
-                                <S.ModalTitle style={{color: '#fff'}}>Approve Intent: {selectedIntent?.intent_id}</S.ModalTitle>
-                                <S.CloseButton style={{color: '#fff'}} onClick={() => setShowModal(false)}>&times;</S.CloseButton>
+                        <S.ModalContainer style={{ maxWidth: '800px' }}>
+                            <S.ModalHeader style={{ background: S.colors.primary, color: '#fff' }}>
+                                <S.ModalTitle style={{ color: '#fff' }}>Approve Intent: {selectedIntent?.intent_id}</S.ModalTitle>
+                                <S.CloseButton style={{ color: '#fff' }} onClick={() => setShowModal(false)}>&times;</S.CloseButton>
                             </S.ModalHeader>
                             <S.ModalBody>
                                 <S.TableWrapper>
                                     <S.Table>
-                                                <thead>
-                                                    <tr>
-                                                        <S.Th width="50">
-                                                            <Checkbox 
-                                                                onChange={(e) => {
-                                                                    const checked = e.target.checked;
-                                                                    const copy = approvalItems.map(it => {
-                                                                        const isFullyApproved = Number(it.original_approved_qty) >= Number(it.quantity);
-                                                                        if (isFullyApproved) return it;
-                                                                        return {
-                                                                            ...it,
-                                                                            new_approval_qty: checked ? (Number(it.quantity) - Number(it.original_approved_qty)) : 0
-                                                                        };
-                                                                    });
-                                                                    setApprovalItems(copy);
-                                                                }}
-                                                                checked={
-                                                                    approvalItems.length > 0 && 
-                                                                    approvalItems.filter(it => Number(it.original_approved_qty) < Number(it.quantity))
-                                                                                 .every(it => it.new_approval_qty === (Number(it.quantity) - Number(it.original_approved_qty)))
-                                                                }
-                                                            />
-                                                        </S.Th>
-                                                        <S.Th>Available Qty</S.Th>
-                                                        <S.Th>Item</S.Th>
-                                                        <S.Th>Request</S.Th>
-                                                        <S.Th>Already Apprv</S.Th>
-                                                        <S.Th>Currently Apprv</S.Th>
-                                                        <S.Th>Total Apprv</S.Th>
-                                                    </tr>
-                                                </thead>
+                                        <thead>
+                                            <tr>
+                                                <S.Th width="50">
+                                                    <Checkbox
+                                                        onChange={(e) => {
+                                                            const checked = e.target.checked;
+                                                            const copy = approvalItems.map(it => {
+                                                                const isFullyApproved = Number(it.original_approved_qty) >= Number(it.quantity);
+                                                                if (isFullyApproved) return it;
+                                                                return {
+                                                                    ...it,
+                                                                    new_approval_qty: checked ? (Number(it.quantity) - Number(it.original_approved_qty)) : 0
+                                                                };
+                                                            });
+                                                            setApprovalItems(copy);
+                                                        }}
+                                                        checked={
+                                                            approvalItems.length > 0 &&
+                                                            approvalItems.filter(it => Number(it.original_approved_qty) < Number(it.quantity))
+                                                                .every(it => it.new_approval_qty === (Number(it.quantity) - Number(it.original_approved_qty)))
+                                                        }
+                                                    />
+                                                </S.Th>
+                                                <S.Th>Available Qty</S.Th>
+                                                <S.Th>Item</S.Th>
+                                                <S.Th>Request</S.Th>
+                                                <S.Th>Already Apprv</S.Th>
+                                                <S.Th>Currently Apprv</S.Th>
+                                                <S.Th>Total Apprv</S.Th>
+                                            </tr>
+                                        </thead>
                                         <tbody>
                                             {approvalItems.map((it, idx) => (
                                                 <S.Tr key={idx}>
                                                     <S.Td>
-                                                        <Checkbox 
+                                                        <Checkbox
                                                             disabled={Number(it.original_approved_qty) >= Number(it.quantity)}
                                                             checked={
                                                                 Number(it.original_approved_qty) >= Number(it.quantity) ||
@@ -610,16 +581,16 @@ const StoresApprovalManager = () => {
                                                         />
                                                     </S.Td>
                                                     <S.Td>{it.available_stock}</S.Td>
-                                                    <S.Td style={{fontWeight: '700'}}>{it.name}</S.Td>
+                                                    <S.Td style={{ fontWeight: '700' }}>{it.name}</S.Td>
                                                     <S.Td>{it.quantity}</S.Td>
-                                                    <S.Td style={{color: '#64748b'}}>{it.original_approved_qty}</S.Td>
+                                                    <S.Td style={{ color: '#64748b' }}>{it.original_approved_qty}</S.Td>
                                                     <S.Td>
-                                                        <S.Input 
-                                                            type="number" 
+                                                        <S.Input
+                                                            type="number"
                                                             min="0"
                                                             disabled={Number(it.original_approved_qty) >= Number(it.quantity)}
                                                             max={Number(it.quantity) - Number(it.original_approved_qty)}
-                                                            value={it.new_approval_qty} 
+                                                            value={it.new_approval_qty}
                                                             onChange={(e) => {
                                                                 const val = Number(e.target.value);
                                                                 const remaining = Number(it.quantity) - Number(it.original_approved_qty);
@@ -631,10 +602,10 @@ const StoresApprovalManager = () => {
                                                                 const copy = [...approvalItems];
                                                                 copy[idx].new_approval_qty = val;
                                                                 setApprovalItems(copy);
-                                                            }} 
+                                                            }}
                                                         />
                                                     </S.Td>
-                                                    <S.Td style={{fontWeight: '800', color: S.colors.primary}}>
+                                                    <S.Td style={{ fontWeight: '800', color: S.colors.primary }}>
                                                         {Number(it.original_approved_qty) + Number(it.new_approval_qty)}
                                                     </S.Td>
                                                 </S.Tr>
@@ -643,7 +614,7 @@ const StoresApprovalManager = () => {
                                     </S.Table>
                                 </S.TableWrapper>
                                 <S.ButtonContainer>
-                                    <S.Button onClick={submitFinalApproval} style={{width: '100%', padding: '12px', fontSize: '1rem'}}>Verify & Approve Intent</S.Button>
+                                    <S.Button onClick={submitFinalApproval} style={{ width: '100%', padding: '12px', fontSize: '1rem' }}>Verify & Approve Intent</S.Button>
                                 </S.ButtonContainer>
                             </S.ModalBody>
                         </S.ModalContainer>

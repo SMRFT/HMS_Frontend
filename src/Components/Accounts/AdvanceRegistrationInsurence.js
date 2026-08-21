@@ -53,8 +53,13 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
         setLoading(true);
         try {
             const response = await apiRequest(`${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}&insurance=true`, "GET");
-            if (response.success && response.data && Array.isArray(response.data.data)) {
-                const mappedData = response.data.data.map(item => ({
+            if (response.success && response.data) {
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                const mappedData = rows.map(item => ({
                     ...item,
                     admissionDateTime: item.admissionDateTime || item.admission_date,
                     patient_name: item.patient_name || item.patientname,

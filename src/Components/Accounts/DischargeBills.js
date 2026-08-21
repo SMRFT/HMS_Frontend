@@ -154,8 +154,13 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
             if (billType !== "all") params.set("payment_mode", billType);
             if (insuranceFilter !== "all") params.set("insurance", insuranceFilter);
             const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
-            if (response.success && response.data && Array.isArray(response.data.data)) {
-                setReportData(response.data.data);
+            if (response.success && response.data) {
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                setReportData(rows);
             }
         } catch (error) {
             console.error("Error fetching report:", error);

@@ -24,6 +24,7 @@ import UserPermissionManager from "./Auth/UserPermissionManager";
 import OutletSelectionModal from "./Components/OutletSelectionModal";
 import Admission from "./Components/NursingStation/Admission";
 import RoomShifting from "./Components/NursingStation/RoomShifting";
+import Vaccination from "./Components/NursingStation/Vaccination";
 import RoomEnquiry from "./Components/Rooms/EnquiryRoom";
 import RoomCategory from "./Components/Rooms/RoomCategory";
 import Room from "./Components/Rooms/Room";
@@ -95,9 +96,15 @@ import StoresGRNGeneration from "./Components/Stores/StoresGRNGeneration";
 import StoresGRNReport from "./Components/Stores/StoresGRNReport";
 import StoresIntent from "./Components/Stores/StoresIntent";
 import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
+import Generalstorevendor from "./Components/Stores/Generalstorevendor";
+import LabDailyUsage from "./Components/Stores/Labdailyusage";
+import LabInventoryReport from "./Components/Stores/LabInventoryReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
+import AssetInchargeAssign from "./Components/AssetsManagement/AssetInchargeAssign";
+import AssetMaintenanceRequest from "./Components/AssetsManagement/AssetMaintenanceRequest";
+import AssetMaintenanceApproval from "./Components/AssetsManagement/AssetMaintenanceApproval";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
@@ -172,8 +179,22 @@ import SalesBilling from "./Components/Velavan/SalesBilling";
 import SalesReport from "./Components/Velavan/SalesReport";
 import AddVelavanCustomers from "./Components/Velavan/AddVelavanCustomers";
 import VelavanCustomerList from "./Components/Velavan/VelavanCustomerList";
+import DealerItems from "./Components/LabInventory/Dealeritems";
+import RaiseIndentPage from "./Components/LabInventory/raiseindent";
 import DoctorFeeCuts from "./Components/DoctorFeeCutsMaster/DoctorFeeCuts";
 import DoctorFeeCutsReport from "./Components/DoctorFeeCutsMaster/DoctorFeeCutsReport";
+import InPatientFeedbackForm from "./Components/QRScan/InPatientFeedbackForm";
+import OutPatientfeedForm from "./Components/QRScan/OutPatientfeedForm";
+import Feedbackreports from "./Components/QRScan/Feedbackreports";
+import OutpatientFeedbackreports from "./Components/QRScan/OutpatientFeedbackreports";
+import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
+import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
+
+
+
+
+
+
 
 // Layout wrapper
 const ContentWrapper = styled.div`
@@ -269,7 +290,15 @@ function App() {
             setUserOutlets(userAssignedOutlets);
 
             const storedOutlet = localStorage.getItem("selected_outlet");
-            if (!storedOutlet) {
+            const isValidStoredOutlet =
+              storedOutlet &&
+              userAssignedOutlets.some((o) => o.outlet_code === storedOutlet);
+
+            if (!isValidStoredOutlet) {
+              localStorage.removeItem("selected_outlet");
+              localStorage.removeItem("outlet_code");
+              localStorage.removeItem("selected_outlet_name");
+
               if (userAssignedOutlets.length === 1) {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
@@ -342,9 +371,14 @@ function App() {
       "/StoresGRNReport": "Stores GRN Report",
       "/StoresIntent": "Stores Intent",
       "/StoresIntentApproval": "Store Intent Approval",
+      "/Generalstorevendor": "General Store Vendor",
+      "/GeneralStoresVendor": "General Store Vendor",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
+      "/AssetInchargeAssign": "Asset Incharge Assigning",
+      "/AssetMaintenanceRequest": "Asset Maintenance Request",
+      "/AssetMaintenanceApproval": "Asset Maintenance Request Approval",
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
       "/pharmacytabs": "OP Pharmacy Tabs",
@@ -359,8 +393,10 @@ function App() {
       "/AdvanceRegistration": "Advance Registration",
 
       "/BillCancelReport": "Bill Cancel Report",
-
+      "/Feedbackreports": "InPatient Feedback Reports",
+      "/FeedbackReports": "InPatient Feedback Reports",
     };
+
 
     const path = location.pathname;
     if (path.startsWith("/SummaryPrint/")) {
@@ -387,8 +423,32 @@ function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [userOutlets]);
 
-  // Routes where sidebar is hidden (login page and mobile reg)
-  const hideSidebarRoutes = ["/", "/MobileRegistration"];
+  // Routes where sidebar is hidden (login page, mobile reg, feedback form, QR scan)
+  const publicRoutesList = [
+    "/MobileRegistration",
+    "/InPatientFeedbackForm",
+    "/OutPatientfeedForm",
+    "/outpatientfeedform",
+    "/OutPatientFeedbackForm",
+    "/outpatientfeedbackform",
+    "/InpatientQRScan",
+    "/inpatientqrscan",
+    "/OutPatientQRScan",
+    "/outpatientqrscan",
+    "/QRScan",
+    "/qrscan"
+  ];
+
+  const normalizedPath = location.pathname.toLowerCase().replace(/\/$/, "");
+
+  const isPublicPage = publicRoutesList.some((route) => {
+    const r = route.toLowerCase();
+    return normalizedPath === r || normalizedPath.endsWith(r);
+  });
+
+  const isNoSidebarRoute =
+    location.pathname === "/" ||
+    isPublicPage;
 
   if (isLoading)
     return (
@@ -404,16 +464,14 @@ function App() {
       </div>
     );
 
-  // Allow public access to MobileRegistration
-  if (!role && location.pathname !== "/MobileRegistration") {
+  // Allow public access to MobileRegistration, Feedback forms, and QR scan pages
+  if (!role && !isPublicPage) {
     return (
       <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
         Authentication error. Refresh the page.
       </div>
     );
   }
-
-  const isNoSidebarRoute = hideSidebarRoutes.includes(location.pathname);
 
   return (
     <div>
@@ -467,9 +525,44 @@ function App() {
                 path="/MobileRegistration"
                 element={<MobileRegistration />}
               />
+              <Route
+                path="/InPatientFeedbackForm"
+                element={<InPatientFeedbackForm />}
+              />
+              <Route
+                path="/OutPatientfeedForm"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/outpatientfeedform"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/OutPatientFeedbackForm"
+                element={<OutPatientfeedForm />}
+              />
+              <Route
+                path="/InpatientQRScan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/inpatientqrscan"
+                element={<InpatientQRScan />}
+              />
+              <Route
+                path="/OutPatientQRScan"
+                element={<OutPatientQRScan />}
+              />
+              <Route
+                path="/outpatientqrscan"
+                element={<OutPatientQRScan />}
+              />
             </Routes>
+
+
           )}
         </div>
+
       ) : (
         <>
           <Sidebar
@@ -546,12 +639,25 @@ function App() {
                   />
                 )}
 
+              {/* InPatient Feedback Form */}
+              <Route
+                path="/InPatientFeedbackForm"
+                element={<InPatientFeedbackForm />}
+              />
+
+
               {/* Front Office */}
               {hasPagePermission(
                 "/Admission",
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/Admission" element={<Admission />} />}
+
+              {hasPagePermission(
+                "/Vaccination",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/Vaccination" element={<Vaccination />} />}
 
               {hasPagePermission(
                 "/IPAdvance",
@@ -1219,6 +1325,20 @@ function App() {
                   element={<StoreIntentApproval />}
                 />
               )}
+              {hasPagePermission("/Generalstorevendor", allowedActions) && (
+                <Route
+                  path="/Generalstorevendor"
+                  element={<Generalstorevendor />}
+                />
+              )}
+              {hasPagePermission("/GeneralStoresVendor", allowedActions) && (
+                <Route
+                  path="/GeneralStoresVendor"
+                  element={<Generalstorevendor />}
+                />
+              )}
+              <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
+              <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
@@ -1242,6 +1362,24 @@ function App() {
                 <Route
                   path="/RecycleManagement"
                   element={<RecycleManagement />}
+                />
+              )}
+              {hasPagePermission("/AssetInchargeAssign", allowedActions) && (
+                <Route
+                  path="/AssetInchargeAssign"
+                  element={<AssetInchargeAssign />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceRequest", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceRequest"
+                  element={<AssetMaintenanceRequest />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceApproval", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceApproval"
+                  element={<AssetMaintenanceApproval />}
                 />
               )}
               {hasPagePermission(
@@ -1501,10 +1639,48 @@ function App() {
                   <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
                 )}
 
+          {hasPagePermission(
+                "/DealerItems",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/DealerItems" element={<DealerItems />} />
+              )}
+
+
+               {hasPagePermission(
+                "/RaiseIndentPage",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+              )}
+
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
-
+              <Route path="/Feedbackreports" element={<Feedbackreports />} />
+              <Route path="/FeedbackReports" element={<Feedbackreports />} />
+              <Route path="/InpatientQRScan" element={<InpatientQRScan />} />
+              <Route path="/inpatientqrscan" element={<InpatientQRScan />} />
+              <Route path="/InpatientQrScan" element={<InpatientQRScan />} />
+              <Route path="/QRScan" element={<InpatientQRScan />} />
+              <Route path="/qrscan" element={<InpatientQRScan />} />
+              <Route path="/OutPatientfeedForm" element={<OutPatientfeedForm />} />
+              <Route path="/outpatientfeedform" element={<OutPatientfeedForm />} />
+              <Route path="/OutPatientFeedbackForm" element={<OutPatientfeedForm />} />
+              <Route path="/outpatientfeedbackform" element={<OutPatientfeedForm />} />
+              <Route path="/OutPatientQRScan" element={<OutPatientQRScan />} />
+              <Route path="/outpatientqrscan" element={<OutPatientQRScan />} />
+              <Route path="/OutpatientFeedbackreports" element={<OutpatientFeedbackreports />} />
+              <Route path="/OutpatientFeedbackReports" element={<OutpatientFeedbackreports />} />
             </Routes>
+
+
+
+
+
+
+
           </ContentWrapper>
         </>
       )}

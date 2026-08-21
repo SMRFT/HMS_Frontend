@@ -18,7 +18,8 @@ import {
     RotateCcw,
     RefreshCw,
     TrendingDown,
-    BarChart2
+    BarChart2,
+    ArrowLeft
 } from "lucide-react";
 import {
     PageWrapper,
@@ -656,6 +657,12 @@ const PharmacyExpiryReport = () => {
                     <p>Track, analyze, and manage stock expiries across all outlets</p>
                 </div>
                 <div className="action-buttons">
+                    <Button
+                        onClick={() => navigate(-1)}
+                        style={{ background: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <ArrowLeft size={16} /> Back
+                    </Button>
                     <Button
                         onClick={() => navigate('/PharmacyStockDashboard')}
                         style={{ background: '#4f46e5', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}

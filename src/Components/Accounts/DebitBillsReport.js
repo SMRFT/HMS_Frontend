@@ -88,8 +88,16 @@ const DebitBillsReport = ({ isModalView = false, startDate, endDate }) => {
         try {
             const response = await apiRequest(`${HmsBaseUrl}debit-bills-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
             if (response.success && response.data) {
-                setReportData(response.data.data || []);
-                setSummary(response.data.summary || { count: 0, total_debit_amount: 0 });
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                setReportData(rows);
+                setSummary(response.data.summary || {
+                    count: rows.length,
+                    total_debit_amount: rows.reduce((s, r) => s + (r.debit_amount || 0), 0)
+                });
             }
         } catch (error) {
             console.error("Error fetching debit bills report:", error);

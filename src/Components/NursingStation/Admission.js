@@ -244,6 +244,23 @@ const PBt  = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weig
 const ShiftMC = styled(ModalContainer)`max-width:860px;max-height:92vh;`;
 const ShiftMB = styled(ModalBody)`padding:0;overflow-y:auto;background:#f8fafc;`;
 
+// ─── View Admission Modal Styled Components ─────────────────────────────────
+const ViewMC = styled(ModalContainer)`max-width:820px;max-height:90vh;display:flex;flex-direction:column;animation:${popIn} .22s ease;`;
+const ViewBody = styled(ModalBody)`padding:18px 24px;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:14px;`;
+const SectionBox = styled.div`background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,0.03);`;
+const SectionTitle = styled.div`font-size:.76rem;font-weight:700;color:#0f766e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px;`;
+const InfoGrid = styled.div`display:grid;grid-template-columns:repeat(auto-fit, minmax(${p=>p.minWidth||'180px'}, 1fr));gap:10px 14px;`;
+const InfoItem = styled.div`display:flex;flex-direction:column;gap:2px;`;
+const InfoLbl = styled.span`font-size:.66rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;`;
+const InfoVal = styled.span`font-size:.82rem;font-weight:600;color:#1e293b;word-break:break-word;`;
+const EditTimeline = styled.div`display:flex;flex-direction:column;gap:10px;margin-top:6px;`;
+const EditCard = styled.div`background:#fff;border:1px solid #e2e8f0;border-left:3.5px solid #0d9488;border-radius:6px;padding:10px 14px;`;
+const EditHeader = styled.div`display:flex;justify-content:space-between;align-items:center;font-size:.72rem;margin-bottom:4px;`;
+const EditBy = styled.span`font-weight:700;color:#0f766e;`;
+const EditDate = styled.span`color:#64748b;font-size:.68rem;`;
+const EditReasonText = styled.div`font-size:.78rem;color:#334155;background:#f1f5f9;padding:6px 10px;border-radius:4px;margin-top:4px;`;
+
+
 // ─── Code128B Barcode ──────────────────────────────────────────────────────────
 const CODE128_PATTERNS = [
   "11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000",
@@ -308,10 +325,10 @@ const EMPTY = {
   packageNo:"", packageName:"",
   mlc_type:"", mlc_doc:null, mlc_remarks:"",
   salutation:"", firstName:"", middleName:"", lastName:"",
-  dob:"", age:"", gender:"", mobilePhone:"", permanent_address:"",
+  dob:"", age:"", age_type:"Y", gender:"", mobilePhone:"", permanent_address:"",
   area:"", zipcode:"", city:"", state:"",
-  customerType:"", insuranceCompanyName:"", company_code:"",
-  room_details:[], roomShitingDetails:[],
+  customerType:"General", insuranceCompanyName:"", company_code:"",
+  room_details:[], roomShitingDetails:[], edit_history:[],
 };
 
 function safeParseList(value) {
@@ -626,6 +643,418 @@ function AlreadyAdmittedModal({ info, onClose, onEdit }) {
   );
 }
 
+function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
+  const [previewImage, setPreviewImage] = useState(null);
+  if (!adm) return null;
+  const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "";
+  const status = getAdmStatus(adm);
+  const { roomNo, bedNo } = getActiveRoom(adm);
+  const editHistory = safeParseList(adm.edit_history);
+  const getDoctorName = (id) =>
+    doctors?.find((d) => String(d.employeeId) === String(id))?.employeeName || String(id || "—");
+
+  const rawDoc = adm.mlc_doc || "";
+  const fileName = rawDoc ? rawDoc.split("/").pop().split("\\").pop() : "";
+  const docUrl = fileName ? `${HmsBaseUrl}admission-mlc-doc/${encodeURIComponent(fileName)}` : null;
+  const isImage = fileName && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName);
+
+  return (
+    <ModalOverlay onClick={onClose}>
+      <ViewMC onClick={(e) => e.stopPropagation()}>
+        <ModalHeader style={{ background: "linear-gradient(135deg,#0d9488 0%,#0f766e 100%)", color: "#fff" }}>
+          <div>
+            <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8 }}>
+              👁️ Admission Details — {adm.ipNumber || "N/A"}
+              <Badge t={status} style={{ fontSize: ".65rem", padding: "2px 8px" }}>
+                {status.toUpperCase()}
+              </Badge>
+            </ModalTitle>
+            <div style={{ fontSize: ".72rem", color: "#ccfbf1", marginTop: 2 }}>
+              UHID: <strong>{adm.uhid}</strong> &nbsp;·&nbsp; Patient: <strong>{pName(adm)}</strong>
+            </div>
+          </div>
+          <CloseButton onClick={onClose} style={{ color: "#fff" }}>×</CloseButton>
+        </ModalHeader>
+
+        <ViewBody>
+          {/* Quick Summary Strip */}
+          <SectionBox style={{ background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)", borderColor: "#a7f3d0" }}>
+            <InfoGrid minWidth="150px">
+              <InfoItem>
+                <InfoLbl>IP Number</InfoLbl>
+                <InfoVal style={{ color: "#0f766e", fontWeight: 800 }}>{adm.ipNumber || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Admission Date & Time</InfoLbl>
+                <InfoVal>{fmtDateTime(adm.admissionDateTime)}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Active Room / Bed</InfoLbl>
+                <InfoVal style={{ fontWeight: 700 }}>
+                  {roomNo !== "-" ? `Room ${roomNo} / Bed ${bedNo}` : "—"}
+                </InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Customer Type</InfoLbl>
+                <InfoVal>
+                  <span style={{ padding: "2px 8px", borderRadius: 4, background: (adm.customerType === "Insurance" || adm.customer_type === "Insurance") ? "#fef3c7" : "#e2e8f0", color: (adm.customerType === "Insurance" || adm.customer_type === "Insurance") ? "#92400e" : "#334155", fontWeight: 700, fontSize: ".75rem" }}>
+                    {adm.customerType || adm.customer_type || "General"}
+                  </span>
+                </InfoVal>
+              </InfoItem>
+            </InfoGrid>
+          </SectionBox>
+
+          {/* Patient Details */}
+          <SectionBox>
+            <SectionTitle>👤 Patient Information</SectionTitle>
+            <InfoGrid minWidth="160px">
+              <InfoItem>
+                <InfoLbl>Patient Name</InfoLbl>
+                <InfoVal>{pName(adm)}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>UHID</InfoLbl>
+                <InfoVal>{adm.uhid || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Date of Birth</InfoLbl>
+                <InfoVal>{adm.dob ? fmtDate(adm.dob) : "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Age &amp; Age Type</InfoLbl>
+                <InfoVal>
+                  {adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "—"}
+                </InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Gender</InfoLbl>
+                <InfoVal>{adm.gender || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Phone</InfoLbl>
+                <InfoVal>{adm.mobilePhone || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem style={{ gridColumn: "span 2" }}>
+                <InfoLbl>Address</InfoLbl>
+                <InfoVal>
+                  {[adm.permanent_address, adm.area, adm.city, adm.state, adm.zipcode].filter(Boolean).join(", ") || "—"}
+                </InfoVal>
+              </InfoItem>
+            </InfoGrid>
+          </SectionBox>
+
+          {/* Insurance / Customer Info */}
+          {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
+            <SectionBox>
+              <SectionTitle>🛡️ Insurance Information</SectionTitle>
+              <InfoGrid minWidth="180px">
+                <InfoItem>
+                  <InfoLbl>Customer Type</InfoLbl>
+                  <InfoVal>{adm.customerType || adm.customer_type || "Insurance"}</InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Insurance Provider</InfoLbl>
+                  <InfoVal style={{ color: "#0d9488", fontWeight: 700 }}>
+                    {adm.insuranceCompanyName || adm.insurance_company || adm.company_code || "—"}
+                  </InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Provider Code</InfoLbl>
+                  <InfoVal>{adm.company_code || "—"}</InfoVal>
+                </InfoItem>
+              </InfoGrid>
+            </SectionBox>
+          )}
+
+          {/* Clinical & Admission Info */}
+          <SectionBox>
+            <SectionTitle>🩺 Clinical &amp; Admission Details</SectionTitle>
+            <InfoGrid minWidth="180px">
+              <InfoItem>
+                <InfoLbl>Admitting Doctor</InfoLbl>
+                <InfoVal>{adm.admittingDoctorName || getDoctorName(adm.admittingDoctor)}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Consulting Doctor</InfoLbl>
+                <InfoVal>{adm.consultingDoctor ? getDoctorName(adm.consultingDoctor) : "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Package</InfoLbl>
+                <InfoVal>{adm.packageNo ? (packages?.find(p => String(p.packageNo) === String(adm.packageNo))?.packageName || adm.packageNo) : "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem>
+                <InfoLbl>Ward Status</InfoLbl>
+                <InfoVal>{adm.ward_status || "—"}</InfoVal>
+              </InfoItem>
+              <InfoItem style={{ gridColumn: "span 2" }}>
+                <InfoLbl>Reason for Admission</InfoLbl>
+                <InfoVal>{adm.reasonForAdmission || "—"}</InfoVal>
+              </InfoItem>
+            </InfoGrid>
+          </SectionBox>
+
+          {/* MLC Details */}
+          <SectionBox>
+            <SectionTitle>⚖️ MLC Details</SectionTitle>
+            <InfoGrid minWidth="180px">
+              <InfoItem>
+                <InfoLbl>MLC Type</InfoLbl>
+                <InfoVal>
+                  {adm.mlc_type ? (
+                    <span style={{ padding: "2px 8px", borderRadius: 4, background: "#fee2e2", color: "#991b1b", fontWeight: 700, fontSize: ".75rem" }}>
+                      🚨 {adm.mlc_type}
+                    </span>
+                  ) : "None / Non-MLC"}
+                </InfoVal>
+              </InfoItem>
+              <InfoItem style={{ gridColumn: "span 2" }}>
+                <InfoLbl>MLC Document</InfoLbl>
+                <InfoVal>
+                  {adm.mlc_doc ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+                      <span style={{ color: "#2563eb", fontWeight: 700, fontSize: ".82rem", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        📄 {fileName}
+                      </span>
+                      {isImage && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(docUrl)}
+                          style={{
+                            background: "#0d9488",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 4,
+                            padding: "4px 12px",
+                            fontSize: ".75rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          👁️ View Image
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(docUrl);
+                            const blob = await res.blob();
+                            const blobUrl = window.URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = blobUrl;
+                            a.download = fileName || "mlc_document";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(blobUrl);
+                          } catch {
+                            window.open(docUrl, "_blank");
+                          }
+                        }}
+                        style={{
+                          background: "#f1f5f9",
+                          color: "#1e293b",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 4,
+                          padding: "4px 12px",
+                          fontSize: ".75rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
+                      >
+                        ⬇️ Download
+                      </button>
+                      <a
+                        href={docUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          color: "#64748b",
+                          fontSize: ".72rem",
+                          fontWeight: 600,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        Open in Tab ↗
+                      </a>
+                    </div>
+                  ) : (
+                    <span style={{ color: "#9ca3af" }}>No document attached</span>
+                  )}
+                </InfoVal>
+              </InfoItem>
+              <InfoItem style={{ gridColumn: "span 2" }}>
+                <InfoLbl>MLC Remarks</InfoLbl>
+                <InfoVal>{adm.mlc_remarks || "—"}</InfoVal>
+              </InfoItem>
+            </InfoGrid>
+          </SectionBox>
+
+          {/* Full Image Preview Modal / Lightbox */}
+          {previewImage && (
+            <ModalOverlay onClick={() => setPreviewImage(null)} style={{ zIndex: 9999 }}>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  background: "#fff",
+                  borderRadius: 8,
+                  padding: 16,
+                  maxWidth: "92vw",
+                  maxHeight: "92vh",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
+                  boxShadow: "0 20px 30px rgba(0,0,0,0.35)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#0f766e", display: "flex", alignItems: "center", gap: 6 }}>
+                    🖼️ MLC Document: {fileName}
+                  </span>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(previewImage);
+                          const blob = await res.blob();
+                          const blobUrl = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = blobUrl;
+                          a.download = fileName || "mlc_document";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          window.URL.revokeObjectURL(blobUrl);
+                        } catch {
+                          window.open(previewImage, "_blank");
+                        }
+                      }}
+                      style={{
+                        background: "#0d9488",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        padding: "5px 14px",
+                        fontSize: ".75rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      ⬇️ Download Image
+                    </button>
+                    <a
+                      href={previewImage}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        background: "#f1f5f9",
+                        color: "#334155",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 4,
+                        padding: "5px 12px",
+                        fontSize: ".75rem",
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      ↗️ Full Screen
+                    </a>
+                    <CloseButton onClick={() => setPreviewImage(null)} style={{ color: "#334155" }}>×</CloseButton>
+                  </div>
+                </div>
+                <div style={{ overflow: "auto", textAlign: "center", maxHeight: "calc(88vh - 80px)", background: "#f8fafc", padding: 12, borderRadius: 6 }}>
+                  <img
+                    src={previewImage}
+                    alt="MLC Document Full Preview"
+                    style={{ maxWidth: "100%", maxHeight: "76vh", objectFit: "contain", borderRadius: 4, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
+                  />
+                </div>
+              </div>
+            </ModalOverlay>
+          )}
+
+          {/* Cancellation Info if cancelled */}
+          {adm.is_cancelled && (
+            <SectionBox style={{ background: "#fff1f2", borderColor: "#fecdd3" }}>
+              <SectionTitle style={{ color: "#dc2626" }}>🚫 Cancellation Details</SectionTitle>
+              <InfoGrid minWidth="180px">
+                <InfoItem>
+                  <InfoLbl>Cancelled By</InfoLbl>
+                  <InfoVal style={{ color: "#991b1b" }}>{adm.cancelled_by || "—"}</InfoVal>
+                </InfoItem>
+                <InfoItem style={{ gridColumn: "span 2" }}>
+                  <InfoLbl>Cancellation Reason</InfoLbl>
+                  <InfoVal style={{ color: "#991b1b" }}>{adm.cancelled_Reason || "—"}</InfoVal>
+                </InfoItem>
+              </InfoGrid>
+            </SectionBox>
+          )}
+
+          {/* Edit History Section */}
+          <SectionBox>
+            <SectionTitle>
+              📝 Edit History &amp; Audit Trail
+              {editHistory.length > 0 && (
+                <span style={{ fontSize: ".65rem", padding: "1px 6px", borderRadius: 10, background: "#ccfbf1", color: "#0f766e" }}>
+                  {editHistory.length} edit{editHistory.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </SectionTitle>
+            {editHistory.length === 0 && !adm.is_edited ? (
+              <div style={{ fontSize: ".76rem", color: "#94a3b8", fontStyle: "italic", padding: "4px 0" }}>
+                No edits recorded for this admission.
+              </div>
+            ) : (
+              <EditTimeline>
+                {editHistory.map((item, idx) => (
+                  <EditCard key={idx}>
+                    <EditHeader>
+                      <EditBy>✏️ Edit #{idx + 1} by {item.edited_by || "User"}</EditBy>
+                      <EditDate>{item.edited_date ? fmtDateTime(item.edited_date) : "—"}</EditDate>
+                    </EditHeader>
+                    <EditReasonText>
+                      <strong>Reason:</strong> {item.edited_reason || item.edited_Reason || "No reason specified"}
+                    </EditReasonText>
+                  </EditCard>
+                ))}
+                {editHistory.length === 0 && adm.is_edited && (
+                  <EditCard>
+                    <EditHeader>
+                      <EditBy>✏️ Edited by {adm.edited_by || "User"}</EditBy>
+                      <EditDate>{adm.lastmodified_date ? fmtDateTime(adm.lastmodified_date) : "—"}</EditDate>
+                    </EditHeader>
+                    <EditReasonText>
+                      <strong>Reason:</strong> {adm.edited_Reason || "No reason specified"}
+                    </EditReasonText>
+                  </EditCard>
+                )}
+              </EditTimeline>
+            )}
+          </SectionBox>
+        </ViewBody>
+        <div style={{ padding: "10px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", background: "#fff", borderRadius: "0 0 7px 7px" }}>
+          <SmBtn onClick={onClose}>Close</SmBtn>
+        </div>
+      </ViewMC>
+    </ModalOverlay>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
@@ -638,6 +1067,8 @@ export default function Admission() {
   const [admissions,     setAdmissions]     = useState([]);
   const [doctors,        setDoctors]        = useState([]);
   const [packages,       setPackages]       = useState([]);
+  const [customerTypes,  setCustomerTypes]  = useState([]);
+  const [insuranceProviders, setInsuranceProviders] = useState([]);
   const [loading,        setLoading]        = useState(false);
   const [saving,         setSaving]         = useState(false);
 
@@ -671,6 +1102,7 @@ export default function Admission() {
 
   const [printData,      setPrintData]      = useState(null);
   const [historyAdm,     setHistoryAdm]     = useState(null);
+  const [viewModalAdm,   setViewModalAdm]   = useState(null);
   const [alreadyAdmInfo, setAlreadyAdmInfo] = useState(null);
   const [confirmModal,   setConfirmModal]   = useState(null);
   const [infoModal,      setInfoModal]      = useState(null);
@@ -723,7 +1155,13 @@ export default function Admission() {
     };
   }, []);
 
-  useEffect(() => { fetchDoctors(); fetchAdmissions(); fetchPackages(); }, []);
+  useEffect(() => {
+    fetchDoctors();
+    fetchAdmissions();
+    fetchPackages();
+    fetchCustomerTypes();
+    fetchInsuranceProviders();
+  }, []);
 
   const fetchGridData = async () => {
     setGridLoading(true);
@@ -761,6 +1199,26 @@ export default function Admission() {
     try {
       const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
       if (res.success) setDoctors(res.data || []);
+    } catch {}
+  };
+
+  const fetchCustomerTypes = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}customer-types/`, "GET");
+      const list = res?.data || res || [];
+      if (Array.isArray(list)) {
+        setCustomerTypes(list.filter(t => t.is_active !== false));
+      }
+    } catch {}
+  };
+
+  const fetchInsuranceProviders = async () => {
+    try {
+      const res = await apiRequest(`${HmsBaseUrl}insurance-providers/`, "GET");
+      const list = res?.data?.data || res?.data || res || [];
+      if (Array.isArray(list)) {
+        setInsuranceProviders(list.filter(p => !p.blocked));
+      }
     } catch {}
   };
 
@@ -813,8 +1271,8 @@ export default function Admission() {
     if (!uhid) { showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID before searching." }); return; }
     try {
       const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
-      if (!res.success) { showInfo({ type:"error", title:"Patient Not Found", message: res.error||"No patient found for this UHID." }); return; }
-      const d = res.data;
+      if (!res.success && res.error) { showInfo({ type:"error", title:"Patient Not Found", message: res.error||"No patient found for this UHID." }); return; }
+      const d = res.data || res;
 
       // ── Check if patient has active admission ──────────────────────────────
       const activeAdm = admissions.find(a =>
@@ -836,13 +1294,14 @@ export default function Admission() {
         ...p,
         salutation: d.salutation||"", firstName: d.firstName||"",
         middleName: d.middleName||"", lastName:  d.lastName||"",
-        dob:  d.dob||"",
-        age:  d.age||"",             // Already calculated from DOB by backend
+        dob:  d.dob||d.dateOfBirth||"",
+        age:  d.age||"",             // Calculated from DOB by backend
+        age_type: d.age_type||"Y",
         gender: d.gender||"",
         mobilePhone: d.mobilePhone||d.phone||"",
         permanent_address: d.permanent_address||"", area: d.area||"",
         zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
-        customerType: d.customerType||d.customer_type||"",
+        customerType: d.customerType||d.customer_type||"General",
         insuranceCompanyName: d.insuranceCompanyName||d.company_name||"",
         company_code: d.company_code||"",
       }));
@@ -892,6 +1351,7 @@ export default function Admission() {
       packageNo:            storedPackageNo,
       packageName:          resolvedName,
       mlc_type:             adm.mlc_type            ||"",
+      mlc_doc:              adm.mlc_doc             ||null,
       mlc_remarks:          adm.mlc_remarks         ||"",
       salutation:           adm.salutation          ||"",
       firstName:            adm.firstName           ||"",
@@ -899,6 +1359,7 @@ export default function Admission() {
       lastName:             adm.lastName            ||"",
       dob:                  adm.dob                 ||"",
       age:                  adm.age                 ||"",
+      age_type:             adm.age_type            ||"Y",
       gender:               adm.gender              ||"",
       mobilePhone:          adm.mobilePhone         ||"",
       permanent_address:    adm.permanent_address   ||"",
@@ -906,11 +1367,12 @@ export default function Admission() {
       zipcode:              adm.zipcode             ||"",
       city:                 adm.city                ||"",
       state:                adm.state               ||"",
-      customerType:         adm.customerType        ||"",
-      insuranceCompanyName: adm.insuranceCompanyName||"",
+      customerType:         adm.customerType        ||adm.customer_type||"General",
+      insuranceCompanyName: adm.insuranceCompanyName||adm.insurance_company||"",
       company_code:         adm.company_code        ||"",
       room_details:       safeParseList(adm.room_details),
       roomShitingDetails: safeParseList(adm.roomShitingDetails),
+      edit_history:       safeParseList(adm.edit_history),
     });
   }
 
@@ -981,7 +1443,12 @@ export default function Admission() {
     setSaving(true);
     const payload = new FormData();
     ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","mlc_type","mlc_remarks"].forEach(k => { if (form[k]) payload.append(k, form[k]); });
+     "reasonForAdmission","mlc_type","mlc_remarks","customerType","company_code",
+     "insuranceCompanyName","age","age_type"].forEach(k => {
+      if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
+        payload.append(k, form[k]);
+      }
+    });
     if (form.packageNo) payload.append("packageNo", form.packageNo);
     payload.append("admissionDateTime", new Date().toISOString());
     if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
@@ -1213,13 +1680,61 @@ export default function Admission() {
                 <Field><Lbl>DOB</Lbl><Inp value={form.dob||""} readOnly style={{background:"#f3f4f6"}}/></Field>
                 <Field>
                   <Lbl>Age (calculated)</Lbl>
-                  <Inp value={form.age||""} readOnly
+                  <Inp value={form.age ? `${form.age} ${form.age_type || "Y"}` : ""} readOnly
                     style={{background:"#f0fdf4",fontWeight:700,color:"#0d9488"}}
                     title="Automatically calculated from Date of Birth"/>
                 </Field>
                 <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly/></Field>
-                <Field span={2}><Lbl>Customer Type</Lbl><Inp value={form.customerType} readOnly/></Field>
-                <Field span={4}><Lbl>Insurance</Lbl><Inp value={form.insuranceCompanyName||""} readOnly placeholder="—"/></Field>
+                <Field span={2}>
+                  <Lbl req>Customer Type</Lbl>
+                  <Sel
+                    name="customerType"
+                    value={form.customerType || "General"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm(p => ({
+                        ...p,
+                        customerType: val,
+                        ...(val !== "Insurance" ? { insuranceCompanyName: "", company_code: "" } : {})
+                      }));
+                    }}
+                  >
+                    <option value="General">General</option>
+                    {customerTypes.filter(ct => ct.type_name !== "General").map(ct => (
+                      <option key={ct.type_id || ct.type_name} value={ct.type_name}>{ct.type_name}</option>
+                    ))}
+                  </Sel>
+                </Field>
+                <Field span={4}>
+                  <Lbl req={form.customerType === "Insurance"}>Insurance</Lbl>
+                  {(form.customerType === "Insurance" || form.customer_type === "Insurance") ? (
+                    <>
+                      <Inp
+                        name="insuranceProviderSearch"
+                        list="admission-ins-list"
+                        value={form.insuranceCompanyName || form.company_code || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const matched = insuranceProviders.find(p => p.company_name === val || p.company_code === val);
+                          if (matched) {
+                            setForm(p => ({ ...p, company_code: matched.company_code, insuranceCompanyName: matched.company_name }));
+                          } else {
+                            setForm(p => ({ ...p, insuranceCompanyName: val, company_code: val }));
+                          }
+                        }}
+                        placeholder="Search & select insurance company..."
+                        autoComplete="off"
+                      />
+                      <datalist id="admission-ins-list">
+                        {insuranceProviders.map(p => (
+                          <option key={p.company_code} value={p.company_name}>{p.company_code} - {p.company_name}</option>
+                        ))}
+                      </datalist>
+                    </>
+                  ) : (
+                    <Inp value="Not Applicable" readOnly style={{ background: "#f3f4f6", color: "#9ca3af" }} />
+                  )}
+                </Field>
                 <Field span={2}><Lbl>Phone</Lbl><Inp value={form.mobilePhone} readOnly/></Field>
                 <Field span={4}><Lbl>Address</Lbl><Inp value={form.permanent_address} readOnly/></Field>
                 <Field span={2}><Lbl>Area</Lbl><Inp value={form.area} readOnly/></Field>
@@ -1287,17 +1802,28 @@ export default function Admission() {
                 <Field span={2}>
                   <Lbl>MLC Type</Lbl>
                   <Sel name="mlc_type" value={form.mlc_type} onChange={handleFormChange}>
-                    <option value=""/><option value="Accident">Accident</option>
-                    <option value="Assault">Assault</option><option value="Other">Other</option>
+                    <option value="">-- Non MLC --</option>
+                    <option value="Accident">Accident</option>
+                    <option value="Assault">Assault</option>
+                    <option value="Poisoning">Poisoning</option>
+                    <option value="Burns">Burns</option>
+                    <option value="Self-Harm">Self-Harm</option>
+                    <option value="Industrial Accident">Industrial Accident</option>
+                    <option value="Other">Other</option>
                   </Sel>
                 </Field>
                 <Field span={2}>
                   <Lbl>MLC Document</Lbl>
                   <Inp type="file" name="mlc_doc" onChange={handleFormChange} style={{paddingTop:3,height:"auto"}}/>
+                  {typeof form.mlc_doc === "string" && form.mlc_doc && (
+                    <span style={{fontSize:".65rem",color:"#0d9488",marginTop:2,display:"block"}}>
+                      📄 Attached: {form.mlc_doc.split("/").pop()}
+                    </span>
+                  )}
                 </Field>
                 <Field span={2}>
                   <Lbl>MLC Remarks</Lbl>
-                  <Txta name="mlc_remarks" value={form.mlc_remarks} onChange={handleFormChange} rows={2}/>
+                  <Txta name="mlc_remarks" value={form.mlc_remarks} onChange={handleFormChange} rows={2} placeholder="Enter MLC observations / police notes…"/>
                 </Field>
 
               </FGrid>
@@ -1363,7 +1889,7 @@ export default function Admission() {
                     <Td style={{fontWeight:600,color:"#0d9488"}}>{adm.uhid||"-"}</Td>
                     <Td style={{fontWeight:600,color:"#6d28d9"}}>{adm.ipNumber||"-"}</Td>
                     <Td style={{fontWeight:600}}>{pName(adm)}</Td>
-                    <Td>{adm.age||"-"}</Td>
+                    <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
                     <Td>{adm.gender||"-"}</Td>
                     <Td>{adm.admittingDoctorName||getDrName(adm.admittingDoctor)}</Td>
                     <Td>
@@ -1422,6 +1948,9 @@ export default function Admission() {
              placement={menuPos.placement}
              maxHeight={menuPos.maxHeight}
            >
+             <DI onClick={()=>{setOpenMenu(null);setViewModalAdm(adm);}}>
+               👁️ View Details
+             </DI>
              <DI onClick={()=>{if(isAdmitted)openEditForm(adm);}} disabled={!isAdmitted}
                title={!isAdmitted?`Cannot edit — admission is ${t}`:"Edit admission"}>
                ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
@@ -1448,6 +1977,16 @@ export default function Admission() {
 
       {confirmModal&&<ConfirmModal {...confirmModal}/>}
       {infoModal&&<InfoModal {...infoModal}/>}
+
+      {/* ── View Admission Modal ── */}
+      {viewModalAdm&&(
+        <ViewAdmissionModal
+          adm={viewModalAdm}
+          doctors={doctors}
+          packages={packages}
+          onClose={()=>setViewModalAdm(null)}
+        />
+      )}
 
       {/* ── Reason Modal (cancel or edit) ── */}
       {reasonModal&&(

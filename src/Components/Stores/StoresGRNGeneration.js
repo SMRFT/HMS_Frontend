@@ -400,16 +400,23 @@ const StoresGRNGeneration = () => {
 
     const fetchMasters = async () => {
         try {
-            const [itemsRes, vendorsRes, deptsRes, groupsRes, catsRes, groupTypesRes] = await Promise.all([
+            const [itemsRes, storeVendorsRes, deptsRes, groupsRes, catsRes, groupTypesRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/item-master/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/vendors/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/general-store-vendors/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`),
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-type-master/`)
             ]);
             if (itemsRes.success) setItems(itemsRes.data);
-            if (vendorsRes.success) setVendors(vendorsRes.data);
+            if (storeVendorsRes?.success) {
+                const list = Array.isArray(storeVendorsRes.data)
+                    ? storeVendorsRes.data
+                    : Array.isArray(storeVendorsRes.data?.data)
+                    ? storeVendorsRes.data.data
+                    : [];
+                setVendors(list);
+            }
             if (deptsRes.success) setDepartments(deptsRes.data);
             if (groupsRes.success) setGroups(groupsRes.data);
             if (catsRes.success) setCategories(catsRes.data);

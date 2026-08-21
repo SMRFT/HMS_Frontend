@@ -278,12 +278,16 @@ const StoresIntentManager = () => {
                                     <Select
                                         showSearch
                                         placeholder="Select Department"
-                                        value={intentForm.department}
+                                        value={intentForm.department || undefined}
                                         onChange={v => setIntentForm({...intentForm, department: v})}
                                         style={{ height: '42px' }}
                                         optionFilterProp="children"
                                     >
-                                        {departments.map(d => <Option key={d.department_id} value={d.department_id}>{d.department_name}</Option>)}
+                                        {departments.map(d => (
+                                            <Option key={d.department_code} value={d.department_code}>
+                                                {d.department_name}
+                                            </Option>
+                                        ))}
                                     </Select>
                                 </div>
                                 {/* <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

@@ -345,14 +345,16 @@ const ToggleLabel = styled.label`
 const TableSearchInput = styled.input`
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   font-size: 0.82rem;
   outline: none;
-  width: 200px;
+  width: 420px;
+  max-width: 100%;
   &:focus {
     border-color: ${colors.primary};
   }
 `;
+
 
 const StatusBadge = styled.span`
   padding: 2px 9px;
@@ -463,7 +465,7 @@ const IconAction = styled.button`
   pointer-events: ${({ disabled }) => (disabled ? "none" : "auto")};
   &:hover {
     background: ${({ col, disabled }) =>
-      disabled ? "none" : col ? col + "18" : "#f1f5f9"};
+    disabled ? "none" : col ? col + "18" : "#f1f5f9"};
     transform: ${({ disabled }) => (disabled ? "none" : "scale(1.15)")};
   }
 `;
@@ -507,6 +509,38 @@ const PostponeBtns = styled.div`
 // ─── Consts ────────────────────────────────────────────────────────────────────
 const today = () => new Date().toISOString().split("T")[0];
 
+const formatTimeAMPM = (timeStr) => {
+  if (!timeStr) return "--:--";
+  const str = String(timeStr).slice(0, 5);
+  const [hStr, mStr] = str.split(":");
+  let h = parseInt(hStr, 10);
+  if (isNaN(h)) return timeStr;
+  const m = mStr || "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  h = h ? h : 12;
+  const padH = String(h).padStart(2, "0");
+  return `${padH}:${m} ${ampm}`;
+};
+
+const generateTimeOptions = () => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let min = 0; min < 60; min += 15) {
+      const hh = String(hour).padStart(2, "0");
+      const mm = String(min).padStart(2, "0");
+      const timeVal = `${hh}:${mm}`;
+      const period = hour >= 12 ? "PM" : "AM";
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+      const displayHourStr = String(displayHour).padStart(2, "0");
+      const label = `${timeVal} (${displayHourStr}:${mm} ${period})`;
+      options.push({ value: timeVal, label });
+    }
+  }
+  return options;
+};
+const timeOptions = generateTimeOptions();
+
 const emptyForm = {
   uhid_no: "",
   ip_number: "",
@@ -542,6 +576,7 @@ const ActionPopover = ({
   onEdit,
   onCancel,
   onPostpone,
+  onReschedule,
   onCssdReq,
   onCssdReturn,
   onConfirm,
@@ -557,9 +592,16 @@ const ActionPopover = ({
   canImplant,
 }) => {
   const isConfirmed = s.status === "Confirmed";
+  const isCompleted = s.status === "Completed";
   const isCancelled = s.status === "Cancelled";
-  const lockMain = isConfirmed || isCancelled;
-  const lockConfirm = isConfirmed || isCancelled;
+  const isPostponed = s.status === "Postponed" || Boolean(s.is_postponed);
+  const isRescheduled = s.status === "Rescheduled";
+
+  const lockEdit = isConfirmed || isCancelled || isCompleted;
+  const lockCancel = isCancelled || isCompleted;
+  const lockPostpone = isConfirmed || isCancelled || isCompleted || isRescheduled;
+  const lockReschedule = (!isConfirmed && !isPostponed && !isRescheduled) || isCancelled || isCompleted;
+  const lockConfirm = isCancelled || isCompleted;
   const lockCssd = s.is_pack_request_CSSD && s.is_pack_return_CSSD;
   // Admission / discharge gating for request icons (Lab / Medicine / Implant)
   const admissionCancelled = !s.is_admitted && !s.is_discharged;
@@ -591,22 +633,29 @@ const ActionPopover = ({
           icon: <Pencil size={15} />,
           label: "Edit",
           color: "#0d9488",
-          disabled: lockMain,
+          disabled: lockEdit,
           onClick: onEdit,
         },
         canDelete && {
           icon: <X size={15} />,
           label: "Cancel",
           color: "#dc2626",
-          disabled: lockMain,
+          disabled: lockCancel,
           onClick: onCancel,
         },
         canSchedule && {
           icon: <CalendarClock size={15} />,
           label: "Postpone",
           color: "#7c3aed",
-          disabled: lockMain,
+          disabled: lockPostpone,
           onClick: onPostpone,
+        },
+        canSchedule && {
+          icon: <RotateCcw size={15} />,
+          label: "Reschedule",
+          color: "#0284c7",
+          disabled: lockReschedule,
+          onClick: onReschedule,
         },
         canApprove && {
           icon: <CheckCheck size={15} />,
@@ -901,6 +950,8 @@ const SurgerySchedule = () => {
     });
   };
   const [tableSearch, setTableSearch] = useState("");
+  const [selectedDoctorFilter, setSelectedDoctorFilter] = useState("");
+
 
   // Dropdown options
   const [otOptions, setOtOptions] = useState([]);
@@ -908,8 +959,329 @@ const SurgerySchedule = () => {
   const [doctorOptions, setDoctorOptions] = useState([]); // shared: surgeon + anaesthetist + staff
   const [anesNameOptions, setAnesNameOptions] = useState([]);
   const [diagnosisOptions, setDiagnosisOptions] = useState([]);
+  const [otStaffOptions, setOtStaffOptions] = useState([]); // department DEPT021 staff
+
+  // ── Confirm Modal & Staff Assignment State ──────────────────────────────
+  const [confirmTarget, setConfirmTarget] = useState(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [scrubNurses, setScrubNurses] = useState([]);
+  const [anesthesiaTechs, setAnesthesiaTechs] = useState([]);
+  const [floorNurses, setFloorNurses] = useState([]);
+  const [scrubInput, setScrubInput] = useState("");
+  const [anesTechInput, setAnesTechInput] = useState("");
+  const [floorNurseInput, setFloorNurseInput] = useState("");
+
+
+  // ── Postpone & Reschedule modal state ───────────────────────────────────
+  const [postponeTarget, setPostponeTarget] = useState(null);
+  const [rescheduleMode, setRescheduleMode] = useState("postpone"); // "postpone" | "reschedule"
+  const [postponeDate, setPostponeDate] = useState("");
+  const [postponeStartTime, setPostponeStartTime] = useState("");
+  const [postponeEndTime, setPostponeEndTime] = useState("");
+  const [postponeRemarks, setPostponeRemarks] = useState("");
+  const [isSubmittingPostpone, setIsSubmittingPostpone] = useState(false);
+
+
+  // ── Helper to check if time slot is disabled due to active schedule ──
+  const isTimeDisabled = useCallback(
+    (timeSlot) => {
+      if (!formData.ot_id || !formData.scheduled_date) return false;
+
+      const targetDateStr = String(formData.scheduled_date).split("T")[0];
+
+      return scheduleList.some((s) => {
+        // Exclude current item if editing
+        if (editItem && s.reference_no === editItem.reference_no) return false;
+
+        // Exclude cancelled / inactive schedules
+        if (s.status === "Cancelled" || s.is_active === false) return false;
+
+        // Must match selected OT
+        if (String(s.ot_id) !== String(formData.ot_id)) return false;
+
+        // Effective scheduled date
+        const effectiveDate = s.rescheduled_date || s.postponed_date || s.scheduled_date;
+        if (!effectiveDate) return false;
+        const effectiveDateStr = String(effectiveDate).split("T")[0];
+
+        if (effectiveDateStr !== targetDateStr) return false;
+
+        // Effective start and end times
+        const sStart = s.rescheduled_startTime || s.post_startTime || s.startTime;
+        const sEnd = s.rescheduled_endTime || s.post_endTime || s.endTime;
+
+        if (!sStart) return false;
+
+        const startHHMM = sStart.slice(0, 5);
+        const endHHMM = sEnd ? sEnd.slice(0, 5) : "";
+
+        if (endHHMM && endHHMM > startHHMM) {
+          return timeSlot >= startHHMM && timeSlot < endHHMM;
+        } else {
+          return timeSlot === startHHMM;
+        }
+      });
+    },
+    [formData.ot_id, formData.scheduled_date, scheduleList, editItem]
+  );
+
+  const isEndTimeDisabled = useCallback(
+    (timeSlot) => {
+      if (!formData.ot_id || !formData.scheduled_date) return false;
+
+      const targetDateStr = String(formData.scheduled_date).split("T")[0];
+
+      return scheduleList.some((s) => {
+        if (editItem && s.reference_no === editItem.reference_no) return false;
+        if (s.status === "Cancelled" || s.is_active === false) return false;
+        if (String(s.ot_id) !== String(formData.ot_id)) return false;
+
+        const effectiveDate = s.rescheduled_date || s.postponed_date || s.scheduled_date;
+        if (!effectiveDate) return false;
+        const effectiveDateStr = String(effectiveDate).split("T")[0];
+
+        if (effectiveDateStr !== targetDateStr) return false;
+
+        const sStart = s.rescheduled_startTime || s.post_startTime || s.startTime;
+        const sEnd = s.rescheduled_endTime || s.post_endTime || s.endTime;
+
+        if (!sStart) return false;
+
+        const startHHMM = sStart.slice(0, 5);
+        const endHHMM = sEnd ? sEnd.slice(0, 5) : "";
+
+        if (endHHMM && endHHMM > startHHMM) {
+          return timeSlot > startHHMM && timeSlot <= endHHMM;
+        } else {
+          return timeSlot === startHHMM;
+        }
+      });
+    },
+    [formData.ot_id, formData.scheduled_date, scheduleList, editItem]
+  );
+
+  // ── Helper to check if staff is already assigned in overlapping active schedule ──
+  const isStaffDisabledInModal = useCallback(
+    (stId) => {
+      if (!confirmTarget) return false;
+
+      const targetDateStr = String(
+        confirmTarget.rescheduled_date ||
+        confirmTarget.postponed_date ||
+        confirmTarget.scheduled_date || "",
+      ).split("T")[0];
+
+      const targetStart =
+        confirmTarget.rescheduled_startTime ||
+        confirmTarget.post_startTime ||
+        confirmTarget.startTime;
+      const targetEnd =
+        confirmTarget.rescheduled_endTime ||
+        confirmTarget.post_endTime ||
+        confirmTarget.endTime;
+
+      if (!targetDateStr || !targetStart) return false;
+
+      const tStartHHMM = targetStart.slice(0, 5);
+      const tEndHHMM = targetEnd ? targetEnd.slice(0, 5) : "";
+
+      return scheduleList.some((s) => {
+        if (s.reference_no === confirmTarget.reference_no) return false;
+        if (s.status === "Cancelled" || s.is_active === false) return false;
+
+        const sDate = s.rescheduled_date || s.postponed_date || s.scheduled_date;
+        if (!sDate) return false;
+        const sDateStr = String(sDate).split("T")[0];
+        if (sDateStr !== targetDateStr) return false;
+
+        const sStart = s.rescheduled_startTime || s.post_startTime || s.startTime;
+        const sEnd = s.rescheduled_endTime || s.post_endTime || s.endTime;
+        if (!sStart) return false;
+
+        const sStartHHMM = sStart.slice(0, 5);
+        const sEndHHMM = sEnd ? sEnd.slice(0, 5) : "";
+
+        let isOverlap = false;
+        if (
+          sEndHHMM &&
+          tEndHHMM &&
+          sEndHHMM > sStartHHMM &&
+          tEndHHMM > tStartHHMM
+        ) {
+          isOverlap = sStartHHMM < tEndHHMM && sEndHHMM > tStartHHMM;
+        } else {
+          isOverlap = sStartHHMM === tStartHHMM;
+        }
+
+        if (!isOverlap) return false;
+
+        // Check if employee is surgeon or anaesthetist in s
+        if (String(s.surgeon_id) === String(stId)) return true;
+        if (String(s.anaesthetist_id) === String(stId)) return true;
+
+        // Check assigned_staff
+        let assignedArr = s.assigned_staff_details || [];
+        if (!assignedArr.length) {
+          try {
+            assignedArr =
+              typeof s.assigned_staff === "string"
+                ? JSON.parse(s.assigned_staff)
+                : s.assigned_staff || [];
+          } catch { }
+        }
+
+        if (Array.isArray(assignedArr)) {
+          const foundAssigned = assignedArr.some(
+            (item) =>
+              String(item.employee_id || item.id) === String(stId),
+          );
+          if (foundAssigned) return true;
+        }
+
+        return false;
+      });
+    },
+    [confirmTarget, scheduleList],
+  );
+
+  // ── Helpers to check if time slot is disabled in Postpone / Reschedule modal ──
+  const isPostponeTimeDisabled = useCallback(
+    (timeSlot) => {
+      if (!postponeTarget || !postponeDate) return false;
+      const targetDateStr = String(postponeDate).split("T")[0];
+      const otId = postponeTarget.ot_id;
+
+      return scheduleList.some((s) => {
+        if (s.reference_no === postponeTarget.reference_no) return false;
+        if (s.status === "Cancelled" || s.is_active === false) return false;
+        if (String(s.ot_id) !== String(otId)) return false;
+
+        const effectiveDate = s.rescheduled_date || s.postponed_date || s.scheduled_date;
+        if (!effectiveDate) return false;
+        const effectiveDateStr = String(effectiveDate).split("T")[0];
+        if (effectiveDateStr !== targetDateStr) return false;
+
+        const sStart = s.rescheduled_startTime || s.post_startTime || s.startTime;
+        const sEnd = s.rescheduled_endTime || s.post_endTime || s.endTime;
+        if (!sStart) return false;
+
+        const startHHMM = sStart.slice(0, 5);
+        const endHHMM = sEnd ? sEnd.slice(0, 5) : "";
+
+        if (endHHMM && endHHMM > startHHMM) {
+          return timeSlot >= startHHMM && timeSlot < endHHMM;
+        } else {
+          return timeSlot === startHHMM;
+        }
+      });
+    },
+    [postponeTarget, postponeDate, scheduleList],
+  );
+
+  const isPostponeEndTimeDisabled = useCallback(
+    (timeSlot) => {
+      if (!postponeTarget || !postponeDate) return false;
+      const targetDateStr = String(postponeDate).split("T")[0];
+      const otId = postponeTarget.ot_id;
+
+      return scheduleList.some((s) => {
+        if (s.reference_no === postponeTarget.reference_no) return false;
+        if (s.status === "Cancelled" || s.is_active === false) return false;
+        if (String(s.ot_id) !== String(otId)) return false;
+
+        const effectiveDate = s.rescheduled_date || s.postponed_date || s.scheduled_date;
+        if (!effectiveDate) return false;
+        const effectiveDateStr = String(effectiveDate).split("T")[0];
+        if (effectiveDateStr !== targetDateStr) return false;
+
+        const sStart = s.rescheduled_startTime || s.post_startTime || s.startTime;
+        const sEnd = s.rescheduled_endTime || s.post_endTime || s.endTime;
+        if (!sStart) return false;
+
+        const startHHMM = sStart.slice(0, 5);
+        const endHHMM = sEnd ? sEnd.slice(0, 5) : "";
+
+        if (endHHMM && endHHMM > startHHMM) {
+          return timeSlot > startHHMM && timeSlot <= endHHMM;
+        } else {
+          return timeSlot === startHHMM;
+        }
+      });
+    },
+    [postponeTarget, postponeDate, scheduleList],
+  );
+
+
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const getAllAssignedStaff = useCallback((s) => {
+    const list = [];
+    if (s.surgeon_name) {
+      list.push({ title: "Surgeon", name: s.surgeon_name, id: s.surgeon_id });
+    }
+    if (s.anaesthetist_name) {
+      list.push({ title: "Anesthetist", name: s.anaesthetist_name, id: s.anaesthetist_id });
+    }
+
+    // Additional Anaesthetists
+    if (Array.isArray(s.additional_anaesthetists_names) && s.additional_anaesthetists_names.length) {
+      s.additional_anaesthetists_names.forEach((name) => {
+        if (name) list.push({ title: "Add. Anesthetist", name });
+      });
+    }
+
+    // Additional Doctors
+    if (Array.isArray(s.additional_doctors_names) && s.additional_doctors_names.length) {
+      s.additional_doctors_names.forEach((name) => {
+        if (name) list.push({ title: "Add. Doctor", name });
+      });
+    }
+
+    // Assigned OT Staff (Scrub Nurse, Anesthesia Technician, Floor Nurse)
+    let staffList = s.assigned_staff_details || [];
+    if (!staffList.length) {
+      try {
+        staffList = typeof s.assigned_staff === "string" ? JSON.parse(s.assigned_staff) : (s.assigned_staff || []);
+      } catch { }
+    }
+    if (Array.isArray(staffList)) {
+      staffList.forEach((st) => {
+        const eid = st.employee_id || st.id;
+        const found = otStaffOptions.find((o) => o.id === eid);
+        const name = st.name || (found ? found.name : eid);
+        if (name) list.push({ title: st.title || "Staff", name, id: eid });
+      });
+    }
+
+    return list;
+  }, [otStaffOptions]);
+
+  const isDoctorInSchedule = useCallback((s, docId) => {
+    if (!docId) return true;
+    const strDocId = String(docId).trim();
+    const foundDoc = doctorOptions.find((d) => String(d.id).trim() === strDocId);
+    const docName = foundDoc ? foundDoc.name.toLowerCase() : "";
+
+    if (String(s.surgeon_id || "").trim() === strDocId) return true;
+    if (String(s.anaesthetist_id || "").trim() === strDocId) return true;
+
+    if (s.surgeon_name && docName && s.surgeon_name.toLowerCase().includes(docName)) return true;
+    if (s.anaesthetist_name && docName && s.anaesthetist_name.toLowerCase().includes(docName)) return true;
+
+    if (Array.isArray(s.additional_anaesthetists_names)) {
+      if (s.additional_anaesthetists_names.some((n) => docName && n && n.toLowerCase().includes(docName))) return true;
+    }
+    if (Array.isArray(s.additional_doctors_names)) {
+      if (s.additional_doctors_names.some((n) => docName && n && n.toLowerCase().includes(docName))) return true;
+    }
+
+    const allStaff = s.assigned_staff_details || [];
+    if (allStaff.some((st) => String(st.employee_id || st.id).trim() === strDocId)) return true;
+
+    return false;
+  }, [doctorOptions]);
+
 
   // Safely extract array from any API response shape
   const toArray = (res) => {
@@ -944,16 +1316,18 @@ const SurgerySchedule = () => {
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const [otRes, doctorRes, anesNameRes, surgicalRes, diagnosisRes] =
+        const [otRes, doctorRes, anesNameRes, surgicalRes, diagnosisRes, otStaffRes] =
           await Promise.all([
             apiRequest(`${HMSURL}list_ots/`, "GET"),
             apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET"),
             apiRequest(`${HMSURL}list_anes/`, "GET"),
             apiRequest(
-              `${HMSURL}investigation-items/?billTypeNo=SUR01&billType=61`,
+              `${HMSURL}investigation-items/?billTypeNo=SUR01&billType=60`,
               "GET",
             ),
+
             apiRequest(`${HMSURL}list_diagnosis/`, "GET"),
+            apiRequest(`${HMSURL}ot_staffs/`, "GET"),
           ]);
 
         setOtOptions(toArray(otRes));
@@ -962,6 +1336,10 @@ const SurgerySchedule = () => {
         // One doctor list feeds: Scheduled Surgeon, Anaesthetist, and both staff cards
         const doctors = normalizeDoctors(toArray(doctorRes));
         setDoctorOptions(doctors);
+
+        // OT staff list (department DEPT021)
+        const otStaffs = normalizeDoctors(toArray(otStaffRes));
+        setOtStaffOptions(otStaffs);
 
         // Surgery Name items — API returns { items: [...] } with itemName + price
         const rawSurgical =
@@ -1096,7 +1474,7 @@ const SurgerySchedule = () => {
         const found = doctorOptions.find((d) => d.id === id);
         return { id, name: found ? found.name : id };
       });
-    } catch {}
+    } catch { }
     try {
       const ad =
         typeof item.additional_doctors === "string"
@@ -1106,7 +1484,7 @@ const SurgerySchedule = () => {
         const found = doctorOptions.find((d) => d.id === id);
         return { id, name: found ? found.name : id };
       });
-    } catch {}
+    } catch { }
 
     setAddAnes(parsedAnes);
     setAddDoctors(parsedDocs);
@@ -1280,21 +1658,33 @@ const SurgerySchedule = () => {
   };
 
   // ── Postpone modal state ─────────────────────────────────────────────────
-  const [postponeTarget, setPostponeTarget] = useState(null);
-  const [postponeDate, setPostponeDate] = useState("");
-  const [postponeStartTime, setPostponeStartTime] = useState("");
-  const [postponeEndTime, setPostponeEndTime] = useState("");
+
 
   const openPostpone = (s) => {
     setPostponeTarget(s);
+    setRescheduleMode("postpone");
     setPostponeDate(s.postponed_date || s.scheduled_date || "");
     setPostponeStartTime(s.post_startTime || s.startTime || "");
     setPostponeEndTime(s.post_endTime || s.endTime || "");
+    setPostponeRemarks(s.remarks || "");
+    setIsSubmittingPostpone(false);
+  };
+
+  const openReschedule = (s) => {
+    setPostponeTarget(s);
+    setRescheduleMode("reschedule");
+    setPostponeDate(s.rescheduled_date || s.postponed_date || s.scheduled_date || "");
+    setPostponeStartTime(s.rescheduled_startTime || s.post_startTime || s.startTime || "");
+    setPostponeEndTime(s.rescheduled_endTime || s.post_endTime || s.endTime || "");
+    setPostponeRemarks(s.rescheduled_remarks || s.remarks || "");
+    setIsSubmittingPostpone(false);
   };
 
   const submitPostpone = async () => {
+    if (isSubmittingPostpone) return;
+    const isRescheduling = rescheduleMode === "reschedule";
     if (!postponeDate) {
-      toast.error("Select a postponed date");
+      toast.error(isRescheduling ? "Select a rescheduled date" : "Select a postponed date");
       return;
     }
     if (!postponeStartTime) {
@@ -1305,27 +1695,48 @@ const SurgerySchedule = () => {
       toast.error("Select an end time");
       return;
     }
+    setIsSubmittingPostpone(true);
     try {
+      const payload = {
+        reference_no: postponeTarget.reference_no,
+        status: isRescheduling ? "Rescheduled" : "Postponed",
+        remarks: postponeRemarks,
+      };
+
+      if (isRescheduling) {
+        payload.rescheduled_date = postponeDate;
+        payload.rescheduled_startTime = postponeStartTime;
+        payload.rescheduled_endTime = postponeEndTime;
+        payload.rescheduled_remarks = postponeRemarks;
+        payload.remarks = postponeRemarks;
+      } else {
+        payload.postponed_date = postponeDate;
+        payload.post_startTime = postponeStartTime;
+        payload.post_endTime = postponeEndTime;
+        payload.remarks = postponeRemarks;
+      }
+
       const result = await apiRequest(
         `${HMSURL}update_schedule_status/`,
         "PATCH",
-        {
-          reference_no: postponeTarget.reference_no,
-          status: "Postponed",
-          postponed_date: postponeDate,
-          post_startTime: postponeStartTime,
-          post_endTime: postponeEndTime,
-        },
+        payload,
       );
       if (result.success) {
-        toast.success("Schedule postponed!");
+        toast.success(
+          isRescheduling
+            ? "Schedule rescheduled successfully & notification sent!"
+            : "Schedule postponed successfully!"
+        );
         setPostponeTarget(null);
+        setPostponeRemarks("");
         fetchSchedules();
       } else {
-        toast.error(result.message || "Failed to postpone");
+        toast.error(result.message || "Failed to update schedule");
       }
     } catch {
-      toast.error("Error postponing schedule");
+      toast.error("Error updating schedule");
+    } finally {
+      setIsSubmittingPostpone(false);
     }
   };
 
@@ -1375,46 +1786,31 @@ const SurgerySchedule = () => {
     }
   };
 
-  // ── Confirm schedule → status = "Confirmed", is_active = true ──────────────
-  const confirmSchedule = async (s) => {
-    if (!window.confirm(`Confirm schedule "${s.reference_no}"?`)) return;
-    try {
-      const result = await apiRequest(
-        `${HMSURL}update_schedule_status/`,
-        "PATCH",
-        {
-          reference_no: s.reference_no,
-          status: "Confirmed",
-          is_active: true,
-        },
-      );
-      if (result.success) {
-        toast.success("Schedule confirmed!");
-        fetchSchedules();
-      } else toast.error(result.message || "Failed to confirm");
-    } catch {
-      toast.error("Error confirming schedule");
-    }
-  };
-
   // ── Table filter ──────────────────────────────────────────────────────────
   const filtered = scheduleList.filter((s) => {
+    // Doctor Filter
+    if (selectedDoctorFilter && !isDoctorInSchedule(s, selectedDoctorFilter)) {
+      return false;
+    }
     // Status / emergency chip filters
     if (activeFilters.size > 0) {
-      const matchScheduled =
-        activeFilters.has("Scheduled") && s.status === "Scheduled";
-      const matchConfirmed =
-        activeFilters.has("Confirmed") && s.status === "Confirmed";
-      const matchCancelled =
-        activeFilters.has("Cancelled") && s.status === "Cancelled";
+      const matchScheduled = activeFilters.has("Scheduled") && s.status === "Scheduled";
+      const matchConfirmed = activeFilters.has("Confirmed") && s.status === "Confirmed";
       const matchPostponed =
-        activeFilters.has("Postponed") && s.status === "Postponed";
-      const matchEmergency = activeFilters.has("Emergency") && !!s.is_emergency;
+        activeFilters.has("Postponed") &&
+        (s.status === "Postponed" || (Boolean(s.is_postponed) && s.status !== "Rescheduled"));
+      const matchRescheduled =
+        activeFilters.has("Rescheduled") &&
+        (s.status === "Rescheduled" || Boolean(s.is_rescheduled) || Boolean(s.rescheduled_date));
+      const matchCancelled = activeFilters.has("Cancelled") && (s.status === "Cancelled" || !s.is_active);
+      const matchEmergency = activeFilters.has("Emergency") && Boolean(s.is_emergency);
+
       if (
         !matchScheduled &&
         !matchConfirmed &&
-        !matchCancelled &&
         !matchPostponed &&
+        !matchRescheduled &&
+        !matchCancelled &&
         !matchEmergency
       )
         return false;
@@ -1429,6 +1825,8 @@ const SurgerySchedule = () => {
         s.surgery_name,
         s.anesthesia_name,
         s.ot_name,
+        s.surgeon_name,
+        s.anaesthetist_name,
       ]
         .join(" ")
         .toLowerCase()
@@ -1436,6 +1834,185 @@ const SurgerySchedule = () => {
     }
     return true;
   });
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
+  const handleExport = () => {
+    const headers = [
+      "Reference No",
+      "Status",
+      "Patient Name",
+      "IP No | SI No",
+      "Scheduled Date & Time",
+      "Postponed Date & Time",
+      "Rescheduled Date & Time",
+      "Remarks",
+      "Surgery Name",
+      "Anesthesia",
+      "Theater",
+      "Assigned Staff",
+    ];
+
+    const csvRows = [headers.join(",")];
+
+    filtered.forEach((s) => {
+      let scheduledStr = s.scheduled_date || "—";
+      if (s.startTime || s.endTime) {
+        scheduledStr += ` (${formatTimeAMPM(s.startTime)} - ${formatTimeAMPM(s.endTime)})`;
+      }
+
+      let postponedStr = "—";
+      if (s.postponed_date || s.is_postponed) {
+        postponedStr = `${s.postponed_date || "—"} (${formatTimeAMPM(s.post_startTime)} - ${formatTimeAMPM(s.post_endTime)})`;
+      }
+
+      let rescheduledStr = "—";
+      if (s.rescheduled_date || s.is_rescheduled) {
+        rescheduledStr = `${s.rescheduled_date || "—"} (${formatTimeAMPM(s.rescheduled_startTime)} - ${formatTimeAMPM(s.rescheduled_endTime)})`;
+      }
+
+      const remarksStr = s.rescheduled_remarks || s.postponed_remarks || s.remarks || (s.status === "Rescheduled" || s.is_rescheduled ? "N/A" : "—");
+
+      const allStaff = getAllAssignedStaff(s);
+      const staffStr = allStaff.length
+        ? allStaff.map((st) => `${st.title}: ${st.name}`).join("; ")
+        : "—";
+
+      const row = [
+        `"${(s.reference_no || "").replace(/"/g, '""')}"`,
+        `"${(s.status || "").replace(/"/g, '""')}"`,
+        `"${(s.patient_name || "").replace(/"/g, '""')}"`,
+        `"${(s.ip_number || "").replace(/"/g, '""')}"`,
+        `"${scheduledStr.replace(/"/g, '""')}"`,
+        `"${postponedStr.replace(/"/g, '""')}"`,
+        `"${rescheduledStr.replace(/"/g, '""')}"`,
+        `"${remarksStr.replace(/"/g, '""')}"`,
+        `"${(s.surgery_name || "").replace(/"/g, '""')}"`,
+        `"${(s.anesthesia_name || s.anesthesia_id || "").replace(/"/g, '""')}"`,
+        `"${(s.ot_name || s.ot_id || "").replace(/"/g, '""')}"`,
+        `"${staffStr.replace(/"/g, '""')}"`,
+      ];
+      csvRows.push(row.join(","));
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvRows.join("\n"));
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", `Surgery_Schedule_${fromDate}_to_${toDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+
+  // ── Open Confirm & Assign Staff Modal ──────────────────────────────────────
+  const openConfirmModal = (s) => {
+    setConfirmTarget(s);
+    setIsConfirming(false);
+    setScrubInput("");
+    setAnesTechInput("");
+    setFloorNurseInput("");
+
+
+    let parsed = s.assigned_staff_details || [];
+    if (!parsed.length) {
+      try {
+        parsed =
+          typeof s.assigned_staff === "string"
+            ? JSON.parse(s.assigned_staff)
+            : s.assigned_staff || [];
+      } catch { }
+    }
+
+    if (Array.isArray(parsed)) {
+      const getStaffObj = (item) => {
+        const eid = item.employee_id || item.id;
+        const found = otStaffOptions.find((o) => o.id === eid);
+        return {
+          id: eid,
+          employee_id: eid,
+          name: item.name || (found ? found.name : eid),
+        };
+      };
+
+      setScrubNurses(
+        parsed
+          .filter((item) => item.title === "Scrub Nurse")
+          .map(getStaffObj),
+      );
+      setAnesthesiaTechs(
+        parsed
+          .filter((item) => item.title === "Anesthesia Technician")
+          .map(getStaffObj),
+      );
+      setFloorNurses(
+        parsed
+          .filter((item) => item.title === "Floor Nurse")
+          .map(getStaffObj),
+      );
+    } else {
+      setScrubNurses([]);
+      setAnesthesiaTechs([]);
+      setFloorNurses([]);
+    }
+  };
+
+  const submitConfirmSchedule = async () => {
+    const missingCategories = [];
+    if (scrubNurses.length === 0) missingCategories.push("Scrub Nurse");
+    if (anesthesiaTechs.length === 0) missingCategories.push("Anesthesia Technician");
+    if (floorNurses.length === 0) missingCategories.push("Floor Nurse");
+
+    if (missingCategories.length > 0) {
+      toast.error(
+        `Please assign at least one OT staff member in each category. Missing: ${missingCategories.join(", ")}.`
+      );
+      return;
+    }
+
+    const assignedStaffList = [
+      ...scrubNurses.map((s) => ({
+        title: "Scrub Nurse",
+        employee_id: s.id || s.employee_id,
+      })),
+      ...anesthesiaTechs.map((a) => ({
+        title: "Anesthesia Technician",
+        employee_id: a.id || a.employee_id,
+      })),
+      ...floorNurses.map((f) => ({
+        title: "Floor Nurse",
+        employee_id: f.id || f.employee_id,
+      })),
+    ];
+
+    setIsConfirming(true);
+
+
+    try {
+      const result = await apiRequest(
+        `${HMSURL}update_schedule_status/`,
+        "PATCH",
+        {
+          reference_no: confirmTarget.reference_no,
+          status: "Confirmed",
+          is_active: true,
+          assigned_staff: assignedStaffList,
+
+        }
+      );
+      if (result.success) {
+        toast.success("Schedule confirmed with assigned staff!");
+        setConfirmTarget(null);
+        fetchSchedules();
+      } else {
+        toast.error(result.message || "Failed to confirm");
+        setIsConfirming(false);
+      }
+    } catch {
+      toast.error("Error confirming schedule");
+      setIsConfirming(false);
+    }
+  };
+
 
   // ── Print filtered table ─────────────────────────────────────────────────
   const handlePrint = () => {
@@ -1448,32 +2025,52 @@ const SurgerySchedule = () => {
       "Surgery Name",
       "Anesthesia",
       "Theater",
+      "Assigned Staff",
     ];
 
     const rows = filtered.map((s) => {
-      // Build date/time cell text
-      let dateTime = s.scheduled_date || "";
-      if (s.startTime || s.endTime) {
-        dateTime += `  ${s.startTime ? s.startTime.slice(0, 5) : "--:--"} – ${s.endTime ? s.endTime.slice(0, 5) : "--:--"}`;
+      // Build date/time cell HTML
+      let dateTimeHtml = `<div><span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;display:block">SCHEDULED</span>${s.scheduled_date || "—"} ${formatTimeAMPM(s.startTime)} – ${formatTimeAMPM(s.endTime)}</div>`;
+
+      if (s.postponed_date || s.is_postponed) {
+        dateTimeHtml += `<div style="color:#7c3aed;margin-top:3px;border-top:1px dashed #cbd5e1;padding-top:2px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;display:block">POSTPONED</span>${s.postponed_date || "—"} ${formatTimeAMPM(s.post_startTime)} – ${formatTimeAMPM(s.post_endTime)}</div>`;
       }
-      if (s.postponed_date) {
-        dateTime += `\nPostponed: ${s.postponed_date}`;
-        if (s.post_startTime || s.post_endTime) {
-          dateTime += `  ${s.post_startTime ? s.post_startTime.slice(0, 5) : "--:--"} – ${s.post_endTime ? s.post_endTime.slice(0, 5) : "--:--"}`;
-        }
+
+      if (s.rescheduled_date || s.is_rescheduled) {
+        dateTimeHtml += `<div style="color:#0284c7;margin-top:3px;border-top:1px dashed #cbd5e1;padding-top:2px"><span style="font-size:9px;font-weight:700;text-transform:uppercase;display:block">RESCHEDULED</span>${s.rescheduled_date || "—"} ${formatTimeAMPM(s.rescheduled_startTime)} – ${formatTimeAMPM(s.rescheduled_endTime)}</div>`;
       }
+
+      const displayRemarks = s.rescheduled_remarks || s.postponed_remarks || s.remarks;
+      if (displayRemarks) {
+        const remarksColor = s.rescheduled_remarks || s.is_rescheduled ? "#0284c7" : s.postponed_remarks || s.is_postponed ? "#7c3aed" : "#475569";
+        dateTimeHtml += `<div style="font-size:10px;color:${remarksColor};font-style:italic;margin-top:3px"><b>Remarks:</b> ${displayRemarks}</div>`;
+      } else if (s.status === "Rescheduled" || s.is_rescheduled) {
+        dateTimeHtml += `<div style="font-size:10px;color:#0284c7;font-style:italic;margin-top:3px"><b>Remarks:</b> N/A</div>`;
+      }
+
+      const allStaff = getAllAssignedStaff(s);
+      const staffHtml = allStaff.length
+        ? allStaff
+          .map(
+            (st) =>
+              `<div style="margin-bottom:2px;line-height:1.3"><b>${st.title}:</b> ${st.name}</div>`,
+          )
+          .join("")
+        : "—";
 
       return [
         s.reference_no || "",
         s.status || "",
         s.patient_name || "—",
         s.ip_number || "",
-        dateTime,
+        dateTimeHtml,
         s.surgery_name || "",
         s.anesthesia_name || s.anesthesia_id || "—",
         s.ot_name || s.ot_id || "",
+        staffHtml,
       ];
     });
+
 
     const tableRows = rows
       .map(
@@ -1481,11 +2078,12 @@ const SurgerySchedule = () => {
           `<tr>${cells
             .map(
               (c) =>
-                `<td style="padding:6px 10px;border:1px solid #cbd5e1;font-size:12px;vertical-align:top;white-space:pre-line">${c}</td>`,
+                `<td style="padding:6px 8px;border:1px solid #cbd5e1;font-size:11px;vertical-align:top;line-height:1.35">${c}</td>`,
             )
             .join("")}</tr>`,
       )
       .join("");
+
 
     const tableHeaders = headers
       .map(
@@ -1715,28 +2313,56 @@ const SurgerySchedule = () => {
               {/* Start Time */}
               <FormGroup span={2}>
                 <Label>Start Time</Label>
-                <SearchIconInput>
-                  <input
-                    type="time"
-                    name="startTime"
-                    value={formData.startTime}
-                    onChange={handleChange}
-                  />
-                  <button type="button">
-                    <Search size={14} />
-                  </button>
-                </SearchIconInput>
+                <Select
+                  name="startTime"
+                  value={formData.startTime}
+                  onChange={handleChange}
+                >
+                  <option value="">-- Select --</option>
+                  {formData.startTime &&
+                    !timeOptions.some((t) => t.value === formData.startTime) && (
+                      <option value={formData.startTime}>
+                        {formData.startTime}
+                      </option>
+                    )}
+                  {timeOptions.map((t) => {
+                    const disabled = isTimeDisabled(t.value);
+                    return (
+                      <option key={t.value} value={t.value} disabled={disabled}>
+                        {t.label} {disabled ? " (Confirmed)" : ""}
+                      </option>
+                    );
+                  })}
+                </Select>
               </FormGroup>
 
               {/* End Time */}
-              <FormGroup span={1}>
+              <FormGroup span={2}>
                 <Label>End Time</Label>
-                <TimeInput
-                  type="time"
+                <Select
                   name="endTime"
                   value={formData.endTime}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">-- Select --</option>
+                  {formData.endTime &&
+                    !timeOptions.some((t) => t.value === formData.endTime) && (
+                      <option value={formData.endTime}>
+                        {formData.endTime}
+                      </option>
+                    )}
+                  {timeOptions.map((t) => {
+                    const isConfirmed = isEndTimeDisabled(t.value);
+                    const isBeforeStart =
+                      formData.startTime && t.value <= formData.startTime;
+                    const disabled = isConfirmed || isBeforeStart;
+                    return (
+                      <option key={t.value} value={t.value} disabled={disabled}>
+                        {t.label} {isConfirmed ? " (Confirmed)" : ""}
+                      </option>
+                    );
+                  })}
+                </Select>
               </FormGroup>
 
               {/* Surgery Type */}
@@ -2047,6 +2673,12 @@ const SurgerySchedule = () => {
                   activeBg: "#7c3aed",
                 },
                 {
+                  key: "Rescheduled",
+                  bg: "#e0f2fe",
+                  color: "#0284c7",
+                  activeBg: "#0284c7",
+                },
+                {
                   key: "Cancelled",
                   bg: "#fee2e2",
                   color: "#dc2626",
@@ -2101,7 +2733,23 @@ const SurgerySchedule = () => {
             </div>
 
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <GreenBtn style={{ padding: "5px 12px", fontSize: "0.78rem" }}>
+              <Select
+                value={selectedDoctorFilter}
+                onChange={(e) => setSelectedDoctorFilter(e.target.value)}
+                style={{ fontSize: "0.78rem", minWidth: 160 }}
+              >
+                <option value="">-- Filter by Doctor --</option>
+                {doctorOptions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </Select>
+
+              <GreenBtn
+                onClick={handleExport}
+                style={{ padding: "5px 12px", fontSize: "0.78rem" }}
+              >
                 <FileDown size={13} /> Export Data
               </GreenBtn>
               <TealBtn
@@ -2117,8 +2765,11 @@ const SurgerySchedule = () => {
               <TableSearchInput
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
+                placeholder="Search By Patient Name, IP No, Surgery Name, Anesthesia, Theater"
               />
+
             </div>
+
           </TableTopRow>
 
           <TableWrapper>
@@ -2130,10 +2781,11 @@ const SurgerySchedule = () => {
                   <Th>Patient Name</Th>
                   <Th>IP No | SI No</Th>
                   <Th>Date &amp; Time</Th>
+                  <Th>Admission Status</Th>
                   <Th>Surgery Name</Th>
                   <Th>Anesthesia</Th>
                   <Th>Theater</Th>
-                  <Th>Admission Status</Th>
+                  <Th>Assigned Staff</Th>
                   <Th>Action</Th>
                 </tr>
               </thead>
@@ -2141,7 +2793,7 @@ const SurgerySchedule = () => {
                 {loading ? (
                   <tr>
                     <Td
-                      colSpan={9}
+                      colSpan={11}
                       style={{ textAlign: "center", padding: 24 }}
                     >
                       Loading…
@@ -2149,11 +2801,12 @@ const SurgerySchedule = () => {
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <Td colSpan={9}>
+                    <Td colSpan={11}>
                       <NoResults>No data available in table</NoResults>
                     </Td>
                   </tr>
                 ) : (
+
                   filtered.map((s) => (
                     <Tr key={s.reference_no}>
                       <Td style={{ fontWeight: 600, color: colors.primary }}>
@@ -2179,11 +2832,11 @@ const SurgerySchedule = () => {
                       <Td>{s.patient_name || "—"}</Td>
                       <Td>{s.ip_number}</Td>
                       <Td style={{ minWidth: 160 }}>
-                        {/* Scheduled row */}
-                        <div style={{ marginBottom: s.postponed_date ? 5 : 0 }}>
+                        {/* 1. Scheduled Date & Time */}
+                        <div>
                           <span
                             style={{
-                              fontSize: "0.68rem",
+                              fontSize: "0.66rem",
                               fontWeight: 700,
                               color: "#64748b",
                               textTransform: "uppercase",
@@ -2196,7 +2849,7 @@ const SurgerySchedule = () => {
                           </span>
                           <span
                             style={{
-                              fontSize: "0.82rem",
+                              fontSize: "0.81rem",
                               color: "#1e293b",
                               fontWeight: 500,
                             }}
@@ -2206,29 +2859,30 @@ const SurgerySchedule = () => {
                           {(s.startTime || s.endTime) && (
                             <span
                               style={{
-                                fontSize: "0.76rem",
+                                fontSize: "0.75rem",
                                 color: "#475569",
                                 marginLeft: 4,
                               }}
                             >
-                              {s.startTime ? s.startTime.slice(0, 5) : "--:--"}
+                              {formatTimeAMPM(s.startTime)}
                               {" – "}
-                              {s.endTime ? s.endTime.slice(0, 5) : "--:--"}
+                              {formatTimeAMPM(s.endTime)}
                             </span>
                           )}
                         </div>
 
-                        {/* Postponed row — only if postponed_date exists */}
-                        {s.postponed_date && (
+                        {/* 2. Postponed Date & Time (if present) */}
+                        {(s.postponed_date || s.is_postponed) && (
                           <div
                             style={{
                               borderTop: "1px dashed #e2e8f0",
                               paddingTop: 4,
+                              marginTop: 4,
                             }}
                           >
                             <span
                               style={{
-                                fontSize: "0.68rem",
+                                fontSize: "0.66rem",
                                 fontWeight: 700,
                                 color: "#7c3aed",
                                 textTransform: "uppercase",
@@ -2241,42 +2895,155 @@ const SurgerySchedule = () => {
                             </span>
                             <span
                               style={{
-                                fontSize: "0.82rem",
+                                fontSize: "0.81rem",
                                 color: "#7c3aed",
-                                fontWeight: 500,
+                                fontWeight: 600,
                               }}
                             >
-                              {s.postponed_date}
+                              {s.postponed_date || "—"}
                             </span>
                             {(s.post_startTime || s.post_endTime) && (
                               <span
                                 style={{
-                                  fontSize: "0.76rem",
+                                  fontSize: "0.75rem",
                                   color: "#7c3aed",
                                   marginLeft: 4,
-                                  opacity: 0.85,
+                                  fontWeight: 600,
                                 }}
                               >
-                                {s.post_startTime
-                                  ? s.post_startTime.slice(0, 5)
-                                  : "--:--"}
+                                {formatTimeAMPM(s.post_startTime)}
                                 {" – "}
-                                {s.post_endTime
-                                  ? s.post_endTime.slice(0, 5)
-                                  : "--:--"}
+                                {formatTimeAMPM(s.post_endTime)}
                               </span>
                             )}
                           </div>
                         )}
+
+                        {/* 3. Rescheduled Date & Time (if present) */}
+                        {(s.rescheduled_date || s.is_rescheduled) && (
+                          <div
+                            style={{
+                              borderTop: "1px dashed #e2e8f0",
+                              paddingTop: 4,
+                              marginTop: 4,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "0.66rem",
+                                fontWeight: 700,
+                                color: "#0284c7",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.04em",
+                                display: "block",
+                                marginBottom: 1,
+                              }}
+                            >
+                              Rescheduled
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "0.81rem",
+                                color: "#0284c7",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {s.rescheduled_date || "—"}
+                            </span>
+                            {(s.rescheduled_startTime || s.rescheduled_endTime) && (
+                              <span
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "#0284c7",
+                                  marginLeft: 4,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {formatTimeAMPM(s.rescheduled_startTime)}
+                                {" – "}
+                                {formatTimeAMPM(s.rescheduled_endTime)}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Remarks */}
+                        {(() => {
+                          const displayRemarks = s.rescheduled_remarks || s.postponed_remarks || s.remarks;
+                          if (displayRemarks) {
+                            const textColor = s.rescheduled_remarks || s.is_rescheduled
+                              ? "#0284c7"
+                              : s.postponed_remarks || s.is_postponed
+                              ? "#7c3aed"
+                              : "#475569";
+                            return (
+                              <div style={{ fontSize: "0.74rem", color: textColor, fontStyle: "italic", marginTop: 4 }}>
+                                <strong>Remarks:</strong> {displayRemarks}
+                              </div>
+                            );
+                          }
+                          if (s.status === "Rescheduled" || s.is_rescheduled) {
+                            return (
+                              <div style={{ fontSize: "0.74rem", color: "#0284c7", fontStyle: "italic", marginTop: 4 }}>
+                                <strong>Remarks:</strong> N/A
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </Td>
-                      <Td>{s.surgery_name}</Td>
-                      <Td>{s.anesthesia_name || s.anesthesia_id || "—"}</Td>
-                      <Td>{s.ot_name || s.ot_id}</Td>
                       <Td>
                         <AdmissionBadge a={getAdmissionStatus(s)}>
                           {getAdmissionStatus(s)}
                         </AdmissionBadge>
                       </Td>
+                      <Td>{s.surgery_name}</Td>
+                      <Td>{s.anesthesia_name || s.anesthesia_id || "—"}</Td>
+                      <Td>{s.ot_name || s.ot_id}</Td>
+
+                      <Td style={{ minWidth: 180 }}>
+                        {(() => {
+                          const allStaff = getAllAssignedStaff(s);
+                          if (!allStaff.length) return "—";
+
+                          return (
+                            <div
+                              style={{
+                                fontSize: "0.74rem",
+                                color: "#334155",
+                              }}
+                            >
+                              {allStaff.map((st, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    lineHeight: 1.35,
+                                    marginBottom: 3,
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: 3,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      fontWeight: 700,
+                                      color: "#1e293b",
+                                    }}
+                                  >
+                                    {st.title}:
+                                  </span>
+                                  <span style={{ color: "#475569" }}>
+                                    {st.name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </Td>
+
+
+
                       <Td>
                         <div
                           className="action-popover-wrap"
@@ -2345,6 +3112,11 @@ const SurgerySchedule = () => {
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
+                              onReschedule={() => {
+                                openReschedule(popoverData);
+                                setOpenPopover(null);
+                                setPopoverData(null);
+                              }}
                               onCssdReq={() => {
                                 toggleCssdRequest(popoverData);
                                 setOpenPopover(null);
@@ -2356,10 +3128,11 @@ const SurgerySchedule = () => {
                                 setPopoverData(null);
                               }}
                               onConfirm={() => {
-                                confirmSchedule(popoverData);
+                                openConfirmModal(popoverData);
                                 setOpenPopover(null);
                                 setPopoverData(null);
                               }}
+
                               onLab={() => {
                                 raiseLabRequest(popoverData);
                                 setOpenPopover(null);
@@ -2388,13 +3161,22 @@ const SurgerySchedule = () => {
         </TableCard>
       </PageWrapper>
 
-      {/* ── Postpone Date Modal ───────────────────────────────────────────── */}
+      {/* ── Postpone / Reschedule Date Modal ───────────────────────────────────────────── */}
       {postponeTarget && (
         <ModalBackdrop onClick={() => setPostponeTarget(null)}>
           <PostponeBox onClick={(e) => e.stopPropagation()}>
             <PostponeTitle>
-              <CalendarClock size={18} color="#7c3aed" />
-              Set Postponed Date
+              {rescheduleMode === "reschedule" ? (
+                <>
+                  <RotateCcw size={18} color="#0284c7" />
+                  Reschedule Surgery
+                </>
+              ) : (
+                <>
+                  <CalendarClock size={18} color="#7c3aed" />
+                  Postpone Surgery
+                </>
+              )}
             </PostponeTitle>
             <div style={{ marginBottom: 6 }}>
               {/* Info strip */}
@@ -2416,7 +3198,7 @@ const SurgerySchedule = () => {
                 {postponeTarget.patient_name || postponeTarget.ip_number}
               </div>
 
-              {/* Postponed Date */}
+              {/* Date */}
               <div style={{ marginBottom: 10 }}>
                 <Label
                   style={{
@@ -2425,7 +3207,8 @@ const SurgerySchedule = () => {
                     marginBottom: 3,
                   }}
                 >
-                  Postponed Date <span style={{ color: "#dc2626" }}>*</span>
+                  {rescheduleMode === "reschedule" ? "Rescheduled Date" : "Postponed Date"}{" "}
+                  <span style={{ color: "#dc2626" }}>*</span>
                 </Label>
                 <DateInput
                   type="date"
@@ -2453,12 +3236,25 @@ const SurgerySchedule = () => {
                   >
                     Start Time <span style={{ color: "#dc2626" }}>*</span>
                   </Label>
-                  <TimeInput
-                    type="time"
+                  <Select
                     value={postponeStartTime}
                     onChange={(e) => setPostponeStartTime(e.target.value)}
-                    style={{ width: "100%" }}
-                  />
+                    style={{ width: "100%", fontSize: "0.82rem" }}
+                  >
+                    <option value="">-- Select Start Time --</option>
+                    {timeOptions.map((opt) => {
+                      const disabled = isPostponeTimeDisabled(opt.value);
+                      return (
+                        <option
+                          key={opt.value}
+                          value={opt.value}
+                          disabled={disabled}
+                        >
+                          {opt.label} {disabled ? "(Booked)" : ""}
+                        </option>
+                      );
+                    })}
+                  </Select>
                 </div>
                 <div>
                   <Label
@@ -2470,13 +3266,55 @@ const SurgerySchedule = () => {
                   >
                     End Time <span style={{ color: "#dc2626" }}>*</span>
                   </Label>
-                  <TimeInput
-                    type="time"
+                  <Select
                     value={postponeEndTime}
                     onChange={(e) => setPostponeEndTime(e.target.value)}
-                    style={{ width: "100%" }}
-                  />
+                    style={{ width: "100%", fontSize: "0.82rem" }}
+                  >
+                    <option value="">-- Select End Time --</option>
+                    {timeOptions.map((opt) => {
+                      const disabled =
+                        (postponeStartTime && opt.value <= postponeStartTime) ||
+                        isPostponeEndTimeDisabled(opt.value);
+                      return (
+                        <option
+                          key={opt.value}
+                          value={opt.value}
+                          disabled={disabled}
+                        >
+                          {opt.label} {disabled ? "(Booked)" : ""}
+                        </option>
+                      );
+                    })}
+                  </Select>
                 </div>
+
+              </div>
+
+              {/* Remarks / Reason */}
+              <div style={{ marginTop: 10 }}>
+                <Label
+                  style={{
+                    fontSize: "0.82rem",
+                    display: "block",
+                    marginBottom: 3,
+                  }}
+                >
+                  {rescheduleMode === "reschedule"
+                    ? "Reschedule Remarks / Reason"
+                    : "Postpone Remarks / Reason"}
+                </Label>
+                <Input
+                  type="text"
+                  value={postponeRemarks}
+                  onChange={(e) => setPostponeRemarks(e.target.value)}
+                  placeholder={
+                    rescheduleMode === "reschedule"
+                      ? "Enter remarks / reason for rescheduling"
+                      : "Enter remarks / reason for postponing"
+                  }
+                  style={{ width: "100%", fontSize: "0.82rem" }}
+                />
               </div>
             </div>
             <PostponeBtns>
@@ -2488,10 +3326,288 @@ const SurgerySchedule = () => {
               </DarkBtn>
               <GreenBtn
                 onClick={submitPostpone}
+                disabled={isSubmittingPostpone}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  background: rescheduleMode === "reschedule" ? "#0284c7" : "#16a34a",
+                  opacity: isSubmittingPostpone ? 0.6 : 1,
+                  cursor: isSubmittingPostpone ? "not-allowed" : "pointer",
+                }}
+              >
+                <CheckCircle size={13} />{" "}
+                {isSubmittingPostpone
+                  ? rescheduleMode === "reschedule" ? "Rescheduling..." : "Postponing..."
+                  : rescheduleMode === "reschedule" ? "Confirm Reschedule" : "Confirm Postpone"}
+              </GreenBtn>
+            </PostponeBtns>
+          </PostponeBox>
+        </ModalBackdrop>
+      )}
+      {/* ── Assign Staff & Confirm Schedule Modal ───────────────────────── */}
+      {confirmTarget && (
+        <ModalBackdrop onClick={() => setConfirmTarget(null)}>
+          <PostponeBox
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 440, maxWidth: "95vw" }}
+          >
+            <PostponeTitle>
+              <CheckCircle size={18} color="#ea580c" />
+              Assign Staff &amp; Confirm Schedule
+            </PostponeTitle>
+
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                padding: "8px 12px",
+                marginBottom: 14,
+                fontSize: "0.8rem",
+                color: "#475569",
+              }}
+            >
+              <div
+                style={{ fontWeight: 700, color: "#1e293b", marginBottom: 2 }}
+              >
+                {confirmTarget.reference_no} — {confirmTarget.surgery_name}
+              </div>
+              <div>
+                Patient:{" "}
+                {confirmTarget.patient_name || confirmTarget.ip_number}
+              </div>
+            </div>
+
+            {/* Scrub Nurse */}
+            <div style={{ marginBottom: 12 }}>
+              <Label style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                Scrub Nurse
+              </Label>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <Select
+                  value={scrubInput}
+                  onChange={(e) => setScrubInput(e.target.value)}
+                  style={{ flex: 1, fontSize: "0.82rem" }}
+                >
+                  <option value="">-- Select Scrub Nurse --</option>
+                  {otStaffOptions.map((st) => {
+                    const disabled = isStaffDisabledInModal(st.id);
+                    return (
+                      <option key={st.id} value={st.id} disabled={disabled}>
+                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                      </option>
+                    );
+                  })}
+                </Select>
+
+                <GreenBtn
+                  onClick={() => {
+                    if (!scrubInput) return;
+                    if (scrubNurses.find((n) => n.id === scrubInput)) {
+                      toast.error("Already added");
+                      return;
+                    }
+                    const found = otStaffOptions.find(
+                      (o) => o.id === scrubInput,
+                    );
+                    setScrubNurses((prev) => [
+                      ...prev,
+                      { id: scrubInput, name: found ? found.name : scrubInput },
+                    ]);
+                    setScrubInput("");
+                  }}
+                  style={{ padding: "4px 10px", fontSize: "0.78rem" }}
+                >
+                  <Plus size={13} /> Add
+                </GreenBtn>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 5,
+                  marginTop: 6,
+                }}
+              >
+                {scrubNurses.map((n) => (
+                  <TagChip key={n.id}>
+                    {n.name}
+                    <button
+                      onClick={() =>
+                        setScrubNurses((prev) =>
+                          prev.filter((item) => item.id !== n.id),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </TagChip>
+                ))}
+              </div>
+            </div>
+
+            {/* Anesthesia Technician */}
+            <div style={{ marginBottom: 12 }}>
+              <Label style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                Anesthesia Technician
+              </Label>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <Select
+                  value={anesTechInput}
+                  onChange={(e) => setAnesTechInput(e.target.value)}
+                  style={{ flex: 1, fontSize: "0.82rem" }}
+                >
+                  <option value="">-- Select Anesthesia Tech --</option>
+                  {otStaffOptions.map((st) => {
+                    const disabled = isStaffDisabledInModal(st.id);
+                    return (
+                      <option key={st.id} value={st.id} disabled={disabled}>
+                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                      </option>
+                    );
+                  })}
+                </Select>
+
+                <GreenBtn
+                  onClick={() => {
+                    if (!anesTechInput) return;
+                    if (anesthesiaTechs.find((n) => n.id === anesTechInput)) {
+                      toast.error("Already added");
+                      return;
+                    }
+                    const found = otStaffOptions.find(
+                      (o) => o.id === anesTechInput,
+                    );
+                    setAnesthesiaTechs((prev) => [
+                      ...prev,
+                      {
+                        id: anesTechInput,
+                        name: found ? found.name : anesTechInput,
+                      },
+                    ]);
+                    setAnesTechInput("");
+                  }}
+                  style={{ padding: "4px 10px", fontSize: "0.78rem" }}
+                >
+                  <Plus size={13} /> Add
+                </GreenBtn>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 5,
+                  marginTop: 6,
+                }}
+              >
+                {anesthesiaTechs.map((n) => (
+                  <TagChip key={n.id}>
+                    {n.name}
+                    <button
+                      onClick={() =>
+                        setAnesthesiaTechs((prev) =>
+                          prev.filter((item) => item.id !== n.id),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </TagChip>
+                ))}
+              </div>
+            </div>
+
+            {/* Floor Nurse */}
+            <div style={{ marginBottom: 14 }}>
+              <Label style={{ fontSize: "0.82rem", fontWeight: 600 }}>
+                Floor Nurse
+              </Label>
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <Select
+                  value={floorNurseInput}
+                  onChange={(e) => setFloorNurseInput(e.target.value)}
+                  style={{ flex: 1, fontSize: "0.82rem" }}
+                >
+                  <option value="">-- Select Floor Nurse --</option>
+                  {otStaffOptions.map((st) => {
+                    const disabled = isStaffDisabledInModal(st.id);
+                    return (
+                      <option key={st.id} value={st.id} disabled={disabled}>
+                        {st.name} {disabled ? "(Already Assigned)" : ""}
+                      </option>
+                    );
+                  })}
+                </Select>
+
+                <GreenBtn
+                  onClick={() => {
+                    if (!floorNurseInput) return;
+                    if (floorNurses.find((n) => n.id === floorNurseInput)) {
+                      toast.error("Already added");
+                      return;
+                    }
+                    const found = otStaffOptions.find(
+                      (o) => o.id === floorNurseInput,
+                    );
+                    setFloorNurses((prev) => [
+                      ...prev,
+                      {
+                        id: floorNurseInput,
+                        name: found ? found.name : floorNurseInput,
+                      },
+                    ]);
+                    setFloorNurseInput("");
+                  }}
+                  style={{ padding: "4px 10px", fontSize: "0.78rem" }}
+                >
+                  <Plus size={13} /> Add
+                </GreenBtn>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 5,
+                  marginTop: 6,
+                }}
+              >
+                {floorNurses.map((n) => (
+                  <TagChip key={n.id}>
+                    {n.name}
+                    <button
+                      onClick={() =>
+                        setFloorNurses((prev) =>
+                          prev.filter((item) => item.id !== n.id),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </TagChip>
+                ))}
+              </div>
+            </div>
+
+            <PostponeBtns style={{ marginTop: 16 }}>
+              <DarkBtn
+                onClick={() => setConfirmTarget(null)}
                 style={{ padding: "6px 14px", fontSize: "0.82rem" }}
               >
-                <CheckCircle size={13} /> Confirm Postpone
-              </GreenBtn>
+                <X size={13} /> Cancel
+              </DarkBtn>
+              <OrangeBtn
+                onClick={submitConfirmSchedule}
+                disabled={isConfirming}
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
+                  opacity: isConfirming ? 0.6 : 1,
+                  cursor: isConfirming ? "not-allowed" : "pointer",
+                }}
+              >
+                <CheckCircle size={13} /> {isConfirming ? "Confirming..." : "Confirm Schedule"}
+              </OrangeBtn>
+
             </PostponeBtns>
           </PostponeBox>
         </ModalBackdrop>
@@ -2502,3 +3618,4 @@ const SurgerySchedule = () => {
 };
 
 export default SurgerySchedule;
+
