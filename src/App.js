@@ -49,6 +49,11 @@ import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
+import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
+import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
+import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 import MHCReviewList from "./Components/MHC/MHCReviewList";
 
 
@@ -359,6 +364,11 @@ function App() {
       "/RDList": "RD Reports",
       "/MHCList": "MHC Reports",
       "/MHCReviewList": "MHC Review & Due List",
+      "/Masterhealthcheck": "Master Health Check",
+      "/MasterHealthcheckupReport": "MHC Report",
+      "/MasterHealthcheckupDashboard": "MHC Dashboard",
+      "/Masterhealthcheckupfollowup": "MHC Follow-up",
+      "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
@@ -1136,6 +1146,26 @@ function App() {
                     <Route
                       path="/mhc/report/:investBillNo"
                       element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/Masterhealthcheck"
+                      element={<Masterhealthcheck />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupReport"
+                      element={<MasterHealthcheckupReport />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupDashboard"
+                      element={<MasterHealthcheckupDashboard />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowup"
+                      element={<Masterhealthcheckupfollowup />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowupreport"
+                      element={<Masterhealthcheckupfollowupreport />}
                     />
                   </>
                 )}
