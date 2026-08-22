@@ -150,6 +150,14 @@ const SubSectionTitle = styled.h3`
   margin: 1rem 0 0.5rem 0;
 `;
 
+const SectionSubNote = styled.div`
+  font-size: 0.83rem;
+  color: #475569;
+  font-style: italic;
+  margin: -0.35rem 0 1rem 0;
+  line-height: 1.45;
+`;
+
 // ── Medical Tables (matching user template styling) ───────────────────────────
 const MedTable = styled.table`
   width: 100%;
@@ -491,13 +499,30 @@ const MHCReportForm = () => {
         secData[testCode] = val;
       }
 
-      // Auto compute BMI in vitals_check
+      // Dynamic Auto compute BMI in vitals_check from available height/weight/bmi fields
       if (secKey === "vitals_check") {
-        const hVal = parseFloat(testCode === "VC01" ? val : secData["VC01"]);
-        const wVal = parseFloat(testCode === "VC02" ? val : secData["VC02"]);
-        if (hVal > 0 && wVal > 0) {
-          const bmi = (wVal / ((hVal / 100) * (hVal / 100))).toFixed(1);
-          secData["VC03"] = bmi;
+        const vList = formatSections["vitals_check"] || [];
+        const heightItem = vList.find(
+          (i) => i.test_name && i.test_name.toLowerCase().includes("height"),
+        );
+        const weightItem = vList.find(
+          (i) => i.test_name && i.test_name.toLowerCase().includes("weight"),
+        );
+        const bmiItem = vList.find(
+          (i) => i.test_name && i.test_name.toLowerCase().includes("bmi"),
+        );
+
+        if (heightItem && weightItem && bmiItem) {
+          const hCode = heightItem.test_code;
+          const wCode = weightItem.test_code;
+          const bCode = bmiItem.test_code;
+
+          const hVal = parseFloat(testCode === hCode ? val : secData[hCode]);
+          const wVal = parseFloat(testCode === wCode ? val : secData[wCode]);
+          if (hVal > 0 && wVal > 0) {
+            const bmi = (wVal / ((hVal / 100) * (hVal / 100))).toFixed(1);
+            secData[bCode] = bmi;
+          }
         }
       }
 
@@ -571,41 +596,70 @@ const MHCReportForm = () => {
 
     // Vitals
     const vitals = formValues["vitals_check"] || {};
-    const vitalItems = [];
-    if (vitals["VC01"]) vitalItems.push(`Height: ${vitals["VC01"]} cm`);
-    if (vitals["VC02"]) vitalItems.push(`Weight: ${vitals["VC02"]} kg`);
-    if (vitals["VC03"]) vitalItems.push(`BMI: ${vitals["VC03"]}`);
-    if (vitals["VC06"]) vitalItems.push(`BP: ${vitals["VC06"]} mmHg`);
-    if (vitals["VC05"]) vitalItems.push(`Pulse: ${vitals["VC05"]} /min`);
-    if (vitals["VC09"]) vitalItems.push(`SpO2: ${vitals["VC09"]}%`);
-    if (vitalItems.length > 0) {
-      summaryParts.push(`<b>Vitals:</b> ${vitalItems.join(", ")}.`);
+    const vitalsList = formatSections["vitals_check"] || [];
+    const vitalParts = [];
+    vitalsList.forEach((item) => {
+      const val = vitals[item.test_code];
+      if (val && typeof val === "string" && val.trim()) {
+        vitalParts.push(`${item.test_name}: ${val.trim()}`);
+      }
+    });
+    if (vitalParts.length > 0) {
+      summaryParts.push(`<b>Vitals:</b> ${vitalParts.join(", ")}.`);
     }
 
     // Previous History
     const history = formValues["previous_medical_history"] || {};
-    if (Array.isArray(history["PMH01"]) && history["PMH01"].length > 0) {
-      summaryParts.push(`<b>Medical History:</b> Known case of ${history["PMH01"].join(", ")}.`);
-    }
+    const prevHistoryList = formatSections["previous_medical_history"] || [];
+    prevHistoryList.forEach((item) => {
+      const val = history[item.test_code];
+      if (Array.isArray(val) && val.length > 0) {
+        summaryParts.push(`<b>${item.test_name}:</b> Known case of ${val.join(", ")}.`);
+      } else if (typeof val === "object" && val !== null) {
+        const paramParts = [];
+        (item.parameter || []).forEach((p) => {
+          if (val[p.pm_code]) {
+            paramParts.push(`${p.pm_name}: ${val[p.pm_code]}`);
+          }
+        });
+        if (paramParts.length > 0) {
+          summaryParts.push(`<b>${item.test_name}:</b> ${paramParts.join(", ")}.`);
+        }
+      } else if (typeof val === "string" && val.trim()) {
+        summaryParts.push(`<b>${item.test_name}:</b> ${val.trim()}.`);
+      }
+    });
 
     // Summary of Review
     const review = formValues["summary_of_review"] || {};
-    if (review["SR01"]) {
-      summaryParts.push(`<b>Overall Health Status:</b> ${review["SR01"]}.`);
-    }
-    if (review["SR02"]) {
-      summaryParts.push(`<b>Key Findings:</b> ${review["SR02"]}.`);
-    }
-    if (review["SR04"]) {
-      summaryParts.push(`<b>Lifestyle Advice:</b> ${review["SR04"]}.`);
-    }
+    const reviewList = formatSections["summary_of_review"] || [];
+    reviewList.forEach((item) => {
+      const val = review[item.test_code];
+      if (val && typeof val === "string" && val.trim()) {
+        summaryParts.push(`<b>${item.test_name}:</b> ${val.trim()}.`);
+      }
+    });
+
+    // Consultant Opinion
+    const consult = formValues["consultant_opinion"] || {};
+    const consultList = formatSections["consultant_opinion"] || [];
+    consultList.forEach((item) => {
+      const val = consult[item.test_code];
+      if (val && typeof val === "string" && val.trim()) {
+        summaryParts.push(`<b>${item.test_name}:</b> ${val.trim()}.`);
+      }
+    });
 
     // Next Due
     const due = formValues["next_master_health_check-up_due"] || {};
-    if (due["NMHCD01"]) {
-      const dueDateStr = due["NMHCD02"] ? ` on ${formatDisplayDate(due["NMHCD02"])}` : "";
-      summaryParts.push(`<b>Next Master Health Check-up Due:</b> ${due["NMHCD01"]}${dueDateStr}.`);
-    }
+    const nextDueList = formatSections["next_master_health_check-up_due"] || [];
+    nextDueList.forEach((item) => {
+      const val = due[item.test_code];
+      if (val && typeof val === "string" && val.trim()) {
+        const dueDateStr = due["NMHCD02"] ? ` on ${formatDisplayDate(due["NMHCD02"])}` : "";
+        summaryParts.push(`<b>${item.test_name}:</b> ${val.trim()}${dueDateStr}.`);
+      }
+    });
 
     const compiled = summaryParts.join("<br/>");
     if (compiled) {
@@ -761,7 +815,36 @@ const MHCReportForm = () => {
     setValue("next_master_health_check-up_due", "NMHCD02", formattedDate);
   };
 
-  // ── Section Helpers ──────────────────────────────────────────────────────────
+  // ── Section Helpers & Dynamic Titles ─────────────────────────────────────────
+  const SECTION_TITLES = useMemo(
+    () => ({
+      vitals_check: "Vitals Check",
+      previous_medical_history: "Previous Medical History",
+      physical_examination: "Physical Examination",
+      vaccination_status: "Vaccination Status",
+      investigations: "Investigations",
+      consultant_opinion: "Consultant Opinion",
+      summary_of_review: "Summary of Review",
+      procedure_or_suregery_advised: "Procedure / Surgery Advised",
+      "pediatric_master_health_check-up": "Pediatric Health Check-up",
+      "next_master_health_check-up_due": "Next Health Check-up Due",
+    }),
+    [],
+  );
+
+  const getSectionTitle = useCallback(
+    (key, index = null) => {
+      const base =
+        SECTION_TITLES[key] ||
+        key
+          .replace(/_/g, " ")
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+      return index ? `${index}. ${base}` : base;
+    },
+    [SECTION_TITLES],
+  );
+
   const vitalsItems = formatSections["vitals_check"] || [];
   const prevHistoryItems = formatSections["previous_medical_history"] || [];
   const physExamItems = formatSections["physical_examination"] || [];
@@ -772,6 +855,52 @@ const MHCReportForm = () => {
   const procedureItems = formatSections["procedure_or_suregery_advised"] || [];
   const pediatricItems = formatSections["pediatric_master_health_check-up"] || [];
   const nextDueItems = formatSections["next_master_health_check-up_due"] || [];
+
+  // Group vitals into pairs of 2 for grid table layout
+  const vitalsRows = useMemo(() => {
+    const rows = [];
+    for (let i = 0; i < vitalsItems.length; i += 2) {
+      rows.push([vitalsItems[i], vitalsItems[i + 1] || null]);
+    }
+    return rows;
+  }, [vitalsItems]);
+
+  const renderVitalCell = (item) => {
+    if (!item) return null;
+    const testNameLower = (item.test_name || "").toLowerCase();
+    const isBMI = testNameLower.includes("bmi");
+    const isNumber =
+      testNameLower.includes("height") || testNameLower.includes("weight");
+    const currentVal = getValue("vitals_check", item.test_code);
+
+    return (
+      <React.Fragment key={item.test_code}>
+        <MedLabelCell width="25%">{item.test_name}</MedLabelCell>
+        <MedInputCell width="25%">
+          {item.value_options && item.value_options.length > 0 ? (
+            <TableSelect
+              value={currentVal || ""}
+              onChange={(e) => setValue("vitals_check", item.test_code, e.target.value)}
+            >
+              <option value="">Select...</option>
+              {item.value_options.map((opt, oIdx) => (
+                <option key={oIdx} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </TableSelect>
+          ) : (
+            <TableInput
+              type={isNumber ? "number" : "text"}
+              placeholder={isBMI ? "Auto-calculated BMI..." : `Enter ${item.test_name}...`}
+              value={typeof currentVal === "string" || typeof currentVal === "number" ? currentVal : ""}
+              onChange={(e) => setValue("vitals_check", item.test_code, e.target.value)}
+            />
+          )}
+        </MedInputCell>
+      </React.Fragment>
+    );
+  };
 
   return (
     <PageWrapper>
@@ -828,42 +957,58 @@ const MHCReportForm = () => {
             >
               All Sections
             </SectionTab>
-            <SectionTab
-              active={activeTab === "vitals"}
-              onClick={() => setActiveTab("vitals")}
-            >
-              1. Vitals Check
-            </SectionTab>
-            <SectionTab
-              active={activeTab === "history"}
-              onClick={() => setActiveTab("history")}
-            >
-              2. Previous Medical History
-            </SectionTab>
-            <SectionTab
-              active={activeTab === "physical"}
-              onClick={() => setActiveTab("physical")}
-            >
-              3. Physical Examination
-            </SectionTab>
-            <SectionTab
-              active={activeTab === "vaccine"}
-              onClick={() => setActiveTab("vaccine")}
-            >
-              4. Vaccination Status
-            </SectionTab>
-            <SectionTab
-              active={activeTab === "investigations"}
-              onClick={() => setActiveTab("investigations")}
-            >
-              5. Investigations
-            </SectionTab>
-            <SectionTab
-              active={activeTab === "review"}
-              onClick={() => setActiveTab("review")}
-            >
-              6. Summary & Opinion
-            </SectionTab>
+            {vitalsItems.length > 0 && (
+              <SectionTab
+                active={activeTab === "vitals"}
+                onClick={() => setActiveTab("vitals")}
+              >
+                1. {getSectionTitle("vitals_check")}
+              </SectionTab>
+            )}
+            {prevHistoryItems.length > 0 && (
+              <SectionTab
+                active={activeTab === "history"}
+                onClick={() => setActiveTab("history")}
+              >
+                2. {getSectionTitle("previous_medical_history")}
+              </SectionTab>
+            )}
+            {physExamItems.length > 0 && (
+              <SectionTab
+                active={activeTab === "physical"}
+                onClick={() => setActiveTab("physical")}
+              >
+                3. {getSectionTitle("physical_examination")}
+              </SectionTab>
+            )}
+            {vaccineItems.length > 0 && (
+              <SectionTab
+                active={activeTab === "vaccine"}
+                onClick={() => setActiveTab("vaccine")}
+              >
+                4. {getSectionTitle("vaccination_status")}
+              </SectionTab>
+            )}
+            {investItems.length > 0 && (
+              <SectionTab
+                active={activeTab === "investigations"}
+                onClick={() => setActiveTab("investigations")}
+              >
+                5. {getSectionTitle("investigations")}
+              </SectionTab>
+            )}
+            {(reviewItems.length > 0 ||
+              procedureItems.length > 0 ||
+              consultItems.length > 0 ||
+              nextDueItems.length > 0 ||
+              pediatricItems.length > 0) && (
+                <SectionTab
+                  active={activeTab === "review"}
+                  onClick={() => setActiveTab("review")}
+                >
+                  6. Summary & Opinion
+                </SectionTab>
+              )}
           </SectionNav>
 
           {loadingFormat ? (
@@ -873,339 +1018,161 @@ const MHCReportForm = () => {
           ) : (
             <div>
               {/* ─────────────────────────────────────────────────────────────
-                  1. VITALS CHECK (Matching Image 1 Table Grid)
+                  1. VITALS CHECK (Dynamic Grid Table)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "vitals") && vitalsItems.length > 0 && (
                 <SectionBlock>
-                  <SectionTitle>1. Vitals Check</SectionTitle>
+                  <SectionTitle>{getSectionTitle("vitals_check", 1)}</SectionTitle>
                   <MedTable>
                     <tbody>
-                      <tr>
-                        <MedLabelCell>Height (cm)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            type="number"
-                            placeholder="Height..."
-                            value={getValue("vitals_check", "VC01")}
-                            onChange={(e) => setValue("vitals_check", "VC01", e.target.value)}
-                          />
-                        </MedInputCell>
-                        <MedLabelCell>Weight (kg)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            type="number"
-                            placeholder="Weight..."
-                            value={getValue("vitals_check", "VC02")}
-                            onChange={(e) => setValue("vitals_check", "VC02", e.target.value)}
-                          />
-                        </MedInputCell>
-                      </tr>
-                      <tr>
-                        <MedLabelCell>BMI (kg/m²)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="Auto-calculated BMI..."
-                            value={getValue("vitals_check", "VC03")}
-                            onChange={(e) => setValue("vitals_check", "VC03", e.target.value)}
-                          />
-                        </MedInputCell>
-                        <MedLabelCell>Waist / Hip (cm)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="Waist / Hip..."
-                            value={getValue("vitals_check", "VC04")}
-                            onChange={(e) => setValue("vitals_check", "VC04", e.target.value)}
-                          />
-                        </MedInputCell>
-                      </tr>
-                      <tr>
-                        <MedLabelCell>Pulse Rate (/min)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="Pulse..."
-                            value={getValue("vitals_check", "VC05")}
-                            onChange={(e) => setValue("vitals_check", "VC05", e.target.value)}
-                          />
-                        </MedInputCell>
-                        <MedLabelCell>Blood Pressure (mmHg)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="e.g. 120/80..."
-                            value={getValue("vitals_check", "VC06")}
-                            onChange={(e) => setValue("vitals_check", "VC06", e.target.value)}
-                          />
-                        </MedInputCell>
-                      </tr>
-                      <tr>
-                        <MedLabelCell>Respiratory Rate (/min)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="RR..."
-                            value={getValue("vitals_check", "VC07")}
-                            onChange={(e) => setValue("vitals_check", "VC07", e.target.value)}
-                          />
-                        </MedInputCell>
-                        <MedLabelCell>Temperature (°F)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="Temp..."
-                            value={getValue("vitals_check", "VC08")}
-                            onChange={(e) => setValue("vitals_check", "VC08", e.target.value)}
-                          />
-                        </MedInputCell>
-                      </tr>
-                      <tr>
-                        <MedLabelCell>SpO2 (%)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="SpO2..."
-                            value={getValue("vitals_check", "VC09")}
-                            onChange={(e) => setValue("vitals_check", "VC09", e.target.value)}
-                          />
-                        </MedInputCell>
-                        <MedLabelCell>RBS (mg/dl)</MedLabelCell>
-                        <MedInputCell>
-                          <TableInput
-                            placeholder="RBS..."
-                            value={getValue("vitals_check", "VC10")}
-                            onChange={(e) => setValue("vitals_check", "VC10", e.target.value)}
-                          />
-                        </MedInputCell>
-                      </tr>
-                      <tr>
-                        <MedLabelCell>ABI (Ankle-Brachial Index)</MedLabelCell>
-                        <MedInputCell>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <span style={{ fontWeight: 600 }}>Right:</span>
-                            <TableInput
-                              placeholder="Right ABI..."
-                              value={getValue("vitals_check", "VC11")}
-                              onChange={(e) => setValue("vitals_check", "VC11", e.target.value)}
-                            />
-                          </div>
-                        </MedInputCell>
-                        <MedLabelCell>ABI — Left</MedLabelCell>
-                        <MedInputCell>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                            <span style={{ fontWeight: 600 }}>Left:</span>
-                            <TableInput
-                              placeholder="Left ABI..."
-                              value={getValue("vitals_check", "VC12")}
-                              onChange={(e) => setValue("vitals_check", "VC12", e.target.value)}
-                            />
-                          </div>
-                        </MedInputCell>
-                      </tr>
+                      {vitalsRows.map((row, rIdx) => (
+                        <tr key={rIdx}>
+                          {renderVitalCell(row[0])}
+                          {row[1] ? (
+                            renderVitalCell(row[1])
+                          ) : (
+                            <>
+                              <MedLabelCell width="25%" style={{ background: "#f8fafc" }} />
+                              <MedInputCell width="25%" style={{ background: "#f8fafc" }} />
+                            </>
+                          )}
+                        </tr>
+                      ))}
                     </tbody>
                   </MedTable>
                 </SectionBlock>
               )}
 
               {/* ─────────────────────────────────────────────────────────────
-                  2. PREVIOUS MEDICAL HISTORY (Matching Image 2 Layout)
+                  2. PREVIOUS MEDICAL HISTORY (Dynamic Rendering)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "history") && prevHistoryItems.length > 0 && (
                 <SectionBlock>
-                  <SectionTitle>2. Previous Medical History</SectionTitle>
+                  <SectionTitle>{getSectionTitle("previous_medical_history", 2)}</SectionTitle>
 
-                  {/* PMH01: Conditions Checklist */}
-                  {prevHistoryItems.find((i) => i.test_code === "PMH01") && (
-                    <CheckboxGroup>
-                      {(
-                        prevHistoryItems.find((i) => i.test_code === "PMH01")
-                          ?.value_options || []
-                      ).map((opt, oIdx) => (
-                        <CheckboxItem key={oIdx}>
-                          <input
-                            type="checkbox"
-                            checked={isOptionSelected(
+                  {prevHistoryItems.map((item, idx) => {
+                    const hasOptions = Array.isArray(item.value_options) && item.value_options.length > 0;
+                    const hasParams = Array.isArray(item.parameter) && item.parameter.length > 0;
+
+                    // Group with parameters (e.g. Personal History: Smoking, Alcohol, Diet...)
+                    if (hasParams) {
+                      return (
+                        <PersonalHistoryRow key={item.test_code || idx}>
+                          <strong style={{ color: "#1e3a8a" }}>{item.test_name}:</strong>
+                          {item.parameter.map((param, pIdx) => {
+                            const currentPVal = getValue(
                               "previous_medical_history",
-                              "PMH01",
-                              opt,
-                            )}
-                            onChange={() =>
-                              toggleArrayOption(
-                                "previous_medical_history",
-                                "PMH01",
-                                opt,
-                              )
-                            }
-                          />
-                          <span>{opt.replace(/[\u2610]/g, "")}</span>
-                        </CheckboxItem>
-                      ))}
-                    </CheckboxGroup>
-                  )}
+                              item.test_code,
+                              param.pm_code,
+                            );
+                            const pOptions =
+                              Array.isArray(param.value_options) && param.value_options.length > 0
+                                ? param.value_options
+                                : ["Yes", "No"];
 
-                  {/* PMH02: Details / Duration / Medications */}
-                  <HistoryFieldRow>
-                    <label>Details / Duration / Medications:</label>
-                    <UnderlineInput
-                      placeholder="Enter medications, duration, treatment details..."
-                      value={getValue("previous_medical_history", "PMH02")}
-                      onChange={(e) =>
-                        setValue(
-                          "previous_medical_history",
-                          "PMH02",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </HistoryFieldRow>
-
-                  {/* PMH03: Past Surgical History */}
-                  <HistoryFieldRow>
-                    <label>Past Surgical History:</label>
-                    <UnderlineInput
-                      placeholder="Enter prior surgeries and years..."
-                      value={getValue("previous_medical_history", "PMH03")}
-                      onChange={(e) =>
-                        setValue(
-                          "previous_medical_history",
-                          "PMH03",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </HistoryFieldRow>
-
-                  {/* PMH04: Family History */}
-                  <HistoryFieldRow>
-                    <label>Family History:</label>
-                    <UnderlineInput
-                      placeholder="Enter family medical history (CAD, Diabetes, Cancer)..."
-                      value={getValue("previous_medical_history", "PMH04")}
-                      onChange={(e) =>
-                        setValue(
-                          "previous_medical_history",
-                          "PMH04",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </HistoryFieldRow>
-
-                  {/* PMH05: Allergies */}
-                  <HistoryFieldRow>
-                    <label>Allergies (Drug / Food):</label>
-                    <UnderlineInput
-                      placeholder="Enter known drug or food allergies..."
-                      value={getValue("previous_medical_history", "PMH05")}
-                      onChange={(e) =>
-                        setValue(
-                          "previous_medical_history",
-                          "PMH05",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </HistoryFieldRow>
-
-                  {/* PMH06: Personal History Parameters */}
-                  {prevHistoryItems.find((i) => i.test_code === "PMH06") && (
-                    <PersonalHistoryRow>
-                      <strong style={{ color: "#1e3a8a" }}>Personal History:</strong>
-                      {(
-                        prevHistoryItems.find((i) => i.test_code === "PMH06")
-                          ?.parameter || []
-                      ).map((param, pIdx) => {
-                        const currentPVal = getValue(
-                          "previous_medical_history",
-                          "PMH06",
-                          param.pm_code,
-                        );
-
-                        return (
-                          <div
-                            key={pIdx}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
-                          >
-                            <span style={{ fontWeight: 600 }}>{param.pm_name}:</span>
-                            {param.pm_name === "Diet" ? (
-                              <div style={{ display: "flex", gap: "0.5rem" }}>
-                                <CheckboxItem>
-                                  <input
-                                    type="radio"
-                                    name="diet_pref"
-                                    checked={currentPVal === "Veg"}
-                                    onChange={() =>
-                                      setValue(
-                                        "previous_medical_history",
-                                        "PMH06",
-                                        "Veg",
-                                        param.pm_code,
-                                      )
-                                    }
-                                  />
-                                  <span>Veg</span>
-                                </CheckboxItem>
-                                <CheckboxItem>
-                                  <input
-                                    type="radio"
-                                    name="diet_pref"
-                                    checked={currentPVal === "Non-Veg"}
-                                    onChange={() =>
-                                      setValue(
-                                        "previous_medical_history",
-                                        "PMH06",
-                                        "Non-Veg",
-                                        param.pm_code,
-                                      )
-                                    }
-                                  />
-                                  <span>Non-Veg</span>
-                                </CheckboxItem>
+                            return (
+                              <div
+                                key={pIdx}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}
+                              >
+                                <span style={{ fontWeight: 600 }}>{param.pm_name}:</span>
+                                <div style={{ display: "flex", gap: "0.5rem" }}>
+                                  {pOptions.map((opt, oIdx) => (
+                                    <CheckboxItem key={oIdx}>
+                                      <input
+                                        type="radio"
+                                        name={`pm_${item.test_code}_${param.pm_code}`}
+                                        checked={currentPVal === opt.trim()}
+                                        onChange={() =>
+                                          setValue(
+                                            "previous_medical_history",
+                                            item.test_code,
+                                            opt.trim(),
+                                            param.pm_code,
+                                          )
+                                        }
+                                      />
+                                      <span>{opt.trim()}</span>
+                                    </CheckboxItem>
+                                  ))}
+                                </div>
                               </div>
-                            ) : (
-                              <div style={{ display: "flex", gap: "0.5rem" }}>
-                                <CheckboxItem>
-                                  <input
-                                    type="radio"
-                                    name={`pm_${param.pm_code}`}
-                                    checked={currentPVal === "Yes"}
-                                    onChange={() =>
-                                      setValue(
-                                        "previous_medical_history",
-                                        "PMH06",
-                                        "Yes",
-                                        param.pm_code,
-                                      )
-                                    }
-                                  />
-                                  <span>Yes</span>
-                                </CheckboxItem>
-                                <CheckboxItem>
-                                  <input
-                                    type="radio"
-                                    name={`pm_${param.pm_code}`}
-                                    checked={currentPVal === "No"}
-                                    onChange={() =>
-                                      setValue(
-                                        "previous_medical_history",
-                                        "PMH06",
-                                        "No",
-                                        param.pm_code,
-                                      )
-                                    }
-                                  />
-                                  <span>No</span>
-                                </CheckboxItem>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </PersonalHistoryRow>
-                  )}
+                            );
+                          })}
+                        </PersonalHistoryRow>
+                      );
+                    }
+
+                    // Checkbox Group (e.g. Conditions Checklist)
+                    if (hasOptions) {
+                      return (
+                        <div key={item.test_code || idx} style={{ marginBottom: "1rem" }}>
+                          {item.test_name && (
+                            <label
+                              style={{
+                                display: "block",
+                                fontSize: "0.83rem",
+                                fontWeight: 700,
+                                color: "#1e293b",
+                                marginBottom: "0.2rem",
+                              }}
+                            >
+                              {item.test_name}:
+                            </label>
+                          )}
+                          <CheckboxGroup>
+                            {item.value_options.map((opt, oIdx) => (
+                              <CheckboxItem key={oIdx}>
+                                <input
+                                  type="checkbox"
+                                  checked={isOptionSelected(
+                                    "previous_medical_history",
+                                    item.test_code,
+                                    opt,
+                                  )}
+                                  onChange={() =>
+                                    toggleArrayOption(
+                                      "previous_medical_history",
+                                      item.test_code,
+                                      opt,
+                                    )
+                                  }
+                                />
+                                <span>{opt.replace(/[\u2610]/g, "").trim()}</span>
+                              </CheckboxItem>
+                            ))}
+                          </CheckboxGroup>
+                        </div>
+                      );
+                    }
+
+                    // Single input field (e.g. Details / Duration, Past Surgical History, Family History, Allergies)
+                    return (
+                      <HistoryFieldRow key={item.test_code || idx}>
+                        <label>{item.test_name}:</label>
+                        <UnderlineInput
+                          placeholder={`Enter ${item.test_name}...`}
+                          value={getValue("previous_medical_history", item.test_code)}
+                          onChange={(e) =>
+                            setValue(
+                              "previous_medical_history",
+                              item.test_code,
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </HistoryFieldRow>
+                    );
+                  })}
                 </SectionBlock>
               )}
 
               {/* ─────────────────────────────────────────────────────────────
-                  3. PHYSICAL EXAMINATION (Matching Image 3 Table Layout)
+                  3. PHYSICAL EXAMINATION (Dynamic Table Layout)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "physical") && physExamItems.length > 0 && (
                 <SectionBlock>
-                  <SectionTitle>3. Physical Examination</SectionTitle>
+                  <SectionTitle>{getSectionTitle("physical_examination", 3)}</SectionTitle>
                   <MedTable>
                     <tbody>
                       {physExamItems.map((item, idx) => {
@@ -1295,55 +1262,75 @@ const MHCReportForm = () => {
               )}
 
               {/* ─────────────────────────────────────────────────────────────
-                  4. VACCINATION STATUS
+                  4. VACCINATION STATUS (Dynamic Rendering)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "vaccine") && vaccineItems.length > 0 && (
                 <SectionBlock>
-                  <SectionTitle>4. Vaccination History</SectionTitle>
+                  <SectionTitle>{getSectionTitle("vaccination_status", 4)}</SectionTitle>
                   <MedTable>
                     <thead>
                       <tr>
-                        <MedTh width="40%">Vaccine</MedTh>
+                        <MedTh width="40%">Vaccine / Parameter</MedTh>
                         <MedTh width="60%">Doses & Date / Status</MedTh>
                       </tr>
                     </thead>
                     <tbody>
-                      {vaccineItems.map((vGroup, gIdx) =>
-                        (vGroup.parameter || []).map((vac, vIdx) => (
-                          <tr key={`${gIdx}-${vIdx}`}>
-                            <MedLabelCell>{vac.pm_name}</MedLabelCell>
-                            <MedInputCell>
-                              <TableInput
-                                placeholder="Enter doses & date received..."
-                                value={getValue(
-                                  "vaccination_status",
-                                  vGroup.test_code,
-                                  vac.pm_code,
-                                )}
-                                onChange={(e) =>
-                                  setValue(
+                      {vaccineItems.map((vGroup, gIdx) => {
+                        const hasParams = Array.isArray(vGroup.parameter) && vGroup.parameter.length > 0;
+                        if (hasParams) {
+                          return vGroup.parameter.map((vac, vIdx) => (
+                            <tr key={`${gIdx}-${vIdx}`}>
+                              <MedLabelCell>{vac.pm_name}</MedLabelCell>
+                              <MedInputCell>
+                                <TableInput
+                                  placeholder={`Enter ${vac.pm_name} doses & date / status...`}
+                                  value={getValue(
                                     "vaccination_status",
                                     vGroup.test_code,
-                                    e.target.value,
                                     vac.pm_code,
-                                  )
+                                  )}
+                                  onChange={(e) =>
+                                    setValue(
+                                      "vaccination_status",
+                                      vGroup.test_code,
+                                      e.target.value,
+                                      vac.pm_code,
+                                    )
+                                  }
+                                />
+                              </MedInputCell>
+                            </tr>
+                          ));
+                        }
+                        return (
+                          <tr key={gIdx}>
+                            <MedLabelCell>{vGroup.test_name}</MedLabelCell>
+                            <MedInputCell>
+                              <TableInput
+                                placeholder={`Enter ${vGroup.test_name}...`}
+                                value={getValue("vaccination_status", vGroup.test_code)}
+                                onChange={(e) =>
+                                  setValue("vaccination_status", vGroup.test_code, e.target.value)
                                 }
                               />
                             </MedInputCell>
                           </tr>
-                        )),
-                      )}
+                        );
+                      })}
                     </tbody>
                   </MedTable>
                 </SectionBlock>
               )}
 
               {/* ─────────────────────────────────────────────────────────────
-                  5. INVESTIGATIONS (Matching Image 4 Format per Test)
+                  5. INVESTIGATIONS (Dynamic per Test from Response)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "investigations") && investItems.length > 0 && (
                 <SectionBlock>
-                  <SectionTitle>5. Investigations</SectionTitle>
+                  <SectionTitle>{getSectionTitle("investigations", 5)}</SectionTitle>
+                  <SectionSubNote>
+                    Laboratory panel to be attached separately as lab report. Special investigations below to be recorded here.
+                  </SectionSubNote>
 
                   {investItems.map((inv, iIdx) => {
                     const hasParams = Array.isArray(inv.parameter) && inv.parameter.length > 0;
@@ -1360,7 +1347,7 @@ const MHCReportForm = () => {
                               <tr>
                                 <MedTh width="40%">Parameter</MedTh>
                                 <MedTh width="35%">Finding / Value</MedTh>
-                                <MedTh width="25%">Result / Assessment</MedTh>
+                                <MedTh width="25%">Normal / Abnormal</MedTh>
                               </tr>
                             </thead>
                             <tbody>
@@ -1440,7 +1427,7 @@ const MHCReportForm = () => {
               )}
 
               {/* ─────────────────────────────────────────────────────────────
-                  6. SUMMARY OF REVIEW & CONSULTANT OPINION
+                  6. SUMMARY OF REVIEW & RECOMMENDATIONS (Dynamic from Response)
                  ───────────────────────────────────────────────────────────── */}
               {(activeTab === "all" || activeTab === "review") && (
                 <SectionBlock>
@@ -1500,7 +1487,7 @@ const MHCReportForm = () => {
                   {/* Procedure / Surgery Advised */}
                   {procedureItems.length > 0 && (
                     <div style={{ marginTop: "1rem" }}>
-                      <SubSectionTitle>Procedure / Surgery Advised</SubSectionTitle>
+                      <SubSectionTitle>{getSectionTitle("procedure_or_suregery_advised")}</SubSectionTitle>
                       <MedTable>
                         <tbody>
                           {procedureItems.map((item, idx) => {
@@ -1558,10 +1545,35 @@ const MHCReportForm = () => {
                     </div>
                   )}
 
+                  {/* Pediatric Check-up (if included in package) */}
+                  {pediatricItems.length > 0 && (
+                    <div style={{ marginTop: "1rem" }}>
+                      <SubSectionTitle>{getSectionTitle("pediatric_master_health_check-up")}</SubSectionTitle>
+                      <MedTable>
+                        <tbody>
+                          {pediatricItems.map((item, idx) => (
+                            <tr key={idx}>
+                              <MedLabelCell width="30%">{item.test_name}</MedLabelCell>
+                              <MedInputCell width="70%">
+                                <TableInput
+                                  placeholder={`Enter ${item.test_name}...`}
+                                  value={getValue("pediatric_master_health_check-up", item.test_code)}
+                                  onChange={(e) =>
+                                    setValue("pediatric_master_health_check-up", item.test_code, e.target.value)
+                                  }
+                                />
+                              </MedInputCell>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </MedTable>
+                    </div>
+                  )}
+
                   {/* Next MHC Due */}
                   {nextDueItems.length > 0 && (
                     <div style={{ marginTop: "1rem" }}>
-                      <SubSectionTitle>Next Master Health Check-up Due</SubSectionTitle>
+                      <SubSectionTitle>{getSectionTitle("next_master_health_check-up_due")}</SubSectionTitle>
                       <MedTable>
                         <tbody>
                           {nextDueItems.map((item, idx) => {
@@ -1628,7 +1640,7 @@ const MHCReportForm = () => {
                   {/* Consultant Opinion */}
                   {consultItems.length > 0 && (
                     <div style={{ marginTop: "1rem" }}>
-                      <SubSectionTitle>Consultant Opinion</SubSectionTitle>
+                      <SubSectionTitle>{getSectionTitle("consultant_opinion")}</SubSectionTitle>
                       <MedTable>
                         <tbody>
                           {consultItems.map((item, idx) => (

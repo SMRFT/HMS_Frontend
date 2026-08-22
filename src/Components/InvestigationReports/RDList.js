@@ -3968,12 +3968,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       (r) => r.hasReport && !r.report?.is_approved,
     ).length;
     const approved = rows.filter((r) => r.report?.is_approved).length;
-    const itemMap = {};
-    rows.forEach((r) => {
-      const name = r.itemName || "Unknown";
-      itemMap[name] = (itemMap[name] || 0) + 1;
-    });
-    return { total, pending, reported, approved, itemMap };
+    const dispatched = rows.filter(
+      (r) => r.report?.is_Dispatched || r.report?.dispatch_DateTime,
+    ).length;
+    return { total, pending, reported, approved, dispatched };
   }, [rows]);
 
   const pageLabel =
@@ -4295,19 +4293,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                 <StatLabel>Approved</StatLabel>
               </StatInfo>
             </StatCard>
-            {Object.entries(stats.itemMap).map(([itemName, count]) => (
-              <StatCard key={itemName} bg="#f3e5f5" accent="#8e24aa">
-                <StatIcon>🔬</StatIcon>
-                <StatInfo>
-                  <StatCount color="#6a1b9a">{count}</StatCount>
-                  <StatLabel title={itemName}>
-                    {itemName.length > 14
-                      ? itemName.slice(0, 13) + "…"
-                      : itemName}
-                  </StatLabel>
-                </StatInfo>
-              </StatCard>
-            ))}
+            <StatCard bg="#e0f2f1" accent="#00897b">
+              <StatIcon>📤</StatIcon>
+              <StatInfo>
+                <StatCount color="#004d40">{stats.dispatched}</StatCount>
+                <StatLabel>Dispatched</StatLabel>
+              </StatInfo>
+            </StatCard>
           </StatsRow>
 
           <TableWrapper>
