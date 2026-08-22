@@ -81,6 +81,7 @@ const DoctorFeeCuts = () => {
     // Filters
     const [fromDate, setFromDate] = useState(dayjs().format("YYYY-MM-DD"));
     const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
+    const [filterCustomerType, setFilterCustomerType] = useState("ALL");
     const [filterCompany, setFilterCompany] = useState("ALL");
     const [filterStatus, setFilterStatus] = useState("ALL");
     const [searchQuery, setSearchQuery] = useState("");
@@ -101,7 +102,7 @@ const DoctorFeeCuts = () => {
     const fetchAdmittedPatients = useCallback(async () => {
         setLoading(true);
         try {
-            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?from_date=${fromDate}&to_date=${toDate}&company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(searchQuery)}`;
+            const url = `${HmsBaseUrl}doctor-fee-admitted-patients/?from_date=${fromDate}&to_date=${toDate}&customer_type=${encodeURIComponent(filterCustomerType)}&company=${encodeURIComponent(filterCompany)}&status=${encodeURIComponent(filterStatus)}&search=${encodeURIComponent(searchQuery)}`;
             const res = await apiRequest(url, "GET");
             let rawData = [];
             if (res.success && Array.isArray(res.data)) {
@@ -124,7 +125,7 @@ const DoctorFeeCuts = () => {
         } finally {
             setLoading(false);
         }
-    }, [HmsBaseUrl, fromDate, toDate, filterCompany, filterStatus, searchQuery]);
+    }, [HmsBaseUrl, fromDate, toDate, filterCustomerType, filterCompany, filterStatus, searchQuery]);
 
     useEffect(() => {
         fetchProviders();
@@ -441,6 +442,15 @@ const DoctorFeeCuts = () => {
                     <div style={{ fontSize: '0.8rem', color: colors.textMain }}>
                         IP No: <strong>{record.ipNumber}</strong>
                     </div>
+                    {record.company_name ? (
+                        <div style={{ fontSize: '0.78rem', color: '#0369a1', fontWeight: 600, marginTop: 2 }}>
+                            🏢 {record.company_name}
+                        </div>
+                    ) : record.customer_type ? (
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: 2 }}>
+                            {record.customer_type}
+                        </div>
+                    ) : null}
                     {(record.bill_date || record.admission_date) && (
                         <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: 2 }}>
                             Date: {dayjs(record.bill_date || record.admission_date).format('DD/MM/YYYY')}
@@ -755,8 +765,8 @@ const DoctorFeeCuts = () => {
 
                 {/* Top Filter Section */}
                 <FilterSection className="no-print">
-                    <Row gutter={[16, 16]} align="bottom">
-                        <Col xs={24} sm={12} md={4}>
+                    <Row gutter={[12, 12]} align="bottom">
+                        <Col xs={24} sm={12} md={3}>
                             <FormLabel>From Date</FormLabel>
                             <Input
                                 type="date"
@@ -765,7 +775,7 @@ const DoctorFeeCuts = () => {
                                 style={{ height: 38, borderRadius: 6 }}
                             />
                         </Col>
-                        <Col xs={24} sm={12} md={4}>
+                        <Col xs={24} sm={12} md={3}>
                             <FormLabel>To Date</FormLabel>
                             <Input
                                 type="date"
@@ -774,24 +784,44 @@ const DoctorFeeCuts = () => {
                                 style={{ height: 38, borderRadius: 6 }}
                             />
                         </Col>
-                        <Col xs={24} sm={12} md={5}>
-                            <FormLabel>Insurance Company</FormLabel>
+                        <Col xs={24} sm={12} md={filterCustomerType === "Insurance" ? 3 : 4}>
+                            <FormLabel>Customer Type</FormLabel>
                             <Select
                                 style={{ width: '100%', height: 38 }}
-                                value={filterCompany}
-                                onChange={setFilterCompany}
-                                showSearch
-                                optionFilterProp="children"
+                                value={filterCustomerType}
+                                onChange={(val) => {
+                                    setFilterCustomerType(val);
+                                    if (val !== "Insurance") {
+                                        setFilterCompany("ALL");
+                                    }
+                                }}
                             >
-                                <Option value="ALL">ALL COMPANIES</Option>
-                                {providers.map(p => (
-                                    <Option key={p.company_code || p.id} value={p.company_name}>
-                                        {p.company_name} ({p.company_code})
-                                    </Option>
-                                ))}
+                                <Option value="ALL">ALL TYPES</Option>
+                                <Option value="General">General</Option>
+                                <Option value="Insurance">Insurance</Option>
+                                <Option value="Corporate">Corporate</Option>
                             </Select>
                         </Col>
-                        <Col xs={24} sm={12} md={3}>
+                        {filterCustomerType === "Insurance" && (
+                            <Col xs={24} sm={12} md={4}>
+                                <FormLabel>Insurance Company</FormLabel>
+                                <Select
+                                    style={{ width: '100%', height: 38 }}
+                                    value={filterCompany}
+                                    onChange={setFilterCompany}
+                                    showSearch
+                                    optionFilterProp="children"
+                                >
+                                    <Option value="ALL">ALL COMPANIES</Option>
+                                    {providers.map(p => (
+                                        <Option key={p.company_code || p.id} value={p.company_name}>
+                                            {p.company_name} ({p.company_code})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </Col>
+                        )}
+                        <Col xs={24} sm={12} md={filterCustomerType === "Insurance" ? 3 : 4}>
                             <FormLabel>Status</FormLabel>
                             <Select
                                 style={{ width: '100%', height: 38 }}
@@ -804,7 +834,7 @@ const DoctorFeeCuts = () => {
                                 <Option value="Approved">Approved</Option>
                             </Select>
                         </Col>
-                        <Col xs={24} sm={16} md={5}>
+                        <Col xs={24} sm={16} md={filterCustomerType === "Insurance" ? 5 : 6}>
                             <FormLabel>Search Patient</FormLabel>
                             <Input
                                 placeholder="Search by IP Number, UHID, Name…"
@@ -816,7 +846,7 @@ const DoctorFeeCuts = () => {
                                 style={{ height: 38, borderRadius: 6 }}
                             />
                         </Col>
-                        <Col xs={24} sm={8} md={3} style={{ textAlign: 'right' }}>
+                        <Col xs={24} sm={8} md={filterCustomerType === "Insurance" ? 3 : 3} style={{ textAlign: 'right' }}>
                             <ActionButton
                                 type="primary"
                                 icon={<FaSync />}

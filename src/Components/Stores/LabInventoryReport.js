@@ -494,7 +494,7 @@ const LabInventoryReport = () => {
                                         </Td>
                                         <Td>
                                             <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem' }}>{item.name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: 2 }}>ID: {item.item_id}</div>
+                    
                                         </Td>
                                         <Td>
                                             <Badge bg="#f1f5f9" fg="#475569">{item.hsn || '—'}</Badge>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import SummaryHead from "../Images/SummaryHead.png";
@@ -35,6 +35,8 @@ const GLOBAL_CSS = `
   .sp-btn-whatsapp:hover:not(:disabled) { background: #128c7e; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(37,211,102,.38); }
   .sp-btn-email { background: #ea4335; color: #fff; box-shadow: 0 2px 8px rgba(234,67,53,.28); }
   .sp-btn-email:hover:not(:disabled) { background: #c53023; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(234,67,53,.38); }
+  .sp-btn-back { background: #f8fafc; color: #334155; border: 1.5px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .sp-btn-back:hover:not(:disabled) { background: #e2e8f0; color: #0f172a; transform: translateY(-1px); }
   .sp-btn:disabled { opacity: .5; cursor: not-allowed; }
   .sp-btn-spinner {
     display: inline-block; width: 13px; height: 13px;
@@ -204,14 +206,67 @@ const normalizeFieldsData = (fd) => {
   return [];
 };
 
-const getFieldValue = (fieldsDataArr, key) => {
+const safeStr = (v) => (v != null ? String(v) : "");
+const safeUpper = (v) => (v != null ? String(v).toUpperCase() : "");
+const fmtDate = (d) => {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return safeStr(d);
+  }
+};
+const fmtTime = (t) => {
+  if (!t) return "";
+  try {
+    return new Date(t).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return safeStr(t);
+  }
+};
+
+const getFieldValue = (fieldsDataArr, key, summaryData = null) => {
   const entry = fieldsDataArr.find((f) => f.key === key);
-  return entry ? entry.value : undefined;
+  let val = entry ? entry.value : undefined;
+
+  if (key === "DOA AND DOD") {
+    if (val != null && String(val).trim()) {
+      let strVal = String(val);
+      // Fix if previously saved stuck together without newline
+      if (!strVal.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(strVal)) {
+        strVal = strVal.replace(/(DOA\s*:[^D\n]*?)(DOD\s*:)/i, "$1\n$2");
+      }
+      return strVal;
+    }
+    if (summaryData) {
+      const dStr = summaryData.doa ? fmtDate(summaryData.doa) : "";
+      const tStr = fmtTime(summaryData.doaTime) || "";
+      const dodStr = summaryData.dod ? fmtDate(summaryData.dod) : "";
+      const dodTStr = fmtTime(summaryData.dodTime) || "";
+      const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+      const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+      if (doaLine || dodLine) {
+        return `${doaLine}\n${dodLine}`;
+      }
+    }
+  }
+
+  return val;
 };
 
 /* ═══════════════════════════════════════════════════════════ */
 const SummaryPrint = () => {
-  const { ipNo } = useParams();
+  const { ipNo, ip_no } = useParams();
+  const targetIpNo = ipNo || ip_no;
+  const navigate = useNavigate();
   const bodyRef = useRef(null);
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -231,14 +286,15 @@ const SummaryPrint = () => {
 
   useEffect(() => {
     (async () => {
-      const r = await apiRequest(`${HMSURL}get-printsummary/${ipNo}/`, "GET");
+      if (!targetIpNo) return;
+      const r = await apiRequest(`${HMSURL}get-printsummary/${encodeURIComponent(targetIpNo)}/`, "GET");
       if (r.success) setSummaryData(r.data);
       else {
         alert("Summary not found");
         console.error(r.error);
       }
     })();
-  }, [ipNo, HMSURL]);
+  }, [targetIpNo, HMSURL]);
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -249,33 +305,6 @@ const SummaryPrint = () => {
     document.addEventListener("click", handleOutsideClick);
     return () => document.removeEventListener("click", handleOutsideClick);
   }, []);
-
-  const safeStr = (v) => (v != null ? String(v) : "");
-  const safeUpper = (v) => (v != null ? String(v).toUpperCase() : "");
-  const fmtDate = (d) => {
-    if (!d) return "—";
-    try {
-      return new Date(d).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return safeStr(d);
-    }
-  };
-  const fmtTime = (t) => {
-    if (!t) return "";
-    try {
-      return new Date(t).toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-    } catch {
-      return safeStr(t);
-    }
-  };
 
   /* ══════════════════════════════════════════════════════════
      PDF GENERATION
@@ -1232,15 +1261,42 @@ const SummaryPrint = () => {
       ...(i % 2 === 0 ? { borderRight: "1px solid #e2e8f2" } : {}),
     });
 
+    const getDocTitle = () => {
+      const sType = safeStr(summaryData.summaryType);
+      const sHeading = safeStr(summaryData.heading);
+      if (sType && sHeading) return `${sType} - ${sHeading}`;
+      return sType || sHeading || "DISCHARGE SUMMARY";
+    };
+
     return (
       <div className="sp-shell">
         {/* ── Action bar ── */}
         <div className="sp-bar">
-          <div>
-            <div className="sp-bar-title">Discharge Summary Preview</div>
-            <div className="sp-bar-sub">
-              {safeStr(summaryData.patient)}&nbsp;&nbsp;·&nbsp;&nbsp;IP No:{" "}
-              {safeStr(summaryData.ipNo)}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <button
+              className="sp-btn sp-btn-back"
+              onClick={() => navigate(-1)}
+              title="Go Back"
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M19 12H5" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Back
+            </button>
+            <div>
+              <div className="sp-bar-title">Discharge Summary Preview</div>
+              <div className="sp-bar-sub">
+                {safeStr(summaryData.patient)}&nbsp;&nbsp;·&nbsp;&nbsp;IP No:{" "}
+                {safeStr(summaryData.ipNo)}
+              </div>
             </div>
           </div>
           {isApproved ? (
@@ -1373,7 +1429,7 @@ const SummaryPrint = () => {
             <div className="sp-outer-border">
               <img src={SummaryHead} alt="Header" className="sp-header-img" />
               <div className="sp-doc-title">
-                {safeStr(summaryData.summaryType) || "DISCHARGE SUMMARY"}
+                {getDocTitle()}
               </div>
               <div className="sp-info-grid">
                 <InfoRow label="Name" value={safeStr(summaryData.patient)} />
@@ -1416,7 +1472,7 @@ const SummaryPrint = () => {
 
               <div className="sp-body" ref={bodyRef}>
                 {SECTION_ORDER.map((key) => {
-                  const content = getFieldValue(fieldsData, key);
+                  const content = getFieldValue(fieldsData, key, summaryData);
                   const hasContent = content && String(content).trim();
                   const hasLab =
                     key === "INVESTIGATIONS" &&
@@ -1426,7 +1482,13 @@ const SummaryPrint = () => {
                     <div key={key} className="sp-section" data-block-top="true">
                       <div className="sp-section-title">{key}</div>
                       {hasContent && (
-                        <div className="sp-section-content">{content}</div>
+                        <div className="sp-section-content">
+                          {String(content)
+                            .split("\n")
+                            .map((line, idx) => (
+                              <div key={idx}>{line}</div>
+                            ))}
+                        </div>
                       )}
                       {key === "INVESTIGATIONS" && <LabReport />}
                     </div>
@@ -1494,7 +1556,7 @@ const SummaryPrint = () => {
               textDecoration: "underline",
             }}
           >
-            {safeStr(summaryData.summaryType) || "DISCHARGE SUMMARY"}
+            {getDocTitle()}
           </div>
           <div
             style={{
