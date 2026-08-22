@@ -47,6 +47,13 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 // Investigation Reports
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
+import MHCList from "./Components/MHC/MHCList";
+import MHCReportForm from "./Components/MHC/MHCReportForm";
+import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
+import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
+import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
@@ -354,6 +361,12 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/MHCList": "MHC Reports",
+      "/Masterhealthcheck": "Master Health Check",
+      "/MasterHealthcheckupReport": "MHC Report",
+      "/MasterHealthcheckupDashboard": "MHC Dashboard",
+      "/Masterhealthcheckupfollowup": "MHC Follow-up",
+      "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
@@ -403,6 +416,8 @@ function App() {
       document.title = "Print Summary - Shanmuga Hospital";
     } else if (path.startsWith("/RDReportForm/")) {
       document.title = "RD Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/MHCReportForm/")) {
+      document.title = "MHC Report Form - Shanmuga Hospital";
     } else {
       const title = routeTitles[path] || "Shanmuga Hospital Management System";
       document.title = `${title} - Shanmuga Hospital`;
@@ -1100,7 +1115,52 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
-
+              {/* MHC Reports */}
+              {hasPagePermission(
+                "/MHCList",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <>
+                    <Route path="/MHCList" element={<MHCList />} />
+                    <Route
+                      path="/MHCReportForm/:package_id/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm/:uhid/:subUhid"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/mhc/report/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/Masterhealthcheck"
+                      element={<Masterhealthcheck />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupReport"
+                      element={<MasterHealthcheckupReport />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupDashboard"
+                      element={<MasterHealthcheckupDashboard />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowup"
+                      element={<Masterhealthcheckupfollowup />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowupreport"
+                      element={<Masterhealthcheckupfollowupreport />}
+                    />
+                  </>
+                )}
               {/* Packages */}
               {hasPagePermission(
                 "/Package",
@@ -1639,22 +1699,22 @@ function App() {
                   <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
                 )}
 
-          {hasPagePermission(
+              {hasPagePermission(
                 "/DealerItems",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/DealerItems" element={<DealerItems />} />
-              )}
+                  <Route path="/DealerItems" element={<DealerItems />} />
+                )}
 
 
-               {hasPagePermission(
+              {hasPagePermission(
                 "/RaiseIndentPage",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
-              )}
+                  <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+                )}
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
