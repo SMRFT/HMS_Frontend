@@ -258,6 +258,20 @@ const ScanTypeBadge = styled.span`
   }}
 `;
 
+const PatientTypeBadge = styled.span`
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  ${(p) =>
+    p.type === "IP"
+      ? `background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;`
+      : `background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;`}
+`;
+
+
 const EmptyState = styled.div`
   text-align: center;
   padding: 3rem 2rem;
@@ -876,6 +890,187 @@ const printTATHTML = (rows, fromDate, toDate, billTypeLabel, filterLabel) => {
   w.print();
 };
 
+// ─── Patient List Print (A4 Landscape) ───────────────────────────────────────
+
+const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
+  const fmtDate = (dt) => {
+    if (!dt) return "—";
+    try {
+      const s = String(dt);
+      const d =
+        s.includes("+") || s.endsWith("Z") ? new Date(s) : new Date(s + "Z");
+      return d.toLocaleDateString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return dt;
+    }
+  };
+
+  const now = new Date().toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html>
+    <head>
+      <title>Patient List - ${billTypeLabel}</title>
+      <style>
+        @page { size: A4 landscape; margin: 10mm 12mm 12mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #111; }
+
+        .rpt-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          border-bottom: 3px solid #00695c;
+          padding-bottom: 7px;
+          margin-bottom: 10px;
+        }
+        .rpt-header h2 { font-size: 18px; font-weight: 700; color: #00695c; margin-bottom: 3px; }
+        .rpt-header p  { font-size: 12px; color: #444; }
+        .rpt-right     { text-align: right; font-size: 11.5px; color: #555; line-height: 1.6; }
+        .rpt-right strong { display: block; font-size: 13px; font-weight: 700; color: #222; }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th {
+          background: #00695c;
+          color: #fff;
+          font-size: 10.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.4px;
+          padding: 8px 6px;
+          border: 1px solid #004d40;
+          text-align: left;
+          vertical-align: middle;
+        }
+        td {
+          padding: 7px 6px;
+          border: 1px solid #b2dfdb;
+          vertical-align: middle;
+          font-size: 11.5px;
+          line-height: 1.45;
+          word-wrap: break-word;
+        }
+        tr:nth-child(even) td { background: #f0faf8; }
+        tr:nth-child(odd)  td { background: #fff; }
+
+        .sl        { font-weight: 700; color: #555; text-align: center; }
+        .bill-dt   { font-weight: 600; color: #333; }
+        .bill-no   { font-weight: 700; color: #00695c; }
+        .p-name    { font-weight: 700; font-size: 12.5px; color: #0f172a; display: block; }
+        .p-meta    { font-size: 11px; color: #475569; display: block; margin-top: 1px; }
+        .p-addr    { font-size: 10.5px; color: #334155; margin-top: 3px; line-height: 1.35; display: block; }
+        .p-uhid    { font-size: 10.5px; color: #64748b; font-weight: 600; }
+        
+        .badge {
+          display: inline-block; padding: 2px 6px; border-radius: 4px;
+          font-size: 10.5px; font-weight: 700; white-space: nowrap;
+        }
+        .b-ip   { background:#fee2e2; color:#b91c1c; border: 1px solid #fca5a5; }
+        .b-op   { background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd; }
+        .b-scan { background:#ede7f6; color:#4a148c; font-size: 10px; margin-top: 2px; }
+
+        .rpt-footer {
+          margin-top: 10px; border-top: 1.5px solid #b2dfdb; padding-top: 6px;
+          display: flex; justify-content: space-between; align-items: center;
+          font-size: 11px; color: #777;
+        }
+
+        @media print {
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .rpt-header { border-bottom: 2px solid #000 !important; }
+          .rpt-header h2 { font-size: 16px !important; }
+          th { background: #00695c !important; color: #fff !important; font-size: 10px !important; }
+          td { font-size: 11px !important; }
+          tr { page-break-inside: avoid; }
+          thead { display: table-header-group; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="rpt-header">
+        <div>
+          <h2>Patient List - ${billTypeLabel}</h2>
+          <p>Date: ${fromDate} to ${toDate} &nbsp;|&nbsp; Type: ${billTypeLabel} &nbsp;|&nbsp; Total Patients: ${rows.length}</p>
+        </div>
+        <div class="rpt-right">
+          <strong>Printed: ${now}</strong>
+          <span>Radiology Department</span>
+        </div>
+      </div>
+
+      <table>
+        <colgroup>
+          <col style="width:4%">
+          <col style="width:10%">
+          <col style="width:12%">
+          <col style="width:40%">
+          <col style="width:12%">
+          <col style="width:22%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th style="text-align:center;">Sl.No</th>
+            <th>Bill Date</th>
+            <th>Bill No</th>
+            <th>Patient Details with Address</th>
+            <th style="text-align:center;">Patient Type</th>
+            <th>Item / Scan Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map((r, i) => {
+              const isIP = Boolean(r.ipNumber && String(r.ipNumber).trim() !== "");
+              const pTypeBadge = isIP
+                ? `<span class="badge b-ip">IP ${r.ipNumber ? `(${r.ipNumber})` : ""}</span>`
+                : `<span class="badge b-op">OP</span>`;
+
+              return `
+                <tr>
+                  <td class="sl">${i + 1}</td>
+                  <td class="bill-dt">${fmtDate(r.investBillDate)}</td>
+                  <td class="bill-no">${r.investBillNo || "—"}</td>
+                  <td>
+                    <span class="p-name">${r.patientName || "—"}</span>
+                    <span class="p-meta">
+                      ${[r.age ? `${r.age}${r.age_type ? ` ${r.age_type}` : ' Yrs'}` : null, r.gender].filter(Boolean).join(" / ") || "—"}
+                      ${r.uhid ? ` &bull; <span class="p-uhid">UHID: ${r.uhid}</span>` : ""}
+                    </span>
+                    ${r.address ? `<span class="p-addr"><strong>📍 Address:</strong> ${r.address}</span>` : ""}
+                  </td>
+                  <td style="text-align:center;">${pTypeBadge}</td>
+                  <td>
+                    <div style="font-weight:700; color:#111;">${r.itemName || "—"}</div>
+                    ${r.scan_type ? `<span class="badge b-scan">${r.scan_type}</span>` : ""}
+                  </td>
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+
+      <div class="rpt-footer">
+        <div>Total Records: ${rows.length}</div>
+        <div>Generated by Radiology System</div>
+      </div>
+    </body>
+    </html>
+  `);
+  w.document.close();
+  w.print();
+};
+
 // ─── Radiology Report Print (A4 Portrait) ────────────────────────────────────
 
 const printRadiologyReportHTML = (row) => {
@@ -1411,6 +1606,17 @@ const RDPrint = () => {
                 🖨️ Print TAT
               </Btn>
             )}
+            {tab === "patient_list" && (
+              <Btn
+                bg="linear-gradient(135deg,#ff7043,#e64a19)"
+                color="white"
+                onClick={() =>
+                  printPatientListHTML(rows, fromDate, toDate, billTypeLabel)
+                }
+              >
+                🖨️ Print Patient List
+              </Btn>
+            )}
             <Btn
               bg="linear-gradient(135deg,#757575,#616161)"
               color="white"
@@ -1438,7 +1644,14 @@ const RDPrint = () => {
           <Tab active={tab === "tat"} onClick={() => setTab("tat")}>
             ⏱ TAT
           </Tab>
+          <Tab
+            active={tab === "patient_list"}
+            onClick={() => setTab("patient_list")}
+          >
+            📋 Patient List
+          </Tab>
         </TabRow>
+
 
         {/* ── COUNT TAB ──────────────────────────────────────────────────── */}
         {tab === "count" && (
@@ -1795,9 +2008,144 @@ const RDPrint = () => {
             </TableWrapper>
           </>
         )}
+
+        {/* ── PATIENT LIST TAB ────────────────────────────────────────────── */}
+        {tab === "patient_list" && (
+          <TableWrapper>
+            <PrintTable>
+              <thead>
+                <tr>
+                  <PTh style={{ width: "4%", textAlign: "center" }}>Sl.No</PTh>
+                  <PTh style={{ width: "10%" }}>Bill Date</PTh>
+                  <PTh style={{ width: "12%" }}>Bill No</PTh>
+                  <PTh style={{ width: "40%" }}>Patient Details with Address</PTh>
+                  <PTh style={{ width: "12%", textAlign: "center" }}>
+                    Patient Type (IP or OP)
+                  </PTh>
+                  <PTh style={{ width: "22%" }}>Item / Scan Type</PTh>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length > 0 ? (
+                  rows.map((r, i) => {
+                    const isIP = Boolean(
+                      r.ipNumber && String(r.ipNumber).trim() !== ""
+                    );
+                    const pType = isIP ? "IP" : (r.patientType || "OP");
+
+                    return (
+                      <tr key={`${r.investBillNo}-${r.item_id}-${i}`}>
+                        <PTd
+                          alt={i % 2 === 1}
+                          style={{
+                            textAlign: "center",
+                            fontWeight: 700,
+                            color: "#666",
+                          }}
+                        >
+                          {i + 1}
+                        </PTd>
+                        <PTd alt={i % 2 === 1} style={{ fontWeight: 600 }}>
+                          {formatDateOnly(r.investBillDate)}
+                        </PTd>
+                        <PTd
+                          alt={i % 2 === 1}
+                          style={{ fontWeight: 700, color: "#00695c" }}
+                        >
+                          {r.investBillNo || "—"}
+                        </PTd>
+                        <PTd alt={i % 2 === 1}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "2px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                fontSize: "0.85rem",
+                                color: "#0f172a",
+                              }}
+                            >
+                              {r.patientName || "—"}
+                            </div>
+                            <div style={{ fontSize: "0.72rem", color: "#666" }}>
+                              {[
+                                r.age
+                                  ? `${r.age}${r.age_type ? ` ${r.age_type}` : " Yrs"}`
+                                  : null,
+                                r.gender,
+                              ]
+                                .filter(Boolean)
+                                .join(" / ") || "—"}
+                              {r.uhid && (
+                                <span
+                                  style={{ marginLeft: "6px", color: "#888" }}
+                                >
+                                  • UHID: {r.uhid}
+                                </span>
+                              )}
+                            </div>
+                            {r.address && (
+                              <div
+                                style={{
+                                  fontSize: "0.72rem",
+                                  color: "#475569",
+                                  marginTop: "2px",
+                                  lineHeight: "1.35",
+                                }}
+                              >
+                                <strong>📍 Address:</strong> {r.address}
+                              </div>
+                            )}
+                          </div>
+                        </PTd>
+                        <PTd alt={i % 2 === 1} style={{ textAlign: "center" }}>
+                          <PatientTypeBadge type={pType}>
+                            {pType === "IP"
+                              ? `IP ${r.ipNumber ? `(${r.ipNumber})` : ""}`
+                              : "OP"}
+                          </PatientTypeBadge>
+                        </PTd>
+                        <PTd alt={i % 2 === 1}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              color: "#111",
+                              fontSize: "0.82rem",
+                            }}
+                          >
+                            {r.itemName || "—"}
+                          </div>
+                          {r.scan_type && (
+                            <ScanTypeBadge
+                              type={r.scan_type}
+                              style={{ marginLeft: 0, marginTop: "3px" }}
+                            >
+                              {r.scan_type}
+                            </ScanTypeBadge>
+                          )}
+                        </PTd>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={6}>
+                      <EmptyState>No patient records to display</EmptyState>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </PrintTable>
+          </TableWrapper>
+        )}
       </ContentCard>
     </PageWrapper>
   );
 };
+
 
 export default RDPrint;

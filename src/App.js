@@ -49,6 +49,11 @@ import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
+import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
+import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
+import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
@@ -69,10 +74,12 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
+import MRDTracking from "./Components/MRD/MRDTracking";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 import Internship from "./Components/HR/Internship";
 import InternshipDashboard from "./Components/HR/InternshipDashboard";
+
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -1722,6 +1729,14 @@ function App() {
                 dynamicPermissions,
               ) && (
                   <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+                )}
+
+              {hasPagePermission(
+                "/MRDTracking",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/MRDTracking" element={<MRDTracking />} />
                 )}
 
 

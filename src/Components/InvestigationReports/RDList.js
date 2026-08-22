@@ -3418,6 +3418,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age: row.age,
         age_type: row.age_type,
         gender: row.gender,
+        address: row.address || "",
+        patientType: row.ipNumber ? "IP" : (row.patientType || row.customerType || "OP"),
         referredBy: row.referredBy || "",
         referredByName: row.referredByName || "",
         report: row.report || null,
