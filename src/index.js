@@ -19,7 +19,7 @@ function setforlocaldev() {
   if (dev_token && dev_token.trim() !== "") {
     const selectedBranch = "SHB001";
     localStorage.setItem("selected_branch", selectedBranch);
-    const selectedOutlet = "OLET002";
+    const selectedOutlet = "OLET005";
     localStorage.setItem("selected_outlet", selectedOutlet);
   }
   return dev_token;
