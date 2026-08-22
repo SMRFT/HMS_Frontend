@@ -926,202 +926,12 @@ const MHCList = () => {
         return "";
       };
 
-      // ── 1. Vitals Check HTML (Matching Image 1 & MHCReportForm.js) ──
-      // ── 1. Vitals Check HTML (Dynamic from response format) ──
-      const vitalsItems = fmtData["vitals_check"] || [];
-      let vitalsHtml = "";
-      if (vitalsItems.length > 0) {
-        const vitalsRows = [];
-        for (let i = 0; i < vitalsItems.length; i += 2) {
-          const item1 = vitalsItems[i];
-          const item2 = vitalsItems[i + 1] || null;
-
-          const cell1 = `
-            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-size: 11px;">${item1.test_name}</td>
-            <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 11px;">${getVal("vitals_check", item1.test_code) || "-"}</td>
-          `;
-
-          const cell2 = item2
-            ? `
-            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-size: 11px;">${item2.test_name}</td>
-            <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 11px;">${getVal("vitals_check", item2.test_code) || "-"}</td>
-          `
-            : `
-            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
-            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
-          `;
-
-          vitalsRows.push(`<tr>${cell1}${cell2}</tr>`);
-        }
-
-        vitalsHtml = `
-          <div style="margin-bottom: 12px;">
-            <div class="sec-title">1. Vitals Check</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
-              <tbody>
-                ${vitalsRows.join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      // ── 2. Previous Medical History HTML (Dynamic from response format) ──
-      const prevItems = fmtData["previous_medical_history"] || [];
-      let prevHistoryHtml = "";
-      if (prevItems.length > 0) {
-        const historySections = [];
-
-        prevItems.forEach((item) => {
-          const hasParams = Array.isArray(item.parameter) && item.parameter.length > 0;
-          const hasOptions = Array.isArray(item.value_options) && item.value_options.length > 0;
-
-          if (hasParams) {
-            // Multi-parameter sub-table
-            historySections.push(`
-              <div style="margin-top: 6px; margin-bottom: 6px;">
-                <div style="font-size: 11px; font-weight: 700; color: #1e3a8a; margin-bottom: 3px;">${item.test_name}:</div>
-                <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
-                  <thead>
-                    <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                      ${item.parameter
-                        .map(
-                          (p) =>
-                            `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 5px 8px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1; font-size: 10.5px;">${p.pm_name}</th>`,
-                        )
-                        .join("")}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      ${item.parameter
-                        .map(
-                          (p) =>
-                            `<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff; font-size: 10.5px;">${getVal("previous_medical_history", item.test_code, p.pm_code) || "-"}</td>`,
-                        )
-                        .join("")}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            `);
-          } else if (hasOptions) {
-            // Options checklist / badges
-            const rawVal = getVal("previous_medical_history", item.test_code);
-            const selectedOpts = Array.isArray(rawVal) ? rawVal : rawVal ? [rawVal] : [];
-            if (selectedOpts.length > 0) {
-              historySections.push(`
-                <div style="margin-bottom: 6px;">
-                  <div style="font-size: 11px; font-weight: 700; color: #1e3a8a; margin-bottom: 3px;">${item.test_name}:</div>
-                  <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                    ${selectedOpts
-                      .map(
-                        (c) =>
-                          `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 2px 8px; border-radius: 12px; font-size: 10.5px; font-weight: 700;">✓ ${c}</span>`,
-                      )
-                      .join("")}
-                  </div>
-                </div>
-              `);
-            }
-          } else {
-            // Plain text row
-            const val = getVal("previous_medical_history", item.test_code);
-            historySections.push(`
-              <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1; margin-bottom: 4px;">
-                <tbody>
-                  <tr>
-                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 35%;">${item.test_name}</td>
-                    <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 65%;">${val || "-"}</td>
-                  </tr>
-                </tbody>
-              </table>
-            `);
-          }
-        });
-
-        prevHistoryHtml = `
-          <div style="margin-bottom: 12px;">
-            <div class="sec-title">2. Previous Medical History</div>
-            ${historySections.join("")}
-          </div>
-        `;
-      }
-
-      // ── 3. Physical Examination HTML (Matching Image 3 & MHCReportForm.js) ──
-      const physItems = fmtData["physical_examination"] || [];
-      let physHtml = "";
-      if (physItems.length > 0) {
-        const physRows = physItems
-          .map(
-            (it) => `
-            <tr>
-              <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 30%;">${it.test_name}</td>
-              <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 70%;">${getVal("physical_examination", it.test_code) || "-"}</td>
-            </tr>
-          `,
-          )
-          .join("");
-
-        physHtml = `
-          <div style="margin-bottom: 16px;">
-            <div class="sec-title">3. Physical Examination</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1px solid #cbd5e1;">
-              <thead>
-                <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 6px 8px; text-align: left; font-size: 11.5px; border: 1px solid #cbd5e1; width: 30%;">System / Category</th>
-                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 6px 8px; text-align: left; font-size: 11.5px; border: 1px solid #cbd5e1; width: 70%;">Clinical Findings / Assessment</th>
-                </tr>
-              </thead>
-              <tbody>${physRows}</tbody>
-            </table>
-          </div>
-        `;
-      }
-
-      // ── 4. Vaccination Status HTML (Matching MHCReportForm.js) ──
-      const vaccineItems = fmtData["vaccination_status"] || [];
-      let vaccineHtml = "";
-      if (vaccineItems.length > 0) {
-        const vacRows = vaccineItems
-          .map((vGroup) =>
-            (vGroup.parameter || [])
-              .map(
-                (vac) => `
-                <tr>
-                  <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 5px 8px; border: 1px solid #cbd5e1; width: 40%;">${vac.pm_name}</td>
-                  <td style="background: #ffffff; color: #0f172a; padding: 5px 8px; border: 1px solid #cbd5e1; width: 60%;">${getVal("vaccination_status", vGroup.test_code, vac.pm_code) || "-"}</td>
-                </tr>
-              `,
-              )
-              .join(""),
-          )
-          .join("");
-
-        if (vacRows) {
-          vaccineHtml = `
-            <div style="margin-bottom: 16px;">
-              <div class="sec-title">4. Vaccination History</div>
-              <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; border: 1px solid #cbd5e1;">
-                <thead>
-                  <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 6px 8px; text-align: left; font-size: 11.5px; border: 1px solid #cbd5e1; width: 40%;">Vaccine</th>
-                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 6px 8px; text-align: left; font-size: 11.5px; border: 1px solid #cbd5e1; width: 60%;">Doses & Date / Status</th>
-                  </tr>
-                </thead>
-                <tbody>${vacRows}</tbody>
-              </table>
-            </div>
-          `;
-        }
-      }
-
       // ── Build Fine-Grained Atomic Flow Blocks for 100% Continuous Natural Pagination ──
       const flowBlocks = [];
 
       // 1. Demographics Grid (Top of Page 1)
       flowBlocks.push(`
-        <div class="flow-item" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px 10px; background: #f0fdfa; border: 1.5px solid #99f6e4; border-top: 1px dashed #99f6e4; border-radius: 0 0 6px 6px; padding: 4px 8px; font-size: 10px; margin-top: -3px; margin-bottom: 8px;">
+        <div class="flow-item" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px 10px; background: #f0fdfa; border: 1.5px solid #99f6e4; border-top: 1px dashed #99f6e4; border-radius: 0 0 6px 6px; padding: 4px 8px; font-size: 9.5px; margin-top: -3px; margin-bottom: 6px;">
           <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; display:block;">Bill No</span><strong style="color: #0f172a;">${row.investBillNo || "N/A"}</strong></div>
           <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; display:block;">Bill Date</span><strong style="color: #0f172a;">${row.investBillDate || "N/A"}</strong></div>
           <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; display:block;">Package</span><strong style="color: #0f172a;">${row.packageName || `Package #${row.package_id || ""}`}</strong></div>
@@ -1132,33 +942,134 @@ const MHCList = () => {
       `);
 
       // 2. Vitals Check
-      if (vitalsHtml) {
+      const vitalsItems = fmtData["vitals_check"] || [];
+      if (vitalsItems.length > 0) {
+        const vitalsRows = [];
+        for (let i = 0; i < vitalsItems.length; i += 2) {
+          const item1 = vitalsItems[i];
+          const item2 = vitalsItems[i + 1] || null;
+
+          const cell1 = `
+            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 4px 6px; border: 1px solid #cbd5e1; width: 25%; font-size: 10px;">${item1.test_name}</td>
+            <td style="background: #ffffff; color: #0f172a; padding: 4px 6px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 10px;">${getVal("vitals_check", item1.test_code) || "-"}</td>
+          `;
+
+          const cell2 = item2
+            ? `
+            <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 4px 6px; border: 1px solid #cbd5e1; width: 25%; font-size: 10px;">${item2.test_name}</td>
+            <td style="background: #ffffff; color: #0f172a; padding: 4px 6px; border: 1px solid #cbd5e1; width: 25%; font-weight: 600; font-size: 10px;">${getVal("vitals_check", item2.test_code) || "-"}</td>
+          `
+            : `
+            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
+            <td style="background: #f8fafc; border: 1px solid #cbd5e1; width: 25%;"></td>
+          `;
+
+          vitalsRows.push(`<tr>${cell1}${cell2}</tr>`);
+        }
+
         flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 8px;">
-            ${vitalsHtml}
+          <div class="flow-item" style="margin-bottom: 6px;">
+            <div class="sec-title">1. Vitals Check</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
+              <tbody>
+                ${vitalsRows.join("")}
+              </tbody>
+            </table>
           </div>
         `);
       }
 
-      // 3. Previous Medical History
-      if (prevHistoryHtml) {
-        flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 8px;">
-            ${prevHistoryHtml}
-          </div>
-        `);
+      // 3. Previous Medical History (Granular item-level emission)
+      const prevItems = fmtData["previous_medical_history"] || [];
+      if (prevItems.length > 0) {
+        prevItems.forEach((item, idx) => {
+          const hasParams = Array.isArray(item.parameter) && item.parameter.length > 0;
+          const hasOptions = Array.isArray(item.value_options) && item.value_options.length > 0;
+          let itemContent = "";
+
+          if (hasParams) {
+            itemContent = `
+              <div style="margin-bottom: 2px;">
+                <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-bottom: 2px;">${item.test_name}:</div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
+                  <thead>
+                    <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
+                      ${item.parameter
+                        .map(
+                          (p) =>
+                            `<th style="background-color: #1e3a8a !important; color: #ffffff !important; padding: 4px 6px; text-align: center; font-weight: 800; border: 1px solid #cbd5e1; font-size: 9.5px;">${p.pm_name}</th>`,
+                        )
+                        .join("")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      ${item.parameter
+                        .map(
+                          (p) =>
+                            `<td style="padding: 4px 6px; text-align: center; font-weight: 700; color: #0f172a; border: 1px solid #cbd5e1; background: #ffffff; font-size: 9.5px;">${getVal("previous_medical_history", item.test_code, p.pm_code) || "-"}</td>`,
+                        )
+                        .join("")}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            `;
+          } else if (hasOptions) {
+            const rawVal = getVal("previous_medical_history", item.test_code);
+            const selectedOpts = Array.isArray(rawVal) ? rawVal : rawVal ? [rawVal] : [];
+            if (selectedOpts.length > 0) {
+              itemContent = `
+                <div style="margin-bottom: 3px;">
+                  <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin-bottom: 2px;">${item.test_name}:</div>
+                  <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    ${selectedOpts
+                      .map(
+                        (c) =>
+                          `<span style="background: #f0fdfa; border: 1px solid #0d9488; color: #0f766e; padding: 1px 6px; border-radius: 10px; font-size: 9.5px; font-weight: 700;">✓ ${c}</span>`,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `;
+            }
+          } else {
+            const val = getVal("previous_medical_history", item.test_code);
+            itemContent = `
+              <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1; margin-bottom: 3px;">
+                <tbody>
+                  <tr>
+                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 4px 6px; border: 1px solid #cbd5e1; width: 35%; font-size: 10px;">${item.test_name}</td>
+                    <td style="background: #ffffff; color: #0f172a; padding: 4px 6px; border: 1px solid #cbd5e1; width: 65%; font-size: 10px;">${val || "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+            `;
+          }
+
+          if (itemContent) {
+            const titlePrefix = idx === 0 ? `<div class="sec-title">2. Previous Medical History</div>` : "";
+            flowBlocks.push(`
+              <div class="flow-item" style="margin-bottom: 4px;">
+                ${titlePrefix}
+                ${itemContent}
+              </div>
+            `);
+          }
+        });
       }
 
       // 4. Physical Examination
+      const physItems = fmtData["physical_examination"] || [];
       if (physItems.length > 0) {
         flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 8px;">
+          <div class="flow-item" style="margin-bottom: 6px;">
             <div class="sec-title">3. Physical Examination</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
               <thead>
                 <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 8px; text-align: left; font-size: 10.5px; border: 1px solid #cbd5e1; width: 30%;">System / Category</th>
-                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 8px; text-align: left; font-size: 10.5px; border: 1px solid #cbd5e1; width: 70%;">Clinical Findings / Assessment</th>
+                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 6px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 30%;">System / Category</th>
+                  <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 6px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 70%;">Clinical Findings / Assessment</th>
                 </tr>
               </thead>
               <tbody>
@@ -1166,8 +1077,8 @@ const MHCList = () => {
                   .map(
                     (it) => `
                   <tr>
-                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 4px 8px; border: 1px solid #cbd5e1; width: 30%; font-size: 10.5px;">${it.test_name}</td>
-                    <td style="background: #ffffff; color: #0f172a; padding: 4px 8px; border: 1px solid #cbd5e1; width: 70%; font-size: 10.5px;">${getVal("physical_examination", it.test_code) || "-"}</td>
+                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 30%; font-size: 10px;">${it.test_name}</td>
+                    <td style="background: #ffffff; color: #0f172a; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 70%; font-size: 10px;">${getVal("physical_examination", it.test_code) || "-"}</td>
                   </tr>
                 `,
                   )
@@ -1179,6 +1090,7 @@ const MHCList = () => {
       }
 
       // 5. Vaccination Status
+      const vaccineItems = fmtData["vaccination_status"] || [];
       if (vaccineItems.length > 0) {
         const vacRows = vaccineItems
           .map((vGroup) =>
@@ -1186,8 +1098,8 @@ const MHCList = () => {
               .map(
                 (vac) => `
                 <tr>
-                  <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 4px 8px; border: 1px solid #cbd5e1; width: 40%; font-size: 10.5px;">${vac.pm_name}</td>
-                  <td style="background: #ffffff; color: #0f172a; padding: 4px 8px; border: 1px solid #cbd5e1; width: 60%; font-size: 10.5px;">${getVal("vaccination_status", vGroup.test_code, vac.pm_code) || "-"}</td>
+                  <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 40%; font-size: 10px;">${vac.pm_name}</td>
+                  <td style="background: #ffffff; color: #0f172a; padding: 3.5px 6px; border: 1px solid #cbd5e1; width: 60%; font-size: 10px;">${getVal("vaccination_status", vGroup.test_code, vac.pm_code) || "-"}</td>
                 </tr>
               `,
               )
@@ -1197,13 +1109,13 @@ const MHCList = () => {
 
         if (vacRows) {
           flowBlocks.push(`
-            <div class="flow-item" style="margin-bottom: 8px;">
+            <div class="flow-item" style="margin-bottom: 6px;">
               <div class="sec-title">4. Vaccination History</div>
-              <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #cbd5e1;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
                 <thead>
                   <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 8px; text-align: left; font-size: 10.5px; border: 1px solid #cbd5e1; width: 40%;">Vaccine</th>
-                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 8px; text-align: left; font-size: 10.5px; border: 1px solid #cbd5e1; width: 60%;">Doses & Date / Status</th>
+                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 6px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 40%;">Vaccine</th>
+                    <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 4px 6px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 60%;">Doses & Date / Status</th>
                   </tr>
                 </thead>
                 <tbody>${vacRows}</tbody>
@@ -1216,16 +1128,17 @@ const MHCList = () => {
       // 6. Investigations
       const investItems = fmtData["investigations"] || [];
       if (investItems.length > 0) {
-        flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 4px;">
+        investItems.forEach((inv, idx) => {
+          const titlePrefix =
+            idx === 0
+              ? `
             <div class="sec-title">5. Investigations</div>
-            <div style="font-size: 9.5px; color: #475569; font-style: italic; margin-top: 1px; margin-bottom: 5px; line-height: 1.4;">
+            <div style="font-size: 9px; color: #475569; font-style: italic; margin-top: 1px; margin-bottom: 4px; line-height: 1.3;">
               Laboratory panel to be attached separately as lab report. Special investigations below to be recorded here.
             </div>
-          </div>
-        `);
+          `
+              : "";
 
-        investItems.forEach((inv, idx) => {
           if (Array.isArray(inv.parameter) && inv.parameter.length > 0) {
             const rows = inv.parameter
               .map((p) => {
@@ -1234,25 +1147,26 @@ const MHCList = () => {
                 const isAbnormal = res === "Abnormal";
                 return `
                   <tr>
-                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 8px; border: 1px solid #cbd5e1; width: 40%; font-size: 10.5px;">${p.pm_name}</td>
-                    <td style="background: #ffffff; color: #0f172a; padding: 3px 8px; border: 1px solid #cbd5e1; width: 35%; font-size: 10.5px;">${val || "-"}</td>
-                    <td style="background: #ffffff; padding: 3px 8px; border: 1px solid #cbd5e1; width: 25%; font-size: 10.5px; font-weight: 700; color: ${isAbnormal ? "#dc2626" : "#0d9488"};">${res || "-"}</td>
+                    <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 6px; border: 1px solid #cbd5e1; width: 40%; font-size: 10px;">${p.pm_name}</td>
+                    <td style="background: #ffffff; color: #0f172a; padding: 3px 6px; border: 1px solid #cbd5e1; width: 35%; font-size: 10px;">${val || "-"}</td>
+                    <td style="background: #ffffff; padding: 3px 6px; border: 1px solid #cbd5e1; width: 25%; font-size: 10px; font-weight: 700; color: ${isAbnormal ? "#dc2626" : "#0d9488"};">${res || "-"}</td>
                   </tr>
                 `;
               })
               .join("");
 
             flowBlocks.push(`
-              <div class="flow-item" style="margin-bottom: 6px;">
-                <div style="font-size: 11px; font-weight: 700; color: #1e3a8a; background: #eff6ff; padding: 2px 8px; border-left: 3px solid #3b82f6; margin-bottom: 2px;">
+              <div class="flow-item" style="margin-bottom: 5px;">
+                ${titlePrefix}
+                <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; background: #eff6ff; padding: 2px 6px; border-left: 3px solid #3b82f6; margin-bottom: 2px;">
                   5.${idx + 1} ${inv.test_name}
                 </div>
-                <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
                   <thead>
                     <tr style="background-color: #1e3a8a !important; color: #ffffff !important;">
-                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 40%;">Parameter</th>
-                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 35%;">Finding / Value</th>
-                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 8px; text-align: left; font-size: 10px; border: 1px solid #cbd5e1; width: 25%;">Normal / Abnormal</th>
+                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 6px; text-align: left; font-size: 9.5px; border: 1px solid #cbd5e1; width: 40%;">Parameter</th>
+                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 6px; text-align: left; font-size: 9.5px; border: 1px solid #cbd5e1; width: 35%;">Finding / Value</th>
+                      <th style="background-color: #1e3a8a !important; color: #ffffff !important; font-weight: 800; padding: 3px 6px; text-align: left; font-size: 9.5px; border: 1px solid #cbd5e1; width: 25%;">Normal / Abnormal</th>
                     </tr>
                   </thead>
                   <tbody>${rows}</tbody>
@@ -1262,7 +1176,8 @@ const MHCList = () => {
           } else {
             const val = getVal("investigations", inv.test_code);
             flowBlocks.push(`
-              <div class="flow-item" style="margin-bottom: 4px; font-size: 10.5px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 8px; background: #f8fafc;">
+              <div class="flow-item" style="margin-bottom: 4px; font-size: 10px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 3px 6px; background: #f8fafc;">
+                ${titlePrefix}
                 <strong style="color: #1e3a8a;">5.${idx + 1} ${inv.test_name}:</strong> <span style="color: #0f172a; margin-left: 6px;">${val || "-"}</span>
               </div>
             `);
@@ -1270,17 +1185,12 @@ const MHCList = () => {
         });
       }
 
-      // 7. Summary of Review & Recommendations (Individual Atomic Units)
+      // 7. Summary of Review & Recommendations
       const reviewItems = fmtData["summary_of_review"] || [];
       const procedureItems = fmtData["procedure_or_suregery_advised"] || [];
+      const pediatricItems = fmtData["pediatric_master_health_check-up"] || [];
       const consultItems = fmtData["consultant_opinion"] || [];
       const dueSec = valuedetails["next_master_health_check-up_due"] || [];
-
-      flowBlocks.push(`
-        <div class="flow-item" style="margin-top: 4px; margin-bottom: 2px;">
-          <div class="sec-title">6. Summary of Review & Recommendations</div>
-        </div>
-      `);
 
       if (reviewItems.length > 0) {
         const rows = reviewItems
@@ -1288,8 +1198,8 @@ const MHCList = () => {
             const v = getVal("summary_of_review", it.test_code);
             return `
               <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 30%; font-size: 10.5px;">${it.test_name}</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 70%; font-size: 10.5px;">${v || "-"}</td>
+                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 6px; border: 1px solid #cbd5e1; width: 30%; font-size: 10px;">${it.test_name}</td>
+                <td style="background: #ffffff; color: #0f172a; padding: 3px 6px; border: 1px solid #cbd5e1; width: 70%; font-size: 10px;">${v || "-"}</td>
               </tr>
             `;
           })
@@ -1297,7 +1207,8 @@ const MHCList = () => {
 
         flowBlocks.push(`
           <div class="flow-item" style="margin-bottom: 4px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+            <div class="sec-title">6. Summary of Review & Recommendations</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
               <tbody>${rows}</tbody>
             </table>
           </div>
@@ -1310,8 +1221,8 @@ const MHCList = () => {
             const v = getVal("procedure_or_suregery_advised", it.test_code);
             return `
               <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 35%; font-size: 10.5px;">${it.test_name}</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 65%; font-size: 10.5px;">${v || "-"}</td>
+                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 6px; border: 1px solid #cbd5e1; width: 35%; font-size: 10px;">${it.test_name}</td>
+                <td style="background: #ffffff; color: #0f172a; padding: 3px 6px; border: 1px solid #cbd5e1; width: 65%; font-size: 10px;">${v || "-"}</td>
               </tr>
             `;
           })
@@ -1319,32 +1230,8 @@ const MHCList = () => {
 
         flowBlocks.push(`
           <div class="flow-item" style="margin-bottom: 4px;">
-            <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin: 3px 0 2px;">Procedure / Surgery Advised</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        `);
-      }
-
-      const pediatricItems = fmtData["pediatric_master_health_check-up"] || [];
-      if (pediatricItems.length > 0) {
-        const rows = pediatricItems
-          .map((it) => {
-            const v = getVal("pediatric_master_health_check-up", it.test_code);
-            return `
-              <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 35%; font-size: 10.5px;">${it.test_name}</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 65%; font-size: 10.5px;">${v || "-"}</td>
-              </tr>
-            `;
-          })
-          .join("");
-
-        flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 4px;">
-            <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin: 3px 0 2px;">Pediatric Master Health Check-up</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+            <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin: 2px 0;">Procedure / Surgery Advised</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
               <tbody>${rows}</tbody>
             </table>
           </div>
@@ -1356,21 +1243,23 @@ const MHCList = () => {
       const dueVal = dueItem?.value || (dueSec["NMHCD01"] || "");
       const dateVal = dateItem?.value || (dueSec["NMHCD02"] || "");
 
-      flowBlocks.push(`
-        <div class="flow-item" style="margin: 4px 0; background: #f0fdfa; border: 1.5px solid #0d9488; border-radius: 5px; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10.5px;">
-          <div><strong style="color: #0f766e;">Next Master Health Check-up Due:</strong> <span>${dueVal || "Routine"}</span></div>
-          ${dateVal ? `<div><strong style="color: #0f766e;">📅 Review Date:</strong> <span style="font-weight: 700;">${dateVal}</span></div>` : ""}
-        </div>
-      `);
+      if (dueVal || dateVal) {
+        flowBlocks.push(`
+          <div class="flow-item" style="margin: 3px 0; background: #f0fdfa; border: 1.5px solid #0d9488; border-radius: 5px; padding: 3px 8px; display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
+            <div><strong style="color: #0f766e;">Next Master Health Check-up Due:</strong> <span>${dueVal || "Routine"}</span></div>
+            ${dateVal ? `<div><strong style="color: #0f766e;">📅 Review Date:</strong> <span style="font-weight: 700;">${dateVal}</span></div>` : ""}
+          </div>
+        `);
+      }
 
-      if (consultItems.length > 0) {
-        const rows = consultItems
+      if (pediatricItems.length > 0) {
+        const rows = pediatricItems
           .map((it) => {
-            const v = getVal("consultant_opinion", it.test_code);
+            const v = getVal("pediatric_master_health_check-up", it.test_code);
             return `
               <tr>
-                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 30%; font-size: 10.5px;">${it.test_name}</td>
-                <td style="background: #ffffff; color: #0f172a; padding: 3.5px 8px; border: 1px solid #cbd5e1; width: 70%; font-size: 10.5px;">${v || "-"}</td>
+                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 6px; border: 1px solid #cbd5e1; width: 35%; font-size: 10px;">${it.test_name}</td>
+                <td style="background: #ffffff; color: #0f172a; padding: 3px 6px; border: 1px solid #cbd5e1; width: 65%; font-size: 10px;">${v || "-"}</td>
               </tr>
             `;
           })
@@ -1378,8 +1267,31 @@ const MHCList = () => {
 
         flowBlocks.push(`
           <div class="flow-item" style="margin-bottom: 4px;">
-            <div style="font-size: 10.5px; font-weight: 700; color: #1e3a8a; margin: 3px 0 2px;">Consultant Opinion</div>
-            <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; border: 1px solid #cbd5e1;">
+            <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin: 2px 0;">Pediatric Master Health Check-up</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `);
+      }
+
+      if (consultItems.length > 0) {
+        const rows = consultItems
+          .map((it) => {
+            const v = getVal("consultant_opinion", it.test_code);
+            return `
+              <tr>
+                <td style="background: #e8f0fe; color: #1e293b; font-weight: 700; padding: 3px 6px; border: 1px solid #cbd5e1; width: 30%; font-size: 10px;">${it.test_name}</td>
+                <td style="background: #ffffff; color: #0f172a; padding: 3px 6px; border: 1px solid #cbd5e1; width: 70%; font-size: 10px;">${v || "-"}</td>
+              </tr>
+            `;
+          })
+          .join("");
+
+        flowBlocks.push(`
+          <div class="flow-item" style="margin-bottom: 4px;">
+            <div style="font-size: 10px; font-weight: 700; color: #1e3a8a; margin: 2px 0;">Consultant Opinion</div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;">
               <tbody>${rows}</tbody>
             </table>
           </div>
@@ -1389,11 +1301,11 @@ const MHCList = () => {
       // 8. Overall Impression
       if (repData.impression || row.impression) {
         flowBlocks.push(`
-          <div class="flow-item" style="margin-bottom: 6px; padding: 6px 10px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 5px;">
-            <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; margin-bottom: 3px; text-transform: uppercase;">
+          <div class="flow-item" style="margin-bottom: 5px; padding: 5px 8px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 5px;">
+            <div style="font-size: 10.5px; font-weight: 800; color: #1e3a8a; margin-bottom: 2px; text-transform: uppercase;">
               7. OVERALL IMPRESSION, CLINICAL ASSESSMENT & ADVICE
             </div>
-            <div style="font-size: 10.5px; line-height: 1.4; color: #1e293b;">
+            <div style="font-size: 10px; line-height: 1.35; color: #1e293b;">
               ${repData.impression || row.impression || ""}
             </div>
           </div>
@@ -1402,18 +1314,18 @@ const MHCList = () => {
 
       // 9. Doctor Signature Block
       flowBlocks.push(`
-        <div class="flow-item" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; padding-top: 4px;">
+        <div class="flow-item" style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; padding-top: 4px; page-break-inside: avoid; break-inside: avoid;">
           <div style="font-size: 8.5px; color: #64748b;">
             Report Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
           </div>
-          <div style="text-align: center; min-width: 200px;">
+          <div style="text-align: center; min-width: 180px;">
             ${
               signatureData?.signatureBase64
-                ? `<img src="data:image/png;base64,${signatureData.signatureBase64}" style="max-height: 38px; max-width: 140px; object-fit: contain; margin-bottom: 2px;" />`
-                : `<div style="height: 30px;"></div>`
+                ? `<img src="data:image/png;base64,${signatureData.signatureBase64}" style="max-height: 36px; max-width: 130px; object-fit: contain; margin-bottom: 2px;" />`
+                : `<div style="height: 25px;"></div>`
             }
             <div style="border-top: 1.5px solid #0f172a; width: 100%; padding-top: 2px;">
-              <strong style="font-size: 10.5px; color: #0f172a; display: block;">
+              <strong style="font-size: 10px; color: #0f172a; display: block;">
                 ${signatureData?.employeeName || row.doctorName || row.doctor || "Consultant Physician"}
               </strong>
               <div style="font-size: 8.5px; color: #475569; margin-top: 1px;">
@@ -1432,15 +1344,15 @@ const MHCList = () => {
       // ── Header & Footer Blocks ──
       const headerImgBlock = withLetterpad
         ? `<div style="text-align: center; margin-bottom: 2px; width: 100%;">
-             <img src="${headerImage}" alt="Header" style="width: 100%; max-width: 100%; height: auto; max-height: 82px; object-fit: fill; display: block;" />
+             <img src="${headerImage}" alt="Header" style="width: 100%; max-width: 100%; height: auto; max-height: 80px; object-fit: fill; display: block;" />
            </div>`
-        : `<div style="height: 85px;"></div>`;
+        : `<div style="height: 82px;"></div>`;
 
       const footerImgBlock = withLetterpad
         ? `<div style="width: 100%; text-align: center;">
-             <img src="${FooterImage}" alt="Footer" style="width: 100%; max-width: 100%; height: auto; max-height: 54px; object-fit: fill; display: block; margin: 0 auto;" />
+             <img src="${FooterImage}" alt="Footer" style="width: 100%; max-width: 100%; height: auto; max-height: 52px; object-fit: fill; display: block; margin: 0 auto;" />
            </div>`
-        : `<div style="height: 54px;"></div>`;
+        : `<div style="height: 52px;"></div>`;
 
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
@@ -1456,7 +1368,7 @@ const MHCList = () => {
           <style>
             @page {
               size: A4 portrait;
-              margin: 5mm 10mm 5mm 10mm;
+              margin: 5mm 8mm 5mm 8mm;
             }
             * {
               box-sizing: border-box;
@@ -1468,7 +1380,7 @@ const MHCList = () => {
             }
             body {
               font-family: "Segoe UI", Arial, sans-serif;
-              font-size: 10.5px;
+              font-size: 10px;
               color: #0f172a;
               background: #f1f5f9;
               padding: 0;
@@ -1478,9 +1390,9 @@ const MHCList = () => {
             .a4-page {
               width: 100%;
               max-width: 100%;
-              min-height: 1020px;
+              min-height: 1030px;
               max-height: 1050px;
-              height: 1030px;
+              height: 1040px;
               position: relative;
               background: white;
               padding: 0 4px;
@@ -1501,12 +1413,12 @@ const MHCList = () => {
             }
             .page-body-container {
               flex-grow: 1;
-              margin-bottom: 8px;
+              margin-bottom: 4px;
             }
             .page-footer-container {
               flex-shrink: 0;
               width: 100%;
-              padding-top: 4px;
+              padding-top: 2px;
               margin-top: auto;
             }
             th {
@@ -1517,12 +1429,12 @@ const MHCList = () => {
               print-color-adjust: exact !important;
             }
             .sec-title {
-              font-size: 11.5px;
+              font-size: 11px;
               font-weight: 800;
               color: #1e3a8a;
               border-bottom: 2px solid #1e3a8a;
-              padding-bottom: 2px;
-              margin-bottom: 4px;
+              padding-bottom: 1.5px;
+              margin-bottom: 3px;
               text-transform: uppercase;
               letter-spacing: 0.3px;
             }
@@ -1567,15 +1479,15 @@ const MHCList = () => {
                   return \`
                     <div class="page-top-container">
                       ${headerImgBlock}
-                      <div style="text-align: center; font-size: 13.5px; font-weight: 800; color: #1e3a8a; margin: 1px 0 2px; text-transform: uppercase; letter-spacing: 0.5px;">
+                      <div style="text-align: center; font-size: 12.5px; font-weight: 800; color: #1e3a8a; margin: 1px 0; text-transform: uppercase; letter-spacing: 0.5px;">
                         MASTER HEALTH CHECK-UP REPORT
                       </div>
-                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3px 10px; background: #f0fdfa; border: 1.5px solid #99f6e4; border-radius: 6px; padding: 4px 8px; font-size: 10px;">
-                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">Patient Name:</span><strong style="color: #0f172a; font-size: 10.5px;">${row.patientName || "N/A"}</strong></div>
-                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">UHID:</span><strong style="color: #0f172a; font-size: 10.5px;">${row.uhid || "N/A"}</strong></div>
-                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">Age / Gender:</span><strong style="color: #0f172a; font-size: 10.5px;">${row.age || ""} ${row.age_type || "Y"} / ${row.gender || "N/A"}</strong></div>
+                      <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2px 8px; background: #f0fdfa; border: 1.5px solid #99f6e4; border-radius: 5px; padding: 3px 8px; font-size: 9.5px;">
+                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">Patient Name:</span><strong style="color: #0f172a; font-size: 10px;">${row.patientName || "N/A"}</strong></div>
+                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">UHID:</span><strong style="color: #0f172a; font-size: 10px;">${row.uhid || "N/A"}</strong></div>
+                        <div><span style="color:#0f766e; font-weight:700; font-size:8.5px; text-transform:uppercase; margin-right: 4px;">Age / Gender:</span><strong style="color: #0f172a; font-size: 10px;">${row.age || ""} ${row.age_type || "Y"} / ${row.gender || "N/A"}</strong></div>
                       </div>
-                      <div style="display: flex; justify-content: flex-end; align-items: center; margin: 2px 0 3px; padding-right: 2px; font-size: 9px; font-weight: 700; color: #475569;">
+                      <div style="display: flex; justify-content: flex-end; align-items: center; margin: 1px 0 2px; padding-right: 2px; font-size: 8.5px; font-weight: 700; color: #475569;">
                         Page \${pageNum} of \${totalPages}
                       </div>
                     </div>
@@ -1588,23 +1500,122 @@ const MHCList = () => {
                   </div>
                 \`;
 
-                // Calculate heights & distribute fine-grained items smoothly with safe margins
+                // Smart table splitter function
+                function splitTableElement(itemEl, availSpace) {
+                  var tableEl = itemEl.querySelector('table');
+                  if (!tableEl) return null;
+
+                  var theadEl = tableEl.querySelector('thead');
+                  var theadHtml = theadEl ? theadEl.outerHTML : '';
+                  var theadHeight = theadEl ? theadEl.offsetHeight : 22;
+
+                  var titleEl = itemEl.querySelector('.sec-title');
+                  var titleHtml = titleEl ? titleEl.outerHTML : '';
+                  var titleText = titleEl ? titleEl.innerText : '';
+                  var titleHeight = titleEl ? titleEl.offsetHeight : 0;
+
+                  var subNoteEl = itemEl.querySelector('div[style*="font-style: italic"]');
+                  var subNoteHtml = subNoteEl ? subNoteEl.outerHTML : '';
+                  var subNoteHeight = subNoteEl ? subNoteEl.offsetHeight : 0;
+
+                  var subHeaderEl = itemEl.querySelector('div[style*="border-left"]');
+                  var subHeaderHtml = subHeaderEl ? subHeaderEl.outerHTML : '';
+                  var subHeaderHeight = subHeaderEl ? subHeaderEl.offsetHeight : 0;
+
+                  var headerCost = titleHeight + subNoteHeight + subHeaderHeight + theadHeight + 8;
+                  if (availSpace <= headerCost + 20) return null;
+
+                  var tbodyEl = tableEl.querySelector('tbody');
+                  if (!tbodyEl) return null;
+
+                  var rows = Array.from(tbodyEl.querySelectorAll('tr'));
+                  if (rows.length <= 1) return null;
+
+                  var tableStyle = tableEl.getAttribute('style') || 'width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid #cbd5e1;';
+                  var itemStyle = itemEl.getAttribute('style') || 'margin-bottom: 6px;';
+
+                  var fitRows = [];
+                  var remRows = [];
+                  var accHeight = headerCost;
+
+                  rows.forEach(function(r) {
+                    var rH = r.offsetHeight || 20;
+                    if (accHeight + rH <= availSpace && remRows.length === 0) {
+                      fitRows.push(r.outerHTML);
+                      accHeight += rH;
+                    } else {
+                      remRows.push(r.outerHTML);
+                    }
+                  });
+
+                  if (fitRows.length === 0 || remRows.length === 0) return null;
+
+                  var part1 = '<div class="flow-item" style="' + itemStyle + '">' +
+                    titleHtml +
+                    subNoteHtml +
+                    subHeaderHtml +
+                    '<table style="' + tableStyle + '">' +
+                      theadHtml +
+                      '<tbody>' + fitRows.join('') + '</tbody>' +
+                    '</table>' +
+                  '</div>';
+
+                  var contdTitle = titleText ? '<div class="sec-title">' + titleText + ' (Contd.)</div>' : '';
+                  var part2 = '<div class="flow-item" style="' + itemStyle + '">' +
+                    contdTitle +
+                    subHeaderHtml +
+                    '<table style="' + tableStyle + '">' +
+                      theadHtml +
+                      '<tbody>' + remRows.join('') + '</tbody>' +
+                    '</table>' +
+                  '</div>';
+
+                  return { part1: part1, part2: part2 };
+                }
+
                 var pages = [];
                 var currentPageItems = [];
                 var currentHeight = 0;
-                var maxPageHeight = 780; // Safe height threshold preventing any footer overlap
+                var maxPageHeight = 820; // Safe optimal height threshold preventing any footer overlap
 
-                items.forEach(function(item) {
-                  var itemHeight = item.offsetHeight || 25;
-                  if (currentHeight + itemHeight > maxPageHeight && currentPageItems.length > 0) {
-                    pages.push(currentPageItems);
-                    currentPageItems = [item.outerHTML];
-                    currentHeight = itemHeight;
-                  } else {
-                    currentPageItems.push(item.outerHTML);
+                var queue = items.slice();
+
+                while (queue.length > 0) {
+                  var item = queue.shift();
+                  var itemHeight = item.offsetHeight || 22;
+
+                  if (currentHeight + itemHeight <= maxPageHeight) {
+                    currentPageItems.push(item.outerHTML || item);
                     currentHeight += itemHeight;
+                  } else {
+                    var avail = maxPageHeight - currentHeight;
+                    var split = (avail >= 60 && item.querySelector) ? splitTableElement(item, avail) : null;
+
+                    if (split) {
+                      currentPageItems.push(split.part1);
+                      pages.push(currentPageItems);
+
+                      var tempEl = document.createElement("div");
+                      tempEl.innerHTML = split.part2;
+                      raw.appendChild(tempEl);
+                      var newChild = tempEl.firstElementChild || tempEl;
+
+                      currentPageItems = [];
+                      currentHeight = 0;
+                      queue.unshift(newChild);
+                    } else {
+                      if (currentPageItems.length > 0) {
+                        pages.push(currentPageItems);
+                        currentPageItems = [item.outerHTML || item];
+                        currentHeight = itemHeight;
+                      } else {
+                        pages.push([item.outerHTML || item]);
+                        currentPageItems = [];
+                        currentHeight = 0;
+                      }
+                    }
                   }
-                });
+                }
 
                 if (currentPageItems.length > 0) {
                   pages.push(currentPageItems);

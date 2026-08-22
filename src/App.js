@@ -69,10 +69,12 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
+import MRDTracking from "./Components/MRD/MRDTracking";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 import Internship from "./Components/HR/Internship";
 import InternshipDashboard from "./Components/HR/InternshipDashboard";
+
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -1722,6 +1724,14 @@ function App() {
                 dynamicPermissions,
               ) && (
                   <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+                )}
+
+              {hasPagePermission(
+                "/MRDTracking",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/MRDTracking" element={<MRDTracking />} />
                 )}
 
 
