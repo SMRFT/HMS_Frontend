@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes } from "styled-components";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
   primary:   "#0f766e",
+  primaryDk: "#0d5f58",
   amber:     "#d97706",
   danger:    "#dc2626",
   success:   "#16a34a",
@@ -19,110 +20,142 @@ const T = {
   shadow:    "0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04)",
 };
 
-const spin    = keyframes`to { transform: rotate(360deg); }`;
-const fadeUp  = keyframes`from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); }`;
+const spin   = keyframes`to { transform: rotate(360deg); }`;
+const fadeUp = keyframes`from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); }`;
 
 // ─── Styled components ──────────────────────────────────────────────────────────
 const Card = styled.div`
-  background:${T.surface}; border:1px solid ${T.border};
-  border-radius:${T.radius}; box-shadow:${T.shadow};
-  overflow:hidden; animation:${fadeUp} 0.2s ease;
+  background: ${T.surface}; border: 1px solid ${T.border};
+  border-radius: 10px; box-shadow: ${T.shadow};
+  overflow: hidden; animation: ${fadeUp} 0.2s ease;
+  transition: box-shadow 0.2s ease;
+  &:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 `;
 const CardHead = styled.div`
-  background:#f8fafc; border-bottom:1px solid ${T.border};
-  padding:8px 14px; display:flex; align-items:center; justify-content:space-between;
+  background: #f8fafc; border-bottom: 1px solid ${T.border};
+  padding: 10px 14px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
 `;
 const CardTitle = styled.span`
-  font-size:0.69rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.5px; color:${T.textMuted};
+  font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.5px; color: ${T.amber}; display: flex; align-items: center; gap: 6px;
 `;
-const TScrollWrap = styled.div`overflow-x:auto;`;
-const LTable  = styled.table`width:100%; border-collapse:collapse; font-size:0.8rem;`;
+
+const TScrollWrap = styled.div`
+  overflow-x: auto; width: 100%;
+  &::-webkit-scrollbar { height: 6px; }
+  &::-webkit-scrollbar-track { background: #f1f5f9; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+`;
+const LTable  = styled.table`width: 100%; border-collapse: collapse; font-size: 0.8rem;`;
 const LTH     = styled.th`
-  padding:8px 10px; text-align:left; font-size:0.65rem; font-weight:700;
-  text-transform:uppercase; letter-spacing:0.4px; color:${T.textMuted};
-  border-bottom:2px solid ${T.border}; background:#f8fafc; white-space:nowrap;
+  padding: 9px 12px; text-align: left; font-size: 0.65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px; color: ${T.textMuted};
+  border-bottom: 2px solid ${T.border}; background: #f8fafc; white-space: nowrap;
 `;
 const LTR = styled.tr`
-  border-bottom:1px solid ${T.border};
-  &:hover { background:#f8fbff; }
-  &:last-child { border-bottom:none; }
+  border-bottom: 1px solid ${T.border};
+  &:hover { background: #fffdf5; }
+  &:last-child { border-bottom: none; }
 `;
-const LTD   = styled.td`padding:8px 10px; color:${T.textMain}; vertical-align:middle;`;
-const Mono  = styled.span`font-family:'Courier New',monospace; font-size:0.78rem;`;
+const LTD   = styled.td`padding: 9px 12px; color: ${T.textMain}; vertical-align: middle; white-space: nowrap;`;
+const Mono  = styled.span`font-family: 'Courier New', monospace; font-size: 0.78rem;`;
 const Badge = styled.span`
-  display:inline-flex; align-items:center; padding:2px 8px;
-  border-radius:20px; font-size:0.66rem; font-weight:700;
-  background:${p=>({estimate:"#fef3c7",billed:"#dcfce7",pending:"#dbeafe",manual:"#f1f5f9"}[p.$v]||"#f1f5f9")};
-  color:${p=>({estimate:T.amber,billed:T.success,pending:T.blue,manual:T.textMuted}[p.$v]||T.textMuted)};
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 20px; font-size: 0.66rem; font-weight: 700;
+  background: ${p => ({ estimate: "#fef3c7", billed: "#dcfce7", pending: "#dbeafe" }[p.$v] || "#f1f5f9")};
+  color:      ${p => ({ estimate: T.amber,   billed: T.success, pending: T.blue   }[p.$v] || T.textMuted)};
 `;
+
 const DateBar = styled.div`
-  display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap;
-  padding:10px 14px; background:#fafafa; border-bottom:1px solid ${T.border};
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; background: #fafafa; border-bottom: 1px solid ${T.border};
 `;
 const FG = styled.div`
-  display:flex; flex-direction:column; gap:3px;
-  min-width:${p=>p.$w||"150px"}; flex:${p=>p.$flex||"none"};
+  display: flex; flex-direction: column; gap: 3px;
+  min-width: ${p => p.$w || "140px"}; flex: ${p => p.$flex || "none"};
+  @media (max-width: 600px) { min-width: 100%; flex: 1 1 100%; }
 `;
 const FL = styled.label`
-  font-size:0.66rem; font-weight:700; color:${T.textMuted};
-  text-transform:uppercase; letter-spacing:0.4px;
+  font-size: 0.66rem; font-weight: 700; color: ${T.textMuted};
+  text-transform: uppercase; letter-spacing: 0.4px;
 `;
 const FInput = styled.input`
-  height:32px; padding:0 10px; font-size:0.82rem;
-  border:1px solid ${T.border}; border-radius:6px; outline:none;
-  background:#fff; color:${T.textMain}; transition:border 0.12s;
-  &:focus { border-color:${T.primary}; box-shadow:0 0 0 2px rgba(15,118,110,0.12); }
-  &[type=date] { cursor:pointer; }
-  &::placeholder { color:${T.textMuted}; }
+  height: 32px; padding: 0 10px; font-size: 0.82rem;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain}; transition: border 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  &[type=date] { cursor: pointer; }
+  &::placeholder { color: ${T.textMuted}; }
 `;
 const Btn = styled.button`
-  height:${p=>p.$sm?"28px":"34px"};
-  padding:0 ${p=>p.$sm?"10px":"16px"};
-  border-radius:6px; font-size:${p=>p.$sm?"0.74rem":"0.81rem"};
-  font-weight:600; cursor:pointer; border:1.5px solid transparent;
-  display:inline-flex; align-items:center; gap:5px; transition:all 0.13s;
-  ${p=>p.$amber   && `background:${T.amber};   color:#fff; border-color:${T.amber};`}
-  ${p=>p.$outline && `background:#fff; color:${T.primary}; border-color:${T.primary};`}
-  ${p=>p.$ghost   && `background:#f1f5f9; color:${T.textMid}; border-color:${T.border};`}
-  ${p=>p.$pag     && `background:${p.$active?T.primary:"#fff"}; color:${p.$active?"#fff":T.textMid}; border-color:${p.$active?T.primary:T.border}; min-width:32px; height:30px; padding:0 8px;`}
-  &:hover { opacity:0.88; }
-  &:disabled { opacity:0.45; cursor:not-allowed; }
+  height: ${p => p.$sm ? "28px" : "34px"};
+  padding: 0 ${p => p.$sm ? "10px" : "14px"};
+  border-radius: 6px; font-size: ${p => p.$sm ? "0.74rem" : "0.81rem"};
+  font-weight: 600; cursor: pointer; border: 1.5px solid transparent;
+  display: inline-flex; align-items: center; gap: 5px; transition: all 0.13s;
+  ${p => p.$amber   && `background:${T.amber};   color:#fff; border-color:${T.amber};`}
+  ${p => p.$outline && `background:#fff; color:${T.primary}; border-color:${T.primary};`}
+  ${p => p.$ghost   && `background:#f1f5f9; color:${T.textMid}; border-color:${T.border};`}
+  ${p => p.$pag     && `background:${p.$active ? T.primary : "#fff"}; color:${p.$active ? "#fff" : T.textMid}; border-color:${p.$active ? T.primary : T.border}; min-width:32px; height:30px; padding:0 8px;`}
+  &:hover { opacity: 0.88; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
 `;
 const Spinner = styled.div`
-  width:14px; height:14px; border:2px solid rgba(255,255,255,0.35);
-  border-top-color:#fff; border-radius:50%; animation:${spin} 0.6s linear infinite;
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff; border-radius: 50%; animation: ${spin} 0.6s linear infinite;
 `;
 const LoadSpinner = styled.div`
-  width:16px; height:16px;
-  border:2px solid ${T.primary}; border-top-color:transparent;
-  border-radius:50%; animation:${spin} 0.6s linear infinite;
+  width: 16px; height: 16px;
+  border: 2px solid ${T.primary}; border-top-color: transparent;
+  border-radius: 50%; animation: ${spin} 0.6s linear infinite;
 `;
-const NoResults = styled.div`text-align:center; padding:36px; color:${T.textMuted}; font-size:0.84rem;`;
+const NoResults = styled.div`text-align: center; padding: 36px; color: ${T.textMuted}; font-size: 0.84rem;`;
 const PaginationBar = styled.div`
-  display:flex; align-items:center; justify-content:space-between;
-  padding:10px 14px; background:#fafafa; border-top:1px solid ${T.border};
-  flex-wrap:wrap; gap:8px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: #fafafa; border-top: 1px solid ${T.border};
+  flex-wrap: wrap; gap: 8px;
 `;
-const PaginationInfo  = styled.span`font-size:0.76rem; color:${T.textMuted};`;
-const PaginationBtns  = styled.div`display:flex; gap:4px; align-items:center;`;
+const PaginationInfo  = styled.span`font-size: 0.76rem; color: ${T.textMuted};`;
+const PaginationBtns  = styled.div`display: flex; gap: 4px; align-items: center; flex-wrap: wrap;`;
 const PerPageSelect   = styled.select`
-  height:30px; padding:0 8px; font-size:0.78rem;
-  border:1px solid ${T.border}; border-radius:6px; outline:none;
-  background:#fff; color:${T.textMain};
-  &:focus { border-color:${T.primary}; }
+  height: 30px; padding: 0 8px; font-size: 0.78rem;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain};
+  &:focus { border-color: ${T.primary}; }
+`;
+
+// ─── 3-Dots Action Dropdown ────────────────────────────────────────────────────
+const AW   = styled.div`position: relative; display: inline-block;`;
+const DotB = styled.button`
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid ${T.border};
+  background: #fff; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; font-size: 1.1rem; color: ${T.textMid}; font-weight: bold;
+  transition: all 0.15s ease;
+  &:hover { background: #f1f5f9; color: ${T.primary}; border-color: ${T.primary}; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+`;
+const Drop = styled.div`
+  position: fixed;
+  ${p => p.placement === "top" ? `bottom: ${p.bottom}px;` : `top: ${p.top}px;`}
+  left: ${p => p.left}px;
+  background: #fff; border: 1px solid ${T.border}; border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18); z-index: 99999;
+  min-width: 170px; max-height: ${p => p.maxHeight || 280}px;
+  overflow-y: auto; animation: ${fadeUp} 0.14s ease;
+`;
+const DI   = styled.button`
+  width: 100%; padding: 9px 14px; text-align: left; font-size: 0.78rem; font-weight: 600;
+  background: none; border: none; display: flex; align-items: center; gap: 8px;
+  color: ${p => p.disabled ? '#9ca3af' : p.danger ? T.danger : T.textMain};
+  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
+  &:hover:not(:disabled) { background: ${p => p.danger ? '#fff1f2' : '#f0fdf4'}; color: ${p => p.danger ? T.danger : T.primary}; }
 `;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 const BASE     = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-const fmt      = v => (parseFloat(v)||0).toFixed(2);
+const fmt      = v => (parseFloat(v) || 0).toFixed(2);
 const todayStr = () => new Date().toISOString().split("T")[0];
-
-const parseItems = raw => {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try { return JSON.parse(raw); } catch { return []; }
-};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Component
@@ -142,6 +175,11 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
   const [page,    setPage]    = useState(1);
   const [perPage, setPerPage] = useState(10);
 
+  // 3-dots Menu State
+  const [openMenu, setOpenMenu] = useState(null);
+  const [menuPos, setMenuPos]   = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
+  const menuRef = useRef(null);
+
   const fetchEstimates = useCallback(async () => {
     setListBusy(true); setListErr("");
     try {
@@ -155,6 +193,56 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
 
   useEffect(() => { fetchEstimates(); }, [fetchEstimates, onRefreshTrigger]);
   useEffect(() => { setPage(1); }, [from, to, q]);
+
+  // ── 3-dots Menu positioning & toggle ─────────────────────────────────────────
+  const handleMenuToggle = (id, e) => {
+    e.stopPropagation();
+    if (openMenu === id) { setOpenMenu(null); return; }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuEstWidth = 180;
+    const menuEstHeight = 120;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let left = rect.left - menuEstWidth + rect.width;
+    if (left < 10) left = rect.left;
+    if (left + menuEstWidth > windowWidth - 10) left = windowWidth - menuEstWidth - 10;
+
+    const spaceBelow = windowHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let placement = "bottom";
+    let top = rect.bottom + 4;
+    let bottom = 0;
+    let maxHeight = Math.min(280, spaceBelow - 12);
+
+    if (spaceBelow < menuEstHeight && spaceAbove > spaceBelow) {
+      placement = "top";
+      bottom = windowHeight - rect.top + 4;
+      maxHeight = Math.min(280, spaceAbove - 12);
+    } else {
+      maxHeight = Math.max(120, maxHeight);
+    }
+
+    setMenuPos({ top, bottom, left, placement, maxHeight });
+    setOpenMenu(id);
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenu(null);
+      }
+    };
+    const handleScroll = () => { if (openMenu !== null) setOpenMenu(null); };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [openMenu]);
 
   // ── Filter ─────────────────────────────────────────────────────────────────
   const filtered = estimates.filter(e => {
@@ -186,23 +274,16 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
     return pages;
   };
 
-  // ── Handle Edit/Convert click ──────────────────────────────────────────────
-  // Calls parent handler which switches tab to "create" and pre-fills form
-  const handleEditConvert = est => {
-    if (onEditConvert) onEditConvert(est);
-  };
-
   return (
     <Card>
-      {/* Header */}
       <CardHead>
         <CardTitle>
-          📋 Estimates
+          📋 Discharge Estimates
           {estimates.length > 0 && (
-            <Badge $v="estimate" style={{marginLeft:8}}>{estimates.length}</Badge>
+            <Badge $v="estimate" style={{ marginLeft: 8 }}>{estimates.length}</Badge>
           )}
         </CardTitle>
-        <span style={{fontSize:"0.72rem",color:T.textMuted}}>
+        <span style={{ fontSize: "0.72rem", color: T.textMuted }}>
           Showing {filtered.length} of {estimates.length} records
         </span>
       </CardHead>
@@ -211,29 +292,33 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
       <DateBar>
         <FG $w="135px">
           <FL>From</FL>
-          <FInput type="date" value={from} onChange={e=>setFrom(e.target.value)}/>
+          <FInput type="date" value={from} onChange={e => setFrom(e.target.value)} />
         </FG>
         <FG $w="135px">
           <FL>To</FL>
-          <FInput type="date" value={to} onChange={e=>setTo(e.target.value)}/>
+          <FInput type="date" value={to} onChange={e => setTo(e.target.value)} />
         </FG>
-        <FG $flex="1" style={{minWidth:210}}>
+        <FG $flex="1" style={{ minWidth: 210 }}>
           <FL>Search</FL>
-          <FInput value={q} onChange={e=>setQ(e.target.value)} placeholder="Name, UHID, IP, Estimate No…"/>
+          <FInput
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Name, UHID, IP, Estimate No…"
+          />
         </FG>
-        <div style={{display:"flex",gap:6}}>
-          <Btn $ghost $sm onClick={()=>{setFrom(todayStr()); setTo(todayStr()); setQ("");}}>
+        <div style={{ display: "flex", gap: 6 }}>
+          <Btn $ghost $sm onClick={() => { setFrom(todayStr()); setTo(todayStr()); setQ(""); }}>
             ↺ Reset
           </Btn>
           <Btn $outline onClick={fetchEstimates} disabled={listBusy}>
-            {listBusy?<Spinner/>:"↻"} Refresh
+            {listBusy ? <Spinner /> : "↻"} Refresh
           </Btn>
         </div>
       </DateBar>
 
       {/* Error */}
       {listErr && (
-        <div style={{color:T.danger,fontSize:"0.76rem",padding:"8px 14px",background:"#fee2e2",borderBottom:"1px solid #fecaca"}}>
+        <div style={{ color: T.danger, fontSize: "0.76rem", padding: "8px 14px", background: "#fee2e2", borderBottom: "1px solid #fecaca" }}>
           ⚠ {listErr}
         </div>
       )}
@@ -243,56 +328,71 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
         <LTable>
           <thead>
             <tr>
-              <LTH style={{width:42}}>#</LTH>
+              <LTH style={{ width: 42 }}>#</LTH>
               <LTH>Estimate No.</LTH>
               <LTH>UHID / IP</LTH>
-              <LTH>Patient</LTH>
-              <LTH>Items</LTH>
-              <LTH>Total</LTH>
+              <LTH>Patient Name</LTH>
+              <LTH>Total Amount</LTH>
+              <LTH>Advance</LTH>
               <LTH>Discount</LTH>
               <LTH>Net Amount</LTH>
               <LTH>Date</LTH>
               <LTH>Status</LTH>
-              <LTH>Action</LTH>
+              <LTH style={{ textAlign: "center", width: 60 }}>Action</LTH>
             </tr>
           </thead>
           <tbody>
             {listBusy ? (
-              <tr><td colSpan={11}>
-                <NoResults>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    <LoadSpinner/> Loading estimates…
-                  </div>
-                </NoResults>
-              </td></tr>
+              <tr>
+                <td colSpan={11}>
+                  <NoResults>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                      <LoadSpinner />
+                      Loading estimates…
+                    </div>
+                  </NoResults>
+                </td>
+              </tr>
             ) : paginated.length === 0 ? (
-              <tr><td colSpan={11}>
-                <NoResults>
-                  {filtered.length === 0 && estimates.length > 0
-                    ? "No estimates match your filters."
-                    : "No estimates found."}
-                </NoResults>
-              </td></tr>
+              <tr>
+                <td colSpan={11}>
+                  <NoResults>
+                    {filtered.length === 0 && estimates.length > 0
+                      ? "No estimates match your filters."
+                      : "No estimate records found."}
+                  </NoResults>
+                </td>
+              </tr>
             ) : paginated.map((e, i) => {
               const pd = e.patient_details || {};
               return (
                 <LTR key={e.id}>
-                  <LTD style={{color:T.textMuted,fontWeight:600,fontSize:"0.74rem"}}>{pageStart+i+1}</LTD>
-                  <LTD><Mono>{e.estimate_number}</Mono></LTD>
-                  <LTD style={{fontSize:"0.77rem"}}>{e.uhid||"—"} / {e.ip_number||"—"}</LTD>
-                  <LTD style={{fontWeight:600}}>{pd.patient_name||"—"}</LTD>
-                  <LTD style={{color:T.textMid}}>{parseItems(e.items).length}</LTD>
+                  <LTD style={{ color: T.textMuted, fontWeight: 600, fontSize: "0.74rem" }}>
+                    {pageStart + i + 1}
+                  </LTD>
+                  <LTD>
+                    <Mono style={{ color: T.amber, fontWeight: 700 }}>
+                      {e.estimate_number}
+                    </Mono>
+                  </LTD>
+                  <LTD style={{ fontSize: "0.77rem" }}>
+                    {e.uhid || "—"} / {e.ip_number || "—"}
+                  </LTD>
+                  <LTD style={{ fontWeight: 600 }}>{pd.patient_name || "—"}</LTD>
                   <LTD>₹{fmt(e.total_amount)}</LTD>
-                  <LTD style={{color:T.danger}}>₹{fmt(e.total_disc)}</LTD>
-                  <LTD style={{fontWeight:700}}>₹{fmt(e.net_amount)}</LTD>
-                  <LTD style={{fontSize:"0.77rem"}}>
+                  <LTD style={{ color: T.danger }}>₹{fmt(e.advance_amount)}</LTD>
+                  <LTD style={{ color: T.danger }}>₹{fmt(e.discount_amount)}</LTD>
+                  <LTD style={{ fontWeight: 700, color: T.primary }}>
+                    ₹{fmt(e.net_amount)}
+                  </LTD>
+                  <LTD style={{ fontSize: "0.77rem" }}>
                     {e.bill_date ? new Date(e.bill_date).toLocaleDateString("en-IN") : "—"}
                   </LTD>
                   <LTD><Badge $v="estimate">Estimate</Badge></LTD>
-                  <LTD>
-                    <Btn $sm $amber onClick={()=>handleEditConvert(e)}>
-                      ✏️ Edit / Convert
-                    </Btn>
+                  <LTD style={{ textAlign: "center" }}>
+                    <AW>
+                      <DotB onClick={ev => handleMenuToggle(e.id, ev)} title="Actions">⋮</DotB>
+                    </AW>
                   </LTD>
                 </LTR>
               );
@@ -304,32 +404,59 @@ const DischargeViewEstimates = ({ onEditConvert, onRefreshTrigger }) => {
       {/* Pagination */}
       {filtered.length > 0 && (
         <PaginationBar>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <PaginationInfo>
-              Showing {pageStart+1}–{Math.min(pageStart+perPage, filtered.length)} of {filtered.length}
+              Showing {pageStart + 1}–{Math.min(pageStart + perPage, filtered.length)} of {filtered.length}
             </PaginationInfo>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:"0.72rem",color:T.textMuted}}>Per page:</span>
-              <PerPageSelect value={perPage} onChange={e=>{setPerPage(Number(e.target.value)); setPage(1);}}>
-                {[10,25,50,100].map(n=><option key={n} value={n}>{n}</option>)}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "0.72rem", color: T.textMuted }}>Per page:</span>
+              <PerPageSelect
+                value={perPage}
+                onChange={ev => { setPerPage(Number(ev.target.value)); setPage(1); }}
+              >
+                {[10, 25, 50, 100].map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
               </PerPageSelect>
             </div>
           </div>
           <PaginationBtns>
-            <Btn $pag onClick={()=>goPage(1)}            disabled={safePage===1}>«</Btn>
-            <Btn $pag onClick={()=>goPage(safePage-1)}   disabled={safePage===1}>‹</Btn>
-            {pageButtons().map((p,i)=>
-              p==="..." ? (
-                <span key={`el-${i}`} style={{padding:"0 4px",color:T.textMuted,fontSize:"0.8rem"}}>…</span>
+            <Btn $pag onClick={() => goPage(1)}            disabled={safePage === 1}>«</Btn>
+            <Btn $pag onClick={() => goPage(safePage - 1)} disabled={safePage === 1}>‹</Btn>
+            {pageButtons().map((p, i) =>
+              p === "..." ? (
+                <span key={`ellipsis-${i}`} style={{ padding: "0 4px", color: T.textMuted, fontSize: "0.8rem" }}>…</span>
               ) : (
-                <Btn $pag $active={p===safePage} key={p} onClick={()=>goPage(p)}>{p}</Btn>
+                <Btn $pag $active={p === safePage} key={p} onClick={() => goPage(p)}>{p}</Btn>
               )
             )}
-            <Btn $pag onClick={()=>goPage(safePage+1)}  disabled={safePage===totalPages}>›</Btn>
-            <Btn $pag onClick={()=>goPage(totalPages)}   disabled={safePage===totalPages}>»</Btn>
+            <Btn $pag onClick={() => goPage(safePage + 1)} disabled={safePage === totalPages}>›</Btn>
+            <Btn $pag onClick={() => goPage(totalPages)}   disabled={safePage === totalPages}>»</Btn>
           </PaginationBtns>
         </PaginationBar>
       )}
+
+      {/* ── 3-Dots Action Dropdown Menu ── */}
+      {openMenu !== null && (() => {
+        const est = paginated.find(x => x.id === openMenu);
+        if (!est) return null;
+        return (
+          <Drop
+            ref={menuRef}
+            top={menuPos.top}
+            bottom={menuPos.bottom}
+            left={menuPos.left}
+            placement={menuPos.placement}
+            maxHeight={menuPos.maxHeight}
+          >
+            {onEditConvert && (
+              <DI onClick={() => { setOpenMenu(null); onEditConvert(est); }}>
+                📋 Convert / Edit Estimate
+              </DI>
+            )}
+          </Drop>
+        );
+      })()}
     </Card>
   );
 };

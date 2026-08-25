@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import apiRequest from "../../Auth/apiRequest";
 import {
@@ -499,6 +499,10 @@ const Package = () => {
   const [selectedBillType, setSelectedBillType] = useState("");
   const [pickerItems, setPickerItems] = useState([]);
   const [selectedPickerItem, setSelectedPickerItem] = useState("");
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const pickerDropdownRef = useRef(null);
   const allowedActions = JSON.parse(
     localStorage.getItem("allowedActions") || "[]",
   );
@@ -577,6 +581,20 @@ const Package = () => {
     fetchBillTypes();
   }, []);
 
+  // Close picker dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        pickerDropdownRef.current &&
+        !pickerDropdownRef.current.contains(e.target)
+      ) {
+        setIsPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // When outlet dropdown changes — auto-fill outlet_code (read-only)
   const handleOutletChange = (outletName) => {
     const found = outlets.find((o) => o.outlet_name === outletName);
@@ -591,6 +609,9 @@ const Package = () => {
   const handleBillTypeChange = async (billTypeNo) => {
     setSelectedBillType(billTypeNo);
     setSelectedPickerItem("");
+    setPickerSearch("");
+    setIsPickerOpen(false);
+    setHighlightedIndex(-1);
     setPickerItems([]);
     if (!billTypeNo) return;
 
@@ -618,14 +639,20 @@ const Package = () => {
     setPickerItems(found ? found.Items : []);
   };
 
+  const filteredPickerItems = pickerItems.filter((item) =>
+    (item.itemName || "").toLowerCase().includes(pickerSearch.toLowerCase()),
+  );
+
   // Add selected picker item to items table
-  const addSelectedToTable = () => {
-    if (!selectedPickerItem) {
+  const addSelectedToTable = (itemOverride) => {
+    const itemNameToAdd =
+      typeof itemOverride === "string" ? itemOverride : selectedPickerItem;
+    if (!itemNameToAdd) {
       alert("Please select an item.");
       return;
     }
     const selectedBT = billTypes.find((b) => b.billTypeNo === selectedBillType);
-    const item = pickerItems.find((i) => i.itemName === selectedPickerItem);
+    const item = pickerItems.find((i) => i.itemName === itemNameToAdd);
     if (!item) return;
 
     let price, test_id, item_id;
@@ -645,6 +672,22 @@ const Package = () => {
         : "0";
       test_id = "";
       item_id = item.extraKeys?.item_id ?? null; // ← from extraKeys
+    }
+
+    // Check if item is already added to formData.items
+    const alreadyExists = formData.items.some(
+      (existing) =>
+        existing.itemName &&
+        existing.itemName.trim().toLowerCase() === item.itemName.trim().toLowerCase(),
+    );
+
+    if (alreadyExists) {
+      alert(`"${item.itemName}" is already in the package.`);
+      setSelectedPickerItem("");
+      setPickerSearch("");
+      setIsPickerOpen(false);
+      setHighlightedIndex(-1);
+      return;
     }
 
     const newRow = {
@@ -669,6 +712,60 @@ const Package = () => {
     });
 
     setSelectedPickerItem("");
+    setPickerSearch("");
+    setIsPickerOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSelectPickerItem = (item, autoAdd = false) => {
+    const alreadyAdded = formData.items.some(
+      (existing) =>
+        existing.itemName &&
+        existing.itemName.trim().toLowerCase() === item.itemName.trim().toLowerCase(),
+    );
+    if (alreadyAdded) {
+      alert(`"${item.itemName}" is already added to this package.`);
+      return;
+    }
+    setSelectedPickerItem(item.itemName);
+    setPickerSearch(item.itemName);
+    setIsPickerOpen(false);
+    if (autoAdd) {
+      addSelectedToTable(item.itemName);
+    }
+  };
+
+  const handlePickerKeyDown = (e) => {
+    if (!isPickerOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
+      setIsPickerOpen(true);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev < filteredPickerItems.length - 1 ? prev + 1 : 0,
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev > 0 ? prev - 1 : filteredPickerItems.length - 1,
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (
+        highlightedIndex >= 0 &&
+        highlightedIndex < filteredPickerItems.length
+      ) {
+        const item = filteredPickerItems[highlightedIndex];
+        addSelectedToTable(item.itemName);
+      } else if (selectedPickerItem) {
+        addSelectedToTable(selectedPickerItem);
+      } else if (filteredPickerItems.length === 1) {
+        addSelectedToTable(filteredPickerItems[0].itemName);
+      }
+    } else if (e.key === "Escape") {
+      setIsPickerOpen(false);
+    }
   };
 
   const handleFilterChange = (e) => {
@@ -727,6 +824,9 @@ const Package = () => {
     setSelectedBillType("");
     setPickerItems([]);
     setSelectedPickerItem("");
+    setPickerSearch("");
+    setIsPickerOpen(false);
+    setHighlightedIndex(-1);
   };
 
   const openCreate = () => {
@@ -788,6 +888,9 @@ const Package = () => {
     setSelectedBillType("");
     setPickerItems([]);
     setSelectedPickerItem("");
+    setPickerSearch("");
+    setIsPickerOpen(false);
+    setHighlightedIndex(-1);
     setShowModal(true);
   };
 
@@ -1309,6 +1412,20 @@ const Package = () => {
                           )?.BillType
                         }
                       </span>
+                      {pickerItems.length > 0 && (
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: tokens.muted,
+                            textTransform: "none",
+                            letterSpacing: "normal",
+                          }}
+                        >
+                          {pickerItems.length} items available
+                        </span>
+                      )}
                     </div>
                     {pickerItems.length === 0 ? (
                       <p style={css.emptyPicker}>
@@ -1316,33 +1433,228 @@ const Package = () => {
                       </p>
                     ) : (
                       <div
+                        ref={pickerDropdownRef}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 10,
+                          position: "relative",
+                          width: "100%",
                           marginTop: 4,
                         }}
                       >
-                        <select
-                          value={selectedPickerItem}
-                          onChange={(e) =>
-                            setSelectedPickerItem(e.target.value)
-                          }
-                          style={{ ...css.select, flex: 1 }}
-                        >
-                          <option value="">— Select Item —</option>
-                          {pickerItems.map((item) => (
-                            <option key={item.itemName} value={item.itemName}>
-                              {item.itemName}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          style={css.addSelectedBtn}
-                          onClick={addSelectedToTable}
-                        >
-                          ✚ Add to Package
-                        </button>
+                        {/* Search Input with Integrated Dropdown List */}
+                        <div style={{ position: "relative", width: "100%" }}>
+                          <input
+                            type="text"
+                            value={pickerSearch}
+                            onChange={(e) => {
+                              setPickerSearch(e.target.value);
+                              setSelectedPickerItem(e.target.value);
+                              setIsPickerOpen(true);
+                              setHighlightedIndex(-1);
+                            }}
+                            onFocus={() => setIsPickerOpen(true)}
+                            onKeyDown={handlePickerKeyDown}
+                            placeholder="🔍 Type to search and click an item to add..."
+                            style={{
+                              ...css.input,
+                              paddingRight: pickerSearch ? 54 : 32,
+                            }}
+                            autoComplete="off"
+                          />
+
+                          {/* Clear / Toggle icons */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              right: 8,
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            {pickerSearch && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPickerSearch("");
+                                  setSelectedPickerItem("");
+                                  setIsPickerOpen(true);
+                                  setHighlightedIndex(-1);
+                                }}
+                                style={{
+                                  background: "transparent",
+                                  border: "none",
+                                  color: tokens.muted,
+                                  cursor: "pointer",
+                                  fontSize: 12,
+                                  padding: "2px 4px",
+                                  lineHeight: 1,
+                                }}
+                                title="Clear search"
+                              >
+                                ✕
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setIsPickerOpen((prev) => !prev)}
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                color: tokens.muted,
+                                cursor: "pointer",
+                                fontSize: 11,
+                                padding: "2px 4px",
+                                lineHeight: 1,
+                              }}
+                              title="Toggle item list"
+                            >
+                              {isPickerOpen ? "▲" : "▼"}
+                            </button>
+                          </div>
+
+                          {/* Searchable Dropdown List overlay */}
+                          {isPickerOpen && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: "calc(100% + 4px)",
+                                left: 0,
+                                right: 0,
+                                zIndex: 100,
+                                background: tokens.white,
+                                border: `1.5px solid ${tokens.border}`,
+                                borderRadius: 8,
+                                maxHeight: 240,
+                                overflowY: "auto",
+                                boxShadow: "0 10px 25px rgba(10,22,40,0.18)",
+                              }}
+                            >
+                              {filteredPickerItems.length === 0 ? (
+                                <div
+                                  style={{
+                                    padding: "12px 14px",
+                                    color: tokens.muted,
+                                    fontSize: 13,
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  No items match "{pickerSearch}"
+                                </div>
+                              ) : (
+                                filteredPickerItems.map((item, idx) => {
+                                  const isHighlighted =
+                                    idx === highlightedIndex;
+                                  const isSelected =
+                                    selectedPickerItem === item.itemName;
+                                  const isAlreadyAdded = formData.items.some(
+                                    (existing) =>
+                                      existing.itemName &&
+                                      existing.itemName.trim().toLowerCase() ===
+                                        item.itemName.trim().toLowerCase(),
+                                  );
+                                  return (
+                                    <div
+                                      key={item.itemName + "_" + idx}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        if (isAlreadyAdded) {
+                                          alert(
+                                            `"${item.itemName}" is already added to this package.`,
+                                          );
+                                          return;
+                                        }
+                                        handleSelectPickerItem(item, true);
+                                      }}
+                                      onMouseEnter={() =>
+                                        !isAlreadyAdded && setHighlightedIndex(idx)
+                                      }
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        padding: "9px 14px",
+                                        fontSize: 13,
+                                        cursor: isAlreadyAdded
+                                          ? "not-allowed"
+                                          : "pointer",
+                                        borderBottom: `1px solid ${tokens.border}`,
+                                        background: isAlreadyAdded
+                                          ? "#F8FAFC"
+                                          : isHighlighted || isSelected
+                                            ? `${tokens.sky}14`
+                                            : tokens.white,
+                                        color: isAlreadyAdded
+                                          ? tokens.muted
+                                          : isHighlighted || isSelected
+                                            ? tokens.sky
+                                            : tokens.text,
+                                        opacity: isAlreadyAdded ? 0.65 : 1,
+                                        transition: "background .1s",
+                                      }}
+                                    >
+                                      <div
+                                        style={{
+                                          fontWeight: isSelected
+                                            ? 700
+                                            : isAlreadyAdded
+                                              ? 400
+                                              : 500,
+                                        }}
+                                      >
+                                        {item.itemName}
+                                      </div>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          alignItems: "center",
+                                          gap: 8,
+                                        }}
+                                      >
+                                        {isAlreadyAdded && (
+                                          <span
+                                            style={{
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              color: tokens.muted,
+                                              background: `${tokens.slate}15`,
+                                              padding: "2px 8px",
+                                              borderRadius: 6,
+                                            }}
+                                          >
+                                            ✓ Added
+                                          </span>
+                                        )}
+                                        {item.price && (
+                                          <span
+                                            style={{
+                                              fontSize: 12,
+                                              fontWeight: 600,
+                                              color: isAlreadyAdded
+                                                ? tokens.muted
+                                                : tokens.green,
+                                              background: isAlreadyAdded
+                                                ? `${tokens.slate}10`
+                                                : `${tokens.green}14`,
+                                              padding: "2px 8px",
+                                              borderRadius: 12,
+                                            }}
+                                          >
+                                            ₹
+                                            {parseFloat(
+                                              item.price,
+                                            ).toLocaleString("en-IN")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

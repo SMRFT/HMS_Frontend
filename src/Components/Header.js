@@ -714,6 +714,10 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
       cancelButtonText: "Cancel",
     }).then((result) => {
       if (result.isConfirmed) {
+        localStorage.removeItem("selected_outlet");
+        localStorage.removeItem("outlet_code");
+        localStorage.removeItem("selected_outlet_name");
+        localStorage.removeItem("allowed-outlets");
         window.location.href = "/secure";
       }
     });

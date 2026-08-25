@@ -3357,6 +3357,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchStatus, setSearchStatus] = useState("");
   const [searchReferredBy, setSearchReferredBy] = useState("");
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
+  const [searchPaymentMethod, setSearchPaymentMethod] = useState("");
   const [searchScanType, setSearchScanType] = useState("");
   const [billTypes, setBillTypes] = useState([]);
   const [searchSlotStatus, setSearchSlotStatus] = useState("");
@@ -3409,6 +3410,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         investBillDate: row.investBillDate,
         item_id: row.item_id ?? "",
         itemName: row.itemName || "",
+        paymentMethod: row.paymentMethod || "Cash",
         paymentStatus: row.paymentStatus || "",
         billTypeNo: selectedBillType,
         patientName:
@@ -3416,6 +3418,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age: row.age,
         age_type: row.age_type,
         gender: row.gender,
+        address: row.address || "",
+        patientType: row.ipNumber ? "IP" : (row.patientType || row.customerType || "OP"),
         referredBy: row.referredBy || "",
         referredByName: row.referredByName || "",
         report: row.report || null,
@@ -3518,6 +3522,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setSearchIpNumber("");
     setSearchPatient("");
     setSearchPaymentStatus("");
+    setSearchPaymentMethod("");
     setSearchStatus("");
     setSearchReferredBy("");
     setSearchScanType("");
@@ -3526,6 +3531,11 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const scanTypeOptions = useMemo(() => {
     const types = rows.map((r) => r.scan_type).filter(Boolean);
     return [...new Set(types)].sort();
+  }, [rows]);
+
+  const paymentMethodOptions = useMemo(() => {
+    const methods = rows.map((r) => r.paymentMethod).filter(Boolean);
+    return [...new Set(methods)].sort();
   }, [rows]);
 
   const referredByOptions = useMemo(() => {
@@ -3559,6 +3569,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             .includes(searchPatient.toLowerCase())) &&
         (!searchStatus || statusLabel === searchStatus) &&
         (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
+        (!searchPaymentMethod || row.paymentMethod === searchPaymentMethod) &&
         (!searchScanType || (row.scan_type || "") === searchScanType) &&
         (!searchSlotStatus ||
           (() => {
@@ -3579,6 +3590,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     searchStatus,
     searchReferredBy,
     searchPaymentStatus,
+    searchPaymentMethod,
     searchScanType,
     searchSlotStatus,
   ]);
@@ -3958,12 +3970,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       (r) => r.hasReport && !r.report?.is_approved,
     ).length;
     const approved = rows.filter((r) => r.report?.is_approved).length;
-    const itemMap = {};
-    rows.forEach((r) => {
-      const name = r.itemName || "Unknown";
-      itemMap[name] = (itemMap[name] || 0) + 1;
-    });
-    return { total, pending, reported, approved, itemMap };
+    const dispatched = rows.filter(
+      (r) => r.report?.is_Dispatched || r.report?.dispatch_DateTime,
+    ).length;
+    return { total, pending, reported, approved, dispatched };
   }, [rows]);
 
   const pageLabel =
@@ -4031,10 +4041,17 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     }
   };
 
+  const isPaymentAllowed = (paymentMethod, paymentStatus) => {
+    const method = (paymentMethod || "").trim().toLowerCase();
+    const status = (paymentStatus || "").trim().toLowerCase();
+    if (method === "credit") return true;
+    return status === "paid";
+  };
+
   const PatientInCell = ({ row, handlePatientCheckIn }) => {
     const checkedIn = !!row.report?.patientIn_DateTime;
     const scanStarted = !!row.report?.scan_started_DateTime;
-    const paymentPending = row.paymentStatus !== "Paid";
+    const paymentPending = !isPaymentAllowed(row.paymentMethod, row.paymentStatus);
     const isApproved = !!row.report?.is_approved;
 
     if (isApproved && checkedIn) {
@@ -4278,19 +4295,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                 <StatLabel>Approved</StatLabel>
               </StatInfo>
             </StatCard>
-            {Object.entries(stats.itemMap).map(([itemName, count]) => (
-              <StatCard key={itemName} bg="#f3e5f5" accent="#8e24aa">
-                <StatIcon>🔬</StatIcon>
-                <StatInfo>
-                  <StatCount color="#6a1b9a">{count}</StatCount>
-                  <StatLabel title={itemName}>
-                    {itemName.length > 14
-                      ? itemName.slice(0, 13) + "…"
-                      : itemName}
-                  </StatLabel>
-                </StatInfo>
-              </StatCard>
-            ))}
+            <StatCard bg="#e0f2f1" accent="#00897b">
+              <StatIcon>📤</StatIcon>
+              <StatInfo>
+                <StatCount color="#004d40">{stats.dispatched}</StatCount>
+                <StatLabel>Dispatched</StatLabel>
+              </StatInfo>
+            </StatCard>
           </StatsRow>
 
           <TableWrapper>
@@ -4308,6 +4319,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <Th>TAT</Th>
                   <Th>Bill Date</Th>
                   <Th>Referred By</Th>
+                  <Th>Payment Method</Th>
                   <Th>Payment Status</Th>
                   <Th>Slot</Th>
                   <Th>Patient In</Th>
@@ -4373,6 +4385,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       {referredByOptions.map((name) => (
                         <option key={name} value={name}>
                           {name}
+                        </option>
+                      ))}
+                    </SearchSelect>
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchSelect
+                      value={searchPaymentMethod}
+                      onChange={(e) => setSearchPaymentMethod(e.target.value)}
+                    >
+                      <option value="">All Methods</option>
+                      {paymentMethodOptions.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
                         </option>
                       ))}
                     </SearchSelect>
@@ -4486,6 +4511,32 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         )}
                       </Td>
                       <Td>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            padding: "3px 8px",
+                            borderRadius: "12px",
+                            fontSize: "0.75rem",
+                            fontWeight: 700,
+                            background:
+                              (row.paymentMethod || "").toLowerCase() === "credit"
+                                ? "#ede9fe"
+                                : "#e0f2fe",
+                            color:
+                              (row.paymentMethod || "").toLowerCase() === "credit"
+                                ? "#6d28d9"
+                                : "#0369a1",
+                            border: `1px solid ${
+                              (row.paymentMethod || "").toLowerCase() === "credit"
+                                ? "#ddd6fe"
+                                : "#bae6fd"
+                            }`,
+                          }}
+                        >
+                          💳 {row.paymentMethod || "Cash"}
+                        </span>
+                      </Td>
+                      <Td>
                         <StatusBadge
                           hasReport={row.paymentStatus === "Paid"}
                           approved={row.paymentStatus === "Paid"}
@@ -4577,7 +4628,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                           <IconBtn
                             onClick={() => handleGoToReport(row)}
                             disabled={
-                              row.paymentStatus !== "Paid" ||
+                              !isPaymentAllowed(row.paymentMethod, row.paymentStatus) ||
                               row.report?.is_approved ||
                               !row.report?.patientIn_DateTime ||
                               !row.report?.scan_started_DateTime ||
@@ -4587,7 +4638,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                                 row.report?.impression?.trim())
                             }
                             data-tip={
-                              row.paymentStatus !== "Paid"
+                              !isPaymentAllowed(row.paymentMethod, row.paymentStatus)
                                 ? "Payment Pending"
                                 : !row.report?.patientIn_DateTime
                                   ? "Patient not checked in yet"

@@ -47,6 +47,19 @@ import ViewEstimate from "./Components/InvestigationBilling/ViewEstimate";
 // Investigation Reports
 import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
+import MHCList from "./Components/MHC/MHCList";
+import MHCReportForm from "./Components/MHC/MHCReportForm";
+import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
+import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
+import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
+import MHCReviewList from "./Components/MHC/MHCReviewList";
+import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
+import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
+import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
@@ -61,10 +74,12 @@ import InsuranceProvider from "./Components/Insurance/InsuranceProvider";
 // Discharge
 import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
+import MRDTracking from "./Components/MRD/MRDTracking";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
 import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 import Internship from "./Components/HR/Internship";
 import InternshipDashboard from "./Components/HR/InternshipDashboard";
+
 
 // Billing Master
 import Package from "./Components/BillingMaster/Package";
@@ -102,6 +117,9 @@ import LabInventoryReport from "./Components/Stores/LabInventoryReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
+import AssetInchargeAssign from "./Components/AssetsManagement/AssetInchargeAssign";
+import AssetMaintenanceRequest from "./Components/AssetsManagement/AssetMaintenanceRequest";
+import AssetMaintenanceApproval from "./Components/AssetsManagement/AssetMaintenanceApproval";
 import AnesNameMaster from "./Components/OT/AnesNameMaster";
 import OTLabBilling from "./Components/OT/OTLabBilling";
 import OTMaster from "./Components/OT/OTMaster";
@@ -287,7 +305,15 @@ function App() {
             setUserOutlets(userAssignedOutlets);
 
             const storedOutlet = localStorage.getItem("selected_outlet");
-            if (!storedOutlet) {
+            const isValidStoredOutlet =
+              storedOutlet &&
+              userAssignedOutlets.some((o) => o.outlet_code === storedOutlet);
+
+            if (!isValidStoredOutlet) {
+              localStorage.removeItem("selected_outlet");
+              localStorage.removeItem("outlet_code");
+              localStorage.removeItem("selected_outlet_name");
+
               if (userAssignedOutlets.length === 1) {
                 // Auto-select if only one
                 const outlet = userAssignedOutlets[0];
@@ -343,6 +369,13 @@ function App() {
       "/ViewBills": "View Bills",
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
+      "/MHCList": "MHC Reports",
+      "/MHCReviewList": "MHC Review & Due List",
+      "/Masterhealthcheck": "Master Health Check",
+      "/MasterHealthcheckupReport": "MHC Report",
+      "/MasterHealthcheckupDashboard": "MHC Dashboard",
+      "/Masterhealthcheckupfollowup": "MHC Follow-up",
+      "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
       "/Enquiry": "Enquiry",
@@ -365,6 +398,9 @@ function App() {
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
+      "/AssetInchargeAssign": "Asset Incharge Assigning",
+      "/AssetMaintenanceRequest": "Asset Maintenance Request",
+      "/AssetMaintenanceApproval": "Asset Maintenance Request Approval",
       "/DischargeBilling": "Discharge Billing",
       "/DoctorReport": "Doctor Day/Month Report",
       "/pharmacytabs": "OP Pharmacy Tabs",
@@ -389,6 +425,8 @@ function App() {
       document.title = "Print Summary - Shanmuga Hospital";
     } else if (path.startsWith("/RDReportForm/")) {
       document.title = "RD Report Form - Shanmuga Hospital";
+    } else if (path.startsWith("/MHCReportForm/")) {
+      document.title = "MHC Report Form - Shanmuga Hospital";
     } else {
       const title = routeTitles[path] || "Shanmuga Hospital Management System";
       document.title = `${title} - Shanmuga Hospital`;
@@ -410,8 +448,7 @@ function App() {
   }, [userOutlets]);
 
   // Routes where sidebar is hidden (login page, mobile reg, feedback form, QR scan)
-  const hideSidebarRoutes = [
-    "/",
+  const publicRoutesList = [
     "/MobileRegistration",
     "/InPatientFeedbackForm",
     "/OutPatientfeedForm",
@@ -421,8 +458,21 @@ function App() {
     "/InpatientQRScan",
     "/inpatientqrscan",
     "/OutPatientQRScan",
-    "/outpatientqrscan"
+    "/outpatientqrscan",
+    "/QRScan",
+    "/qrscan"
   ];
+
+  const normalizedPath = location.pathname.toLowerCase().replace(/\/$/, "");
+
+  const isPublicPage = publicRoutesList.some((route) => {
+    const r = route.toLowerCase();
+    return normalizedPath === r || normalizedPath.endsWith(r);
+  });
+
+  const isNoSidebarRoute =
+    location.pathname === "/" ||
+    isPublicPage;
 
   if (isLoading)
     return (
@@ -439,31 +489,13 @@ function App() {
     );
 
   // Allow public access to MobileRegistration, Feedback forms, and QR scan pages
-  if (
-    !role &&
-    ![
-      "/MobileRegistration",
-      "/InPatientFeedbackForm",
-      "/OutPatientfeedForm",
-      "/outpatientfeedform",
-      "/OutPatientFeedbackForm",
-      "/outpatientfeedbackform",
-      "/InpatientQRScan",
-      "/inpatientqrscan",
-      "/OutPatientQRScan",
-      "/outpatientqrscan"
-    ].includes(location.pathname)
-  ) {
-
-
+  if (!role && !isPublicPage) {
     return (
       <div style={{ color: "red", textAlign: "center", marginTop: "50px" }}>
         Authentication error. Refresh the page.
       </div>
     );
   }
-
-  const isNoSidebarRoute = hideSidebarRoutes.includes(location.pathname);
 
   return (
     <div>
@@ -1092,7 +1124,58 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
-
+              {/* MHC Reports */}
+              {(hasPagePermission(
+                "/MHCList",
+                allowedActions,
+                dynamicPermissions,
+              ) ||
+                hasPagePermission(
+                  "/MHCReviewList",
+                  allowedActions,
+                  dynamicPermissions,
+                )) && (
+                  <>
+                    <Route path="/MHCList" element={<MHCList />} />
+                    <Route path="/MHCReviewList" element={<MHCReviewList />} />
+                    <Route
+                      path="/MHCReportForm/:package_id/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm/:uhid/:subUhid"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/MHCReportForm"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/mhc/report/:investBillNo"
+                      element={<MHCReportForm />}
+                    />
+                    <Route
+                      path="/Masterhealthcheck"
+                      element={<Masterhealthcheck />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupReport"
+                      element={<MasterHealthcheckupReport />}
+                    />
+                    <Route
+                      path="/MasterHealthcheckupDashboard"
+                      element={<MasterHealthcheckupDashboard />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowup"
+                      element={<Masterhealthcheckupfollowup />}
+                    />
+                    <Route
+                      path="/Masterhealthcheckupfollowupreport"
+                      element={<Masterhealthcheckupfollowupreport />}
+                    />
+                  </>
+                )}
               {/* Packages */}
               {hasPagePermission(
                 "/Package",
@@ -1356,6 +1439,24 @@ function App() {
                   element={<RecycleManagement />}
                 />
               )}
+              {hasPagePermission("/AssetInchargeAssign", allowedActions) && (
+                <Route
+                  path="/AssetInchargeAssign"
+                  element={<AssetInchargeAssign />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceRequest", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceRequest"
+                  element={<AssetMaintenanceRequest />}
+                />
+              )}
+              {hasPagePermission("/AssetMaintenanceApproval", allowedActions) && (
+                <Route
+                  path="/AssetMaintenanceApproval"
+                  element={<AssetMaintenanceApproval />}
+                />
+              )}
               {hasPagePermission(
                 "/AnesNameMaster",
                 allowedActions,
@@ -1613,22 +1714,30 @@ function App() {
                   <Route path="/CreateLicinecename" element={<CreateLicinecename />} />
                 )}
 
-          {hasPagePermission(
+              {hasPagePermission(
                 "/DealerItems",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/DealerItems" element={<DealerItems />} />
-              )}
+                  <Route path="/DealerItems" element={<DealerItems />} />
+                )}
 
 
-               {hasPagePermission(
+              {hasPagePermission(
                 "/RaiseIndentPage",
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
-              )}
+                  <Route path="/RaiseIndentPage" element={<RaiseIndentPage />} />
+                )}
+
+              {hasPagePermission(
+                "/MRDTracking",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route path="/MRDTracking" element={<MRDTracking />} />
+                )}
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
