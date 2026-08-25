@@ -50,12 +50,9 @@ import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
-import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
-import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
-import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
-import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
+
 import MHCReviewList from "./Components/MHC/MHCReviewList";
-import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
+// import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
 import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
@@ -98,6 +95,7 @@ import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
+import OPEMRDesk from "./Components/EMR/OPEMRDesk";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -178,6 +176,7 @@ import PurchaseRequisitionApproval from "./Components/InventoryMaster/PurchaseRe
 import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
+import Medicinechart from "./Components/Pharmacy/Medicinechart";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -351,6 +350,7 @@ function App() {
       "/Dashboard": "Dashboard",
       "/AdvancedDashboard": "Advanced Dashboard",
       "/DoctorDashboard": "Doctor Dashboard",
+      "/OPEMRDesk": "OP EMR Consultation",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -627,6 +627,8 @@ function App() {
                   <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
                 )}
 
+              <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
+
               {/* User Permission Manager */}
               {hasPagePermission(
                 "/UserPermissions",
@@ -828,6 +830,7 @@ function App() {
               ) && (
                   <>
                     <Route path="/crash-cart" element={<CrashCartChecklist />} />
+                    <Route path="/Medicinechart" element={<Medicinechart />} />
                     <Route path="/NursingStation" element={<NursingStation />} />
                   </>
                 )}
