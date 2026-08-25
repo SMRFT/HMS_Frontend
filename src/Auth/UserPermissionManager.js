@@ -3,899 +3,669 @@ import styled, { keyframes } from 'styled-components';
 import { toast } from 'react-toastify';
 import { fetchUserPermissions, updateUserPermissions, fetchAllEmployees, fetchSidebarMapping } from './apiRequest';
 import { PAGE_PERMISSIONS } from './FrontendPageMapping';
-import { FiSave, FiSearch, FiUser, FiCheck, FiShield, FiLock, FiSettings, FiActivity, FiArrowLeft } from 'react-icons/fi';
+import { FiSave, FiSearch, FiCheck, FiShield, FiCopy, FiX, FiCheckCircle, FiRefreshCw } from 'react-icons/fi';
 
-// --- Animations ---
-const fadeInUp = keyframes`
-  from { opacity: 0; transform: translateY(15px); }
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 `;
 
-const slideInLeft = keyframes`
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-`;
-
-const pulseGlow = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
-`;
-
-// --- Styled Components ---
-
-const PageContainer = styled.div`
-  padding: 24px 32px;
-  background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-
-  @media (max-width: 850px) {
-    padding: 12px;
-    height: 100vh;
-    overflow: hidden;
-  }
-`;
-
-const Container = styled.div`
-  padding: 32px 40px;
+const PageWrapper = styled.div`
   background: #f8fafc;
   height: calc(100vh - 64px);
+  overflow: hidden;
+  padding: 20px 32px;
+  font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
   display: flex;
   flex-direction: column;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  position: relative;
-  overflow: hidden;
+  box-sizing: border-box;
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: -200px;
-    left: -200px;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(13, 148, 136, 0.08) 0%, transparent 70%);
-    border-radius: 50%;
-    z-index: 0;
-  }
-
-  @media (max-width: 1200px) {
-    padding: 24px 20px;
-  }
-
-  @media (max-width: 850px) {
-    padding: 16px 12px;
-    height: calc(100vh - 64px);
-  }
-
-  @media (max-width: 480px) {
-    padding: 12px 8px;
-    height: calc(100dvh - 60px);
+  @media (max-width: 900px) {
+    padding: 16px;
+    height: auto;
+    overflow: auto;
   }
 `;
 
-const HeaderContainer = styled.div`
-  margin-bottom: 24px; /* Reduced from 32 to free up space */
-  flex-shrink: 0; /* Prevents header from shrinking and crushing */
+const TopBanner = styled.div`
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  animation: ${fadeInUp} 0.4s ease-out;
-  
-  h2 {
-    color: #0f172a;
-    font-size: 2rem;
-    font-weight: 800;
-    margin: 0;
-    letter-spacing: -0.5px;
-    
-    @media (max-width: 1200px) {
+  margin-bottom: 16px;
+  flex-shrink: 0;
+
+  .title-group {
+    h1 {
       font-size: 1.75rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.02em;
     }
-
-    @media (max-width: 850px) {
-      font-size: 1.5rem;
-    }
-
-    @media (max-width: 480px) {
-      font-size: 1.25rem;
+    p {
+      font-size: 0.88rem;
+      color: #64748b;
+      margin: 0;
     }
   }
 
-  .icon-wrapper {
-    width: 48px;
-    height: 48px;
-    background: white;
-    border-radius: 14px;
+  .header-actions {
     display: flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-    color: #0d9488;
+    gap: 12px;
 
-    @media (max-width: 850px) {
-      width: 40px;
-      height: 40px;
-      svg { width: 20px; height: 20px; }
+    .btn-discard {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 9px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      &:hover { background: #f8fafc; }
     }
-    
-    @media (max-width: 480px) {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      svg { width: 18px; height: 18px; }
-    }
-  }
 
-  @media (max-width: 850px) {
-    margin-bottom: 12px;
+    .btn-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid #0d9488;
+      color: #0d9488;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 9px 18px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+
+      &:hover {
+        background: #f0fdf4;
+      }
+    }
+
+    .btn-save {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #0d9488;
+      color: #ffffff;
+      border: none;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 9px 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #0f766e;
+      }
+    }
   }
 `;
 
-const ContentLayout = styled.div`
-  display: flex;
+const MainLayout = styled.div`
+  display: grid;
+  grid-template-columns: 320px 1fr;
   gap: 24px;
   flex: 1;
-  min-height: 0; /* Extremely important flexbox fix for inner scrolling containers */
+  min-height: 0;
 
-  @media (max-width: 850px) {
-    flex-direction: column;
-    gap: 0;
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
   }
 `;
 
-// --- Left Panel: User List ---
-
-const ListPanel = styled.div`
-  width: 380px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  border-radius: 24px;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+// ── Left Panel: Employees List ──
+const LeftPanel = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  height: calc(100vh - 160px);
   overflow: hidden;
-  animation: ${slideInLeft} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 1;
-
-  @media (max-width: 1200px) {
-    width: 320px;
-  }
-
-  @media (max-width: 992px) {
-    width: 280px;
-  }
-
-  @media (max-width: 850px) {
-    width: 100%;
-    min-height: auto;
-    max-height: none;
-    flex: 1;
-    display: ${props => props.visible ? 'flex' : 'none'};
-    border-radius: 16px;
-  }
-`;
-
-const SearchContainer = styled.div`
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.6);
-  z-index: 2;
 `;
 
 const SearchInputWrapper = styled.div`
   position: relative;
+  flex-shrink: 0;
   
   svg {
     position: absolute;
-    left: 16px;
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
     color: #94a3b8;
-    font-size: 1.1rem;
-    transition: color 0.2s;
+    font-size: 16px;
   }
 
   input {
     width: 100%;
-    padding: 14px 16px 14px 44px;
+    padding: 10px 14px 10px 40px;
+    border-radius: 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    font-size: 0.95rem;
-    background: #f8fafc;
-    transition: all 0.2s ease;
-    outline: none;
-    color: #334155;
-    font-weight: 500;
-    
-    &::placeholder {
-      color: #94a3b8;
-      font-weight: 400;
-    }
-    
-    &:focus {
-      background: white;
-      border-color: #0d9488;
-      box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
-      
-      + svg { color: #0d9488; }
-    }
-  }
-`;
-
-const EmployeeList = styled.div`
-  flex: 1;
-  padding: 16px 8px 16px 16px; /* Reduced right padding for inline scrollbar breathing room */
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 12px; /* Increased space between employee list items */
-
-  /* Inline Scrollbar Styling */
-  &::-webkit-scrollbar { 
-    width: 6px; 
-  }
-  &::-webkit-scrollbar-track { 
-    background: transparent; 
-    margin: 8px 0; /* Keeps scrollbar from touching the top/bottom edges */
-  }
-  &::-webkit-scrollbar-thumb { 
-    background: #cbd5e1; 
-    border-radius: 10px; 
-    &:hover { background: #94a3b8; }
-  }
-`;
-
-const EmployeeItem = styled.div`
-  padding: 16px 20px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: relative;
-  background: ${props => props.active ? 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)' : 'rgba(255, 255, 255, 0.6)'};
-  border: 1px solid ${props => props.active ? 'transparent' : 'rgba(255, 255, 255, 0.8)'};
-  box-shadow: ${props => props.active ? '0 10px 24px rgba(13, 148, 136, 0.3)' : '0 2px 8px rgba(0,0,0,0.02)'};
-  margin-right: 8px; /* Extra space to prevent inline scrollbar overlap */
-  color: ${props => props.active ? 'white' : 'inherit'};
-
-  &:hover {
-    background: ${props => props.active ? 'linear-gradient(135deg, #14b8a6 0%, #0f766e 100%)' : 'rgba(255, 255, 255, 0.9)'};
-    transform: translateY(-2px);
-    box-shadow: ${props => props.active ? '0 12px 28px rgba(13, 148, 136, 0.35)' : '0 6px 16px rgba(0,0,0,0.04)'};
-    animation: ${props => props.active ? pulseGlow : 'none'} 2s infinite;
-  }
-`;
-
-const Avatar = styled.div`
-  width: 48px;
-  height: 48px;
-  background: ${props => props.active ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)'};
-  color: ${props => props.active ? 'white' : '#475569'};
-  border: 1px solid ${props => props.active ? 'rgba(255,255,255,0.3)' : 'transparent'};
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: ${props => props.active ? '0 4px 10px rgba(0, 0, 0, 0.1)' : 'inset 0 2px 4px rgba(255,255,255,0.5)'};
-  transition: all 0.3s ease;
-`;
-
-const EmpInfo = styled.div`
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  
-  .emp-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 6px;
-    gap: 8px;
-  }
-  
-  h4 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1.2;
-    color: ${props => props.active ? 'white' : '#0f172a'};
-  }
-  
-  .emp-id {
-    font-size: 0.75rem;
-    color: ${props => props.active ? '#0f766e' : '#64748b'};
-    font-weight: 700;
-    background: ${props => props.active ? 'rgba(255, 255, 255, 0.9)' : '#f1f5f9'};
-    padding: 3px 8px;
-    border-radius: 8px;
-    white-space: nowrap;
-    box-shadow: ${props => props.active ? '0 2px 4px rgba(0,0,0,0.1)' : 'none'};
-  }
-  
-  .emp-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.75rem;
-    line-height: 1.3;
-  }
-  
-  .dept {
-    color: ${props => props.active ? 'rgba(255, 255, 255, 0.9)' : '#64748b'};
-    font-weight: 500;
-  }
-  
-  .desig {
-    color: ${props => props.active ? 'rgba(255, 255, 255, 0.95)' : '#475569'};
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    &::before {
-      content: '';
-      display: inline-block;
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: ${props => props.active ? 'rgba(255, 255, 255, 0.6)' : '#cbd5e1'};
-    }
-  }
-`;
-
-const GroupBadge = styled.div`
-  display: flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: 1px solid transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-`;
-
-// --- Right Panel: Details ---
-
-const DetailPanel = styled.div`
-  flex: 1;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  border-radius: 24px;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: ${fadeInUp} 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-
-  @media (max-width: 850px) {
-    width: 100%;
-    min-height: auto;
-    flex: 1;
-    display: ${props => props.visible ? 'flex' : 'none'};
-  }
-`;
-
-const DetailHeader = styled.div`
-  padding: 24px 32px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  background: rgba(255, 255, 255, 0.8);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  gap: 16px;
-
-  @media (max-width: 1200px) {
-    flex-wrap: wrap;
-    padding: 20px;
-  }
-
-  @media (max-width: 850px) {
-    padding: 16px;
-    gap: 12px;
-  }
-
-  @media (max-width: 480px) {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 12px;
-  }
-`;
-
-const UserHeaderInfo = styled.div`
-  h3 {
-    margin: 0;
-    color: #0f172a;
-    font-size: 1.4rem;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  span {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin-top: 6px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 500;
-
-    strong {
-      background: #f1f5f9;
-      padding: 4px 10px;
-      border-radius: 6px;
-      color: #334155;
-    }
-  }
-
-  .mobile-back-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: #f1f5f9;
-    border: none;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &:hover {
-      background: #e2e8f0;
-      color: #0f172a;
-    }
-  }
-
-  @media (max-width: 1200px) {
-    order: 1;
-  }
-
-  @media (max-width: 850px) {
-    h3 {
-      font-size: 1.2rem;
-    }
-    .mobile-back-btn {
-      display: flex !important;
-    }
-  }
-
-  @media (max-width: 480px) {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-`;
-
-const SaveButton = styled.button`
-  padding: 12px 24px;
-  background: #0f172a;
-  color: white;
-  border: none;
-  border-radius: 14px;
-  font-weight: 600;
-  font-size: 0.95rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-
-  &:hover {
-    background: #1e293b;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.2);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  @media (max-width: 1200px) {
-    order: 2;
-    margin-left: auto;
-  }
-
-  @media (max-width: 480px) {
-    padding: 10px 16px;
+    background: #ffffff;
     font-size: 0.85rem;
+    color: #0f172a;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: #0d9488;
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    }
   }
 `;
 
-const PermissionsContent = styled.div`
-  flex: 1;
-  padding: 32px;
-  background: transparent;
-  overflow-y: auto;
-
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { 
-    background: #cbd5e1; 
-    border-radius: 10px; 
-    border: 1px solid rgba(255,255,255,0.5);
-  }
-
-  @media (max-width: 850px) {
-    padding: 20px;
-  }
-
-  @media (max-width: 480px) {
-    padding: 16px 12px;
-  }
-`;
-
-const SectionTitle = styled.h4`
-  font-size: 0.85rem;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  font-weight: 800;
-  margin: 36px 0 20px 0;
+const DeptChipsRow = styled.div`
   display: flex;
-  align-items: center;
-  gap: 16px;
-  
-  &:first-child { margin-top: 0; }
-  
-  &::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, #e2e8f0 0%, transparent 100%);
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
   }
 `;
 
-const PermissionsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 16px;
-  }
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-`;
-
-const PermissionCard = styled.div`
-  background: ${props => props.active ? 'linear-gradient(135deg, rgba(204, 251, 241, 0.4) 0%, rgba(255, 255, 255, 0.8) 100%)' : 'rgba(255, 255, 255, 0.6)'};
-  border: 1px solid ${props => props.active ? 'rgba(20, 184, 166, 0.4)' : 'rgba(255, 255, 255, 0.8)'};
+const Chip = styled.button`
+  background: ${props => props.$active ? '#0d9488' : '#ffffff'};
+  color: ${props => props.$active ? '#ffffff' : '#475569'};
+  border: ${props => props.$active ? 'none' : '1px solid #e2e8f0'};
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 14px;
   border-radius: 20px;
-  padding: 24px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${props => props.$active ? '#0d9488' : '#f1f5f9'};
+  }
+`;
+
+const EmployeeCardsList = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: ${props => props.active ? '0 12px 24px rgba(20, 184, 166, 0.1)' : '0 4px 16px rgba(0,0,0,0.03)'};
-  position: relative;
-  overflow: hidden;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
 
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${props => props.active ? '0 16px 32px rgba(20, 184, 166, 0.15)' : '0 10px 24px rgba(0,0,0,0.06)'};
-    background: ${props => props.active ? 'linear-gradient(135deg, rgba(204, 251, 241, 0.6) 0%, rgba(255, 255, 255, 0.9) 100%)' : 'rgba(255, 255, 255, 0.9)'};
+  &::-webkit-scrollbar {
+    width: 5px;
   }
-
-  @media (max-width: 550px) {
-    padding: 16px;
-    border-radius: 16px;
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
   }
 `;
 
-const CardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-`;
-
-const SubPermGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-  animation: ${fadeInUp} 0.3s ease-out;
-`;
-
-const SubToggle = styled.div`
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: all 0.2s ease;
-  background: ${props => props.active ? '#0d9488' : '#f8fafc'};
-  color: ${props => props.active ? 'white' : '#64748b'};
-  border: 1px solid ${props => props.active ? '#0d9488' : '#e2e8f0'};
-
-  &:hover {
-    background: ${props => props.active ? '#0f766e' : '#f1f5f9'};
-    transform: scale(1.02);
-  }
-`;
-
-const PermLabel = styled.div`
+const EmployeeCard = styled.div`
+  background: ${props => props.$active ? '#0d9488' : '#ffffff'};
+  color: ${props => props.$active ? '#ffffff' : '#0f172a'};
+  border: ${props => props.$active ? 'none' : '1px solid #f1f5f9'};
+  border-radius: 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  
-  .icon-box {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: ${props => props.active ? '#f0fdfa' : '#f1f5f9'};
-    color: ${props => props.active ? '#0d9488' : '#94a3b8'};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-  }
-
-  .text-box {
-    display: flex;
-    flex-direction: column;
-    
-    strong {
-      font-size: 0.95rem;
-      color: ${props => props.active ? '#0f172a' : '#64748b'};
-      font-weight: 700;
-      transition: color 0.3s ease;
-    }
-
-    span {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      font-weight: 500;
-    }
-  }
-`;
-
-const Switch = styled.div`
-  width: 44px;
-  height: 24px;
-  background: ${props => props.active ? '#0d9488' : '#cbd5e1'};
-  border-radius: 20px;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  &::after {
-    content: '';
-    width: 18px;
-    height: 18px;
-    background: white;
-    border-radius: 50%;
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    transform: ${props => props.active ? 'translateX(20px)' : 'translateX(0)'};
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  }
-
-  &:hover {
-     box-shadow: 0 0 0 4px ${props => props.active ? 'rgba(13, 148, 136, 0.15)' : 'rgba(203, 213, 225, 0.3)'};
-  }
-`;
-
-const EmptyState = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #94a3b8;
-  gap: 20px;
-  text-align: center;
-  
-  .icon-wrapper {
-    width: 80px;
-    height: 80px;
-    background: #f1f5f9;
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #cbd5e1;
-    font-size: 2.5rem;
-    margin-bottom: 8px;
-  }
-  
-  h4 {
-    margin: 0;
-    color: #475569;
-    font-size: 1.2rem;
-  }
-
-  p {
-    margin: 0;
-    font-size: 0.95rem;
-    max-width: 250px;
-    line-height: 1.5;
-  }
-`;
-
-const HeaderTools = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
-  flex: 1;
-  margin: 0 24px;
-  
-  .compact-search {
-    max-width: 250px;
-    width: 100%;
-    
-    input {
-      padding: 10px 16px 10px 40px;
-      font-size: 0.9rem;
-      border-radius: 12px;
-    }
-  }
-
-  @media (max-width: 1200px) {
-    order: 3;
-    margin: 4px 0 0 0;
-    width: 100%;
-    flex: 1 1 100%;
-    justify-content: space-between;
-    .compact-search {
-      max-width: 300px;
-    }
-  }
-
-  @media (max-width: 650px) {
-    flex-direction: column;
-    align-items: stretch;
-    .compact-search {
-      max-width: 100%;
-    }
-  }
-`;
-
-const FilterGroup = styled.div`
-  display: flex;
-  background: #f1f5f9;
-  border-radius: 12px;
-  padding: 4px;
-`;
-
-const FilterBtn = styled.button`
-  padding: 8px 16px;
-  border: none;
-  background: ${props => props.active ? 'white' : 'transparent'};
-  color: ${props => props.active ? '#0f172a' : '#64748b'};
-  font-weight: ${props => props.active ? '700' : '500'};
-  border-radius: 8px;
-  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: ${props => props.active ? '0 2px 6px rgba(0,0,0,0.05)' : 'none'};
-  flex: 1;
-  text-align: center;
-  
+  box-shadow: ${props => props.$active ? '0 8px 20px rgba(13, 148, 136, 0.25)' : '0 1px 3px rgba(0, 0, 0, 0.04)'};
+
   &:hover {
-    color: #0f172a;
+    transform: translateY(-1px);
+    border-color: #0d9488;
   }
-`;
 
-// --- Mobile Tab Navigation ---
-const MobileTabContainer = styled.div`
-  display: none;
-  background: white;
-  border-radius: 16px;
-  padding: 6px;
-  margin-bottom: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
-  flex-shrink: 0;
-
-  @media (max-width: 850px) {
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: ${props => props.$active ? 'rgba(255, 255, 255, 0.2)' : '#e2e8f0'};
+    color: ${props => props.$active ? '#ffffff' : '#475569'};
+    font-weight: 800;
+    font-size: 1.1rem;
     display: flex;
-    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .emp-info {
+    flex: 1;
+    min-width: 0;
+
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+
+      h4 {
+        font-size: 0.92rem;
+        font-weight: 700;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .badge-id {
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: ${props => props.$active ? 'rgba(255, 255, 255, 0.25)' : '#f1f5f9'};
+        color: ${props => props.$active ? '#ffffff' : '#64748b'};
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    }
+
+    .meta {
+      font-size: 0.75rem;
+      color: ${props => props.$active ? 'rgba(255, 255, 255, 0.85)' : '#64748b'};
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pages-count {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: ${props => props.$active ? 'rgba(255, 255, 255, 0.9)' : '#0d9488'};
+    }
+  }
+
+  .check-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
   }
 `;
 
-const MobileTabBtn = styled.button`
-  flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  font-family: 'Outfit', sans-serif;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+// ── Right Panel: Permissions Management ──
+const RightPanel = styled.div`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 20px 24px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  
-  background: ${props => props.active ? 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' : 'transparent'};
-  color: ${props => props.active ? 'white' : '#64748b'};
-  box-shadow: ${props => props.active ? '0 8px 20px rgba(13, 148, 136, 0.25)' : 'none'};
+  flex-direction: column;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  height: calc(100vh - 210px);
+  overflow: hidden;
+`;
 
-  svg {
-    transition: transform 0.2s ease;
+const PermissionsScrollArea = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 16px;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+  }
+`;
+
+const SelectedEmpHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+
+  .emp-title {
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+    }
+    span {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
   }
 
-  &:hover {
-    color: ${props => props.active ? 'white' : '#0f172a'};
-    svg {
-      transform: scale(1.1);
+  .controls-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+`;
+
+const StatusPillGroup = styled.div`
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 10px;
+
+  button {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #64748b;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &.active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
     }
   }
 `;
 
-// --- Loader ---
-const Spinner = styled.div`
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(13, 148, 136, 0.2);
-  border-top-color: #0d9488;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  @keyframes spin { to { transform: rotate(360deg); } }
+const SmallSearchInput = styled.div`
+  position: relative;
+  svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 14px;
+  }
+  input {
+    padding: 6px 12px 6px 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.8rem;
+    width: 180px;
+    &:focus {
+      outline: none;
+      border-color: #0d9488;
+    }
+  }
 `;
 
-// --- Main Component ---
+const CategorySection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 
+  .cat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+
+    .cat-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .cat-actions {
+      display: flex;
+      gap: 12px;
+      span {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #0d9488;
+        cursor: pointer;
+        &:hover { text-decoration: underline; }
+        &.clear { color: #94a3b8; }
+      }
+    }
+  }
+`;
+
+const PermCardsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+`;
+
+const PermCard = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+
+    .info {
+      h5 {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 2px 0;
+      }
+      .route {
+        font-size: 0.75rem;
+        color: #94a3b8;
+      }
+    }
+  }
+
+  .actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+`;
+
+const ToggleSwitch = styled.label`
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: #cbd5e1;
+    transition: 0.3s;
+    border-radius: 24px;
+
+    &:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+  }
+
+  input:checked + .slider {
+    background-color: #0d9488;
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
+`;
+
+const SubActionPill = styled.button`
+  border: ${props => props.$active ? 'none' : '1px solid #cbd5e1'};
+  background: ${props => props.$active ? '#0d9488' : '#ffffff'};
+  color: ${props => props.$active ? '#ffffff' : '#64748b'};
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: ${props => props.$active ? '#0d9488' : '#f1f5f9'};
+  }
+`;
+
+// ── Bottom Fixed Action Footer ──
+const StickyFooter = styled.div`
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 1000;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+
+  .status-text {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .btns {
+    display: flex;
+    gap: 12px;
+
+    .btn-discard {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #475569;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 9px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      &:hover { background: #f8fafc; }
+    }
+
+    .btn-save {
+      background: #0d9488;
+      color: #ffffff;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 9px 24px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+      &:hover { background: #0f766e; }
+    }
+  }
+`;
+
+// ── Copy Permissions Modal Component ──
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+`;
+
+const ModalCard = styled.div`
+  background: #ffffff;
+  width: 100%;
+  max-width: 480px;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+  padding: 24px;
+  position: relative;
+  animation: ${fadeIn} 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+`;
+
+const ModalCloseBtn = styled.button`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+`;
+
+// MAIN COMPONENT
 const UserPermissionManager = () => {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDept, setSelectedDept] = useState("All");
   const [selectedEmpId, setSelectedEmpId] = useState(null);
-  const [selectedEmpName, setSelectedEmpName] = useState("");
-  const [selectedEmpRole, setSelectedEmpRole] = useState("");
-  const [activeMobileTab, setActiveMobileTab] = useState("directory"); // "directory" or "permissions"
 
   const [permissions, setPermissions] = useState([]);
-  const [selectedSubPerms, setSelectedSubPerms] = useState({}); // { pageId: ["READ", "WRITE"] }
-  const [legacyPermissions, setLegacyPermissions] = useState({}); // { key: val } for perms not mapped to sidebar
-  const [roles, setRoles] = useState([]);
+  const [selectedSubPerms, setSelectedSubPerms] = useState({});
+  const [legacyPermissions, setLegacyPermissions] = useState({});
+  const [empPermissionsMap, setEmpPermissionsMap] = useState({});
   const [pageSearchTerm, setPageSearchTerm] = useState("");
   const [pageStatusFilter, setPageStatusFilter] = useState("all");
   const [sidebarData, setSidebarData] = useState([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingPerms, setIsLoadingPerms] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Copy Permissions Modal state
+  const [showCopyModal, setShowCopyModal] = useState(false);
+  const [copySourceEmpId, setCopySourceEmpId] = useState(null);
+  const [copyTargetEmpIds, setCopyTargetEmpIds] = useState([]);
 
   useEffect(() => {
     const init = async () => {
@@ -905,8 +675,28 @@ const UserPermissionManager = () => {
           fetchAllEmployees(),
           fetchSidebarMapping()
         ]);
-        setEmployees(empData);
-        setSidebarData(sidebar);
+        setEmployees(empData || []);
+        setSidebarData(sidebar || []);
+
+        const initialMap = {};
+        (empData || []).forEach(emp => {
+          let count = 0;
+          if (Array.isArray(emp.hms_pages) && emp.hms_pages.length > 0) {
+            count = emp.hms_pages.length;
+          } else if (emp.allowed_pages) {
+            if (Array.isArray(emp.allowed_pages)) {
+              count = emp.allowed_pages.length;
+            } else if (typeof emp.allowed_pages === 'object') {
+              count = Object.keys(emp.allowed_pages).length;
+            }
+          }
+          initialMap[emp.employeeId] = count;
+        });
+        setEmpPermissionsMap(initialMap);
+
+        if (empData && empData.length > 0) {
+          setSelectedEmpId(empData[0].employeeId);
+        }
       } catch (e) {
         toast.error("Failed to load initial data");
       } finally {
@@ -916,19 +706,33 @@ const UserPermissionManager = () => {
     init();
   }, []);
 
+  const departmentList = useMemo(() => {
+    const set = new Set(["All"]);
+    employees.forEach(emp => {
+      if (emp.department) set.add(emp.department);
+    });
+    return Array.from(set);
+  }, [employees]);
+
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
-      const name = emp.employeeName?.toLowerCase() || "";
-      const id = emp.employeeId?.toString().toLowerCase() || "";
-      const term = searchTerm?.toLowerCase() || "";
-      return name.includes(term) || id.includes(term);
+      const name = (emp.employeeName || "").toLowerCase();
+      const id = String(emp.employeeId || "").toLowerCase();
+      const term = (searchTerm || "").toLowerCase();
+      const matchesSearch = !term || name.includes(term) || id.includes(term);
+      const matchesDept = selectedDept === "All" || emp.department === selectedDept;
+      return matchesSearch && matchesDept;
     });
-  }, [employees, searchTerm]);
+  }, [employees, searchTerm, selectedDept]);
+
+  const selectedEmployeeObj = useMemo(() => {
+    return employees.find(e => e.employeeId === selectedEmpId) || null;
+  }, [employees, selectedEmpId]);
 
   useEffect(() => {
-    if (!selectedEmpId) {
+    if (!selectedEmpId || sidebarData.length === 0) {
       setPermissions([]);
-      setRoles([]);
+      setSelectedSubPerms({});
       return;
     }
 
@@ -937,76 +741,81 @@ const UserPermissionManager = () => {
       try {
         const response = await fetchUserPermissions(selectedEmpId);
 
-        if (response && response.hms_pages) {
-          setPermissions(response.hms_pages);
-          setRoles(response.roles || []);
-
-          // Infer sub-permissions and identify legacy strings
+        if (response) {
           const sub = {};
           const managedStrings = new Set();
-
-          // Normalized mapping of ALL incoming permissions
           let allIncomingMapping = {};
-          const isLegacyArray = Array.isArray(response.allowed_pages);
 
-          if (response.allowed_pages && !Array.isArray(response.allowed_pages) && typeof response.allowed_pages === 'object') {
+          if (response.allowed_pages && typeof response.allowed_pages === 'object' && !Array.isArray(response.allowed_pages)) {
             allIncomingMapping = { ...response.allowed_pages };
-          } else if (isLegacyArray) {
-            // Convert legacy array to identity mapping
+          } else if (Array.isArray(response.allowed_pages)) {
             response.allowed_pages.forEach(s => {
               allIncomingMapping[String(s).trim()] = String(s).trim();
             });
           }
 
-          const allIncomingValues = Object.values(allIncomingMapping).map(v => String(v).trim());
-          const discoveredPageIds = new Set((response.hms_pages || []).map(id => Number(id)));
+          const incomingHmsPages = new Set((response.hms_pages || []).map(id => Number(id)));
+          const allIncomingValues = new Set(Object.values(allIncomingMapping).map(v => String(v).trim()));
+          const allIncomingKeys = new Set(Object.keys(allIncomingMapping).map(k => String(k).trim()));
+
+          const activePageIds = new Set();
 
           sidebarData.forEach(group => {
             (group.pages || []).forEach(page => {
               const pMap = page.permissions || {};
               const pId = Number(page.page_id);
+              const pRoute = String(page.route || '').trim();
 
-              // Track all values that are "managed" by sidebar mapping
               Object.values(pMap).forEach(v => managedStrings.add(String(v).trim()));
 
+              let isPageActive = false;
+
+              // Match by HMS page ID
+              if (incomingHmsPages.has(pId)) {
+                isPageActive = true;
+              }
+
+              // Match by route
+              if (pRoute && (allIncomingKeys.has(pRoute) || allIncomingValues.has(pRoute))) {
+                isPageActive = true;
+              }
+
+              // Match sub-permissions
               const activeKeys = [];
-              Object.entries(pMap).forEach(([k, v]) => {
-                const normalizedV = String(v).trim();
-                // Check if this specific mapping (or its value) exists in incoming data
-                // For modern granular dictionary saves, match strictly by key (k).
-                // For legacy arrays, fall back to value check.
-                const isActive = isLegacyArray 
-                  ? allIncomingValues.includes(normalizedV)
-                  : (k in allIncomingMapping);
+              if (typeof pMap === 'object' && !Array.isArray(pMap)) {
+                Object.entries(pMap).forEach(([k, v]) => {
+                  const normV = String(v).trim();
+                  if (allIncomingKeys.has(k) || allIncomingValues.has(normV) || incomingHmsPages.has(pId)) {
+                    activeKeys.push(k);
+                    isPageActive = true;
+                  }
+                });
+              }
 
-                if (isActive) {
-                  activeKeys.push(k);
-                  discoveredPageIds.add(pId);
-                }
-              });
-
-              if (activeKeys.length > 0) {
-                sub[pId] = activeKeys;
+              if (isPageActive) {
+                activePageIds.add(pId);
+                sub[pId] = activeKeys.length > 0 ? activeKeys : (typeof pMap === 'object' ? Object.keys(pMap) : []);
               }
             });
           });
 
-          // Legacy perms are items whose VALUES aren't in ANY sidebar page mapping
           const legacy = {};
           Object.entries(allIncomingMapping).forEach(([k, v]) => {
-            if (!managedStrings.has(String(v).trim())) {
+            if (!managedStrings.has(String(v).trim()) && !allIncomingKeys.has(k)) {
               legacy[k] = v;
             }
           });
 
-          setPermissions(Array.from(discoveredPageIds));
+          setPermissions(Array.from(activePageIds));
           setSelectedSubPerms(sub);
           setLegacyPermissions(legacy);
-
+          setEmpPermissionsMap(prev => ({
+            ...prev,
+            [selectedEmpId]: activePageIds.size
+          }));
         } else {
           setPermissions([]);
           setSelectedSubPerms({});
-          if (response && response.roles) setRoles(response.roles);
         }
       } catch (error) {
         toast.error("Failed to load permissions");
@@ -1015,28 +824,14 @@ const UserPermissionManager = () => {
       }
     };
 
-    if (sidebarData.length > 0) {
-      loadPerms();
-    }
+    loadPerms();
   }, [selectedEmpId, sidebarData]);
 
-  const togglePermission = (pageId, subKey = null) => {
+  const togglePagePermission = (pageId) => {
     if (pageId == null) return;
-
-    if (subKey) {
-      setSelectedSubPerms(prev => {
-        const current = prev[pageId] || [];
-        const next = current.includes(subKey)
-          ? current.filter(k => k !== subKey)
-          : [...current, subKey];
-        return { ...prev, [pageId]: next };
-      });
-      return;
-    }
 
     setPermissions(prev => {
       if (prev.includes(pageId)) {
-        // If turning off page, also clear sub-permissions
         setSelectedSubPerms(s => {
           const next = { ...s };
           delete next[pageId];
@@ -1045,8 +840,7 @@ const UserPermissionManager = () => {
         return prev.filter(p => p !== pageId);
       }
 
-      // If turning on page, enable all its defined sub-permissions by default
-      const pageInfo = sidebarData.flatMap(g => g.pages).find(p => p.page_id === pageId);
+      const pageInfo = sidebarData.flatMap(g => g.pages || []).find(p => p.page_id === pageId);
       if (pageInfo && pageInfo.permissions && typeof pageInfo.permissions === 'object') {
         setSelectedSubPerms(s => ({
           ...s,
@@ -1058,13 +852,46 @@ const UserPermissionManager = () => {
     });
   };
 
+  const toggleSubPermission = (pageId, subKey) => {
+    setSelectedSubPerms(prev => {
+      const current = prev[pageId] || [];
+      const next = current.includes(subKey)
+        ? current.filter(k => k !== subKey)
+        : [...current, subKey];
+      return { ...prev, [pageId]: next };
+    });
+  };
+
+  const enableAllCategoryPages = (categoryPages) => {
+    const newPageIds = new Set(permissions);
+    const newSubPerms = { ...selectedSubPerms };
+
+    categoryPages.forEach(p => {
+      newPageIds.add(p.page_id);
+      if (p.permissions && typeof p.permissions === 'object') {
+        newSubPerms[p.page_id] = Object.keys(p.permissions);
+      }
+    });
+
+    setPermissions(Array.from(newPageIds));
+    setSelectedSubPerms(newSubPerms);
+  };
+
+  const clearCategoryPages = (categoryPages) => {
+    const idsToRemove = new Set(categoryPages.map(p => p.page_id));
+    setPermissions(prev => prev.filter(id => !idsToRemove.has(id)));
+    setSelectedSubPerms(prev => {
+      const next = { ...prev };
+      idsToRemove.forEach(id => delete next[id]);
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     if (!selectedEmpId) return;
 
     setIsSaving(true);
-
     const activePageIds = permissions;
-    // Start with legacy permissions to ensure they are preserved as key:value
     const allowedPagesObj = { ...legacyPermissions };
     const hmsOutlets = new Set();
 
@@ -1072,13 +899,9 @@ const UserPermissionManager = () => {
       sidebarData.forEach(group => {
         (group.pages || []).forEach(page => {
           if (page.page_id != null && activePageIds.includes(page.page_id)) {
-            // Collect outlet codes for active pages
-            if (page.outlet_code) {
-              hmsOutlets.add(page.outlet_code);
-            }
+            if (page.outlet_code) hmsOutlets.add(page.outlet_code);
 
             if (page.permissions && typeof page.permissions === 'object' && !Array.isArray(page.permissions)) {
-              // Granular: only add key-value pairs for active keys selected in UI
               const activeKeys = selectedSubPerms[page.page_id] || [];
               activeKeys.forEach(k => {
                 if (page.permissions[k]) {
@@ -1086,7 +909,6 @@ const UserPermissionManager = () => {
                 }
               });
             } else {
-              // Legacy Array or Multi-string: add all as value:value (or key:value if possible)
               const permsArr = Array.isArray(page.permissions) ? page.permissions : [PAGE_PERMISSIONS[page.route] || page.route];
               permsArr.forEach(p => {
                 allowedPagesObj[String(p)] = p;
@@ -1101,10 +923,10 @@ const UserPermissionManager = () => {
       const result = await updateUserPermissions(selectedEmpId, allowedPagesObj, activePageIds, Array.from(hmsOutlets));
       if (result.success || result.message) {
         toast.success("Permissions saved successfully!");
-        if (localStorage.getItem("employeeId") === selectedEmpId) {
-          toast.info("Applying changes...", { autoClose: 1000 });
-          setTimeout(() => window.location.reload(), 1500);
-        }
+        setEmpPermissionsMap(prev => ({
+          ...prev,
+          [selectedEmpId]: activePageIds.length
+        }));
       } else {
         toast.error(result.error || "Save failed");
       }
@@ -1129,8 +951,7 @@ const UserPermissionManager = () => {
             pageName: page.name,
             route: page.route,
             page_id: page.page_id,
-            permissions: page.permissions, // Pass down to UI
-            hasExplicitToken: !!(page.permissions && Object.keys(page.permissions).length > 0)
+            permissions: page.permissions
           });
         }
       });
@@ -1141,6 +962,7 @@ const UserPermissionManager = () => {
   const filteredGroupedPermissions = useMemo(() => {
     const term = (pageSearchTerm || "").toLowerCase();
     const groups = {};
+
     Object.entries(groupedPermissions).forEach(([category, pages]) => {
       const filteredPages = pages.filter(page => {
         const pageName = page.pageName || "";
@@ -1159,237 +981,346 @@ const UserPermissionManager = () => {
         groups[category] = filteredPages;
       }
     });
+
     return groups;
   }, [groupedPermissions, pageSearchTerm, pageStatusFilter, permissions]);
 
-  const sortedCategories = Object.keys(filteredGroupedPermissions).sort();
+  const handleApplyCopyPermissions = async () => {
+    if (!copySourceEmpId || copyTargetEmpIds.length === 0) {
+      toast.warning("Select source and at least one target employee");
+      return;
+    }
+
+    try {
+      const sourcePermsRes = await fetchUserPermissions(copySourceEmpId);
+      if (!sourcePermsRes) return;
+
+      for (const targetId of copyTargetEmpIds) {
+        await updateUserPermissions(
+          targetId,
+          sourcePermsRes.allowed_pages || {},
+          sourcePermsRes.hms_pages || [],
+          sourcePermsRes.hms_outlets || []
+        );
+      }
+
+      toast.success(`Copied permissions to ${copyTargetEmpIds.length} employee(s)!`);
+      setShowCopyModal(false);
+      if (selectedEmpId && copyTargetEmpIds.includes(selectedEmpId)) {
+        window.location.reload();
+      }
+    } catch (e) {
+      toast.error("Failed to copy permissions");
+    }
+  };
+
+  const totalPagesCount = useMemo(() => {
+    return Object.values(groupedPermissions).reduce((acc, list) => acc + list.length, 0);
+  }, [groupedPermissions]);
+
+  const activePagesCount = permissions.length;
+
+  const getEmpPageCount = (emp) => {
+    if (emp.employeeId === selectedEmpId) {
+      return permissions.length;
+    }
+    if (empPermissionsMap[emp.employeeId] !== undefined) {
+      return empPermissionsMap[emp.employeeId];
+    }
+    if (Array.isArray(emp.hms_pages) && emp.hms_pages.length > 0) {
+      return emp.hms_pages.length;
+    }
+    if (emp.allowed_pages) {
+      if (Array.isArray(emp.allowed_pages)) return emp.allowed_pages.length;
+      if (typeof emp.allowed_pages === 'object') return Object.keys(emp.allowed_pages).length;
+    }
+    return 0;
+  };
 
   return (
-    <Container>
-      <HeaderContainer>
-        <div className="icon-wrapper">
-          <FiShield size={24} />
+    <PageWrapper>
+      {/* Top Title & Header Actions */}
+      <TopBanner>
+        <div className="title-group">
+          <h1>User permissions</h1>
+          <p>Grant page and action access per employee, or copy one person's access to another</p>
         </div>
-        <h2>Access Control Center</h2>
-      </HeaderContainer>
+        <div className="header-actions">
+          <button className="btn-discard" onClick={() => window.location.reload()}>
+            Discard
+          </button>
+          <button className="btn-copy" onClick={() => { setCopySourceEmpId(selectedEmpId); setShowCopyModal(true); }}>
+            <FiCopy /> Copy permissions
+          </button>
+          <button className="btn-save" onClick={handleSave} disabled={isSaving}>
+            <FiSave /> {isSaving ? "Saving..." : "Save changes"}
+          </button>
+        </div>
+      </TopBanner>
 
-      <MobileTabContainer>
-        <MobileTabBtn 
-          active={activeMobileTab === "directory"} 
-          onClick={() => setActiveMobileTab("directory")}
-        >
-          <FiSearch size={16} />
-          Directory
-        </MobileTabBtn>
-        <MobileTabBtn 
-          active={activeMobileTab === "permissions"} 
-          onClick={() => {
-            if (!selectedEmpId) {
-              toast.info("Please select an employee first");
-              return;
-            }
-            setActiveMobileTab("permissions");
-          }}
-        >
-          <FiShield size={16} />
-          Access Policies
-        </MobileTabBtn>
-      </MobileTabContainer>
+      <MainLayout>
+        {/* Left Side: Employees Directory */}
+        <LeftPanel>
+          <SearchInputWrapper>
+            <FiSearch />
+            <input
+              placeholder="Search employee or ID"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </SearchInputWrapper>
 
-      <ContentLayout>
-        {/* Left Panel: User List */}
-        <ListPanel visible={activeMobileTab === "directory"}>
-          <SearchContainer>
-            <SearchInputWrapper>
-              <FiSearch />
-              <input
-                placeholder="Search employees by name or ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </SearchInputWrapper>
-          </SearchContainer>
-
-          <EmployeeList>
+          <EmployeeCardsList>
             {isLoadingList ? (
-              <EmptyState>
-                <Spinner />
-                <p>Loading Directory...</p>
-              </EmptyState>
-            ) : (
-              filteredEmployees.map(emp => (
-                <EmployeeItem
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Loading employees...</div>
+            ) : filteredEmployees.map(emp => {
+              const isActive = selectedEmpId === emp.employeeId;
+              return (
+                <EmployeeCard
                   key={emp.employeeId}
-                  active={selectedEmpId === emp.employeeId}
-                  onClick={() => {
-                    setSelectedEmpId(emp.employeeId);
-                    setSelectedEmpName(emp.employeeName);
-                    setSelectedEmpRole(emp.designation || "Staff");
-                    setActiveMobileTab("permissions");
-                  }}
+                  $active={isActive}
+                  onClick={() => setSelectedEmpId(emp.employeeId)}
                 >
-                  <Avatar active={selectedEmpId === emp.employeeId}>
-                    {emp.employeeName?.charAt(0) || "?"}
-                  </Avatar>
-                  <EmpInfo active={selectedEmpId === emp.employeeId}>
-                    <div className="emp-header">
+                  <div className="avatar">
+                    {(emp.employeeName || "E").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="emp-info">
+                    <div className="name-row">
                       <h4>{emp.employeeName}</h4>
-                      {emp.employeeId && <span className="emp-id">#{emp.employeeId}</span>}
+                      <span className="badge-id">#{emp.employeeId}</span>
                     </div>
-                    <div className="emp-meta">
-                      {emp.department && <span className="dept">{emp.department}</span>}
-                      {emp.designation && <span className="desig">{emp.designation}</span>}
+                    <div className="meta">
+                      {[emp.department, emp.designation].filter(Boolean).join(' · ') || "Staff"}
                     </div>
-                  </EmpInfo>
-                  {selectedEmpId === emp.employeeId && <FiCheck color="#0d9488" size={18} />}
-                </EmployeeItem>
+                    <div className="pages-count">
+                      {getEmpPageCount(emp)} of {totalPagesCount} pages
+                    </div>
+                  </div>
+                  {isActive && (
+                    <div className="check-icon">
+                      <FiCheck size={14} />
+                    </div>
+                  )}
+                </EmployeeCard>
+              );
+            })}
+          </EmployeeCardsList>
+        </LeftPanel>
+
+        {/* Right Side: Permissions Card Grid */}
+        <RightPanel>
+          <SelectedEmpHeader>
+            <div className="emp-title">
+              <h3>{selectedEmployeeObj?.employeeName || "Select Employee"}</h3>
+              <span>
+                ID {selectedEmployeeObj?.employeeId || "-"} · {[selectedEmployeeObj?.department, selectedEmployeeObj?.designation].filter(Boolean).join(' · ') || "Staff"}
+              </span>
+            </div>
+
+            <div className="controls-group">
+              <StatusPillGroup>
+                <button
+                  className={pageStatusFilter === 'all' ? 'active' : ''}
+                  onClick={() => setPageStatusFilter('all')}
+                >
+                  All {totalPagesCount}
+                </button>
+                <button
+                  className={pageStatusFilter === 'enabled' ? 'active' : ''}
+                  onClick={() => setPageStatusFilter('enabled')}
+                >
+                  Enabled {activePagesCount}
+                </button>
+                <button
+                  className={pageStatusFilter === 'disabled' ? 'active' : ''}
+                  onClick={() => setPageStatusFilter('disabled')}
+                >
+                  Disabled {totalPagesCount - activePagesCount}
+                </button>
+              </StatusPillGroup>
+
+              <SmallSearchInput>
+                <FiSearch />
+                <input
+                  placeholder="Search permission"
+                  value={pageSearchTerm}
+                  onChange={e => setPageSearchTerm(e.target.value)}
+                />
+              </SmallSearchInput>
+            </div>
+          </SelectedEmpHeader>
+
+          <PermissionsScrollArea>
+            {isLoadingPerms ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>Loading permissions...</div>
+            ) : Object.keys(filteredGroupedPermissions).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No permissions found for current filter.</div>
+            ) : (
+              Object.entries(filteredGroupedPermissions).map(([category, pages]) => (
+                <CategorySection key={category}>
+                  <div className="cat-header">
+                    <div className="cat-title">{category}</div>
+                    <div className="cat-actions">
+                      <span onClick={() => enableAllCategoryPages(pages)}>Enable all</span>
+                      <span className="clear" onClick={() => clearCategoryPages(pages)}>Clear</span>
+                    </div>
+                  </div>
+
+                  <PermCardsGrid>
+                    {pages.map(page => {
+                      const isChecked = permissions.includes(page.page_id);
+                      const subKeys = (page.permissions && typeof page.permissions === 'object')
+                        ? Object.keys(page.permissions)
+                        : [];
+                      const activeSubKeys = selectedSubPerms[page.page_id] || [];
+
+                      return (
+                        <PermCard key={page.page_id}>
+                          <div className="card-top">
+                            <div className="info">
+                              <h5>{page.pageName}</h5>
+                              <div className="route">{page.route}</div>
+                            </div>
+
+                            <ToggleSwitch>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => togglePagePermission(page.page_id)}
+                              />
+                              <span className="slider" />
+                            </ToggleSwitch>
+                          </div>
+
+                          {isChecked && subKeys.length > 0 && (
+                            <div className="actions-row">
+                              {subKeys.map(k => {
+                                const isSubActive = activeSubKeys.includes(k);
+                                return (
+                                  <SubActionPill
+                                    key={k}
+                                    $active={isSubActive}
+                                    onClick={() => toggleSubPermission(page.page_id, k)}
+                                  >
+                                    {k.charAt(0).toUpperCase() + k.slice(1).toLowerCase()}
+                                  </SubActionPill>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </PermCard>
+                      );
+                    })}
+                  </PermCardsGrid>
+                </CategorySection>
               ))
             )}
-            {!isLoadingList && filteredEmployees.length === 0 && (
-              <EmptyState>
-                <div className="icon-wrapper" style={{ background: 'transparent', height: 40 }}><FiSearch /></div>
-                <h4>No users found</h4>
-              </EmptyState>
-            )}
-          </EmployeeList>
-        </ListPanel>
+          </PermissionsScrollArea>
+        </RightPanel>
+      </MainLayout>
 
-        {/* Right Panel: Permissions Details */}
-        <DetailPanel visible={activeMobileTab === "permissions"}>
-          {selectedEmpId ? (
-            <>
-              <DetailHeader>
-                <UserHeaderInfo style={{ flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <button 
-                      className="mobile-back-btn"
-                      onClick={() => setActiveMobileTab("directory")}
-                      title="Back to Directory"
+      {/* Copy Permissions Modal (Screenshot 2) */}
+      {showCopyModal && (
+        <ModalOverlay onClick={() => setShowCopyModal(false)}>
+          <ModalCard onClick={e => e.stopPropagation()}>
+            <ModalCloseBtn onClick={() => setShowCopyModal(false)}>
+              <FiX size={16} />
+            </ModalCloseBtn>
+
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 4px 0', color: '#0f172a' }}>Copy permissions</h3>
+            <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 16px 0' }}>Take one employee's access and apply it to others</p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.5px', marginBottom: '8px' }}>COPY FROM</div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {employees.map(emp => {
+                  const isSrc = copySourceEmpId === emp.employeeId;
+                  return (
+                    <div
+                      key={emp.employeeId}
+                      onClick={() => setCopySourceEmpId(emp.employeeId)}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        border: isSrc ? '2px solid #0d9488' : '1px solid #e2e8f0',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
                     >
-                      <FiArrowLeft size={18} />
-                    </button>
-                    <h3>{selectedEmpName}</h3>
-                  </div>
-                  <span>
-                    ID: <strong>{selectedEmpId}</strong>
-                  </span>
-                </UserHeaderInfo>
-
-                {!isLoadingPerms && (
-                  <HeaderTools>
-                    <SearchInputWrapper className="compact-search">
-                      <FiSearch />
-                      <input
-                        placeholder="Find pages or routes..."
-                        value={pageSearchTerm}
-                        onChange={(e) => setPageSearchTerm(e.target.value)}
-                      />
-                    </SearchInputWrapper>
-                    <FilterGroup>
-                      <FilterBtn active={pageStatusFilter === 'all'} onClick={() => setPageStatusFilter('all')}>All</FilterBtn>
-                      <FilterBtn active={pageStatusFilter === 'enabled'} onClick={() => setPageStatusFilter('enabled')}>Enabled</FilterBtn>
-                      <FilterBtn active={pageStatusFilter === 'disabled'} onClick={() => setPageStatusFilter('disabled')}>Disabled</FilterBtn>
-                    </FilterGroup>
-                  </HeaderTools>
-                )}
-
-                <SaveButton onClick={handleSave} disabled={isSaving || isLoadingPerms} style={{ flexShrink: 0 }}>
-                  {isSaving ? <Spinner style={{ width: 16, height: 16, borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }} /> : <FiSave size={18} />}
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </SaveButton>
-              </DetailHeader>
-
-              <PermissionsContent>
-                {isLoadingPerms ? (
-                  <EmptyState>
-                    <Spinner />
-                    <p>Fetching assigned policies...</p>
-                  </EmptyState>
-                ) : (
-                  <>
-
-                    {sortedCategories.length === 0 ? (
-                      <EmptyState>
-                        <div className="icon-wrapper" style={{ background: 'transparent', height: 40 }}><FiSearch /></div>
-                        <h4>No pages found</h4>
-                      </EmptyState>
-                    ) : (
-                      sortedCategories.map(category => (
-                        <div key={category} style={{ marginBottom: '32px' }}>
-                          <SectionTitle>{category}</SectionTitle>
-                          <PermissionsGrid>
-                            {filteredGroupedPermissions[category].map(({ pageName, page_id, permissions: permissionsData, route }) => {
-                              const isActive = permissions.includes(page_id);
-                              const subPermEntries = Object.keys(permissionsData || {});
-
-                              return (
-                                <PermissionCard
-                                  key={`${pageName}-${page_id}`}
-                                  active={isActive}
-                                >
-                                  <CardHeader>
-                                    <PermLabel active={isActive}>
-                                      <div className="icon-box">
-                                        <FiActivity />
-                                      </div>
-                                      <div className="text-box">
-                                        <strong>{pageName}</strong>
-                                        <span>{route}</span>
-                                      </div>
-                                    </PermLabel>
-                                    <Switch
-                                      active={isActive}
-                                      onClick={() => togglePermission(page_id)}
-                                    />
-                                  </CardHeader>
-
-                                  {isActive && subPermEntries.length > 0 && (
-                                    <SubPermGrid>
-                                      {subPermEntries.map(k => {
-                                        const isSubActive = (selectedSubPerms[page_id] || []).includes(k);
-                                        return (
-                                          <SubToggle
-                                            key={k}
-                                            active={isSubActive}
-                                            onClick={() => togglePermission(page_id, k)}
-                                            title={`Toggle ${k} permission`}
-                                          >
-                                            {isSubActive && <FiCheck size={10} />}
-                                            {k}
-                                          </SubToggle>
-                                        );
-                                      })}
-                                    </SubPermGrid>
-                                  )}
-
-                                  {isActive && subPermEntries.length === 0 && (
-                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontStyle: 'italic', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
-                                      No granular permissions defined for this page.
-                                    </div>
-                                  )}
-                                </PermissionCard>
-                              );
-                            })}
-                          </PermissionsGrid>
-                        </div>
-                      ))
-                    )}
-                  </>
-                )}
-              </PermissionsContent>
-            </>
-          ) : (
-            <EmptyState>
-              <div className="icon-wrapper">
-                <FiLock />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{emp.employeeName}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{[emp.department, emp.designation].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      {isSrc && <FiCheckCircle color="#0d9488" size={18} />}
+                    </div>
+                  );
+                })}
               </div>
-              <h4>Select an Employee</h4>
-              <p>Choose a user from the directory to view and modify their access permissions.</p>
-            </EmptyState>
-          )}
-        </DetailPanel>
-      </ContentLayout>
-    </Container>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.5px' }}>COPY TO</span>
+                <span
+                  style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0d9488', cursor: 'pointer' }}
+                  onClick={() => setCopyTargetEmpIds(employees.filter(e => e.employeeId !== copySourceEmpId).map(e => e.employeeId))}
+                >
+                  Select all
+                </span>
+              </div>
+              <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {employees.filter(e => e.employeeId !== copySourceEmpId).map(emp => {
+                  const isTarget = copyTargetEmpIds.includes(emp.employeeId);
+                  return (
+                    <div
+                      key={emp.employeeId}
+                      onClick={() => {
+                        setCopyTargetEmpIds(prev =>
+                          prev.includes(emp.employeeId)
+                            ? prev.filter(id => id !== emp.employeeId)
+                            : [...prev, emp.employeeId]
+                        );
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '10px',
+                        border: isTarget ? '1px solid #0d9488' : '1px solid #e2e8f0',
+                        background: isTarget ? '#f0fdf4' : '#ffffff',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>{emp.employeeName}</span>
+                      <input type="checkbox" checked={isTarget} readOnly style={{ accentColor: '#0d9488' }} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowCopyModal(false)}
+                style={{ padding: '8px 18px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#ffffff', fontWeight: 700, color: '#475569', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyCopyPermissions}
+                style={{ padding: '8px 24px', borderRadius: '10px', border: 'none', background: '#0d9488', fontWeight: 700, color: '#ffffff', cursor: 'pointer' }}
+              >
+                Apply
+              </button>
+            </div>
+          </ModalCard>
+        </ModalOverlay>
+      )}
+    </PageWrapper>
   );
 };
 
