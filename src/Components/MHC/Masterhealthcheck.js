@@ -331,6 +331,8 @@ export default function Masterhealthcheck() {
   const [packages, setPackages]             = useState([]);
   const [selectedPkgs, setSelectedPkgs]    = useState([]); // [{package_name, package_fee}]
   const [loadingPackages, setLoadingPackages] = useState(false);
+  const [sources, setSources]               = useState([]);
+  const [loadingSources, setLoadingSources] = useState(false);
   const [saving, setSaving]                 = useState(false);
   const [dropOpen, setDropOpen]             = useState(false);
   const dropRef                             = useRef(null);
@@ -362,6 +364,26 @@ export default function Masterhealthcheck() {
   }, []);
 
   useEffect(() => { fetchPackages(); }, [fetchPackages]);
+
+  // ── Fetch sources ────────────────────────────────────────────────────────
+  const fetchSources = useCallback(async () => {
+    setLoadingSources(true);
+    try {
+      const res = await apiRequest(`${Hmsbaseurl}mhc_source/`, "GET");
+      if (res.success) {
+        const sourceData = res.data?.sources || res.sources || (Array.isArray(res.data) ? res.data : []);
+        setSources(sourceData);
+      } else {
+        toast.error("Failed to load sources");
+      }
+    } catch {
+      toast.error("Error fetching sources");
+    } finally {
+      setLoadingSources(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchSources(); }, [fetchSources]);
 
   // ── Derive package_fee sum whenever selection changes ────────────────────
   useEffect(() => {
@@ -474,8 +496,21 @@ export default function Masterhealthcheck() {
             </FieldGroup>
             <FieldGroup>
               <Label>Source</Label>
-              <Input id="mhc-source" name="source" placeholder="Referral / Walk-in / etc."
-                value={form.source} onChange={handleChange} />
+              {loadingSources ? (
+                <LoadingShimmer />
+              ) : (
+                <Select id="mhc-source" name="source" value={form.source} onChange={handleChange}>
+                  <option value="">Select Source</option>
+                  {sources.map((s, idx) => {
+                    const sourceVal = typeof s === "string" ? s : (s.source || "");
+                    return (
+                      <option key={idx} value={sourceVal}>
+                        {sourceVal}
+                      </option>
+                    );
+                  })}
+                </Select>
+              )}
             </FieldGroup>
             <FieldGroup>
               <Label>Follow Up</Label>
