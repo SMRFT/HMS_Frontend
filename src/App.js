@@ -55,12 +55,6 @@ import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDa
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 import MHCReviewList from "./Components/MHC/MHCReviewList";
-import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
-import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
-import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
-import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
-import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
-
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
 
