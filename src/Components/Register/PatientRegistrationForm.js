@@ -16,12 +16,12 @@ import CreateABHAModal from "./CreateABHAModal";
 
 
 // Modal component for search results
-const Modal = ({ show, onClose, title, children, footer }) => {
+const Modal = ({ show, onClose, title, children, footer, maxWidth }) => {
     if (!show) return null
 
     return (
         <ModalOverlay>
-            <ModalContainer>
+            <ModalContainer maxWidth={maxWidth}>
                 <ModalHeader>
                     <ModalTitle>{title}</ModalTitle>
                     <CloseButton onClick={onClose}>×</CloseButton>
@@ -258,6 +258,8 @@ const PatientRegistrationForm = () => {
         homePhone: "",
         bloodGroup: "",
         spouseName: "",
+        occupation: "",
+        annualIncome: "",
         referredBy: "",
         doctorName: "",
         doctorId: "",
@@ -387,14 +389,18 @@ const PatientRegistrationForm = () => {
                 alert("Please select a doctor");
                 return;
             }
-            const doc = doctors.find(d => d.id === editingDoctor);
+            const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+            const regFee = doc && doc.registrationFee !== undefined ? doc.registrationFee : (selectedVisit ? Number(selectedVisit.registrationFee) || 0 : 0);
+            const consFee = doc && doc.consultingFee !== undefined ? doc.consultingFee : (selectedVisit ? Number(selectedVisit.consultingFee) || 0 : 0);
+            const totalFees = (Number(regFee) || 0) + (Number(consFee) || 0);
+
             const payload = {
                 bill_number: selectedVisit.billNumber,
                 doctor_id: editingDoctor,
                 doctorName: doc ? doc.name : "",
-                registrationFee: doc ? doc.registrationFee : 0,
-                consultingFee: doc ? doc.consultingFee : 0,
-                totalFees: doc ? (doc.registrationFee + doc.consultingFee) : 0
+                registrationFee: regFee,
+                consultingFee: consFee,
+                totalFees: totalFees
             };
 
             const result = await apiRequest(`${Hmsbaseurl}update-registration-visit/`, "POST", payload);
@@ -1473,7 +1479,7 @@ const PatientRegistrationForm = () => {
                                                 >
                                                     {visit.patientName} ({visit.age}/{visit.gender})
                                                 </td>
-                                                <td style={{ padding: '12px' }}>{visit.doctor}</td>
+                                                <td style={{ padding: '12px' }}>{visit.doctorName || visit.doctor}</td>
                                                 <td style={{ padding: '12px' }}>
                                                     <span style={{
                                                         padding: '4px 8px',
@@ -1695,18 +1701,26 @@ const PatientRegistrationForm = () => {
                                     </Select>
                                 </FilterGroup>
 
-                                {editingDoctor && (
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
-                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Reg. Fee</p>
-                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.registrationFee || 0}</p>
-                                        </div>
-                                        <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
-                                            <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Cons. Fee</p>
-                                            <p style={{ margin: 0, fontWeight: '600' }}>₹{doctors.find(d => d.id === editingDoctor)?.consultingFee || 0}</p>
-                                        </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                        <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Reg. Fee</p>
+                                        <p style={{ margin: 0, fontWeight: '600' }}>
+                                            ₹{(() => {
+                                                const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+                                                return doc && doc.registrationFee !== undefined ? doc.registrationFee : (selectedVisit?.registrationFee || 0);
+                                            })()}
+                                        </p>
                                     </div>
-                                )}
+                                    <div style={{ background: '#f0fdfa', padding: '10px', borderRadius: '8px' }}>
+                                        <p style={{ margin: '0 0 2px 0', fontSize: '12px', color: '#0d9488' }}>Cons. Fee</p>
+                                        <p style={{ margin: 0, fontWeight: '600' }}>
+                                            ₹{(() => {
+                                                const doc = doctors.find(d => String(d.id) === String(editingDoctor));
+                                                return doc && doc.consultingFee !== undefined ? doc.consultingFee : (selectedVisit?.consultingFee || 0);
+                                            })()}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </Modal>
@@ -2091,6 +2105,43 @@ const PatientRegistrationForm = () => {
                                             onChange={handleChange}
                                             placeholder="Enter spouse name"
                                         />
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="occupation">Occupation</Label>
+                                        <Select
+                                            id="occupation"
+                                            name="occupation"
+                                            value={patient.occupation || ""}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">Select Occupation</option>
+                                            <option value="Government / Public Sector">Government / Public Sector</option>
+                                            <option value="Private Sector">Private Sector</option>
+                                            <option value="Business / Self-Employed">Business / Self-Employed</option>
+                                            <option value="Professional">Professional (Doctor, Engineer, Lawyer, etc.)</option>
+                                            <option value="Agriculture / Farmer">Agriculture / Farmer</option>
+                                            <option value="Daily Wage / Laborer">Daily Wage / Laborer</option>
+                                            <option value="Student">Student</option>
+                                            <option value="Homemaker">Homemaker</option>
+                                            <option value="Retired">Retired</option>
+                                            <option value="Others">Others</option>
+                                        </Select>
+                                    </InputWrapper>
+                                    <InputWrapper>
+                                        <Label htmlFor="annualIncome">Yearly Income</Label>
+                                        <Select
+                                            id="annualIncome"
+                                            name="annualIncome"
+                                            value={patient.annualIncome || ""}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="">Select Yearly Income</option>
+                                            <option value="Below ₹ 1 Lakh">Below ₹ 1 Lakh</option>
+                                            <option value="₹ 1 Lakh - ₹ 3 Lakhs">₹ 1 Lakh - ₹ 3 Lakhs</option>
+                                            <option value="₹ 3 Lakhs - ₹ 5 Lakhs">₹ 3 Lakhs - ₹ 5 Lakhs</option>
+                                            <option value="₹ 5 Lakhs - ₹ 10 Lakhs">₹ 5 Lakhs - ₹ 10 Lakhs</option>
+                                            <option value="Above ₹ 10 Lakhs">Above ₹ 10 Lakhs</option>
+                                        </Select>
                                     </InputWrapper>
                                 </FormGrid>
                             </CollapsibleSection>
@@ -3105,16 +3156,16 @@ const ModalOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  z-index: 10000;
   padding: 20px;
 `
 
 const ModalContainer = styled.div`
   background: white;
   border-radius: 24px;
-  width: 100%;
-  max-width: 800px;
-  max-height: 85vh;
+  width: 92vw;
+  max-width: ${props => props.maxWidth || '1150px'};
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
