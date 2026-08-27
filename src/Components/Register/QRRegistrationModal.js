@@ -1,39 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { QRCodeCanvas } from 'qrcode.react';
-import { X, RefreshCw, Trash2, ArrowRight, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, RefreshCw, Search, Printer, Send } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+
 const Overlay = styled.div`
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1200;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(4px);
 `;
 
 const Content = styled.div`
-  background: white;
-  width: 90%;
-  max-width: 900px; /* Increased width */
-  height: 80vh; /* Fixed height for better list scrolling */
-  border-radius: 16px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  background: #ffffff;
+  width: 95%;
+  max-width: 1060px;
+  height: 85vh;
+  max-height: 720px;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
   display: flex;
   overflow: hidden;
   position: relative;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 `;
 
 const CloseButton = styled.button`
   position: absolute;
-  top: 20px;
-  right: 20px;
-  background: white;
+  top: 16px;
+  right: 16px;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
   width: 32px;
   height: 32px;
@@ -44,151 +47,287 @@ const CloseButton = styled.button`
   cursor: pointer;
   color: #64748b;
   z-index: 10;
-  transition: all 0.2s;
-  
+  transition: all 0.15s ease;
+
   &:hover {
-    color: #ef4444;
-    border-color: #ef4444;
-    transform: rotate(90deg);
+    color: #0f172a;
+    border-color: #cbd5e1;
+    background: #f8fafc;
   }
 `;
 
+// Left Dark Panel
 const LeftPanel = styled.div`
-  width: 350px;
-  background: #f8fafc;
-  padding: 40px;
+  width: 360px;
+  background: #13201a;
+  color: #ffffff;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+`;
+
+const LiveBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #34d399;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    background-color: #34d399;
+    border-radius: 50%;
+    display: inline-block;
+  }
+`;
+
+const LeftTitle = styled.h2`
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 4px 0;
+`;
+
+const LeftSubtitle = styled.p`
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+`;
+
+const QRCard = styled.div`
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-right: 1px solid #e2e8f0;
-  flex-shrink: 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
 `;
 
+const QRSubtext = styled.span`
+  margin-top: 14px;
+  font-family: 'DM Mono', monospace, monospace;
+  font-size: 11.5px;
+  color: #64748b;
+`;
+
+const ButtonRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 28px;
+`;
+
+const DarkActionButton = styled.button`
+  background: #1e2c24;
+  border: 1px solid #2d4037;
+  color: #e2e8f0;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #27382f;
+    border-color: #3e564a;
+    color: #ffffff;
+  }
+`;
+
+const HowItWorksSection = styled.div`
+  margin-top: auto;
+`;
+
+const HowHeader = styled.div`
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+`;
+
+const StepItem = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const StepBadge = styled.span`
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #166534;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+`;
+
+// Right Light Panel
 const RightPanel = styled.div`
   flex: 1;
-  padding: 40px;
+  background: #ffffff;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 `;
 
-const Title = styled.h3`
-  margin: 0 0 10px 0;
-  color: #1e293b;
-  font-size: 24px;
+const QueueHeader = styled.div`
+  margin-bottom: 16px;
+`;
+
+const QueueTitle = styled.h2`
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+`;
+
+const QueueSubtitle = styled.p`
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+`;
+
+const ControlsBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+`;
+
+const FilterPillGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 8px;
+`;
+
+const FilterPill = styled.button`
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: ${props => props.active ? '#133d34' : 'transparent'};
+  color: ${props => props.active ? '#ffffff' : '#64748b'};
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover {
+    color: ${props => props.active ? '#ffffff' : '#0f172a'};
+  }
+`;
+
+const PillCountBadge = styled.span`
+  background: ${props => props.active ? 'rgba(255, 255, 255, 0.25)' : '#e2e8f0'};
+  color: ${props => props.active ? '#ffffff' : '#475569'};
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 700;
 `;
 
-const Subtitle = styled.p`
-  margin: 0 0 30px 0;
-  color: #64748b;
-  font-size: 15px;
-`;
-
-const QRCard = styled.div`
-  background: white;
-  padding: 24px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-`;
-
-const QRLabel = styled.div`
-  font-size: 14px;
-  font-weight: 600;
-  color: #334155;
-  text-align: center;
-`;
-
-const ListHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-`;
-
-const ListTitle = styled.div`
-  font-size: 18px;
-  font-weight: 600;
-  color: #0f172a;
+const RightControls = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
 `;
 
-const CountBadge = styled.span`
-  background: ${props => props.active ? '#0284c7' : '#e0f2fe'};
-  color: ${props => props.active ? 'white' : '#0284c7'};
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  margin-left: 8px;
+const SearchWrapper = styled.div`
+  position: relative;
+  width: 220px;
 `;
 
-const TabsContainer = styled.div`
-  display: flex;
-  gap: 20px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 20px;
-`;
-
-const Tab = styled.div`
-  padding: 10px 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: ${props => props.active ? '#3b82f6' : '#64748b'};
-  border-bottom: 2px solid ${props => props.active ? '#3b82f6' : 'transparent'};
-  cursor: pointer;
+const SearchIconBox = styled.div`
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
   display: flex;
   align-items: center;
-  transition: all 0.2s;
-  
-  &:hover {
-    color: #3b82f6;
-  }
-`;
-
-const SearchContainer = styled.div`
-  position: relative;
-  width: 100%;
-  margin-bottom: 16px;
 `;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: 10px 16px 10px 40px;
-  border-radius: 8px;
+  padding: 7px 10px 7px 32px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
-  font-size: 14px;
+  font-size: 13px;
+  color: #1e293b;
   outline: none;
-  transition: all 0.2s;
-  
+  box-sizing: border-box;
+
   &:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #133d34;
+    box-shadow: 0 0 0 2px rgba(19, 61, 52, 0.1);
   }
 `;
 
-const SearchIconWrapper = styled.div`
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
+const RefreshButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
 `;
 
-const PatientList = styled.div`
+const PatientListContainer = styled.div`
   flex: 1;
   overflow-y: auto;
-  padding-right: 5px;
+  padding-right: 4px;
 
-  /* Custom Scrollbar */
   &::-webkit-scrollbar {
     width: 6px;
   }
@@ -201,20 +340,19 @@ const PatientList = styled.div`
   }
 `;
 
-const PatientItem = styled.div`
-  background: white;
+const PatientCard = styled.div`
+  background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 16px;
   margin-bottom: 12px;
-  transition: all 0.2s;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 
-  /* Status Indicator Strip */
   &::before {
     content: '';
     position: absolute;
@@ -222,153 +360,125 @@ const PatientItem = styled.div`
     top: 0;
     bottom: 0;
     width: 4px;
-    background: ${props => props.consumed ? '#22c55e' : '#3b82f6'};
-  }
-
-  &:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    border-color: #cbd5e1;
+    background: ${props => props.status === 'Partial' ? '#f59e0b' : '#133d34'};
   }
 `;
 
-const PatientInfo = styled.div`
+const LeftCardGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 14px;
+`;
+
+const InitialAvatar = styled.div`
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: ${props => props.status === 'Partial' ? '#d97706' : '#133d34'};
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+`;
+
+const PatientDetailsGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-left: 10px;
+  gap: 2px;
 `;
 
-const PatientName = styled.span`
-  font-weight: 600;
-  color: #1e293b;
-  font-size: 16px;
-`;
-
-const PatientMeta = styled.div`
-  font-size: 13px;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-`;
-
-const Actions = styled.div`
+const NameRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
 `;
 
-const ActionButton = styled.button`
+const PatientNameText = styled.span`
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+`;
+
+const StatusTag = styled.span`
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: ${props => props.status === 'Partial' ? '#fef3c7' : '#dcfce7'};
+  color: ${props => props.status === 'Partial' ? '#b45309' : '#166534'};
+`;
+
+const ContactMetaRow = styled.div`
+  font-size: 13px;
+  color: #475569;
+`;
+
+const SubTextRow = styled.div`
+  font-size: 12px;
+  color: #94a3b8;
+`;
+
+const ActionButtonGroupRight = styled.div`
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  align-items: flex-end;
+`;
+
+const LoadButton = styled.button`
+  padding: 7px 16px;
+  background: #133d34;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
+  transition: all 0.15s ease;
 
-  ${props => props.variant === 'primary' && `
-    background: #eff6ff;
-    color: #2563eb;
-    &:hover {
-      background: #dbeafe;
-      border-color: #bfdbfe;
-    }
-  `}
-
-  ${props => props.variant === 'danger' && `
-    background: #fef2f2;
-    color: #ef4444;
-    &:hover {
-      background: #fee2e2;
-      border-color: #fecaca;
-    }
-  `}
-  
-  ${props => props.variant === 'secondary' && `
-    background: #f1f5f9;
-    color: #475569;
-    &:hover {
-      background: #e2e8f0;
-    }
-  `}
+  &:hover {
+    background: #0f312a;
+  }
 `;
 
-const PaginationContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
-`;
-
-const PageButton = styled.button`
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+const DiscardButton = styled.button`
+  padding: 5px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
-  border: 1px solid ${props => props.active ? '#3b82f6' : '#e2e8f0'};
-  background: ${props => props.active ? '#eff6ff' : 'white'};
-  color: ${props => props.active ? '#2563eb' : '#64748b'};
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  
-  &:hover:not(:disabled) {
+
+  &:hover {
     background: #f8fafc;
-    border-color: #cbd5e1;
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    color: #ef4444;
+    border-color: #fca5a5;
   }
 `;
 
-const EmptyState = styled.div`
+const EmptyStateContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
   color: #94a3b8;
-  gap: 16px;
-`;
-
-const HistoryToggle = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: auto; /* Push to bottom of left panel if needed, or keep in header */
-  font-size: 13px;
-  color: #64748b;
-  margin-top: 20px;
-  
-  input {
-    accent-color: #3b82f6;
-    width: 16px;
-    height: 16px;
-  }
+  gap: 12px;
 `;
 
 const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
-  const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pendingList, setPendingList] = useState([]);
   const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'consumed'
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-  // Fetch on mount or when tab changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       fetchPendingList();
     }
@@ -377,7 +487,6 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   const fetchPendingList = async () => {
     setLoading(true);
     try {
-      // Use 'all' for history view to ensure all records are visible
       const status = activeTab === 'consumed' ? 'all' : 'pending';
       const response = await apiRequest(`${Hmsbaseurl}get-pending-qr-registrations/?status=${status}`, "GET");
       if (response.success && Array.isArray(response.data)) {
@@ -390,18 +499,18 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
     }
   };
 
-
-
   const handleConvert = async (patient) => {
     try {
-      // Mark as consumed
       const response = await apiRequest(`${Hmsbaseurl}consume-qr-registration/`, "POST", {
         session_id: patient.session_id
       });
       if (!response.success) throw new Error(response.error);
 
-      // Fill form
-      onDataReceived(patient.full_data);
+      if (patient.full_data) {
+        onDataReceived(patient.full_data);
+      } else {
+        onDataReceived(patient);
+      }
       onClose();
     } catch (error) {
       console.error("Error consuming registration", error);
@@ -411,188 +520,171 @@ const QRRegistrationModal = ({ isOpen, onClose, onDataReceived }) => {
   };
 
   const handleDelete = async (patient) => {
-    if (!window.confirm("Are you sure you want to remove this registration from the queue?")) return;
+    if (!window.confirm("Are you sure you want to discard this registration from the queue?")) return;
 
     try {
-      // We use the same 'consume' endpoint to mark it as processed/removed from pending view
-      // But we DO NOT call onDataReceived
       const response = await apiRequest(`${Hmsbaseurl}consume-qr-registration/`, "POST", {
         session_id: patient.session_id
       });
       if (!response.success) throw new Error(response.error);
-      fetchPendingList(); // Refresh list immediately
+      fetchPendingList();
     } catch (error) {
       console.error("Error deleting registration", error);
       alert("Failed to delete registration.");
     }
   };
 
-  // Use current pendingList for operations
-  // Logic: Filter -> Sort (Newest First) -> Paginate
-  const filteredList = pendingList
-    .filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.mobile && p.mobile.includes(searchTerm))
-    );
+  const printQRSheet = () => {
+    window.print();
+  };
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredList.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredList.length / itemsPerPage);
-
-  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+  const sendLinkSMS = () => {
+    alert("Self-registration link sent via SMS!");
+  };
 
   if (!isOpen) return null;
 
-  const registrationUrl = `${window.location.origin}/HMS/MobileRegistration`;
+  const registrationUrl = `${window.location.origin}/MobileRegistration`;
+
+  const filteredList = pendingList.filter(p =>
+    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.mobile && p.mobile.includes(searchTerm))
+  );
 
   return (
     <Overlay>
       <Content>
-        <CloseButton onClick={onClose}><X size={20} /></CloseButton>
+        <CloseButton onClick={onClose}>
+          <X size={18} />
+        </CloseButton>
 
-        {/* Left Panel: QR Code and Instructions */}
+        {/* Left Dark Panel */}
         <LeftPanel>
-          <div style={{ textAlign: 'center' }}>
-            <Title>Scan to Register</Title>
-            <Subtitle>Step 1: Ask patient to scan this QR code</Subtitle>
-          </div>
+          <LiveBadge>COUNTER QR LIVE</LiveBadge>
+          <LeftTitle>Scan to register</LeftTitle>
+          <LeftSubtitle>Ask the patient to scan with their phone camera.</LeftSubtitle>
 
           <QRCard>
             <QRCodeCanvas value={registrationUrl} size={180} />
-            <QRLabel>Scan with Phone Camera</QRLabel>
+            <QRSubtext>hms.smrft.org/self-register</QRSubtext>
           </QRCard>
 
-          <div style={{ marginTop: '40px', textAlign: 'center', fontSize: '13px', color: '#64748b', background: '#eff6ff', padding: '15px', borderRadius: '12px', border: '1px solid #dbeafe' }}>
-            <p style={{ fontWeight: 700, color: '#1e40af', marginBottom: '8px' }}>Admin Instructions</p>
-            <p>1. Patients scan this static QR</p>
-            <p>2. They fill the form on their phone</p>
-            <p>3. Refresh the list to see them here</p>
-          </div>
+          <HowItWorksSection>
+            <HowHeader>HOW IT WORKS</HowHeader>
+            <StepItem>
+              <StepBadge>1</StepBadge>
+              <span>Patient scans this QR at the counter.</span>
+            </StepItem>
+            <StepItem>
+              <StepBadge>2</StepBadge>
+              <span>They fill their own details on their phone.</span>
+            </StepItem>
+            <StepItem>
+              <StepBadge>3</StepBadge>
+              <span>Their entry appears here — load it into the form.</span>
+            </StepItem>
+          </HowItWorksSection>
         </LeftPanel>
 
-        {/* Right Panel: Patient List */}
+        {/* Right Light Panel */}
         <RightPanel>
-          <ListHeader>
-            <ListTitle>Registration Queue</ListTitle>
-          </ListHeader>
+          <QueueHeader>
+            <QueueTitle>Registration queue</QueueTitle>
+            <QueueSubtitle>
+              {pendingList.length} patients submitted and waiting to be registered
+            </QueueSubtitle>
+          </QueueHeader>
 
-          <TabsContainer>
-            <Tab 
-              active={activeTab === 'pending'} 
-              onClick={() => setActiveTab('pending')}
-            >
-              Unused {activeTab === 'pending' && <CountBadge active>{pendingList.length}</CountBadge>}
-            </Tab>
-            <Tab 
-              active={activeTab === 'consumed'} 
-              onClick={() => setActiveTab('consumed')}
-            >
-              Used / History {activeTab === 'consumed' && <CountBadge active>{pendingList.length}</CountBadge>}
-            </Tab>
-          </TabsContainer>
+          <ControlsBar>
+            <FilterPillGroup>
+              <FilterPill
+                active={activeTab === 'pending'}
+                onClick={() => setActiveTab('pending')}
+              >
+                Waiting <PillCountBadge active={activeTab === 'pending'}>{pendingList.length}</PillCountBadge>
+              </FilterPill>
+              <FilterPill
+                active={activeTab === 'consumed'}
+                onClick={() => setActiveTab('consumed')}
+              >
+                Processed
+              </FilterPill>
+            </FilterPillGroup>
 
-          {/* Search Bar */}
-          <SearchContainer>
-            <SearchIconWrapper>
-              <Search size={16} />
-            </SearchIconWrapper>
-            <SearchInput
-              placeholder="Search by name or mobile..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1); // Reset to first page
-              }}
-            />
-            <ActionButton 
-              variant="secondary" 
-              onClick={fetchPendingList} 
-              disabled={loading}
-              style={{ position: 'absolute', right: '4px', top: '4px', padding: '6px 12px' }}
-            >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              Refresh
-            </ActionButton>
-          </SearchContainer>
+            <RightControls>
+              <SearchWrapper>
+                <SearchIconBox>
+                  <Search size={14} />
+                </SearchIconBox>
+                <SearchInput
+                  type="text"
+                  placeholder="Search name or mobile"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </SearchWrapper>
 
-          {currentItems.length > 0 ? (
-            <>
-              <PatientList>
-                {currentItems.map((p) => (
-                  <PatientItem key={p.session_id} consumed={p.is_consumed}>
-                    <PatientInfo>
-                      <PatientName>{p.name}</PatientName>
-                      <PatientMeta>
-                        <span>{p.mobile}</span>
-                        <span>•</span>
-                        <span>{p.age_gender}</span>
-                        {p.is_consumed && <span style={{ color: '#22c55e', fontWeight: 600 }}>(Processed)</span>}
-                      </PatientMeta>
-                    </PatientInfo>
+              <RefreshButton onClick={fetchPendingList} disabled={loading}>
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </RefreshButton>
+            </RightControls>
+          </ControlsBar>
 
-                    <Actions>
-                      {!p.is_consumed && (
+          <PatientListContainer>
+            {filteredList.length > 0 ? (
+              filteredList.map((p) => {
+                const initial = p.name ? p.name.charAt(0).toUpperCase() : '?';
+                const isPartial = p.status === 'Partial' || p.some_missing;
+                const statusLabel = isPartial ? 'Partial' : 'Ready';
+
+                return (
+                  <PatientCard key={p.session_id} status={statusLabel}>
+                    <LeftCardGroup>
+                      <InitialAvatar status={statusLabel}>{initial}</InitialAvatar>
+
+                      <PatientDetailsGroup>
+                        <NameRow>
+                          <PatientNameText>{p.name}</PatientNameText>
+                          <StatusTag status={statusLabel}>{statusLabel}</StatusTag>
+                        </NameRow>
+
+                        <ContactMetaRow>
+                          {p.mobile || 'No Mobile'} · {p.gender || 'Gender N/A'} · {p.age ? `${p.age} yrs` : (p.age_gender || '')}
+                        </ContactMetaRow>
+
+                        <SubTextRow>
+                          Submitted {p.time_ago || 'recently'} · {isPartial ? 'some fields missing' : 'all fields filled'}
+                        </SubTextRow>
+                      </PatientDetailsGroup>
+                    </LeftCardGroup>
+
+                    <ActionButtonGroupRight>
+                      {!p.is_consumed ? (
                         <>
-                          <ActionButton variant="danger" onClick={() => handleDelete(p)} title="Delete from Queue">
-                            <Trash2 size={16} />
-                          </ActionButton>
-                          <ActionButton variant="primary" onClick={() => handleConvert(p)}>
-                            Convert <ArrowRight size={16} />
-                          </ActionButton>
+                          <LoadButton onClick={() => handleConvert(p)}>
+                            Load into form
+                          </LoadButton>
+                          <DiscardButton onClick={() => handleDelete(p)}>
+                            Discard
+                          </DiscardButton>
                         </>
+                      ) : (
+                        <LoadButton onClick={() => handleConvert(p)}>
+                          Re-load
+                        </LoadButton>
                       )}
-                      {p.is_consumed && (
-                        <ActionButton variant="secondary" onClick={() => handleConvert(p)}>
-                          Re-use
-                        </ActionButton>
-                      )}
-                    </Actions>
-                  </PatientItem>
-                ))}
-              </PatientList>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <PaginationContainer>
-                  <PageButton
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft size={16} />
-                  </PageButton>
-
-                  {/* Simple pagination: show all page numbers or limit if too many */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(number => (
-                    <PageButton
-                      key={number}
-                      active={number === currentPage}
-                      onClick={() => handlePageChange(number)}
-                    >
-                      {number}
-                    </PageButton>
-                  ))}
-
-                  <PageButton
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight size={16} />
-                  </PageButton>
-                </PaginationContainer>
-              )}
-            </>
-          ) : (
-            <EmptyState>
-              <RefreshCw size={48} className="animate-spin" style={{ opacity: 0.2 }} />
-              <p>{searchTerm ? "No results found" : `No ${activeTab} registrations found`}</p>
-              {activeTab === 'pending' && (
-                <ActionButton variant="secondary" onClick={() => setActiveTab('consumed')} style={{ marginTop: '10px' }}>
-                  Check History
-                </ActionButton>
-              )}
-            </EmptyState>
-          )}
+                    </ActionButtonGroupRight>
+                  </PatientCard>
+                );
+              })
+            ) : (
+              <EmptyStateContainer>
+                <RefreshCw size={40} style={{ opacity: 0.2 }} />
+                <p>{searchTerm ? "No matching patients found" : `No ${activeTab} registrations in queue`}</p>
+              </EmptyStateContainer>
+            )}
+          </PatientListContainer>
         </RightPanel>
       </Content>
     </Overlay>

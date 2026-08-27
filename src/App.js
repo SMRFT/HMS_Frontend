@@ -92,6 +92,9 @@ import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
+import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
+import OPEMRDesk from "./Components/EMR/OPEMRDesk";
+import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -108,6 +111,7 @@ import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
+import StoresAbcVedReport from "./Components/Stores/StoresAbcVedReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -172,6 +176,7 @@ import PurchaseRequisitionApproval from "./Components/InventoryMaster/PurchaseRe
 import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
+import Medicinechart from "./Components/Pharmacy/Medicinechart";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -345,6 +350,10 @@ function App() {
       "/Dashboard": "Dashboard",
       "/AdvancedDashboard": "Advanced Dashboard",
       "/DoctorDashboard": "Doctor Dashboard",
+      "/DepartmentDashboard": "Department Dashboard",
+      "/OPEMRDesk": "OP EMR Consultation",
+      "/VitalWaitingList": "Vital Waiting List",
+      "/vitalwaitinglist": "Vital Waiting List",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -389,6 +398,7 @@ function App() {
       "/StoresIntentApproval": "Store Intent Approval",
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
+      "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -621,6 +631,17 @@ function App() {
                   <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
                 )}
 
+              <Route path="/DepartmentDashboard" element={<DepartmentDashboard />} />
+
+              <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
+              <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
+              <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              {hasPagePermission(
+                "/VitalWaitingList",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/VitalWaitingList" element={<VitalWaitingList />} />}
+
               {/* User Permission Manager */}
               {hasPagePermission(
                 "/UserPermissions",
@@ -822,6 +843,7 @@ function App() {
               ) && (
                   <>
                     <Route path="/crash-cart" element={<CrashCartChecklist />} />
+                    <Route path="/Medicinechart" element={<Medicinechart />} />
                     <Route path="/NursingStation" element={<NursingStation />} />
                   </>
                 )}
@@ -1408,6 +1430,7 @@ function App() {
               )}
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
+              <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"

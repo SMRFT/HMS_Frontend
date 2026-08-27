@@ -1,6 +1,9 @@
 import React, { useState, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import apiRequest from "../../Auth/apiRequest";
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
@@ -76,6 +79,13 @@ const Badge = styled.span`
   backdrop-filter: blur(4px);
 `;
 
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+`;
+
 const FilterCard = styled.div`
   background: #fff;
   border-radius: 16px;
@@ -146,6 +156,20 @@ const SearchBtn = styled(Btn)`
   color: #fff;
   box-shadow: 0 4px 12px rgba(13,148,136,0.28);
   &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13,148,136,0.38); }
+`;
+
+const ExcelBtn = styled(Btn)`
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(16, 185, 129, 0.38); }
+`;
+
+const PdfBtn = styled(Btn)`
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.28);
+  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(239, 68, 68, 0.38); }
 `;
 
 const QuickBtn = styled(Btn)`
@@ -383,6 +407,282 @@ export default function MasterHealthcheckupReport() {
     catch { return d; }
   };
 
+  // ── Excel Export ────────────────────────────────────────────────────────
+  const exportToExcel = () => {
+    if (filtered.length === 0) {
+      toast.warning("No records to export.");
+      return;
+    }
+
+    const headers = [
+      "#",
+      "Date",
+      "Patient Name",
+      "Age",
+      "Gender",
+      "Contact",
+      "OP Number",
+      "Package",
+      "Category",
+      "Source",
+      "Pkg Fee (Rs.)",
+      "Doctor Fee (Rs.)",
+      "Add Tests (Rs.)",
+      "Pharmacy (Rs.)",
+      "IP (Rs.)",
+      "Total (Rs.)",
+      "Follow Up",
+    ];
+
+    const dataRows = filtered.map((r, i) => [
+      i + 1,
+      formatDate(r.created_date),
+      r.patient_name || "—",
+      r.age ?? "—",
+      r.gender || "—",
+      r.contact_number || "—",
+      r.op_number || "—",
+      r.package || "—",
+      r.package_category || "—",
+      r.source || "—",
+      parseFloat(r.package_fee) || 0,
+      parseFloat(r.doctor_fee) || 0,
+      parseFloat(r.add_tests) || 0,
+      parseFloat(r.pharmacy) || 0,
+      parseFloat(r.ip) || 0,
+      parseFloat(r.total_fees) || 0,
+      r.follow_up || "—",
+    ]);
+
+    const addTestsTotal = filtered.reduce((s, r) => s + (parseFloat(r.add_tests) || 0), 0);
+    const pharmacyTotal = filtered.reduce((s, r) => s + (parseFloat(r.pharmacy) || 0), 0);
+    const ipTotal       = filtered.reduce((s, r) => s + (parseFloat(r.ip) || 0), 0);
+
+    const totalRow = [
+      "",
+      "",
+      "Grand Total",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      pkgFees,
+      docFees,
+      addTestsTotal,
+      pharmacyTotal,
+      ipTotal,
+      totalFees,
+      "",
+    ];
+
+    const wsData = [
+      ["Master Health Checkup (MHC) Report"],
+      [`Date Range: ${fromDate} to ${toDate}`],
+      [`Total Patients: ${filtered.length}`, "", "", `Grand Total Collection: Rs. ${totalFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`],
+      [],
+      headers,
+      ...dataRows,
+      [],
+      totalRow,
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws["!cols"] = [
+      { wch: 6 },
+      { wch: 14 },
+      { wch: 22 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 14 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 16 },
+      { wch: 15 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "MHC Report");
+    XLSX.writeFile(wb, `Master_Health_Checkup_Report_${fromDate}_to_${toDate}.xlsx`);
+    toast.success("Excel report exported successfully!");
+  };
+
+  // ── PDF Export ──────────────────────────────────────────────────────────
+  const exportToPDF = () => {
+    if (filtered.length === 0) {
+      toast.warning("No records to export.");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    // Header Title
+    doc.setFontSize(16);
+    doc.setTextColor(13, 148, 136);
+    doc.setFont("helvetica", "bold");
+    doc.text("Master Health Checkup (MHC) Report", 14, 15);
+
+    // Subtitle info
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Date Range: ${fromDate} to ${toDate}   |   Total Records: ${filtered.length}   |   Generated: ${new Date().toLocaleString("en-IN")}`,
+      14,
+      21
+    );
+
+    // KPI Summary Header Bar
+    doc.setFillColor(240, 253, 250);
+    doc.setDrawColor(167, 243, 208);
+    doc.roundedRect(14, 24, 269, 10, 2, 2, "FD");
+
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 118, 110);
+    doc.text(`Total Patients: ${filtered.length}`, 18, 30.5);
+    doc.text(`Package Fees: Rs. ${pkgFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, 75, 30.5);
+    doc.text(`Doctor Fees: Rs. ${docFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, 145, 30.5);
+    doc.text(`Total Collection: Rs. ${totalFees.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`, 215, 30.5);
+
+    const tableHeaders = [
+      [
+        "#",
+        "Date",
+        "Patient Name",
+        "Age",
+        "Gender",
+        "Contact",
+        "OP No.",
+        "Package",
+        "Category",
+        "Source",
+        "Pkg Fee",
+        "Dr Fee",
+        "Tests",
+        "Pharm",
+        "IP",
+        "Total",
+        "Follow Up",
+      ],
+    ];
+
+    const tableData = filtered.map((r, i) => [
+      i + 1,
+      formatDate(r.created_date),
+      r.patient_name || "—",
+      r.age ?? "—",
+      r.gender || "—",
+      r.contact_number || "—",
+      r.op_number || "—",
+      r.package || "—",
+      r.package_category || "—",
+      r.source || "—",
+      fmt(r.package_fee),
+      fmt(r.doctor_fee),
+      fmt(r.add_tests),
+      fmt(r.pharmacy),
+      fmt(r.ip),
+      fmt(r.total_fees),
+      r.follow_up || "—",
+    ]);
+
+    const addTestsTotal = filtered.reduce((s, r) => s + (parseFloat(r.add_tests) || 0), 0);
+    const pharmacyTotal = filtered.reduce((s, r) => s + (parseFloat(r.pharmacy) || 0), 0);
+    const ipTotal       = filtered.reduce((s, r) => s + (parseFloat(r.ip) || 0), 0);
+
+    const tableFoot = [
+      [
+        "",
+        "",
+        "Grand Total",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        fmt(pkgFees),
+        fmt(docFees),
+        fmt(addTestsTotal),
+        fmt(pharmacyTotal),
+        fmt(ipTotal),
+        `Rs. ${fmt(totalFees)}`,
+        "",
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: 37,
+      head: tableHeaders,
+      body: tableData,
+      foot: tableFoot,
+      theme: "grid",
+      styles: {
+        fontSize: 7,
+        cellPadding: 1.5,
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: [13, 148, 136],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "left",
+      },
+      footStyles: {
+        fillColor: [15, 118, 110],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        0: { cellWidth: 8 },  // #
+        1: { cellWidth: 18 }, // Date
+        2: { cellWidth: 28 }, // Patient Name
+        3: { cellWidth: 10 }, // Age
+        4: { cellWidth: 14 }, // Gender
+        5: { cellWidth: 20 }, // Contact
+        6: { cellWidth: 18 }, // OP No.
+        7: { cellWidth: 26 }, // Package
+        8: { cellWidth: 20 }, // Category
+        9: { cellWidth: 16 }, // Source
+        10: { cellWidth: 16, halign: "right" }, // Pkg Fee
+        11: { cellWidth: 16, halign: "right" }, // Dr Fee
+        12: { cellWidth: 14, halign: "right" }, // Tests
+        13: { cellWidth: 14, halign: "right" }, // Pharm
+        14: { cellWidth: 12, halign: "right" }, // IP
+        15: { cellWidth: 18, halign: "right" }, // Total
+        16: { cellWidth: 15 }, // Follow Up
+      },
+      didDrawPage: (data) => {
+        const pageCount = doc.internal.getNumberOfPages();
+        doc.setFontSize(8);
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          `Page ${data.pageNumber} of ${pageCount}`,
+          doc.internal.pageSize.width - 25,
+          doc.internal.pageSize.height - 8
+        );
+      },
+    });
+
+    doc.save(`Master_Health_Checkup_Report_${fromDate}_to_${toDate}.pdf`);
+    toast.success("PDF report exported successfully!");
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
@@ -395,7 +695,15 @@ export default function MasterHealthcheckupReport() {
             <HeaderSub>Master Health Checkup — date-wise patient report</HeaderSub>
           </div>
         </HeaderLeft>
-        <Badge>🩺 {filtered.length} Records</Badge>
+        <HeaderRight>
+          <ExcelBtn onClick={exportToExcel} disabled={loading || filtered.length === 0} id="btn-header-export-excel">
+            📊 Export Excel
+          </ExcelBtn>
+          <PdfBtn onClick={exportToPDF} disabled={loading || filtered.length === 0} id="btn-header-export-pdf">
+            📄 Export PDF
+          </PdfBtn>
+          <Badge>🩺 {filtered.length} Records</Badge>
+        </HeaderRight>
       </HeaderCard>
 
       {/* Filter Card */}
@@ -435,6 +743,12 @@ export default function MasterHealthcheckupReport() {
           <SearchBtn onClick={handleSearch} disabled={loading}>
             {loading ? "⏳" : "🔍"} Search
           </SearchBtn>
+          <ExcelBtn onClick={exportToExcel} disabled={loading || filtered.length === 0} id="btn-filter-export-excel">
+            📊 Excel
+          </ExcelBtn>
+          <PdfBtn onClick={exportToPDF} disabled={loading || filtered.length === 0} id="btn-filter-export-pdf">
+            📄 PDF
+          </PdfBtn>
         </FilterRow>
 
         <QuickRow>
