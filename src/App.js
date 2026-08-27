@@ -95,6 +95,7 @@ import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
+import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
 import OPEMRDesk from "./Components/EMR/OPEMRDesk";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
@@ -350,6 +351,7 @@ function App() {
       "/Dashboard": "Dashboard",
       "/AdvancedDashboard": "Advanced Dashboard",
       "/DoctorDashboard": "Doctor Dashboard",
+      "/DepartmentDashboard": "Department Dashboard",
       "/OPEMRDesk": "OP EMR Consultation",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
@@ -626,6 +628,8 @@ function App() {
               ) && (
                   <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
                 )}
+
+              <Route path="/DepartmentDashboard" element={<DepartmentDashboard />} />
 
               <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
 
