@@ -50,13 +50,12 @@ import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
-
-import MHCReviewList from "./Components/MHC/MHCReviewList";
-// import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
 import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
+
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
@@ -96,6 +95,7 @@ import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import OPEMRDesk from "./Components/EMR/OPEMRDesk";
+import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -351,6 +351,8 @@ function App() {
       "/AdvancedDashboard": "Advanced Dashboard",
       "/DoctorDashboard": "Doctor Dashboard",
       "/OPEMRDesk": "OP EMR Consultation",
+      "/VitalWaitingList": "Vital Waiting List",
+      "/vitalwaitinglist": "Vital Waiting List",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -628,6 +630,13 @@ function App() {
                 )}
 
               <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
+              <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
+              <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              {hasPagePermission(
+                "/VitalWaitingList",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/VitalWaitingList" element={<VitalWaitingList />} />}
 
               {/* User Permission Manager */}
               {hasPagePermission(
