@@ -552,6 +552,20 @@ const Summary = () => {
   const [selectedDiseases, setSelectedDiseases] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [summaryTypeOptions, setSummaryTypeOptions] = useState([]);
+  const [headingOptions, setHeadingOptions] = useState([]);
+
+  // Summary Type modal state
+  const [showAddSummaryTypeModal, setShowAddSummaryTypeModal] = useState(false);
+  const [newSummaryTypeInput, setNewSummaryTypeInput] = useState("");
+  const [editingSummaryType, setEditingSummaryType] = useState(null);
+  const [savingSummaryType, setSavingSummaryType] = useState(false);
+
+  // Heading modal state
+  const [showAddHeadingModal, setShowAddHeadingModal] = useState(false);
+  const [newHeadingInput, setNewHeadingInput] = useState("");
+  const [editingHeading, setEditingHeading] = useState(null);
+  const [savingHeading, setSavingHeading] = useState(false);
+
   const [showMedicines, setShowMedicines] = useState(false);
   const [medicines, setMedicines] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
@@ -604,7 +618,9 @@ const Summary = () => {
     nextReviewDate: "",
     doctor: "",
     gender: "",
+    summaryNo: "",
     summaryType: "",
+    headingNo: "",
     heading: "",
     address: "",
     diseaseCode: "",
@@ -635,21 +651,274 @@ const Summary = () => {
   const [formData, setFormData] = useState(emptyForm);
   const notesRef = useRef(null);
 
-  useEffect(() => {
-    const fetchDoctors = async () => {
-      const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
-      if (r.success) setDoctors(r.data);
-    };
-    fetchDoctors();
-  }, [HMSURL]);
+  const fetchDoctors = async () => {
+    const r = await apiRequest(`${HMSURL}doctor_list_diagnostics/`, "GET");
+    if (r.success) setDoctors(r.data);
+  };
+
+  const fetchSummaryTypes = async () => {
+    const r = await apiRequest(`${HMSURL}summary-type/`, "GET");
+    if (r.success) setSummaryTypeOptions(r.data);
+  };
+
+  const fetchSummaryHeadings = async () => {
+    const r = await apiRequest(`${HMSURL}summary-heading/`, "GET");
+    if (r.success) setHeadingOptions(r.data);
+  };
 
   useEffect(() => {
-    const fetchSummaryTypes = async () => {
-      const r = await apiRequest(`${HMSURL}summary-type/`, "GET");
-      if (r.success) setSummaryTypeOptions(r.data);
-    };
+    fetchDoctors();
     fetchSummaryTypes();
+    fetchSummaryHeadings();
   }, [HMSURL]);
+
+  const handleSummaryTypeSelect = (e) => {
+    const sNo = e.target.value;
+    const found = summaryTypeOptions.find(
+      (t) => String(t.summaryNo) === String(sNo)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      summaryNo: sNo,
+      summaryType: found ? found.summaryType : "",
+    }));
+  };
+
+  const handleHeadingSelect = (e) => {
+    const hNo = e.target.value;
+    const found = headingOptions.find(
+      (h) => String(h.headingNo) === String(hNo)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      headingNo: hNo,
+      heading: found ? found.heading : "",
+    }));
+  };
+
+  const handleSaveSummaryType = async (e) => {
+    if (e) e.preventDefault();
+    const val = newSummaryTypeInput.trim();
+    if (!val) {
+      Swal.fire("Validation", "Please enter a summary type", "warning");
+      return;
+    }
+    setSavingSummaryType(true);
+
+    if (editingSummaryType) {
+      // Update
+      const r = await apiRequest(
+        `${HMSURL}summary-type/update/${encodeURIComponent(editingSummaryType.summaryNo)}/`,
+        "POST",
+        { summaryType: val }
+      );
+      setSavingSummaryType(false);
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Updated",
+          text: "Summary Type updated successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        if (
+          String(formData.summaryNo) === String(editingSummaryType.summaryNo) ||
+          formData.summaryType === editingSummaryType.summaryType
+        ) {
+          setFormData((prev) => ({
+            ...prev,
+            summaryNo: editingSummaryType.summaryNo,
+            summaryType: val,
+          }));
+        }
+        setEditingSummaryType(null);
+        setNewSummaryTypeInput("");
+        await fetchSummaryTypes();
+      } else {
+        Swal.fire("Error", r.error || "Failed to update summary type", "error");
+      }
+    } else {
+      // Create
+      const r = await apiRequest(`${HMSURL}summary-type/`, "POST", {
+        summaryType: val,
+      });
+      setSavingSummaryType(false);
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Created",
+          text: "Summary Type added successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        const created = r.data?.data;
+        setNewSummaryTypeInput("");
+        await fetchSummaryTypes();
+        if (created) {
+          setFormData((prev) => ({
+            ...prev,
+            summaryNo: created.summaryNo,
+            summaryType: created.summaryType,
+          }));
+        }
+      } else {
+        Swal.fire("Error", r.error || "Failed to add summary type", "error");
+      }
+    }
+  };
+
+  const handleDeleteSummaryType = async (summaryNo, typeName) => {
+    const result = await Swal.fire({
+      title: "Delete Summary Type?",
+      text: `Are you sure you want to delete "${typeName}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: T.red,
+      cancelButtonColor: T.muted,
+      confirmButtonText: "Yes, delete",
+    });
+
+    if (result.isConfirmed) {
+      const r = await apiRequest(
+        `${HMSURL}summary-type/delete/${encodeURIComponent(summaryNo)}/`,
+        "POST"
+      );
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Deleted",
+          text: "Summary Type deleted successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        if (
+          String(formData.summaryNo) === String(summaryNo) ||
+          formData.summaryType === typeName
+        ) {
+          setFormData((prev) => ({ ...prev, summaryNo: "", summaryType: "" }));
+        }
+        if (editingSummaryType?.summaryNo === summaryNo) {
+          setEditingSummaryType(null);
+          setNewSummaryTypeInput("");
+        }
+        await fetchSummaryTypes();
+      } else {
+        Swal.fire("Error", r.error || "Failed to delete summary type", "error");
+      }
+    }
+  };
+
+  const handleSaveHeading = async (e) => {
+    if (e) e.preventDefault();
+    const val = newHeadingInput.trim();
+    if (!val) {
+      Swal.fire("Validation", "Please enter a heading", "warning");
+      return;
+    }
+    setSavingHeading(true);
+
+    if (editingHeading) {
+      // Update
+      const r = await apiRequest(
+        `${HMSURL}summary-heading/update/${encodeURIComponent(editingHeading.headingNo)}/`,
+        "POST",
+        { heading: val }
+      );
+      setSavingHeading(false);
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Updated",
+          text: "Heading updated successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        if (
+          String(formData.headingNo) === String(editingHeading.headingNo) ||
+          formData.heading === editingHeading.heading
+        ) {
+          setFormData((prev) => ({
+            ...prev,
+            headingNo: editingHeading.headingNo,
+            heading: val,
+          }));
+        }
+        setEditingHeading(null);
+        setNewHeadingInput("");
+        await fetchSummaryHeadings();
+      } else {
+        Swal.fire("Error", r.error || "Failed to update heading", "error");
+      }
+    } else {
+      // Create
+      const r = await apiRequest(`${HMSURL}summary-heading/`, "POST", {
+        heading: val,
+      });
+      setSavingHeading(false);
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Created",
+          text: "Heading added successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        const created = r.data?.data;
+        setNewHeadingInput("");
+        await fetchSummaryHeadings();
+        if (created) {
+          setFormData((prev) => ({
+            ...prev,
+            headingNo: created.headingNo,
+            heading: created.heading,
+          }));
+        }
+      } else {
+        Swal.fire("Error", r.error || "Failed to add heading", "error");
+      }
+    }
+  };
+
+  const handleDeleteHeading = async (headingNo, headingName) => {
+    const result = await Swal.fire({
+      title: "Delete Heading?",
+      text: `Are you sure you want to delete "${headingName}"?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: T.red,
+      cancelButtonColor: T.muted,
+      confirmButtonText: "Yes, delete",
+    });
+
+    if (result.isConfirmed) {
+      const r = await apiRequest(
+        `${HMSURL}summary-heading/delete/${encodeURIComponent(headingNo)}/`,
+        "POST"
+      );
+      if (r.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Deleted",
+          text: "Heading deleted successfully",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+        if (
+          String(formData.headingNo) === String(headingNo) ||
+          formData.heading === headingName
+        ) {
+          setFormData((prev) => ({ ...prev, headingNo: "", heading: "" }));
+        }
+        if (editingHeading?.headingNo === headingNo) {
+          setEditingHeading(null);
+          setNewHeadingInput("");
+        }
+        await fetchSummaryHeadings();
+      } else {
+        Swal.fire("Error", r.error || "Failed to delete heading", "error");
+      }
+    }
+  };
 
   const fetchSummaries = async (params = {}) => {
     const q = new URLSearchParams();
@@ -890,11 +1159,23 @@ const Summary = () => {
     setSelectedField(fieldName);
     setFormData((prev) => {
       const fd = setFieldValue(prev.fieldsData, prev.currentField, prev.notes);
+      let val = getFieldValue(fd, fieldName);
+      if (fieldName === "DOA AND DOD") {
+        if (!val || !val.trim() || (!val.includes("\n") && /DOA\s*:.*DOD\s*:/i.test(val))) {
+          const dStr = prev.doa ? fmtDate(prev.doa) : "—";
+          const tStr = prev.doaTime || "";
+          const dodStr = prev.dod ? fmtDate(prev.dod) : "—";
+          const dodTStr = prev.dodTime || "";
+          const doaLine = `DOA : ${dStr} ${tStr}`.trim();
+          const dodLine = `DOD : ${dodStr} ${dodTStr}`.trim();
+          val = `${doaLine}\n${dodLine}`;
+        }
+      }
       return {
         ...prev,
         fieldsData: fd,
         currentField: fieldName,
-        notes: getFieldValue(fd, fieldName),
+        notes: val || "",
       };
     });
     notesRef.current?.focus();
@@ -921,6 +1202,8 @@ const Summary = () => {
     const dp = prepareDiseasesPayload();
     const payload = {
       ...formData,
+      summaryType: undefined,
+      heading: undefined,
       date: new Date().toISOString(),
       diseaseCode: dp.diseaseCode,
       disease: dp.disease,
@@ -931,7 +1214,7 @@ const Summary = () => {
     if (r.success) {
       Swal.fire("Success", "Summary successfully created!", "success");
       resetForm();
-      fetchSummaries({
+      await fetchSummaries({
         fromDate: filters.fromDate,
         toDate: filters.toDate,
         summaryType: filters.summaryType,
@@ -960,6 +1243,8 @@ const Summary = () => {
       "PATCH",
       {
         ...formData,
+        summaryType: undefined,
+        heading: undefined,
         diseaseCode: dp.diseaseCode,
         disease: dp.disease,
         selectedDiseases,
@@ -969,7 +1254,7 @@ const Summary = () => {
     if (r.success) {
       Swal.fire("Success", "Summary updated successfully!", "success");
       resetForm();
-      fetchSummaries({
+      await fetchSummaries({
         fromDate: filters.fromDate,
         toDate: filters.toDate,
         summaryType: filters.summaryType,
@@ -1021,6 +1306,10 @@ const Summary = () => {
       }
       setFormData({
         ...d,
+        summaryNo: d.summaryNo || "",
+        summaryType: d.summaryType || "",
+        headingNo: d.headingNo || "",
+        heading: d.heading || "",
         dodTime: d.dodTime || "17:00",
         notes: "",
         fieldsData: parsedFD,
@@ -1063,13 +1352,14 @@ const Summary = () => {
   const handleApprove = async (ipNo) => {
     const r = await apiRequest(`${HMSURL}approve-summary/${ipNo}/`, "PATCH", {
       approve: true,
-      approve_time: new Date().toISOString(),
     });
     if (r.success) {
-      setSummaries((prev) =>
-        prev.map((s) => (s.ipNo === ipNo ? { ...s, approve: true } : s))
-      );
       Swal.fire("Approved!", "Summary approved successfully!", "success");
+      await fetchSummaries({
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        summaryType: filters.summaryType,
+      });
     } else {
       Swal.fire("Error", "Error approving summary: " + (r.error || "Unknown error"), "error");
     }
@@ -1099,17 +1389,33 @@ const Summary = () => {
         year: "numeric",
       })
       : "—";
-  const fmtDateTime = (d) =>
-    d
-      ? new Date(d).toLocaleString("en-GB", {
+
+  const fmtDateTime = (d) => {
+    if (!d) return "—";
+    try {
+      let dateObj;
+      if (typeof d === "string") {
+        if (!d.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(d)) {
+          dateObj = new Date(d + "Z");
+        } else {
+          dateObj = new Date(d);
+        }
+      } else {
+        dateObj = new Date(d);
+      }
+      if (isNaN(dateObj.getTime())) return String(d);
+      return dateObj.toLocaleString("en-GB", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
-      })
-      : "—";
+      });
+    } catch {
+      return String(d);
+    }
+  };
 
   const todayStr = new Date().toISOString().split("T")[0];
   const [filters, setFilters] = useState({
@@ -1344,31 +1650,100 @@ const Summary = () => {
                 </select>
               </Fld>
               <Fld label="Summary Type">
-                <select
-                  name="summaryType"
-                  value={formData.summaryType}
-                  onChange={handleChange}
-                  style={S.sel}
-                >
-                  <option value="">— Type —</option>
-                  {summaryTypeOptions.map((t, i) => (
-                    <option key={t.summaryNo || i} value={t.summaryType}>
-                      {t.summaryType}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select
+                    name="summaryNo"
+                    value={formData.summaryNo}
+                    onChange={handleSummaryTypeSelect}
+                    style={{ ...S.sel, flex: 1 }}
+                  >
+                    <option value="">— Type —</option>
+                    {formData.summaryNo &&
+                      !summaryTypeOptions.some(
+                        (t) =>
+                          String(t.summaryNo) === String(formData.summaryNo)
+                      ) && (
+                        <option value={formData.summaryNo}>
+                          {formData.summaryType || formData.summaryNo}
+                        </option>
+                      )}
+                    {summaryTypeOptions.map((t, i) => (
+                      <option key={t.summaryNo || i} value={t.summaryNo}>
+                        {t.summaryType}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewSummaryTypeInput("");
+                      setEditingSummaryType(null);
+                      setShowAddSummaryTypeModal(true);
+                    }}
+                    title="Manage Summary Types"
+                    style={{
+                      ...S.actionBtn(T.teal),
+                      flexShrink: 0,
+                      height: 38,
+                      width: 38,
+                      borderRadius: 8,
+                      border: `1.5px solid ${T.teal}`,
+                      background: `${T.teal}12`,
+                    }}
+                  >
+                    <Plus size={18} color={T.teal} />
+                  </button>
+                </div>
               </Fld>
             </div>
 
             {/* Row 3: 2 cols */}
             <div style={S.grid(2)}>
               <Fld label="Heading">
-                <CInp
-                  name="heading"
-                  value={formData.heading}
-                  onChange={handleChange}
-                  placeholder="Heading"
-                />
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <select
+                    name="headingNo"
+                    value={formData.headingNo}
+                    onChange={handleHeadingSelect}
+                    style={{ ...S.sel, flex: 1 }}
+                  >
+                    <option value="">— Heading —</option>
+                    {formData.headingNo &&
+                      !headingOptions.some(
+                        (h) =>
+                          String(h.headingNo) === String(formData.headingNo)
+                      ) && (
+                        <option value={formData.headingNo}>
+                          {formData.heading || formData.headingNo}
+                        </option>
+                      )}
+                    {headingOptions.map((h, i) => (
+                      <option key={h.headingNo || i} value={h.headingNo}>
+                        {h.heading}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewHeadingInput("");
+                      setEditingHeading(null);
+                      setShowAddHeadingModal(true);
+                    }}
+                    title="Manage Headings"
+                    style={{
+                      ...S.actionBtn(T.teal),
+                      flexShrink: 0,
+                      height: 38,
+                      width: 38,
+                      borderRadius: 8,
+                      border: `1.5px solid ${T.teal}`,
+                      background: `${T.teal}12`,
+                    }}
+                  >
+                    <Plus size={18} color={T.teal} />
+                  </button>
+                </div>
               </Fld>
               <Fld label="Address">
                 <CInp
@@ -2077,6 +2452,396 @@ const Summary = () => {
             </div>
           )}
         </div>
+
+        {/* ── MANAGE SUMMARY TYPE MODAL ── */}
+        {showAddSummaryTypeModal && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowAddSummaryTypeModal(false);
+                setEditingSummaryType(null);
+                setNewSummaryTypeInput("");
+              }
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Plus size={16} /> Manage Summary Types
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowAddSummaryTypeModal(false);
+                    setEditingSummaryType(null);
+                    setNewSummaryTypeInput("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Input & Action Form */}
+                <form onSubmit={handleSaveSummaryType}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={S.lbl}>
+                        {editingSummaryType ? "Edit Summary Type" : "New Summary Type"}
+                      </span>
+                      <CInp
+                        value={newSummaryTypeInput}
+                        onChange={(e) => setNewSummaryTypeInput(e.target.value)}
+                        placeholder="e.g. DAY CARE SUMMARY"
+                        autoFocus
+                      />
+                    </div>
+                    {editingSummaryType && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingSummaryType(null);
+                          setNewSummaryTypeInput("");
+                        }}
+                        style={{
+                          height: 38,
+                          padding: "0 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          border: `1px solid ${T.border}`,
+                          borderRadius: 7,
+                          background: "white",
+                          color: T.muted,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={savingSummaryType}
+                      style={{
+                        ...S.btn(editingSummaryType ? "primary" : "primary"),
+                        height: 38,
+                        padding: "0 16px",
+                        fontSize: 12.5,
+                        opacity: savingSummaryType ? 0.7 : 1,
+                        cursor: savingSummaryType ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {savingSummaryType
+                        ? "Saving..."
+                        : editingSummaryType
+                        ? "Update"
+                        : "Add Type"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Existing Types List */}
+                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
+                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
+                    Existing Summary Types ({summaryTypeOptions.length})
+                  </span>
+
+                  <div
+                    style={{
+                      maxHeight: 280,
+                      overflowY: "auto",
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 8,
+                      background: T.bg,
+                    }}
+                  >
+                    {summaryTypeOptions.length === 0 ? (
+                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
+                        No summary types available.
+                      </p>
+                    ) : (
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...S.th, width: 60 }}>#</th>
+                            <th style={S.th}>Summary Type</th>
+                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {summaryTypeOptions.map((t, i) => {
+                            const isCurrentEdit = editingSummaryType?.summaryNo === t.summaryNo;
+                            return (
+                              <tr
+                                key={t.summaryNo || i}
+                                style={{
+                                  background: isCurrentEdit
+                                    ? `${T.teal}15`
+                                    : i % 2 === 0
+                                    ? T.white
+                                    : T.bg,
+                                }}
+                              >
+                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
+                                  {t.summaryNo || i + 1}
+                                </td>
+                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
+                                  {t.summaryType}
+                                </td>
+                                <td style={{ ...S.td, textAlign: "center" }}>
+                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingSummaryType(t);
+                                        setNewSummaryTypeInput(t.summaryType);
+                                      }}
+                                      title="Edit"
+                                      style={S.actionBtn(T.teal)}
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteSummaryType(t.summaryNo, t.summaryType)}
+                                      title="Delete"
+                                      style={S.actionBtn(T.red)}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddSummaryTypeModal(false);
+                    setEditingSummaryType(null);
+                    setNewSummaryTypeInput("");
+                  }}
+                  style={{
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 7,
+                    background: "white",
+                    color: T.muted,
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── MANAGE HEADING MODAL ── */}
+        {showAddHeadingModal && (
+          <div
+            style={S.overlay}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowAddHeadingModal(false);
+                setEditingHeading(null);
+                setNewHeadingInput("");
+              }
+            }}
+          >
+            <div style={{ ...S.modalBox, width: "min(560px, 94vw)" }}>
+              <div style={S.modalHead}>
+                <span style={S.modalTitle}>
+                  <Plus size={16} /> Manage Headings
+                </span>
+                <button
+                  style={S.modalClose}
+                  onClick={() => {
+                    setShowAddHeadingModal(false);
+                    setEditingHeading(null);
+                    setNewHeadingInput("");
+                  }}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+                {/* Input & Action Form */}
+                <form onSubmit={handleSaveHeading}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <span style={S.lbl}>
+                        {editingHeading ? "Edit Heading" : "New Heading"}
+                      </span>
+                      <CInp
+                        value={newHeadingInput}
+                        onChange={(e) => setNewHeadingInput(e.target.value)}
+                        placeholder="e.g. CLINICAL SUMMARY"
+                        autoFocus
+                      />
+                    </div>
+                    {editingHeading && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingHeading(null);
+                          setNewHeadingInput("");
+                        }}
+                        style={{
+                          height: 38,
+                          padding: "0 12px",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          border: `1px solid ${T.border}`,
+                          borderRadius: 7,
+                          background: "white",
+                          color: T.muted,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={savingHeading}
+                      style={{
+                        ...S.btn(editingHeading ? "primary" : "primary"),
+                        height: 38,
+                        padding: "0 16px",
+                        fontSize: 12.5,
+                        opacity: savingHeading ? 0.7 : 1,
+                        cursor: savingHeading ? "not-allowed" : "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {savingHeading
+                        ? "Saving..."
+                        : editingHeading
+                        ? "Update"
+                        : "Add Heading"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Existing Headings List */}
+                <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
+                  <span style={{ ...S.lbl, color: T.teal, marginBottom: 8, display: "block" }}>
+                    Existing Headings ({headingOptions.length})
+                  </span>
+
+                  <div
+                    style={{
+                      maxHeight: 280,
+                      overflowY: "auto",
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 8,
+                      background: T.bg,
+                    }}
+                  >
+                    {headingOptions.length === 0 ? (
+                      <p style={{ textAlign: "center", padding: 20, color: T.muted, fontSize: 13 }}>
+                        No headings available.
+                      </p>
+                    ) : (
+                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...S.th, width: 60 }}>#</th>
+                            <th style={S.th}>Heading</th>
+                            <th style={{ ...S.th, width: 90, textAlign: "center" }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {headingOptions.map((h, i) => {
+                            const isCurrentEdit = editingHeading?.headingNo === h.headingNo;
+                            return (
+                              <tr
+                                key={h.headingNo || i}
+                                style={{
+                                  background: isCurrentEdit
+                                    ? `${T.teal}15`
+                                    : i % 2 === 0
+                                    ? T.white
+                                    : T.bg,
+                                }}
+                              >
+                                <td style={{ ...S.td, fontSize: 12, fontWeight: 600, color: T.muted }}>
+                                  {h.headingNo || i + 1}
+                                </td>
+                                <td style={{ ...S.td, fontSize: 12.5, fontWeight: 500 }}>
+                                  {h.heading}
+                                </td>
+                                <td style={{ ...S.td, textAlign: "center" }}>
+                                  <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingHeading(h);
+                                        setNewHeadingInput(h.heading);
+                                      }}
+                                      title="Edit"
+                                      style={S.actionBtn(T.teal)}
+                                    >
+                                      <Edit size={13} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteHeading(h.headingNo, h.heading)}
+                                      title="Delete"
+                                      style={S.actionBtn(T.red)}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={S.modalFoot}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddHeadingModal(false);
+                    setEditingHeading(null);
+                    setNewHeadingInput("");
+                  }}
+                  style={{
+                    padding: "8px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    border: `1px solid ${T.border}`,
+                    borderRadius: 7,
+                    background: "white",
+                    color: T.muted,
+                    cursor: "pointer",
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PageWrapper>
   );

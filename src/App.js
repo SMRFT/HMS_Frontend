@@ -49,6 +49,7 @@ import RDList from "./Components/InvestigationReports/RDList";
 import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
 import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
@@ -362,6 +363,7 @@ function App() {
       "/ViewEstimate": "View Estimates",
       "/RDList": "RD Reports",
       "/MHCList": "MHC Reports",
+      "/MHCReviewList": "MHC Review & Due List",
       "/Masterhealthcheck": "Master Health Check",
       "/MasterHealthcheckupReport": "MHC Report",
       "/MasterHealthcheckupDashboard": "MHC Dashboard",
@@ -369,7 +371,9 @@ function App() {
       "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
-      "/Enquiry": "Enquiry",
+      "/Enquiry": "Patient Inquiry",
+      "/PatientInquiry": "Patient Inquiry",
+      "/PatientEnquiry": "Patient Inquiry",
       "/Package": "Package",
       "/MedicinePackage": "MedicinePackage",
       "/Investigationprice": "Investigation Price",
@@ -701,11 +705,21 @@ function App() {
                     <Route path="/ABHAPatients" element={<ABHAPatients />} />
                   </>
                 )}
-              {hasPagePermission(
+              {(hasPagePermission(
                 "/Enquiry",
                 allowedActions,
                 dynamicPermissions,
-              ) && <Route path="/Enquiry" element={<Enquiry />} />}
+              ) || hasPagePermission(
+                "/PatientInquiry",
+                allowedActions,
+                dynamicPermissions,
+              )) && (
+                <>
+                  <Route path="/Enquiry" element={<Enquiry />} />
+                  <Route path="/PatientInquiry" element={<Enquiry />} />
+                  <Route path="/PatientEnquiry" element={<Enquiry />} />
+                </>
+              )}
               {hasPagePermission(
                 "/RegistrationBills",
                 allowedActions,
@@ -1116,13 +1130,19 @@ function App() {
                 dynamicPermissions,
               ) && <Route path="/JRDReport" element={<JRDReport />} />}
               {/* MHC Reports */}
-              {hasPagePermission(
+              {(hasPagePermission(
                 "/MHCList",
                 allowedActions,
                 dynamicPermissions,
-              ) && (
+              ) ||
+                hasPagePermission(
+                  "/MHCReviewList",
+                  allowedActions,
+                  dynamicPermissions,
+                )) && (
                   <>
                     <Route path="/MHCList" element={<MHCList />} />
+                    <Route path="/MHCReviewList" element={<MHCReviewList />} />
                     <Route
                       path="/MHCReportForm/:package_id/:investBillNo"
                       element={<MHCReportForm />}

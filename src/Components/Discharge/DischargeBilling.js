@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes, createGlobalStyle } from "styled-components";
@@ -98,23 +98,11 @@ const Toast = styled.div`
   box-shadow:${T.shadowMd};animation:${slideDown} 0.2s ease;
 `;
 
-const ConvertBanner = styled.div`
-  display:flex;align-items:flex-start;gap:12px;
-  padding:12px 16px;margin-bottom:12px;
-  background:#ede9fe;border:1.5px solid #7c3aed;
-  border-radius:${T.radius};color:#5b21b6;
-  animation:${slideDown} 0.25s ease;
-`;
-
-const SearchBar = styled.div`
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
-  padding:16px;background:#fafafa;border-bottom:1px solid ${T.border};align-items:flex-end;
-`;
 const FG = styled.div`display:flex;flex-direction:column;gap:4px;width:100%;`;
 const FL = styled.label`font-size:0.68rem;font-weight:700;color:${T.textMid};text-transform:uppercase;letter-spacing:0.4px;`;
 const Req = styled.span`color:${T.danger};margin-left:2px;`;
 const FInput = styled.input`
-  height:34px;padding:0 10px;font-size:0.83rem;box-sizing:border-box;width:100%;
+  height:36px;padding:0 10px;font-size:0.86rem;box-sizing:border-box;width:100%;
   border:1px solid ${T.border};border-radius:6px;outline:none;
   background:#fff;color:${T.textMain};transition:border 0.12s,box-shadow 0.12s;
   &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
@@ -122,7 +110,7 @@ const FInput = styled.input`
   &::placeholder{color:${T.textMuted};}
 `;
 const FSelect = styled.select`
-  height:34px;padding:0 10px;font-size:0.83rem;box-sizing:border-box;width:100%;
+  height:36px;padding:0 10px;font-size:0.86rem;box-sizing:border-box;width:100%;
   border:1px solid ${T.border};border-radius:6px;outline:none;
   background:#fff;color:${T.textMain};transition:border 0.12s;cursor:pointer;
   &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
@@ -190,27 +178,21 @@ const TScrollWrap = styled.div`
   &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 `;
-const ITable = styled.table`width:100%;border-collapse:collapse;font-size:0.8rem;min-width:1080px;table-layout:fixed;`;
+const ITable = styled.table`width:100%;border-collapse:collapse;font-size:0.84rem;min-width:1080px;table-layout:fixed;`;
 const ITHead = styled.thead`background:#f8fafc;`;
 const ITH = styled.th`
-  padding:10px 10px;text-align:${p => p.$align || "left"};font-size:0.66rem;font-weight:700;
+  padding:11px 10px;text-align:${p => p.$align || "left"};font-size:0.72rem;font-weight:700;
   text-transform:uppercase;letter-spacing:0.5px;color:${T.textMid};
   border-bottom:2px solid ${T.border};white-space:nowrap;box-sizing:border-box;
 `;
 const ITR = styled.tr`border-bottom:1px solid ${T.border};&:hover{background:#f8fafc;}`;
 const AddRow = styled.tr`background:#fffdf5;border-bottom:2px solid ${T.amber};`;
-const ITD = styled.td`padding:8px 10px;color:${T.textMain};vertical-align:middle;overflow:visible;position:relative;text-align:${p => p.$align || "left"};box-sizing:border-box;`;
+const ITD = styled.td`padding:9px 10px;color:${T.textMain};vertical-align:middle;overflow:visible;position:relative;text-align:${p => p.$align || "left"};box-sizing:border-box;`;
 const TInput = styled.input`
-  width:100%;box-sizing:border-box;height:32px;padding:4px 8px;font-size:0.8rem;
+  width:100%;box-sizing:border-box;height:34px;padding:4px 8px;font-size:0.84rem;
   border:1px solid ${T.border};border-radius:6px;outline:none;
   background:${p => p.$ro ? "#f8fafc" : "#fff"};color:${p => p.$ro ? T.textMuted : T.textMain};
   text-align:${p => p.$align || "left"};transition:border 0.12s;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-`;
-const TSelect = styled.select`
-  width:100%;box-sizing:border-box;height:32px;padding:4px 6px;font-size:0.8rem;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};cursor:pointer;
   &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
 `;
 const EmptyRow = styled.div`text-align:center;padding:36px;color:${T.textMuted};font-size:0.86rem;`;
@@ -261,7 +243,19 @@ const FinActions = styled.div`
     & > button { flex:1; }
   }
 `;
-const ErrMsg = styled.div`color:${T.danger};font-size:0.78rem;padding:8px 16px;background:#fee2e2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:6px;font-weight:600;`;
+const ActiveBanner = styled.div`
+  background: #fef9c3;
+  border: 1.5px solid #fde047;
+  border-radius: 7px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: #713f12;
+  font-weight: 500;
+  margin-bottom: 12px;
+`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants & Helpers
@@ -593,6 +587,199 @@ const FinancialGrid = ({ f, onChange, totals }) => (
   </FinGrid>
 );
 
+// ─── Searchable Select Component ─────────────────────────────────────────────
+const SearchSelect = ({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "— Select —",
+  disabled = false,
+  height = "32px",
+  style = {},
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 200 });
+  const wrapRef = useRef(null);
+  const dropRef = useRef(null);
+
+  const normOptions = useMemo(() => {
+    return options.map(opt => {
+      if (typeof opt === "string") return { value: opt, label: opt, sub: "" };
+      const val = opt.value ?? opt.id ?? opt.bill_type ?? "";
+      const lbl = opt.label ?? opt.name ?? opt.bill_name ?? String(val);
+      const sub = opt.subLabel ?? opt.billTypeNo ?? "";
+      return { value: String(val), label: String(lbl), sub: sub ? String(sub) : "" };
+    });
+  }, [options]);
+
+  const selectedOpt = useMemo(() => {
+    return normOptions.find(o => String(o.value) === String(value));
+  }, [normOptions, value]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return normOptions;
+    const q = query.toLowerCase();
+    return normOptions.filter(o =>
+      o.label.toLowerCase().includes(q) ||
+      (o.sub && o.sub.toLowerCase().includes(q))
+    );
+  }, [normOptions, query]);
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      const inWrap = wrapRef.current?.contains(e.target);
+      const inDrop = dropRef.current?.contains(e.target);
+      if (!inWrap && !inDrop) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+    const onScroll = () => {
+      if (wrapRef.current) {
+        const r = wrapRef.current.getBoundingClientRect();
+        setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, []);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    if (wrapRef.current) {
+      const r = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
+    }
+    setIsOpen(!isOpen);
+    setQuery("");
+  };
+
+  const handleSelect = (opt) => {
+    onChange && onChange({ target: { value: opt.value } });
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange && onChange({ target: { value: "" } });
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
+      <div
+        onClick={handleOpen}
+        style={{
+          height,
+          boxSizing: "border-box",
+          padding: "0 8px",
+          fontSize: "0.8rem",
+          border: `1px solid ${T.border}`,
+          borderRadius: "6px",
+          background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? T.textMuted : selectedOpt ? T.textMain : T.textMuted,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: disabled ? "not-allowed" : "pointer",
+          userSelect: "none",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, fontWeight: selectedOpt ? 600 : 400 }}>
+          {selectedOpt ? (selectedOpt.sub ? `${selectedOpt.label} (${selectedOpt.sub})` : selectedOpt.label) : placeholder}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 4 }}>
+          {selectedOpt && !disabled && (
+            <span
+              onClick={handleClear}
+              title="Clear"
+              style={{ fontSize: "0.72rem", color: T.textMuted, cursor: "pointer", padding: "0 2px" }}
+            >
+              ✕
+            </span>
+          )}
+          <span style={{ fontSize: "0.65rem", color: T.textMuted }}>{isOpen ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div
+          ref={dropRef}
+          style={{
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
+            background: "#fff",
+            border: `1px solid ${T.border}`,
+            borderRadius: "6px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            zIndex: 99999,
+            maxHeight: "240px",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ padding: "6px", borderBottom: `1px solid ${T.border}`, background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Type to search…"
+              style={{
+                width: "100%",
+                height: "26px",
+                padding: "0 8px",
+                boxSizing: "border-box",
+                fontSize: "0.76rem",
+                border: `1px solid ${T.border}`,
+                borderRadius: "4px",
+                outline: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "10px", fontSize: "0.76rem", color: T.textMuted, textAlign: "center" }}>
+              No matches found
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                onClick={() => handleSelect(opt)}
+                style={{
+                  padding: "7px 10px",
+                  fontSize: "0.78rem",
+                  cursor: "pointer",
+                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
+                  color: String(opt.value) === String(value) ? T.primary : T.textMain,
+                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  borderBottom: "1px solid #f8fafc",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
+              >
+                <span>{opt.label}</span>
+                {opt.sub && <span style={{ fontSize: "0.68rem", color: T.textMuted, fontWeight: 600 }}>{opt.sub}</span>}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ═════════════════════════════════════════════════════════════════════════════
 // ItemsSection
 // ═════════════════════════════════════════════════════════════════════════════
@@ -637,14 +824,18 @@ const ItemsSection = ({
           <ITD><TInput $align="right" type="number" min={0} value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput $align="right" $ro value={fmt(newItem.amount)} readOnly /></ITD>
           <ITD>
-            <TSelect value={newItem.doctor} onChange={e => onNIChange("doctor", e.target.value)} disabled={disabled}>
-              <option value="">— Doctor —</option>
-              {doctors.map((d, i) => {
+            <SearchSelect
+              options={doctors.map(d => {
                 const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
-                const id = d.employeeId || d.doctor_id || d.id || i;
-                return <option key={id} value={name}>{name}</option>;
+                return { value: name, label: name };
               })}
-            </TSelect>
+              value={newItem.doctor}
+              onChange={e => onNIChange("doctor", e.target.value)}
+              placeholder="— Doctor —"
+              disabled={disabled}
+              height="32px"
+              style={{ minWidth: "130px" }}
+            />
           </ITD>
           <ITD><TInput $align="right" type="number" min={0} value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
@@ -677,14 +868,17 @@ const ItemsSection = ({
             <ITD><TInput $align="right" type="number" min={0} value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
             <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
             <ITD>
-              <TSelect value={item.doctor || ""} onChange={e => onEdit(item._key, "doctor", e.target.value)}>
-                <option value="">— Doctor —</option>
-                {doctors.map((d, i) => {
+              <SearchSelect
+                options={doctors.map(d => {
                   const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
-                  const id = d.employeeId || d.doctor_id || d.id || i;
-                  return <option key={id} value={name}>{name}</option>;
+                  return { value: name, label: name };
                 })}
-              </TSelect>
+                value={item.doctor || ""}
+                onChange={e => onEdit(item._key, "doctor", e.target.value)}
+                placeholder="— Doctor —"
+                height="32px"
+                style={{ minWidth: "130px" }}
+              />
             </ITD>
             <ITD><TInput $align="right" type="number" min={0} value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
             <ITD>
@@ -918,6 +1112,10 @@ const DischargeBilling = () => {
         setPatient(norm);
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
+        if (norm.room_category) setPatientWard(norm.room_category);
+        if (norm.advance_amount != null && norm.advance_amount !== "") {
+          setForm("advance_amount", norm.advance_amount);
+        }
         if (Array.isArray(res.invest_items) && res.invest_items.length)
           setItems(res.invest_items.map(investToRow));
       } else {
@@ -1129,6 +1327,15 @@ const DischargeBilling = () => {
               )}
             </CardHead>
 
+            {patient && !patient.is_ready_for_billing && (
+              <div style={{ padding: "12px 16px 0" }}>
+                <ActiveBanner>
+                  ⚠️ <strong>Patient is Not Ready for Billing from Ward side</strong>
+                  &nbsp;— Current Ward Status: <em>{patient.ward_status || "Not Sent for billing"}</em>.
+                </ActiveBanner>
+              </div>
+            )}
+
             <SearchDetailsGrid>
               {/* Left Column: Search Inputs */}
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -1243,22 +1450,20 @@ const DischargeBilling = () => {
               <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.textMid, flexShrink: 0 }}>
                 Bill Type:
               </span>
-              <FSelect
-                value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
-                onChange={handleBillTypeChange}
-                disabled={masterLoading}
-                style={{ height: 32, fontSize: "0.82rem", maxWidth: 320, flex: "0 1 320px" }}
-              >
-                {billTypes.length === 0 ? (
-                  <option value="">Select Bill Type</option>
-                ) : (
-                  billTypes.map(b => (
-                    <option key={b.bill_type} value={String(b.bill_type)}>
-                      {b.bill_name}
-                    </option>
-                  ))
-                )}
-              </FSelect>
+              <div style={{ maxWidth: 320, flex: "0 1 320px" }}>
+                <SearchSelect
+                  options={billTypes.map(b => ({
+                    value: String(b.bill_type),
+                    label: b.bill_name,
+                    subLabel: b.billTypeNo,
+                  }))}
+                  value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
+                  onChange={e => handleBillTypeChange({ target: { value: e.target.value } })}
+                  placeholder="Search Bill Type..."
+                  disabled={masterLoading}
+                  height="32px"
+                />
+              </div>
 
               {masterLoading && (
                 <span style={{ fontSize: "0.73rem", color: T.textMuted, display: "flex", alignItems: "center", gap: 5 }}>
