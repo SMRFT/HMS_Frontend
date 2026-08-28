@@ -308,11 +308,58 @@ const SearchSelect = styled.select`
     background: #fff;
   }
 `;
-const SearchTh = styled.th`
-  padding: 0.4rem 0.5rem 0.6rem;
-  background: #f8fffe;
-  border-bottom: 2px solid #e0f2f1;
+const ScrollableTableWrapper = styled(TableWrapper)`
+  max-height: calc(100vh - 230px);
+  overflow: auto;
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid #e0f2f1;
 `;
+
+const StickyTable = styled(Table)`
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+`;
+
+const StickyTh = styled(Th)`
+  position: sticky;
+  top: 0;
+  height: 34px;
+  max-height: 34px;
+  line-height: 20px;
+  padding: 6px 10px;
+  background-color: #e0f2f1;
+  color: #004d40;
+  border-bottom: 1px solid #b2dfdb;
+  z-index: ${(p) => (p.sticky ? 30 : 10)};
+  ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
+  ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
+  white-space: nowrap;
+  box-sizing: border-box;
+`;
+
+const SearchTh = styled.th`
+  padding: 4px 6px;
+  background-color: #f8fffe;
+  border-bottom: 2px solid #b2dfdb;
+  position: sticky;
+  top: 33px;
+  z-index: ${(p) => (p.sticky ? 30 : 10)};
+  ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
+  ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
+  box-sizing: border-box;
+`;
+
+const StickyTd = styled(Td)`
+  position: sticky;
+  z-index: 5;
+  background-color: inherit;
+  ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
+  ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
+  white-space: nowrap;
+`;
+
 
 // ─── Icon Action Buttons ──────────────────────────────────────────────────────
 
@@ -468,6 +515,46 @@ const ReferredByBadge = styled.span`
   border-radius: 20px;
   white-space: nowrap;
 `;
+const CustomerTypeBadge = styled.span`
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  ${(p) => {
+    const t = (p.type || "").toUpperCase();
+    if (t.includes("INSURANCE")) {
+      return `background: #fef3c7; color: #92400e; border: 1px solid #fde68a;`;
+    }
+    if (t.includes("CORPORATE")) {
+      return `background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;`;
+    }
+    if (t.includes("CAMP") || t.includes("SCHEME")) {
+      return `background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;`;
+    }
+    return `background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;`;
+  }}
+`;
+
+const IpOpBadge = styled.span`
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  ${(p) => {
+    const t = (p.type || "").toUpperCase();
+    if (t === "IP") {
+      return `background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;`;
+    }
+    return `background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;`;
+  }}
+`;
+
 const ScanTypeBadge = styled.span`
   display: inline-block;
   font-size: 0.6rem;
@@ -1689,9 +1776,9 @@ const TablePreview = ({ entry }) => {
                 style={
                   ri === 0
                     ? {
-                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
-                        fontWeight: 700,
-                      }
+                      background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                      fontWeight: 700,
+                    }
                     : {}
                 }
               >
@@ -1815,9 +1902,9 @@ const TableEditor = ({ entry, onChange }) => {
                 style={
                   ri === 0
                     ? {
-                        background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
-                        fontWeight: 700,
-                      }
+                      background: "linear-gradient(135deg,#e0f2f1,#b2dfdb)",
+                      fontWeight: 700,
+                    }
                     : {}
                 }
               >
@@ -2008,6 +2095,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const footerHeight = 20;
     const contentYStart = headerHeight + 15;
 
+
     const billDateFormatted = row.investBillDate
       ? format(new Date(row.investBillDate), "dd MMM yy / HH:mm")
       : "N/A";
@@ -2017,6 +2105,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
     const approvedFormatted = report.approved_date
       ? format(new Date(report.approved_date), "dd MMM yy / HH:mm")
       : null;
+
+    const custType = row.customer_type || row.customerType || "General";
+    const isIns = custType.toUpperCase().includes("INSURANCE");
+    const compName = row.company_name || row.insurance_company || "";
 
     const leftDetails = [
       { label: "Bill No", value: row.investBillNo || "N/A" },
@@ -2037,6 +2129,10 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         ? [{ label: "Approved On", value: approvedFormatted }]
         : []),
       { label: "Printed On", value: format(new Date(), "dd MMM yy / HH:mm") },
+      { label: "Customer Type", value: custType },
+      ...((isIns || compName) && compName
+        ? [{ label: "Company Name", value: compName }]
+        : []),
       ...(row.ipNumber
         ? [{ label: "IP Number", value: row.ipNumber || "N/A" }]
         : []),
@@ -2087,67 +2183,6 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       return segments;
     };
 
-    const renderRichText = (html, maxWidth, x, y, lineHeight = 4.8) => {
-      if (!html) return 0;
-      const segments = parseHtmlSegments(html);
-      const lines = [];
-      let currentLine = [];
-      let currentLineWidth = 0;
-
-      const pushLine = () => {
-        if (currentLine.length > 0) {
-          lines.push(currentLine);
-          currentLine = [];
-          currentLineWidth = 0;
-        }
-      };
-
-      segments.forEach(({ text, bold }) => {
-        const parts = text.split("\n");
-        parts.forEach((part, partIdx) => {
-          if (partIdx > 0) pushLine();
-          const words = part.split(" ");
-          words.forEach((word, wi) => {
-            if (word === "" && wi === 0 && currentLine.length === 0) return;
-            doc.setFont("helvetica", bold ? "bold" : "normal");
-            const spaceW = currentLine.length > 0 ? doc.getTextWidth(" ") : 0;
-            const wordW = doc.getTextWidth(word);
-            if (
-              currentLineWidth + spaceW + wordW > maxWidth &&
-              currentLine.length > 0
-            )
-              pushLine();
-            const space = currentLine.length > 0 ? " " : "";
-            const last = currentLine[currentLine.length - 1];
-            if (last && last.bold === bold) {
-              last.text += space + word;
-              last.width += doc.getTextWidth(space + word);
-            } else {
-              const segText = space + word;
-              currentLine.push({
-                text: segText,
-                bold,
-                width: doc.getTextWidth(segText),
-              });
-            }
-            currentLineWidth += doc.getTextWidth(space + word);
-          });
-        });
-      });
-      pushLine();
-
-      lines.forEach((line, li) => {
-        let cx = x;
-        line.forEach(({ text, bold }) => {
-          doc.setFont("helvetica", bold ? "bold" : "normal");
-          doc.text(text, cx, y + li * lineHeight);
-          cx += doc.getTextWidth(text);
-        });
-      });
-      doc.setFont("helvetica", "normal");
-      return lines.length * lineHeight;
-    };
-
     const addHeaderFooter = () => {
       if (withLetterpad) {
         doc.addImage(
@@ -2169,21 +2204,23 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       }
     };
 
+
     const calculateMaxLabelWidth = (details) => {
       const tempDoc = new jsPDF();
+      tempDoc.setFont("helvetica", "bold");
+      tempDoc.setFontSize(10);
       return Math.max(...details.map((d) => tempDoc.getTextWidth(d.label)));
     };
 
     const addPatientInfo = (yPos) => {
       const leftMaxW = calculateMaxLabelWidth(leftDetails);
       const rightMaxW = calculateMaxLabelWidth(rightDetails);
-      const centerPoint = (leftMargin + rightMargin) / 2;
       const leftLabelX = leftMargin;
       const leftColonX = leftLabelX + leftMaxW + 2;
       const leftValueX = leftColonX + 3;
-      const rightLabelX = centerPoint + 28;
+      const rightLabelX = 133;
       const rightColonX = rightLabelX + rightMaxW + 2;
-      const rightValueX = rightColonX + 1;
+      const rightValueX = rightColonX + 3;
 
       doc.setFontSize(10);
       let infoY = yPos;
@@ -2197,21 +2234,27 @@ const handlePrintReport = async (row, withLetterpad = true) => {
           doc.text(left.label, leftLabelX, infoY);
           doc.text(":", leftColonX, infoY);
           doc.setFont("helvetica", "normal");
-          const maxLeftW = centerPoint + 25 - leftValueX;
-          const leftLines = wrapText(left.value, maxLeftW);
+          const maxLeftW = rightLabelX - 4 - leftValueX;
+          const leftLines = wrapText(String(left.value || ""), maxLeftW);
           leftLines.forEach((line, li) =>
             doc.text(line, leftValueX, infoY + li * 4),
           );
           leftRowH = leftLines.length * 4;
         }
+        let rightRowH = 5;
         if (right) {
           doc.setFont("helvetica", "bold");
           doc.text(right.label, rightLabelX, infoY);
           doc.text(":", rightColonX, infoY);
           doc.setFont("helvetica", "normal");
-          doc.text(right.value, rightValueX, infoY);
+          const maxRightW = rightMargin - rightValueX;
+          const rightLines = wrapText(String(right.value || ""), maxRightW);
+          rightLines.forEach((line, li) =>
+            doc.text(line, rightValueX, infoY + li * 4),
+          );
+          rightRowH = rightLines.length * 4;
         }
-        infoY += Math.max(leftRowH, 5);
+        infoY += Math.max(leftRowH, rightRowH, 5);
       }
       return infoY;
     };
@@ -2381,31 +2424,31 @@ const handlePrintReport = async (row, withLetterpad = true) => {
         ancData.guh || "—",
         ancData.lmp
           ? (() => {
-              try {
-                return new Date(ancData.lmp).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                });
-              } catch {
-                return ancData.lmp;
-              }
-            })()
+            try {
+              return new Date(ancData.lmp).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              });
+            } catch {
+              return ancData.lmp;
+            }
+          })()
           : "—",
         ancData.ga_lmp || "—",
         ancData.ga_usg || "—",
         ancData.edd_usg
           ? (() => {
-              try {
-                return new Date(ancData.edd_usg).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                });
-              } catch {
-                return ancData.edd_usg;
-              }
-            })()
+            try {
+              return new Date(ancData.edd_usg).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              });
+            } catch {
+              return ancData.edd_usg;
+            }
+          })()
           : "—",
       ];
 
@@ -2713,6 +2756,7 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       doc.setTextColor(0, 0, 0);
       yPos += 8;
 
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(9.5);
       const impressionLines = impression
         .replace(/<br\s*\/?>/gi, "\n")
@@ -2735,13 +2779,13 @@ const handlePrintReport = async (row, withLetterpad = true) => {
       const bulletMaxWidth = contentWidth - 9;
 
       impressionLines.forEach((line) => {
+        doc.setFont("helvetica", "bold");
         const wrapped = doc.splitTextToSize(line, bulletMaxWidth);
         yPos = checkNewPage(yPos, 5.2);
-        doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 105, 92);
         doc.text("•", bulletX, yPos);
         doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "normal");
+        doc.setFont("helvetica", "bold");
         wrapped.forEach((wline, wi) => {
           if (wi > 0) {
             yPos += 5.2;
@@ -3179,7 +3223,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
     if (row.report?.slot_DateTime) {
       try {
         return new Date(row.report.slot_DateTime).toISOString().slice(0, 10);
-      } catch {}
+      } catch { }
     }
     return getToday();
   };
@@ -3187,7 +3231,7 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
     if (row.report?.slot_DateTime) {
       try {
         return new Date(row.report.slot_DateTime).toTimeString().slice(0, 5);
-      } catch {}
+      } catch { }
     }
     return new Date().toTimeString().slice(0, 5);
   };
@@ -3327,6 +3371,149 @@ const SlotModal = ({ row, onClose, onSaved, HMSURL, activeBillTypeNo }) => {
   );
 };
 
+// ─── DICOM OHIF Viewer Modal ──────────────────────────────────────────────────
+
+const DicomModalOverlay = styled(ModalOverlay)`
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+`;
+
+const DicomModalContent = styled.div`
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 14px;
+  width: 98vw;
+  max-width: 1550px;
+  height: 94vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  border: 1px solid #334155;
+`;
+
+const DicomModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1.25rem;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+`;
+
+const DicomModalTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #38bdf8;
+`;
+
+const DicomPatientInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  flex-wrap: wrap;
+`;
+
+const DicomInfoBadge = styled.span`
+  background: #334155;
+  color: #f1f5f9;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+`;
+
+const DicomModalBody = styled.div`
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #000;
+`;
+
+const DicomIframe = styled.iframe`
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #000;
+`;
+
+const DicomModal = ({ row, viewerUrl, onClose }) => {
+  if (!viewerUrl) return null;
+  return (
+    <DicomModalOverlay onClick={onClose}>
+      <DicomModalContent onClick={(e) => e.stopPropagation()}>
+        <DicomModalHeader>
+          <DicomModalTitle>
+            <span>🩻</span>
+            <span>OHIF DICOM Medical Viewer</span>
+          </DicomModalTitle>
+          <DicomPatientInfo>
+            <span>👤 <strong style={{ color: "#f8fafc" }}>{row?.patientName || "Unknown"}</strong></span>
+            <DicomInfoBadge>UHID: {row?.uhid || "—"}</DicomInfoBadge>
+            <DicomInfoBadge>Bill: {row?.investBillNo || "—"}</DicomInfoBadge>
+            {row?.itemName && <DicomInfoBadge>{row.itemName}</DicomInfoBadge>}
+          </DicomPatientInfo>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <a
+              href={viewerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                padding: "0.35rem 0.75rem",
+                background: "#0284c7",
+                color: "#fff",
+                borderRadius: "6px",
+                fontSize: "0.78rem",
+                fontWeight: 600,
+                textDecoration: "none",
+                cursor: "pointer",
+              }}
+            >
+              ↗️ Open in New Tab
+            </a>
+            <button
+              onClick={onClose}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#94a3b8",
+                fontSize: "1.3rem",
+                cursor: "pointer",
+                padding: "0 0.4rem",
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </DicomModalHeader>
+        <DicomModalBody>
+          <DicomIframe
+            src={viewerUrl}
+            title="OHIF DICOM Viewer"
+            allow="fullscreen"
+          />
+        </DicomModalBody>
+      </DicomModalContent>
+    </DicomModalOverlay>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const RDList = ({ investBillNo: investBillNoFilter }) => {
@@ -3338,6 +3525,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [editingRow, setEditingRow] = useState(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
   const [slotRow, setSlotRow] = useState(null);
+  const [dicomModalOpen, setDicomModalOpen] = useState(false);
+  const [dicomViewerUrl, setDicomViewerUrl] = useState("");
+  const [dicomLoading, setDicomLoading] = useState(false);
+  const [dicomRow, setDicomRow] = useState(null);
   const navigate = useNavigate();
   const HMSURL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -3352,6 +3543,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
 
   const [searchBillNo, setSearchBillNo] = useState("");
   const [searchUhid, setSearchUhid] = useState("");
+  const [searchPatientType, setSearchPatientType] = useState("");
   const [searchIpNumber, setSearchIpNumber] = useState("");
   const [searchPatient, setSearchPatient] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
@@ -3359,7 +3551,9 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
   const [searchPaymentStatus, setSearchPaymentStatus] = useState("");
   const [searchPaymentMethod, setSearchPaymentMethod] = useState("");
   const [searchScanType, setSearchScanType] = useState("");
+  const [searchCustomerType, setSearchCustomerType] = useState("");
   const [billTypes, setBillTypes] = useState([]);
+
   const [searchSlotStatus, setSearchSlotStatus] = useState("");
 
   const allowedActions = JSON.parse(
@@ -3404,6 +3598,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         return;
       }
       const merged = (result.data || []).map((row) => ({
+        ...row,
         investBillNo: row.investBillNo,
         uhid: row.uhid,
         ipNumber: row.ipNumber,
@@ -3412,6 +3607,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         itemName: row.itemName || "",
         paymentMethod: row.paymentMethod || "Cash",
         paymentStatus: row.paymentStatus || "",
+        total: row.total,
+        finalPrice: row.finalPrice,
+        customer_type: row.customer_type || row.customerType || "General",
+        customerType: row.customer_type || row.customerType || "General",
+        company_code: row.company_code || "",
+        company_name: row.company_name || row.insurance_company || "",
+        insurance_company: row.company_name || row.insurance_company || "",
         billTypeNo: selectedBillType,
         patientName:
           `${row.salutation || ""} ${row.firstName || ""} ${row.middleName ? row.middleName + " " : ""}${row.lastName || ""}`.trim(),
@@ -3419,7 +3621,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         age_type: row.age_type,
         gender: row.gender,
         address: row.address || "",
-        patientType: row.ipNumber ? "IP" : (row.patientType || row.customerType || "OP"),
+        patientType:
+          row.ipNumber &&
+            String(row.ipNumber).trim() !== "" &&
+            String(row.ipNumber).trim() !== "—" &&
+            String(row.ipNumber).trim().toLowerCase() !== "na"
+            ? "IP"
+            : (row.patientType || row.patient_type || "").toUpperCase() === "IP"
+              ? "IP"
+              : "OP",
         referredBy: row.referredBy || "",
         referredByName: row.referredByName || "",
         report: row.report || null,
@@ -3519,6 +3729,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     localStorage.setItem("rdlist_billType", defaultType);
     setSearchBillNo("");
     setSearchUhid("");
+    setSearchPatientType("");
     setSearchIpNumber("");
     setSearchPatient("");
     setSearchPaymentStatus("");
@@ -3526,9 +3737,18 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     setSearchStatus("");
     setSearchReferredBy("");
     setSearchScanType("");
+    setSearchCustomerType("");
   };
 
+  const customerTypeOptions = useMemo(() => {
+    const types = rows
+      .map((r) => r.customer_type || r.customerType || "General")
+      .filter(Boolean);
+    return [...new Set(types)].sort();
+  }, [rows]);
+
   const scanTypeOptions = useMemo(() => {
+
     const types = rows.map((r) => r.scan_type).filter(Boolean);
     return [...new Set(types)].sort();
   }, [rows]);
@@ -3552,6 +3772,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           : row.report?.is_approved
             ? "approved"
             : "reported";
+      const patientType =
+        row.patientType ||
+        (row.ipNumber &&
+          String(row.ipNumber).trim() !== "" &&
+          String(row.ipNumber).trim() !== "—" &&
+          String(row.ipNumber).trim().toLowerCase() !== "na"
+          ? "IP"
+          : "OP");
+
       return (
         (!searchBillNo ||
           (row.investBillNo || "")
@@ -3559,6 +3788,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             .includes(searchBillNo.toLowerCase())) &&
         (!searchUhid ||
           (row.uhid || "").toLowerCase().includes(searchUhid.toLowerCase())) &&
+        (!searchPatientType || patientType === searchPatientType) &&
         (!searchIpNumber ||
           (row.ipNumber || "")
             .toLowerCase()
@@ -3570,8 +3800,12 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         (!searchStatus || statusLabel === searchStatus) &&
         (!searchPaymentStatus || row.paymentStatus === searchPaymentStatus) &&
         (!searchPaymentMethod || row.paymentMethod === searchPaymentMethod) &&
+        (!searchCustomerType ||
+          (row.customer_type || row.customerType || "General") ===
+          searchCustomerType) &&
         (!searchScanType || (row.scan_type || "") === searchScanType) &&
         (!searchSlotStatus ||
+
           (() => {
             const s = row.tat_info?.slot_info?.status;
             return searchSlotStatus === "no_slot"
@@ -3585,12 +3819,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
     rows,
     searchBillNo,
     searchUhid,
+    searchPatientType,
     searchIpNumber,
     searchPatient,
     searchStatus,
     searchReferredBy,
     searchPaymentStatus,
     searchPaymentMethod,
+    searchCustomerType,
     searchScanType,
     searchSlotStatus,
   ]);
@@ -3668,10 +3904,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           prev.map((r) =>
             r.investBillNo === row.investBillNo && r.item_id === row.item_id
               ? {
-                  ...r,
-                  tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: { ...(r.report || {}), ...result.data },
-                }
+                ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info,
+                report: { ...(r.report || {}), ...result.data },
+              }
               : r,
           ),
         );
@@ -3692,10 +3928,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           prev.map((r) =>
             r.investBillNo === row.investBillNo && r.item_id === row.item_id
               ? {
-                  ...r,
-                  tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: { ...r.report, ...result.data },
-                }
+                ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info,
+                report: { ...r.report, ...result.data },
+              }
               : r,
           ),
         );
@@ -3733,10 +3969,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           prev.map((r) =>
             r.investBillNo === row.investBillNo && r.item_id === row.item_id
               ? {
-                  ...r,
-                  tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: { ...(r.report || {}), ...result.data },
-                }
+                ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info,
+                report: { ...(r.report || {}), ...result.data },
+              }
               : r,
           ),
         );
@@ -3757,10 +3993,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
           prev.map((r) =>
             r.investBillNo === row.investBillNo && r.item_id === row.item_id
               ? {
-                  ...r,
-                  tat_info: result.data?.tat_info ?? r.tat_info,
-                  report: { ...r.report, ...result.data },
-                }
+                ...r,
+                tat_info: result.data?.tat_info ?? r.tat_info,
+                report: { ...r.report, ...result.data },
+              }
               : r,
           ),
         );
@@ -3794,15 +4030,15 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         prev.map((r) =>
           r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
-                ...r,
-                tat_info: result.data?.tat_info ?? r.tat_info,
-                report: {
-                  ...r.report,
-                  is_Dispatched: true,
-                  dispatch_DateTime:
-                    result.data?.dispatch_DateTime || new Date().toISOString(),
-                },
-              }
+              ...r,
+              tat_info: result.data?.tat_info ?? r.tat_info,
+              report: {
+                ...r.report,
+                is_Dispatched: true,
+                dispatch_DateTime:
+                  result.data?.dispatch_DateTime || new Date().toISOString(),
+              },
+            }
             : r,
         ),
       );
@@ -3828,12 +4064,12 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         if (r.investBillNo !== investBillNo || r.item_id !== item_id) return r;
         const updatedReport = wasCreated
           ? {
-              slot_DateTime,
-              impression: "",
-              is_approved: false,
-              is_active: true,
-              has_report: false,
-            }
+            slot_DateTime,
+            impression: "",
+            is_approved: false,
+            is_active: true,
+            has_report: false,
+          }
           : { ...r.report, slot_DateTime };
         return { ...r, report: updatedReport };
       }),
@@ -3849,6 +4085,35 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         : row.report,
     });
     setIsModalOpen(true);
+  };
+
+  const handleViewDicom = async (row) => {
+    setDicomLoading(true);
+    try {
+      const result = await apiRequest(
+        `${HMSURL}radiology/dicom-study/?investBillNo=${encodeURIComponent(row.investBillNo || "")}`,
+        "GET",
+      );
+      const resData = result?.data || result || {};
+      const viewerUrl = resData.viewerUrl || result?.viewerUrl;
+      const isSuccess = resData.success ?? result?.success;
+
+      if (isSuccess && viewerUrl) {
+        setDicomViewerUrl(viewerUrl);
+        setDicomRow(row);
+        setDicomModalOpen(true);
+      } else {
+        toast.info(
+          resData.message ||
+          result?.message ||
+          "No DICOM studies found in Orthanc for this investigation.",
+        );
+      }
+    } catch {
+      toast.error("Failed to connect to DICOM PACS service");
+    } finally {
+      setDicomLoading(false);
+    }
   };
 
   const handleEdit = (row) => {
@@ -3875,16 +4140,16 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
         prev.map((r) =>
           r.investBillNo === row.investBillNo && r.item_id === row.item_id
             ? {
-                ...r,
-                report: {
-                  ...r.report,
-                  is_approved: true,
-                  approved_by:
-                    result.data?.approved_by ?? r.report?.approved_by,
-                  approved_date:
-                    result.data?.approved_date ?? r.report?.approved_date,
-                },
-              }
+              ...r,
+              report: {
+                ...r.report,
+                is_approved: true,
+                approved_by:
+                  result.data?.approved_by ?? r.report?.approved_by,
+                approved_date:
+                  result.data?.approved_date ?? r.report?.approved_date,
+              },
+            }
             : r,
         ),
       );
@@ -3919,19 +4184,19 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
       setRows((prev) =>
         prev.map((r) =>
           r.investBillNo === editingRow.investBillNo &&
-          r.item_id === editingRow.item_id
+            r.item_id === editingRow.item_id
             ? {
-                ...r,
-                report: {
-                  ...r.report,
-                  impression: newImpression,
-                  valuedetails: {
-                    ...r.report?.valuedetails,
-                    value: apiSections,
-                    ...(newAncFields && { anc_fields: newAncFields }),
-                  },
+              ...r,
+              report: {
+                ...r.report,
+                impression: newImpression,
+                valuedetails: {
+                  ...r.report?.valuedetails,
+                  value: apiSections,
+                  ...(newAncFields && { anc_fields: newAncFields }),
                 },
-              }
+              },
+            }
             : r,
         ),
       );
@@ -4304,54 +4569,67 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             </StatCard>
           </StatsRow>
 
-          <TableWrapper>
-            <Table>
+          <ScrollableTableWrapper>
+            <StickyTable>
               <thead>
                 <tr>
-                  <Th>Sl.No</Th>
-                  <Th>Bill No</Th>
-                  <Th>UHID</Th>
-                  <Th>IP Number</Th>
-                  <Th>Patient Name</Th>
-                  <Th>Age</Th>
-                  <Th>Gender</Th>
-                  <Th>Item</Th>
-                  <Th>TAT</Th>
-                  <Th>Bill Date</Th>
-                  <Th>Referred By</Th>
-                  <Th>Payment Method</Th>
-                  <Th>Payment Status</Th>
-                  <Th>Slot</Th>
-                  <Th>Patient In</Th>
-                  <Th>Scan Started</Th>
-                  <Th>Dispatch</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
+                  <StickyTh sticky stickyLeft={0} style={{ width: "50px", minWidth: "50px", textAlign: "center" }}>Sl.No</StickyTh>
+                  <StickyTh sticky stickyLeft={50} style={{ width: "130px", minWidth: "130px" }}>Bill No</StickyTh>
+                  <StickyTh sticky stickyLeft={180} style={{ width: "105px", minWidth: "105px" }}>UHID</StickyTh>
+                  <StickyTh sticky stickyLeft={285} style={{ width: "75px", minWidth: "75px" }}>IP / OP</StickyTh>
+                  <StickyTh sticky stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>IP Number</StickyTh>
+                  <StickyTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>Patient Name</StickyTh>
+                  <StickyTh>Age</StickyTh>
+                  <StickyTh>Gender</StickyTh>
+                  <StickyTh>Customer Type</StickyTh>
+                  <StickyTh>Item</StickyTh>
+                  <StickyTh>TAT</StickyTh>
+                  <StickyTh>Bill Date</StickyTh>
+                  <StickyTh>Referred By</StickyTh>
+                  <StickyTh>Payment Method</StickyTh>
+                  <StickyTh>Payment Status</StickyTh>
+                  <StickyTh>Slot</StickyTh>
+                  <StickyTh>Patient In</StickyTh>
+                  <StickyTh>Scan Started</StickyTh>
+                  <StickyTh>Dispatch</StickyTh>
+                  <StickyTh>Status</StickyTh>
+                  <StickyTh>Actions</StickyTh>
                 </tr>
                 <tr>
-                  <SearchTh />
-                  <SearchTh>
+                  <SearchTh sticky stickyLeft={0} style={{ width: "50px", minWidth: "50px" }} />
+                  <SearchTh sticky stickyLeft={50} style={{ width: "130px", minWidth: "130px" }}>
                     <SearchInput
                       placeholder="🔍 Bill No"
                       value={searchBillNo}
                       onChange={(e) => setSearchBillNo(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh>
+                  <SearchTh sticky stickyLeft={180} style={{ width: "105px", minWidth: "105px" }}>
                     <SearchInput
                       placeholder="🔍 UHID"
                       value={searchUhid}
                       onChange={(e) => setSearchUhid(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh>
+                  <SearchTh sticky stickyLeft={285} style={{ width: "75px", minWidth: "75px" }}>
+                    <SearchSelect
+                      value={searchPatientType}
+                      onChange={(e) => setSearchPatientType(e.target.value)}
+                      style={{ width: "100%", minWidth: "60px" }}
+                    >
+                      <option value="">All</option>
+                      <option value="OP">OP</option>
+                      <option value="IP">IP</option>
+                    </SearchSelect>
+                  </SearchTh>
+                  <SearchTh sticky stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>
                     <SearchInput
                       placeholder="🔍 IP No"
                       value={searchIpNumber}
                       onChange={(e) => setSearchIpNumber(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh>
+                  <SearchTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>
                     <SearchInput
                       placeholder="🔍 Patient"
                       value={searchPatient}
@@ -4362,9 +4640,23 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <SearchTh />
                   <SearchTh>
                     <SearchSelect
+                      value={searchCustomerType}
+                      onChange={(e) => setSearchCustomerType(e.target.value)}
+                    >
+                      <option value="">All Types</option>
+                      {customerTypeOptions.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </SearchSelect>
+                  </SearchTh>
+                  <SearchTh>
+                    <SearchSelect
                       value={searchScanType}
                       onChange={(e) => setSearchScanType(e.target.value)}
                     >
+
                       <option value="">All Types</option>
                       {scanTypeOptions.map((t) => (
                         <option key={t} value={t}>
@@ -4449,13 +4741,14 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                     <Tr
                       key={`${row.investBillNo}-${row.itemName}-${index}`}
                       style={{
-                        background: row.hasReport
-                          ? "linear-gradient(135deg,#f1f8f4,#e8f5e9)"
-                          : "white",
+                        backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff",
                       }}
                     >
-                      <Td
+                      <StickyTd
+                        stickyLeft={0}
                         style={{
+                          width: "50px",
+                          minWidth: "50px",
                           textAlign: "center",
                           fontWeight: 700,
                           color: "#00897b",
@@ -4463,15 +4756,54 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         }}
                       >
                         {index + 1}
-                      </Td>
-                      <Td>{row.investBillNo}</Td>
-                      <Td>{row.uhid}</Td>
-                      <Td>{row.ipNumber || "—"}</Td>
-                      <Td>{row.patientName}</Td>
+                      </StickyTd>
+                      <StickyTd stickyLeft={50} style={{ width: "130px", minWidth: "130px" }}>{row.investBillNo}</StickyTd>
+                      <StickyTd stickyLeft={180} style={{ width: "105px", minWidth: "105px" }}>{row.uhid}</StickyTd>
+                      <StickyTd stickyLeft={285} style={{ width: "75px", minWidth: "75px" }}>
+                        <IpOpBadge type={row.patientType || "OP"}>
+                          {row.patientType || "OP"}
+                        </IpOpBadge>
+                      </StickyTd>
+                      <StickyTd stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>{row.ipNumber || "—"}</StickyTd>
+                      <StickyTd stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px", fontWeight: 600 }}>{row.patientName}</StickyTd>
                       <Td>
                         {row.age} {row.age_type}
                       </Td>
                       <Td>{row.gender || "N/A"}</Td>
+                      <Td>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "3px",
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <CustomerTypeBadge
+                            type={row.customer_type || row.customerType || "General"}
+                          >
+                            {row.customer_type || row.customerType || "General"}
+                          </CustomerTypeBadge>
+                          {(((row.customer_type || row.customerType || "")
+                            .toUpperCase()
+                            .includes("INSURANCE") ||
+                            row.company_name) &&
+                            row.company_name) && (
+                              <span
+                                style={{
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  color: "#92400e",
+                                  lineHeight: "1.2",
+                                  maxWidth: "140px",
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                🏢 {row.company_name}
+                              </span>
+                            )}
+                        </div>
+                      </Td>
                       <Td>
                         <span>{row.itemName || "—"}</span>
                         {row.scan_type && (
@@ -4526,11 +4858,10 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                               (row.paymentMethod || "").toLowerCase() === "credit"
                                 ? "#6d28d9"
                                 : "#0369a1",
-                            border: `1px solid ${
-                              (row.paymentMethod || "").toLowerCase() === "credit"
-                                ? "#ddd6fe"
-                                : "#bae6fd"
-                            }`,
+                            border: `1px solid ${(row.paymentMethod || "").toLowerCase() === "credit"
+                              ? "#ddd6fe"
+                              : "#bae6fd"
+                              }`,
                           }}
                         >
                           💳 {row.paymentMethod || "Cash"}
@@ -4647,7 +4978,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                                     : row.report?.is_approved
                                       ? "Already Approved"
                                       : row.hasReport &&
-                                          row.report?.impression?.trim()
+                                        row.report?.impression?.trim()
                                         ? "Already Submitted"
                                         : "Go to Report"
                             }
@@ -4660,6 +4991,13 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                             data-tip="Preview Report"
                           >
                             👁
+                          </IconBtn>
+                          <IconBtn
+                            onClick={() => handleViewDicom(row)}
+                            data-tip="View DICOM Images"
+                            style={{ color: "#0284c7" }}
+                          >
+                            🩻
                           </IconBtn>
                           {canApprove && (
                             <IconBtn
@@ -4741,8 +5079,8 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   </tr>
                 )}
               </tbody>
-            </Table>
-          </TableWrapper>
+            </StickyTable>
+          </ScrollableTableWrapper>
         </ContentCard>
       </Container>
 
@@ -4803,6 +5141,17 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
             setSlotRow(null);
           }}
           onSaved={handleSlotSaved}
+        />
+      )}
+      {dicomModalOpen && dicomRow && (
+        <DicomModal
+          row={dicomRow}
+          viewerUrl={dicomViewerUrl}
+          onClose={() => {
+            setDicomModalOpen(false);
+            setDicomViewerUrl("");
+            setDicomRow(null);
+          }}
         />
       )}
     </PageWrapper>
