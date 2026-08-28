@@ -95,6 +95,9 @@ import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
+import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
+import OPEMRDesk from "./Components/EMR/OPEMRDesk";
+import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -175,6 +178,7 @@ import PurchaseRequisitionApproval from "./Components/InventoryMaster/PurchaseRe
 import PhysicalStockEntry from "./Components/InventoryMaster/PhysicalStockEntry";
 import PhysicalStockApproval from "./Components/InventoryMaster/PhysicalStockEntryApproval";
 import MedicineTracking from "./Components/InventoryMaster/MedicineTracking";
+import Medicinechart from "./Components/Pharmacy/Medicinechart";
 
 import RoomOccupencyReport from "./Components/Reports/RoomOccupencyReport";
 import PreDayRoomOccupancyReport from "./Components/Reports/PreDayRoomOccupancyReport";
@@ -348,6 +352,10 @@ function App() {
       "/Dashboard": "Dashboard",
       "/AdvancedDashboard": "Advanced Dashboard",
       "/DoctorDashboard": "Doctor Dashboard",
+      "/DepartmentDashboard": "Department Dashboard",
+      "/OPEMRDesk": "OP EMR Consultation",
+      "/VitalWaitingList": "Vital Waiting List",
+      "/vitalwaitinglist": "Vital Waiting List",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -624,6 +632,17 @@ function App() {
                   <Route path="/DoctorDashboard" element={<DoctorDashboard />} />
                 )}
 
+              <Route path="/DepartmentDashboard" element={<DepartmentDashboard />} />
+
+              <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
+              <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
+              <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              {hasPagePermission(
+                "/VitalWaitingList",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/VitalWaitingList" element={<VitalWaitingList />} />}
+
               {/* User Permission Manager */}
               {hasPagePermission(
                 "/UserPermissions",
@@ -825,6 +844,7 @@ function App() {
               ) && (
                   <>
                     <Route path="/crash-cart" element={<CrashCartChecklist />} />
+                    <Route path="/Medicinechart" element={<Medicinechart />} />
                     <Route path="/NursingStation" element={<NursingStation />} />
                   </>
                 )}

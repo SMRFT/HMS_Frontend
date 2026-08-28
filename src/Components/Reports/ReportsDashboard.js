@@ -25,7 +25,8 @@ import {
     Percent,
     Package,
     Search,
-    Inbox
+    Inbox,
+    Building2
 } from "lucide-react";
 import styled, { keyframes } from "styled-components";
 import { Modal, DatePicker, Button, Tooltip, Spin } from "antd";
@@ -51,6 +52,7 @@ const DebitBillsReport = lazy(() => import("../Accounts/DebitBillsReport"));
 const AuditReport = lazy(() => import("../Accounts/AuditReport"));
 const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
+const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 
 const { RangePicker } = DatePicker;
 
@@ -440,6 +442,14 @@ const ReportsDashboard = () => {
             description: "Card-mode collections across Registration (OP), Pharmacy, and Discharge billing",
             icon: <CreditCard size={24} />,
             component: CreditCardReport,
+            color: colors.primary
+        },
+        {
+            id: "department_wise",
+            title: "Department Wise Report",
+            description: "Financial & patient volume report summarized by hospital departments",
+            icon: <Building2 size={24} />,
+            component: DepartmentWiseReport,
             color: colors.primary
         },
         {

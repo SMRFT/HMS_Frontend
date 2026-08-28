@@ -95,27 +95,26 @@ const BrandingSection = styled.div`
   }
 `;
 
-const BrandIconWrap = styled.div`
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
+const GreenSquareLogo = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #0d9488;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
   flex-shrink: 0;
-
-  svg {
-    color: #fff;
-  }
+  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
 `;
 
 const BrandTextGroup = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 
   @media (max-width: 768px) {
@@ -125,108 +124,51 @@ const BrandTextGroup = styled.div`
 
 const HospitalName = styled.h1`
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  color: ${colors.textMain};
+  color: #0f172a;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
 
   span {
-    color: ${colors.primary};
-  }
-
-  @media (max-width: 480px) {
-    font-size: 0.78rem;
-    letter-spacing: 0.2px;
-  }
-`;
-
-const BrandDivider = styled.div`
-  width: 1px;
-  height: 22px;
-  background: ${colors.border};
-  margin: 0 12px;
-
-  @media (max-width: 640px) {
-    display: none;
+    color: #0d9488;
   }
 `;
 
 const HospitalAddress = styled.div`
   font-size: 0.72rem;
-  color: ${colors.textMuted};
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
+  color: #64748b;
   font-weight: 500;
-
-  svg {
-    color: ${colors.primary};
-    flex-shrink: 0;
-  }
-
-  @media (max-width: 900px) {
-    display: none;
-  }
+  white-space: nowrap;
 `;
 
 // ── Clock ─────────────────────────────────────────────────────────────────────
 
 const ClockSection = styled.div`
   display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 14px;
-  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-  border: 1px solid ${colors.border};
-  border-radius: 12px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px;
   flex-shrink: 0;
 
-  @media (max-width: 640px) {
+  @media (max-width: 900px) {
     display: none;
   }
 `;
 
-const ClockIconBox = styled.div`
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: ${colors.primary};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  svg {
-    color: #fff;
-  }
-`;
-
-const ClockTexts = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0px;
-`;
-
 const TimeText = styled.div`
-  font-family: "JetBrains Mono", "Courier New", monospace;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: ${colors.textMain};
-  letter-spacing: 0.4px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0f172a;
   line-height: 1.2;
 `;
 
 const DateText = styled.div`
-  font-size: 0.66rem;
-  color: ${colors.textMuted};
+  font-size: 0.68rem;
+  color: #64748b;
   font-weight: 500;
-  letter-spacing: 0.2px;
   line-height: 1.2;
 `;
 
@@ -236,81 +178,64 @@ const OutletSection = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px;
-  background: rgba(13, 148, 136, 0.05);
-  border: 1px solid rgba(13, 148, 136, 0.2);
-  border-radius: 12px;
+  padding: 4px 6px 4px 14px;
+  background: #f0fdf4;
+  border: 1px solid #a7f3d0;
+  border-radius: 20px;
   margin-right: 8px;
   flex-shrink: 0;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(13, 148, 136, 0.08);
-    border-color: rgba(13, 148, 136, 0.3);
-  }
 
   @media (max-width: 1024px) {
     display: none;
   }
 `;
 
-const OutletIconBox = styled.div`
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: ${colors.primary};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 2px 6px rgba(13, 148, 136, 0.2);
+const GreenPulseDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 `;
 
 const OutletTextGroup = styled.div`
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.25;
 `;
 
 const OutletLabel = styled.span`
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: ${colors.textMuted};
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #059669;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 `;
 
 const OutletName = styled.span`
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: ${colors.textMain};
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #0f172a;
   white-space: nowrap;
+  text-transform: uppercase;
 `;
 
 const SwitchBtn = styled.button`
   margin-left: 4px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(13, 148, 136, 0.2);
-  background: white;
-  color: ${colors.primary};
-  font-size: 0.65rem;
+  padding: 4px 14px;
+  border-radius: 12px;
+  border: 1px solid #0d9488;
+  background: #ffffff;
+  color: #0d9488;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 
   &:hover {
-    background: ${colors.primary};
-    color: white;
-    border-color: ${colors.primary};
-  }
-
-  svg {
-    width: 10px;
-    height: 10px;
+    background: #0d9488;
+    color: #ffffff;
   }
 `;
 
@@ -397,47 +322,45 @@ const UserProfileWrapper = styled.div`
 const UserProfileBtn = styled.button`
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 4px 10px 4px 4px;
-  background: white;
-  border: 1px solid ${colors.border};
-  border-radius: 12px;
+  gap: 8px;
+  padding: 3px 12px 3px 3px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    border-color: rgba(13, 148, 136, 0.4);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-    background: #fafffe;
+    border-color: #0d9488;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #ffffff;
   }
 
   ${({ $open }) =>
     $open &&
     css`
-      border-color: ${colors.primary};
+      border-color: #0d9488;
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
     `}
 
   @media (max-width: 480px) {
-    padding: 4px;
+    padding: 3px;
     gap: 0;
-    border-radius: 9px;
   }
 `;
 
 const UserAvatar = styled.div`
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark});
-  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0d9488;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 800;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
 `;
 
 const UserMeta = styled.div`
@@ -761,54 +684,39 @@ const Header = ({ isSidebarCollapsed, setIsSidebarCollapsed, onSwitchOutlet, has
 
       {/* ── Left: Branding ── */}
       <BrandingSection>
-        <img
-          src={Favilogo}
-          alt="Logo"
-          style={{ height: "30px", width: "auto", objectFit: "contain", borderRadius: "4px" }}
-        />
+        <GreenSquareLogo>S</GreenSquareLogo>
         <BrandTextGroup>
           <HospitalName>
-            <span>Shanmuga</span>&nbsp;Hospital Limited
+            <span>SHANMUGA</span> HOSPITAL
           </HospitalName>
           <HospitalAddress>
-            <MapPin size={11} />
-            51/24, Saradha College Road, Salem – 636007
+            51/24, Saradha College Road, Salem — 636007
           </HospitalAddress>
         </BrandTextGroup>
       </BrandingSection>
 
       <div style={{ flex: 1 }} />
 
-      {/* ── Outlet Info ── */}
-      {localStorage.getItem("selected_outlet") && (
-        <OutletSection>
-          <OutletIconBox>
-            <MapPin size={14} />
-          </OutletIconBox>
-          <OutletTextGroup>
-            <OutletLabel>Active Outlet</OutletLabel>
-            <OutletName>
-              {localStorage.getItem("selected_outlet_name") ||
-                localStorage.getItem("selected_outlet")}
-            </OutletName>
-          </OutletTextGroup>
-          {hasMultipleOutlets && (
-            <SwitchBtn onClick={onSwitchOutlet}>
-              <RefreshCw size={10} /> Switch
-            </SwitchBtn>
-          )}
-        </OutletSection>
-      )}
+      {/* ── Outlet Info Capsule (Screenshot 2) ── */}
+      <OutletSection>
+        <GreenPulseDot />
+        <OutletTextGroup>
+          <OutletLabel>ACTIVE OUTLET</OutletLabel>
+          <OutletName>
+            {localStorage.getItem("selected_outlet_name") ||
+              localStorage.getItem("selected_outlet") ||
+              "IP PHARMACY"}
+          </OutletName>
+        </OutletTextGroup>
+        <SwitchBtn onClick={onSwitchOutlet}>
+          Switch
+        </SwitchBtn>
+      </OutletSection>
 
       {/* ── Clock ── */}
       <ClockSection>
-        <ClockIconBox>
-          <Clock size={14} />
-        </ClockIconBox>
-        <ClockTexts>
-          <TimeText>{formatTime(time)}</TimeText>
-          <DateText>{formatDate(time)}</DateText>
-        </ClockTexts>
+        <TimeText>{formatTime(time)}</TimeText>
+        <DateText>{formatDate(time)}</DateText>
       </ClockSection>
 
       {/* ── Right: Actions ── */}
