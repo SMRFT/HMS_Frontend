@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import axios from "axios";
+import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
 import {
   Activity,
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 import { colors } from "../GlobalStyles";
 
-const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://localhost:8000/";
+const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL ;
 
 // --- Styled Components ---
 
@@ -621,11 +622,14 @@ const VitalWaitingList = () => {
   const fetchBilledPatients = async () => {
     try {
       setRefreshing(true);
-      const res = await axios.get(`${Hmsbaseurl}OPEMR_get_billing_patient/`);
-      if (res.data && Array.isArray(res.data)) {
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_billing_patient/`, "GET");
+      if (res.success && res.data && Array.isArray(res.data)) {
         setPatients(res.data);
       } else {
         setPatients([]);
+        if (!res.success) {
+          toast.error(res.error || "Failed to load billed patient list.");
+        }
       }
     } catch (err) {
       console.error("Error fetching billed patients:", err);
@@ -740,6 +744,7 @@ const VitalWaitingList = () => {
       setSubmitting(true);
       const payload = {
         uhid: selectedRecord.patient.uhid,
+        doctor_id: selectedRecord.doctor_id || selectedRecord.patient?.doctor_id || null,
         height: vitalData.height !== "" ? parseFloat(vitalData.height) : null,
         weight: vitalData.weight !== "" ? parseFloat(vitalData.weight) : null,
         bp: vitalData.bp || null,
@@ -752,11 +757,13 @@ const VitalWaitingList = () => {
         created_by: localStorage.getItem("employee_id") || "Staff"
       };
 
-      const res = await axios.post(`${Hmsbaseurl}OPEMR_VitalEntry/`, payload);
-      if (res.status === 201 || res.status === 200) {
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_VitalEntry/`, "POST", payload);
+      if (res.success) {
         toast.success("Vital details recorded successfully!");
         handleCloseModal();
         fetchBilledPatients();
+      } else {
+        toast.error(res.error || "Failed to save vital entry.");
       }
     } catch (err) {
       console.error("Error saving vital entry:", err);
