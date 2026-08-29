@@ -55,9 +55,7 @@ import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDa
 import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
-
-
-
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
 
@@ -115,6 +113,7 @@ import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
+import StoresAbcVedReport from "./Components/Stores/StoresAbcVedReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -401,6 +400,7 @@ function App() {
       "/StoresIntentApproval": "Store Intent Approval",
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
+      "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -1435,6 +1435,7 @@ function App() {
               )}
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
+              <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
