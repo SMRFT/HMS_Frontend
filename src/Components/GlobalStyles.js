@@ -64,9 +64,9 @@ export const TabContainer = styled.div`
 `;
 
 export const Tab = styled.div`
-  padding: 8px 16px;
-  font-size: 0.82rem;
-  font-weight: ${(props) => (props.active ? "600" : "500")};
+  padding: 9px 18px;
+  font-size: 0.86rem;
+  font-weight: ${(props) => (props.active ? "700" : "500")};
   color: ${(props) => (props.active ? colors.primary : colors.textMuted)};
   background: ${(props) => (props.active ? colors.tabBg : "transparent")};
   border-bottom: 3px solid
@@ -83,8 +83,8 @@ export const Tab = styled.div`
   }
 
   @media (max-width: 480px) {
-    padding: 6px 10px;
-    font-size: 0.78rem;
+    padding: 7px 12px;
+    font-size: 0.8rem;
   }
 `;
 
@@ -94,9 +94,9 @@ export const FormContent = styled.div`
 
 export const FormRow = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 8px 10px;
-  margin-bottom: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(180px, 14vw, 240px), 1fr));
+  gap: 10px 14px;
+  margin-bottom: 10px;
 `;
 
 // Form Elements
@@ -110,10 +110,10 @@ export const InputWrapper = styled.div`
 `;
 
 export const Label = styled.label`
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: ${colors.textMain};
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
 
@@ -129,10 +129,11 @@ export const Label = styled.label`
 `;
 
 export const Input = styled.input`
-  padding: 5px 8px;
+  padding: 6px 10px;
+  height: 34px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   transition: all 0.2s;
   background: ${colors.surface};
   width: 100%;
@@ -142,7 +143,7 @@ export const Input = styled.input`
   &:focus {
     outline: none;
     border-color: ${colors.primary};
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
   }
 
   &:disabled {
@@ -158,10 +159,11 @@ export const Input = styled.input`
 `;
 
 export const Select = styled.select`
-  padding: 5px 28px 5px 8px;
+  padding: 6px 28px 6px 10px;
+  height: 34px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   transition: all 0.2s;
   background-color: ${colors.surface};
   cursor: pointer;
@@ -174,7 +176,7 @@ export const Select = styled.select`
   &:focus {
     outline: none;
     border-color: ${colors.primary};
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
   }
 
   &:disabled {
@@ -199,16 +201,17 @@ export const TextArea = styled.textarea`
 `;
 
 export const Button = styled.button`
-  padding: 5px 14px;
+  padding: 7px 16px;
+  height: 34px;
   border-radius: 6px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   border: none;
   color: white;
 
@@ -298,10 +301,12 @@ export const SearchContainer = styled.div`
 
 // Table Components
 export const TableWrapper = styled.div`
-  margin-top: 10px;
+  margin-top: 12px;
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid ${colors.border};
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 `;
 
 export const Table = styled.table`
@@ -311,12 +316,14 @@ export const Table = styled.table`
 
 export const Th = styled.th`
   background: ${colors.tabBg};
-  padding: 7px 10px;
+  padding: 10px 12px;
   text-align: left;
   color: ${colors.textMain};
   border-bottom: 2px solid ${colors.border};
-  font-weight: 600;
-  font-size: 0.75rem;
+  font-weight: 700;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   white-space: nowrap;
   position: sticky;
   top: 0;
@@ -324,14 +331,14 @@ export const Th = styled.th`
 `;
 
 export const Td = styled.td`
-  padding: 6px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid ${colors.border};
   color: ${colors.textMain};
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 `;
 
 export const Tr = styled.tr`
-  transition: background-color 0.2s;
+  transition: background-color 0.15s;
 
   &:hover {
     background-color: #f1f5f9;
@@ -457,16 +464,18 @@ export const SearchRow = styled.div`
 
 export const SearchInput = styled.input`
   flex: 1;
-  padding: 5px 8px;
+  padding: 6px 10px;
+  height: 34px;
   border: 1px solid ${colors.border};
   border-radius: 6px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   transition: all 0.2s;
+  box-sizing: border-box;
 
   &:focus {
     outline: none;
     border-color: ${colors.primary};
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
   }
 `;
 

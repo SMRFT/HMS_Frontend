@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -45,28 +45,28 @@ const SValue = styled.div`font-size:1.7rem;font-weight:800;color:#111827;line-he
 
 // ─── Filter Bar ────────────────────────────────────────────────────────────────
 const FilterBar  = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
-const FF         = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 140px'};`;
-const FL         = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
-const FSel       = styled.select`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const FInp       = styled.input`height:32px;padding:0 8px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const SearchBtn  = styled.button`height:32px;padding:0 18px;font-size:.78rem;font-weight:600;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;display:flex;align-items:center;gap:5px;&:hover{background:#0f766e;}`;
+const FF         = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 150px'};`;
+const FL         = styled.label`font-size:.74rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;`;
+const FSel       = styled.select`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const FInp       = styled.input`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const SearchBtn  = styled.button`height:36px;padding:0 20px;font-size:.84rem;font-weight:700;background:#0d9488;color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;&:hover{background:#0f766e;}`;
 
 // ─── Form Panel ────────────────────────────────────────────────────────────────
 const FormPanel = styled.div`overflow:hidden;border-bottom:2px solid #0d9488;animation:${openAnim} .4s ease both;`;
-const FPHead    = styled.div`display:flex;align-items:center;justify-content:space-between;padding:9px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
-const FPTitle   = styled.div`font-size:.82rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
-const CloseFP   = styled.button`width:26px;height:26px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
-const FGrid     = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px 12px;padding:14px 20px;`;
-const Field     = styled.div`display:flex;flex-direction:column;gap:2px;grid-column:span ${p=>p.span||1};`;
-const Lbl       = styled.label`font-size:.7rem;font-weight:600;color:#374151;&::after{content:${p=>p.req?'" *"':'""'};color:#ef4444;}`;
-const Inp       = styled.input`height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
-const Sel       = styled.select`height:28px;padding:0 4px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
-const Txta      = styled.textarea`padding:4px 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;resize:vertical;min-height:44px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
-const SecDiv    = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:4px 0 2px;padding-top:6px;font-size:.7rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
-const IRow      = styled.div`display:flex;align-items:center;gap:3px;`;
-const IconBtn   = styled.button`height:28px;padding:0 9px;font-size:.72rem;background:#0d9488;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
-const FActions  = styled.div`display:flex;gap:8px;justify-content:flex-end;padding:10px 20px 16px;border-top:1px solid #e5e7eb;margin-top:4px;`;
-const SmBtn     = styled.button`height:30px;padding:0 18px;font-size:.75rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
+const FPHead    = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
+const FPTitle   = styled.div`font-size:.88rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
+const CloseFP   = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1.1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
+const FGrid     = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:8px 14px;padding:16px 20px;`;
+const Field     = styled.div`display:flex;flex-direction:column;gap:3px;grid-column:span ${p=>p.span||1};`;
+const Lbl       = styled.label`font-size:.76rem;font-weight:600;color:#374151;&::after{content:${p=>p.req?'" *"':'""'};color:#ef4444;}`;
+const Inp       = styled.input`height:34px;padding:0 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
+const Sel       = styled.select`height:34px;padding:0 8px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
+const Txta      = styled.textarea`padding:6px 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;resize:vertical;min-height:50px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
+const SecDiv    = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:8px 0 4px;padding-top:8px;font-size:.76rem;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
+const IRow      = styled.div`display:flex;align-items:center;gap:4px;`;
+const IconBtn   = styled.button`height:34px;padding:0 12px;font-size:.82rem;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
+const FActions  = styled.div`display:flex;gap:10px;justify-content:flex-end;padding:12px 20px 18px;border-top:1px solid #e5e7eb;margin-top:8px;`;
+const SmBtn     = styled.button`height:34px;padding:0 22px;font-size:.82rem;font-weight:700;border-radius:5px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
 
 // ─── Active Admission Banner ───────────────────────────────────────────────────
 const ActiveBanner = styled.div`
@@ -74,6 +74,14 @@ const ActiveBanner = styled.div`
   background:#fef9c3;border:1.5px solid #fde047;border-radius:7px;
   padding:10px 14px;display:flex;align-items:center;gap:10px;
   font-size:.78rem;color:#713f12;font-weight:500;
+`;
+
+const FieldError = styled.span`
+  color: #ef4444;
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-top: 2px;
+  display: block;
 `;
 
 // ─── Room History Timeline ─────────────────────────────────────────────────────
@@ -129,14 +137,14 @@ const ReasonBtns = styled.div`display:flex;gap:10px;justify-content:flex-end;mar
 // ─── Table ─────────────────────────────────────────────────────────────────────
 const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;`;
 const TWrap = styled.div`overflow-x:auto;`;
-const Tbl   = styled.table`width:100%;border-collapse:collapse;font-size:.78rem;`;
+const Tbl   = styled.table`width:100%;border-collapse:collapse;font-size:.82rem;`;
 const Thead = styled.thead`background:#f9fafb;`;
-const Th    = styled.th`padding:9px 12px;text-align:left;font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
+const Th    = styled.th`padding:10px 12px;text-align:left;font-size:.72rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
 const Tr    = styled.tr`border-bottom:1px solid #f3f4f6;animation:${fadeIn} .28s ease both;animation-delay:${p=>p.i*.035}s;&:hover{background:#f0fdf4;}`;
-const Td    = styled.td`padding:8px 12px;color:#374151;white-space:nowrap;`;
-const Badge = styled.span`padding:2px 10px;border-radius:20px;font-size:.67rem;font-weight:700;background:${p=>p.t==='admitted'?'#dcfce7':p.t==='discharged'?'#dbeafe':'#fee2e2'};color:${p=>p.t==='admitted'?'#166534':p.t==='discharged'?'#1d4ed8':'#991b1b'};`;
-const RoomHistBtn   = styled.button`height:22px;padding:0 9px;font-size:.62rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
-const RoomSourceTag = styled.span`font-size:.55rem;font-weight:700;padding:1px 5px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p=>p.src==='shifting'?'#f3e8ff':'#f0fdf4'};color:${p=>p.src==='shifting'?'#7e22ce':'#166534'};`;
+const Td    = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
+const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p=>p.t==='admitted'?'#dcfce7':p.t==='discharged'?'#dbeafe':'#fee2e2'};color:${p=>p.t==='admitted'?'#166534':p.t==='discharged'?'#1d4ed8':'#991b1b'};`;
+const RoomHistBtn   = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
+const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p=>p.src==='shifting'?'#f3e8ff':'#f0fdf4'};color:${p=>p.src==='shifting'?'#7e22ce':'#166534'};`;
 
 // ─── Dropdown ──────────────────────────────────────────────────────────────────
 const AW   = styled.div`position:relative;display:inline-block;`;
@@ -192,22 +200,42 @@ const BS2  = styled.div`background:#fff;border:1px solid #e5e7eb;border-radius:8
 const BH2  = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:.78rem;font-weight:700;color:#0d9488;`;
 const FG2  = styled.div`padding:10px 12px;`;
 const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
-const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;margin-bottom:10px;`;
-const rC   = {
-  available:     { bg:"#f0fdf4", br:"#86efac", hd:"#dcfce7" },
-  "not-cleaned": { bg:"#fefce8", br:"#fde047", hd:"#fef9c3" },
-  occupied:      { bg:"#fff1f2", br:"#fca5a5", hd:"#fee2e2" },
-  maintenance:   { bg:"#f3f4f6", br:"#9ca3af", hd:"#e5e7eb" },
-  partial:       { bg:"#eff6ff", br:"#93c5fd", hd:"#dbeafe" },
-  reserved:      { bg:"#faf5ff", br:"#c084fc", hd:"#f3e8ff" },
-};
-const RC   = styled.div`border:1.5px solid ${p=>rC[p.s]?.br||'#e5e7eb'};border-radius:7px;overflow:hidden;cursor:${p=>(p.s==='maintenance'||p.noavail)?'not-allowed':'pointer'};opacity:${p=>(p.s==='maintenance'||p.noavail)?.72:1};background:${p=>rC[p.s]?.bg||'#fff'};transition:box-shadow .18s,transform .18s;${p=>(p.s!=='maintenance'&&!p.noavail)&&'&:hover{box-shadow:0 4px 14px rgba(0,0,0,.13);transform:translateY(-2px);}'}`;
-const RCT  = styled.div`display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:${p=>rC[p.s]?.hd||'#f1f5f9'};border-bottom:1px solid ${p=>rC[p.s]?.br||'#e5e7eb'};`;
-const RNum = styled.span`font-size:.78rem;font-weight:700;color:#111827;`;
-const RSP  = styled.span`font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#22c55e':p.s==='occupied'?'#ef4444':p.s==='maintenance'?'#9ca3af':p.s==='reserved'?'#9333ea':p.s==='partial'?'#3b82f6':p.s==='not-cleaned'?'#eab308':'#eab308'};color:#fff;text-transform:capitalize;`;
-const BRow = styled.div`display:flex;flex-wrap:wrap;gap:4px;padding:6px 8px;`;
-const BC   = styled.button`flex:1 1 auto;min-width:44px;text-align:center;padding:4px 5px;border-radius:5px;font-size:.67rem;font-weight:700;border:none;cursor:${p=>p.disabled?'not-allowed':'pointer'};color:#fff;background:${p=>p.bs==='Available'?'#22c55e':p.bs==='Occupied'?'#ef4444':p.bs==='Available - Not Cleaned'?'#eab308':p.bs==='Reserved'?'#9333ea':p.bs==='Maintenance'?'#9ca3af':'#9ca3af'};opacity:${p=>p.disabled?.55:1};transition:filter .15s,transform .15s;&:hover:not(:disabled){filter:brightness(1.1);transform:scale(1.06);}`;
-const RT2  = styled.span`font-size:.6rem;color:#6b7280;padding:0 8px 4px;display:block;`;
+const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
+  <svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M1 10H23" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M5 6C5 5.45 5.45 5 6 5H8C8.55 5 9 5.45 9 6C9 6.55 8.55 7 8 7H6C5.45 7 5 6.55 5 6Z" fill={color}/>
+    <path d="M2 14V16M22 14V16" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
+
+const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:10px;`;
+const RC   = styled.div`
+  border:1.5px solid ${p=>p.hasOccupied?'#fca5a5':'#e2e8f0'};
+  border-radius:7px;overflow:hidden;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.06);transition:all .14s ease;
+  display:flex;flex-direction:column;
+  &:hover{border-color:#0d9488;box-shadow:0 3px 10px rgba(0,0,0,0.08);}
+`;
+const RCT  = styled.div`
+  display:flex;align-items:center;justify-content:space-between;padding:5px 8px;
+  background:${p=>p.hasOccupied?'#fff5f5':'#f8fafc'};
+  border-bottom:1px solid ${p=>p.hasOccupied?'#fee2e2':'#e2e8f0'};
+`;
+const RNum = styled.span`font-size:.78rem;font-weight:800;color:#0f172a;`;
+const RSP  = styled.span`font-size:.58rem;font-weight:800;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#dcfce7':p.s==='occupied'?'#fee2e2':p.s==='not-cleaned'?'#fef3c7':p.s==='reserved'?'#ede9fe':'#f1f5f9'};color:${p=>p.s==='available'?'#15803d':p.s==='occupied'?'#b91c1c':p.s==='not-cleaned'?'#b45309':p.s==='reserved'?'#6d28d9':'#334155'};text-transform:capitalize;`;
+const BRow = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:5px;padding:6px 8px;`;
+const BC   = styled.button`
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:4px 3px;height:46px;border-radius:5px;
+  border:1.5px solid ${p=>p.bs==='Available'?'#86efac':p.bs==='Occupied'?'#fca5a5':p.bs==='Available - Not Cleaned'?'#fde047':p.bs==='Reserved'?'#d8b4fe':'#cbd5e1'};
+  background:${p=>p.bs==='Available'?'#dcfce7':p.bs==='Occupied'?'#fee2e2':p.bs==='Available - Not Cleaned'?'#fef3c7':p.bs==='Reserved'?'#ede9fe':'#f1f5f9'};
+  cursor:${p=>p.disabled?'not-allowed':'pointer'};
+  opacity:${p=>p.disabled?.55:1};
+  transition:all .12s ease;outline:none;user-select:none;
+  &:hover:not(:disabled){transform:scale(1.05);border-color:#16a34a;box-shadow:0 2px 8px rgba(22,163,74,0.25);}
+`;
+const RT2  = styled.span`font-size:.58rem;font-weight:700;color:#64748b;background:#fff;border:1px solid #e2e8f0;padding:1px 5px;border-radius:4px;text-transform:uppercase;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
 const NR   = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
 
@@ -259,6 +287,7 @@ const EditHeader = styled.div`display:flex;justify-content:space-between;align-i
 const EditBy = styled.span`font-weight:700;color:#0f766e;`;
 const EditDate = styled.span`color:#64748b;font-size:.68rem;`;
 const EditReasonText = styled.div`font-size:.78rem;color:#334155;background:#f1f5f9;padding:6px 10px;border-radius:4px;margin-top:4px;`;
+
 
 
 // ─── Code128B Barcode ──────────────────────────────────────────────────────────
@@ -324,12 +353,34 @@ const EMPTY = {
   roomNo:"", bedNo:"", reasonForAdmission:"",
   packageNo:"", packageName:"",
   mlc_type:"", mlc_doc:null, mlc_remarks:"",
+  attender_name:"", attender_relationship:"", attender_phone:"",
   salutation:"", firstName:"", middleName:"", lastName:"",
   dob:"", age:"", age_type:"Y", gender:"", mobilePhone:"", permanent_address:"",
   area:"", zipcode:"", city:"", state:"",
   customerType:"General", insuranceCompanyName:"", company_code:"",
   room_details:[], roomShitingDetails:[], edit_history:[],
 };
+
+const RELATIONSHIP_OPTIONS = [
+  { value: "Father",       label: "Father" },
+  { value: "Mother",       label: "Mother" },
+  { value: "Spouse",       label: "Spouse (Husband / Wife)" },
+  { value: "Son",          label: "Son" },
+  { value: "Daughter",     label: "Daughter" },
+  { value: "Brother",      label: "Brother" },
+  { value: "Sister",       label: "Sister" },
+  { value: "Grandfather",  label: "Grandfather" },
+  { value: "Grandmother",  label: "Grandmother" },
+  { value: "Uncle",        label: "Uncle" },
+  { value: "Aunt",         label: "Aunt" },
+  { value: "Cousin",       label: "Cousin" },
+  { value: "Guardian",     label: "Guardian / Caregiver" },
+  { value: "Relative",     label: "Relative" },
+  { value: "Friend",       label: "Friend" },
+  { value: "Neighbour",    label: "Neighbour" },
+  { value: "Colleague",    label: "Colleague" },
+  { value: "Other",        label: "Other" },
+];
 
 function safeParseList(value) {
   if (Array.isArray(value)) return value;
@@ -620,29 +671,6 @@ function RoomHistoryModal({ adm, onClose }) {
   );
 }
 
-function AlreadyAdmittedModal({ info, onClose, onEdit }) {
-  return (
-    <ModalOverlay onClick={onClose}>
-      <AlertMC onClick={e=>e.stopPropagation()}>
-        <ModalHeader><ModalTitle>⚠️ Already Admitted</ModalTitle><CloseButton onClick={onClose}>×</CloseButton></ModalHeader>
-        <AlertBody>
-          <AlertIcon>🏥</AlertIcon>
-          <AlertMsg>This patient already has an <strong>active admission</strong>. A new admission cannot be created until the current one is discharged or cancelled.</AlertMsg>
-          <AlertIP>IP: {info.ipNumber}</AlertIP>
-          <AlertMeta>
-            {info.admissionDateTime&&<>{fmtDateTime(info.admissionDateTime)}<br/></>}
-            {(info.roomNo||info.bedNo)&&<>Room: {info.roomNo} / Bed: {info.bedNo}</>}
-          </AlertMeta>
-          <AlertBtns>
-            <ABtn onClick={onClose}>Close</ABtn>
-            {onEdit&&<ABtn primary onClick={()=>{onClose();onEdit(info);}}>✏️ Edit Existing Admission</ABtn>}
-          </AlertBtns>
-        </AlertBody>
-      </AlertMC>
-    </ModalOverlay>
-  );
-}
-
 function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
   const [previewImage, setPreviewImage] = useState(null);
   if (!adm) return null;
@@ -744,6 +772,27 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
             </InfoGrid>
           </SectionBox>
 
+          {/* Attender Details */}
+          {(adm.attender_name || adm.attender_relationship || adm.attender_phone) && (
+            <SectionBox style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", borderColor: "#cbd5e1" }}>
+              <SectionTitle>🤝 Attender Information</SectionTitle>
+              <InfoGrid minWidth="160px">
+                <InfoItem>
+                  <InfoLbl>Attender’s Name</InfoLbl>
+                  <InfoVal style={{ fontWeight: 700, color: "#0f766e" }}>{adm.attender_name || "—"}</InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Relationship with Patient</InfoLbl>
+                  <InfoVal>{adm.attender_relationship || "—"}</InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Attender’s Phone</InfoLbl>
+                  <InfoVal>{adm.attender_phone || "—"}</InfoVal>
+                </InfoItem>
+              </InfoGrid>
+            </SectionBox>
+          )}
+
           {/* Insurance / Customer Info */}
           {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
             <SectionBox>
@@ -838,53 +887,6 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                           👁️ View Image
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const res = await fetch(docUrl);
-                            const blob = await res.blob();
-                            const blobUrl = window.URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = blobUrl;
-                            a.download = fileName || "mlc_document";
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            window.URL.revokeObjectURL(blobUrl);
-                          } catch {
-                            window.open(docUrl, "_blank");
-                          }
-                        }}
-                        style={{
-                          background: "#f1f5f9",
-                          color: "#1e293b",
-                          border: "1px solid #cbd5e1",
-                          borderRadius: 4,
-                          padding: "4px 12px",
-                          fontSize: ".75rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        ⬇️ Download
-                      </button>
-                      <a
-                        href={docUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          color: "#64748b",
-                          fontSize: ".72rem",
-                          fontWeight: 600,
-                          textDecoration: "underline",
-                        }}
-                      >
-                        Open in Tab ↗
-                      </a>
                     </div>
                   ) : (
                     <span style={{ color: "#9ca3af" }}>No document attached</span>
@@ -1015,7 +1017,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                 </span>
               )}
             </SectionTitle>
-            {editHistory.length === 0 && !adm.is_edited ? (
+            {editHistory.length === 0 ? (
               <div style={{ fontSize: ".76rem", color: "#94a3b8", fontStyle: "italic", padding: "4px 0" }}>
                 No edits recorded for this admission.
               </div>
@@ -1032,17 +1034,6 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                     </EditReasonText>
                   </EditCard>
                 ))}
-                {editHistory.length === 0 && adm.is_edited && (
-                  <EditCard>
-                    <EditHeader>
-                      <EditBy>✏️ Edited by {adm.edited_by || "User"}</EditBy>
-                      <EditDate>{adm.lastmodified_date ? fmtDateTime(adm.lastmodified_date) : "—"}</EditDate>
-                    </EditHeader>
-                    <EditReasonText>
-                      <strong>Reason:</strong> {adm.edited_Reason || "No reason specified"}
-                    </EditReasonText>
-                  </EditCard>
-                )}
               </EditTimeline>
             )}
           </SectionBox>
@@ -1052,6 +1043,180 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
         </div>
       </ViewMC>
     </ModalOverlay>
+  );
+}
+
+// ─── Searchable Select Component ─────────────────────────────────────────────
+function SearchSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Search & select...",
+  disabled = false,
+  error = false,
+  name = "",
+  style = {},
+  height = "28px",
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+
+  const normOptions = useMemo(() => {
+    return options.map(opt => {
+      if (typeof opt === "string") return { value: opt, label: opt, sub: "" };
+      const val = opt.value ?? opt.id ?? opt.employeeId ?? opt.packageNo ?? "";
+      const lbl = opt.label ?? opt.name ?? opt.employeeName ?? opt.packageName ?? String(val);
+      const sub = opt.subLabel ?? (opt.totalPrice ? `₹${opt.totalPrice}` : "");
+      return { value: String(val), label: String(lbl), sub: sub ? String(sub) : "" };
+    });
+  }, [options]);
+
+  const selectedOpt = useMemo(() => {
+    return normOptions.find(o => String(o.value) === String(value));
+  }, [normOptions, value]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return normOptions;
+    const q = query.toLowerCase();
+    return normOptions.filter(o =>
+      o.label.toLowerCase().includes(q) ||
+      o.value.toLowerCase().includes(q) ||
+      (o.sub && o.sub.toLowerCase().includes(q))
+    );
+  }, [normOptions, query]);
+
+  useEffect(() => {
+    const handleOut = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleOut);
+    return () => document.removeEventListener("mousedown", handleOut);
+  }, []);
+
+  const handleChoose = (opt) => {
+    if (disabled) return;
+    onChange && onChange({ target: { name, value: opt.value } });
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    if (disabled) return;
+    onChange && onChange({ target: { name, value: "" } });
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
+      <div
+        onClick={() => { if (!disabled) { setIsOpen(!isOpen); setQuery(""); } }}
+        style={{
+          height: height,
+          boxSizing: "border-box",
+          padding: "0 7px",
+          fontSize: ".75rem",
+          border: error ? "1px solid #ef4444" : isOpen ? "1px solid #0d9488" : "1px solid #d1d5db",
+          borderRadius: "4px",
+          background: disabled ? "#f3f4f6" : "#fff",
+          color: disabled ? "#6b7280" : selectedOpt ? "#111827" : "#9ca3af",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: disabled ? "not-allowed" : "pointer",
+          boxShadow: isOpen ? "0 0 0 2px #ccfbf1" : "none",
+          userSelect: "none",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          {selectedOpt ? selectedOpt.label : placeholder}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 4 }}>
+          {selectedOpt && !disabled && (
+            <span
+              onClick={handleClear}
+              title="Clear"
+              style={{ fontSize: ".7rem", color: "#9ca3af", cursor: "pointer", padding: "0 2px" }}
+            >
+              ✕
+            </span>
+          )}
+          <span style={{ fontSize: ".65rem", color: "#6b7280" }}>{isOpen ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 2px)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #cbd5e1",
+            borderRadius: "5px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            zIndex: 99999,
+            maxHeight: "220px",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ padding: "5px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Type to filter..."
+              style={{
+                width: "100%",
+                height: "26px",
+                padding: "0 6px",
+                boxSizing: "border-box",
+                fontSize: ".72rem",
+                border: "1px solid #cbd5e1",
+                borderRadius: "4px",
+                outline: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "10px", fontSize: ".72rem", color: "#94a3b8", textAlign: "center" }}>
+              No matches found
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                onClick={() => handleChoose(opt)}
+                style={{
+                  padding: "6px 8px",
+                  fontSize: ".74rem",
+                  cursor: "pointer",
+                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
+                  color: String(opt.value) === String(value) ? "#0f766e" : "#1e293b",
+                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  borderBottom: "1px solid #f8fafc",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
+              >
+                <span>{opt.label}</span>
+                {opt.sub && <span style={{ fontSize: ".65rem", color: "#64748b" }}>{opt.sub}</span>}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1104,6 +1269,7 @@ export default function Admission() {
   const [historyAdm,     setHistoryAdm]     = useState(null);
   const [viewModalAdm,   setViewModalAdm]   = useState(null);
   const [alreadyAdmInfo, setAlreadyAdmInfo] = useState(null);
+  const [errors,         setErrors]         = useState({});
   const [confirmModal,   setConfirmModal]   = useState(null);
   const [infoModal,      setInfoModal]      = useState(null);
   const [openMenu,       setOpenMenu]       = useState(null);
@@ -1268,69 +1434,105 @@ export default function Admission() {
   // ── Fetch patient by UHID — also checks for active admission ─────────────
   const fetchPatientByUHID = async () => {
     const uhid = form.uhid.trim();
-    if (!uhid) { showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID before searching." }); return; }
+    if (!uhid) {
+      setErrors(p => ({ ...p, uhid: "This field is required" }));
+      return;
+    }
     try {
       const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
-      if (!res.success && res.error) { showInfo({ type:"error", title:"Patient Not Found", message: res.error||"No patient found for this UHID." }); return; }
+      if (!res.success && res.error) {
+        toast.error(res.error || "No patient found for this UHID.");
+        return;
+      }
       const d = res.data || res;
 
-      // ── Check if patient has active admission ──────────────────────────────
-      const activeAdm = admissions.find(a =>
-        String(a.uhid).trim() === String(uhid).trim()
-        && a.is_admitted
-        && !a.is_discharged
-        && !a.is_cancelled
-      );
-      if (activeAdm) {
-        setAlreadyAdmInfo({
-          ipNumber: activeAdm.ipNumber,
-          admissionDateTime: activeAdm.admissionDateTime,
-          roomNo: getActiveRoom(activeAdm).roomNo,
-          bedNo:  getActiveRoom(activeAdm).bedNo,
-        });
+      // ── Check if patient has active admission from backend API ──────────────
+      let activeAdm = null;
+      try {
+        const admRes = await apiRequest(`${API_ADMISSION_LIST}?uhid=${encodeURIComponent(uhid)}`, "GET");
+        const admList = Array.isArray(admRes.data?.data) ? admRes.data.data : Array.isArray(admRes.data) ? admRes.data : [];
+        activeAdm = admList.find(a =>
+          String(a.uhid).trim().toLowerCase() === String(uhid).trim().toLowerCase()
+          && a.is_admitted
+          && !a.is_discharged
+          && !a.is_cancelled
+        );
+      } catch (e) {
+        console.error("Active admission check error:", e);
       }
 
-      setForm(p => ({
-        ...p,
-        salutation: d.salutation||"", firstName: d.firstName||"",
-        middleName: d.middleName||"", lastName:  d.lastName||"",
-        dob:  d.dob||d.dateOfBirth||"",
-        age:  d.age||"",             // Calculated from DOB by backend
-        age_type: d.age_type||"Y",
-        gender: d.gender||"",
-        mobilePhone: d.mobilePhone||d.phone||"",
-        permanent_address: d.permanent_address||"", area: d.area||"",
-        zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
-        customerType: d.customerType||d.customer_type||"General",
-        insuranceCompanyName: d.insuranceCompanyName||d.company_name||"",
-        company_code: d.company_code||"",
-      }));
-      toast.success("Patient loaded");
-    } catch { showInfo({ type:"error", title:"Error", message:"Failed to fetch patient details." }); }
+      if (activeAdm) {
+        const { roomNo, bedNo } = getActiveRoom(activeAdm);
+        const admInfo = {
+          ...activeAdm,
+          ipNumber: activeAdm.ipNumber,
+          admissionDateTime: activeAdm.admissionDateTime,
+          roomNo: roomNo || activeAdm.roomNo,
+          bedNo:  bedNo || activeAdm.bedNo,
+        };
+        setAlreadyAdmInfo(admInfo);
+        loadAdmissionIntoForm(admInfo);
+        toast.info(`Active admission found (IP: ${activeAdm.ipNumber}) — loaded in Edit Admission mode`);
+      } else {
+        setAlreadyAdmInfo(null);
+        setEditingId(null);
+        setForm(p => ({
+          ...p,
+          salutation: d.salutation||"", firstName: d.firstName||"",
+          middleName: d.middleName||"", lastName:  d.lastName||"",
+          dob:  d.dob||d.dateOfBirth||"",
+          age:  d.age||"",             // Calculated from DOB by backend
+          age_type: d.age_type||"Y",
+          gender: d.gender||"",
+          mobilePhone: d.mobilePhone||d.phone||"",
+          permanent_address: d.permanent_address||"", area: d.area||"",
+          zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
+          customerType: d.customerType||d.customer_type||"General",
+          insuranceCompanyName: d.insuranceCompanyName||d.company_name||"",
+          company_code: d.company_code||"",
+        }));
+        toast.success("Patient loaded");
+      }
+    } catch {
+      toast.error("Failed to fetch patient details.");
+    }
   };
 
   const fetchAdmissionByIP = async () => {
     const ip = form.ipNumber.trim();
-    if (!ip) { showInfo({ type:"warning", title:"IP Number Required", message:"Please enter an IP Number before searching." }); return; }
+    if (!ip) {
+      setErrors(p => ({ ...p, ipNumber: "This field is required" }));
+      return;
+    }
     try {
       const res = await apiRequest(`${API_ADMISSION_LIST}?ip_number=${encodeURIComponent(ip)}`, "GET");
       if (!res.success) throw new Error(res.error||"Not found");
       const list = Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];
-      if (!list.length) { showInfo({ type:"error", title:"Not Found", message:"No admission found for this IP Number." }); return; }
+      if (!list.length) {
+        toast.error("No admission found for this IP Number.");
+        return;
+      }
       const found = list[0];
 
-      // If the found admission is active, show warning and enter edit mode
-      if (found.is_admitted && !found.is_discharged && !found.is_cancelled) {
+      // If the found admission is active, show warning banner and enter edit mode
+      const isActive = found.is_admitted && !found.is_discharged && !found.is_cancelled;
+      if (isActive) {
+        const { roomNo, bedNo } = getActiveRoom(found);
         setAlreadyAdmInfo({
+          ...found,
           ipNumber: found.ipNumber,
           admissionDateTime: found.admissionDateTime,
-          roomNo: getActiveRoom(found).roomNo,
-          bedNo:  getActiveRoom(found).bedNo,
+          roomNo: roomNo || found.roomNo,
+          bedNo:  bedNo || found.bedNo,
         });
+      } else {
+        setAlreadyAdmInfo(null);
       }
       loadAdmissionIntoForm(found);
       toast.success(`Admission loaded: ${found.ipNumber||ip}`);
-    } catch(err) { showInfo({ type:"error", title:"Admission Not Found", message: err.message||"Could not retrieve admission." }); }
+    } catch(err) {
+      toast.error(err.message||"Could not retrieve admission.");
+    }
   };
 
   function loadAdmissionIntoForm(adm) {
@@ -1353,6 +1555,9 @@ export default function Admission() {
       mlc_type:             adm.mlc_type            ||"",
       mlc_doc:              adm.mlc_doc             ||null,
       mlc_remarks:          adm.mlc_remarks         ||"",
+      attender_name:        adm.attender_name       ||"",
+      attender_relationship:adm.attender_relationship||"",
+      attender_phone:       adm.attender_phone      ||"",
       salutation:           adm.salutation          ||"",
       firstName:            adm.firstName           ||"",
       middleName:           adm.middleName          ||"",
@@ -1396,18 +1601,23 @@ export default function Admission() {
   const paginated  = filtered.slice((page-1)*perPage, page*perPage);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setFormOpen(true); };
+  const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); };
   const handleGridBedClick = (room, bed) => {
     setEditingId(null);
     setForm({ ...EMPTY, roomNo: room.room_number, bedNo: bed.bed_number });
     setPendingEditReason("");
+    setErrors({});
+    setAlreadyAdmInfo(null);
     setFormOpen(true);
   };
-  const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setFormOpen(true); window.scrollTo({top:0,behavior:"smooth"}); };
-  const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); };
+  const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setErrors({}); setFormOpen(true); window.scrollTo({top:0,behavior:"smooth"}); };
+  const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); };
 
   const handleFormChange = e => {
     const { name, value, type, files } = e.target;
+    if (errors[name]) {
+      setErrors(p => { const next = { ...p }; delete next[name]; return next; });
+    }
     if (name === "packageNo") {
       const resolvedName = resolvePackageName(value);
       setForm(p => ({ ...p, packageNo: value, packageName: resolvedName }));
@@ -1416,12 +1626,31 @@ export default function Admission() {
     }
   };
 
-  // ── Submit (new) ──────────────────────────────────────────────────────────
+  // ── Submit (new or edit) ──────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!editingId && !form.uhid) { showInfo({ type:"warning", title:"UHID Required", message:"Please enter a UHID to proceed." }); return; }
-    if (!form.admittingDoctor)    { showInfo({ type:"warning", title:"Doctor Required", message:"Please select an Admitting Doctor." }); return; }
-    if (!form.roomNo)             { showInfo({ type:"warning", title:"Room Required", message:"Please select a room before saving." }); return; }
-    if (!form.bedNo)              { showInfo({ type:"warning", title:"Bed Required", message:"Please select a bed before saving." }); return; }
+    const newErrors = {};
+    if (!editingId && !form.uhid?.trim()) {
+      newErrors.uhid = "This field is required";
+    }
+    if (!form.admittingDoctor) {
+      newErrors.admittingDoctor = "This field is required";
+    }
+    if (!form.roomNo?.trim()) {
+      newErrors.roomNo = "This field is required";
+    }
+    if (!form.bedNo?.trim()) {
+      newErrors.bedNo = "This field is required";
+    }
+    if (form.customerType === "Insurance" && (!form.company_code && !form.insuranceCompanyName)) {
+      newErrors.insurance = "This field is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.warning("Please fill all required fields");
+      return;
+    }
+    setErrors({});
 
     // Edit requires a reason — prompt via ReasonModal first
     if (editingId) {
@@ -1443,7 +1672,7 @@ export default function Admission() {
     setSaving(true);
     const payload = new FormData();
     ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","mlc_type","mlc_remarks","customerType","company_code",
+     "reasonForAdmission","mlc_type","mlc_remarks","attender_name","attender_relationship","attender_phone","customerType","company_code",
      "insuranceCompanyName","age","age_type"].forEach(k => {
       if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
         payload.append(k, form[k]);
@@ -1468,8 +1697,35 @@ export default function Admission() {
 
       if (res.success) {
         toast.success(editingId ? "Admission updated!" : "Admission saved!");
+        const savedAdm = res.data || res.admission || {};
+        const ipNumber = res.ipNumber || savedAdm.ipNumber || form.ipNumber || editingId;
+        const admDateTime = savedAdm.admissionDateTime || form.admissionDateTime || new Date().toISOString();
+        const admDoctor = form.admittingDoctor || savedAdm.admittingDoctor;
+
+        const slipData = {
+          ...form,
+          ...savedAdm,
+          ipNumber: ipNumber,
+          uhid: form.uhid,
+          dob: form.dob,
+          age: form.age,
+          gender: form.gender,
+          mobilePhone: form.mobilePhone,
+          permanent_address: form.permanent_address,
+          area: form.area,
+          city: form.city,
+          state: form.state,
+          customerType: form.customerType,
+          insuranceCompanyName: form.insuranceCompanyName,
+          admissionDateTime: admDateTime,
+          admittingDoctor: admDoctor,
+          admittingDoctorName: getDrName(admDoctor),
+          room_details: savedAdm.room_details || [{ roomNo: form.roomNo, bedNo: form.bedNo, is_roomActive: true }],
+        };
+
         closeForm();
         fetchAdmissions();
+        setPrintData(slipData);
       } else if (res.already_admitted) {
         setAlreadyAdmInfo({ ipNumber:res.ipNumber, admissionDateTime:res.admissionDateTime, roomNo:res.roomNo, bedNo:res.bedNo });
       } else {
@@ -1543,8 +1799,9 @@ export default function Admission() {
     const bW = 240, modW = bW/encoded.length;
     let barsHtml="", xPos=0;
     for (let i=0;i<encoded.length;i++) { if(i%2===0) barsHtml+=`<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW,0.6).toFixed(2)}" height="50" fill="black"/>`; xPos+=modW; }
+    const attenderLine = pd.attender_name ? `<div class="line">Attender: ${pd.attender_name}${pd.attender_relationship ? ` (${pd.attender_relationship})` : ""}${pd.attender_phone ? ` - ${pd.attender_phone}` : ""}</div>` : "";
     const w = window.open("","_blank","width=640,height=440");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div><div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div>${attenderLine}<div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
     w.document.close();
   };
 
@@ -1560,12 +1817,18 @@ export default function Admission() {
     if (!hasAvail) return;
     setSelRoom(room); setShowRoom(false); setShowBed(true);
   };
-  const handleBedSelect = (bedNo, room) => {
+  const handleBedSelect = (bedNumber, room) => {
     const r = room||selRoom;
     if (!r) return;
-    setForm(p => ({ ...p, roomNo: r.room_number, bedNo }));
+    setForm(p => ({ ...p, roomNo: r.room_number, bedNo: bedNumber }));
+    setErrors(p => {
+      const next = { ...p };
+      delete next.roomNo;
+      delete next.bedNo;
+      return next;
+    });
     setShowBed(false); setShowRoom(false);
-    toast.success(`Room ${r.room_number} / Bed ${bedNo} selected`);
+    toast.success(`Room ${r.room_number} / Bed ${bedNumber} selected`);
   };
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -1603,12 +1866,15 @@ export default function Admission() {
         </StatStrip>
 
         <FilterBar>
-          <FF flex="1 1 180px">
+          <FF flex="1 1 200px">
             <FL>Admitting Doctor</FL>
-            <FSel value={fDoctor} onChange={e=>{setFDoctor(e.target.value);setPage(1);}}>
-              <option value="ALL">ALL</option>
-              {doctors.map(d=><option key={d.employeeId} value={String(d.employeeId)}>{d.employeeName}</option>)}
-            </FSel>
+            <SearchSelect
+              options={[{ value: "ALL", label: "ALL" }, ...doctors.map(d => ({ value: String(d.employeeId), label: d.employeeName }))]}
+              value={fDoctor}
+              onChange={e => { setFDoctor(e.target.value); setPage(1); }}
+              placeholder="Search Doctor..."
+              height="32px"
+            />
           </FF>
           <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e=>{setFFrom(e.target.value);setPage(1);}}/></FF>
           <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e=>{setFTo(e.target.value);setPage(1);}}/></FF>
@@ -1636,38 +1902,46 @@ export default function Admission() {
             <div style={{background:"linear-gradient(180deg,#f0fdf4 0%,#fff 80px)"}}>
               <FGrid>
 
-                {/* ── Active admission warning banner ── */}
-                {editingId && (()=>{
-                  const activeExists = admissions.find(a =>
-                    String(a.uhid).trim() === String(form.uhid).trim()
-                    && a.is_admitted && !a.is_discharged && !a.is_cancelled
-                    && a.ipNumber !== editingId
-                  );
-                  if (!activeExists) return null;
-                  return (
-                    <ActiveBanner>
-                      ⚠️ <strong>Already Has Active Admission</strong> — IP: {activeExists.ipNumber}.
-                      &nbsp;You are currently editing a different record.
-                    </ActiveBanner>
-                  );
-                })()}
+                {/* ── Active admission warning banner (yellow container) ── */}
+                {alreadyAdmInfo && (
+                  <ActiveBanner style={{ gridColumn: "1 / -1" }}>
+                    ⚠️ <strong>Patient Has Active Admission</strong> — IP: {alreadyAdmInfo.ipNumber}
+                    {alreadyAdmInfo.roomNo ? ` (Room: ${alreadyAdmInfo.roomNo} / Bed: ${alreadyAdmInfo.bedNo || "-"})` : ""}
+                    {alreadyAdmInfo.admissionDateTime ? ` Admitted: ${fmtDateTime(alreadyAdmInfo.admissionDateTime)}` : ""}.
+                    &nbsp;Currently in Edit Admission mode.
+                  </ActiveBanner>
+                )}
 
                 <Field span={2}>
                   <Lbl req>UHID</Lbl>
                   <IRow>
-                    <Inp name="uhid" value={form.uhid} onChange={handleFormChange} placeholder="Enter UHID" readOnly={!!editingId}/>
+                    <Inp
+                      name="uhid"
+                      value={form.uhid}
+                      onChange={handleFormChange}
+                      placeholder="Enter UHID"
+                      readOnly={!!editingId}
+                      style={errors.uhid ? { borderColor: "#ef4444" } : {}}
+                    />
                     <IconBtn type="button" onClick={fetchPatientByUHID} disabled={!!editingId}>🔍</IconBtn>
                   </IRow>
+                  {errors.uhid && <FieldError>{errors.uhid}</FieldError>}
                 </Field>
 
                 <Field span={2}>
                   <Lbl>IP Number</Lbl>
                   <IRow>
-                    <Inp name="ipNumber" value={form.ipNumber} onChange={handleFormChange}
-                      placeholder={editingId?"":"Enter IP to load admission"} readOnly={!!editingId}
-                      style={editingId?{background:"#f3f4f6"}:{}}/>
+                    <Inp
+                      name="ipNumber"
+                      value={form.ipNumber}
+                      onChange={handleFormChange}
+                      placeholder={editingId?"":"Enter IP to load admission"}
+                      readOnly={!!editingId}
+                      style={{ ...(editingId ? { background: "#f3f4f6" } : {}), ...(errors.ipNumber ? { borderColor: "#ef4444" } : {}) }}
+                    />
                     {!editingId&&<IconBtn type="button" onClick={fetchAdmissionByIP} title="Search by IP">🔍</IconBtn>}
                   </IRow>
+                  {errors.ipNumber && <FieldError>{errors.ipNumber}</FieldError>}
                 </Field>
 
                 <Field span={2}>
@@ -1692,6 +1966,9 @@ export default function Admission() {
                     value={form.customerType || "General"}
                     onChange={(e) => {
                       const val = e.target.value;
+                      if (errors.insurance) {
+                        setErrors(p => { const next = { ...p }; delete next.insurance; return next; });
+                      }
                       setForm(p => ({
                         ...p,
                         customerType: val,
@@ -1715,6 +1992,9 @@ export default function Admission() {
                         value={form.insuranceCompanyName || form.company_code || ""}
                         onChange={(e) => {
                           const val = e.target.value;
+                          if (errors.insurance) {
+                            setErrors(p => { const next = { ...p }; delete next.insurance; return next; });
+                          }
                           const matched = insuranceProviders.find(p => p.company_name === val || p.company_code === val);
                           if (matched) {
                             setForm(p => ({ ...p, company_code: matched.company_code, insuranceCompanyName: matched.company_name }));
@@ -1724,12 +2004,14 @@ export default function Admission() {
                         }}
                         placeholder="Search & select insurance company..."
                         autoComplete="off"
+                        style={errors.insurance ? { borderColor: "#ef4444" } : {}}
                       />
                       <datalist id="admission-ins-list">
                         {insuranceProviders.map(p => (
                           <option key={p.company_code} value={p.company_name}>{p.company_code} - {p.company_name}</option>
                         ))}
                       </datalist>
+                      {errors.insurance && <FieldError>{errors.insurance}</FieldError>}
                     </>
                   ) : (
                     <Inp value="Not Applicable" readOnly style={{ background: "#f3f4f6", color: "#9ca3af" }} />
@@ -1742,33 +2024,87 @@ export default function Admission() {
                 <Field><Lbl>State</Lbl><Inp value={form.state} readOnly/></Field>
                 <Field><Lbl>Zip</Lbl><Inp value={form.zipcode} readOnly/></Field>
 
+                <SecDiv>Attender Details</SecDiv>
+                <Field span={2}>
+                  <Lbl>Attender’s Name</Lbl>
+                  <Inp
+                    name="attender_name"
+                    value={form.attender_name || ""}
+                    onChange={handleFormChange}
+                    placeholder="Enter attender's full name"
+                  />
+                </Field>
+                <Field span={2}>
+                  <Lbl>Relationship with Patient</Lbl>
+                  <SearchSelect
+                    options={RELATIONSHIP_OPTIONS}
+                    value={form.attender_relationship}
+                    onChange={handleFormChange}
+                    placeholder="Search relationship..."
+                    name="attender_relationship"
+                    height="34px"
+                  />
+                </Field>
+                <Field span={2}>
+                  <Lbl>Attender’s Phone Number</Lbl>
+                  <Inp
+                    name="attender_phone"
+                    value={form.attender_phone || ""}
+                    onChange={handleFormChange}
+                    placeholder="Enter phone number"
+                    maxLength={15}
+                  />
+                </Field>
+
                 <SecDiv>Clinical</SecDiv>
                 <Field span={3}>
                   <Lbl req>Admitting Doctor</Lbl>
-                  <Sel name="admittingDoctor" value={form.admittingDoctor} onChange={handleFormChange}>
-                    <option value="">Select Doctor</option>
-                    {doctors.map(d=><option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
-                  </Sel>
+                  <SearchSelect
+                    options={doctors.map(d => ({ value: d.employeeId, label: d.employeeName }))}
+                    value={form.admittingDoctor}
+                    onChange={handleFormChange}
+                    placeholder="Type to search doctor..."
+                    name="admittingDoctor"
+                    error={!!errors.admittingDoctor}
+                  />
+                  {errors.admittingDoctor && <FieldError>{errors.admittingDoctor}</FieldError>}
                 </Field>
                 <Field span={3}>
                   <Lbl>Consulting Doctor</Lbl>
-                  <Sel name="consultingDoctor" value={form.consultingDoctor} onChange={handleFormChange}>
-                    <option value="">Select Doctor</option>
-                    {doctors.map(d=><option key={d.employeeId} value={d.employeeId}>{d.employeeName}</option>)}
-                  </Sel>
+                  <SearchSelect
+                    options={doctors.map(d => ({ value: d.employeeId, label: d.employeeName }))}
+                    value={form.consultingDoctor}
+                    onChange={handleFormChange}
+                    placeholder="Type to search doctor..."
+                    name="consultingDoctor"
+                  />
                 </Field>
 
                 <SecDiv>Room &amp; Bed</SecDiv>
                 <Field span={2}>
                   <Lbl req>Room No.</Lbl>
                   <IRow>
-                    <Inp name="roomNo" value={form.roomNo} onChange={handleFormChange} placeholder="Click 🔍 to pick"/>
+                    <Inp
+                      name="roomNo"
+                      value={form.roomNo}
+                      onChange={handleFormChange}
+                      placeholder="Click 🔍 to pick"
+                      style={errors.roomNo ? { borderColor: "#ef4444" } : {}}
+                    />
                     <IconBtn type="button" onClick={openRoomModal}>🔍</IconBtn>
                   </IRow>
+                  {errors.roomNo && <FieldError>{errors.roomNo}</FieldError>}
                 </Field>
                 <Field span={2}>
                   <Lbl req>Bed No.</Lbl>
-                  <Inp name="bedNo" value={form.bedNo} readOnly style={{background:"#f3f4f6"}} placeholder="Auto-filled"/>
+                  <Inp
+                    name="bedNo"
+                    value={form.bedNo}
+                    readOnly
+                    style={{ background: "#f3f4f6", ...(errors.bedNo ? { borderColor: "#ef4444" } : {}) }}
+                    placeholder="Auto-filled"
+                  />
+                  {errors.bedNo && <FieldError>{errors.bedNo}</FieldError>}
                 </Field>
                 <Field span={2}/>
 
@@ -1783,14 +2119,17 @@ export default function Admission() {
                 </Field>
                 <Field span={3}>
                   <Lbl>Package</Lbl>
-                  <Sel name="packageNo" value={form.packageNo} onChange={handleFormChange}>
-                    <option value="">— Select Package —</option>
-                    {packages.map(pkg => (
-                      <option key={pkg.packageNo} value={String(pkg.packageNo)}>
-                        {pkg.packageName}{pkg.totalPrice?` (₹${pkg.totalPrice})`:""}
-                      </option>
-                    ))}
-                  </Sel>
+                  <SearchSelect
+                    options={packages.map(pkg => ({
+                      value: String(pkg.packageNo),
+                      label: pkg.packageName,
+                      subLabel: pkg.totalPrice ? `₹${pkg.totalPrice}` : ""
+                    }))}
+                    value={form.packageNo}
+                    onChange={handleFormChange}
+                    placeholder="Type to search package..."
+                    name="packageNo"
+                  />
                   {form.packageNo && (
                     <span style={{fontSize:".68rem",color:"#6b7280",marginTop:2}}>
                       Selected: {resolvePackageName(form.packageNo) || form.packageName || "—"}
@@ -2000,10 +2339,7 @@ export default function Admission() {
         />
       )}
 
-      {alreadyAdmInfo&&(
-        <AlreadyAdmittedModal info={alreadyAdmInfo} onClose={()=>setAlreadyAdmInfo(null)}
-          onEdit={info=>{const existing=admissions.find(a=>a.ipNumber===info.ipNumber);if(existing)openEditForm(existing);}}/>
-      )}
+
 
       {historyAdm&&<RoomHistoryModal adm={historyAdm} onClose={()=>setHistoryAdm(null)}/>}
 
@@ -2107,31 +2443,33 @@ export default function Admission() {
                       <RG2>
                         {rooms.map(room=>{
                           const s = getRoomStatus(room.beds);
-                          const bedSummary=(room.beds||[]).reduce((acc,b)=>{acc[b.status]=(acc[b.status]||0)+1;return acc;},{});
-                          const tipLines=Object.entries(bedSummary).map(([st,cnt])=>`${cnt} ${st}`).join(" · ");
+                          const occCount = (room.beds||[]).filter(b=>b.status==="Occupied").length;
+                          const hasOcc = occCount > 0;
                           return (
-                            <div key={room.room_number} style={{position:"relative"}}
-                              onMouseEnter={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="block";}}
-                              onMouseLeave={e=>{const t=e.currentTarget.querySelector(".room-tip");if(t)t.style.display="none";}}>
-                              <RC s={s} noavail={!(room.beds||[]).some(b=>b.status==="Available")?1:0} onClick={()=>handleRoomClick(room)}>
-                                <RCT s={s}><RNum>{room.room_number}</RNum><RSP s={s}>{s==="partial"?"Partial":s==="not-cleaned"?"Not Cleaned":s==="reserved"?"Reserved":s==="maintenance"?"Maintenance":s==="occupied"?"Occupied":"Available"}</RSP></RCT>
-                                <RT2>{room.room_type}{room.room_category?` · ${room.room_category}`:""}</RT2>
-                                <BRow>
-                                  {(room.beds||[]).map((bed,i)=>(
-                                    <BC key={i} bs={bed.status} disabled={bed.status!=="Available"}
-                                      title={bed.status==="Available"?"✅ Ready":bed.status==="Occupied"?"🔴 Occupied":bed.status==="Available - Not Cleaned"?"🟡 Needs cleaning":bed.status==="Reserved"?"🟣 Reserved":bed.status==="Maintenance"?"🔧 Maintenance":"❓ Unknown"}
-                                      onClick={e=>{if(bed.status==="Available"){e.stopPropagation();handleBedSelect(bed.bed_number,room);}}}>
-                                      {bed.bed_number}
+                            <RC key={room.room_number} hasOccupied={hasOcc}>
+                              <RCT hasOccupied={hasOcc}>
+                                <RNum>Room {room.room_number}</RNum>
+                                <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                                  <RT2>{room.room_type || room.room_category || "General"}</RT2>
+                                  <RSP s={s}>{s==="partial"?"Partial":s==="not-cleaned"?"Unclean":s==="reserved"?"Reserved":s==="maintenance"?"Maintenance":s==="occupied"?"Occupied":"Available"}</RSP>
+                                </div>
+                              </RCT>
+                              <BRow>
+                                {(room.beds||[]).map((bed,i)=>{
+                                  const isAv = bed.status === "Available";
+                                  const color = isAv ? "#15803d" : bed.status === "Occupied" ? "#b91c1c" : bed.status === "Available - Not Cleaned" ? "#b45309" : bed.status === "Reserved" ? "#6d28d9" : "#64748b";
+                                  return (
+                                    <BC key={i} bs={bed.status} disabled={!isAv}
+                                      title={isAv?"✅ Ready — Click to select":bed.status}
+                                      onClick={e=>{if(isAv){e.stopPropagation();handleBedSelect(bed.bed_number,room);}}}>
+                                      <BedMiniSVG color={color} size={15} />
+                                      <span style={{fontSize:".65rem",fontWeight:800,color}}>B{bed.bed_number}</span>
+                                      <span style={{fontSize:".48rem",fontWeight:700,color,textTransform:"uppercase"}}>{isAv?"Ready":bed.status}</span>
                                     </BC>
-                                  ))}
-                                </BRow>
-                              </RC>
-                              <div className="room-tip" style={{display:"none",position:"absolute",bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)",background:"#1e293b",color:"#fff",fontSize:".65rem",fontWeight:500,borderRadius:5,padding:"5px 10px",whiteSpace:"nowrap",zIndex:10000,pointerEvents:"none",lineHeight:1.6,boxShadow:"0 4px 14px rgba(0,0,0,.28)"}}>
-                                <div style={{fontWeight:700,marginBottom:2}}>Room {room.room_number}</div>
-                                {tipLines&&<div>{tipLines}</div>}
-                                {!(room.beds||[]).some(b=>b.status==="Available")&&<div style={{color:"#fca5a5",marginTop:2}}>No available beds</div>}
-                              </div>
-                            </div>
+                                  );
+                                })}
+                              </BRow>
+                            </RC>
                           );
                         })}
                       </RG2>

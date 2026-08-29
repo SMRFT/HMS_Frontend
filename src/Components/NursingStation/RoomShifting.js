@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import styled, { keyframes, css } from "styled-components";
+import styled, { keyframes } from "styled-components";
 import { toast } from "react-toastify";
 
 import {
   PageWrapper,
   Container,
-  colors,
   ModalOverlay,
   ModalContainer,
   ModalHeader,
@@ -57,19 +56,27 @@ const Card = styled.div`
 
 const PageHeader = styled.div`
   background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
-  padding: 11px 20px;
+  color: white;
+  padding: 14px 20px;
+  border-radius: 8px 8px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-radius: 6px 6px 0 0;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 16px;
 `;
-const PageTitle = styled.h2`
-  font-size: .92rem;
+const PageTitle = styled.h1`
+  margin: 0;
+  font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
-  margin: 0;
-  letter-spacing: .04em;
+`;
+const PageSubtitle = styled.p`
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  opacity: 0.85;
+  color: #fff;
 `;
 
 const CardTitle = styled.div`
@@ -745,6 +752,7 @@ const EMPTY = {
 const RoomShifting = ({ patient, onClose, onSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  const [activeTab,     setActiveTab] = useState("create");
   const [form,          setForm]      = useState(EMPTY);
   const [showRoom,      setShowRoom]  = useState(false);
   const [shiftings,     setShiftings] = useState([]);
@@ -762,16 +770,27 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
 
   const fetchShiftings = async (customFilters = null) => {
     try {
-      const activeFilters = customFilters || filters;
+      const isFilterObj = customFilters && typeof customFilters === "object" && !customFilters._reactName && !customFilters.nativeEvent && !customFilters.target;
+      const activeFilters = isFilterObj ? customFilters : filters;
       const p = new URLSearchParams();
       if (activeFilters.fromDate) p.append("from_date", activeFilters.fromDate);
       if (activeFilters.toDate)   p.append("to_date",   activeFilters.toDate);
-      if (activeFilters.uhid)     p.append("uhid",      activeFilters.uhid);
-      if (activeFilters.ipNumber) p.append("ip_number", activeFilters.ipNumber);
+      if (activeFilters.uhid)     p.append("uhid",      activeFilters.uhid.trim());
+      if (activeFilters.ipNumber) p.append("ip_number", activeFilters.ipNumber.trim());
       const res  = await apiRequest(`${HmsBaseUrl}room-shifting/?${p}`, "GET");
       const data = Array.isArray(res) ? res : Array.isArray(res.data) ? res.data : [];
       setShiftings(data);
     } catch (err) { console.error("fetchShiftings:", err); }
+  };
+
+  const handleResetFilters = () => {
+    const defaultFilters = {
+      fromDate: new Date().toISOString().split("T")[0],
+      toDate:   new Date().toISOString().split("T")[0],
+      uhid: "", ipNumber: "",
+    };
+    setFilters(defaultFilters);
+    fetchShiftings(defaultFilters);
   };
 
   useEffect(() => {
@@ -795,10 +814,25 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
     try {
       const qs  = new URLSearchParams(params).toString();
       const res = await apiRequest(`${HmsBaseUrl}get_active_admission/?${qs}`, "GET");
+      if (!res.success) {
+        setForm(prev => ({
+          ...EMPTY,
+          uhid: params.uhid !== undefined ? params.uhid : prev.uhid,
+          ipNumber: params.ip_number !== undefined ? params.ip_number : prev.ipNumber,
+        }));
+        return toast.error(res.error || res.message || "No active admission found");
+      }
       const adm = res?.data?.data ?? res?.data ?? res;
       const patient = adm?.patient || {};
 
-      if (!adm?.ipNumber && !adm?.uhid) return toast.error("No active admission found");
+      if (!adm?.ipNumber && !adm?.uhid) {
+        setForm(prev => ({
+          ...EMPTY,
+          uhid: params.uhid !== undefined ? params.uhid : prev.uhid,
+          ipNumber: params.ip_number !== undefined ? params.ip_number : prev.ipNumber,
+        }));
+        return toast.error("No active admission found");
+      }
 
       const hasRes = adm.has_reservation === true;
       setForm(prev => ({
@@ -871,185 +905,244 @@ const RoomShifting = ({ patient, onClose, onSaved }) => {
     <PageWrapper style={{ fontFamily: T.font }}>
       <Container>
 
-        {/* ── Header ── */}
-        {!patient && (
-          <PageHeader>
+        {/* ── Header with Tabs ── */}
+        <PageHeader>
+          <div>
             <PageTitle>🏥 Room Shifting</PageTitle>
-          </PageHeader>
-        )}
-
-        {/* ── Patient Lookup ── */}
-        <Card>
-          <CardTitle>🔎 Patient Lookup</CardTitle>
-          <Grid>
-            <Field label="UHID" value={form.uhid}
-              onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
-              onKeyDown={e => e.key === "Enter" && fetchByUHID()}
-              onSearch={fetchByUHID}
-              placeholder="Enter UHID" />
-            <Field label="IP Number" value={form.ipNumber}
-              onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
-              onKeyDown={e => e.key === "Enter" && fetchByIP()}
-              onSearch={fetchByIP}
-              placeholder="Enter IP No" />
-            <Field label="IP Serial No" value={form.ipserial_number} readOnly />
-            <Field label="Patient Name" value={form.name} readOnly />
-          </Grid>
-        </Card>
-
-        {/* ── Banners ── */}
-        {form.has_reservation && !alreadyShifted && (
-          <Banner variant="purple" style={{ marginBottom: 12 }}>
-            🟣 Pre-reserved: <strong style={{ marginLeft: 4 }}>Room {form.reservedRoomNo} / Bed {form.reservedBedNo}</strong>&nbsp;— auto-filled below. You may change if needed.
-          </Banner>
-        )}
-        {alreadyShifted && (
-          <Banner variant="warn" style={{ marginBottom: 12 }}>
-            ⚠️ This patient has already been shifted. Use <strong style={{ margin: "0 4px" }}>Edit</strong> in the history table below.
-          </Banner>
-        )}
-
-        {/* ── Patient Details ── */}
-        <Card>
-          <CardTitle>👤 Patient Details</CardTitle>
-          <Grid>
-            <Field label="Age"           value={form.age}         readOnly />
-            <Field label="Gender"        value={form.gender}      readOnly />
-            <Field label="Admitted On"   value={form.admittedOn}  readOnly type="date" />
-            <Field label="Admitted Time" value={form.admittedTime}readOnly type="time" />
-            <Field label="Address" value={buildAddress(form)} readOnly fullWidth />
-          </Grid>
-        </Card>
-
-        {/* ── Room Assignment ── */}
-        <Card>
-          <CardTitle>🛏️ Room Assignment</CardTitle>
-          <Grid>
-            <Field label="Current Room No" value={form.roomNo} readOnly />
-            <Field label="Current Bed No"  value={form.bedNo}  readOnly />
-          </Grid>
-
-          <div style={{ height: 1, background: T.gray200, margin: "14px 0" }} />
-
-          <Grid>
-            <Field
-              label="New Room No"
-              note={form.has_reservation && !alreadyShifted ? "(Pre-reserved)" : ""}
-              value={form.newRoomNo}
-              readOnly
-              placeholder={alreadyShifted ? "Already shifted" : "Click 🔍 to search"}
-              onSearch={alreadyShifted ? undefined : () => setShowRoom(true)}
-              disabled={alreadyShifted}
-            />
-            <Field
-              label="New Bed No"
-              value={form.newBedNo}
-              readOnly
-              placeholder="Auto-filled on selection"
-              disabled={alreadyShifted}
-            />
-            <Field label="Shifting Date" value={todayDisplay} readOnly />
-          </Grid>
-
-          <BtnRow style={{ marginTop: 16 }}>
-            <Btn secondary type="button" onClick={handleReset}>🔄 Reset</Btn>
-            <Btn type="button" onClick={handleSubmit} disabled={alreadyShifted}
-              title={alreadyShifted ? "Already shifted — use Edit" : ""}>
-              💾 Save Shift
-            </Btn>
-          </BtnRow>
-        </Card>
-
-        {/* ── Filters ── */}
-        <Card>
-          <CardTitle>📋 Shifting History</CardTitle>
-          <Grid style={{ marginBottom: 14 }}>
-            <Field label="From Date" value={filters.fromDate} type="date"
-              onChange={e => setFilters(p => ({ ...p, fromDate: e.target.value }))} />
-            <Field label="To Date" value={filters.toDate} type="date"
-              onChange={e => setFilters(p => ({ ...p, toDate: e.target.value }))} />
-            <Field label="UHID" value={filters.uhid}
-              onChange={e => setFilters(p => ({ ...p, uhid: e.target.value }))} />
-            <Field label="IP Number" value={filters.ipNumber}
-              onChange={e => setFilters(p => ({ ...p, ipNumber: e.target.value }))} />
-          </Grid>
-          <BtnRow style={{ justifyContent: "flex-start", gap: 8, marginBottom: 16 }}>
-            <Btn type="button" onClick={fetchShiftings}>🔍 Search</Btn>
-          </BtnRow>
-
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: ".8rem", color: T.gray500 }}>
-              Show
-              <select value={entriesPerPage} onChange={e => setEntries(Number(e.target.value))}
-                style={{ height: 30, padding: "0 6px", border: `1px solid ${T.gray200}`, borderRadius: T.radiusSm, fontSize: ".8rem", background: T.white }}>
-                {[10, 15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              entries
-            </div>
-            <span style={{ fontSize: ".78rem", color: T.gray400 }}>{shiftings.length} record(s)</span>
+            <PageSubtitle>Patient Room &amp; Bed Shifting Management</PageSubtitle>
           </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[
+              { id: "create", label: "+ Shift Room" },
+              { id: "list", label: "📋 Shifting List" }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === "list") fetchShiftings();
+                }}
+                style={
+                  activeTab === tab.id
+                    ? {
+                        background: "white",
+                        color: "#0d9488",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "6px 14px",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }
+                    : {
+                        background: "rgba(255,255,255,0.18)",
+                        color: "white",
+                        border: "1px solid rgba(255,255,255,0.35)",
+                        borderRadius: 6,
+                        padding: "6px 14px",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }
+                }
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </PageHeader>
 
-          <TableWrap>
-            <Table>
-              <thead>
-                <tr>
-                  {["Shift #","UHID","IP Number","IP Serial","Patient Name","Room / Bed","Shifting Date & Time","Duration","Status","Actions"].map(h => (
-                    <Th key={h}>{h}</Th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {shiftings.length === 0 ? (
+        {activeTab === "create" && (
+          <>
+            {/* ── Patient Lookup ── */}
+            <Card>
+              <CardTitle>🔎 Patient Lookup</CardTitle>
+              <Grid>
+                <Field label="UHID" value={form.uhid}
+                  onChange={e => setForm(p => ({ ...p, uhid: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && fetchByUHID()}
+                  onSearch={fetchByUHID}
+                  placeholder="Enter UHID" />
+                <Field label="IP Number" value={form.ipNumber}
+                  onChange={e => setForm(p => ({ ...p, ipNumber: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && fetchByIP()}
+                  onSearch={fetchByIP}
+                  placeholder="Enter IP No" />
+                <Field label="IP Serial No" value={form.ipserial_number} readOnly />
+                <Field label="Patient Name" value={form.name} readOnly />
+              </Grid>
+            </Card>
+
+            {/* ── Banners ── */}
+            {form.has_reservation && !alreadyShifted && (
+              <Banner variant="purple" style={{ marginBottom: 12 }}>
+                🟣 Pre-reserved: <strong style={{ marginLeft: 4 }}>Room {form.reservedRoomNo} / Bed {form.reservedBedNo}</strong>&nbsp;— auto-filled below. You may change if needed.
+              </Banner>
+            )}
+            {alreadyShifted && (
+              <Banner variant="warn" style={{ marginBottom: 12 }}>
+                ⚠️ This patient has already been shifted. Use <strong style={{ margin: "0 4px" }}>Edit</strong> in the shifting history tab.
+              </Banner>
+            )}
+
+            {/* ── Patient Details ── */}
+            <Card>
+              <CardTitle>👤 Patient Details</CardTitle>
+              <Grid>
+                <Field label="Age"           value={form.age}         readOnly />
+                <Field label="Gender"        value={form.gender}      readOnly />
+                <Field label="Admitted On"   value={form.admittedOn}  readOnly type="date" />
+                <Field label="Admitted Time" value={form.admittedTime}readOnly type="time" />
+                <Field label="Address" value={buildAddress(form)} readOnly fullWidth />
+              </Grid>
+            </Card>
+
+            {/* ── Room Assignment ── */}
+            <Card>
+              <CardTitle>🛏️ Room Assignment</CardTitle>
+              <Grid>
+                <Field label="Current Room No" value={form.roomNo} readOnly />
+                <Field label="Current Bed No"  value={form.bedNo}  readOnly />
+              </Grid>
+
+              <div style={{ height: 1, background: T.gray200, margin: "14px 0" }} />
+
+              <Grid>
+                <Field
+                  label="New Room No"
+                  note={form.has_reservation && !alreadyShifted ? "(Pre-reserved)" : ""}
+                  value={form.newRoomNo}
+                  readOnly
+                  placeholder={alreadyShifted ? "Already shifted" : "Click 🔍 to search"}
+                  onSearch={alreadyShifted ? undefined : () => setShowRoom(true)}
+                  disabled={alreadyShifted}
+                />
+                <Field
+                  label="New Bed No"
+                  value={form.newBedNo}
+                  readOnly
+                  placeholder="Auto-filled on selection"
+                  disabled={alreadyShifted}
+                />
+                <Field label="Shifting Date" value={todayDisplay} readOnly />
+              </Grid>
+
+              <BtnRow style={{ marginTop: 16 }}>
+                <Btn secondary type="button" onClick={handleReset}>🔄 Reset</Btn>
+                <Btn type="button" onClick={handleSubmit} disabled={alreadyShifted}
+                  title={alreadyShifted ? "Already shifted — use Edit" : ""}>
+                  💾 Save Shift
+                </Btn>
+              </BtnRow>
+            </Card>
+          </>
+        )}
+
+        {activeTab === "list" && (
+          /* ── Filters & Table ── */
+          <Card>
+            <CardTitle>📋 Shifting History</CardTitle>
+            <Grid style={{ marginBottom: 14 }}>
+              <Field label="From Date" value={filters.fromDate} type="date"
+                onChange={e => setFilters(p => ({ ...p, fromDate: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+              <Field label="To Date" value={filters.toDate} type="date"
+                onChange={e => setFilters(p => ({ ...p, toDate: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+              <Field label="UHID" value={filters.uhid}
+                onChange={e => setFilters(p => ({ ...p, uhid: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+              <Field label="IP Number" value={filters.ipNumber}
+                onChange={e => setFilters(p => ({ ...p, ipNumber: e.target.value }))}
+                onKeyDown={e => e.key === "Enter" && fetchShiftings(filters)} />
+            </Grid>
+            <BtnRow style={{ justifyContent: "flex-start", gap: 8, marginBottom: 16 }}>
+              <Btn type="button" onClick={() => fetchShiftings(filters)}>🔍 Search</Btn>
+              <Btn type="button" style={{ background: "#94a3b8" }} onClick={handleResetFilters}>↺ Reset</Btn>
+            </BtnRow>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: ".8rem", color: T.gray500 }}>
+                Show
+                <select value={entriesPerPage} onChange={e => setEntries(Number(e.target.value))}
+                  style={{ height: 30, padding: "0 6px", border: `1px solid ${T.gray200}`, borderRadius: T.radiusSm, fontSize: ".8rem", background: T.white }}>
+                  {[10, 15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                entries
+              </div>
+              <span style={{ fontSize: ".78rem", color: T.gray400 }}>{shiftings.length} record(s)</span>
+            </div>
+
+            <TableWrap>
+              <Table>
+                <thead>
                   <tr>
-                    <td colSpan="11" style={{ textAlign: "center", padding: 40, color: T.gray400, fontSize: ".82rem" }}>
-                      No room shifting records found
-                    </td>
+                    {["Shift #","UHID","IP Number","IP Serial","Patient Name","Room / Bed","Shifting Date & Time","Duration","Status","Actions"].map(h => (
+                      <Th key={h}>{h}</Th>
+                    ))}
                   </tr>
-                ) : (
-                  shiftings.slice(0, entriesPerPage).map((s, idx) => {
-                    const shiftId = s.shifting_id || s._id;
-                    const shiftDateStr = s.shiftingDateTime
-                      ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
-                      : "-";
-                    const duration = formatDuration(s.startDateTime, s.endDateTime || null);
-                    const isActive = s.is_roomActive;
+                </thead>
+                <tbody>
+                  {shiftings.length === 0 ? (
+                    <tr>
+                      <td colSpan="11" style={{ textAlign: "center", padding: 40, color: T.gray400, fontSize: ".82rem" }}>
+                        No room shifting records found
+                      </td>
+                    </tr>
+                  ) : (
+                    shiftings.slice(0, entriesPerPage).map((s, idx) => {
+                      const shiftId = s.shifting_id || s._id;
+                      const shiftDateStr = s.shiftingDateTime
+                        ? new Date(s.shiftingDateTime).toLocaleString("en-GB", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" })
+                        : "-";
+                      const duration = formatDuration(s.startDateTime, s.endDateTime || null);
+                      const isActive = s.is_roomActive;
 
-                    return (
-                      <Tr key={`${shiftId}-${idx}`}>
-                        <Td style={{ fontWeight: 700, color: T.primary }}>
-                          {shiftId}
-                          {s.edited_from && <span title={`Edited from ${s.edited_from}`} style={{ fontSize: ".6rem", color: T.gray400, marginLeft: 4 }}>✏️</span>}
-                        </Td>
-                        <Td>{s.uhid              || "-"}</Td>
-                        <Td>{s.ipNumber          || "-"}</Td>
-                        <Td>{s.ipserial_number   || "-"}</Td>
-                        <Td style={{ fontWeight: 500 }}>{s.patient_name || "-"}</Td>
-                        <Td><span style={{ fontFamily: "monospace", fontSize: ".8rem" }}>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</span></Td>
-                        <Td style={{ whiteSpace: "nowrap" }}>{shiftDateStr}</Td>
-                        <Td>
-                          <span style={{ fontSize: ".76rem", fontWeight: 600, color: isActive ? T.primary : T.gray400 }}>
-                            {duration}
-                            {isActive && <span style={{ fontSize: ".6rem", color: "#22c55e", marginLeft: 4 }}>(ongoing)</span>}
-                          </span>
-                        </Td>
-                        <Td>
-                          <Badge s={isActive ? "active" : "inactive"}>{isActive ? "Active" : "Inactive"}</Badge>
-                        </Td>
-                        <Td>
-                          {isActive && (
-                            <ActionBtn type="button" onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}>
-                              ✏️ Edit
-                            </ActionBtn>
-                          )}
-                        </Td>
-                      </Tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </Table>
-          </TableWrap>
-        </Card>
+                      return (
+                        <Tr key={`${shiftId}-${idx}`}>
+                          <Td style={{ fontWeight: 700, color: T.primary }}>
+                            {shiftId}
+                            {s.edited_from && <span title={`Edited from ${s.edited_from}`} style={{ fontSize: ".6rem", color: T.gray400, marginLeft: 4 }}>✏️</span>}
+                          </Td>
+                          <Td>{s.uhid              || "-"}</Td>
+                          <Td>{s.ipNumber          || "-"}</Td>
+                          <Td>{s.ipserial_number   || "-"}</Td>
+                          <Td style={{ fontWeight: 500 }}>{s.patient_name || "-"}</Td>
+                          <Td><span style={{ fontFamily: "monospace", fontSize: ".8rem" }}>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</span></Td>
+                          <Td style={{ whiteSpace: "nowrap" }}>{shiftDateStr}</Td>
+                          <Td>
+                            <span style={{ fontSize: ".76rem", fontWeight: 600, color: isActive ? T.primary : T.gray400 }}>
+                              {duration}
+                              {isActive && <span style={{ fontSize: ".6rem", color: "#22c55e", marginLeft: 4 }}>(ongoing)</span>}
+                            </span>
+                          </Td>
+                          <Td>
+                            <Badge s={isActive ? "active" : "inactive"}>{isActive ? "Active" : "Inactive"}</Badge>
+                          </Td>
+                          <Td>
+                            {isActive && (
+                              <ActionBtn type="button" onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}>
+                                ✏️ Edit
+                              </ActionBtn>
+                            )}
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </Table>
+            </TableWrap>
+          </Card>
+        )}
       </Container>
 
       {showRoom && (

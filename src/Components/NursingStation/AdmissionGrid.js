@@ -1,269 +1,527 @@
-import React from "react";
-import styled, { keyframes } from "styled-components";
+import React, { useState, useMemo } from "react";
+import styled, { keyframes, css } from "styled-components";
 
+/* ─────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Vivid & Clean Hospital Palette
+   ───────────────────────────────────────────────────────────── */
 const T = {
   primary:    "#0d9488",
   primaryDk:  "#0f766e",
   primaryLt:  "#f0fdfa",
-  primaryMd:  "#99f6e4",
+  primaryMd:  "#ccfbf1",
   green:      "#16a34a",
   greenLt:    "#dcfce7",
-  greenDk:    "#14532d",
+  greenDk:    "#15803d",
+  greenBorder:"#86efac",
   red:        "#dc2626",
   redLt:      "#fee2e2",
-  redDk:      "#7f1d1d",
+  redDk:      "#b91c1c",
+  redBorder:  "#fca5a5",
   amber:      "#d97706",
   amberLt:    "#fef3c7",
-  amberDk:    "#78350f",
+  amberDk:    "#b45309",
+  amberBorder:"#fde047",
   purple:     "#7c3aed",
   purpleLt:   "#ede9fe",
-  purpleDk:   "#4c1d95",
-  gray:       "#6b7280",
-  grayLt:     "#f3f4f6",
-  grayDk:     "#1f2937",
-  blue:       "#2563eb",
-  blueLt:     "#dbeafe",
+  purpleDk:   "#6d28d9",
+  purpleBorder:"#d8b4fe",
+  gray:       "#64748b",
+  grayLt:     "#f1f5f9",
+  grayDk:     "#334155",
+  grayBorder: "#cbd5e1",
   white:      "#ffffff",
-  border:     "#e5e7eb",
+  border:     "#e2e8f0",
+  bg:         "#f8fafc",
   textMain:   "#0f172a",
   textMuted:  "#64748b",
-  shadow:     "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
-  radius:     "10px",
+  shadowSm:   "0 1px 3px rgba(0,0,0,0.06)",
+  shadowMd:   "0 4px 14px rgba(0,0,0,0.08)",
+  radius:     "8px",
+  radiusSm:   "5px",
+  font:       "'DM Sans', 'Inter', system-ui, sans-serif",
 };
 
 const BED_STATUS = {
-  AVAILABLE:    "Available",
   OCCUPIED:     "Occupied",
+  AVAILABLE:    "Available",
   NOT_CLEANED:  "Not Cleaned",
-  MAINTENANCE:  "Maintenance",
   RESERVED:     "Reserved",
+  MAINTENANCE:  "Maintenance",
 };
 
 const STATUS_CFG = {
-  [BED_STATUS.AVAILABLE]:   { color: T.green,  light: T.greenLt,  dark: T.greenDk,  label: "Available"   },
-  [BED_STATUS.OCCUPIED]:    { color: T.red,    light: T.redLt,    dark: T.redDk,    label: "Occupied"    },
-  [BED_STATUS.NOT_CLEANED]: { color: T.amber,  light: T.amberLt,  dark: T.amberDk,  label: "Not Cleaned" },
-  [BED_STATUS.MAINTENANCE]: { color: T.gray,   light: T.grayLt,   dark: T.grayDk,   label: "Maintenance" },
-  [BED_STATUS.RESERVED]:    { color: T.purple, light: T.purpleLt, dark: T.purpleDk, label: "Reserved"    },
+  [BED_STATUS.OCCUPIED]: {
+    color: T.red,
+    light: T.redLt,
+    dark: T.redDk,
+    border: T.redBorder,
+    label: "Occupied",
+  },
+  [BED_STATUS.AVAILABLE]: {
+    color: T.green,
+    light: T.greenLt,
+    dark: T.greenDk,
+    border: T.greenBorder,
+    label: "Available",
+  },
+  [BED_STATUS.NOT_CLEANED]: {
+    color: T.amber,
+    light: T.amberLt,
+    dark: T.amberDk,
+    border: T.amberBorder,
+    label: "Not Cleaned",
+  },
+  [BED_STATUS.RESERVED]: {
+    color: T.purple,
+    light: T.purpleLt,
+    dark: T.purpleDk,
+    border: T.purpleBorder,
+    label: "Reserved",
+  },
+  [BED_STATUS.MAINTENANCE]: {
+    color: T.gray,
+    light: T.grayLt,
+    dark: T.grayDk,
+    border: T.grayBorder,
+    label: "Maintenance",
+  },
 };
 
-const ROOM_CFG = {
-  available:    { border: "#86efac", bg: "linear-gradient(135deg,#f0fdf4,#dcfce7)", dot: T.green, label: "Available" },
-  occupied:     { border: "#fca5a5", bg: "linear-gradient(135deg,#fff5f5,#fee2e2)", dot: T.red, label: "Occupied" },
-  "not-cleaned":{ border: "#fcd34d", bg: "linear-gradient(135deg,#fffdf0,#fef3c7)", dot: T.amber, label: "Not Cleaned" },
-  maintenance:  { border: "#d1d5db", bg: "linear-gradient(135deg,#fafafa,#f3f4f6)", dot: T.gray, label: "Maintenance" },
-  partial:      { border: "#93c5fd", bg: "linear-gradient(135deg,#f0f7ff,#dbeafe)", dot: T.blue, label: "Partial" },
-  reserved:     { border: "#c084fc", bg: "linear-gradient(135deg,#faf5ff,#ede9fe)", dot: T.purple, label: "Reserved" },
-};
+const pulse = keyframes`0%, 100% { opacity: 1; } 50% { opacity: 0.35; }`;
+const fadeUp = keyframes`from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); }`;
 
-function getRoomStatus(beds) {
-  if (!beds?.length) return "available";
-  const s = beds.map((b) => b.status);
-  if (s.every((x) => x === BED_STATUS.MAINTENANCE))   return "maintenance";
-  if (s.every((x) => x === BED_STATUS.OCCUPIED))      return "occupied";
-  if (s.every((x) => x === BED_STATUS.RESERVED))      return "reserved";
-  if (s.every((x) => x === BED_STATUS.NOT_CLEANED))   return "not-cleaned";
-  if (s.some((x) => x === BED_STATUS.OCCUPIED))       return "partial";
-  if (s.some((x) => x === BED_STATUS.NOT_CLEANED))    return "not-cleaned";
-  if (s.some((x) => x === BED_STATUS.RESERVED))       return "reserved";
-  return "available";
-}
+/* ── Mini Bed Icon ── */
+const BedMiniSVG = ({ color = "#64748b", size = 18 }) => (
+  <svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M1 10H23" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M5 6C5 5.45 5.45 5 6 5H8C8.55 5 9 5.45 9 6C9 6.55 8.55 7 8 7H6C5.45 7 5 6.55 5 6Z" fill={color}/>
+    <path d="M2 14V16M22 14V16" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
 
-function calcStats(data) {
-  let total = 0, available = 0, occupied = 0, maintenance = 0, notCleaned = 0, reserved = 0;
-  data.forEach((b) =>
-    Object.values(b.floors).forEach((rooms) =>
-      rooms.forEach((room) =>
-        (room.beds || []).forEach((bed) => {
-          total++;
-          if      (bed.status === BED_STATUS.AVAILABLE)   available++;
-          else if (bed.status === BED_STATUS.OCCUPIED)    occupied++;
-          else if (bed.status === BED_STATUS.NOT_CLEANED) notCleaned++;
-          else if (bed.status === BED_STATUS.RESERVED)    reserved++;
-          else                                            maintenance++;
-        })
-      )
-    )
-  );
-  return { total, available, occupied, maintenance, notCleaned, reserved };
-}
+/* ── Styled Components ── */
+const GridContainer = styled.div`
+  padding: 10px 14px;
+  background: ${T.bg};
+  font-family: ${T.font};
+`;
 
-const fadeUp = keyframes`from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}`;
-const pulse = keyframes`0%,100%{opacity:1}50%{opacity:.35}`;
-const broomWiggle = keyframes`0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}`;
+const FilterToolbar = styled.div`
+  background: ${T.white};
+  border: 1px solid ${T.border};
+  border-radius: 7px;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  box-shadow: ${T.shadowSm};
+`;
 
-const BedIconSVG = ({ color = "#9ca3af", size = 36, status }) => {
-  const h = Math.round(size * 0.65);
-  const showPerson = status === BED_STATUS.OCCUPIED;
-  return (
-    <svg viewBox="0 0 52 36" width={size} height={h} xmlns="http://www.w3.org/2000/svg" style={{ display: "block", flexShrink: 0 }}>
-      <rect x="2" y="20" width="48" height="11" rx="2.5" fill={color} opacity="0.9" />
-      <rect x="5" y="15" width="42" height="8" rx="2" fill={color} opacity="0.45" />
-      <rect x="31" y="12" width="12" height="7" rx="2" fill={color} opacity="0.97" />
-      <rect x="33" y="14" width="4" height="2" rx="1" fill="#fff" opacity="0.3" />
-      <rect x="1" y="9" width="5" height="22" rx="2" fill={color} opacity="0.92" />
-      <rect x="46" y="16" width="5" height="15" rx="2" fill={color} opacity="0.92" />
-      <rect x="5" y="18" width="42" height="2" rx="1" fill={color} opacity="0.25" />
-      <rect x="4" y="29" width="4" height="5" rx="1" fill={color} opacity="0.65" />
-      <rect x="44" y="29" width="4" height="5" rx="1" fill={color} opacity="0.65" />
-      {showPerson && (
-        <g opacity="0.75">
-          <circle cx="37" cy="11" r="3.2" fill={color} />
-          <rect x="10" y="15" width="22" height="5" rx="2" fill={color} opacity="0.4" />
-        </g>
-      )}
-      {status === BED_STATUS.NOT_CLEANED && (
-        <g>
-          <line x1="42" y1="4" x2="35" y2="14" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-          <ellipse cx="34" cy="15" rx="3" ry="1.5" fill={color} opacity="0.8" />
-        </g>
-      )}
-      {status === BED_STATUS.MAINTENANCE && (
-        <g>
-          <rect x="38" y="5" width="8" height="6" rx="1.5" fill={color} opacity="0.7" />
-          <path d="M40 5 Q42 1 44 5" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-        </g>
-      )}
-      {status === BED_STATUS.RESERVED && (
-        <polygon points="42,2 46,6 42,10 38,6" fill={color} opacity="0.8" />
-      )}
-    </svg>
-  );
-};
+const SearchInp = styled.input`
+  width: 240px;
+  height: 28px;
+  padding: 0 8px 0 26px;
+  font-size: 0.74rem;
+  font-family: ${T.font};
+  border: 1px solid ${T.border};
+  border-radius: 5px;
+  background: ${T.bg};
+  color: ${T.textMain};
+  outline: none;
+  &:focus {
+    background: #fff;
+    border-color: ${T.primary};
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
+  }
+  &::placeholder { color: ${T.textMuted}; }
+`;
 
-const OccupiedDot = styled.span`position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:${T.red};animation:${pulse} 1.6s ease-in-out infinite;box-shadow:0 0 0 2px ${T.redLt};z-index:2;`;
-const BroomBadge = styled.span`position:absolute;top:3px;right:4px;font-size:.58rem;display:inline-block;animation:${broomWiggle} 1.8s ease-in-out infinite;transform-origin:bottom center;z-index:2;`;
+const ColorLegendStrip = styled.div`
+  background: ${T.white};
+  border: 1px solid ${T.border};
+  border-radius: 7px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  box-shadow: ${T.shadowSm};
+`;
 
-const StatsRow = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:14px;@media (max-width:700px){grid-template-columns:repeat(3,1fr);}@media (max-width:400px){grid-template-columns:repeat(2,1fr);}`;
-const StatCard = styled.div`background:${T.white};border:1px solid ${T.border};border-radius:8px;padding:9px 12px;display:flex;align-items:center;gap:9px;box-shadow:${T.shadow};animation:${fadeUp} .25s ease both;animation-delay:${p=>p.i*35}ms;position:relative;overflow:hidden;&::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:${p=>p.accent};border-radius:8px 0 0 8px;}`;
-const StatIcon = styled.div`width:28px;height:28px;border-radius:7px;background:${p=>p.bg};display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0;`;
-const StatInfo = styled.div`display:flex;flex-direction:column;gap:1px;min-width:0;`;
-const StatValue = styled.div`font-size:1.2rem;font-weight:800;color:${p=>p.color||T.textMain};line-height:1;letter-spacing:-.03em;`;
-const StatLabel = styled.div`font-size:.6rem;font-weight:600;color:${T.textMuted};text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;`;
+const ColorCodePill = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-family: ${T.font};
+  border: 1.5px solid ${p => p.active ? p.cfg.color : p.cfg.border};
+  background: ${p => p.active ? p.cfg.color : p.cfg.light};
+  color: ${p => p.active ? "#ffffff" : p.cfg.dark};
+  cursor: pointer;
+  transition: all 0.12s ease;
 
-const BlockCard = styled.div`background:${T.white};border:1px solid ${T.border};border-radius:${T.radius};overflow:hidden;margin-bottom:14px;box-shadow:${T.shadow};animation:${fadeUp} .3s ease both;animation-delay:${p=>p.index*50}ms;`;
-const BlockHeader = styled.div`display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:linear-gradient(135deg,${T.primaryLt} 0%,#e0fdf4 100%);border-bottom:1px solid ${T.primaryMd}88;`;
-const BlockName = styled.div`font-size:.82rem;font-weight:800;color:${T.primaryDk};display:flex;align-items:center;gap:7px;letter-spacing:-.01em;`;
-const BlockMiniStats = styled.div`display:flex;gap:5px;flex-wrap:wrap;`;
-const MiniBadge = styled.span`font-size:.62rem;font-weight:700;padding:2px 7px;border-radius:20px;background:${p=>p.bg};color:${p=>p.color};border:1px solid ${p=>p.color}33;display:flex;align-items:center;gap:3px;letter-spacing:.01em;`;
-const BlockBody = styled.div`padding:12px 14px;`;
-const FloorSection = styled.div`margin-bottom:16px;&:last-child{margin-bottom:0;}`;
-const FloorLabel = styled.div`display:flex;align-items:center;gap:7px;font-size:.67rem;font-weight:800;color:${T.primary};text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px;&::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:${T.primary};box-shadow:0 0 0 3px ${T.primaryMd};}&::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,${T.primaryMd},transparent);}`;
-const RoomGridSt = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;@media (max-width:480px){grid-template-columns:1fr 1fr;gap:6px;}`;
-const RoomCard = styled.div`border:1.5px solid ${p=>ROOM_CFG[p.rs]?.border||T.border};border-radius:8px;overflow:hidden;background:${T.white};box-shadow:${T.shadow};transition:box-shadow .18s,transform .18s;&:hover{box-shadow:0 6px 18px ${p=>ROOM_CFG[p.rs]?.dot||T.gray}2a;transform:translateY(-2px);}`;
-const RoomTop = styled.div`display:flex;align-items:center;justify-content:space-between;padding:6px 9px;background:${p=>ROOM_CFG[p.rs]?.bg||T.grayLt};border-bottom:1px solid ${p=>ROOM_CFG[p.rs]?.border||T.border}88;`;
-const RoomNumber = styled.span`font-weight:800;font-size:.82rem;color:${T.textMain};letter-spacing:-.02em;`;
-const RoomStatusPill = styled.span`font-size:.56rem;font-weight:800;padding:2px 7px;border-radius:12px;background:${T.white}99;color:${p=>ROOM_CFG[p.rs]?.dot};text-transform:capitalize;letter-spacing:.02em;border:1px solid ${p=>ROOM_CFG[p.rs]?.border};`;
-const BedWrap = styled.div`display:flex;flex-wrap:wrap;gap:5px;padding:8px 9px;background:${T.white};`;
-const BedCard = styled.button`position:relative;flex:1 1 auto;min-width:62px;padding:6px 4px;border-radius:6px;background:${p=>p.cfg.light};border:1.5px solid ${p=>p.cfg.color}33;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:${p=>p.selectable?'pointer':'not-allowed'};opacity:${p=>p.selectable?1:.65};transition:all .15s;&:hover{border-color:${p=>p.cfg.color};${p=>p.selectable?'transform:translateY(-1px);':''}}`;
-const BedNum = styled.div`font-size:.65rem;font-weight:800;color:${p=>p.cfg.dark};`;
-const BedLabel = styled.div`font-size:.5rem;font-weight:700;color:${p=>p.cfg.dark};text-transform:uppercase;letter-spacing:.04em;`;
+  &:hover {
+    border-color: ${p => p.cfg.color};
+    transform: translateY(-1px);
+  }
+`;
+
+const ColorDot = styled.span`
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: ${p => p.active ? "#ffffff" : p.color};
+  flex-shrink: 0;
+`;
+
+const CountBubble = styled.span`
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: ${p => p.active ? "rgba(255,255,255,0.3)" : "#ffffff"};
+  color: ${p => p.active ? "#ffffff" : p.cfg.dark};
+  border: ${p => p.active ? "none" : `1px solid ${p.cfg.border}`};
+`;
+
+const BlockWrap = styled.div`
+  margin-bottom: 12px;
+  animation: ${fadeUp} 0.25s ease both;
+`;
+
+const BlockTitle = styled.div`
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: ${T.primaryDk};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: ${T.primaryMd};
+  }
+`;
+
+const FloorWrap = styled.div`
+  margin-bottom: 8px;
+`;
+
+const FloorTitle = styled.div`
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: ${T.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+`;
+
+const RoomGridSt = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+`;
+
+const RoomCard = styled.div`
+  background: ${T.white};
+  border: 1.5px solid ${p => p.hasOccupied ? T.redBorder : T.border};
+  border-radius: 7px;
+  box-shadow: ${T.shadowSm};
+  overflow: hidden;
+  transition: all 0.14s ease;
+  display: flex;
+  flex-direction: column;
+
+  &:hover {
+    border-color: ${p => p.hasOccupied ? T.red : T.primary};
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+  }
+`;
+
+const RoomHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: ${p => p.hasOccupied ? "#fff5f5" : "#f8fafc"};
+  border-bottom: 1px solid ${p => p.hasOccupied ? "#fee2e2" : T.border};
+`;
+
+const RoomNo = styled.div`
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: ${T.textMain};
+`;
+
+const CategoryTag = styled.span`
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: ${T.textMuted};
+  background: ${T.white};
+  border: 1px solid ${T.border};
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  max-width: 95px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const BedCountPill = styled.span`
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: ${p => p.available > 0 ? T.greenLt : T.redLt};
+  color: ${p => p.available > 0 ? T.greenDk : T.redDk};
+`;
+
+const BedTilesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+  gap: 5px;
+  padding: 6px 8px;
+`;
+
+const BedTile = styled.button`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 5px 4px;
+  height: 48px;
+  border-radius: 5px;
+  border: 1.5px solid ${p => p.cfg.border};
+  background: ${p => p.cfg.light};
+  cursor: ${p => p.selectable ? "pointer" : "not-allowed"};
+  opacity: ${p => p.selectable ? 1 : 0.6};
+  transition: all 0.12s ease;
+  outline: none;
+  user-select: none;
+
+  ${p => p.selectable && css`
+    &:hover {
+      transform: scale(1.05);
+      border-color: ${p.cfg.color};
+      box-shadow: 0 2px 8px ${p.cfg.color}33;
+    }
+  `}
+`;
+
+const BedNoText = styled.span`
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: ${p => p.cfg.dark};
+  line-height: 1;
+`;
+
+const BedStatusText = styled.span`
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: ${p => p.cfg.color};
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+`;
+
+const OccupiedDot = styled.span`
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: ${T.red};
+  animation: ${pulse} 1.5s ease-in-out infinite;
+`;
 
 export default function AdmissionGrid({ data, loading, onBedClick }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState(BED_STATUS.AVAILABLE); // Always default to Available
+
+  const stats = useMemo(() => {
+    let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
+    (data || []).forEach(b => {
+      Object.values(b.floors || {}).forEach(rooms => {
+        rooms.forEach(room => {
+          (room.beds || []).forEach(bed => {
+            total++;
+            if (bed.status === BED_STATUS.AVAILABLE) available++;
+            else if (bed.status === BED_STATUS.OCCUPIED) occupied++;
+            else if (bed.status === BED_STATUS.NOT_CLEANED) notCleaned++;
+            else if (bed.status === BED_STATUS.RESERVED) reserved++;
+            else maintenance++;
+          });
+        });
+      });
+    });
+    return { total, available, occupied, notCleaned, reserved, maintenance };
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    if (!data || !Array.isArray(data)) return [];
+
+    return data.map(b => {
+      const floors = {};
+      Object.entries(b.floors || {}).forEach(([floor, rooms]) => {
+        const matchedRooms = rooms.map(room => {
+          const matchedBeds = (room.beds || []).filter(bed => {
+            if (selectedStatus !== "ALL" && bed.status !== selectedStatus) return false;
+            if (!q) return true;
+            return (
+              String(room.room_number || "").toLowerCase().includes(q) ||
+              String(bed.bed_number || "").toLowerCase().includes(q) ||
+              String(room.room_type || "").toLowerCase().includes(q)
+            );
+          });
+          if (matchedBeds.length > 0) {
+            return { ...room, beds: matchedBeds };
+          }
+          return null;
+        }).filter(Boolean);
+
+        if (matchedRooms.length > 0) {
+          floors[floor] = matchedRooms;
+        }
+      });
+      return { ...b, floors };
+    }).filter(b => Object.keys(b.floors).length > 0);
+  }, [data, searchTerm, selectedStatus]);
+
   if (loading) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#6b7280" }}>Loading grid data...</div>;
+    return <div style={{ padding: 40, textAlign: "center", color: T.textMuted }}>⏳ Loading room grid...</div>;
   }
   if (!data || data.length === 0) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#6b7280" }}>No rooms found.</div>;
+    return <div style={{ padding: 40, textAlign: "center", color: T.textMuted }}>🏨 No rooms found.</div>;
   }
 
-  const st = calcStats(data);
-  const totalOccupancy = st.total > 0 ? ((st.occupied / st.total) * 100).toFixed(0) : 0;
+  const LEGEND_ITEMS = [
+    { status: "ALL",                  cfg: { color: T.primaryDk, light: T.primaryLt, dark: T.primaryDk, border: T.primary, label: "All Beds" }, count: stats.total },
+    { status: BED_STATUS.AVAILABLE,   cfg: STATUS_CFG[BED_STATUS.AVAILABLE],   count: stats.available },
+    { status: BED_STATUS.OCCUPIED,    cfg: STATUS_CFG[BED_STATUS.OCCUPIED],    count: stats.occupied },
+    { status: BED_STATUS.NOT_CLEANED, cfg: STATUS_CFG[BED_STATUS.NOT_CLEANED], count: stats.notCleaned },
+    { status: BED_STATUS.RESERVED,    cfg: STATUS_CFG[BED_STATUS.RESERVED],    count: stats.reserved },
+    { status: BED_STATUS.MAINTENANCE, cfg: STATUS_CFG[BED_STATUS.MAINTENANCE], count: stats.maintenance },
+  ];
 
   return (
-    <div style={{ padding: "10px 0" }}>
-      <StatsRow>
-        <StatCard i={0} accent={T.primary}>
-          <StatIcon bg={T.primaryLt}>🛏️</StatIcon>
-          <StatInfo><StatValue color={T.primaryDk}>{st.total}</StatValue><StatLabel>Total Beds</StatLabel></StatInfo>
-        </StatCard>
-        <StatCard i={1} accent={T.green}>
-          <StatIcon bg={T.greenLt}>✅</StatIcon>
-          <StatInfo><StatValue color={T.greenDk}>{st.available}</StatValue><StatLabel>Available</StatLabel></StatInfo>
-        </StatCard>
-        <StatCard i={2} accent={T.red}>
-          <StatIcon bg={T.redLt}>🤒</StatIcon>
-          <StatInfo><StatValue color={T.redDk}>{st.occupied}</StatValue><StatLabel>Occupied</StatLabel></StatInfo>
-        </StatCard>
-        <StatCard i={3} accent={T.amber}>
-          <StatIcon bg={T.amberLt}>🧹</StatIcon>
-          <StatInfo><StatValue color={T.amberDk}>{st.notCleaned}</StatValue><StatLabel>Not Cleaned</StatLabel></StatInfo>
-        </StatCard>
-        <StatCard i={4} accent={T.purple}>
-          <StatIcon bg={T.purpleLt}>🔒</StatIcon>
-          <StatInfo><StatValue color={T.purpleDk}>{st.reserved}</StatValue><StatLabel>Reserved</StatLabel></StatInfo>
-        </StatCard>
-        <StatCard i={5} accent={T.gray}>
-          <StatIcon bg={T.grayLt}>🔧</StatIcon>
-          <StatInfo><StatValue color={T.grayDk}>{st.maintenance}</StatValue><StatLabel>Maintenance</StatLabel></StatInfo>
-        </StatCard>
-      </StatsRow>
+    <GridContainer>
+      {/* ── 1. Search & Filter Bar ── */}
+      <FilterToolbar>
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: ".74rem", color: T.textMuted }}>🔍</span>
+          <SearchInp
+            type="text"
+            placeholder="Search Room / Bed..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div style={{ fontSize: "0.72rem", color: T.textMuted, fontWeight: 700 }}>
+          💡 Showing <strong style={{ color: T.greenDk }}>Available Beds</strong> by default. Click any <strong style={{ color: T.greenDk }}>Green</strong> bed to admit a patient, or click filter pills above to view other statuses.
+        </div>
+      </FilterToolbar>
 
-      {data.map((blockEntry, bIndex) => {
-        const blockName = blockEntry.block?.block_name || "Block";
-        const fkeys = Object.keys(blockEntry.floors).sort((a,b)=>parseInt(a)-parseInt(b));
-        let bAv = 0, bOc = 0, bNc = 0;
-        fkeys.forEach(f => blockEntry.floors[f].forEach(r => (r.beds||[]).forEach(b => {
-          if (b.status === BED_STATUS.AVAILABLE) bAv++;
-          else if (b.status === BED_STATUS.OCCUPIED) bOc++;
-          else if (b.status === BED_STATUS.NOT_CLEANED) bNc++;
-        })));
+      {/* ── 2. Color Coding Legend Bar ── */}
+      <ColorLegendStrip>
+        <div style={{ fontSize: "0.65rem", fontWeight: 800, color: T.textMuted, textTransform: "uppercase" }}>
+          🎨 Bed Status Filter:
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {LEGEND_ITEMS.map(({ status, cfg, count }) => {
+            const active = selectedStatus === status;
+            return (
+              <ColorCodePill
+                key={status}
+                cfg={cfg}
+                active={active}
+                onClick={() => setSelectedStatus(status)}
+                title={`Filter by ${cfg.label}`}
+              >
+                <ColorDot color={cfg.color} active={active} />
+                <span>{cfg.label}</span>
+                <CountBubble cfg={cfg} active={active}>{count}</CountBubble>
+              </ColorCodePill>
+            );
+          })}
+        </div>
+      </ColorLegendStrip>
 
-        return (
-          <BlockCard key={bIndex} index={bIndex}>
-            <BlockHeader>
-              <BlockName>🏢 {blockName}</BlockName>
-              <BlockMiniStats>
-                <MiniBadge bg={T.greenLt} color={T.greenDk}>✅ {bAv}</MiniBadge>
-                <MiniBadge bg={T.redLt} color={T.redDk}>🤒 {bOc}</MiniBadge>
-                {bNc > 0 && <MiniBadge bg={T.amberLt} color={T.amberDk}>🧹 {bNc}</MiniBadge>}
-              </BlockMiniStats>
-            </BlockHeader>
-            <BlockBody>
-              {fkeys.map(floor => (
-                <FloorSection key={floor}>
-                  <FloorLabel>Floor {floor}</FloorLabel>
-                  <RoomGridSt>
-                    {blockEntry.floors[floor].map(room => {
-                      const rs = getRoomStatus(room.beds);
-                      const rConfig = ROOM_CFG[rs] || ROOM_CFG.available;
-                      return (
-                        <RoomCard key={room.id} rs={rs}>
-                          <RoomTop rs={rs}>
-                            <RoomNumber>{room.room_number}</RoomNumber>
-                            <RoomStatusPill rs={rs}>{rConfig.label || rs}</RoomStatusPill>
-                          </RoomTop>
-                          <BedWrap>
-                            {(room.beds || []).map(bed => {
-                              const bCfg = STATUS_CFG[bed.status] || STATUS_CFG[BED_STATUS.AVAILABLE];
-                              const isAv = bed.status === BED_STATUS.AVAILABLE;
-                              return (
-                                <BedCard 
-                                  key={bed.bed_number} 
-                                  cfg={bCfg} 
-                                  selectable={isAv}
-                                  onClick={() => isAv && onBedClick(room, bed)}
-                                  title={isAv ? "Click to admit" : bed.status}
-                                >
-                                  {bed.status === BED_STATUS.OCCUPIED && <OccupiedDot />}
-                                  {bed.status === BED_STATUS.NOT_CLEANED && <BroomBadge>🧹</BroomBadge>}
-                                  <BedIconSVG color={bCfg.color} size={26} status={bed.status} />
-                                  <BedNum cfg={bCfg}>{bed.bed_number}</BedNum>
-                                  <BedLabel cfg={bCfg}>{bCfg.label}</BedLabel>
-                                </BedCard>
-                              );
-                            })}
-                          </BedWrap>
-                        </RoomCard>
-                      );
-                    })}
-                  </RoomGridSt>
-                </FloorSection>
-              ))}
-            </BlockBody>
-          </BlockCard>
-        );
-      })}
-    </div>
+      {/* ── 3. Room Cards Grid ── */}
+      {filteredData.map((b, bIdx) => (
+        <BlockWrap key={bIdx}>
+          <BlockTitle>🏢 {b.block?.block_name || "Main Block"}</BlockTitle>
+
+          {Object.entries(b.floors || {})
+            .sort(([fA], [fB]) => Number(fA) - Number(fB))
+            .map(([floor, rooms]) => (
+              <FloorWrap key={floor}>
+                <FloorTitle>Floor {floor}</FloorTitle>
+
+                <RoomGridSt>
+                  {rooms.map(room => {
+                    const availableBeds = (room.beds || []).filter(bd => bd.status === BED_STATUS.AVAILABLE).length;
+                    const occupiedBeds = (room.beds || []).filter(bd => bd.status === BED_STATUS.OCCUPIED).length;
+
+                    return (
+                      <RoomCard key={room.id || room.room_number} hasOccupied={occupiedBeds > 0}>
+                        <RoomHeader hasOccupied={occupiedBeds > 0}>
+                          <RoomNo>Room {room.room_number}</RoomNo>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            <CategoryTag>{room.room_type || room.room_category || "General"}</CategoryTag>
+                            <BedCountPill available={availableBeds}>
+                              {availableBeds}/{room.beds?.length || 0} Ready
+                            </BedCountPill>
+                          </div>
+                        </RoomHeader>
+
+                        <BedTilesGrid>
+                          {(room.beds || []).map((bed, bdIdx) => {
+                            const isAv = bed.status === BED_STATUS.AVAILABLE;
+                            const isOcc = bed.status === BED_STATUS.OCCUPIED;
+                            const cfg = STATUS_CFG[bed.status] || STATUS_CFG[BED_STATUS.MAINTENANCE];
+
+                            return (
+                              <BedTile
+                                key={bdIdx}
+                                cfg={cfg}
+                                selectable={isAv}
+                                title={isAv ? `Bed ${bed.bed_number} — Click to assign` : `Bed ${bed.bed_number} — ${bed.status}`}
+                                onClick={() => isAv && onBedClick(room, bed)}
+                              >
+                                {isOcc && <OccupiedDot />}
+                                <BedMiniSVG color={cfg.color} size={16} />
+                                <BedNoText cfg={cfg}>B{bed.bed_number}</BedNoText>
+                                <BedStatusText cfg={cfg}>{isAv ? "Ready" : cfg.label}</BedStatusText>
+                              </BedTile>
+                            );
+                          })}
+                        </BedTilesGrid>
+                      </RoomCard>
+                    );
+                  })}
+                </RoomGridSt>
+              </FloorWrap>
+            ))}
+        </BlockWrap>
+      ))}
+    </GridContainer>
   );
 }

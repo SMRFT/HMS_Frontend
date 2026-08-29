@@ -386,7 +386,9 @@ function App() {
       "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
-      "/Enquiry": "Enquiry",
+      "/Enquiry": "Patient Inquiry",
+      "/PatientInquiry": "Patient Inquiry",
+      "/PatientEnquiry": "Patient Inquiry",
       "/Package": "Package",
       "/MedicinePackage": "MedicinePackage",
       "/Investigationprice": "Investigation Price",
@@ -737,11 +739,21 @@ function App() {
                     <Route path="/ABHAPatients" element={<ABHAPatients />} />
                   </>
                 )}
-              {hasPagePermission(
+              {(hasPagePermission(
                 "/Enquiry",
                 allowedActions,
                 dynamicPermissions,
-              ) && <Route path="/Enquiry" element={<Enquiry />} />}
+              ) || hasPagePermission(
+                "/PatientInquiry",
+                allowedActions,
+                dynamicPermissions,
+              )) && (
+                <>
+                  <Route path="/Enquiry" element={<Enquiry />} />
+                  <Route path="/PatientInquiry" element={<Enquiry />} />
+                  <Route path="/PatientEnquiry" element={<Enquiry />} />
+                </>
+              )}
               {hasPagePermission(
                 "/RegistrationBills",
                 allowedActions,
