@@ -52,6 +52,7 @@ import MHCReportForm from "./Components/MHC/MHCReportForm";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
 import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
 import MHCReviewList from "./Components/MHC/MHCReviewList";
@@ -95,6 +96,7 @@ import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
 import OPEMRDesk from "./Components/EMR/OPEMRDesk";
 import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
+import OPDoctorlogin from "./Components/OPEMR/OPDoctorlogin";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -636,6 +638,9 @@ function App() {
               <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
               <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
               <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              <Route path="/OPDoctorlogin" element={<OPDoctorlogin />} />
+              <Route path="/opdoctorlogin" element={<OPDoctorlogin />} />
+              <Route path="/OPDoctorLogin" element={<OPDoctorlogin />} />
               {hasPagePermission(
                 "/VitalWaitingList",
                 allowedActions,
