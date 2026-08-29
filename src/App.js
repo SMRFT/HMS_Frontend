@@ -55,7 +55,6 @@ import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDa
 import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
-import MHCReviewList from "./Components/MHC/MHCReviewList";
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
 
@@ -114,6 +113,10 @@ import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
 import StoresAbcVedReport from "./Components/Stores/StoresAbcVedReport";
+import VendingMachineReport from "./Components/Stores/VendingMachineReport";
+import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
+import StoresSupplierGrnReport from "./Components/Stores/StoresSupplierGrnReport";
+import StoresDepartmentIndentReport from "./Components/Stores/StoresDepartmentIndentReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -401,6 +404,10 @@ function App() {
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
       "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
+      "/VendingMachineReport": "Vending Machine Sales & Stock Reconciliation Report",
+      "/StoresReportsDashboard": "Stores Reports Dashboard",
+      "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
+      "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -1436,6 +1443,22 @@ function App() {
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
+              <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
+              <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              )}
+              {hasPagePermission("/StoresSupplierGrnReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              )}
+              {hasPagePermission("/StoresDepartmentIndentReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              )}
+              {hasPagePermission("/VendingMachineReport", allowedActions, dynamicPermissions) && (
+                <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
+              )}
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
