@@ -353,12 +353,34 @@ const EMPTY = {
   roomNo:"", bedNo:"", reasonForAdmission:"",
   packageNo:"", packageName:"",
   mlc_type:"", mlc_doc:null, mlc_remarks:"",
+  attender_name:"", attender_relationship:"", attender_phone:"",
   salutation:"", firstName:"", middleName:"", lastName:"",
   dob:"", age:"", age_type:"Y", gender:"", mobilePhone:"", permanent_address:"",
   area:"", zipcode:"", city:"", state:"",
   customerType:"General", insuranceCompanyName:"", company_code:"",
   room_details:[], roomShitingDetails:[], edit_history:[],
 };
+
+const RELATIONSHIP_OPTIONS = [
+  { value: "Father",       label: "Father" },
+  { value: "Mother",       label: "Mother" },
+  { value: "Spouse",       label: "Spouse (Husband / Wife)" },
+  { value: "Son",          label: "Son" },
+  { value: "Daughter",     label: "Daughter" },
+  { value: "Brother",      label: "Brother" },
+  { value: "Sister",       label: "Sister" },
+  { value: "Grandfather",  label: "Grandfather" },
+  { value: "Grandmother",  label: "Grandmother" },
+  { value: "Uncle",        label: "Uncle" },
+  { value: "Aunt",         label: "Aunt" },
+  { value: "Cousin",       label: "Cousin" },
+  { value: "Guardian",     label: "Guardian / Caregiver" },
+  { value: "Relative",     label: "Relative" },
+  { value: "Friend",       label: "Friend" },
+  { value: "Neighbour",    label: "Neighbour" },
+  { value: "Colleague",    label: "Colleague" },
+  { value: "Other",        label: "Other" },
+];
 
 function safeParseList(value) {
   if (Array.isArray(value)) return value;
@@ -749,6 +771,27 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
               </InfoItem>
             </InfoGrid>
           </SectionBox>
+
+          {/* Attender Details */}
+          {(adm.attender_name || adm.attender_relationship || adm.attender_phone) && (
+            <SectionBox style={{ background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)", borderColor: "#cbd5e1" }}>
+              <SectionTitle>🤝 Attender Information</SectionTitle>
+              <InfoGrid minWidth="160px">
+                <InfoItem>
+                  <InfoLbl>Attender’s Name</InfoLbl>
+                  <InfoVal style={{ fontWeight: 700, color: "#0f766e" }}>{adm.attender_name || "—"}</InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Relationship with Patient</InfoLbl>
+                  <InfoVal>{adm.attender_relationship || "—"}</InfoVal>
+                </InfoItem>
+                <InfoItem>
+                  <InfoLbl>Attender’s Phone</InfoLbl>
+                  <InfoVal>{adm.attender_phone || "—"}</InfoVal>
+                </InfoItem>
+              </InfoGrid>
+            </SectionBox>
+          )}
 
           {/* Insurance / Customer Info */}
           {(adm.customerType === "Insurance" || adm.customer_type === "Insurance" || adm.company_code || adm.insuranceCompanyName || adm.insurance_company) && (
@@ -1512,6 +1555,9 @@ export default function Admission() {
       mlc_type:             adm.mlc_type            ||"",
       mlc_doc:              adm.mlc_doc             ||null,
       mlc_remarks:          adm.mlc_remarks         ||"",
+      attender_name:        adm.attender_name       ||"",
+      attender_relationship:adm.attender_relationship||"",
+      attender_phone:       adm.attender_phone      ||"",
       salutation:           adm.salutation          ||"",
       firstName:            adm.firstName           ||"",
       middleName:           adm.middleName          ||"",
@@ -1626,7 +1672,7 @@ export default function Admission() {
     setSaving(true);
     const payload = new FormData();
     ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","mlc_type","mlc_remarks","customerType","company_code",
+     "reasonForAdmission","mlc_type","mlc_remarks","attender_name","attender_relationship","attender_phone","customerType","company_code",
      "insuranceCompanyName","age","age_type"].forEach(k => {
       if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
         payload.append(k, form[k]);
@@ -1753,8 +1799,9 @@ export default function Admission() {
     const bW = 240, modW = bW/encoded.length;
     let barsHtml="", xPos=0;
     for (let i=0;i<encoded.length;i++) { if(i%2===0) barsHtml+=`<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW,0.6).toFixed(2)}" height="50" fill="black"/>`; xPos+=modW; }
+    const attenderLine = pd.attender_name ? `<div class="line">Attender: ${pd.attender_name}${pd.attender_relationship ? ` (${pd.attender_relationship})` : ""}${pd.attender_phone ? ` - ${pd.attender_phone}` : ""}</div>` : "";
     const w = window.open("","_blank","width=640,height=440");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div><div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div>${attenderLine}<div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
     w.document.close();
   };
 
@@ -1976,6 +2023,38 @@ export default function Admission() {
                 <Field><Lbl>City</Lbl><Inp value={form.city} readOnly/></Field>
                 <Field><Lbl>State</Lbl><Inp value={form.state} readOnly/></Field>
                 <Field><Lbl>Zip</Lbl><Inp value={form.zipcode} readOnly/></Field>
+
+                <SecDiv>Attender Details</SecDiv>
+                <Field span={2}>
+                  <Lbl>Attender’s Name</Lbl>
+                  <Inp
+                    name="attender_name"
+                    value={form.attender_name || ""}
+                    onChange={handleFormChange}
+                    placeholder="Enter attender's full name"
+                  />
+                </Field>
+                <Field span={2}>
+                  <Lbl>Relationship with Patient</Lbl>
+                  <SearchSelect
+                    options={RELATIONSHIP_OPTIONS}
+                    value={form.attender_relationship}
+                    onChange={handleFormChange}
+                    placeholder="Search relationship..."
+                    name="attender_relationship"
+                    height="34px"
+                  />
+                </Field>
+                <Field span={2}>
+                  <Lbl>Attender’s Phone Number</Lbl>
+                  <Inp
+                    name="attender_phone"
+                    value={form.attender_phone || ""}
+                    onChange={handleFormChange}
+                    placeholder="Enter phone number"
+                    maxLength={15}
+                  />
+                </Field>
 
                 <SecDiv>Clinical</SecDiv>
                 <Field span={3}>

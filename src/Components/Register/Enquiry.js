@@ -722,7 +722,7 @@ const Enquiry = () => {
     }
 
     setLoading(true);
-    try {
+    try {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
       let queryParams = new URLSearchParams();
 
       if (searchMode === "UHID") {
@@ -1239,6 +1239,9 @@ const Enquiry = () => {
                                     <div><strong>Consulting Doctor:</strong> {adm.consultingDoctorName || adm.consultingDoctorId}</div>
                                     <div><strong>Room &amp; Bed:</strong> {roomInfo.roomNo ? `Room ${roomInfo.roomNo} (Bed ${roomInfo.bedNo})` : "—"}</div>
                                     <div><strong>Advance Deposited:</strong> ₹{totalAdv.toLocaleString("en-IN")}</div>
+                                    {adm.attender_name && (
+                                      <div><strong>Attender:</strong> {adm.attender_name} {adm.attender_relationship ? `(${adm.attender_relationship})` : ""} {adm.attender_phone ? `· 📱 ${adm.attender_phone}` : ""}</div>
+                                    )}
                                     {adm.reasonForAdmission && (
                                       <div style={{ gridColumn: "1 / -1" }}><strong>Diagnosis / Reason:</strong> {adm.reasonForAdmission}</div>
                                     )}
@@ -1425,6 +1428,9 @@ const Enquiry = () => {
                           <div><strong>Consulting Doctor:</strong> {adm.consultingDoctorName || adm.consultingDoctorId}</div>
                           <div><strong>Room &amp; Bed:</strong> {roomInfo.roomNo ? `Room ${roomInfo.roomNo} (Bed ${roomInfo.bedNo})` : "—"}</div>
                           <div><strong>Advance Deposited:</strong> ₹{totalAdv.toLocaleString("en-IN")}</div>
+                          {adm.attender_name && (
+                            <div><strong>Attender:</strong> {adm.attender_name} {adm.attender_relationship ? `(${adm.attender_relationship})` : ""} {adm.attender_phone ? `· 📱 ${adm.attender_phone}` : ""}</div>
+                          )}
                         </div>
                       </VisitSection>
                     );

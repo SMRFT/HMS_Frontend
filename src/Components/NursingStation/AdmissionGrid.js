@@ -353,7 +353,7 @@ const OccupiedDot = styled.span`
 
 export default function AdmissionGrid({ data, loading, onBedClick }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [selectedStatus, setSelectedStatus] = useState(BED_STATUS.AVAILABLE); // Always default to Available
 
   const stats = useMemo(() => {
     let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
@@ -413,8 +413,9 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
   }
 
   const LEGEND_ITEMS = [
-    { status: BED_STATUS.OCCUPIED,    cfg: STATUS_CFG[BED_STATUS.OCCUPIED],    count: stats.occupied },
+    { status: "ALL",                  cfg: { color: T.primaryDk, light: T.primaryLt, dark: T.primaryDk, border: T.primary, label: "All Beds" }, count: stats.total },
     { status: BED_STATUS.AVAILABLE,   cfg: STATUS_CFG[BED_STATUS.AVAILABLE],   count: stats.available },
+    { status: BED_STATUS.OCCUPIED,    cfg: STATUS_CFG[BED_STATUS.OCCUPIED],    count: stats.occupied },
     { status: BED_STATUS.NOT_CLEANED, cfg: STATUS_CFG[BED_STATUS.NOT_CLEANED], count: stats.notCleaned },
     { status: BED_STATUS.RESERVED,    cfg: STATUS_CFG[BED_STATUS.RESERVED],    count: stats.reserved },
     { status: BED_STATUS.MAINTENANCE, cfg: STATUS_CFG[BED_STATUS.MAINTENANCE], count: stats.maintenance },
@@ -434,14 +435,14 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
           />
         </div>
         <div style={{ fontSize: "0.72rem", color: T.textMuted, fontWeight: 700 }}>
-          💡 Click any <strong style={{ color: T.greenDk }}>Available (Green)</strong> bed to quickly admit a patient.
+          💡 Showing <strong style={{ color: T.greenDk }}>Available Beds</strong> by default. Click any <strong style={{ color: T.greenDk }}>Green</strong> bed to admit a patient, or click filter pills above to view other statuses.
         </div>
       </FilterToolbar>
 
       {/* ── 2. Color Coding Legend Bar ── */}
       <ColorLegendStrip>
         <div style={{ fontSize: "0.65rem", fontWeight: 800, color: T.textMuted, textTransform: "uppercase" }}>
-          🎨 Color Coding:
+          🎨 Bed Status Filter:
         </div>
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           {LEGEND_ITEMS.map(({ status, cfg, count }) => {
@@ -451,7 +452,7 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
                 key={status}
                 cfg={cfg}
                 active={active}
-                onClick={() => setSelectedStatus(prev => (prev === status ? "ALL" : status))}
+                onClick={() => setSelectedStatus(status)}
                 title={`Filter by ${cfg.label}`}
               >
                 <ColorDot color={cfg.color} active={active} />
@@ -460,14 +461,6 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
               </ColorCodePill>
             );
           })}
-          {selectedStatus !== "ALL" && (
-            <button
-              onClick={() => setSelectedStatus("ALL")}
-              style={{ background: T.grayLt, border: `1px solid ${T.border}`, borderRadius: 15, padding: "2px 8px", fontSize: ".65rem", fontWeight: 700, color: T.red, cursor: "pointer" }}
-            >
-              ✕ Clear
-            </button>
-          )}
         </div>
       </ColorLegendStrip>
 
