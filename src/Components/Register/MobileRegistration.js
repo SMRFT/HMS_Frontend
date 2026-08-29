@@ -382,6 +382,8 @@ const MobileRegistration = () => {
     zipcode: "",
     state: "",
     bloodGroup: "",
+    occupation: "",
+    annualIncome: "",
     customerType: initialCustomerType
   });
 
@@ -597,6 +599,48 @@ const MobileRegistration = () => {
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
+                </Select>
+              </SelectWrapper>
+            </FormGroup>
+          </Row>
+
+          <Row>
+            <FormGroup>
+              <Label>Occupation (Optional)</Label>
+              <SelectWrapper>
+                <Select
+                  name="occupation"
+                  value={formData.occupation || ""}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Occupation</option>
+                  <option value="Government / Public Sector">Government / Public Sector</option>
+                  <option value="Private Sector">Private Sector</option>
+                  <option value="Business / Self-Employed">Business / Self-Employed</option>
+                  <option value="Professional">Professional (Doctor, Engineer, Lawyer, etc.)</option>
+                  <option value="Agriculture / Farmer">Agriculture / Farmer</option>
+                  <option value="Daily Wage / Laborer">Daily Wage / Laborer</option>
+                  <option value="Student">Student</option>
+                  <option value="Homemaker">Homemaker</option>
+                  <option value="Retired">Retired</option>
+                  <option value="Others">Others</option>
+                </Select>
+              </SelectWrapper>
+            </FormGroup>
+            <FormGroup>
+              <Label>Yearly Income (Optional)</Label>
+              <SelectWrapper>
+                <Select
+                  name="annualIncome"
+                  value={formData.annualIncome || ""}
+                  onChange={handleChange}
+                >
+                  <option value="">Select Yearly Income</option>
+                  <option value="Below ₹ 1 Lakh">Below ₹ 1 Lakh</option>
+                  <option value="₹ 1 Lakh - ₹ 3 Lakhs">₹ 1 Lakh - ₹ 3 Lakhs</option>
+                  <option value="₹ 3 Lakhs - ₹ 5 Lakhs">₹ 3 Lakhs - ₹ 5 Lakhs</option>
+                  <option value="₹ 5 Lakhs - ₹ 10 Lakhs">₹ 5 Lakhs - ₹ 10 Lakhs</option>
+                  <option value="Above ₹ 10 Lakhs">Above ₹ 10 Lakhs</option>
                 </Select>
               </SelectWrapper>
             </FormGroup>
