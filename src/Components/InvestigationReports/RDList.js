@@ -355,10 +355,22 @@ const StickyTh = styled(Th)`
   box-sizing: border-box;
 
   @media (max-width: 768px) {
-    position: static !important;
-    left: auto !important;
-    box-shadow: none !important;
-    z-index: 1 !important;
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      top: 0 !important;
+      z-index: 35 !important;
+      background-color: #e0f2f1 !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
   }
 `;
 
@@ -374,10 +386,22 @@ const SearchTh = styled.th`
   box-sizing: border-box;
 
   @media (max-width: 768px) {
-    position: static !important;
-    left: auto !important;
-    box-shadow: none !important;
-    z-index: 1 !important;
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      top: 33px !important;
+      z-index: 35 !important;
+      background-color: #f8fffe !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
   }
 `;
 
@@ -390,10 +414,20 @@ const StickyTd = styled(Td)`
   white-space: nowrap;
 
   @media (max-width: 768px) {
-    position: static !important;
-    left: auto !important;
-    box-shadow: none !important;
-    z-index: 1 !important;
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      z-index: 15 !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
   }
 `;
 
@@ -4615,7 +4649,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <StickyTh sticky stickyLeft={180} style={{ width: "105px", minWidth: "105px" }}>UHID</StickyTh>
                   <StickyTh sticky stickyLeft={285} style={{ width: "75px", minWidth: "75px" }}>IP / OP</StickyTh>
                   <StickyTh sticky stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>IP Number</StickyTh>
-                  <StickyTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>Patient Name</StickyTh>
+                  <StickyTh sticky stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px" }}>Patient Name</StickyTh>
                   <StickyTh>Age</StickyTh>
                   <StickyTh>Gender</StickyTh>
                   <StickyTh>Customer Type</StickyTh>
@@ -4666,7 +4700,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       onChange={(e) => setSearchIpNumber(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>
+                  <SearchTh sticky stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px" }}>
                     <SearchInput
                       placeholder="🔍 Patient"
                       value={searchPatient}
@@ -4802,7 +4836,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         </IpOpBadge>
                       </StickyTd>
                       <StickyTd stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>{row.ipNumber || "—"}</StickyTd>
-                      <StickyTd stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px", fontWeight: 600 }}>{row.patientName}</StickyTd>
+                      <StickyTd stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px", fontWeight: 600, backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff" }}>{row.patientName}</StickyTd>
                       <Td>
                         {row.age} {row.age_type}
                       </Td>
