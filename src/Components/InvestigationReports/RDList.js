@@ -105,6 +105,13 @@ const ContentCard = styled.div`
   padding: 1.5rem 2rem;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   margin-bottom: 2rem;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem 0.5rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+  }
 `;
 
 const TopBar = styled.div`
@@ -314,12 +321,21 @@ const ScrollableTableWrapper = styled(TableWrapper)`
   position: relative;
   border-radius: 10px;
   border: 1px solid #e0f2f1;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    max-height: calc(100vh - 180px);
+    overflow-x: auto;
+  }
 `;
 
 const StickyTable = styled(Table)`
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+  min-width: 1400px;
 `;
 
 const StickyTh = styled(Th)`
@@ -337,6 +353,13 @@ const StickyTh = styled(Th)`
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   white-space: nowrap;
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    position: static !important;
+    left: auto !important;
+    box-shadow: none !important;
+    z-index: 1 !important;
+  }
 `;
 
 const SearchTh = styled.th`
@@ -349,6 +372,13 @@ const SearchTh = styled.th`
   ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    position: static !important;
+    left: auto !important;
+    box-shadow: none !important;
+    z-index: 1 !important;
+  }
 `;
 
 const StickyTd = styled(Td)`
@@ -358,6 +388,13 @@ const StickyTd = styled(Td)`
   ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   white-space: nowrap;
+
+  @media (max-width: 768px) {
+    position: static !important;
+    left: auto !important;
+    box-shadow: none !important;
+    z-index: 1 !important;
+  }
 `;
 
 
