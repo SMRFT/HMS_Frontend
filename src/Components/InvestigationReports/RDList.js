@@ -3452,6 +3452,10 @@ const DicomModalOverlay = styled(ModalOverlay)`
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
+
+  @media (max-width: 768px) {
+    padding: 0;
+  }
 `;
 
 const DicomModalContent = styled.div`
@@ -3466,6 +3470,14 @@ const DicomModalContent = styled.div`
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   border: 1px solid #334155;
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    border-radius: 0;
+    border: none;
+  }
 `;
 
 const DicomModalHeader = styled.div`
@@ -3477,6 +3489,11 @@ const DicomModalHeader = styled.div`
   border-bottom: 1px solid #334155;
   flex-wrap: wrap;
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    padding: 0.35rem 0.65rem;
+    gap: 0.35rem;
+  }
 `;
 
 const DicomModalTitle = styled.div`
@@ -3486,6 +3503,11 @@ const DicomModalTitle = styled.div`
   font-weight: 700;
   font-size: 0.95rem;
   color: #38bdf8;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    gap: 0.3rem;
+  }
 `;
 
 const DicomPatientInfo = styled.div`
@@ -3495,6 +3517,11 @@ const DicomPatientInfo = styled.div`
   font-size: 0.82rem;
   color: #94a3b8;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    font-size: 0.72rem;
+    gap: 0.3rem;
+  }
 `;
 
 const DicomInfoBadge = styled.span`
@@ -3504,6 +3531,11 @@ const DicomInfoBadge = styled.span`
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
+
+  @media (max-width: 768px) {
+    padding: 0.1rem 0.35rem;
+    font-size: 0.68rem;
+  }
 `;
 
 const DicomModalBody = styled.div`
@@ -3577,7 +3609,7 @@ const DicomModal = ({ row, viewerUrl, onClose }) => {
           <DicomIframe
             src={viewerUrl}
             title="OHIF DICOM Viewer"
-            allow="fullscreen"
+            allow="fullscreen; accelerometer; gyroscope"
           />
         </DicomModalBody>
       </DicomModalContent>
