@@ -33,7 +33,7 @@ const PageHeader = styled.div`
 `;
 
 const PageTitle = styled.h2`
-  font-size: .92rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #fff;
   margin: 0;
@@ -48,15 +48,15 @@ const TabContainer = styled.div`
 `;
 
 const TabButton = styled.button`
-  padding: 8px 14px;
+  padding: 9px 18px;
   background: ${(p) => (p.active ? "#fff" : colors.background)};
   border: 1px solid ${(p) => (p.active ? colors.border : "transparent")};
   border-bottom: ${(p) => (p.active ? "2px solid #fff" : `1px solid ${colors.border}`)};
   margin-bottom: ${(p) => (p.active ? "-2px" : "0")};
   cursor: pointer;
-  font-weight: ${(p) => (p.active ? "600" : "400")};
+  font-weight: ${(p) => (p.active ? "700" : "500")};
   color: ${(p) => (p.active ? colors.primary : colors.textMuted)};
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   outline: none;
   transition: all 0.2s;
   white-space: nowrap;
