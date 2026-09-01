@@ -87,6 +87,7 @@ const STATUS_CFG = {
   },
 };
 
+const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const pulse = keyframes`0%, 100% { opacity: 1; } 50% { opacity: 0.35; }`;
 const fadeUp = keyframes`from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); }`;
 
@@ -111,21 +112,40 @@ const FilterToolbar = styled.div`
   background: ${T.white};
   border: 1px solid ${T.border};
   border-radius: 7px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   margin-bottom: 8px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 6px;
   box-shadow: ${T.shadowSm};
 `;
 
+const FilterGroup = styled.div`
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 550px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const SearchInpWrap = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
 const SearchInp = styled.input`
-  width: 240px;
-  height: 28px;
-  padding: 0 8px 0 26px;
-  font-size: 0.74rem;
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px 0 28px;
+  font-size: 0.76rem;
   font-family: ${T.font};
   border: 1px solid ${T.border};
   border-radius: 5px;
@@ -138,6 +158,26 @@ const SearchInp = styled.input`
     box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
   }
   &::placeholder { color: ${T.textMuted}; }
+`;
+
+const FilterSelect = styled.select`
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.76rem;
+  font-family: ${T.font};
+  border: 1px solid ${T.border};
+  border-radius: 5px;
+  background: ${T.bg};
+  color: ${T.textMain};
+  outline: none;
+  cursor: pointer;
+  &:focus {
+    background: #fff;
+    border-color: ${T.primary};
+    box-shadow: 0 0 0 2px rgba(13,148,136,0.15);
+  }
 `;
 
 const ColorLegendStrip = styled.div`
@@ -351,9 +391,134 @@ const OccupiedDot = styled.span`
   animation: ${pulse} 1.5s ease-in-out infinite;
 `;
 
-export default function AdmissionGrid({ data, loading, onBedClick }) {
+const HighRiskBadge = styled.span`
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 0.65rem;
+  line-height: 1;
+  animation: ${pulse} 1.2s ease-in-out infinite;
+`;
+
+/* ── Floating Hover Card (Patient Details on Hover) ── */
+const HoverCard = styled.div`
+  position: fixed;
+  top: ${p => p.top}px;
+  left: ${p => p.left}px;
+  transform: ${p => p.placement === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)"};
+  width: 280px;
+  background: #ffffff;
+  border-radius: 9px;
+  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.22), 0 4px 6px -2px rgba(0, 0, 0, 0.08);
+  border: 1.5px solid ${p => p.isHighRisk ? "#fca5a5" : "#cbd5e1"};
+  z-index: 99999;
+  pointer-events: none;
+  animation: ${fadeIn} 0.12s ease both;
+  overflow: hidden;
+  font-family: ${T.font};
+`;
+
+const HoverHead = styled.div`
+  background: ${p => p.isHighRisk ? "linear-gradient(135deg, #fef2f2, #fee2e2)" : "linear-gradient(135deg, #f8fafc, #f1f5f9)"};
+  padding: 8px 12px;
+  border-bottom: 1px solid ${p => p.isHighRisk ? "#fecaca" : "#e2e8f0"};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const HoverTitle = styled.div`
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: ${p => p.isHighRisk ? "#991b1b" : "#0f172a"};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const HoverBody = styled.div`
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.72rem;
+  background: #fff;
+`;
+
+const HoverRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+`;
+
+const HoverLbl = styled.span`
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+`;
+
+const HoverVal = styled.span`
+  color: #1e293b;
+  font-weight: 700;
+  text-align: right;
+  word-break: break-word;
+`;
+
+const HoverAlert = styled.div`
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-left: 3px solid #dc2626;
+  border-radius: 5px;
+  padding: 5px 8px;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: #991b1b;
+`;
+
+export default function AdmissionGrid({ data, loading, onBedClick, doctors = [] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(BED_STATUS.AVAILABLE); // Always default to Available
+  const [selectedBlock, setSelectedBlock] = useState("ALL");
+  const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedStation, setSelectedStation] = useState("ALL");
+  const [hoveredBed, setHoveredBed] = useState(null);
+
+  const getDoctorName = (docVal) => {
+    if (!docVal) return "-";
+    let strVal = String(docVal).trim();
+    if (!strVal || strVal === "Dr." || strVal === "-") return "-";
+
+    const cleanId = strVal.replace(/^Dr\.\s*/i, "").trim();
+
+    if (doctors && Array.isArray(doctors) && doctors.length > 0) {
+      const match = doctors.find(d => 
+        String(d.employeeId || "").trim() === cleanId || 
+        String(d.employee_id || "").trim() === cleanId || 
+        String(d.id || "").trim() === cleanId ||
+        String(d.employeeName || "").trim().toLowerCase() === cleanId.toLowerCase()
+      );
+      if (match) {
+        const empName = match.employeeName || match.employee_name || match.name || cleanId;
+        return empName.startsWith("Dr.") ? empName : `Dr. ${empName}`;
+      }
+    }
+
+    if (!/^\d+$/.test(cleanId) && cleanId.length > 1) {
+      return strVal.startsWith("Dr.") ? strVal : `Dr. ${strVal}`;
+    }
+
+    return strVal.startsWith("Dr.") ? strVal : `Dr. ${strVal}`;
+  };
+
+  const getPatientName = (p, ipNumber) => {
+    if (!p) return ipNumber ? `Patient (${ipNumber})` : "Occupied";
+    const name = p.patientname || p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim() || p.first_name;
+    if (name && name.trim()) return name.trim();
+    return ipNumber ? `Patient (${ipNumber})` : "Occupied";
+  };
 
   const stats = useMemo(() => {
     let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
@@ -374,36 +539,103 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
     return { total, available, occupied, notCleaned, reserved, maintenance };
   }, [data]);
 
+  const filterOptions = useMemo(() => {
+    const blocks = new Set();
+    const categories = new Set();
+    const stations = new Set();
+    (data || []).forEach(b => {
+      if (b.block?.block_name) blocks.add(b.block.block_name);
+      Object.values(b.floors || {}).forEach(rooms => {
+        rooms.forEach(room => {
+          const blk = room.block || b.block?.block_name;
+          if (blk) blocks.add(blk);
+          const cat = room.room_category || room.room_type;
+          if (cat) categories.add(cat);
+          if (room.nursing_station) stations.add(room.nursing_station);
+        });
+      });
+    });
+    return {
+      blocks: Array.from(blocks).sort(),
+      categories: Array.from(categories).sort(),
+      stations: Array.from(stations).sort(),
+    };
+  }, [data]);
+
   const filteredData = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     if (!data || !Array.isArray(data)) return [];
 
-    return data.map(b => {
-      const floors = {};
-      Object.entries(b.floors || {}).forEach(([floor, rooms]) => {
-        const matchedRooms = rooms.map(room => {
-          const matchedBeds = (room.beds || []).filter(bed => {
-            if (selectedStatus !== "ALL" && bed.status !== selectedStatus) return false;
-            if (!q) return true;
-            return (
-              String(room.room_number || "").toLowerCase().includes(q) ||
-              String(bed.bed_number || "").toLowerCase().includes(q) ||
-              String(room.room_type || "").toLowerCase().includes(q)
-            );
-          });
-          if (matchedBeds.length > 0) {
-            return { ...room, beds: matchedBeds };
-          }
-          return null;
-        }).filter(Boolean);
+    return data
+      .filter(b => selectedBlock === "ALL" || b.block?.block_name === selectedBlock)
+      .map(b => {
+        const floors = {};
+        Object.entries(b.floors || {}).forEach(([floor, rooms]) => {
+          const matchedRooms = rooms
+            .filter(room => {
+              if (selectedBlock !== "ALL") {
+                const rBlk = String(room.block || b.block?.block_name || "");
+                if (rBlk.toLowerCase() !== selectedBlock.toLowerCase()) return false;
+              }
+              if (selectedCategory !== "ALL") {
+                const rCat = String(room.room_category || room.room_type || "");
+                if (rCat.toLowerCase() !== selectedCategory.toLowerCase()) return false;
+              }
+              if (selectedStation !== "ALL") {
+                const rSt = String(room.nursing_station || "");
+                if (rSt.toLowerCase() !== selectedStation.toLowerCase()) return false;
+              }
+              return true;
+            })
+            .map(room => {
+              const matchedBeds = (room.beds || []).filter(bed => {
+                if (selectedStatus !== "ALL" && bed.status !== selectedStatus) return false;
+                if (!q) return true;
+                const rNo = String(room.room_number || "").toLowerCase();
+                const bNo = String(bed.bed_number || "").toLowerCase();
+                const rCat = String(room.room_category || room.room_type || "").toLowerCase();
+                const rSt = String(room.nursing_station || "").toLowerCase();
+                const pName = String(bed.patient?.patientname || bed.patient?.name || "").toLowerCase();
+                const uhid = String(bed.patient?.uhid || "").toLowerCase();
+                const ipNo = String(bed.ip_number || "").toLowerCase();
+                return (
+                  rNo.includes(q) ||
+                  bNo.includes(q) ||
+                  rCat.includes(q) ||
+                  rSt.includes(q) ||
+                  pName.includes(q) ||
+                  uhid.includes(q) ||
+                  ipNo.includes(q)
+                );
+              });
+              if (matchedBeds.length > 0) {
+                return { ...room, beds: matchedBeds };
+              }
+              return null;
+            })
+            .filter(Boolean);
 
-        if (matchedRooms.length > 0) {
-          floors[floor] = matchedRooms;
-        }
-      });
-      return { ...b, floors };
-    }).filter(b => Object.keys(b.floors).length > 0);
-  }, [data, searchTerm, selectedStatus]);
+          if (matchedRooms.length > 0) {
+            floors[floor] = matchedRooms;
+          }
+        });
+        return { ...b, floors };
+      })
+      .filter(b => Object.keys(b.floors).length > 0);
+  }, [data, searchTerm, selectedStatus, selectedBlock, selectedCategory, selectedStation]);
+
+  const handleMouseEnter = (bed, room, e) => {
+    if (bed.status !== BED_STATUS.OCCUPIED && !bed.patient?.patientname && !bed.patient?.name && !bed.patient?.uhid) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isTop = rect.top > 230;
+    const top = isTop ? rect.top - 8 : rect.bottom + 8;
+    const left = rect.left + rect.width / 2;
+    setHoveredBed({ bed, room, top, left, placement: isTop ? "top" : "bottom" });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredBed(null);
+  };
 
   if (loading) {
     return <div style={{ padding: 40, textAlign: "center", color: T.textMuted }}>⏳ Loading room grid...</div>;
@@ -425,17 +657,50 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
     <GridContainer>
       {/* ── 1. Search & Filter Bar ── */}
       <FilterToolbar>
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: ".74rem", color: T.textMuted }}>🔍</span>
-          <SearchInp
-            type="text"
-            placeholder="Search Room / Bed..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </div>
+        <FilterGroup>
+          <SearchInpWrap>
+            <span style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", fontSize: ".74rem", color: T.textMuted }}>🔍</span>
+            <SearchInp
+              type="text"
+              placeholder="Search Room / Bed / Patient..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </SearchInpWrap>
+
+          <FilterSelect
+            value={selectedBlock}
+            onChange={e => setSelectedBlock(e.target.value)}
+          >
+            <option value="ALL">🏢 All Blocks</option>
+            {filterOptions.blocks.map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+          >
+            <option value="ALL">🏷️ All Categories</option>
+            {filterOptions.categories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            value={selectedStation}
+            onChange={e => setSelectedStation(e.target.value)}
+          >
+            <option value="ALL">🩺 All Stations</option>
+            {filterOptions.stations.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </FilterSelect>
+        </FilterGroup>
+
         <div style={{ fontSize: "0.72rem", color: T.textMuted, fontWeight: 700 }}>
-          💡 Showing <strong style={{ color: T.greenDk }}>Available Beds</strong> by default. Click any <strong style={{ color: T.greenDk }}>Green</strong> bed to admit a patient, or click filter pills above to view other statuses.
+          💡 Showing <strong style={{ color: T.greenDk }}>Available Beds</strong> by default. Click any <strong style={{ color: T.greenDk }}>Green</strong> bed to admit a patient.
         </div>
       </FilterToolbar>
 
@@ -470,10 +735,9 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
           <BlockTitle>🏢 {b.block?.block_name || "Main Block"}</BlockTitle>
 
           {Object.entries(b.floors || {})
-            .sort(([fA], [fB]) => Number(fA) - Number(fB))
             .map(([floor, rooms]) => (
               <FloorWrap key={floor}>
-                <FloorTitle>Floor {floor}</FloorTitle>
+                <FloorTitle>📍 {floor}</FloorTitle>
 
                 <RoomGridSt>
                   {rooms.map(room => {
@@ -496,6 +760,7 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
                           {(room.beds || []).map((bed, bdIdx) => {
                             const isAv = bed.status === BED_STATUS.AVAILABLE;
                             const isOcc = bed.status === BED_STATUS.OCCUPIED;
+                            const isHr = Boolean(bed.patient?.is_high_risk);
                             const cfg = STATUS_CFG[bed.status] || STATUS_CFG[BED_STATUS.MAINTENANCE];
 
                             return (
@@ -505,8 +770,11 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
                                 selectable={isAv}
                                 title={isAv ? `Bed ${bed.bed_number} — Click to assign` : `Bed ${bed.bed_number} — ${bed.status}`}
                                 onClick={() => isAv && onBedClick(room, bed)}
+                                onMouseEnter={(e) => handleMouseEnter(bed, room, e)}
+                                onMouseLeave={handleMouseLeave}
                               >
                                 {isOcc && <OccupiedDot />}
+                                {isHr && <HighRiskBadge title="High Risk Patient">⚠️</HighRiskBadge>}
                                 <BedMiniSVG color={cfg.color} size={16} />
                                 <BedNoText cfg={cfg}>B{bed.bed_number}</BedNoText>
                                 <BedStatusText cfg={cfg}>{isAv ? "Ready" : cfg.label}</BedStatusText>
@@ -522,6 +790,82 @@ export default function AdmissionGrid({ data, loading, onBedClick }) {
             ))}
         </BlockWrap>
       ))}
+
+      {/* ── Floating Hover Card Popover ── */}
+      {hoveredBed && (() => {
+        const { bed, room, top, left, placement } = hoveredBed;
+        const p = bed.patient || {};
+        const pName = getPatientName(p, bed.ip_number);
+        const docName = getDoctorName(p.admittingDoctor);
+        const isHr = Boolean(p.is_high_risk);
+
+        return (
+          <HoverCard top={top} left={left} placement={placement} isHighRisk={isHr}>
+            <HoverHead isHighRisk={isHr}>
+              <HoverTitle isHighRisk={isHr}>
+                <span>👤</span> {pName}
+              </HoverTitle>
+              <span style={{
+                fontSize: "0.6rem",
+                fontWeight: 800,
+                padding: "2px 6px",
+                borderRadius: 4,
+                background: isHr ? "#fee2e2" : "#dcfce7",
+                color: isHr ? "#b91c1c" : "#15803d"
+              }}>
+                {isHr ? "⚠️ HIGH RISK" : "OCCUPIED"}
+              </span>
+            </HoverHead>
+            <HoverBody>
+              <HoverRow>
+                <HoverLbl>Room / Bed</HoverLbl>
+                <HoverVal>Room {room.room_number} / Bed {bed.bed_number}</HoverVal>
+              </HoverRow>
+              {p.uhid && (
+                <HoverRow>
+                  <HoverLbl>UHID</HoverLbl>
+                  <HoverVal style={{ color: "#0d9488" }}>{p.uhid}</HoverVal>
+                </HoverRow>
+              )}
+              {bed.ip_number && (
+                <HoverRow>
+                  <HoverLbl>IP No</HoverLbl>
+                  <HoverVal style={{ color: "#6d28d9" }}>{bed.ip_number}</HoverVal>
+                </HoverRow>
+              )}
+              {(p.age || p.gender) && (
+                <HoverRow>
+                  <HoverLbl>Age / Gender</HoverLbl>
+                  <HoverVal>{[p.age ? `${p.age} Y` : "", p.gender].filter(Boolean).join(" / ")}</HoverVal>
+                </HoverRow>
+              )}
+              {p.mobilePhone && (
+                <HoverRow>
+                  <HoverLbl>Phone</HoverLbl>
+                  <HoverVal>{p.mobilePhone}</HoverVal>
+                </HoverRow>
+              )}
+              {docName && docName !== "-" && (
+                <HoverRow>
+                  <HoverLbl>Doctor</HoverLbl>
+                  <HoverVal>{docName}</HoverVal>
+                </HoverRow>
+              )}
+              {isHr && (
+                <HoverAlert>
+                  <div style={{ fontWeight: 800, marginBottom: 2 }}>⚠️ High Risk Alert:</div>
+                  <div><strong>Reason:</strong> {p.high_risk_reason || "Critical observation"}</div>
+                  {p.high_risk_date && (
+                    <div style={{ fontSize: "0.62rem", color: "#b91c1c", marginTop: 2 }}>
+                      <strong>Risk Identified:</strong> {p.high_risk_date}
+                    </div>
+                  )}
+                </HoverAlert>
+              )}
+            </HoverBody>
+          </HoverCard>
+        );
+      })()}
     </GridContainer>
   );
 }
