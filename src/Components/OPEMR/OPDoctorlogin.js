@@ -3,6 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import axios from 'axios';
 import apiRequest from '../../Auth/apiRequest';
 import { toast } from 'react-toastify';
+import Select, { components } from 'react-select';
 import {
   User,
   Activity,
@@ -598,25 +599,192 @@ const TextArea = styled.textarea`
 
 const DatePickerWrapper = styled.div`
   display: flex;
-  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
-
-  input[type="date"] {
+  gap: 12px;
+  
+  input {
     padding: 10px 14px;
-    border-radius: 10px;
     border: 1px solid #cbd5e1;
+    border-radius: 8px;
     font-size: 0.9rem;
     font-family: inherit;
     outline: none;
-    cursor: pointer;
-
+    
     &:focus {
       border-color: #0d9488;
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
     }
   }
 `;
+
+
+
+// --- Timeline UI ---
+const TimelineBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+`;
+
+const TimelineItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .icon-box {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: ${props => props.$bg || '#f1f5f9'};
+    color: ${props => props.$color || '#64748b'};
+  }
+
+  .details {
+    display: flex;
+    flex-direction: column;
+
+    .label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .time {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+  }
+`;
+
+const WaitTimeBadge = styled.div`
+  background: ${props => props.$isLongWait ? '#fef2f2' : '#f0fdf4'};
+  color: ${props => props.$isLongWait ? '#b91c1c' : '#15803d'};
+  border: 1px solid ${props => props.$isLongWait ? '#fecaca' : '#bbf7d0'};
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+// --- Tabs UI ---
+const TabNav = styled.div`
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0px;
+  overflow-x: auto;
+`;
+
+const TabButton = styled.button`
+  background: transparent;
+  color: ${props => props.$active ? (props.$iconColor || '#0d9488') : '#64748b'};
+  border: none;
+  border-bottom: 3px solid ${props => props.$active ? (props.$iconColor || '#0d9488') : 'transparent'};
+  padding: 12px 20px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  margin-bottom: -2px; 
+
+  &:hover {
+    color: ${props => props.$active ? (props.$iconColor || '#0d9488') : '#334155'};
+    background: #f1f5f9;
+    border-radius: 8px 8px 0 0;
+  }
+  
+  svg {
+    color: ${props => props.$active ? (props.$iconColor || '#0d9488') : '#94a3b8'};
+    transition: color 0.2s;
+  }
+`;
+
+const TabContent = styled.div`
+  animation: ${fadeIn} 0.3s ease;
+`;
+
+// --- Checkbox Grid for Past History ---
+const CheckboxGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #334155;
+  cursor: pointer;
+  
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #0d9488;
+  }
+`;
+
+const PainScaleContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 20px 10px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow-x: auto;
+  gap: 8px;
+`;
+
+const PainCircle = styled.div`
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1rem;
+  border: 2px solid ${props => props.$active ? '#0d9488' : '#cbd5e1'};
+  background: ${props => props.$active ? '#0d9488' : 'white'};
+  color: ${props => props.$active ? 'white' : '#64748b'};
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: #0d9488;
+    color: ${props => props.$active ? 'white' : '#0d9488'};
+  }
+`;
+
 
 const ShortcutButton = styled.button`
   padding: 6px 12px;
@@ -661,72 +829,205 @@ const ModalContent = styled.div`
 `;
 
 // --- Past History & Bottom Action Components ---
-const HistoryTimeline = styled.div`
+const HistorySplitLayout = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 12px;
+  gap: 24px;
+  height: 65vh;
+  margin-top: 16px;
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    height: auto;
+  }
 `;
 
-const HistoryCard = styled.div`
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 18px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: all 0.2s ease;
+const HistorySidebar = styled.div`
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 8px;
+  
+  /* Scrollbar styling */
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+`;
 
+const HistorySidebarCard = styled.div`
+  background: ${props => props.$active ? '#bae6fd' : '#f0fdf4'};
+  border: 1px solid ${props => props.$active ? '#7dd3fc' : '#bbf7d0'};
+  padding: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  transition: all 0.2s;
+  
   &:hover {
-    border-color: #0d9488;
-    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.08);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transform: translateY(-1px);
   }
 
-  .history-header {
+  .patient-info {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 10px;
-    margin-bottom: 14px;
-    border-bottom: 1px dashed #cbd5e1;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.875rem;
+    color: #1e293b;
+    font-weight: 500;
+  }
 
-    .date {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: #0f172a;
+  .date-info {
+    font-size: 0.8125rem;
+    color: #475569;
+  }
+`;
+
+const HistoryDetailPane = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 24px 8px;
+  
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+`;
+
+const HistoryDetailHeader = styled.h3`
+  font-size: 1.25rem;
+  color: #0d9488;
+  margin: 0 0 16px 0;
+  font-weight: 600;
+`;
+
+const ThemeSectionBox = styled.div`
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    color: #0f172a;
+    margin-bottom: 12px;
+    font-weight: 700;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 10px;
+    
+    svg {
+      color: #0d9488;
+    }
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 0.875rem;
+    color: #334155;
+    li { margin-bottom: 4px; }
+  }
+`;
+
+const HistoryTableContainer = styled.div`
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+`;
+
+const HistoryTableTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+
+  svg { color: #0d9488; }
+`;
+
+const HistoryTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  
+  th {
+    background: #ffffff;
+    color: #64748b;
+    text-align: left;
+    padding: 12px 20px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  
+  td {
+    padding: 14px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr:hover td {
+    background: #f8fafc;
+  }
+`;
+
+const HistoryVitalsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  
+  .vital-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    
+    .icon-wrapper {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #f0fdf4;
+      color: #16a34a;
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      margin-bottom: 12px;
     }
-
-    .doctor {
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: #0d9488;
-      background: #e6fffa;
-      padding: 4px 10px;
-      border-radius: 6px;
-    }
-  }
-
-  .history-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
-    margin-bottom: 10px;
-  }
-
-  .history-section {
-    .label {
-      font-size: 0.75rem;
+    
+    .val { 
+      font-size: 1.25rem; 
+      color: #0f172a; 
       font-weight: 700;
-      color: #64748b;
-      text-transform: uppercase;
-      margin-bottom: 6px;
     }
-
-    .content {
-      font-size: 0.875rem;
-      color: #1e293b;
+    .lbl { 
+      font-size: 0.75rem; 
+      color: #64748b; 
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
     }
   }
 `;
@@ -751,6 +1052,51 @@ const BottomActionBar = styled.div`
     align-items: stretch;
   }
 `;
+// --- Custom React-Select MenuList with Done Button ---
+const CustomMenuList = (props) => {
+  return (
+    <components.MenuList {...props}>
+      {props.children}
+      <div 
+        style={{
+          borderTop: '1px solid #e2e8f0',
+          padding: '8px 12px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          background: '#f8fafc',
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 1
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (document.activeElement) {
+            document.activeElement.blur();
+          }
+        }}
+      >
+        <button 
+          type="button" 
+          style={{
+            background: '#0d9488',
+            color: 'white',
+            border: 'none',
+            padding: '6px 16px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+            fontWeight: '600',
+            pointerEvents: 'none'
+          }}
+        >
+          Done <Check size={14} style={{ display: 'inline', marginLeft: '4px', verticalAlign: 'middle' }} />
+        </button>
+      </div>
+    </components.MenuList>
+  );
+};
+
 
 // --- Main OPDoctorlogin Component ---
 const OPDoctorlogin = () => {
@@ -766,15 +1112,43 @@ const OPDoctorlogin = () => {
   const [loadingMasters, setLoadingMasters] = useState(false);
 
   // Form State
+  const [activeTab, setActiveTab] = useState("vitals");
+  const [allergies, setAllergies] = useState("");
+  const [chiefComplaints, setChiefComplaints] = useState("");
+  const [clinicalPastHistory, setClinicalPastHistory] = useState([]);
+  const [presentMedications, setPresentMedications] = useState("");
+
+  const handleTogglePastHistory = (item) => {
+    if (clinicalPastHistory.includes(item)) {
+      setClinicalPastHistory(clinicalPastHistory.filter(i => i !== item));
+    } else {
+      setClinicalPastHistory([...clinicalPastHistory, item]);
+    }
+  };
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [selectedTestIds, setSelectedTestIds] = useState([]); // Stores test_id
   const [selectedMedicineIds, setSelectedMedicineIds] = useState([]); // Stores item_id
   const [finding, setFinding] = useState("");
+  const [diet, setDiet] = useState("");
+  const [referToDoctor, setReferToDoctor] = useState("");
   const [followupDate, setFollowupDate] = useState("");
+  const [referralDoctors, setReferralDoctors] = useState([]);
 
   // Dropdown UI states and refs
   const [symptomDropdownOpen, setSymptomDropdownOpen] = useState(false);
   const [symptomSearch, setSymptomSearch] = useState("");
+
+  const [prescriptionData, setPrescriptionData] = useState({});
+
+  const handlePrescriptionChange = (itemId, field, value) => {
+    setPrescriptionData(prev => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || { dosage: '', frequency: '', duration: '', total_dosage: '' }),
+        [field]: value
+      }
+    }));
+  };
 
   const [testDropdownOpen, setTestDropdownOpen] = useState(false);
   const [testSearch, setTestSearch] = useState("");
@@ -782,9 +1156,13 @@ const OPDoctorlogin = () => {
   const [medicineDropdownOpen, setMedicineDropdownOpen] = useState(false);
   const [medicineSearch, setMedicineSearch] = useState("");
 
+  const [doctorDropdownOpen, setDoctorDropdownOpen] = useState(false);
+  const [doctorSearch, setDoctorSearch] = useState("");
+
   const symptomDropdownRef = useRef(null);
   const testDropdownRef = useRef(null);
   const medicineDropdownRef = useRef(null);
+  const doctorDropdownRef = useRef(null);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -798,6 +1176,9 @@ const OPDoctorlogin = () => {
       if (medicineDropdownRef.current && !medicineDropdownRef.current.contains(event.target)) {
         setMedicineDropdownOpen(false);
       }
+      if (doctorDropdownRef.current && !doctorDropdownRef.current.contains(event.target)) {
+        setDoctorDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -808,6 +1189,7 @@ const OPDoctorlogin = () => {
   // Modal & History State
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
   const [savingConsultation, setSavingConsultation] = useState(false);
   const [pastHistory, setPastHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -823,6 +1205,11 @@ const OPDoctorlogin = () => {
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/?uhid=${encodeURIComponent(uhid)}`, "GET");
       if (res.success && Array.isArray(res.data)) {
         setPastHistory(res.data);
+        if (res.data.length > 0) {
+          setSelectedHistoryItem(res.data[0]);
+        } else {
+          setSelectedHistoryItem(null);
+        }
       }
     } catch (err) {
       console.error("Error fetching past history:", err);
@@ -834,6 +1221,15 @@ const OPDoctorlogin = () => {
   useEffect(() => {
     if (selectedPatient?.patient?.uhid) {
       fetchPastHistory(selectedPatient.patient.uhid);
+      
+      // Reset form state for new patient
+      setSelectedSymptoms([]);
+      setSelectedTestIds([]);
+      setSelectedMedicineIds([]);
+      setFinding("");
+      setDiet("");
+      setReferToDoctor("");
+      setFollowupDate("");
     }
   }, [selectedPatient]);
 
@@ -843,16 +1239,22 @@ const OPDoctorlogin = () => {
     fetchSymptoms();
     fetchDiagnosticsTests();
     fetchMedicines();
+    fetchReferralDoctors();
   }, []);
 
   const fetchBilledPatients = async () => {
     setLoadingPatients(true);
     try {
-      const res = await apiRequest(`${Hmsbaseurl}OPEMR_VitalEntry/`, "GET");
+      const authUserId = localStorage.getItem("auth_user_id");
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_billing_patient/`, "GET", null, {
+        "auth-user-id": authUserId
+      });
       if (res.success && res.data) {
         setPatients(res.data);
         if (res.data.length > 0) {
           setSelectedPatient(res.data[0]);
+        } else {
+          setSelectedPatient(null);
         }
       } else {
         toast.error(res.error || "Failed to load patient queue.");
@@ -876,6 +1278,21 @@ const OPDoctorlogin = () => {
       console.error("Error fetching symptoms:", err);
     } finally {
       setLoadingMasters(false);
+    }
+  };
+
+  const fetchReferralDoctors = async () => {
+    try {
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_referral_doctors/`, "GET");
+      if (res.success) {
+        if (Array.isArray(res.data)) {
+          setReferralDoctors(res.data);
+        } else if (res.data && Array.isArray(res.data.data)) {
+          setReferralDoctors(res.data.data);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching referral doctors:", err);
     }
   };
 
@@ -930,6 +1347,40 @@ const OPDoctorlogin = () => {
     return medicineList.filter(m => m.item_name.toLowerCase().includes(medicineSearch.toLowerCase()));
   }, [medicineList, medicineSearch]);
 
+  const medicineOptions = useMemo(() => medicineList.map(m => ({ value: m.item_id, label: m.item_name })), [medicineList]);
+  
+  const selectedMedicineOptions = useMemo(() => {
+     return selectedMedicineIds.map(id => {
+       const m = medicineList.find(x => x.item_id === id);
+       return { value: id, label: m ? m.item_name : `Item #${id}` };
+     });
+  }, [selectedMedicineIds, medicineList]);
+
+  const symptomOptions = useMemo(() => symptomList.map(s => ({ value: s, label: s })), [symptomList]);
+  
+  const selectedSymptomOptions = useMemo(() => {
+    return selectedSymptoms.map(s => ({ value: s, label: s }));
+  }, [selectedSymptoms]);
+
+  const testOptions = useMemo(() => testList.map(t => ({ 
+    value: t.test_id, 
+    label: t.department ? `${t.test_name} [${t.department}]` : t.test_name 
+  })), [testList]);
+  
+  const selectedTestOptions = useMemo(() => {
+    return selectedTestIds.map(id => {
+      const t = testList.find(x => x.test_id === id);
+      return { value: id, label: t ? t.test_name : `Test #${id}` };
+    });
+  }, [selectedTestIds, testList]);
+
+  const doctorOptions = useMemo(() => referralDoctors.map(d => ({ value: d.employeeName, label: d.employeeName })), [referralDoctors]);
+
+  const filteredDoctors = useMemo(() => {
+    if (!doctorSearch) return referralDoctors;
+    return referralDoctors.filter(d => d.employeeName.toLowerCase().includes(doctorSearch.toLowerCase()));
+  }, [referralDoctors, doctorSearch]);
+
   // Toggle symptom selection
   const handleToggleSymptom = (sym) => {
     if (selectedSymptoms.includes(sym)) {
@@ -977,17 +1428,37 @@ const OPDoctorlogin = () => {
       delete cleanVitals.id;
 
       const payload = {
+        "auth-user-id": localStorage.getItem("auth-user-id") || localStorage.getItem("employeeId") || "",
         uhid: selectedPatient.patient?.uhid,
         patient_name: selectedPatient.patient?.patient_name,
+        doctor_id: selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "",
         doctor_name: selectedPatient.patient?.doctorName || "Dr. Consultation",
         vitals: cleanVitals, // id removed!
         symptoms: selectedSymptoms,
         investigation_test_ids: selectedTestIds, // Stored test_id array!
         investigation_details: testList.filter(t => selectedTestIds.includes(t.test_id)),
         prescription_item_ids: selectedMedicineIds, // Stored item_id array!
-        prescription_details: medicineList.filter(m => selectedMedicineIds.includes(m.item_id)),
+        prescription_details: selectedMedicineIds.map(id => {
+          const m = medicineList.find(x => x.item_id === id);
+          if (!m) return null;
+          const pd = prescriptionData[id] || {};
+          return {
+            item_id: id,
+            item_name: m.item_name,
+            dosage: pd.dosage || 'N/A',
+            frequency: pd.frequency || 'N/A',
+            duration: pd.duration || 'N/A',
+            total_dosage: pd.total_dosage || '0'
+          };
+        }).filter(Boolean),
         finding: finding,
-        followup_date: followupDate
+        diet: diet,
+        refer_to_doctor: referToDoctor,
+        followup_date: followupDate,
+        allergies: allergies,
+        chief_complaints: chiefComplaints,
+        past_history: clinicalPastHistory,
+        present_medications: presentMedications
       };
 
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
@@ -1006,7 +1477,8 @@ const OPDoctorlogin = () => {
   };
 
   // Vital entry data extracted from selectedPatient (VitalEntrySerializer)
-  const vitals = selectedPatient?.vital_entry;
+  // Only display vitals if they were recorded for the current visit (vital_status === "Completed")
+  const vitals = selectedPatient?.vital_status === "Completed" ? selectedPatient?.vital_entry : null;
 
   return (
     <Container>
@@ -1065,7 +1537,8 @@ const OPDoctorlogin = () => {
             ) : (
               filteredPatients.map(p => {
                 const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
-                const hasVitals = !!p.vital_entry;
+                // A vital is considered completed for this visit if vital_status is "Completed"
+                const hasVitals = p.vital_status === "Completed";
                 return (
                   <PatientItem
                     key={p.bill_number || p.patient?.uhid}
@@ -1093,7 +1566,9 @@ const OPDoctorlogin = () => {
                           </>
                         )}
                       </div>
-                      <span style={{ color: '#0f766e', fontWeight: 700 }}>₹{p.total_fees || 0}</span>
+                      <span style={{ color: '#64748b', fontSize: '0.75rem', textAlign: 'right' }}>
+                        {p.billed_date ? new Date(p.billed_date).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
                     </div>
                   </PatientItem>
                 );
@@ -1132,8 +1607,125 @@ const OPDoctorlogin = () => {
             </PatientBanner>
           )}
 
-          {/* 1. Vital Entry Serializer Display */}
-          <Card>
+          {selectedPatient && (
+            <>
+              <TabNav>
+                <TabButton $active={activeTab === 'vitals'} $iconColor="#e11d48" onClick={() => setActiveTab('vitals')}>
+                  <Heart size={18} /> Vitals & Exam
+                </TabButton>
+                <TabButton $active={activeTab === 'clinical'} $iconColor="#4f46e5" onClick={() => setActiveTab('clinical')}>
+                  <Stethoscope size={18} /> Clinical Assessment
+                </TabButton>
+                <TabButton $active={activeTab === 'diagnostics'} $iconColor="#d97706" onClick={() => setActiveTab('diagnostics')}>
+                  <Activity size={18} /> Diagnostics
+                </TabButton>
+                <TabButton $active={activeTab === 'plan'} $iconColor="#ef4444" onClick={() => setActiveTab('plan')}>
+                  <Pill size={18} /> Plan & Prescriptions
+                </TabButton>
+              </TabNav>
+
+              {/* Wait Time Timeline */}
+              <TimelineBar>
+                <TimelineItem $bg="#f0fdf4" $color="#16a34a">
+                  <div className="icon-box"><Clock size={18} /></div>
+                  <div className="details">
+                    <span className="label">Billed Time</span>
+                    <span className="time">
+                      {selectedPatient.billed_date ? new Date(selectedPatient.billed_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                    </span>
+                  </div>
+                </TimelineItem>
+
+                <TimelineItem $bg="#eff6ff" $color="#2563eb">
+                  <div className="icon-box"><Heart size={18} /></div>
+                  <div className="details">
+                    <span className="label">Vitals Taken</span>
+                    <span className="time">
+                      {selectedPatient.vital_entry?.vital_entry_date ? new Date(selectedPatient.vital_entry.vital_entry_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Pending'}
+                    </span>
+                  </div>
+                </TimelineItem>
+                
+                <TimelineItem $bg="#fff7ed" $color="#ea580c">
+                  <div className="icon-box"><Stethoscope size={18} /></div>
+                  <div className="details">
+                    <span className="label">Consultation Started</span>
+                    <span className="time">
+                      {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                  </div>
+                </TimelineItem>
+
+                {(() => {
+                  if (!selectedPatient.billed_date) return null;
+                  const billedTime = new Date(selectedPatient.billed_date).getTime();
+                  const now = new Date().getTime();
+                  const diffMs = now - billedTime;
+                  const diffMins = Math.floor(diffMs / 60000);
+                  const hours = Math.floor(diffMins / 60);
+                  const mins = diffMins % 60;
+                  const waitText = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
+                  return (
+                    <WaitTimeBadge $isLongWait={diffMins > 60}>
+                      <Clock size={16} /> Total Wait: {waitText}
+                    </WaitTimeBadge>
+                  );
+                })()}
+              </TimelineBar>
+
+
+              {activeTab === 'clinical' && (
+                <TabContent>
+                  <Card>
+                    <CardTitle><AlertCircle size={20} /> Allergies</CardTitle>
+                    <TextArea placeholder="Enter any known allergies..." value={allergies} onChange={e => setAllergies(e.target.value)} style={{ minHeight: '60px' }} />
+                  </Card>
+
+                  <Card>
+                    <CardTitle><FileText size={20} /> Chief Complaints</CardTitle>
+                    <TextArea placeholder="Enter chief complaints..." value={chiefComplaints} onChange={e => setChiefComplaints(e.target.value)} style={{ minHeight: '80px' }} />
+                  </Card>
+
+                  <Card>
+                    <CardTitle><FileText size={20} /> Past History</CardTitle>
+                    <CheckboxGrid>
+                      {['HTN', 'CAD', 'DM', 'PTB', 'COPD', 'APD', 'THYROID DISEASE', 'JAUNDICE', 'SURGICAL ILLNESS', 'SEIZURE DISORDERS'].map(item => (
+                        <CheckboxLabel key={item}>
+                          <input type="checkbox" checked={clinicalPastHistory.includes(item)} onChange={() => handleTogglePastHistory(item)} />
+                          {item}
+                        </CheckboxLabel>
+                      ))}
+                      <CheckboxLabel style={{ gridColumn: '1 / -1' }}>
+                        <input type="checkbox" checked={clinicalPastHistory.some(h => typeof h === 'string' && h.startsWith('OTHERS:'))} onChange={(e) => {
+                          if (e.target.checked) setClinicalPastHistory([...clinicalPastHistory, 'OTHERS: ']);
+                          else setClinicalPastHistory(clinicalPastHistory.filter(h => typeof h !== 'string' || !h.startsWith('OTHERS:')));
+                        }} />
+                        OTHERS 
+                        <input type="text" style={{ marginLeft: '8px', borderBottom: '1px solid #cbd5e1', borderTop: 'none', borderLeft: 'none', borderRight: 'none', outline: 'none' }} placeholder="Specify" 
+                          value={clinicalPastHistory.find(h => typeof h === 'string' && h.startsWith('OTHERS:'))?.replace('OTHERS: ', '') || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setClinicalPastHistory(prev => {
+                              const filtered = prev.filter(h => typeof h !== 'string' || !h.startsWith('OTHERS:'));
+                              return val ? [...filtered, `OTHERS: ${val}`] : filtered;
+                            });
+                          }}
+                        />
+                      </CheckboxLabel>
+                    </CheckboxGrid>
+                  </Card>
+
+                  <Card>
+                    <CardTitle><Activity size={20} /> Present Medications</CardTitle>
+                    <TextArea placeholder="Enter present medications..." value={presentMedications} onChange={e => setPresentMedications(e.target.value)} style={{ minHeight: '80px' }} />
+                  </Card>
+                </TabContent>
+              )}
+
+              {activeTab === 'vitals' && (
+                <TabContent>
+                  {/* 1. Vital Entry Serializer Display */}
+                  <Card>
             <CardTitle>
               <Activity size={20} /> Patient Vital Signs (VitalEntrySerializer Data)
             </CardTitle>
@@ -1224,10 +1816,19 @@ const OPDoctorlogin = () => {
                       {vitals.blood_sugar || '--'} <span className="unit">mg/dL</span>
                     </div>
                   </VitalItem>
+
+                  <VitalItem $iconColor="#f43f5e">
+                    <div className="header">
+                      <Activity size={16} /> Pain Score
+                    </div>
+                    <div className="value">
+                      {vitals.pain_score != null ? vitals.pain_score : '--'} <span className="unit">/ 10</span>
+                    </div>
+                  </VitalItem>
                 </VitalsGrid>
 
                 <VitalDateBadge>
-                  <Clock size={16} /> Vital Recorded Date: {vitals.vital_entry_date ? new Date(vitals.vital_entry_date).toLocaleString() : 'N/A'}
+                  <Clock size={16} /> Vital Recorded Date: {vitals.vital_entry_date ? new Date(vitals.vital_entry_date).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : 'N/A'}
                 </VitalDateBadge>
               </>
             ) : (
@@ -1237,67 +1838,40 @@ const OPDoctorlogin = () => {
               </div>
             )}
           </Card>
+                </TabContent>
+              )}
 
+              {activeTab === 'diagnostics' && (
+                <TabContent>
           {/* 2. Diagnostics Dropdown (HMS_Symptoms_list) */}
           <Card>
             <CardTitle>
               <Stethoscope size={20} /> Diagnostics / Symptoms (from HMS_Symptoms_list)
             </CardTitle>
-
-            <DropdownContainer ref={symptomDropdownRef}>
-              <DropdownTrigger
-                $isOpen={symptomDropdownOpen}
-                onClick={() => setSymptomDropdownOpen(!symptomDropdownOpen)}
-              >
-                {selectedSymptoms.length > 0 ? (
-                  <SelectedBadges>
-                    {selectedSymptoms.map(sym => (
-                      <BadgeTag key={sym} onClick={(e) => { e.stopPropagation(); handleToggleSymptom(sym); }}>
-                        {sym} <X size={14} />
-                      </BadgeTag>
-                    ))}
-                  </SelectedBadges>
-                ) : (
-                  <span style={{ color: '#94a3b8' }}>Select symptoms from HMS_Symptoms_list...</span>
-                )}
-                <ChevronRight size={18} style={{ transform: symptomDropdownOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-              </DropdownTrigger>
-
-              {symptomDropdownOpen && (
-                <DropdownMenu>
-                  <DropdownMenuHeader>
-                    <span className="count">{selectedSymptoms.length} Symptoms Selected</span>
-                    <button type="button" className="close-btn" onClick={() => setSymptomDropdownOpen(false)}>
-                      Done <Check size={12} />
-                    </button>
-                  </DropdownMenuHeader>
-                  <DropdownSearchInput
-                    type="text"
-                    placeholder="Search symptoms (Fever, Cold, Cough...)"
-                    value={symptomSearch}
-                    onChange={e => setSymptomSearch(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                  />
-                  {filteredSymptoms.length === 0 ? (
-                    <div style={{ padding: '10px', fontSize: '0.875rem', color: '#94a3b8' }}>No symptoms found</div>
-                  ) : (
-                    filteredSymptoms.map(sym => {
-                      const isSelected = selectedSymptoms.includes(sym);
-                      return (
-                        <DropdownItem
-                          key={sym}
-                          $isSelected={isSelected}
-                          onClick={() => handleToggleSymptom(sym)}
-                        >
-                          <span>{sym}</span>
-                          {isSelected && <Check size={16} />}
-                        </DropdownItem>
-                      );
-                    })
-                  )}
-                </DropdownMenu>
-              )}
-            </DropdownContainer>
+            <div style={{ marginTop: '12px' }}>
+              <Select
+                isMulti
+                closeMenuOnSelect={false}
+                components={{ MenuList: CustomMenuList }}
+                placeholder="Search and select symptoms..."
+                options={symptomOptions}
+                value={selectedSymptomOptions}
+                onChange={(selected) => {
+                  setSelectedSymptoms(selected ? selected.map(s => s.value) : []);
+                }}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderRadius: '8px',
+                    borderColor: '#e2e8f0',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      borderColor: '#cbd5e1'
+                    }
+                  })
+                }}
+              />
+            </div>
           </Card>
 
           {/* 3. Investigation Dropdown (Diagnostics_test_details) */}
@@ -1305,142 +1879,128 @@ const OPDoctorlogin = () => {
             <CardTitle>
               <FileText size={20} /> Investigation Tests (from Diagnostics_test_details)
             </CardTitle>
-
-            <DropdownContainer ref={testDropdownRef}>
-              <DropdownTrigger
-                $isOpen={testDropdownOpen}
-                onClick={() => setTestDropdownOpen(!testDropdownOpen)}
-              >
-                {selectedTestIds.length > 0 ? (
-                  <SelectedBadges>
-                    {selectedTestIds.map(tId => {
-                      const testObj = testList.find(t => t.test_id === tId);
-                      return (
-                        <BadgeTag key={tId} onClick={(e) => { e.stopPropagation(); handleToggleTest(tId); }}>
-                          {testObj ? testObj.test_name : `Test #${tId}`} <X size={14} />
-                        </BadgeTag>
-                      );
-                    })}
-                  </SelectedBadges>
-                ) : (
-                  <span style={{ color: '#94a3b8' }}>Select investigation tests...</span>
-                )}
-                <ChevronRight size={18} style={{ transform: testDropdownOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-              </DropdownTrigger>
-
-              {testDropdownOpen && (
-                <DropdownMenu>
-                  <DropdownMenuHeader>
-                    <span className="count">{selectedTestIds.length} Tests Selected</span>
-                    <button type="button" className="close-btn" onClick={() => setTestDropdownOpen(false)}>
-                      Done <Check size={12} />
-                    </button>
-                  </DropdownMenuHeader>
-                  <DropdownSearchInput
-                    type="text"
-                    placeholder="Search investigation tests..."
-                    value={testSearch}
-                    onChange={e => setTestSearch(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                  />
-                  {filteredTests.length === 0 ? (
-                    <div style={{ padding: '10px', fontSize: '0.875rem', color: '#94a3b8' }}>No tests found</div>
-                  ) : (
-                    filteredTests.map(t => {
-                      const isSelected = selectedTestIds.includes(t.test_id);
-                      return (
-                        <DropdownItem
-                          key={t.test_id}
-                          $isSelected={isSelected}
-                          onClick={() => handleToggleTest(t.test_id)}
-                        >
-                          <div>
-                            <span>{t.test_name}</span>
-                            {t.department && (
-                              <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>
-                                [{t.department}]
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            {isSelected && <Check size={16} />}
-                          </div>
-                        </DropdownItem>
-                      );
-                    })
-                  )}
-                </DropdownMenu>
+            <div style={{ marginTop: '12px' }}>
+              <Select
+                isMulti
+                closeMenuOnSelect={false}
+                components={{ MenuList: CustomMenuList }}
+                placeholder="Search and select investigation tests..."
+                options={testOptions}
+                value={selectedTestOptions}
+                onChange={(selected) => {
+                  setSelectedTestIds(selected ? selected.map(s => s.value) : []);
+                }}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderRadius: '8px',
+                    borderColor: '#e2e8f0',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      borderColor: '#cbd5e1'
+                    }
+                  })
+                }}
+              />
+            </div>
+            </Card>
+                </TabContent>
               )}
-            </DropdownContainer>
-          </Card>
 
-          {/* 4. Prescription Dropdown (hospital_pharmacyitem / medicine_package) */}
+              {activeTab === 'plan' && (
+                <TabContent>
+          {/* 4. Prescription Dropdown (hospital_pharmacyitem) */}
           <Card>
             <CardTitle>
               <Pill size={20} /> Prescription / Medicines (from hospital_pharmacyitem)
             </CardTitle>
-
-            <DropdownContainer ref={medicineDropdownRef}>
-              <DropdownTrigger
-                $isOpen={medicineDropdownOpen}
-                onClick={() => setMedicineDropdownOpen(!medicineDropdownOpen)}
-              >
-                {selectedMedicineIds.length > 0 ? (
-                  <SelectedBadges>
-                    {selectedMedicineIds.map(mId => {
-                      const medObj = medicineList.find(m => m.item_id === mId);
+            <div style={{ marginTop: '12px' }}>
+              <Select
+                isMulti
+                closeMenuOnSelect={false}
+                components={{ MenuList: CustomMenuList }}
+                placeholder="Search and select medicines..."
+                options={medicineOptions}
+                value={selectedMedicineOptions}
+                onChange={(selected) => {
+                  setSelectedMedicineIds(selected ? selected.map(s => s.value) : []);
+                }}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderRadius: '8px',
+                    borderColor: '#e2e8f0',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      borderColor: '#cbd5e1'
+                    }
+                  })
+                }}
+              />
+            </div>
+            
+            {selectedMedicineIds.length > 0 && (
+              <div style={{ marginTop: '16px', overflowX: 'auto' }}>
+                <HistoryTable>
+                  <thead>
+                    <tr>
+                      <th>Medication</th>
+                      <th>Dosage</th>
+                      <th>Frequency</th>
+                      <th>Duration</th>
+                      <th>Total Dosage</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedMedicineIds.map(id => {
+                      const m = medicineList.find(x => x.item_id === id);
+                      const pd = prescriptionData[id] || {};
                       return (
-                        <BadgeTag key={mId} style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }} onClick={(e) => { e.stopPropagation(); handleToggleMedicine(mId); }}>
-                          {medObj ? medObj.item_name : `Item #${mId}`} <X size={14} />
-                        </BadgeTag>
+                        <tr key={id}>
+                          <td style={{ fontWeight: 500 }}>{m ? m.item_name : `Item #${id}`}</td>
+                          <td>
+                            <input 
+                              type="text" 
+                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                              value={pd.dosage || ''}
+                              onChange={e => handlePrescriptionChange(id, 'dosage', e.target.value)}
+                              placeholder="e.g. 500mg"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="text" 
+                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                              value={pd.frequency || ''}
+                              onChange={e => handlePrescriptionChange(id, 'frequency', e.target.value)}
+                              placeholder="e.g. 1-0-1"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="text" 
+                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                              value={pd.duration || ''}
+                              onChange={e => handlePrescriptionChange(id, 'duration', e.target.value)}
+                              placeholder="e.g. 5 days"
+                            />
+                          </td>
+                          <td>
+                            <input 
+                              type="text" 
+                              style={{ width: '80%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                              value={pd.total_dosage || ''}
+                              onChange={e => handlePrescriptionChange(id, 'total_dosage', e.target.value)}
+                              placeholder="e.g. 10"
+                            />
+                          </td>
+                        </tr>
                       );
                     })}
-                  </SelectedBadges>
-                ) : (
-                  <span style={{ color: '#94a3b8' }}>Select medicines...</span>
-                )}
-                <ChevronRight size={18} style={{ transform: medicineDropdownOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-              </DropdownTrigger>
-
-              {medicineDropdownOpen && (
-                <DropdownMenu>
-                  <DropdownMenuHeader>
-                    <span className="count">{selectedMedicineIds.length} Medicines Selected</span>
-                    <button type="button" className="close-btn" onClick={() => setMedicineDropdownOpen(false)}>
-                      Done <Check size={12} />
-                    </button>
-                  </DropdownMenuHeader>
-                  <DropdownSearchInput
-                    type="text"
-                    placeholder="Search medicines by item_name..."
-                    value={medicineSearch}
-                    onChange={e => setMedicineSearch(e.target.value)}
-                    onClick={e => e.stopPropagation()}
-                  />
-                  {filteredMedicines.length === 0 ? (
-                    <div style={{ padding: '10px', fontSize: '0.875rem', color: '#94a3b8' }}>No medicines found</div>
-                  ) : (
-                    filteredMedicines.map(m => {
-                      const isSelected = selectedMedicineIds.includes(m.item_id);
-                      return (
-                        <DropdownItem
-                          key={m.item_id}
-                          $isSelected={isSelected}
-                          onClick={() => handleToggleMedicine(m.item_id)}
-                        >
-                          <div>
-                            <span>{m.item_name}</span>
-                          </div>
-                          <div>
-                            {isSelected && <Check size={16} />}
-                          </div>
-                        </DropdownItem>
-                      );
-                    })
-                  )}
-                </DropdownMenu>
-              )}
-            </DropdownContainer>
+                  </tbody>
+                </HistoryTable>
+              </div>
+            )}
           </Card>
 
           {/* 5. Finding - Input Box */}
@@ -1453,6 +2013,48 @@ const OPDoctorlogin = () => {
               value={finding}
               onChange={e => setFinding(e.target.value)}
             />
+          </Card>
+
+          {/* Diet Instructions - Input Box */}
+          <Card>
+            <CardTitle>
+              <FileText size={20} /> Diet Instructions
+            </CardTitle>
+            <TextArea
+              placeholder="Enter diet recommendations for the patient..."
+              value={diet}
+              onChange={e => setDiet(e.target.value)}
+              style={{ minHeight: '80px' }}
+            />
+          </Card>
+
+          {/* Referral Doctor Dropdown */}
+          <Card>
+            <CardTitle>
+              <Activity size={20} /> Refer to Doctor
+            </CardTitle>
+            <div style={{ marginTop: '12px' }}>
+              <Select
+                isClearable
+                placeholder="Search and select a doctor..."
+                options={doctorOptions}
+                value={referToDoctor ? { value: referToDoctor, label: referToDoctor } : null}
+                onChange={(selected) => {
+                  setReferToDoctor(selected ? selected.value : "");
+                }}
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderRadius: '8px',
+                    borderColor: '#e2e8f0',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      borderColor: '#cbd5e1'
+                    }
+                  })
+                }}
+              />
+            </div>
           </Card>
 
           {/* 6. Followup Date Picker */}
@@ -1477,6 +2079,8 @@ const OPDoctorlogin = () => {
               )}
             </DatePickerWrapper>
           </Card>
+                </TabContent>
+              )}
 
           {/* Bottom Action Bar: Only Save Consultation at Bottom of Page */}
           <BottomActionBar style={{ justifyContent: 'flex-end' }}>
@@ -1490,13 +2094,15 @@ const OPDoctorlogin = () => {
               {savingConsultation ? "Saving..." : "Save Consultation"}
             </Button>
           </BottomActionBar>
+          </>
+          )}
         </Workspace>
       </MainGrid>
 
       {/* Past History Modal */}
       {showHistoryModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowHistoryModal(false)}>
-          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '750px' }}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Clock size={22} style={{ color: '#0d9488' }} />
@@ -1514,90 +2120,159 @@ const OPDoctorlogin = () => {
                 No prior consultation records found for this patient.
               </div>
             ) : (
-              <HistoryTimeline>
-                {pastHistory.map((item, idx) => (
-                  <HistoryCard key={item._id || idx}>
-                    <div className="history-header">
-                      <div className="date">
-                        <Calendar size={16} />
-                        {item.created_date ? new Date(item.created_date).toLocaleString() : 'Past Record'}
-                      </div>
-                      <div className="doctor">
-                        Dr. {item.doctor_name || 'Consultant'}
-                      </div>
+              <HistorySplitLayout>
+                <HistorySidebar>
+                  {pastHistory.map((item, idx) => {
+                    const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
+                    return (
+                      <HistorySidebarCard 
+                        key={item._id || idx} 
+                        $active={isActive}
+                        onClick={() => setSelectedHistoryItem(item)}
+                      >
+                        <div className="patient-info">
+                          <span>{selectedPatient?.patient?.patient_name || item.patient_name || 'Patient'}</span>
+                          <span>{selectedPatient?.patient?.uhid || item.uhid || ''}</span>
+                        </div>
+                        <div className="date-info">
+                          {item.created_date ? new Date(item.created_date).toLocaleDateString() : ''}
+                        </div>
+                      </HistorySidebarCard>
+                    );
+                  })}
+                </HistorySidebar>
+
+                <HistoryDetailPane>
+                  {selectedHistoryItem ? (
+                    <>
+                      <HistoryDetailHeader>
+                        Medical History - {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleDateString() : ''}
+                      </HistoryDetailHeader>
+
+
+                      {/* Vitals Grid */}
+                      {selectedHistoryItem.vitals && Object.keys(selectedHistoryItem.vitals).length > 0 && (
+                        <HistoryVitalsGrid>
+                          <div className="vital-card">
+                            <div className="icon-wrapper" style={{ background: '#fef2f2', color: '#ef4444' }}><Heart size={16} /></div>
+                            <div className="val">{selectedHistoryItem.vitals.pulse_rate || '--'}</div>
+                            <div className="lbl">Pulse Rate</div>
+                          </div>
+                          <div className="vital-card">
+                            <div className="icon-wrapper" style={{ background: '#eff6ff', color: '#3b82f6' }}><Activity size={16} /></div>
+                            <div className="val">{selectedHistoryItem.vitals.bp || '--'}</div>
+                            <div className="lbl">Blood Pressure</div>
+                          </div>
+                          <div className="vital-card">
+                            <div className="icon-wrapper" style={{ background: '#fffbeb', color: '#f59e0b' }}><Thermometer size={16} /></div>
+                            <div className="val">{selectedHistoryItem.vitals.temp || '--'}</div>
+                            <div className="lbl">Temperature</div>
+                          </div>
+                          <div className="vital-card">
+                            <div className="icon-wrapper" style={{ background: '#f0fdf4', color: '#22c55e' }}><Scale size={16} /></div>
+                            <div className="val">{selectedHistoryItem.vitals.weight || '--'} kg</div>
+                            <div className="lbl">Weight</div>
+                          </div>
+                        </HistoryVitalsGrid>
+                      )}
+
+                      <ThemeSectionBox>
+                        <div className="title"><Stethoscope size={18} /> Clinical Assessment</div>
+                        <ul style={{ listStyleType: 'disc' }}>
+                          {selectedHistoryItem.allergies && <li><span style={{fontWeight:600}}>Allergies:</span> {selectedHistoryItem.allergies}</li>}
+                          {selectedHistoryItem.chief_complaints && <li><span style={{fontWeight:600}}>Chief Complaints:</span> {selectedHistoryItem.chief_complaints}</li>}
+                          {selectedHistoryItem.symptoms?.map(s => <li key={s}><span style={{fontWeight:600}}>Symptom:</span> {s}</li>)}
+                          {(!selectedHistoryItem.allergies && !selectedHistoryItem.chief_complaints && !selectedHistoryItem.symptoms?.length) && <li style={{color:'#94a3b8'}}>No clinical assessment recorded.</li>}
+                        </ul>
+                      </ThemeSectionBox>
+
+                      <ThemeSectionBox>
+                        <div className="title"><FileText size={18} /> Diagnosis & Findings</div>
+                        <ul style={{ listStyleType: 'disc' }}>
+                          {selectedHistoryItem.finding && <li>{selectedHistoryItem.finding}</li>}
+                          {!selectedHistoryItem.finding && <li style={{color:'#94a3b8'}}>No diagnosis or findings recorded.</li>}
+                        </ul>
+                      </ThemeSectionBox>
+
+                      {/* Investigations */}
+                      <HistoryTableContainer>
+                        <HistoryTableTitle><Activity size={18} /> Investigations Ordered</HistoryTableTitle>
+                        <HistoryTable>
+                          <thead>
+                            <tr>
+                              <th>Test Name</th>
+                              <th>Department</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedHistoryItem.investigation_details?.length > 0 ? (
+                              selectedHistoryItem.investigation_details.map(t => (
+                                <tr key={t.test_id}>
+                                  <td>{t.test_name}</td>
+                                  <td>{t.department || 'N/A'}</td>
+                                  <td><span style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>Ordered</span></td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No investigations ordered.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </HistoryTable>
+                      </HistoryTableContainer>
+
+                      {/* Prescriptions */}
+                      <HistoryTableContainer>
+                        <HistoryTableTitle><Pill size={18} /> Prescriptions</HistoryTableTitle>
+                        <HistoryTable>
+                          <thead>
+                            <tr>
+                              <th>Medication</th>
+                              <th>Dosage</th>
+                              <th>Frequency</th>
+                              <th>Duration</th>
+                              <th>Total Dosage</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedHistoryItem.prescription_details?.length > 0 ? (
+                              selectedHistoryItem.prescription_details.map(m => (
+                                <tr key={m.item_id}>
+                                  <td style={{ fontWeight: 600 }}>{m.item_name}</td>
+                                  <td>{m.dosage || 'N/A'}</td>
+                                  <td>{m.frequency || 'N/A'}</td>
+                                  <td>{m.duration || 'N/A'}</td>
+                                  <td>{m.total_dosage || '0'}</td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8' }}>No prescriptions recorded.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </HistoryTable>
+                      </HistoryTableContainer>
+
+                      <ThemeSectionBox>
+                        <div className="title"><Calendar size={18} /> Plans & Follow-up</div>
+                        <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {selectedHistoryItem.diet && <li><span style={{fontWeight:600, color:'#475569'}}>Diet:</span> {selectedHistoryItem.diet}</li>}
+                          {selectedHistoryItem.refer_to_doctor && <li><span style={{fontWeight:600, color:'#475569'}}>Referred To:</span> Dr. {selectedHistoryItem.refer_to_doctor}</li>}
+                          {selectedHistoryItem.followup_date && <li><span style={{fontWeight:600, color:'#475569'}}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
+                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date) && <li style={{color:'#94a3b8'}}>No follow-up plans recorded.</li>}
+                        </ul>
+                      </ThemeSectionBox>
+                    </>
+                  ) : (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                      Select a date from the left to view details.
                     </div>
-
-                    <div className="history-grid">
-                      {item.symptoms && item.symptoms.length > 0 && (
-                        <div className="history-section">
-                          <div className="label">Symptoms</div>
-                          <div className="content" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {item.symptoms.map(s => (
-                              <BadgeTag key={s} style={{ fontSize: '0.75rem' }}>{s}</BadgeTag>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {item.investigation_details && item.investigation_details.length > 0 && (
-                        <div className="history-section">
-                          <div className="label">Investigations Ordered</div>
-                          <div className="content" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {item.investigation_details.map(t => (
-                              <BadgeTag key={t.test_id} style={{ fontSize: '0.75rem', background: '#f0f9ff', color: '#0369a1', borderColor: '#bae6fd' }}>
-                                {t.test_name} (ID: {t.test_id})
-                              </BadgeTag>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {item.prescription_details && item.prescription_details.length > 0 && (
-                        <div className="history-section">
-                          <div className="label">Prescriptions / Medicines</div>
-                          <div className="content" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {item.prescription_details.map(m => (
-                              <BadgeTag key={m.item_id} style={{ fontSize: '0.75rem', background: '#fef3c7', color: '#92400e', borderColor: '#fde68a' }}>
-                                {m.item_name} (ID: {m.item_id})
-                              </BadgeTag>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {item.vitals && Object.keys(item.vitals).length > 0 && (
-                      <div className="history-section" style={{ marginBottom: '10px' }}>
-                        <div className="label">Vitals Snapshot</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.8125rem', color: '#334155', background: '#f1f5f9', padding: '8px 12px', borderRadius: '8px' }}>
-                          {item.vitals.bp && <span><strong>BP:</strong> {item.vitals.bp} mmHg</span>}
-                          {item.vitals.pulse_rate && <span><strong>Pulse:</strong> {item.vitals.pulse_rate} bpm</span>}
-                          {item.vitals.temp && <span><strong>Temp:</strong> {item.vitals.temp} °F</span>}
-                          {item.vitals.bmi && <span><strong>BMI:</strong> {item.vitals.bmi}</span>}
-                          {item.vitals.blood_sugar && <span><strong>Sugar:</strong> {item.vitals.blood_sugar} mg/dL</span>}
-                        </div>
-                      </div>
-                    )}
-
-                    {item.finding && (
-                      <div className="history-section">
-                        <div className="label">Clinical Findings</div>
-                        <div className="content" style={{ whiteSpace: 'pre-wrap', background: '#ffffff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                          {item.finding}
-                        </div>
-                      </div>
-                    )}
-
-                    {item.followup_date && (
-                      <div className="history-section" style={{ marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0d9488' }}>
-                          Follow-up Date: {new Date(item.followup_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                  </HistoryCard>
-                ))}
-              </HistoryTimeline>
+                  )}
+                </HistoryDetailPane>
+              </HistorySplitLayout>
             )}
 
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
