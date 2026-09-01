@@ -23,7 +23,7 @@ function setforlocaldev() {
     localStorage.setItem("selected_outlet", selectedOutlet);
   }
   return dev_token;
-}
+}  
 
 // --- Function to redirect to login ---
 function redirectToLogin() {

@@ -337,14 +337,20 @@ export default function Masterhealthcheckupfollowup() {
     if (!activeModalRow) return;
     setSaving(true);
     try {
+      const employeeId = localStorage.getItem("employee_id") || "";
       const payload = {
+        "auth-user-id": employeeId,
         mhc_no: activeModalRow.mhc_no,
         id: activeModalRow.id || activeModalRow._id,
         follow_up: followUpDate,
-        description: description,
+        // Only include description if it has actual content
+        ...(description.trim() ? { description: description.trim() } : {}),
+        // telecaller_id and telecaller_date are stored by the backend from auth-user-id
+        telecaller_id: employeeId,
       };
 
-      const res = await apiRequest(`${Hmsbaseurl}mhc_save_details/`, "POST", payload);
+      // Use PATCH since this is an update to an existing record
+      const res = await apiRequest(`${Hmsbaseurl}mhc_save_details/`, "PATCH", payload);
       if (res.success) {
         toast.success("Follow-up details saved successfully!");
         closeModal();
@@ -503,7 +509,7 @@ export default function Masterhealthcheckupfollowup() {
               </FieldGroup>
             </ModalBody>
             <ModalFooter>
-              <CancelBtn onClick={closeModal} disabled={saving}>Cancel CancelBtn</CancelBtn>
+              <CancelBtn onClick={closeModal} disabled={saving}>Cancel</CancelBtn>
               <SaveBtn onClick={handleSaveFollowup} disabled={saving}>
                 {saving ? "⏳ Saving..." : "💾 Save Changes"}
               </SaveBtn>
