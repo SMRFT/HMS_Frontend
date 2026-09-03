@@ -540,6 +540,7 @@ const initialForm = {
 
   mhc_no: null,
   patient_name: "",
+  registration_date: "",
   age: "",
   gender: "",
   contact_number: "",
@@ -663,6 +664,7 @@ export default function Masterhealthcheck() {
       pharmacy: rec.pharmacy ? parseFloat(rec.pharmacy).toFixed(2) : "",
       ip: rec.ip ? parseFloat(rec.ip).toFixed(2) : "",
       total_fees: rec.total_fees ? parseFloat(rec.total_fees).toFixed(2) : "",
+      registration_date: rec.registration_date || "",
       follow_up: rec.follow_up || "",
       description: rec.description || "",
     });
@@ -926,6 +928,7 @@ export default function Masterhealthcheck() {
 
                         {/* Meta info rows */}
                         <MetaRow>
+                          {rec.registration_date && <span>📅 Reg: {rec.registration_date}</span>}
                           {rec.contact_number && <span>📞 {rec.contact_number}</span>}
                           {rec.package && <span>📦 <strong style={{ color: "#334155" }}>{rec.package}</strong></span>}
                           {rec.package_category && <span>🏷️ {rec.package_category}</span>}
@@ -955,6 +958,7 @@ export default function Masterhealthcheck() {
                       <th>MHC No</th>
                       <th>Patient Name</th>
                       <th>OP Number</th>
+                      <th>Reg Date</th>
                       <th>Age / Gender</th>
                       <th>Contact</th>
                       <th>Package</th>
@@ -975,6 +979,7 @@ export default function Masterhealthcheck() {
                           <td><strong>#{rec.mhc_no || idx + 1}</strong></td>
                           <td style={{ fontWeight: 700, color: "#0f172a" }}>{rec.patient_name}</td>
                           <td>{rec.op_number || "-"}</td>
+                          <td>{rec.registration_date || "-"}</td>
                           <td>{rec.age ? `${rec.age} Yrs` : "-"} {rec.gender ? `/ ${rec.gender}` : ""}</td>
                           <td>{rec.contact_number || "-"}</td>
                           <td><span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontWeight: 700, fontSize: "0.75rem" }}>{rec.package || "-"}</span></td>
@@ -1062,6 +1067,11 @@ export default function Masterhealthcheck() {
                 )}
               </FieldGroup>
               <FieldGroup>
+                <Label>Registration Date</Label>
+                <Input id="mhc-reg-date" name="registration_date" type="date"
+                  value={form.registration_date} onChange={handleChange} />
+              </FieldGroup>
+              <FieldGroup>
                 <Label>Follow Up</Label>
                 <Input id="mhc-follow-up" name="follow_up" type="date"
                   value={form.follow_up} onChange={handleChange} />
@@ -1128,6 +1138,28 @@ export default function Masterhealthcheck() {
                             </DropdownItem>
                           );
                         })}
+                        <div style={{ padding: "8px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", position: "sticky", bottom: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDropOpen(false);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "8px",
+                              background: "#0d9488",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              fontSize: "0.9rem"
+                            }}
+                          >
+                            Done
+                          </button>
+                        </div>
                       </DropdownMenu>
                     )}
                   </MultiSelectWrapper>

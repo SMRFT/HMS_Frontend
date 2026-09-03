@@ -23,6 +23,7 @@ import {
   Plus,
   X,
   Stethoscope,
+  Users,
   Save,
   Printer,
   ChevronRight,
@@ -33,7 +34,7 @@ import {
   Pill
 } from 'lucide-react';
 
-const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL ;
+const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 // --- Animations ---
 const fadeIn = keyframes`
@@ -155,7 +156,7 @@ const Button = styled.button`
 
 const MainGrid = styled.div`
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 1fr;
   gap: 24px;
   animation: ${fadeIn} 0.4s ease;
 
@@ -376,18 +377,20 @@ const VitalsGrid = styled.div`
 `;
 
 const VitalItem = styled.div`
-  background: #f8fafc;
+  background: #ffffff;
   border-radius: 12px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid #e2e8f0;
+  border-left: 4px solid ${props => props.$iconColor || '#cbd5e1'};
   display: flex;
   flex-direction: column;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 
   &:hover {
-    border-color: #cbd5e1;
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-color: ${props => props.$iconColor || '#cbd5e1'};
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
   }
 
   .header {
@@ -625,34 +628,52 @@ const TimelineBar = styled.div`
   justify-content: space-between;
   align-items: center;
   background: white;
-  padding: 12px 20px;
+  padding: 24px 20px 20px 20px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 16px;
+  position: relative;
+  
+  /* Line tracking */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 42px; /* 24px padding + 18px (half of 36px icon) */
+    left: 80px;
+    right: 230px;
+    height: 4px;
+    background: #cbd5e1;
+    z-index: 1;
+  }
 `;
 
 const TimelineItem = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
+  z-index: 2;
 
   .icon-box {
     width: 36px;
     height: 36px;
-    border-radius: 10px;
+    border-radius: 50%; /* Circle for tracking nodes */
     display: flex;
     align-items: center;
     justify-content: center;
     background: ${props => props.$bg || '#f1f5f9'};
     color: ${props => props.$color || '#64748b'};
+    box-shadow: 0 0 0 4px #fff; /* White halo to break the line */
   }
 
   .details {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
 
     .label {
       font-size: 0.75rem;
@@ -1057,7 +1078,7 @@ const CustomMenuList = (props) => {
   return (
     <components.MenuList {...props}>
       {props.children}
-      <div 
+      <div
         style={{
           borderTop: '1px solid #e2e8f0',
           padding: '8px 12px',
@@ -1076,8 +1097,8 @@ const CustomMenuList = (props) => {
           }
         }}
       >
-        <button 
-          type="button" 
+        <button
+          type="button"
           style={{
             background: '#0d9488',
             color: 'white',
@@ -1113,6 +1134,18 @@ const OPDoctorlogin = () => {
 
   // Form State
   const [activeTab, setActiveTab] = useState("vitals");
+  const [consultationStartTimes, setConsultationStartTimes] = useState(() => {
+    try {
+      const saved = localStorage.getItem("consultationStartTimes");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("consultationStartTimes", JSON.stringify(consultationStartTimes));
+  }, [consultationStartTimes]);
   const [allergies, setAllergies] = useState("");
   const [chiefComplaints, setChiefComplaints] = useState("");
   const [clinicalPastHistory, setClinicalPastHistory] = useState([]);
@@ -1136,6 +1169,7 @@ const OPDoctorlogin = () => {
 
   // Dropdown UI states and refs
   const [symptomDropdownOpen, setSymptomDropdownOpen] = useState(false);
+  const [showWaitingModal, setShowWaitingModal] = useState(false);
   const [symptomSearch, setSymptomSearch] = useState("");
 
   const [prescriptionData, setPrescriptionData] = useState({});
@@ -1221,7 +1255,7 @@ const OPDoctorlogin = () => {
   useEffect(() => {
     if (selectedPatient?.patient?.uhid) {
       fetchPastHistory(selectedPatient.patient.uhid);
-      
+
       // Reset form state for new patient
       setSelectedSymptoms([]);
       setSelectedTestIds([]);
@@ -1245,17 +1279,9 @@ const OPDoctorlogin = () => {
   const fetchBilledPatients = async () => {
     setLoadingPatients(true);
     try {
-      const authUserId = localStorage.getItem("auth_user_id");
-      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_billing_patient/`, "GET", null, {
-        "auth-user-id": authUserId
-      });
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_billing_patient/`, "GET");
       if (res.success && res.data) {
         setPatients(res.data);
-        if (res.data.length > 0) {
-          setSelectedPatient(res.data[0]);
-        } else {
-          setSelectedPatient(null);
-        }
       } else {
         toast.error(res.error || "Failed to load patient queue.");
       }
@@ -1348,25 +1374,25 @@ const OPDoctorlogin = () => {
   }, [medicineList, medicineSearch]);
 
   const medicineOptions = useMemo(() => medicineList.map(m => ({ value: m.item_id, label: m.item_name })), [medicineList]);
-  
+
   const selectedMedicineOptions = useMemo(() => {
-     return selectedMedicineIds.map(id => {
-       const m = medicineList.find(x => x.item_id === id);
-       return { value: id, label: m ? m.item_name : `Item #${id}` };
-     });
+    return selectedMedicineIds.map(id => {
+      const m = medicineList.find(x => x.item_id === id);
+      return { value: id, label: m ? m.item_name : `Item #${id}` };
+    });
   }, [selectedMedicineIds, medicineList]);
 
   const symptomOptions = useMemo(() => symptomList.map(s => ({ value: s, label: s })), [symptomList]);
-  
+
   const selectedSymptomOptions = useMemo(() => {
     return selectedSymptoms.map(s => ({ value: s, label: s }));
   }, [selectedSymptoms]);
 
-  const testOptions = useMemo(() => testList.map(t => ({ 
-    value: t.test_id, 
-    label: t.department ? `${t.test_name} [${t.department}]` : t.test_name 
+  const testOptions = useMemo(() => testList.map(t => ({
+    value: t.test_id,
+    label: t.department ? `${t.test_name} [${t.department}]` : t.test_name
   })), [testList]);
-  
+
   const selectedTestOptions = useMemo(() => {
     return selectedTestIds.map(id => {
       const t = testList.find(x => x.test_id === id);
@@ -1374,7 +1400,7 @@ const OPDoctorlogin = () => {
     });
   }, [selectedTestIds, testList]);
 
-  const doctorOptions = useMemo(() => referralDoctors.map(d => ({ value: d.employeeName, label: d.employeeName })), [referralDoctors]);
+  const doctorOptions = useMemo(() => referralDoctors.map(d => ({ value: d.employeeId, label: d.employeeName })), [referralDoctors]);
 
   const filteredDoctors = useMemo(() => {
     if (!doctorSearch) return referralDoctors;
@@ -1415,6 +1441,23 @@ const OPDoctorlogin = () => {
     setFollowupDate(d.toISOString().split('T')[0]);
   };
 
+  const handleStartConsultationAPI = async (startTimeStr) => {
+    if (!selectedPatient) return;
+    try {
+      const payload = {
+        uhid: selectedPatient.patient?.uhid,
+        doctor_id: selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "",
+        consultation_start_time: startTimeStr,
+      };
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
+      if (!res.success) {
+        console.error("Failed to start consultation in DB");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Save Doctor Consultation
   const handleSaveConsultation = async () => {
     if (!selectedPatient) {
@@ -1426,13 +1469,16 @@ const OPDoctorlogin = () => {
     try {
       const cleanVitals = { ...(selectedPatient.vital_entry || {}) };
       delete cleanVitals.id;
+      delete cleanVitals._id;
+      delete cleanVitals.created_by;
+      delete cleanVitals.created_date;
+      delete cleanVitals.lastmodified_by;
+      delete cleanVitals.lastmodified_date;
+      delete cleanVitals['auth-user-id'];
 
       const payload = {
-        "auth-user-id": localStorage.getItem("auth-user-id") || localStorage.getItem("employeeId") || "",
         uhid: selectedPatient.patient?.uhid,
-        patient_name: selectedPatient.patient?.patient_name,
         doctor_id: selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "",
-        doctor_name: selectedPatient.patient?.doctorName || "Dr. Consultation",
         vitals: cleanVitals, // id removed!
         symptoms: selectedSymptoms,
         investigation_test_ids: selectedTestIds, // Stored test_id array!
@@ -1455,6 +1501,8 @@ const OPDoctorlogin = () => {
         diet: diet,
         refer_to_doctor: referToDoctor,
         followup_date: followupDate,
+        consultation_start_time: consultationStartTimes[selectedPatient?.patient?.uhid] || null,
+        consultation_end_time: new Date().toISOString(),
         allergies: allergies,
         chief_complaints: chiefComplaints,
         past_history: clinicalPastHistory,
@@ -1464,6 +1512,11 @@ const OPDoctorlogin = () => {
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
       if (res.success) {
         toast.success("Consultation saved successfully!");
+        setConsultationStartTimes(prev => {
+          const newTimes = { ...prev };
+          delete newTimes[selectedPatient?.patient?.uhid];
+          return newTimes;
+        });
         fetchPastHistory(selectedPatient.patient?.uhid);
       } else {
         toast.error(res.error || "Failed to save consultation.");
@@ -1495,9 +1548,28 @@ const OPDoctorlogin = () => {
         </HeaderTitle>
 
         <HeaderActions>
+          {selectedPatient && !consultationStartTimes[selectedPatient?.patient?.uhid] && (
+            <Button
+              style={{ background: '#ea580c', color: '#fff', borderColor: '#ea580c' }}
+              onClick={() => {
+                const startTime = new Date().toISOString();
+                setConsultationStartTimes(prev => ({
+                  ...prev,
+                  [selectedPatient.patient.uhid]: startTime
+                }));
+                handleStartConsultationAPI(startTime);
+              }}
+            >
+              Start Consultation
+            </Button>
+          )}
           <Button $variant="secondary" onClick={fetchBilledPatients} disabled={loadingPatients}>
             <RefreshCw size={16} className={loadingPatients ? "spin" : ""} />
             Refresh Queue
+          </Button>
+          <Button $variant="secondary" onClick={() => setShowWaitingModal(true)}>
+            <Users size={16} />
+            Waiting Patients ({filteredPatients.length})
           </Button>
           <Button $variant="outline" onClick={() => setShowHistoryModal(true)} disabled={!selectedPatient}>
             <Clock size={16} />
@@ -1507,78 +1579,101 @@ const OPDoctorlogin = () => {
       </PageHeader>
 
       <MainGrid>
-        {/* Patient Queue Sidebar */}
-        <SidebarCard>
-          <SidebarHeader>
-            <div className="title-row">
-              <h3>OP Patient Queue</h3>
-              <span className="badge">{filteredPatients.length} Billed</span>
-            </div>
-            <SearchBox>
-              <Search size={16} />
-              <input
-                type="text"
-                placeholder="Search UHID / Patient Name..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </SearchBox>
-          </SidebarHeader>
-
-          <PatientList>
-            {loadingPatients ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>
-                Loading patient queue...
-              </div>
-            ) : filteredPatients.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>
-                No OP billed patients found.
-              </div>
-            ) : (
-              filteredPatients.map(p => {
-                const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
-                // A vital is considered completed for this visit if vital_status is "Completed"
-                const hasVitals = p.vital_status === "Completed";
-                return (
-                  <PatientItem
-                    key={p.bill_number || p.patient?.uhid}
-                    $selected={isSelected}
-                    $hasVitals={hasVitals}
-                    onClick={() => setSelectedPatient(p)}
-                  >
-                    <div className="top-info">
-                      <span className="name">{p.patient?.patient_name || "Unknown Patient"}</span>
-                      <span className="uhid">{p.patient?.uhid || "No UHID"}</span>
-                    </div>
-                    <div className="meta-info">
-                      <span>{p.patient?.age ? `${p.patient.age} Yrs` : ''} {p.patient?.gender}</span>
-                      <span>• Doctor: {p.patient?.doctorName || 'General'}</span>
-                    </div>
-                    <div className="status-row">
-                      <div className="vital-status">
-                        {hasVitals ? (
-                          <>
-                            <CheckCircle2 size={14} /> Vitals Recorded
-                          </>
-                        ) : (
-                          <>
-                            <AlertCircle size={14} /> Vitals Pending
-                          </>
-                        )}
-                      </div>
-                      <span style={{ color: '#64748b', fontSize: '0.75rem', textAlign: 'right' }}>
-                        {p.billed_date ? new Date(p.billed_date).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                      </span>
-                    </div>
-                  </PatientItem>
-                );
-              })
-            )}
-          </PatientList>
-        </SidebarCard>
-
         {/* Doctor Consultation Workspace */}
         <Workspace>
+          {/* === Patient Queue Cards === */}
+          {!selectedPatient && (
+            <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '24px', border: '1px solid #e2e8f0' }}>
+              {/* Simple Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg,#0d9488,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={22} color="#fff" />
+                  </div>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Waiting Patients</h2>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Total {filteredPatients.length} Patients</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px 14px' }}>
+                  <Search size={14} color="#94a3b8" />
+                  <input type="text" placeholder="Search name / UHID..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.85rem', color: '#334155', width: '180px' }} />
+                </div>
+              </div>
+
+              {/* Cards Grid */}
+              {loadingPatients ? (
+                <div style={{ padding: '80px', textAlign: 'center', color: '#64748b' }}>Loading patients...</div>
+              ) : filteredPatients.length === 0 ? (
+                <div style={{ padding: '80px 40px', textAlign: 'center', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
+                  <Users size={48} style={{ color: '#cbd5e1', marginBottom: '16px' }} />
+                  <p style={{ margin: '0 0 6px', fontWeight: 700, color: '#475569' }}>No patients in queue</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem' }}>Refresh to check for new arrivals</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
+                  {filteredPatients.map((p, idx) => {
+                    const name = p.patient?.patient_name || 'Unknown Patient';
+                    const initials = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, '').split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
+                    const avatarStyles = [
+                      { bg: '#e0f2fe', color: '#0284c7' }, { bg: '#dcfce7', color: '#16a34a' },
+                      { bg: '#fef3c7', color: '#d97706' }, { bg: '#f3e8ff', color: '#9333ea' },
+                      { bg: '#fee2e2', color: '#dc2626' }, { bg: '#e0e7ff', color: '#4f46e5' },
+                      { bg: '#fce7f3', color: '#db2777' }, { bg: '#f0fdf4', color: '#15803d' },
+                    ];
+                    const av = avatarStyles[idx % avatarStyles.length];
+                    const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+                    const vitalsDone = p.vital_status === 'Completed';
+                    return (
+                      <div key={p.patient?.uhid} style={{
+                        background: '#fff', borderRadius: '16px',
+                        border: '1.5px solid #e8edf3',
+                        overflow: 'hidden',
+                        boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+                        transition: 'all 0.22s ease',
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8edf3'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                      >
+                        <div style={{ padding: '18px 18px 16px' }}>
+                          {/* Avatar + Badge row */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: av.bg, color: av.color, fontWeight: 800, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${av.color}30` }}>{initials}</div>
+                            <span style={{ background: vitalsDone ? '#f0fdf4' : '#fffbeb', color: vitalsDone ? '#16a34a' : '#d97706', border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`, fontSize: '0.68rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px' }}>{vitalsDone ? 'Ready' : 'Waiting'}</span>
+                          </div>
+                          {/* Name + UHID */}
+                          <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', marginBottom: '1px' }}>{name}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>UHID</div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '12px' }}>{p.patient?.uhid || '--'}</div>
+                          {/* Info */}
+                          <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '5px' }}>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} &bull; {p.patient?.gender || '--'}</div>
+                          {p.patient?.mobilePhone && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#64748b', marginBottom: '5px' }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={av.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.86-.86a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16z"/></svg>
+                              {p.patient.mobilePhone}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#64748b', marginBottom: '16px' }}>
+                            <Clock size={13} color={av.color} />{billedTime}
+                          </div>
+                          {/* CTA */}
+                          <button
+                            onClick={() => { setSelectedPatient(p); setActiveTab('vitals'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            style={{ width: '100%', padding: '10px 0', background: '#fff', color: '#0d9488', border: '1.5px solid #0d9488', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.18s ease' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#0d9488'; }}
+                          >
+                            Start Consultation →
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {/* Patient Details Banner */}
           {selectedPatient && (
             <PatientBanner>
@@ -1609,6 +1704,28 @@ const OPDoctorlogin = () => {
 
           {selectedPatient && (
             <>
+              {/* Back to queue */}
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  onClick={() => setSelectedPatient(null)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    background: '#f1f5f9', border: '1px solid #e2e8f0',
+                    color: '#475569', fontWeight: 600, fontSize: '0.82rem',
+                    cursor: 'pointer', padding: '6px 14px', borderRadius: '8px',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; }}
+                >
+                  ← Back to Patient Queue
+                </button>
+              </div>
+            </>
+          )}
+
+          {selectedPatient && (
+            <>
               <TabNav>
                 <TabButton $active={activeTab === 'vitals'} $iconColor="#e11d48" onClick={() => setActiveTab('vitals')}>
                   <Heart size={18} /> Vitals & Exam
@@ -1631,7 +1748,7 @@ const OPDoctorlogin = () => {
                   <div className="details">
                     <span className="label">Billed Time</span>
                     <span className="time">
-                      {selectedPatient.billed_date ? new Date(selectedPatient.billed_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'N/A'}
+                      {selectedPatient.billed_date ? new Date(selectedPatient.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                     </span>
                   </div>
                 </TimelineItem>
@@ -1641,17 +1758,20 @@ const OPDoctorlogin = () => {
                   <div className="details">
                     <span className="label">Vitals Taken</span>
                     <span className="time">
-                      {selectedPatient.vital_entry?.vital_entry_date ? new Date(selectedPatient.vital_entry.vital_entry_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Pending'}
+                      {selectedPatient.vital_entry?.vital_entry_date ? new Date(selectedPatient.vital_entry.vital_entry_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
                     </span>
                   </div>
                 </TimelineItem>
-                
+
                 <TimelineItem $bg="#fff7ed" $color="#ea580c">
                   <div className="icon-box"><Stethoscope size={18} /></div>
                   <div className="details">
                     <span className="label">Consultation Started</span>
                     <span className="time">
-                      {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      {consultationStartTimes[selectedPatient?.patient?.uhid] ?
+                        new Date(consultationStartTimes[selectedPatient.patient.uhid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : 'Pending'
+                      }
                     </span>
                   </div>
                 </TimelineItem>
@@ -1700,8 +1820,8 @@ const OPDoctorlogin = () => {
                           if (e.target.checked) setClinicalPastHistory([...clinicalPastHistory, 'OTHERS: ']);
                           else setClinicalPastHistory(clinicalPastHistory.filter(h => typeof h !== 'string' || !h.startsWith('OTHERS:')));
                         }} />
-                        OTHERS 
-                        <input type="text" style={{ marginLeft: '8px', borderBottom: '1px solid #cbd5e1', borderTop: 'none', borderLeft: 'none', borderRight: 'none', outline: 'none' }} placeholder="Specify" 
+                        OTHERS
+                        <input type="text" style={{ marginLeft: '8px', borderBottom: '1px solid #cbd5e1', borderTop: 'none', borderLeft: 'none', borderRight: 'none', outline: 'none' }} placeholder="Specify"
                           value={clinicalPastHistory.find(h => typeof h === 'string' && h.startsWith('OTHERS:'))?.replace('OTHERS: ', '') || ''}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1724,377 +1844,380 @@ const OPDoctorlogin = () => {
 
               {activeTab === 'vitals' && (
                 <TabContent>
-                  {/* 1. Vital Entry Serializer Display */}
-                  <Card>
-            <CardTitle>
-              <Activity size={20} /> Patient Vital Signs (VitalEntrySerializer Data)
-            </CardTitle>
+                  {/* 1. Vital Entry Display */}
+                  <div style={{ marginTop: '16px' }}>
+                    {vitals ? (
+                      <>
+                        <VitalsGrid>
+                          <VitalItem $iconColor="#0284c7">
+                            <div className="header">
+                              <Ruler size={16} /> Height
+                            </div>
+                            <div className="value">
+                              {vitals.height || '--'} <span className="unit">cm</span>
+                            </div>
+                          </VitalItem>
 
-            {vitals ? (
-              <>
-                <VitalsGrid>
-                  <VitalItem $iconColor="#0284c7">
-                    <div className="header">
-                      <Ruler size={16} /> Height
-                    </div>
-                    <div className="value">
-                      {vitals.height || '--'} <span className="unit">cm</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#0d9488">
+                            <div className="header">
+                              <Scale size={16} /> Weight
+                            </div>
+                            <div className="value">
+                              {vitals.weight || '--'} <span className="unit">kg</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#0d9488">
-                    <div className="header">
-                      <Scale size={16} /> Weight
-                    </div>
-                    <div className="value">
-                      {vitals.weight || '--'} <span className="unit">kg</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#e11d48">
+                            <div className="header">
+                              <Heart size={16} /> Blood Pressure
+                            </div>
+                            <div className="value">
+                              {vitals.bp || '--'} <span className="unit">mmHg</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#e11d48">
-                    <div className="header">
-                      <Heart size={16} /> Blood Pressure
-                    </div>
-                    <div className="value">
-                      {vitals.bp || '--'} <span className="unit">mmHg</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#8b5cf6">
+                            <div className="header">
+                              <Activity size={16} /> BMI
+                            </div>
+                            <div className="value">
+                              {vitals.bmi || '--'} <span className="unit">kg/m²</span>
+                            </div>
+                            <div className="sub">
+                              {vitals.bmi ? (vitals.bmi < 18.5 ? 'Underweight' : vitals.bmi < 25 ? 'Normal' : 'Overweight') : ''}
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#8b5cf6">
-                    <div className="header">
-                      <Activity size={16} /> BMI
-                    </div>
-                    <div className="value">
-                      {vitals.bmi || '--'} <span className="unit">kg/m²</span>
-                    </div>
-                    <div className="sub">
-                      {vitals.bmi ? (vitals.bmi < 18.5 ? 'Underweight' : vitals.bmi < 25 ? 'Normal' : 'Overweight') : ''}
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#f59e0b">
+                            <div className="header">
+                              <Thermometer size={16} /> Temperature
+                            </div>
+                            <div className="value">
+                              {vitals.temp || '--'} <span className="unit">°F</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#f59e0b">
-                    <div className="header">
-                      <Thermometer size={16} /> Temperature
-                    </div>
-                    <div className="value">
-                      {vitals.temp || '--'} <span className="unit">°F</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#ef4444">
+                            <div className="header">
+                              <Activity size={16} /> Pulse Rate
+                            </div>
+                            <div className="value">
+                              {vitals.pulse_rate || '--'} <span className="unit">bpm</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#ef4444">
-                    <div className="header">
-                      <Activity size={16} /> Pulse Rate
-                    </div>
-                    <div className="value">
-                      {vitals.pulse_rate || '--'} <span className="unit">bpm</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#06b6d4">
+                            <div className="header">
+                              <Droplets size={16} /> SpO2
+                            </div>
+                            <div className="value">
+                              {vitals.spo2 || '--'} <span className="unit">%</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#06b6d4">
-                    <div className="header">
-                      <Droplets size={16} /> SpO2
-                    </div>
-                    <div className="value">
-                      {vitals.spo2 || '--'} <span className="unit">%</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#6366f1">
+                            <div className="header">
+                              <Wind size={16} /> Resp. Rate
+                            </div>
+                            <div className="value">
+                              {vitals.respiratory_rate || '--'} <span className="unit">/min</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#6366f1">
-                    <div className="header">
-                      <Wind size={16} /> Resp. Rate
-                    </div>
-                    <div className="value">
-                      {vitals.respiratory_rate || '--'} <span className="unit">/min</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#10b981">
+                            <div className="header">
+                              <Droplets size={16} /> Blood Sugar
+                            </div>
+                            <div className="value">
+                              {vitals.blood_sugar || '--'} <span className="unit">mg/dL</span>
+                            </div>
+                          </VitalItem>
 
-                  <VitalItem $iconColor="#10b981">
-                    <div className="header">
-                      <Droplets size={16} /> Blood Sugar
-                    </div>
-                    <div className="value">
-                      {vitals.blood_sugar || '--'} <span className="unit">mg/dL</span>
-                    </div>
-                  </VitalItem>
+                          <VitalItem $iconColor="#f43f5e">
+                            <div className="header">
+                              <Activity size={16} /> Pain Score
+                            </div>
+                            <div className="value">
+                              {vitals.pain_score != null ? vitals.pain_score : '--'} <span className="unit">/ 10</span>
+                            </div>
+                          </VitalItem>
+                        </VitalsGrid>
 
-                  <VitalItem $iconColor="#f43f5e">
-                    <div className="header">
-                      <Activity size={16} /> Pain Score
-                    </div>
-                    <div className="value">
-                      {vitals.pain_score != null ? vitals.pain_score : '--'} <span className="unit">/ 10</span>
-                    </div>
-                  </VitalItem>
-                </VitalsGrid>
-
-                <VitalDateBadge>
-                  <Clock size={16} /> Vital Recorded Date: {vitals.vital_entry_date ? new Date(vitals.vital_entry_date).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : 'N/A'}
-                </VitalDateBadge>
-              </>
-            ) : (
-              <div style={{ padding: '24px', background: '#fffbe6', borderRadius: '12px', border: '1px solid #ffe58f', color: '#d48806', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Info size={20} />
-                <span>No vitals recorded for this patient yet. Vitals can be entered at the triage node.</span>
-              </div>
-            )}
-          </Card>
+                        <VitalDateBadge>
+                          <Clock size={16} /> Vital Recorded Date: {vitals.vital_entry_date ? new Date(vitals.vital_entry_date).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : 'N/A'}
+                        </VitalDateBadge>
+                      </>
+                    ) : (
+                      <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                        No vitals recorded for this visit yet.
+                      </div>
+                    )}
+                  </div>
                 </TabContent>
               )}
 
               {activeTab === 'diagnostics' && (
                 <TabContent>
-          {/* 2. Diagnostics Dropdown (HMS_Symptoms_list) */}
-          <Card>
-            <CardTitle>
-              <Stethoscope size={20} /> Diagnostics / Symptoms (from HMS_Symptoms_list)
-            </CardTitle>
-            <div style={{ marginTop: '12px' }}>
-              <Select
-                isMulti
-                closeMenuOnSelect={false}
-                components={{ MenuList: CustomMenuList }}
-                placeholder="Search and select symptoms..."
-                options={symptomOptions}
-                value={selectedSymptomOptions}
-                onChange={(selected) => {
-                  setSelectedSymptoms(selected ? selected.map(s => s.value) : []);
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderRadius: '8px',
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': {
-                      borderColor: '#cbd5e1'
-                    }
-                  })
-                }}
-              />
-            </div>
-          </Card>
+                  {/* 2. Diagnostics Dropdown (HMS_Symptoms_list) */}
+                  <Card>
+                    <CardTitle>
+                      <Stethoscope size={20} /> Diagnostics / Symptoms (from HMS_Symptoms_list)
+                    </CardTitle>
+                    <div style={{ marginTop: '12px' }}>
+                      <Select
+                        isMulti
+                        closeMenuOnSelect={false}
+                        components={{ MenuList: CustomMenuList }}
+                        placeholder="Search and select symptoms..."
+                        options={symptomOptions}
+                        value={selectedSymptomOptions}
+                        onChange={(selected) => {
+                          setSelectedSymptoms(selected ? selected.map(s => s.value) : []);
+                        }}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: base => ({ ...base, zIndex: 9999 }),
+                          control: (base) => ({
+                            ...base,
+                            borderRadius: '8px',
+                            borderColor: '#e2e8f0',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              borderColor: '#cbd5e1'
+                            }
+                          })
+                        }}
+                      />
+                    </div>
+                  </Card>
 
-          {/* 3. Investigation Dropdown (Diagnostics_test_details) */}
-          <Card>
-            <CardTitle>
-              <FileText size={20} /> Investigation Tests (from Diagnostics_test_details)
-            </CardTitle>
-            <div style={{ marginTop: '12px' }}>
-              <Select
-                isMulti
-                closeMenuOnSelect={false}
-                components={{ MenuList: CustomMenuList }}
-                placeholder="Search and select investigation tests..."
-                options={testOptions}
-                value={selectedTestOptions}
-                onChange={(selected) => {
-                  setSelectedTestIds(selected ? selected.map(s => s.value) : []);
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderRadius: '8px',
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': {
-                      borderColor: '#cbd5e1'
-                    }
-                  })
-                }}
-              />
-            </div>
-            </Card>
+                  {/* 3. Investigation Dropdown (Diagnostics_test_details) */}
+                  <Card>
+                    <CardTitle>
+                      <FileText size={20} /> Investigation Tests (from Diagnostics_test_details)
+                    </CardTitle>
+                    <div style={{ marginTop: '12px' }}>
+                      <Select
+                        isMulti
+                        closeMenuOnSelect={false}
+                        components={{ MenuList: CustomMenuList }}
+                        placeholder="Search and select investigation tests..."
+                        options={testOptions}
+                        value={selectedTestOptions}
+                        onChange={(selected) => {
+                          setSelectedTestIds(selected ? selected.map(s => s.value) : []);
+                        }}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: base => ({ ...base, zIndex: 9999 }),
+                          control: (base) => ({
+                            ...base,
+                            borderRadius: '8px',
+                            borderColor: '#e2e8f0',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              borderColor: '#cbd5e1'
+                            }
+                          })
+                        }}
+                      />
+                    </div>
+                  </Card>
                 </TabContent>
               )}
 
               {activeTab === 'plan' && (
                 <TabContent>
-          {/* 4. Prescription Dropdown (hospital_pharmacyitem) */}
-          <Card>
-            <CardTitle>
-              <Pill size={20} /> Prescription / Medicines (from hospital_pharmacyitem)
-            </CardTitle>
-            <div style={{ marginTop: '12px' }}>
-              <Select
-                isMulti
-                closeMenuOnSelect={false}
-                components={{ MenuList: CustomMenuList }}
-                placeholder="Search and select medicines..."
-                options={medicineOptions}
-                value={selectedMedicineOptions}
-                onChange={(selected) => {
-                  setSelectedMedicineIds(selected ? selected.map(s => s.value) : []);
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderRadius: '8px',
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': {
-                      borderColor: '#cbd5e1'
-                    }
-                  })
-                }}
-              />
-            </div>
-            
-            {selectedMedicineIds.length > 0 && (
-              <div style={{ marginTop: '16px', overflowX: 'auto' }}>
-                <HistoryTable>
-                  <thead>
-                    <tr>
-                      <th>Medication</th>
-                      <th>Dosage</th>
-                      <th>Frequency</th>
-                      <th>Duration</th>
-                      <th>Total Dosage</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedMedicineIds.map(id => {
-                      const m = medicineList.find(x => x.item_id === id);
-                      const pd = prescriptionData[id] || {};
-                      return (
-                        <tr key={id}>
-                          <td style={{ fontWeight: 500 }}>{m ? m.item_name : `Item #${id}`}</td>
-                          <td>
-                            <input 
-                              type="text" 
-                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
-                              value={pd.dosage || ''}
-                              onChange={e => handlePrescriptionChange(id, 'dosage', e.target.value)}
-                              placeholder="e.g. 500mg"
-                            />
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
-                              value={pd.frequency || ''}
-                              onChange={e => handlePrescriptionChange(id, 'frequency', e.target.value)}
-                              placeholder="e.g. 1-0-1"
-                            />
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
-                              value={pd.duration || ''}
-                              onChange={e => handlePrescriptionChange(id, 'duration', e.target.value)}
-                              placeholder="e.g. 5 days"
-                            />
-                          </td>
-                          <td>
-                            <input 
-                              type="text" 
-                              style={{ width: '80%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
-                              value={pd.total_dosage || ''}
-                              onChange={e => handlePrescriptionChange(id, 'total_dosage', e.target.value)}
-                              placeholder="e.g. 10"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </HistoryTable>
-              </div>
-            )}
-          </Card>
+                  {/* 4. Prescription Dropdown (hospital_pharmacyitem) */}
+                  <Card>
+                    <CardTitle>
+                      <Pill size={20} /> Prescription / Medicines (from hospital_pharmacyitem)
+                    </CardTitle>
+                    <div style={{ marginTop: '12px' }}>
+                      <Select
+                        isMulti
+                        closeMenuOnSelect={false}
+                        components={{ MenuList: CustomMenuList }}
+                        placeholder="Search and select medicines..."
+                        options={medicineOptions}
+                        value={selectedMedicineOptions}
+                        onChange={(selected) => {
+                          setSelectedMedicineIds(selected ? selected.map(s => s.value) : []);
+                        }}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: base => ({ ...base, zIndex: 9999 }),
+                          control: (base) => ({
+                            ...base,
+                            borderRadius: '8px',
+                            borderColor: '#e2e8f0',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              borderColor: '#cbd5e1'
+                            }
+                          })
+                        }}
+                      />
+                    </div>
 
-          {/* 5. Finding - Input Box */}
-          <Card>
-            <CardTitle>
-              <FileText size={20} /> Clinical Findings & Diagnosis Notes
-            </CardTitle>
-            <TextArea
-              placeholder="Enter doctor's clinical findings, physical examination, and diagnosis notes here..."
-              value={finding}
-              onChange={e => setFinding(e.target.value)}
-            />
-          </Card>
+                    {selectedMedicineIds.length > 0 && (
+                      <div style={{ marginTop: '16px', overflowX: 'auto' }}>
+                        <HistoryTable>
+                          <thead>
+                            <tr>
+                              <th>Medication</th>
+                              <th>Dosage</th>
+                              <th>Frequency</th>
+                              <th>Duration</th>
+                              <th>Total Dosage</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedMedicineIds.map(id => {
+                              const m = medicineList.find(x => x.item_id === id);
+                              const pd = prescriptionData[id] || {};
+                              return (
+                                <tr key={id}>
+                                  <td style={{ fontWeight: 500 }}>{m ? m.item_name : `Item #${id}`}</td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                                      value={pd.dosage || ''}
+                                      onChange={e => handlePrescriptionChange(id, 'dosage', e.target.value)}
+                                      placeholder="e.g. 500mg"
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                                      value={pd.frequency || ''}
+                                      onChange={e => handlePrescriptionChange(id, 'frequency', e.target.value)}
+                                      placeholder="e.g. 1-0-1"
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                                      value={pd.duration || ''}
+                                      onChange={e => handlePrescriptionChange(id, 'duration', e.target.value)}
+                                      placeholder="e.g. 5 days"
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      style={{ width: '80%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem' }}
+                                      value={pd.total_dosage || ''}
+                                      onChange={e => handlePrescriptionChange(id, 'total_dosage', e.target.value)}
+                                      placeholder="e.g. 10"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </HistoryTable>
+                      </div>
+                    )}
+                  </Card>
 
-          {/* Diet Instructions - Input Box */}
-          <Card>
-            <CardTitle>
-              <FileText size={20} /> Diet Instructions
-            </CardTitle>
-            <TextArea
-              placeholder="Enter diet recommendations for the patient..."
-              value={diet}
-              onChange={e => setDiet(e.target.value)}
-              style={{ minHeight: '80px' }}
-            />
-          </Card>
+                  {/* 5. Finding - Input Box */}
+                  <Card>
+                    <CardTitle>
+                      <FileText size={20} /> Clinical Findings & Diagnosis Notes
+                    </CardTitle>
+                    <TextArea
+                      placeholder="Enter doctor's clinical findings, physical examination, and diagnosis notes here..."
+                      value={finding}
+                      onChange={e => setFinding(e.target.value)}
+                    />
+                  </Card>
 
-          {/* Referral Doctor Dropdown */}
-          <Card>
-            <CardTitle>
-              <Activity size={20} /> Refer to Doctor
-            </CardTitle>
-            <div style={{ marginTop: '12px' }}>
-              <Select
-                isClearable
-                placeholder="Search and select a doctor..."
-                options={doctorOptions}
-                value={referToDoctor ? { value: referToDoctor, label: referToDoctor } : null}
-                onChange={(selected) => {
-                  setReferToDoctor(selected ? selected.value : "");
-                }}
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderRadius: '8px',
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': {
-                      borderColor: '#cbd5e1'
-                    }
-                  })
-                }}
-              />
-            </div>
-          </Card>
+                  {/* Diet Instructions - Input Box */}
+                  <Card>
+                    <CardTitle>
+                      <FileText size={20} /> Diet Instructions
+                    </CardTitle>
+                    <TextArea
+                      placeholder="Enter diet recommendations for the patient..."
+                      value={diet}
+                      onChange={e => setDiet(e.target.value)}
+                      style={{ minHeight: '80px' }}
+                    />
+                  </Card>
 
-          {/* 6. Followup Date Picker */}
-          <Card>
-            <CardTitle>
-              <Calendar size={20} /> Follow-up Date Scheduling
-            </CardTitle>
-            <DatePickerWrapper>
-              <input
-                type="date"
-                value={followupDate}
-                onChange={e => setFollowupDate(e.target.value)}
-              />
-              <ShortcutButton onClick={() => handleAddDays(3)}>+3 Days</ShortcutButton>
-              <ShortcutButton onClick={() => handleAddDays(7)}>+1 Week</ShortcutButton>
-              <ShortcutButton onClick={() => handleAddDays(14)}>+2 Weeks</ShortcutButton>
-              <ShortcutButton onClick={() => handleAddDays(30)}>+1 Month</ShortcutButton>
-              {followupDate && (
-                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0d9488' }}>
-                  Selected: {new Date(followupDate).toLocaleDateString()}
-                </span>
-              )}
-            </DatePickerWrapper>
-          </Card>
+                  {/* Referral Doctor Dropdown */}
+                  <Card>
+                    <CardTitle>
+                      <Activity size={20} /> Refer to Doctor
+                    </CardTitle>
+                    <div style={{ marginTop: '12px' }}>
+                      <Select
+                        isClearable
+                        placeholder="Search and select a doctor..."
+                        options={doctorOptions}
+                        value={doctorOptions.find(d => d.value === referToDoctor) || null}
+                        onChange={(selected) => {
+                          setReferToDoctor(selected ? selected.value : "");
+                        }}
+                        menuPortalTarget={document.body}
+                        styles={{
+                          menuPortal: base => ({ ...base, zIndex: 9999 }),
+                          control: (base) => ({
+                            ...base,
+                            borderRadius: '8px',
+                            borderColor: '#e2e8f0',
+                            boxShadow: 'none',
+                            '&:hover': {
+                              borderColor: '#cbd5e1'
+                            }
+                          })
+                        }}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* 6. Followup Date Picker */}
+                  <Card>
+                    <CardTitle>
+                      <Calendar size={20} /> Follow-up Date Scheduling
+                    </CardTitle>
+                    <DatePickerWrapper>
+                      <input
+                        type="date"
+                        value={followupDate}
+                        onChange={e => setFollowupDate(e.target.value)}
+                      />
+                      <ShortcutButton onClick={() => handleAddDays(3)}>+3 Days</ShortcutButton>
+                      <ShortcutButton onClick={() => handleAddDays(7)}>+1 Week</ShortcutButton>
+                      <ShortcutButton onClick={() => handleAddDays(14)}>+2 Weeks</ShortcutButton>
+                      <ShortcutButton onClick={() => handleAddDays(30)}>+1 Month</ShortcutButton>
+                      {followupDate && (
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0d9488' }}>
+                          Selected: {new Date(followupDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </DatePickerWrapper>
+                  </Card>
                 </TabContent>
               )}
 
-          {/* Bottom Action Bar: Only Save Consultation at Bottom of Page */}
-          <BottomActionBar style={{ justifyContent: 'flex-end' }}>
-            <Button
-              $variant="primary"
-              onClick={handleSaveConsultation}
-              disabled={savingConsultation}
-              style={{ padding: '12px 28px', fontSize: '0.95rem' }}
-            >
-              <Save size={18} />
-              {savingConsultation ? "Saving..." : "Save Consultation"}
-            </Button>
-          </BottomActionBar>
-          </>
+              {/* Bottom Action Bar: Only Save Consultation at Bottom of Page */}
+              <BottomActionBar style={{ justifyContent: 'flex-end' }}>
+                <Button
+                  $variant="primary"
+                  onClick={handleSaveConsultation}
+                  disabled={savingConsultation}
+                  style={{ padding: '12px 28px', fontSize: '0.95rem' }}
+                >
+                  <Save size={18} />
+                  {savingConsultation ? "Saving..." : "Save Consultation"}
+                </Button>
+              </BottomActionBar>
+            </>
           )}
         </Workspace>
       </MainGrid>
@@ -2125,8 +2248,8 @@ const OPDoctorlogin = () => {
                   {pastHistory.map((item, idx) => {
                     const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
                     return (
-                      <HistorySidebarCard 
-                        key={item._id || idx} 
+                      <HistorySidebarCard
+                        key={item._id || idx}
                         $active={isActive}
                         onClick={() => setSelectedHistoryItem(item)}
                       >
@@ -2179,10 +2302,10 @@ const OPDoctorlogin = () => {
                       <ThemeSectionBox>
                         <div className="title"><Stethoscope size={18} /> Clinical Assessment</div>
                         <ul style={{ listStyleType: 'disc' }}>
-                          {selectedHistoryItem.allergies && <li><span style={{fontWeight:600}}>Allergies:</span> {selectedHistoryItem.allergies}</li>}
-                          {selectedHistoryItem.chief_complaints && <li><span style={{fontWeight:600}}>Chief Complaints:</span> {selectedHistoryItem.chief_complaints}</li>}
-                          {selectedHistoryItem.symptoms?.map(s => <li key={s}><span style={{fontWeight:600}}>Symptom:</span> {s}</li>)}
-                          {(!selectedHistoryItem.allergies && !selectedHistoryItem.chief_complaints && !selectedHistoryItem.symptoms?.length) && <li style={{color:'#94a3b8'}}>No clinical assessment recorded.</li>}
+                          {selectedHistoryItem.allergies && <li><span style={{ fontWeight: 600 }}>Allergies:</span> {selectedHistoryItem.allergies}</li>}
+                          {selectedHistoryItem.chief_complaints && <li><span style={{ fontWeight: 600 }}>Chief Complaints:</span> {selectedHistoryItem.chief_complaints}</li>}
+                          {selectedHistoryItem.symptoms?.map(s => <li key={s}><span style={{ fontWeight: 600 }}>Symptom:</span> {s}</li>)}
+                          {(!selectedHistoryItem.allergies && !selectedHistoryItem.chief_complaints && !selectedHistoryItem.symptoms?.length) && <li style={{ color: '#94a3b8' }}>No clinical assessment recorded.</li>}
                         </ul>
                       </ThemeSectionBox>
 
@@ -2190,7 +2313,7 @@ const OPDoctorlogin = () => {
                         <div className="title"><FileText size={18} /> Diagnosis & Findings</div>
                         <ul style={{ listStyleType: 'disc' }}>
                           {selectedHistoryItem.finding && <li>{selectedHistoryItem.finding}</li>}
-                          {!selectedHistoryItem.finding && <li style={{color:'#94a3b8'}}>No diagnosis or findings recorded.</li>}
+                          {!selectedHistoryItem.finding && <li style={{ color: '#94a3b8' }}>No diagnosis or findings recorded.</li>}
                         </ul>
                       </ThemeSectionBox>
 
@@ -2259,10 +2382,10 @@ const OPDoctorlogin = () => {
                       <ThemeSectionBox>
                         <div className="title"><Calendar size={18} /> Plans & Follow-up</div>
                         <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {selectedHistoryItem.diet && <li><span style={{fontWeight:600, color:'#475569'}}>Diet:</span> {selectedHistoryItem.diet}</li>}
-                          {selectedHistoryItem.refer_to_doctor && <li><span style={{fontWeight:600, color:'#475569'}}>Referred To:</span> Dr. {selectedHistoryItem.refer_to_doctor}</li>}
-                          {selectedHistoryItem.followup_date && <li><span style={{fontWeight:600, color:'#475569'}}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
-                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date) && <li style={{color:'#94a3b8'}}>No follow-up plans recorded.</li>}
+                          {selectedHistoryItem.diet && <li><span style={{ fontWeight: 600, color: '#475569' }}>Diet:</span> {selectedHistoryItem.diet}</li>}
+                          {selectedHistoryItem.refer_to_doctor && <li><span style={{ fontWeight: 600, color: '#475569' }}>Referred To:</span> Dr. {(referralDoctors.find(d => String(d.employeeId) === String(selectedHistoryItem.refer_to_doctor))?.employeeName) || selectedHistoryItem.refer_to_doctor}</li>}
+                          {selectedHistoryItem.followup_date && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
+                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
                         </ul>
                       </ThemeSectionBox>
                     </>
@@ -2278,6 +2401,138 @@ const OPDoctorlogin = () => {
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
               <Button $variant="secondary" onClick={() => setShowHistoryModal(false)}>Close</Button>
             </div>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+      {showWaitingModal && (
+        <ModalOverlay onClick={() => setShowWaitingModal(false)}>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '28px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ background: 'linear-gradient(135deg,#0d9488,#0891b2)', borderRadius: '12px', padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Users size={22} color="#fff" />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.3rem', color: '#0f172a', fontWeight: 700 }}>Waiting Patients</h2>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>Total {filteredPatients.length} Patient{filteredPatients.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <X size={22} style={{ cursor: 'pointer', color: '#94a3b8' }} onClick={() => setShowWaitingModal(false)} />
+            </div>
+
+            {/* Search */}
+            <div style={{ margin: '20px 0' }}>
+              <SearchBox style={{ margin: 0 }}>
+                <Search size={16} />
+                <input
+                  type="text"
+                  placeholder="Search by name or UHID..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </SearchBox>
+            </div>
+
+            {/* Cards */}
+            {loadingPatients ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading patients...</div>
+            ) : filteredPatients.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>No patients waiting.</div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: '16px' }}>
+                {filteredPatients.map((p, idx) => {
+                  const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
+                  const name = p.patient?.patient_name || 'Unknown Patient';
+                  const initials = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, '').split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
+                  const avatarPalette = [
+                    ['#e0f2fe', '#0284c7'], ['#dcfce7', '#16a34a'], ['#fef3c7', '#d97706'],
+                    ['#f3e8ff', '#9333ea'], ['#fee2e2', '#dc2626'], ['#e0e7ff', '#4f46e5'],
+                    ['#fce7f3', '#db2777'], ['#f0fdf4', '#15803d'],
+                  ];
+                  const [avBg, avTxt] = avatarPalette[idx % avatarPalette.length];
+                  const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+                  const vitalsDone = p.vital_status === 'Completed';
+
+                  return (
+                    <div key={p.patient?.uhid} style={{
+                      background: '#fff',
+                      borderRadius: '16px',
+                      border: `2px solid ${isSelected ? '#0d9488' : '#e2e8f0'}`,
+                      padding: '18px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      boxShadow: isSelected ? '0 0 0 3px rgba(13,148,136,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                    }}>
+                      {/* Status badge */}
+                      <span style={{
+                        position: 'absolute', top: '14px', right: '14px',
+                        background: vitalsDone ? '#dcfce7' : '#fef9c3',
+                        color: vitalsDone ? '#16a34a' : '#ca8a04',
+                        fontSize: '0.68rem', fontWeight: 700,
+                        padding: '3px 10px', borderRadius: '20px', letterSpacing: '0.3px'
+                      }}>
+                        {vitalsDone ? 'Ready' : 'Waiting'}
+                      </span>
+
+                      {/* Avatar + Name */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '46px', height: '46px', borderRadius: '12px',
+                          background: avBg, color: avTxt,
+                          fontWeight: 800, fontSize: '1rem',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>{initials}</div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', lineHeight: 1.2, paddingRight: '52px' }}>{name}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>UHID</div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0d9488' }}>{p.patient?.uhid || '--'}</div>
+                        </div>
+                      </div>
+
+                      {/* Details */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.82rem', color: '#475569' }}>
+                        <div>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} • {p.patient?.gender || '--'}</div>
+                        {p.patient?.mobilePhone && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📞</span> {p.patient.mobilePhone}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Clock size={13} /> {billedTime}
+                        </div>
+                      </div>
+
+                      {/* CTA */}
+                      <button
+                        onClick={() => {
+                          setSelectedPatient(p);
+                          setShowWaitingModal(false);
+                          setActiveTab('vitals');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
+                        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0d9488'; } }}
+                        style={{
+                          marginTop: '4px', width: '100%', padding: '10px',
+                          background: isSelected ? '#0d9488' : 'transparent',
+                          color: isSelected ? '#fff' : '#0d9488',
+                          border: `1.5px solid ${isSelected ? '#0d9488' : '#6ee7b7'}`,
+                          borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          gap: '8px', transition: 'all 0.2s ease',
+                        }}
+                      >
+                        {isSelected ? '✓ Currently Selected' : 'Start Consultation →'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </ModalContent>
         </ModalOverlay>
       )}
