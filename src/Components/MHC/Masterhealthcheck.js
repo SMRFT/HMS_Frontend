@@ -327,32 +327,70 @@ const ViewToggleBtn = styled.button`
   gap: 0.35rem;
 `;
 
+// ── Infographic-style Card Accent Palette ────────────────────────────────────
+const CARD_ACCENTS = [
+  { border: "#f97316", iconBg: "rgba(249,115,22,0.12)",  iconColor: "#f97316",  badgeBg: "#f97316"  },
+  { border: "#3b82f6", iconBg: "rgba(59,130,246,0.12)",  iconColor: "#3b82f6",  badgeBg: "#3b82f6"  },
+  { border: "#22c55e", iconBg: "rgba(34,197,94,0.12)",   iconColor: "#22c55e",  badgeBg: "#22c55e"  },
+  { border: "#a855f7", iconBg: "rgba(168,85,247,0.12)",  iconColor: "#a855f7",  badgeBg: "#a855f7"  },
+  { border: "#0d9488", iconBg: "rgba(13,148,136,0.12)",  iconColor: "#0d9488",  badgeBg: "#0d9488"  },
+  { border: "#ec4899", iconBg: "rgba(236,72,153,0.12)",  iconColor: "#ec4899",  badgeBg: "#ec4899"  },
+];
+const CARD_ICONS = ["🩺", "👤", "📋", "💊", "🏥", "📊"];
+
 const CardsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-  max-height: 420px;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 1.25rem;
+  max-height: 480px;
   overflow-y: auto;
   padding-right: 4px;
+  padding-bottom: 4px;
 `;
 
 const PatientCard = styled.div`
-  background: ${p => p.selected ? "#f0fdfa" : "#ffffff"};
-  border: 2px solid ${p => p.selected ? "#0d9488" : "#e2e8f0"};
+  background: #ffffff;
+  border: 1.5px solid ${p => p.selected ? p.$accentColor || "#0d9488" : "#e8ecf0"};
+  border-left: 4px solid ${p => p.$accentColor || "#0d9488"};
   border-radius: 16px;
-  padding: 1.1rem 1.2rem;
+  padding: 1.2rem 1.2rem 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: ${p => p.selected ? "0 6px 18px rgba(13, 148, 136, 0.18)" : "0 2px 6px rgba(0,0,0,0.02)"};
+  position: relative;
+  transition: all 0.22s ease;
+  box-shadow: ${p => p.selected
+    ? `0 8px 24px ${p.$accentColor || "#0d9488"}33`
+    : "0 2px 10px rgba(0,0,0,0.06)"};
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.8rem;
+  overflow: hidden;
+
+  /* top-left corner tinted arc */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 52px; height: 52px;
+    border-radius: 16px 0 52px 0;
+    background: ${p => p.$iconBg || "rgba(13,148,136,0.10)"};
+    pointer-events: none;
+  }
+
+  /* bottom-right corner tinted arc */
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 38px; height: 38px;
+    border-radius: 52px 0 16px 0;
+    background: ${p => p.$iconBg || "rgba(13,148,136,0.08)"};
+    pointer-events: none;
+  }
 
   &:hover {
-    transform: translateY(-2px);
-    border-color: #0d9488;
-    box-shadow: 0 6px 16px rgba(13, 148, 136, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px ${p => p.$accentColor || "#0d9488"}33;
+    border-color: ${p => p.$accentColor || "#0d9488"};
   }
 `;
 
@@ -360,37 +398,63 @@ const CardHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.6rem;
+  position: relative;
+  z-index: 1;
+`;
+
+const CardIconBox = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: ${p => p.$bg || "rgba(13,148,136,0.1)"};
+  flex-shrink: 0;
+`;
+
+const CardBadgeCircle = styled.div`
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: ${p => p.$bg || "#0d9488"};
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px ${p => p.$bg || "#0d9488"}55;
+  text-align: center;
+  line-height: 1.2;
 `;
 
 const PatientNameText = styled.h3`
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   font-weight: 800;
   color: #0f172a;
-  margin: 0;
-`;
-
-const MhcBadge = styled.span`
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #0d9488;
-  background: #ccfbf1;
-  border-radius: 20px;
-  padding: 0.15rem 0.6rem;
-  white-space: nowrap;
+  margin: 0 0 0.1rem;
+  line-height: 1.3;
 `;
 
 const MetaRow = styled.div`
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.28rem;
   font-size: 0.78rem;
   color: #64748b;
+  padding-left: 0.05rem;
+  position: relative;
+  z-index: 1;
 
   span {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3rem;
+    line-height: 1.4;
   }
 `;
 
@@ -399,30 +463,32 @@ const CardFooter = styled.div`
   justify-content: space-between;
   align-items: center;
   padding-top: 0.6rem;
-  border-top: 1px dashed #e2e8f0;
-  margin-top: 0.2rem;
+  border-top: 1px solid #f1f5f9;
+  position: relative;
+  z-index: 1;
 `;
 
 const TotalFeeBadge = styled.span`
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  color: #0f766e;
+  color: ${p => p.$color || "#0f766e"};
 `;
 
 const EditActionBtn = styled.button`
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.75rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
   font-weight: 700;
-  border: none;
-  background: ${p => p.selected ? "#0d9488" : "#f1f5f9"};
-  color: ${p => p.selected ? "#ffffff" : "#334155"};
+  border: 1.5px solid ${p => p.selected ? "transparent" : "#e2e8f0"};
+  background: ${p => p.selected ? p.$accent || "#0d9488" : "#f8fafc"};
+  color: ${p => p.selected ? "#ffffff" : "#475569"};
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    background: #0d9488;
+    background: ${p => p.$accent || "#0d9488"};
     color: #ffffff;
+    border-color: transparent;
   }
 `;
 
@@ -471,9 +537,10 @@ const PatientTable = styled.table`
 
 // ─── Initial form state ───────────────────────────────────────────────────────
 const initialForm = {
- 
+
   mhc_no: null,
   patient_name: "",
+  registration_date: "",
   age: "",
   gender: "",
   contact_number: "",
@@ -496,21 +563,21 @@ const toNum = (v) => parseFloat(String(v).replace(/,/g, "")) || 0;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function Masterhealthcheck() {
-  const [form, setForm]                     = useState(initialForm);
-  const [packages, setPackages]             = useState([]);
-  const [selectedPkgs, setSelectedPkgs]    = useState([]); // [{package_name, package_fee}]
+  const [form, setForm] = useState(initialForm);
+  const [packages, setPackages] = useState([]);
+  const [selectedPkgs, setSelectedPkgs] = useState([]); // [{package_name, package_fee}]
   const [loadingPackages, setLoadingPackages] = useState(false);
-  const [sources, setSources]               = useState([]);
+  const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(false);
-  const [records, setRecords]               = useState([]);
+  const [records, setRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(false);
   const [searchRecordText, setSearchRecordText] = useState("");
-  const [isEditing, setIsEditing]           = useState(false);
-  const [saving, setSaving]                 = useState(false);
-  const [activeView, setActiveView]         = useState("list"); // 'list' | 'form'
-  const [viewMode, setViewMode]             = useState("cards"); // 'cards' | 'table'
-  const [dropOpen, setDropOpen]             = useState(false);
-  const dropRef                             = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [activeView, setActiveView] = useState("list"); // 'list' | 'form'
+  const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'table'
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef = useRef(null);
 
   // ── Close dropdown on outside click ─────────────────────────────────────
   useEffect(() => {
@@ -597,6 +664,7 @@ export default function Masterhealthcheck() {
       pharmacy: rec.pharmacy ? parseFloat(rec.pharmacy).toFixed(2) : "",
       ip: rec.ip ? parseFloat(rec.ip).toFixed(2) : "",
       total_fees: rec.total_fees ? parseFloat(rec.total_fees).toFixed(2) : "",
+      registration_date: rec.registration_date || "",
       follow_up: rec.follow_up || "",
       description: rec.description || "",
     });
@@ -644,9 +712,9 @@ export default function Masterhealthcheck() {
   useEffect(() => {
     const total =
       toNum(form.package_fee) +
-      toNum(form.doctor_fee)  +
-      toNum(form.add_tests)   +
-      toNum(form.pharmacy)    +
+      toNum(form.doctor_fee) +
+      toNum(form.add_tests) +
+      toNum(form.pharmacy) +
       toNum(form.ip);
     setForm(prev => ({ ...prev, total_fees: total > 0 ? total.toFixed(2) : "" }));
   }, [form.package_fee, form.doctor_fee, form.add_tests, form.pharmacy, form.ip]);
@@ -827,30 +895,52 @@ export default function Masterhealthcheck() {
                 <CardsGrid>
                   {filtered.map((rec, idx) => {
                     const isSelected = form.mhc_no === rec.mhc_no || (rec.id && form.id === rec.id);
+                    const accent = CARD_ACCENTS[idx % CARD_ACCENTS.length];
+                    const icon = CARD_ICONS[idx % CARD_ICONS.length];
                     return (
                       <PatientCard
                         key={idx}
                         selected={isSelected}
+                        $accentColor={accent.border}
+                        $iconBg={accent.iconBg}
                         onClick={() => handleSelectRecord(rec)}
                       >
+                        {/* Card Header: icon + name + circular badge */}
                         <CardHeader>
-                          <PatientNameText>{rec.patient_name || "N/A"}</PatientNameText>
-                          <MhcBadge>MHC #{rec.mhc_no || rec.op_number || idx + 1}</MhcBadge>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", flex: 1 }}>
+                            <CardIconBox $bg={accent.iconBg}>
+                              {icon}
+                            </CardIconBox>
+                            <div style={{ flex: 1 }}>
+                              <PatientNameText>{rec.patient_name || "N/A"}</PatientNameText>
+                              {rec.op_number && (
+                                <div style={{ fontSize: "0.72rem", color: accent.iconColor, fontWeight: 700 }}>
+                                  OP: {rec.op_number}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {/* Circular badge — shows gender/age initials, NO MHC NO */}
+                          <CardBadgeCircle $bg={accent.badgeBg}>
+                            <div>{rec.gender === "Male" ? "♂" : rec.gender === "Female" ? "♀" : "👤"}</div>
+                          </CardBadgeCircle>
                         </CardHeader>
 
+                        {/* Meta info rows */}
                         <MetaRow>
-                          {rec.op_number && <span>🆔 OP: <strong>{rec.op_number}</strong></span>}
-                          {(rec.age || rec.gender) && <span>👤 {rec.age ? `${rec.age} Yrs` : ""} {rec.gender ? `/ ${rec.gender}` : ""}</span>}
+                          {rec.registration_date && <span>📅 Reg: {rec.registration_date}</span>}
                           {rec.contact_number && <span>📞 {rec.contact_number}</span>}
-                          {rec.package && <span>📦 {rec.package}</span>}
+                          {rec.package && <span>📦 <strong style={{ color: "#334155" }}>{rec.package}</strong></span>}
+                          {rec.package_category && <span>🏷️ {rec.package_category}</span>}
+                          {rec.source && <span>📣 {rec.source}</span>}
                         </MetaRow>
 
                         <CardFooter>
-                          <TotalFeeBadge>
+                          <TotalFeeBadge $color={accent.border}>
                             ₹ {toNum(rec.total_fees).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                           </TotalFeeBadge>
-                          <EditActionBtn selected={isSelected}>
-                            {isSelected ? "✏️ Currently Editing" : "Select & Edit →"}
+                          <EditActionBtn selected={isSelected} $accent={accent.badgeBg}>
+                            {isSelected ? "✏️ Editing" : "Edit →"}
                           </EditActionBtn>
                         </CardFooter>
                       </PatientCard>
@@ -868,6 +958,7 @@ export default function Masterhealthcheck() {
                       <th>MHC No</th>
                       <th>Patient Name</th>
                       <th>OP Number</th>
+                      <th>Reg Date</th>
                       <th>Age / Gender</th>
                       <th>Contact</th>
                       <th>Package</th>
@@ -888,6 +979,7 @@ export default function Masterhealthcheck() {
                           <td><strong>#{rec.mhc_no || idx + 1}</strong></td>
                           <td style={{ fontWeight: 700, color: "#0f172a" }}>{rec.patient_name}</td>
                           <td>{rec.op_number || "-"}</td>
+                          <td>{rec.registration_date || "-"}</td>
                           <td>{rec.age ? `${rec.age} Yrs` : "-"} {rec.gender ? `/ ${rec.gender}` : ""}</td>
                           <td>{rec.contact_number || "-"}</td>
                           <td><span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: "12px", fontWeight: 700, fontSize: "0.75rem" }}>{rec.package || "-"}</span></td>
@@ -975,6 +1067,11 @@ export default function Masterhealthcheck() {
                 )}
               </FieldGroup>
               <FieldGroup>
+                <Label>Registration Date</Label>
+                <Input id="mhc-reg-date" name="registration_date" type="date"
+                  value={form.registration_date} onChange={handleChange} />
+              </FieldGroup>
+              <FieldGroup>
                 <Label>Follow Up</Label>
                 <Input id="mhc-follow-up" name="follow_up" type="date"
                   value={form.follow_up} onChange={handleChange} />
@@ -1004,11 +1101,11 @@ export default function Masterhealthcheck() {
                         {selectedPkgs.length === 0
                           ? <PlaceholderText>Select one or more packages…</PlaceholderText>
                           : selectedPkgs.map(p => (
-                              <Tag key={p.package_name}>
-                                {p.package_name}
-                                <TagRemove onClick={(e) => removeTag(e, p.package_name)}>✕</TagRemove>
-                              </Tag>
-                            ))
+                            <Tag key={p.package_name}>
+                              {p.package_name}
+                              <TagRemove onClick={(e) => removeTag(e, p.package_name)}>✕</TagRemove>
+                            </Tag>
+                          ))
                         }
                       </TagsRow>
                       <Chevron open={dropOpen}>▼</Chevron>
@@ -1041,6 +1138,28 @@ export default function Masterhealthcheck() {
                             </DropdownItem>
                           );
                         })}
+                        <div style={{ padding: "8px", borderTop: "1px solid #e2e8f0", background: "#f8fafc", position: "sticky", bottom: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDropOpen(false);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "8px",
+                              background: "#0d9488",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "6px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              fontSize: "0.9rem"
+                            }}
+                          >
+                            Done
+                          </button>
+                        </div>
                       </DropdownMenu>
                     )}
                   </MultiSelectWrapper>
@@ -1054,8 +1173,8 @@ export default function Masterhealthcheck() {
                   {selectedPkgs.length === 0
                     ? <span style={{ color: "#94a3b8", fontWeight: 400 }}>Auto-summed on selection</span>
                     : <>
-                        <span>₹ {parseFloat(form.package_fee || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-                      </>
+                      <span>₹ {parseFloat(form.package_fee || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+                    </>
                   }
                 </FeeBox>
                 {selectedPkgs.length > 1 && (

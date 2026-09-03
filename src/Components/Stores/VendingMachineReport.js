@@ -221,7 +221,9 @@ const VendingMachineReport = () => {
             "GRN Received Qty": item.grn_received_qty,
             "GRN Total Cost (₹)": item.grn_total_value,
             "Avg GRN Cost (₹)": item.avg_grn_unit_cost,
-            "Current Stock Balance": item.stock_balance,
+            "Total Stock (Master)": item.total_quantity || item.current_master_stock || 0,
+            "Approved Qty (Sold)": item.approved_quantity || 0,
+            "Available Stock (Total - Approved)": item.available_quantity ?? item.stock_balance ?? 0,
             "Estimated Profit Margin (₹)": item.estimated_margin
         }));
 
@@ -299,6 +301,17 @@ const VendingMachineReport = () => {
 
                     <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>AVAILABLE STOCK</span>
+                            <PackageCheck size={20} color="#0891b2" />
+                        </div>
+                        <h2 style={{ margin: '10px 0 0 0', fontSize: '1.6rem', color: '#0891b2', fontWeight: '700' }}>
+                            {summary.total_available_stock || 0}
+                        </h2>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Total ({summary.total_master_stock || 0}) - Approved ({summary.total_approved_quantity || 0})</span>
+                    </div>
+
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>ESTIMATED MARGIN</span>
                             <TrendingUp size={20} color="#4f46e5" />
                         </div>
@@ -371,7 +384,7 @@ const VendingMachineReport = () => {
                                         <Th style={{ textAlign: 'center' }}>GRN Qty Recd</Th>
                                         <Th style={{ textAlign: 'right' }}>GRN Total Cost</Th>
                                         <Th style={{ textAlign: 'right' }}>Avg GRN Unit Cost</Th>
-                                        <Th style={{ textAlign: 'center' }}>Current Stock Balance</Th>
+                                        <Th style={{ textAlign: 'center' }}>Available Stock</Th>
                                         <Th style={{ textAlign: 'right' }}>Est. Margin</Th>
                                     </Tr>
                                 </thead>
@@ -383,49 +396,55 @@ const VendingMachineReport = () => {
                                             </Td>
                                         </Tr>
                                     ) : (
-                                        filteredReport.map((item, idx) => (
-                                            <Tr key={idx}>
-                                                <Td style={{ fontWeight: '600' }}>
-                                                    <div style={{ color: colors.primary, fontSize: '0.95rem' }}>{item.product_name}</div>
-                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id || '-'}</span>
-                                                </Td>
-                                                <Td style={{ fontSize: '0.85rem' }}>
-                                                    <div>{item.category || '-'}</div>
-                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>{item.supplier || '-'}</span>
-                                                </Td>
-                                                <Td style={{ textAlign: 'right', fontWeight: '600' }}>₹{Number(item.unit_price || 0).toFixed(2)}</Td>
-                                                <Td style={{ textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>
-                                                    {item.sales_qty}
-                                                </Td>
-                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: '#059669' }}>
-                                                    ₹{Number(item.sales_value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </Td>
-                                                <Td style={{ textAlign: 'center', fontWeight: '700', color: '#d97706' }}>
-                                                    {item.grn_received_qty}
-                                                </Td>
-                                                <Td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
-                                                    ₹{Number(item.grn_total_value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </Td>
-                                                <Td style={{ textAlign: 'right', color: colors.textMuted }}>
-                                                    ₹{Number(item.avg_grn_unit_cost || 0).toFixed(2)}
-                                                </Td>
-                                                <Td style={{ textAlign: 'center' }}>
-                                                    <span style={{
-                                                        background: item.stock_balance <= 5 ? '#fee2e2' : '#dcfce7',
-                                                        color: item.stock_balance <= 5 ? '#dc2626' : '#15803d',
-                                                        padding: '4px 12px',
-                                                        borderRadius: '20px',
-                                                        fontWeight: '700',
-                                                        fontSize: '0.85rem'
-                                                    }}>
-                                                        {item.stock_balance} units
-                                                    </span>
-                                                </Td>
-                                                <Td style={{ textAlign: 'right', fontWeight: '700', color: item.estimated_margin >= 0 ? '#4f46e5' : '#dc2626' }}>
-                                                    ₹{Number(item.estimated_margin || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                </Td>
-                                            </Tr>
-                                        ))
+                                        filteredReport.map((item, idx) => {
+                                            const totalQty = Number(item.total_quantity ?? item.current_master_stock ?? 0);
+                                            const approvedQty = Number(item.approved_quantity ?? 0);
+                                            const availStock = Number(item.available_quantity ?? item.stock_balance ?? (totalQty - approvedQty));
+
+                                            return (
+                                                <Tr key={idx}>
+                                                    <Td style={{ fontWeight: '600' }}>
+                                                        <div style={{ color: colors.primary, fontSize: '0.95rem' }}>{item.product_name}</div>
+                                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>ID: {item.item_id || '-'}</span>
+                                                    </Td>
+                                                    <Td style={{ fontSize: '0.85rem' }}>
+                                                        <div>{item.category || '-'}</div>
+                                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>{item.supplier || '-'}</span>
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'right', fontWeight: '600' }}>₹{Number(item.unit_price || 0).toFixed(2)}</Td>
+                                                    <Td style={{ textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>
+                                                        {item.sales_qty}
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'right', fontWeight: '700', color: '#059669' }}>
+                                                        ₹{Number(item.sales_value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'center', fontWeight: '700', color: '#d97706' }}>
+                                                        {item.grn_received_qty}
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
+                                                        ₹{Number(item.grn_total_value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'right', color: colors.textMuted }}>
+                                                        ₹{Number(item.avg_grn_unit_cost || 0).toFixed(2)}
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'center' }}>
+                                                        <span style={{
+                                                            background: availStock <= 5 ? '#fee2e2' : '#dcfce7',
+                                                            color: availStock <= 5 ? '#dc2626' : '#15803d',
+                                                            padding: '4px 12px',
+                                                            borderRadius: '20px',
+                                                            fontWeight: '700',
+                                                            fontSize: '0.85rem'
+                                                        }}>
+                                                            {availStock} units
+                                                        </span>
+                                                    </Td>
+                                                    <Td style={{ textAlign: 'right', fontWeight: '700', color: item.estimated_margin >= 0 ? '#4f46e5' : '#dc2626' }}>
+                                                        ₹{Number(item.estimated_margin || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </Td>
+                                                </Tr>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </Table>

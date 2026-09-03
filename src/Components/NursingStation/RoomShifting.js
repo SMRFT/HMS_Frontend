@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import styled, { keyframes } from "styled-components";
+import { useState, useEffect, useMemo } from "react";
+import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 
 import {
@@ -340,13 +340,15 @@ const FBR = styled.div`
   flex-wrap: wrap;
   margin-bottom: 14px;
   align-items: flex-end;
+  width: 100%;
+  box-sizing: border-box;
   background: ${T.white};
   border: 1px solid ${T.gray200};
   border-radius: ${T.radiusSm};
   padding: 10px 12px;
 `;
 
-const FFR = styled.div`display: flex; flex-direction: column; gap: 3px; flex: 1 1 120px;`;
+const FFR = styled.div`display: flex; flex-direction: column; gap: 3px; flex: 1 1 140px; min-width: 120px;`;
 const FLR = styled.label`font-size: .68rem; font-weight: 700; color: ${T.gray500}; text-transform: uppercase; letter-spacing: .04em;`;
 
 const FIR = styled.input`
@@ -360,6 +362,21 @@ const FIR = styled.input`
   width: 100%;
   box-sizing: border-box;
   font-family: ${T.font};
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 3px rgba(13,148,136,.1); }
+`;
+
+const FSelR = styled.select`
+  height: 32px;
+  padding: 0 8px;
+  font-size: .78rem;
+  border: 1.5px solid ${T.gray200};
+  border-radius: ${T.radiusSm};
+  background: ${T.white};
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ${T.font};
+  cursor: pointer;
   &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 3px rgba(13,148,136,.1); }
 `;
 
@@ -403,67 +420,111 @@ const BS2 = styled.div`
 const BH2 = styled.div`padding: 8px 14px; background: ${T.primaryLt}; border-bottom: 1px solid ${T.gray200}; font-size: .8rem; font-weight: 700; color: ${T.primary};`;
 const FG2 = styled.div`padding: 12px 14px;`;
 const FL2 = styled.div`font-size: .68rem; font-weight: 700; color: ${T.gray500}; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; &::after { content: ""; flex: 1; height: 1px; background: ${T.gray200}; }`;
-const RG2 = styled.div`display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px;`;
+const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
+  <svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M1 10H23" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M5 6C5 5.45 5.45 5 6 5H8C8.55 5 9 5.45 9 6C9 6.55 8.55 7 8 7H6C5.45 7 5 6.55 5 6Z" fill={color} />
+    <path d="M2 14V16M22 14V16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
 
-const rC = {
-  available:    { bg: "#f0fdf4", br: "#86efac", hd: "#dcfce7" },
-  occupied:     { bg: "#fff1f2", br: "#fca5a5", hd: "#fee2e2" },
-  "not cleaned":{ bg: "#fffbeb", br: "#fcd34d", hd: "#fef3c7" },
-  partial:      { bg: "#eff6ff", br: "#93c5fd", hd: "#dbeafe" },
-  booked:       { bg: "#fdf4ff", br: "#d8b4fe", hd: "#f3e8ff" },
-  reserved:     { bg: "#fdf4ff", br: "#d8b4fe", hd: "#f3e8ff" },
-  maintenance:  { bg: "#f3f4f6", br: "#d1d5db", hd: "#e5e7eb" },
-};
+const RG2 = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+`;
 
 const RC = styled.div`
-  border: 1.5px solid ${p => rC[p.s]?.br || T.gray200};
+  border: 1.5px solid ${p => p.hasOccupied ? "#fca5a5" : "#e2e8f0"};
   border-radius: 7px;
   overflow: hidden;
-  cursor: ${p => (p.s === 'maintenance' || p.noavail) ? 'not-allowed' : 'pointer'};
-  opacity: ${p => (p.s === 'maintenance' || p.noavail) ? 0.7 : 1};
-  background: ${p => rC[p.s]?.bg || T.white};
-  transition: box-shadow .15s, transform .15s;
-  &:hover:not([style*="not-allowed"]) { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: all 0.14s ease;
+  display: flex;
+  flex-direction: column;
+  &:hover {
+    border-color: ${p => p.hasOccupied ? "#ef4444" : "#0d9488"};
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+  }
 `;
 
-const RCT = styled.div`display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: ${p => rC[p.s]?.hd || '#f1f5f9'}; border-bottom: 1px solid ${p => rC[p.s]?.br || T.gray200};`;
-const RNum = styled.span`font-size: .8rem; font-weight: 700; color: ${T.gray900};`;
-const RSP = styled.span`
-  font-size: .58rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; text-transform: capitalize; color: #fff;
-  background: ${p =>
-    p.s === 'available'   ? '#22c55e' :
-    p.s === 'occupied'    ? '#ef4444' :
-    p.s === 'not cleaned' ? '#f59e0b' :
-    p.s === 'booked'      ? '#a855f7' :
-    p.s === 'reserved'    ? '#a855f7' :
-    p.s === 'maintenance' ? '#6b7280' : '#3b82f6'};
+const RCT = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  background: ${p => p.hasOccupied ? "#fff5f5" : "#f8fafc"};
+  border-bottom: 1px solid ${p => p.hasOccupied ? "#fee2e2" : "#e2e8f0"};
 `;
 
-const BRow = styled.div`display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px;`;
-const BC = styled.button`
-  flex: 1 1 auto;
-  min-width: 40px;
-  text-align: center;
-  padding: 3px 5px;
+const RNum = styled.span`
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #0f172a;
+`;
+
+const CategoryTag = styled.span`
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 1px 5px;
   border-radius: 4px;
-  font-size: .66rem;
-  font-weight: 600;
-  border: none;
-  cursor: ${p => p.disabled ? 'not-allowed' : 'pointer'};
-  color: #fff;
-  background: ${p =>
-    p.bs === "Available"             ? "#22c55e" :
-    p.bs === "Available - Not Cleaned" ? "#f59e0b" :
-    p.bs === "Occupied"              ? "#ef4444" :
-    p.bs === "Reserved"              ? "#a855f7" :
-    p.bs === "Booked"                ? "#a855f7" :
-    p.bs === "Maintenance"           ? "#6b7280" : "#6b7280"};
-  opacity: ${p => p.disabled ? .5 : 1};
-  transition: filter .1s;
-  &:hover:not(:disabled) { filter: brightness(1.1); }
+  text-transform: uppercase;
+  max-width: 95px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
-const RT2 = styled.span`font-size: .62rem; color: ${T.gray500}; padding: 0 8px 5px; display: block;`;
+const BedCountPill = styled.span`
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: ${p => p.available > 0 ? "#dcfce7" : "#fee2e2"};
+  color: ${p => p.available > 0 ? "#15803d" : "#b91c1c"};
+`;
+
+const BRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 5px;
+  padding: 6px 8px;
+`;
+
+const BC = styled.button`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 3px;
+  height: 48px;
+  border-radius: 5px;
+  border: 1.5px solid ${p => p.cfg?.border || "#cbd5e1"};
+  background: ${p => p.cfg?.light || "#f1f5f9"};
+  cursor: ${p => p.isAv ? "pointer" : "not-allowed"};
+  opacity: ${p => p.isAv ? 1 : 0.65};
+  transition: all 0.12s ease;
+  outline: none;
+  user-select: none;
+  box-sizing: border-box;
+
+  ${p => p.isAv && css`
+    &:hover {
+      transform: scale(1.05);
+      border-color: ${p.cfg?.color || "#16a34a"};
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+    }
+  `}
+`;
+
 const Skel = styled.div`height: 100px; border-radius: 7px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: ${pulse} 1.4s ease-in-out infinite;`;
 const NR = styled.div`text-align: center; padding: 30px; color: ${T.gray400}; font-size: .82rem;`;
 
@@ -536,48 +597,112 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   const [loading,  setLoading]  = useState(false);
   const [showBed,  setShowBed]  = useState(false);
   const [selRoom,  setSelRoom]  = useState(null);
-  const [filter,   setFilter]   = useState({ room_number: "", block: "", floor: "" });
+  const [statusFilter, setStatusFilter] = useState("Available");
+  const [filter,   setFilter]   = useState({ room_number: "", block: "", category: "", nursing_station: "" });
 
-const fetchRooms = async (fo = {}) => {
-  setLoading(true);
-  try {
-    const f = { ...filter, ...fo };
-    const p = new URLSearchParams();
-    if (f.room_number) p.append("room_number", f.room_number);
-    if (f.block)       p.append("block",       f.block);
-    if (f.floor)       p.append("floor",       f.floor);
-    const res = await apiRequest(
-      `${baseUrl}admission-room-search/${p.toString() ? `?${p}` : ""}`,
-      "GET"
-    );
-    const rooms = Array.isArray(res)
-      ? res
-      : Array.isArray(res?.data?.data)
-      ? res.data.data
-      : Array.isArray(res?.data)
-      ? res.data
-      : [];
-    setAllRooms(rooms);
-  } catch (err) {
-    console.error("fetchRooms error:", err);
-    setAllRooms([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchRooms = async (fo = {}) => {
+    setLoading(true);
+    try {
+      const f = { ...filter, ...fo };
+      const p = new URLSearchParams();
+      if (f.room_number) p.append("room_number", f.room_number);
+      if (f.block && f.block !== "ALL") p.append("block", f.block);
+      if (f.category && f.category !== "ALL") p.append("room_category", f.category);
+      if (f.nursing_station && f.nursing_station !== "ALL") p.append("nursing_station", f.nursing_station);
+      const res = await apiRequest(
+        `${baseUrl}admission-room-search/${p.toString() ? `?${p}` : ""}`,
+        "GET"
+      );
+      const rooms = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.data?.data)
+        ? res.data.data
+        : Array.isArray(res?.data)
+        ? res.data
+        : [];
+      setAllRooms(rooms);
+    } catch (err) {
+      console.error("fetchRooms error:", err);
+      setAllRooms([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => { fetchRooms(); }, []);
 
-  const grouped = (() => {
-    const g = {};
+  const roomFilterOptions = useMemo(() => {
+    const blocks = new Set();
+    const categories = new Set();
+    const stations = new Set();
     allRooms.forEach(r => {
-      const bl = r.block || "UNKNOWN", fl = r.floor ?? "?";
-      if (!g[bl]) g[bl] = {};
-      if (!g[bl][fl]) g[bl][fl] = [];
-      g[bl][fl].push(r);
+      if (r.block) blocks.add(r.block);
+      const cat = r.room_category || r.room_type;
+      if (cat) categories.add(cat);
+      if (r.nursing_station) stations.add(r.nursing_station);
     });
+    return {
+      blocks: Array.from(blocks).sort(),
+      categories: Array.from(categories).sort(),
+      stations: Array.from(stations).sort(),
+    };
+  }, [allRooms]);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    allRooms
+      .filter(r => {
+        if (filter.block && filter.block !== "ALL" && String(r.block || "").toLowerCase() !== filter.block.toLowerCase()) return false;
+        if (filter.category && filter.category !== "ALL") {
+          const cat = String(r.room_category || r.room_type || "");
+          if (cat.toLowerCase() !== filter.category.toLowerCase()) return false;
+        }
+        if (filter.nursing_station && filter.nursing_station !== "ALL") {
+          const st = String(r.nursing_station || "");
+          if (st.toLowerCase() !== filter.nursing_station.toLowerCase()) return false;
+        }
+        if (filter.room_number && !String(r.room_number || "").toLowerCase().includes(filter.room_number.toLowerCase())) return false;
+        return true;
+      })
+      .map(r => {
+        const beds = (r.beds || []).filter(b => {
+          if (statusFilter === "ALL") return true;
+          const bs = (b.status || b.bed_status || "").toLowerCase();
+          if (statusFilter === "Available") return bs === "available";
+          if (statusFilter === "Occupied") return bs === "occupied";
+          if (statusFilter === "Not Cleaned") return bs.includes("clean");
+          if (statusFilter === "Reserved") return bs === "reserved" || bs === "booked";
+          if (statusFilter === "Maintenance") return bs === "maintenance" || bs === "blocked";
+          return true;
+        });
+        return { ...r, filteredBeds: beds };
+      })
+      .filter(r => statusFilter === "ALL" || r.filteredBeds.length > 0)
+      .forEach(r => {
+        const bl = r.block || "MAIN BLOCK";
+        const fl = r.nursing_station || (r.floor ? `Floor ${r.floor}` : "General Ward");
+        if (!g[bl]) g[bl] = {};
+        if (!g[bl][fl]) g[bl][fl] = [];
+        g[bl][fl].push(r);
+      });
     return g;
-  })();
+  }, [allRooms, filter, statusFilter]);
+
+  const roomStats = useMemo(() => {
+    let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
+    allRooms.forEach(room => {
+      (room.beds || []).forEach(b => {
+        total++;
+        const bs = (b.status || b.bed_status || "").toLowerCase();
+        if (bs === "available") available++;
+        else if (bs === "occupied") occupied++;
+        else if (bs.includes("clean")) notCleaned++;
+        else if (bs === "reserved" || bs === "booked") reserved++;
+        else maintenance++;
+      });
+    });
+    return { total, available, occupied, notCleaned, reserved, maintenance };
+  }, [allRooms]);
 
   const handleRoomClick = room => {
     if (getRoomStatus(room.beds) === "maintenance") return;
@@ -603,58 +728,197 @@ const fetchRooms = async (fo = {}) => {
           </ModalHeader>
           <RMB>
             <FBR>
-              {[["room_number","Room No","e.g. 101"], ["block","Block","e.g. A"]].map(([k, lbl, ph]) => (
-                <FFR key={k}>
-                  <FLR>{lbl}</FLR>
-                  <FIR placeholder={ph} value={filter[k]}
-                    onChange={e => setFilter(p => ({ ...p, [k]: e.target.value }))}
-                    onKeyDown={e => e.key === "Enter" && fetchRooms()} />
-                </FFR>
-              ))}
               <FFR>
-                <FLR>Floor</FLR>
-                <FIR type="number" placeholder="e.g. 2" value={filter.floor}
-                  onChange={e => setFilter(p => ({ ...p, floor: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && fetchRooms()} />
+                <FLR>Room No</FLR>
+                <FIR
+                  placeholder="e.g. 101"
+                  value={filter.room_number}
+                  onChange={e => setFilter(p => ({ ...p, room_number: e.target.value }))}
+                  onKeyDown={e => e.key === "Enter" && fetchRooms()}
+                />
               </FFR>
+
+              <FFR>
+                <FLR>Block</FLR>
+                <FSelR
+                  value={filter.block || "ALL"}
+                  onChange={e => setFilter(p => ({ ...p, block: e.target.value }))}
+                >
+                  <option value="ALL">🏢 All Blocks</option>
+                  {roomFilterOptions.blocks.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </FSelR>
+              </FFR>
+
+              <FFR>
+                <FLR>Category</FLR>
+                <FSelR
+                  value={filter.category || "ALL"}
+                  onChange={e => setFilter(p => ({ ...p, category: e.target.value }))}
+                >
+                  <option value="ALL">🏷️ All Categories</option>
+                  {roomFilterOptions.categories.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </FSelR>
+              </FFR>
+
+              <FFR>
+                <FLR>Nursing Station</FLR>
+                <FSelR
+                  value={filter.nursing_station || "ALL"}
+                  onChange={e => setFilter(p => ({ ...p, nursing_station: e.target.value }))}
+                >
+                  <option value="ALL">🩺 All Stations</option>
+                  {roomFilterOptions.stations.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </FSelR>
+              </FFR>
+
               <FBR2 onClick={() => fetchRooms()}>Search</FBR2>
-              <FBR2 clear onClick={() => { const cl = { room_number: "", block: "", floor: "" }; setFilter(cl); fetchRooms(cl); }}>Clear</FBR2>
+              <FBR2
+                clear
+                onClick={() => {
+                  const cl = { room_number: "", block: "", category: "", nursing_station: "" };
+                  setFilter(cl);
+                  setStatusFilter("Available");
+                  fetchRooms(cl);
+                }}
+              >
+                Clear
+              </FBR2>
             </FBR>
 
-            <LBar>
-              {[["#22c55e","Available"],["#f59e0b","Not Cleaned"],["#ef4444","Occupied"],["#a855f7","Reserved/Booked"],["#6b7280","Maintenance"]].map(([c, l]) => (
-                <LI key={l}><LD c={c} />{l}</LI>
-              ))}
-            </LBar>
+            {/* Bed Status Filter Pills */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12, padding: "8px 12px", background: "#ffffff", border: `1px solid ${T.gray200}`, borderRadius: T.radiusSm }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: "0.68rem", fontWeight: 800, color: T.gray500, textTransform: "uppercase" }}>
+                  🎨 Status Filter:
+                </span>
+                {[
+                  { status: "ALL", label: "All Beds", count: roomStats.total, color: T.primary, light: "#f0fdfa", border: "#99f6e4" },
+                  { status: "Available", label: "Available", count: roomStats.available, color: "#16a34a", light: "#dcfce7", border: "#86efac" },
+                  { status: "Occupied", label: "Occupied", count: roomStats.occupied, color: "#dc2626", light: "#fee2e2", border: "#fca5a5" },
+                  { status: "Not Cleaned", label: "Not Cleaned", count: roomStats.notCleaned, color: "#d97706", light: "#fef3c7", border: "#fde047" },
+                  { status: "Reserved", label: "Reserved", count: roomStats.reserved, color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe" },
+                  { status: "Maintenance", label: "Maintenance", count: roomStats.maintenance, color: "#64748b", light: "#f1f5f9", border: "#cbd5e1" },
+                ].map(item => {
+                  const active = statusFilter === item.status;
+                  return (
+                    <button
+                      key={item.status}
+                      type="button"
+                      onClick={() => setStatusFilter(prev => prev === item.status ? "ALL" : item.status)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "3px 9px",
+                        borderRadius: 20,
+                        fontSize: "0.68rem",
+                        fontWeight: 700,
+                        border: `1.5px solid ${active ? item.color : item.border}`,
+                        background: active ? item.color : item.light,
+                        color: active ? "#ffffff" : item.color,
+                        cursor: "pointer",
+                        transition: "all 0.12s ease",
+                      }}
+                    >
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: active ? "#ffffff" : item.color }} />
+                      <span>{item.label}</span>
+                      <span style={{
+                        fontSize: "0.6rem",
+                        fontWeight: 800,
+                        padding: "0 4px",
+                        borderRadius: 10,
+                        background: active ? "rgba(255,255,255,0.3)" : "#ffffff",
+                        color: active ? "#ffffff" : item.color,
+                        border: active ? "none" : `1px solid ${item.border}`,
+                      }}>
+                        {item.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: "0.68rem", color: T.gray500 }}>
+                Defaulting to <strong style={{ color: "#16a34a" }}>Available</strong> beds
+              </div>
+            </div>
 
             {loading ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px,1fr))", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px,1fr))", gap: 8 }}>
                 {Array.from({ length: 12 }).map((_, i) => <Skel key={i} />)}
               </div>
-            ) : Object.keys(grouped).length === 0 ? <NR>No rooms found.</NR>
+            ) : Object.keys(grouped).length === 0 ? <NR>No rooms found matching filter.</NR>
             : Object.entries(grouped).map(([block, floors], bIdx) => (
               <BS2 key={block} i={bIdx}>
                 <BH2>🏢 Block {block}</BH2>
-                {Object.entries(floors).sort(([a], [b]) => Number(a) - Number(b)).map(([floor, rooms]) => (
+                {Object.entries(floors).map(([floor, rooms]) => (
                   <FG2 key={floor}>
-                    <FL2>Floor {floor}</FL2>
+                    <FL2>📍 {floor}</FL2>
                     <RG2>
                       {rooms.map(room => {
-                        const s = getRoomStatus(room.beds);
+                        const availableBeds = (room.beds || []).filter(bd => (bd.status || bd.bed_status || "").toLowerCase() === "available").length;
+                        const occupiedBeds = (room.beds || []).filter(bd => (bd.status || bd.bed_status || "").toLowerCase() === "occupied").length;
+                        const hasOcc = occupiedBeds > 0;
+
                         return (
-                          <RC key={room.room_number} s={s} noavail={!(room.beds||[]).some(b=>b.status==="Available")?1:0} onClick={() => handleRoomClick(room)}>
-                            <RCT s={s}>
-                              <RNum>{room.room_number}</RNum>
-                              <RSP s={s}>{s === "partial" ? "Partial" : s === "not cleaned" ? "Not Cleaned" : s.charAt(0).toUpperCase() + s.slice(1)}</RSP>
+                          <RC key={room.room_number} hasOccupied={hasOcc}>
+                            <RCT hasOccupied={hasOcc}>
+                              <RNum>Room {room.room_number}</RNum>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <CategoryTag>{room.room_type || room.room_category || "General"}</CategoryTag>
+                                <BedCountPill available={availableBeds}>
+                                  {availableBeds}/{room.beds?.length || 0} Ready
+                                </BedCountPill>
+                              </div>
                             </RCT>
-                            <RT2>{room.room_type}{room.room_category ? ` · ${room.room_category}` : ""}</RT2>
                             <BRow>
-                              {(room.beds || []).map((bed, i) => (
-                                <BC key={i} bs={bed.status} disabled={!isBedSelectable(bed)}
-                                  onClick={e => { if (isBedSelectable(bed)) { e.stopPropagation(); handleBedSelect(bed.bed_number, room); } }}>
-                                  {bed.bed_number}
-                                </BC>
-                              ))}
+                              {(room.filteredBeds || room.beds || []).map((bed, i) => {
+                                const bs = (bed.status || bed.bed_status || "Available").trim();
+                                const bsLower = bs.toLowerCase();
+                                const isAv = bsLower === "available";
+                                const isOcc = bsLower === "occupied";
+                                const isCl = bsLower.includes("clean");
+                                const isRes = bsLower === "reserved" || bsLower === "booked";
+
+                                const cfg = isAv
+                                  ? { color: "#16a34a", light: "#dcfce7", border: "#86efac", label: "Ready" }
+                                  : isOcc
+                                  ? { color: "#dc2626", light: "#fee2e2", border: "#fca5a5", label: "Occupied" }
+                                  : isCl
+                                  ? { color: "#d97706", light: "#fef3c7", border: "#fde047", label: "Unclean" }
+                                  : isRes
+                                  ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
+                                  : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
+
+                                return (
+                                  <BC
+                                    key={i}
+                                    cfg={cfg}
+                                    isAv={isAv}
+                                    disabled={!isAv}
+                                    title={isAv ? `✅ Bed ${bed.bed_number} — Click to select` : `Bed ${bed.bed_number} (${bs})`}
+                                    onClick={e => {
+                                      if (isAv) {
+                                        e.stopPropagation();
+                                        handleBedSelect(bed.bed_number, room);
+                                      }
+                                    }}
+                                  >
+                                    <BedMiniSVG color={cfg.color} size={15} />
+                                    <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
+                                      B{bed.bed_number}
+                                    </span>
+                                    <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
+                                      {cfg.label}
+                                    </span>
+                                  </BC>
+                                );
+                              })}
                             </BRow>
                           </RC>
                         );

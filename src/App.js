@@ -95,6 +95,9 @@ import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
 import OPEMRDesk from "./Components/EMR/OPEMRDesk";
 import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
+import Vitaldashboard from "./Components/OPEMR/Vitaldashboard";
+import Doctordashboard from "./Components/OPEMR/Doctordashboard";
+import Patientlivetracking from "./Components/OPEMR/Patientlivetracking";
 import OPDoctorlogin from "./Components/OPEMR/OPDoctorlogin";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
@@ -358,6 +361,9 @@ function App() {
       "/DepartmentDashboard": "Department Dashboard",
       "/OPEMRDesk": "OP EMR Consultation",
       "/VitalWaitingList": "Vital Waiting List",
+      "/Vitaldashboard": "Vital Dashboard",
+      "/Doctordashboard": "Doctor Dashboard",
+      "/Patientlivetracking": "Patient Live Tracking",
       "/vitalwaitinglist": "Vital Waiting List",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
@@ -647,6 +653,9 @@ function App() {
               <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
               <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
               <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              <Route path="/Vitaldashboard" element={<Vitaldashboard />} />
+              <Route path="/Doctordashboard" element={<Doctordashboard />} />
+              <Route path="/Patientlivetracking" element={<Patientlivetracking />} />
               <Route path="/OPDoctorlogin" element={<OPDoctorlogin />} />
               <Route path="/opdoctorlogin" element={<OPDoctorlogin />} />
               <Route path="/OPDoctorLogin" element={<OPDoctorlogin />} />

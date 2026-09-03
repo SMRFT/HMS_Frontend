@@ -38,6 +38,40 @@ const PageWrapper = styled.div`
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 `;
 
+const PainScaleContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow-x: auto;
+`;
+
+const PainCircle = styled.button`
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  border: 2px solid ${props => props.$active ? (props.children > 7 ? '#ef4444' : props.children > 3 ? '#eab308' : '#22c55e') : '#cbd5e1'};
+  background: ${props => props.$active ? (props.children > 7 ? '#fef2f2' : props.children > 3 ? '#fefce8' : '#f0fdf4') : 'white'};
+  color: ${props => props.$active ? (props.children > 7 ? '#b91c1c' : props.children > 3 ? '#a16207' : '#15803d') : '#64748b'};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    transform: scale(1.1);
+    border-color: ${props => props.children > 7 ? '#ef4444' : props.children > 3 ? '#eab308' : '#22c55e'};
+  }
+`;
+
 const HeaderSection = styled.div`
   display: flex;
   justify-content: space-between;
@@ -470,11 +504,12 @@ const PatientBanner = styled.div`
 `;
 
 const ModalBody = styled.form`
-  padding: 24px;
+  padding: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: #f8fafc;
 `;
 
 const FormGrid = styled.div`
@@ -490,12 +525,14 @@ const FormGrid = styled.div`
 const FormGroup = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 
   label {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    color: #334155;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -504,16 +541,23 @@ const FormGroup = styled.div`
   }
 
   input {
-    padding: 10px 14px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
+    padding: 12px 16px;
+    border: 1px solid transparent;
+    background: #f8fafc;
+    border-radius: 10px;
     font-size: 0.875rem;
+    color: #0f172a;
     outline: none;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
 
     &:focus {
+      background: #ffffff;
       border-color: #0d9488;
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+      box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+    }
+    
+    &::placeholder {
+      color: #94a3b8;
     }
   }
 
@@ -581,6 +625,92 @@ const EmptyState = styled.div`
   }
 `;
 
+const HistorySection = styled.div`
+  background: white;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 20px;
+  
+  h3 {
+    font-size: 1.1rem;
+    color: #0f172a;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    
+    svg {
+      color: #0d9488;
+    }
+  }
+`;
+
+const HistoryTable = styled.table`
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+
+  th {
+    background: transparent;
+    padding: 12px 16px;
+    text-align: left;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #f1f5f9;
+  }
+
+  td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f8fafc;
+    color: #334155;
+    font-weight: 500;
+  }
+  
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  
+  tbody tr {
+    transition: background-color 0.2s ease;
+  }
+
+  tbody tr:hover {
+    background-color: #f8fafc;
+    border-radius: 8px;
+  }
+`;
+
+const FormCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  padding: 24px;
+  margin: 0 24px 24px 24px;
+  
+  h3 {
+    font-size: 1.1rem;
+    color: #0f172a;
+    font-weight: 700;
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    
+    svg {
+      color: #0d9488;
+    }
+  }
+`;
+
 const getTodayDateString = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -605,6 +735,8 @@ const VitalWaitingList = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [vitalHistory, setVitalHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Vital Form Data
   const [vitalData, setVitalData] = useState({
@@ -711,21 +843,44 @@ const VitalWaitingList = () => {
     setVitalData(updated);
   };
 
-  const handleOpenModal = (record) => {
+  const handleOpenModal = async (record) => {
     setSelectedRecord(record);
-    const existing = record.vital_entry || {};
     setVitalData({
-      height: existing.height !== null && existing.height !== undefined ? existing.height : "",
-      weight: existing.weight !== null && existing.weight !== undefined ? existing.weight : "",
-      bp: existing.bp || "",
-      bmi: existing.bmi !== null && existing.bmi !== undefined ? existing.bmi : "",
-      temp: existing.temp !== null && existing.temp !== undefined ? existing.temp : "",
-      pulse_rate: existing.pulse_rate !== null && existing.pulse_rate !== undefined ? existing.pulse_rate : "",
-      spo2: existing.spo2 !== null && existing.spo2 !== undefined ? existing.spo2 : "",
-      respiratory_rate: existing.respiratory_rate !== null && existing.respiratory_rate !== undefined ? existing.respiratory_rate : "",
-      blood_sugar: existing.blood_sugar !== null && existing.blood_sugar !== undefined ? existing.blood_sugar : ""
+      height: "",
+      weight: "",
+      bp: "",
+      bmi: "",
+      temp: "",
+      pulse_rate: "",
+      spo2: "",
+      respiratory_rate: "",
+      blood_sugar: "",
+      pain_score: ""
     });
     setIsModalOpen(true);
+
+    if (record.patient?.uhid) {
+      setLoadingHistory(true);
+      try {
+        const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_vital_history/?uhid=${record.patient.uhid}`, "GET");
+        if (res.success) {
+          if (Array.isArray(res.data)) {
+            setVitalHistory(res.data);
+          } else if (res.data && Array.isArray(res.data.data)) {
+            setVitalHistory(res.data.data);
+          } else {
+            setVitalHistory([]);
+          }
+        } else {
+          setVitalHistory([]);
+        }
+      } catch (err) {
+        console.error("Error fetching vital history:", err);
+        setVitalHistory([]);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
   };
 
   const handleCloseModal = () => {
@@ -754,6 +909,7 @@ const VitalWaitingList = () => {
         spo2: vitalData.spo2 !== "" ? parseFloat(vitalData.spo2) : null,
         respiratory_rate: vitalData.respiratory_rate !== "" ? parseInt(vitalData.respiratory_rate, 10) : null,
         blood_sugar: vitalData.blood_sugar !== "" ? parseFloat(vitalData.blood_sugar) : null,
+        pain_score: vitalData.pain_score !== "" ? parseInt(vitalData.pain_score, 10) : null,
         created_by: localStorage.getItem("employee_id") || "Staff"
       };
 
@@ -981,7 +1137,7 @@ const VitalWaitingList = () => {
             <ModalHeader>
               <h2>
                 <Activity size={20} />
-                {selectedRecord.vital_status === "Completed" ? "Edit Vital Entry" : "Record Vital Details"}
+                Vital Details
               </h2>
               <button onClick={handleCloseModal}>
                 <X size={18} />
@@ -1007,9 +1163,53 @@ const VitalWaitingList = () => {
               </div>
             </PatientBanner>
 
-            <ModalBody onSubmit={handleSubmitVitals}>
-              <FormGrid>
-                <FormGroup>
+            <ModalBody onSubmit={handleSubmitVitals} style={{ padding: "0" }}>
+              <div style={{ padding: "24px 24px 0 24px" }}>
+                {loadingHistory ? (
+                  <div style={{ padding: "16px", textAlign: "center", color: "#64748b" }}>Loading history...</div>
+                ) : vitalHistory.length > 0 ? (
+                  <HistorySection>
+                    <h3><Clock size={16} /> Past Vitals</h3>
+                    <HistoryTable>
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Ht/Wt (BMI)</th>
+                          <th>BP/Pain</th>
+                          <th>Temp/Pulse</th>
+                          <th>SpO2/Resp</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vitalHistory.map((v, i) => {
+                          const dateStr = v.vital_entry_date ? new Date(v.vital_entry_date).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : "-";
+                          return (
+                            <tr key={v.id || i}>
+                              <td>{dateStr}</td>
+                              <td>{v.height || "-"}cm / {v.weight || "-"}kg ({v.bmi || "-"})</td>
+                              <td>{v.bp || "-"} / {v.pain_score != null ? `PS: ${v.pain_score}` : "-"}</td>
+                              <td>{v.temp ? `${v.temp}°F` : "-" } / {v.pulse_rate || "-"}bpm</td>
+                              <td>{v.spo2 ? `${v.spo2}%` : "-"} / {v.respiratory_rate || "-"}bpm</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </HistoryTable>
+                  </HistorySection>
+                ) : (
+                  <HistorySection>
+                    <h3><Clock size={16} /> Past Vitals</h3>
+                    <div style={{ color: "#64748b", fontSize: "0.875rem", marginBottom: "16px" }}>No past vital entries found.</div>
+                  </HistorySection>
+                )}
+              </div>
+
+              <FormCard>
+                <h3>
+                  <PlusCircle size={18} /> Record New Entry
+                </h3>
+                <FormGrid>
+                  <FormGroup>
                   <label><Ruler size={16} /> Height (cm)</label>
                   <input
                     type="number"
@@ -1095,7 +1295,7 @@ const VitalWaitingList = () => {
                   />
                 </FormGroup>
 
-                <FormGroup style={{ gridColumn: "span 2" }}>
+                <FormGroup>
                   <label><Droplets size={16} /> Blood Sugar (mg/dL)</label>
                   <input
                     type="number"
@@ -1105,9 +1305,26 @@ const VitalWaitingList = () => {
                     onChange={(e) => handleVitalChange("blood_sugar", e.target.value)}
                   />
                 </FormGroup>
-              </FormGrid>
 
-              <ModalFooter>
+                <FormGroup style={{ gridColumn: "span 2" }}>
+                  <label><Activity size={16} /> Pain Score (0-10)</label>
+                  <PainScaleContainer>
+                    {[0,1,2,3,4,5,6,7,8,9,10].map(score => (
+                      <PainCircle 
+                        key={score} 
+                        type="button"
+                        $active={vitalData.pain_score === score || vitalData.pain_score === score.toString()} 
+                        onClick={() => handleVitalChange("pain_score", score)}
+                      >
+                        {score}
+                      </PainCircle>
+                    ))}
+                  </PainScaleContainer>
+                </FormGroup>
+              </FormGrid>
+            </FormCard>
+
+            <ModalFooter>
                 <CancelButton type="button" onClick={handleCloseModal}>
                   Cancel
                 </CancelButton>

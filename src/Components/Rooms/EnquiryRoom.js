@@ -219,18 +219,24 @@ const FilterToolbar = styled.div`
   border-radius: 8px;
   padding: 8px 12px;
   margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   box-shadow: ${T.shadowSm};
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 550px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const SearchInputWrap = styled.div`
   position: relative;
-  flex: 1 1 280px;
-  max-width: 440px;
+  width: 100%;
 `;
 
 const SearchInp = styled.input`
@@ -264,16 +270,11 @@ const SearchIcon = styled.span`
   pointer-events: none;
 `;
 
-const DropdownGroup = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-`;
-
 const FilterSelect = styled.select`
+  width: 100%;
+  box-sizing: border-box;
   height: 34px;
-  padding: 0 12px;
+  padding: 0 10px;
   font-size: clamp(0.75rem, 0.85vw, 0.82rem);
   font-weight: 600;
   font-family: ${T.font};
@@ -962,11 +963,12 @@ const BedDetailModal = ({ bed, room, onClose, onCleanedChange, onBook }) => {
 const EnquiryRoom = () => {
   const [data,           setData]           = useState([]);
   const [loading,        setLoading]        = useState(true);
-  const [selectedBed,    setSelectedBed]    = useState(null);
-  const [searchTerm,     setSearchTerm]     = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-  const [selectedBlock,  setSelectedBlock]  = useState("ALL");
-  const [selectedFloor,  setSelectedFloor]  = useState("ALL");
+  const [selectedBed,     setSelectedBed]     = useState(null);
+  const [searchTerm,      setSearchTerm]      = useState("");
+  const [selectedStatus,  setSelectedStatus]  = useState("ALL");
+  const [selectedBlock,   setSelectedBlock]   = useState("ALL");
+  const [selectedCategory,setSelectedCategory]= useState("ALL");
+  const [selectedStation, setSelectedStation] = useState("ALL");
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -979,14 +981,14 @@ const EnquiryRoom = () => {
 
       const grouped = {};
       apiData.forEach((floorEntry) => {
-        const floor = floorEntry.floor;
         (floorEntry.rooms || []).forEach((room) => {
           const blockName = room.block || "MAIN BLOCK";
+          const stationName = room.nursing_station || (floorEntry.floor ? `Floor ${floorEntry.floor}` : "General Ward");
           if (!grouped[blockName])
             grouped[blockName] = { block: { block_name: blockName }, floors: {} };
-          if (!grouped[blockName].floors[floor])
-            grouped[blockName].floors[floor] = [];
-          grouped[blockName].floors[floor].push({ ...room, id: `${room.room_number}_${floor}` });
+          if (!grouped[blockName].floors[stationName])
+            grouped[blockName].floors[stationName] = [];
+          grouped[blockName].floors[stationName].push({ ...room, id: `${room.room_number}_${stationName}` });
         });
       });
 
@@ -1057,14 +1059,22 @@ const EnquiryRoom = () => {
   /* ── Filter Options ── */
   const filterOptions = useMemo(() => {
     const blocks = new Set();
-    const floors = new Set();
+    const categories = new Set();
+    const stations = new Set();
     data.forEach(b => {
-      blocks.add(b.block.block_name);
-      Object.keys(b.floors).forEach(f => floors.add(f));
+      if (b.block?.block_name) blocks.add(b.block.block_name);
+      Object.entries(b.floors || {}).forEach(([f, rooms]) => {
+        rooms.forEach(r => {
+          const cat = r.room_category || r.room_type;
+          if (cat) categories.add(cat);
+          if (r.nursing_station) stations.add(r.nursing_station);
+        });
+      });
     });
     return {
       blocks: Array.from(blocks).sort(),
-      floors: Array.from(floors).sort((a, b) => Number(a) - Number(b)),
+      categories: Array.from(categories).sort(),
+      stations: Array.from(stations).sort(),
     };
   }, [data]);
 
@@ -1078,9 +1088,20 @@ const EnquiryRoom = () => {
         const filteredFloors = {};
 
         Object.entries(b.floors).forEach(([floor, rooms]) => {
-          if (selectedFloor !== "ALL" && String(floor) !== String(selectedFloor)) return;
+          if (selectedStation !== "ALL" && String(floor).toLowerCase() !== selectedStation.toLowerCase()) return;
 
           const matchedRooms = rooms
+            .filter(room => {
+              if (selectedCategory !== "ALL") {
+                const rCat = String(room.room_category || room.room_type || "");
+                if (rCat.toLowerCase() !== selectedCategory.toLowerCase()) return false;
+              }
+              if (selectedStation !== "ALL") {
+                const rSt = String(room.nursing_station || "");
+                if (rSt.toLowerCase() !== selectedStation.toLowerCase()) return false;
+              }
+              return true;
+            })
             .map(room => {
               const matchedBeds = (room.beds || []).filter(bed => {
                 if (selectedStatus !== "ALL" && bed.status !== selectedStatus) return false;
@@ -1089,6 +1110,7 @@ const EnquiryRoom = () => {
                 const rNo = String(room.room_number || "").toLowerCase();
                 const bNo = String(bed.bed_number || "").toLowerCase();
                 const rCat = String(room.room_category || room.room_type || "").toLowerCase();
+                const rSt = String(room.nursing_station || "").toLowerCase();
                 const pName = String(bed.patient?.patientname || "").toLowerCase();
                 const uhid = String(bed.patient?.uhid || "").toLowerCase();
                 const ipNo = String(bed.ip_number || bed.booking?.ip_number || "").toLowerCase();
@@ -1097,6 +1119,7 @@ const EnquiryRoom = () => {
                   rNo.includes(q) ||
                   bNo.includes(q) ||
                   rCat.includes(q) ||
+                  rSt.includes(q) ||
                   pName.includes(q) ||
                   uhid.includes(q) ||
                   ipNo.includes(q)
@@ -1118,7 +1141,7 @@ const EnquiryRoom = () => {
         return { ...b, floors: filteredFloors };
       })
       .filter(b => Object.keys(b.floors).length > 0);
-  }, [data, searchTerm, selectedStatus, selectedBlock, selectedFloor]);
+  }, [data, searchTerm, selectedStatus, selectedBlock, selectedCategory, selectedStation]);
 
   const LEGEND_ITEMS = [
     { status: BED_STATUS.OCCUPIED,    cfg: STATUS_CFG[BED_STATUS.OCCUPIED],    count: stats.occupied },
@@ -1166,27 +1189,35 @@ const EnquiryRoom = () => {
             />
           </SearchInputWrap>
 
-          <DropdownGroup>
-            <FilterSelect
-              value={selectedBlock}
-              onChange={e => setSelectedBlock(e.target.value)}
-            >
-              <option value="ALL">🏢 All Blocks</option>
-              {filterOptions.blocks.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </FilterSelect>
+          <FilterSelect
+            value={selectedBlock}
+            onChange={e => setSelectedBlock(e.target.value)}
+          >
+            <option value="ALL">🏢 All Blocks</option>
+            {filterOptions.blocks.map(b => (
+              <option key={b} value={b}>{b}</option>
+            ))}
+          </FilterSelect>
 
-            <FilterSelect
-              value={selectedFloor}
-              onChange={e => setSelectedFloor(e.target.value)}
-            >
-              <option value="ALL">📐 All Floors</option>
-              {filterOptions.floors.map(f => (
-                <option key={f} value={f}>Floor {f}</option>
-              ))}
-            </FilterSelect>
-          </DropdownGroup>
+          <FilterSelect
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+          >
+            <option value="ALL">🏷️ All Categories</option>
+            {filterOptions.categories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </FilterSelect>
+
+          <FilterSelect
+            value={selectedStation}
+            onChange={e => setSelectedStation(e.target.value)}
+          >
+            <option value="ALL">🩺 All Stations / Floors</option>
+            {filterOptions.stations.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </FilterSelect>
         </FilterToolbar>
 
         {/* ── 2. Color Coding Legend & Quick Status Filter Strip ── */}
@@ -1232,10 +1263,9 @@ const EnquiryRoom = () => {
               <BlockTitle>🏢 {b.block.block_name}</BlockTitle>
 
               {Object.entries(b.floors)
-                .sort(([fA], [fB]) => Number(fA) - Number(fB))
                 .map(([floor, rooms]) => (
                   <FloorWrap key={floor}>
-                    <FloorTitle>Floor {floor}</FloorTitle>
+                    <FloorTitle>📍 {floor}</FloorTitle>
 
                     <RoomGrid>
                       {rooms.map(room => {
