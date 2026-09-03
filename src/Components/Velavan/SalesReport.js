@@ -258,19 +258,13 @@ const SalesReport = () => {
   );
   const [returnModalBill, setReturnModalBill] = useState(null);
   const [returnLines, setReturnLines] = useState([]);
+  const [returnRemarks, setReturnRemarks] = useState("");
   const [returnLoading, setReturnLoading] = useState(false);
   const [returnsData, setReturnsData] = useState([]);
 
   const canReturn = allowedActions.includes("HMS-P-VS-RW");
   const canVP = allowedActions.includes("HMS-P-VS-R");
   const canSalP = allowedActions.includes("HMS-P-VSRP");
-
-  const isWithinReturnWindow = (billDate) => {
-    if (!billDate) return false;
-    const diffDays =
-      (Date.now() - new Date(billDate).getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 30;
-  };
 
   useEffect(() => {
     const handler = (e) => {
@@ -459,12 +453,12 @@ const SalesReport = () => {
         </thead>
         <tbody>
           ${items
-            .map((item, i) => {
-              const qty = parseFloat(item.quantity || 0);
-              const unitSelling =
-                qty > 0 ? parseFloat(item.sellingCostBeforeGst || 0) / qty : 0;
-              const nonTaxableAmt = unitSelling * qty;
-              return `<tr>
+          .map((item, i) => {
+            const qty = parseFloat(item.quantity || 0);
+            const unitSelling =
+              qty > 0 ? parseFloat(item.sellingCostBeforeGst || 0) / qty : 0;
+            const nonTaxableAmt = unitSelling * qty;
+            return `<tr>
               <td>${i + 1}</td><td class="l">${item.name || "N/A"}</td><td>${item.hsn || "N/A"}</td>
               <td>${item.batch_no || "—"}</td><td>${item.expiry || "—"}</td>
               <td><b>${item.quantity || 0}</b></td>
@@ -479,8 +473,8 @@ const SalesReport = () => {
               <td class="r">₹${parseFloat(item.sellingSgstAmt || 0).toFixed(2)}</td>
               <td class="r"><b>₹${parseFloat(item.sellingCost || 0).toFixed(2)}</b></td>
             </tr>`;
-            })
-            .join("")}
+          })
+          .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
             <td class="r">₹${sellingTaxableAmt.toFixed(2)}</td>
@@ -513,29 +507,26 @@ const SalesReport = () => {
           </td>
           <td class="sec cnt">
   <div class="row"><b>Hospital Name:</b> ${bill.customer_company || " "}</div>
-  <div class="row"><b>Address:</b><br/>${
-    [bill.customer_addressLine1, bill.customer_addressLine2]
-      .filter(Boolean)
-      .join(", ") || ""
-  }<br/>${
-    [bill.customer_city, bill.customer_pincode].filter(Boolean).join(" - ") ||
-    "Salem - 636007"
-  }</div>
+  <div class="row"><b>Address:</b><br/>${[bill.customer_addressLine1, bill.customer_addressLine2]
+        .filter(Boolean)
+        .join(", ") || ""
+      }<br/>${[bill.customer_city, bill.customer_pincode].filter(Boolean).join(" - ") ||
+      "Salem - 636007"
+      }</div>
   <div class="row"><b>Phone:</b> ${bill.customer_phone || ""}</div>
   <div class="row"><b>GSTIN:</b> ${bill.customer_gstin || ""}</div>
   ${bill.customer_pan ? `<div class="row"><b>PAN:</b> ${bill.customer_pan}</div>` : ""}
   <div class="row"><b>State:</b> ${bill.customer_state ? `${bill.customer_state}` : ""}</div>
 </td>
-          ${
-            hasPatient
-              ? `<td class="sec cnt">
+          ${hasPatient
+        ? `<td class="sec cnt">
             ${bill.ip_number ? `<div class="row"><b>IP Number:</b> ${bill.ip_number}</div>` : ""}
             ${bill.patient_name ? `<div class="row"><b>Patient:</b> ${bill.patient_name}</div>` : ""}
             ${bill.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${bill.surgeon_name || bill.surgeon_id}</div>` : ""}
             ${bill.customer_type ? `<div class="row"><b>Customer Type:</b> ${bill.customer_type}${bill.company_name ? ` - ${bill.company_name}` : ""}</div>` : ""}
           </td>`
-              : ""
-          }
+        : ""
+      }
         </tr></tbody>
       </table>
       ${itemsHtml}
@@ -565,177 +556,372 @@ const SalesReport = () => {
     openPrintWindow(`Velavan Bill - ${bill.bill_number}`, css, body);
   };
 
-  // ── Velavan Sales Report — aggregate list of bills (ported from Invoice) ──
-  const buildSalesReportGroups = () => {
-    const sortedData = [...filteredBills].sort((a, b) =>
-      (a.customer_company || a.customer_name || "")
-        .toLowerCase()
-        .localeCompare(
-          (b.customer_company || b.customer_name || "").toLowerCase(),
-        ),
-    );
+  // ── Velavan Sales Report — aggregate list of bills and returns in date range ──
+  const buildSalesReportGroups = (returnsList = []) => {
+    // 1. Build bidirectional lookup between customer_id and customer name
+    const idToNameMap = {};
+    const nameToIdMap = {};
 
-    const companyGroups = {};
-    let grandTotal = 0;
-    let grandReturn = 0;
-    let grandNet = 0;
-    sortedData.forEach((b) => {
-      const company = b.customer_company || b.customer_name || "N/A";
-      if (!companyGroups[company])
-        companyGroups[company] = {
-          rows: [],
-          total: 0,
+    [...filteredBills, ...returnsList].forEach((item) => {
+      const cid = item.customer_id ? String(item.customer_id).trim() : "";
+      const name = (
+        item.customer_company ||
+        item.customer_company_name ||
+        item.company_name ||
+        item.customer_name ||
+        item.patient_name ||
+        ""
+      ).trim();
+
+      if (cid && name && name !== "N/A") {
+        idToNameMap[cid] = name;
+        nameToIdMap[name.toLowerCase()] = cid;
+      }
+    });
+
+    const getCustomerKeyAndName = (item) => {
+      let cid = item.customer_id ? String(item.customer_id).trim() : "";
+      let name = (
+        item.customer_company ||
+        item.customer_company_name ||
+        item.company_name ||
+        item.customer_name ||
+        item.patient_name ||
+        ""
+      ).trim();
+
+      if (cid && idToNameMap[cid]) {
+        name = idToNameMap[cid];
+      } else if (!cid && name && nameToIdMap[name.toLowerCase()]) {
+        cid = nameToIdMap[name.toLowerCase()];
+        if (idToNameMap[cid]) name = idToNameMap[cid];
+      }
+
+      const finalName = name || (cid ? `Customer #${cid}` : "N/A");
+      const key = cid ? `ID_${cid}` : `NAME_${finalName.toLowerCase()}`;
+      return { key, displayName: finalName };
+    };
+
+    const customerGroups = {};
+
+    // 2. Group sales bills in date range by customer
+    filteredBills.forEach((b) => {
+      const { key, displayName } = getCustomerKeyAndName(b);
+      if (!customerGroups[key]) {
+        customerGroups[key] = {
+          customerName: displayName,
+          salesRows: [],
+          returnRows: [],
+          salesTotal: 0,
           returnTotal: 0,
           netTotal: 0,
         };
-      companyGroups[company].rows.push(b);
-      const amt = parseFloat(b.total_amount || 0);
-      const ret = parseFloat(b.sales_return_amount || 0);
-      const net = parseFloat(
-        b.net_total_amount ?? parseFloat(b.total_amount || 0) - ret,
-      );
-      companyGroups[company].total += amt;
-      companyGroups[company].returnTotal += ret;
-      companyGroups[company].netTotal += net;
-      grandTotal += amt;
-      grandReturn += ret;
-      grandNet += net;
+      }
+      if (
+        customerGroups[key].customerName === "N/A" &&
+        displayName !== "N/A"
+      ) {
+        customerGroups[key].customerName = displayName;
+      }
+      customerGroups[key].salesRows.push(b);
+      customerGroups[key].salesTotal += parseFloat(b.total_amount || 0);
     });
 
-    Object.keys(companyGroups).forEach((company) => {
-      companyGroups[company].rows.sort((a, b) =>
+    // Quick map of bill_number -> bill_date from filteredBills as fallback
+    const billDateMap = {};
+    filteredBills.forEach((b) => {
+      if (b.bill_number && b.bill_date) billDateMap[b.bill_number] = b.bill_date;
+    });
+
+    // 3. Group sales returns (by return_date) in date range by customer
+    returnsList.forEach((r) => {
+      if (!r.bill_date && r.bill_number && billDateMap[r.bill_number]) {
+        r.bill_date = billDateMap[r.bill_number];
+      }
+      const { key, displayName } = getCustomerKeyAndName(r);
+      if (!customerGroups[key]) {
+        customerGroups[key] = {
+          customerName: displayName,
+          salesRows: [],
+          returnRows: [],
+          salesTotal: 0,
+          returnTotal: 0,
+          netTotal: 0,
+        };
+      }
+      if (
+        customerGroups[key].customerName === "N/A" &&
+        displayName !== "N/A"
+      ) {
+        customerGroups[key].customerName = displayName;
+      }
+      customerGroups[key].returnRows.push(r);
+      customerGroups[key].returnTotal += parseFloat(r.total_amount || 0);
+    });
+
+    let grandSales = 0;
+    let grandReturn = 0;
+    let grandNet = 0;
+
+    const sortedCustomerKeys = Object.keys(customerGroups).sort((a, b) =>
+      customerGroups[a].customerName
+        .toLowerCase()
+        .localeCompare(customerGroups[b].customerName.toLowerCase()),
+    );
+
+    sortedCustomerKeys.forEach((key) => {
+      const grp = customerGroups[key];
+      grp.salesRows.sort((a, b) =>
         (a.bill_number || "").localeCompare(b.bill_number || ""),
       );
+      grp.returnRows.sort((a, b) =>
+        (a.bill_number || "").localeCompare(b.bill_number || ""),
+      );
+      grp.netTotal = grp.salesTotal - grp.returnTotal;
+
+      grandSales += grp.salesTotal;
+      grandReturn += grp.returnTotal;
+      grandNet += grp.netTotal;
     });
 
-    return { companyGroups, grandTotal, grandReturn, grandNet };
+    return {
+      customerGroups,
+      sortedCustomerKeys,
+      grandSales,
+      grandReturn,
+      grandNet,
+    };
   };
 
-  const handleSalesReportPrint = () => {
-    const { companyGroups, grandTotal, grandReturn, grandNet } =
-      buildSalesReportGroups();
+  const handleSalesReportPrint = async () => {
+    let returnsList = [];
+    try {
+      returnsList = await fetchReturnsForRegister();
+    } catch {
+      returnsList = [];
+    }
+    const {
+      customerGroups,
+      sortedCustomerKeys,
+      grandSales,
+      grandReturn,
+      grandNet,
+    } = buildSalesReportGroups(returnsList);
 
     let tableRows = "";
     let sl = 1;
-    Object.keys(companyGroups).forEach((company) => {
-      const { rows, total, returnTotal, netTotal } = companyGroups[company];
 
+    sortedCustomerKeys.forEach((key) => {
+      const {
+        customerName,
+        salesRows,
+        returnRows,
+        salesTotal,
+        returnTotal,
+        netTotal,
+      } = customerGroups[key];
+
+      const hasSales = salesRows.length > 0;
+      const hasReturns = returnRows.length > 0;
+
+      // 1. Customer Header Row (displayed ONCE at the top for this customer)
       tableRows += `<tr style="background:#e0f2fe">
-      <td colspan="6" style="font-weight:bold;padding:8px;color:#1e40af">${company}</td>
-    </tr>`;
-
-      rows.forEach((b) => {
-        const ret = parseFloat(b.sales_return_amount || 0);
-        const net = parseFloat(
-          b.net_total_amount ?? parseFloat(b.total_amount || 0) - ret,
-        );
-
-        tableRows += `<tr>
-        <td style="text-align:center">${sl++}</td>
-        <td style="text-align:center">${b.bill_number}</td>
-        <td style="text-align:center">${formatDate(b.bill_date)}</td>
-        <td style="text-align:right">${formatCurrency(b.total_amount)}</td>
-        <td style="text-align:right;color:#dc2626">${ret > 0 ? "- " + formatCurrency(ret) : "—"}</td>
-        <td style="text-align:right;font-weight:bold">${formatCurrency(net)}</td>
+        <td colspan="4" style="font-weight:bold;padding:7px 10px;color:#1e40af;font-size:13px">${customerName}</td>
       </tr>`;
-      });
 
-      tableRows += `<tr style="background:#fff3cd;font-weight:bold">
-      <td colspan="3" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(total)}</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${returnTotal > 0 ? "- " + formatCurrency(returnTotal) : "—"}</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(netTotal)}</td>
-    </tr>`;
+      // 2. Sales Section
+      if (hasSales) {
+        tableRows += `<tr style="background:#f8fafc;font-weight:bold">
+          <td colspan="4" style="padding:4px 10px;color:#1e293b;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">Sales:</td>
+        </tr>`;
+
+        salesRows.forEach((b) => {
+          tableRows += `<tr>
+            <td style="text-align:center">${sl++}</td>
+            <td style="text-align:center">${b.bill_number}</td>
+            <td style="text-align:center">${formatDate(b.bill_date)}</td>
+            <td style="text-align:right">${formatCurrency(b.total_amount)}</td>
+          </tr>`;
+        });
+
+        tableRows += `<tr style="background:#fffbe0;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:6px 10px;border:1px solid #999">Total</td>
+          <td style="text-align:right;padding:6px 10px;border:1px solid #999">${formatCurrency(salesTotal)}</td>
+        </tr>`;
+      }
+
+      // 3. Sales Return Section
+      if (hasReturns) {
+        tableRows += `<tr style="background:#fef2f2;font-weight:bold">
+          <td colspan="4" style="padding:4px 10px;color:#991b1b;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">Sales Return:</td>
+        </tr>`;
+
+        returnRows.forEach((r) => {
+          tableRows += `<tr>
+            <td style="text-align:center;vertical-align:middle">${sl++}</td>
+            <td style="text-align:center;line-height:1.4">
+              <div><b>Bill No:</b> ${r.bill_number || "—"}</div>
+              <div><b>Rtn No:</b> ${r.return_number || "—"}</div>
+              ${r.remarks ? `<div style="color:#555;font-size:11px"><b>Remarks:</b> ${r.remarks}</div>` : ""}
+            </td>
+            <td style="text-align:center;line-height:1.4;white-space:nowrap">
+              <div><b>B.D:</b> ${formatDate(r.bill_date) || "—"}</div>
+              <div><b>R.D:</b> ${formatDate(r.return_date) || "—"}</div>
+            </td>
+            <td style="text-align:right;color:#dc2626">- ${formatCurrency(r.total_amount)}</td>
+          </tr>`;
+        });
+
+        tableRows += `<tr style="background:#fee2e2;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:6px 10px;border:1px solid #999">Total</td>
+          <td style="text-align:right;padding:6px 10px;border:1px solid #999;color:#dc2626">- ${formatCurrency(returnTotal)}</td>
+        </tr>`;
+      }
+
+      // 4. Final Amount Row after Sales Return total
+      if (hasSales && hasReturns) {
+        tableRows += `<tr style="background:#fff3cd;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:7px 10px;border:1px solid #000">Final Amount</td>
+          <td style="text-align:right;padding:7px 10px;border:1px solid #000">${formatCurrency(netTotal)}</td>
+        </tr>`;
+      }
     });
 
     const css = `
-    body{font-family:Arial,sans-serif;padding:10px;font-size:13px}
-    h1{text-align:center;font-size:18px;margin:10px 0;text-decoration:underline}
-    h2{text-align:center;font-size:14px;color:#555;margin:0 0 14px}
-    table{border-collapse:collapse;width:100%;border:1px solid #333}
-    th,td{border:1px dashed #999;padding:7px 12px}
-    th{background:#d0d0d0;font-weight:bold;text-align:center}
-    .grand-row td{background:#d4edda;font-weight:bold}
-  `;
+      body{font-family:Arial,sans-serif;padding:10px;font-size:12.5px}
+      h1{text-align:center;font-size:18px;margin:8px 0;text-decoration:underline}
+      h2{text-align:center;font-size:13px;color:#555;margin:0 0 14px}
+      table{border-collapse:collapse;width:100%;border:1px solid #333}
+      th,td{border:1px dashed #999;padding:6px 10px}
+      th{background:#d0d0d0;font-weight:bold;text-align:center;font-size:12px}
+      .grand-row td{background:#d4edda;font-weight:bold}
+    `;
+
     const body = `
-    <h1>Velavan Party-wise Sales Report</h1><h2>${getDateRangeLabel()}</h2>
-    <table>
-      <thead><tr>
-        <th>Sl.</th><th>Bill No</th><th>Bill Date</th>
-        <th style="text-align:right">Amount</th>
-        <th style="text-align:right">Return Amt</th>
-        <th style="text-align:right">Net Amount</th>
-      </tr></thead>
-      <tbody>
-        ${tableRows}
-        <tr class="grand-row">
-          <td colspan="3" style="text-align:right;padding:8px">Grand Total:</td>
-          <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
-          <td style="text-align:right;padding:8px">${grandReturn > 0 ? "- " + formatCurrency(grandReturn) : "—"}</td>
-          <td style="text-align:right;padding:8px">${formatCurrency(grandNet)}</td>
-        </tr>
-      </tbody>
-    </table>`;
+      <h1>Velavan Party-wise Sales Report</h1>
+      <h2>${getDateRangeLabel()}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:45px">Sl.</th>
+            <th>Bill No</th>
+            <th>Bill Date</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr class="grand-row">
+            <td colspan="3" style="text-align:right;padding:8px">Grand Total:</td>
+            <td style="text-align:right;padding:8px">${formatCurrency(grandNet)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
     openPrintWindow("Velavan Sales Report", css, body);
   };
 
-  const exportSalesReportExcel = () => {
+  const exportSalesReportExcel = async () => {
     const XLSX = require("xlsx");
-    const { companyGroups, grandTotal, grandReturn, grandNet } =
-      buildSalesReportGroups();
+    let returnsList = [];
+    try {
+      returnsList = await fetchReturnsForRegister();
+    } catch {
+      returnsList = [];
+    }
+    const {
+      customerGroups,
+      sortedCustomerKeys,
+      grandSales,
+      grandReturn,
+      grandNet,
+    } = buildSalesReportGroups(returnsList);
 
     const wsData = [
       [`Velavan Party-wise Sales Report - ${getDateRangeLabel()}`],
       [],
-      ["Sl.", "Bill No", "Bill Date", "Amount", "Return Amt", "Net Amount"],
+      ["Sl.", "Bill No", "Bill Date", "Amount"],
     ];
 
     let sl = 1;
-    Object.keys(companyGroups).forEach((company) => {
-      const { rows, total, returnTotal, netTotal } = companyGroups[company];
-      wsData.push([company]);
-      rows.forEach((b) => {
-        const ret = parseFloat(b.sales_return_amount || 0);
-        const net = parseFloat(
-          b.net_total_amount ?? parseFloat(b.total_amount || 0) - ret,
-        );
+    sortedCustomerKeys.forEach((key) => {
+      const {
+        customerName,
+        salesRows,
+        returnRows,
+        salesTotal,
+        returnTotal,
+        netTotal,
+      } = customerGroups[key];
+
+      const hasSales = salesRows.length > 0;
+      const hasReturns = returnRows.length > 0;
+
+      wsData.push([customerName]);
+
+      if (hasSales) {
+        wsData.push(["Sales:"]);
+        salesRows.forEach((b) => {
+          wsData.push([
+            sl++,
+            b.bill_number,
+            formatDate(b.bill_date),
+            parseFloat(parseFloat(b.total_amount || 0).toFixed(2)),
+          ]);
+        });
         wsData.push([
-          sl++,
-          b.bill_number,
-          formatDate(b.bill_date),
-          parseFloat(parseFloat(b.total_amount || 0).toFixed(2)),
-          ret > 0 ? -parseFloat(ret.toFixed(2)) : "",
-          parseFloat(net.toFixed(2)),
+          "",
+          "",
+          "Total",
+          parseFloat(salesTotal.toFixed(2)),
         ]);
-      });
-      wsData.push([
-        "",
-        "",
-        "Total",
-        parseFloat(total.toFixed(2)),
-        returnTotal > 0 ? -parseFloat(returnTotal.toFixed(2)) : "",
-        parseFloat(netTotal.toFixed(2)),
-      ]);
+      }
+
+      if (hasReturns) {
+        wsData.push(["Sales Return:"]);
+        returnRows.forEach((r) => {
+          const billColText = `Bill No: ${r.bill_number || "—"}\nRtn No: ${r.return_number || "—"}${r.remarks ? `\nRemarks: ${r.remarks}` : ""}`;
+          const dateColText = `B.D: ${formatDate(r.bill_date) || "—"}\nR.D: ${formatDate(r.return_date) || "—"}`;
+          wsData.push([
+            sl++,
+            billColText,
+            dateColText,
+            -parseFloat(parseFloat(r.total_amount || 0).toFixed(2)),
+          ]);
+        });
+        wsData.push([
+          "",
+          "",
+          "Total",
+          -parseFloat(returnTotal.toFixed(2)),
+        ]);
+      }
+
+      if (hasSales && hasReturns) {
+        wsData.push([
+          "",
+          "",
+          "Final Amount",
+          parseFloat(netTotal.toFixed(2)),
+        ]);
+      }
       wsData.push([]);
     });
 
     wsData.push([
       "",
       "",
-      "Grand Total",
-      parseFloat(grandTotal.toFixed(2)),
-      grandReturn > 0 ? -parseFloat(grandReturn.toFixed(2)) : "",
+      "Grand Total:",
       parseFloat(grandNet.toFixed(2)),
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws["!cols"] = [
       { wch: 6 },
-      { wch: 20 },
-      { wch: 14 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 16 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 18 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sales Report");
@@ -1313,7 +1499,7 @@ const SalesReport = () => {
           item.sellingTax !== undefined && item.sellingTax !== null
             ? item.sellingTax
             : parseFloat(item.sellingCgstPercent || 0) +
-              parseFloat(item.sellingsgstPercent || 0);
+            parseFloat(item.sellingsgstPercent || 0);
         const key = getBucketKey(rate);
         if (!buckets[key]) buckets[key] = { amount: 0, cgst: 0, sgst: 0 };
         buckets[key].amount += parseFloat(item.sellingCostBeforeGst || 0);
@@ -1541,7 +1727,7 @@ const SalesReport = () => {
           item.sellingTax !== undefined && item.sellingTax !== null
             ? item.sellingTax
             : parseFloat(item.sellingCgstPercent || 0) +
-              parseFloat(item.sellingsgstPercent || 0);
+            parseFloat(item.sellingsgstPercent || 0);
         const rateKey = getBucketKey(rate);
         const key = `${hsn}|${rateKey}`;
         if (!groups[key])
@@ -1845,6 +2031,7 @@ const SalesReport = () => {
 
   const openReturnModal = (bill) => {
     setReturnModalBill(bill);
+    setReturnRemarks("");
     setReturnLines(
       (bill.items || []).map((it) => ({
         lineId: it.stock_id,
@@ -1898,6 +2085,10 @@ const SalesReport = () => {
       toast.error("Select at least one item with quantity > 0");
       return;
     }
+    if (!returnRemarks.trim()) {
+      toast.error("Remarks is required");
+      return;
+    }
     const computed = toReturn.map((l) => ({
       ...l,
       calc: computeReturnLine(l),
@@ -1920,6 +2111,7 @@ const SalesReport = () => {
       ...rawTotals,
       roundAmount,
       totalAmount: rawTotals.totalAmount + roundAmount,
+      remarks: returnRemarks.trim(),
     };
 
     const payload = {
@@ -1940,6 +2132,7 @@ const SalesReport = () => {
         sellingCost: l.calc.lineTotal,
       })),
       summary,
+      remarks: returnRemarks.trim(),
       "auth-user-id": localStorage.getItem("employeeId"),
     };
 
@@ -2294,8 +2487,7 @@ const SalesReport = () => {
                     {(() => {
                       const netAmount = parseFloat(b.net_total_amount || 0);
                       const hasBalance = netAmount > 0;
-                      const canReturnNow =
-                        hasBalance && isWithinReturnWindow(b.bill_date);
+                      const canReturnNow = hasBalance;
 
                       const printTitle = !hasBalance
                         ? "Nothing to print — net amount is ₹0"
@@ -2303,9 +2495,7 @@ const SalesReport = () => {
 
                       const returnTitle = !hasBalance
                         ? "Nothing to return — net amount is already ₹0"
-                        : isWithinReturnWindow(b.bill_date)
-                          ? "Sales Return"
-                          : "Time exceeded for sales return";
+                        : "Sales Return";
 
                       return (
                         <>
@@ -2505,6 +2695,26 @@ const SalesReport = () => {
                   </tbody>
                 </Table>
               </TableWrapper>
+              <div style={{ marginTop: 14 }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    marginBottom: 4,
+                    color: colors.textMain,
+                  }}
+                >
+                  Remarks <span style={{ color: "#dc2626" }}>*</span>
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Enter return remarks / reason"
+                  value={returnRemarks}
+                  onChange={(e) => setReturnRemarks(e.target.value)}
+                  style={{ width: "100%" }}
+                />
+              </div>
               <div
                 style={{
                   display: "flex",
