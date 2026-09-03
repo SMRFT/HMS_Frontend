@@ -105,6 +105,13 @@ const ContentCard = styled.div`
   padding: 1.5rem 2rem;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
   margin-bottom: 2rem;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem 0.5rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+  }
 `;
 
 const TopBar = styled.div`
@@ -314,12 +321,21 @@ const ScrollableTableWrapper = styled(TableWrapper)`
   position: relative;
   border-radius: 10px;
   border: 1px solid #e0f2f1;
+  width: 100%;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 768px) {
+    max-height: calc(100vh - 180px);
+    overflow-x: auto;
+  }
 `;
 
 const StickyTable = styled(Table)`
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+  min-width: 1400px;
 `;
 
 const StickyTh = styled(Th)`
@@ -337,6 +353,25 @@ const StickyTh = styled(Th)`
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   white-space: nowrap;
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      top: 0 !important;
+      z-index: 35 !important;
+      background-color: #e0f2f1 !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
+  }
 `;
 
 const SearchTh = styled.th`
@@ -349,6 +384,25 @@ const SearchTh = styled.th`
   ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      top: 33px !important;
+      z-index: 35 !important;
+      background-color: #f8fffe !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
+  }
 `;
 
 const StickyTd = styled(Td)`
@@ -358,6 +412,23 @@ const StickyTd = styled(Td)`
   ${(p) => p.stickyLeft !== undefined && `left: ${p.stickyLeft}px;`}
   ${(p) => p.stickyShadow && `box-shadow: 3px 0 5px -1px rgba(0,0,0,0.12);`}
   white-space: nowrap;
+
+  @media (max-width: 768px) {
+    ${(p) =>
+      p.isPatientName
+        ? `
+      position: sticky !important;
+      left: 0px !important;
+      z-index: 15 !important;
+      box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
+    `
+        : `
+      position: static !important;
+      left: auto !important;
+      box-shadow: none !important;
+      z-index: 1 !important;
+    `}
+  }
 `;
 
 
@@ -3381,6 +3452,10 @@ const DicomModalOverlay = styled(ModalOverlay)`
   align-items: center;
   justify-content: center;
   padding: 0.75rem;
+
+  @media (max-width: 768px) {
+    padding: 0;
+  }
 `;
 
 const DicomModalContent = styled.div`
@@ -3395,6 +3470,14 @@ const DicomModalContent = styled.div`
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   border: 1px solid #334155;
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    border-radius: 0;
+    border: none;
+  }
 `;
 
 const DicomModalHeader = styled.div`
@@ -3406,6 +3489,11 @@ const DicomModalHeader = styled.div`
   border-bottom: 1px solid #334155;
   flex-wrap: wrap;
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    padding: 0.35rem 0.65rem;
+    gap: 0.35rem;
+  }
 `;
 
 const DicomModalTitle = styled.div`
@@ -3415,6 +3503,11 @@ const DicomModalTitle = styled.div`
   font-weight: 700;
   font-size: 0.95rem;
   color: #38bdf8;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    gap: 0.3rem;
+  }
 `;
 
 const DicomPatientInfo = styled.div`
@@ -3424,6 +3517,11 @@ const DicomPatientInfo = styled.div`
   font-size: 0.82rem;
   color: #94a3b8;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    font-size: 0.72rem;
+    gap: 0.3rem;
+  }
 `;
 
 const DicomInfoBadge = styled.span`
@@ -3433,6 +3531,11 @@ const DicomInfoBadge = styled.span`
   border-radius: 6px;
   font-size: 0.75rem;
   font-weight: 600;
+
+  @media (max-width: 768px) {
+    padding: 0.1rem 0.35rem;
+    font-size: 0.68rem;
+  }
 `;
 
 const DicomModalBody = styled.div`
@@ -3506,7 +3609,7 @@ const DicomModal = ({ row, viewerUrl, onClose }) => {
           <DicomIframe
             src={viewerUrl}
             title="OHIF DICOM Viewer"
-            allow="fullscreen"
+            allow="fullscreen; accelerometer; gyroscope"
           />
         </DicomModalBody>
       </DicomModalContent>
@@ -4578,7 +4681,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                   <StickyTh sticky stickyLeft={180} style={{ width: "105px", minWidth: "105px" }}>UHID</StickyTh>
                   <StickyTh sticky stickyLeft={285} style={{ width: "75px", minWidth: "75px" }}>IP / OP</StickyTh>
                   <StickyTh sticky stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>IP Number</StickyTh>
-                  <StickyTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>Patient Name</StickyTh>
+                  <StickyTh sticky stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px" }}>Patient Name</StickyTh>
                   <StickyTh>Age</StickyTh>
                   <StickyTh>Gender</StickyTh>
                   <StickyTh>Customer Type</StickyTh>
@@ -4629,7 +4732,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                       onChange={(e) => setSearchIpNumber(e.target.value)}
                     />
                   </SearchTh>
-                  <SearchTh sticky stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px" }}>
+                  <SearchTh sticky stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px" }}>
                     <SearchInput
                       placeholder="🔍 Patient"
                       value={searchPatient}
@@ -4765,7 +4868,7 @@ const RDList = ({ investBillNo: investBillNoFilter }) => {
                         </IpOpBadge>
                       </StickyTd>
                       <StickyTd stickyLeft={360} style={{ width: "105px", minWidth: "105px" }}>{row.ipNumber || "—"}</StickyTd>
-                      <StickyTd stickyLeft={465} stickyShadow style={{ width: "160px", minWidth: "160px", fontWeight: 600 }}>{row.patientName}</StickyTd>
+                      <StickyTd stickyLeft={465} stickyShadow isPatientName style={{ width: "160px", minWidth: "160px", fontWeight: 600, backgroundColor: row.hasReport ? "#f1f8f4" : "#ffffff" }}>{row.patientName}</StickyTd>
                       <Td>
                         {row.age} {row.age_type}
                       </Td>
