@@ -356,8 +356,8 @@ const StickyTh = styled(Th)`
 
   @media (max-width: 768px) {
     ${(p) =>
-      p.isPatientName
-        ? `
+    p.isPatientName
+      ? `
       position: sticky !important;
       left: 0px !important;
       top: 0 !important;
@@ -365,7 +365,7 @@ const StickyTh = styled(Th)`
       background-color: #e0f2f1 !important;
       box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
     `
-        : `
+      : `
       position: static !important;
       left: auto !important;
       box-shadow: none !important;
@@ -387,8 +387,8 @@ const SearchTh = styled.th`
 
   @media (max-width: 768px) {
     ${(p) =>
-      p.isPatientName
-        ? `
+    p.isPatientName
+      ? `
       position: sticky !important;
       left: 0px !important;
       top: 33px !important;
@@ -396,7 +396,7 @@ const SearchTh = styled.th`
       background-color: #f8fffe !important;
       box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
     `
-        : `
+      : `
       position: static !important;
       left: auto !important;
       box-shadow: none !important;
@@ -415,14 +415,14 @@ const StickyTd = styled(Td)`
 
   @media (max-width: 768px) {
     ${(p) =>
-      p.isPatientName
-        ? `
+    p.isPatientName
+      ? `
       position: sticky !important;
       left: 0px !important;
       z-index: 15 !important;
       box-shadow: 3px 0 6px rgba(0,0,0,0.15) !important;
     `
-        : `
+      : `
       position: static !important;
       left: auto !important;
       box-shadow: none !important;
