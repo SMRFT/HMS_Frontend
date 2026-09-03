@@ -876,9 +876,9 @@ const HistorySidebar = styled.div`
 `;
 
 const HistorySidebarCard = styled.div`
-  background: ${props => props.$active ? '#bae6fd' : '#f0fdf4'};
-  border: 1px solid ${props => props.$active ? '#7dd3fc' : '#bbf7d0'};
-  padding: 16px;
+  background: ${props => props.$active ? '#bae6fd' : '#e6f4f6'};
+  border: 1.5px solid ${props => props.$active ? '#38bdf8' : '#e2e8f0'};
+  padding: 12px 16px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -887,22 +887,29 @@ const HistorySidebarCard = styled.div`
   transition: all 0.2s;
   
   &:hover {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-color: #0d9488;
   }
 
   .patient-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    font-size: 0.875rem;
-    color: #1e293b;
-    font-weight: 500;
+    gap: 3px;
+    font-size: 0.9rem;
+    color: #0f172a;
+    font-weight: 600;
+
+    .uhid {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 500;
+    }
   }
 
   .date-info {
-    font-size: 0.8125rem;
+    font-size: 0.8rem;
     color: #475569;
+    font-weight: 500;
   }
 `;
 
@@ -984,15 +991,14 @@ const HistoryTable = styled.table`
   font-size: 0.875rem;
   
   th {
-    background: #ffffff;
-    color: #64748b;
+    background: #0d9488;
+    color: #ffffff;
     text-align: left;
-    padding: 12px 20px;
+    padding: 10px 18px;
     font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.82rem;
+    letter-spacing: 0.3px;
+    border: none;
   }
   
   td {
@@ -1547,35 +1553,6 @@ const OPDoctorlogin = () => {
           </div>
         </HeaderTitle>
 
-        <HeaderActions>
-          {selectedPatient && !consultationStartTimes[selectedPatient?.patient?.uhid] && (
-            <Button
-              style={{ background: '#ea580c', color: '#fff', borderColor: '#ea580c' }}
-              onClick={() => {
-                const startTime = new Date().toISOString();
-                setConsultationStartTimes(prev => ({
-                  ...prev,
-                  [selectedPatient.patient.uhid]: startTime
-                }));
-                handleStartConsultationAPI(startTime);
-              }}
-            >
-              Start Consultation
-            </Button>
-          )}
-          <Button $variant="secondary" onClick={fetchBilledPatients} disabled={loadingPatients}>
-            <RefreshCw size={16} className={loadingPatients ? "spin" : ""} />
-            Refresh Queue
-          </Button>
-          <Button $variant="secondary" onClick={() => setShowWaitingModal(true)}>
-            <Users size={16} />
-            Waiting Patients ({filteredPatients.length})
-          </Button>
-          <Button $variant="outline" onClick={() => setShowHistoryModal(true)} disabled={!selectedPatient}>
-            <Clock size={16} />
-            Past History ({pastHistory.length})
-          </Button>
-        </HeaderActions>
       </PageHeader>
 
       <MainGrid>
@@ -1617,13 +1594,19 @@ const OPDoctorlogin = () => {
                     const name = p.patient?.patient_name || 'Unknown Patient';
                     const initials = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, '').split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
                     const avatarStyles = [
-                      { bg: '#e0f2fe', color: '#0284c7' }, { bg: '#dcfce7', color: '#16a34a' },
-                      { bg: '#fef3c7', color: '#d97706' }, { bg: '#f3e8ff', color: '#9333ea' },
-                      { bg: '#fee2e2', color: '#dc2626' }, { bg: '#e0e7ff', color: '#4f46e5' },
-                      { bg: '#fce7f3', color: '#db2777' }, { bg: '#f0fdf4', color: '#15803d' },
+                      { bg: '#e0f2fe', color: '#0284c7', grad: 'linear-gradient(135deg,#0284c7,#0891b2)' },
+                      { bg: '#dcfce7', color: '#16a34a', grad: 'linear-gradient(135deg,#16a34a,#059669)' },
+                      { bg: '#fef3c7', color: '#d97706', grad: 'linear-gradient(135deg,#d97706,#f59e0b)' },
+                      { bg: '#f3e8ff', color: '#9333ea', grad: 'linear-gradient(135deg,#9333ea,#7c3aed)' },
+                      { bg: '#fee2e2', color: '#dc2626', grad: 'linear-gradient(135deg,#dc2626,#e11d48)' },
+                      { bg: '#e0e7ff', color: '#4f46e5', grad: 'linear-gradient(135deg,#4f46e5,#6366f1)' },
+                      { bg: '#fce7f3', color: '#db2777', grad: 'linear-gradient(135deg,#db2777,#ec4899)' },
+                      { bg: '#f0fdf4', color: '#15803d', grad: 'linear-gradient(135deg,#15803d,#16a34a)' },
                     ];
                     const av = avatarStyles[idx % avatarStyles.length];
                     const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+                    const vDate = p.vital_entry?.vital_entry_date || p.vital_entry?.created_date;
+                    const vitalTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
                     const vitalsDone = p.vital_status === 'Completed';
                     return (
                       <div key={p.patient?.uhid} style={{
@@ -1636,16 +1619,81 @@ const OPDoctorlogin = () => {
                         onMouseEnter={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8edf3'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                       >
-                        <div style={{ padding: '18px 18px 16px' }}>
-                          {/* Avatar + Badge row */}
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-                            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: av.bg, color: av.color, fontWeight: 800, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1.5px solid ${av.color}30` }}>{initials}</div>
-                            <span style={{ background: vitalsDone ? '#f0fdf4' : '#fffbeb', color: vitalsDone ? '#16a34a' : '#d97706', border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`, fontSize: '0.68rem', fontWeight: 700, padding: '3px 10px', borderRadius: '20px' }}>{vitalsDone ? 'Ready' : 'Waiting'}</span>
+                        <div style={{ padding: '0' }}>
+                          {/* Time banner — like appointment slot header */}
+                          <div style={{
+                            background: av.grad,
+                            padding: '10px 16px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                            fontWeight: 700, fontSize: '0.88rem', color: '#fff', letterSpacing: '0.3px',
+                          }}>
+                            <Clock size={14} color="rgba(255,255,255,0.85)" />
+                            {billedTime}
+                            {vitalTime && (
+                              <>
+                                <span style={{ opacity: 0.7, fontWeight: 400 }}> → </span>
+                                <Heart size={14} color="rgba(255,255,255,0.85)" />
+                                {vitalTime}
+                              </>
+                            )}
                           </div>
-                          {/* Name + UHID */}
-                          <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', marginBottom: '1px' }}>{name}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>UHID</div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#334155', marginBottom: '12px' }}>{p.patient?.uhid || '--'}</div>
+
+                          <div style={{ padding: '16px 18px 16px' }}>
+                          {/* Header row: Stethoscope & Heart Icon Badge + Name + Status */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              {/* Medical Stethoscope & Heart Badge */}
+                              <div style={{
+                                width: '46px',
+                                height: '46px',
+                                borderRadius: '13px',
+                                background: av.bg || '#f0fdfa',
+                                border: `1.5px solid ${av.color}35`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: av.color || '#0d9488',
+                                flexShrink: 0,
+                                boxShadow: `0 3px 8px ${av.color}20`,
+                                position: 'relative',
+                              }}>
+                                <Stethoscope size={22} strokeWidth={2.2} />
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '-2px',
+                                  right: '-2px',
+                                  width: '14px',
+                                  height: '14px',
+                                  borderRadius: '50%',
+                                  background: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                }}>
+                                  <Heart size={9} fill="#ef4444" stroke="#ef4444" />
+                                </span>
+                              </div>
+
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', lineHeight: 1.25 }}>{name}</div>
+                                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0d9488', marginTop: '2px' }}>UHID: {p.patient?.uhid || '--'}</div>
+                              </div>
+                            </div>
+
+                            <span style={{
+                              background: vitalsDone ? '#f0fdf4' : '#fffbeb',
+                              color: vitalsDone ? '#16a34a' : '#d97706',
+                              border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`,
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '3px 10px',
+                              borderRadius: '20px',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              {vitalsDone ? 'Ready' : 'Waiting'}
+                            </span>
+                          </div>
                           {/* Info */}
                           <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '5px' }}>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} &bull; {p.patient?.gender || '--'}</div>
                           {p.patient?.mobilePhone && (
@@ -1654,18 +1702,16 @@ const OPDoctorlogin = () => {
                               {p.patient.mobilePhone}
                             </div>
                           )}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#64748b', marginBottom: '16px' }}>
-                            <Clock size={13} color={av.color} />{billedTime}
-                          </div>
                           {/* CTA */}
                           <button
                             onClick={() => { setSelectedPatient(p); setActiveTab('vitals'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                            style={{ width: '100%', padding: '10px 0', background: '#fff', color: '#0d9488', border: '1.5px solid #0d9488', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.18s ease' }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#fff'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#0d9488'; }}
+                            style={{ width: '100%', padding: '10px 0', background: '#fff', color: av.color, border: `1.5px solid ${av.color}`, borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.18s ease' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = av.color; e.currentTarget.style.color = '#fff'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = av.color; }}
                           >
                             Start Consultation →
                           </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1674,125 +1720,152 @@ const OPDoctorlogin = () => {
               )}
             </div>
           )}
-          {/* Patient Details Banner */}
-          {selectedPatient && (
-            <PatientBanner>
-              <div className="info-item primary-info">
-                <span className="label">Patient Name</span>
-                <span className="val">{selectedPatient.patient?.patient_name}</span>
-              </div>
-              <div className="info-item">
-                <span className="label">UHID</span>
-                <span className="val">{selectedPatient.patient?.uhid}</span>
-              </div>
-              <div className="info-item">
-                <span className="label">Age / Gender</span>
-                <span className="val">
-                  {selectedPatient.patient?.age || 'N/A'} Yrs / {selectedPatient.patient?.gender || 'N/A'}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="label">Mobile</span>
-                <span className="val">{selectedPatient.patient?.mobilePhone || 'N/A'}</span>
-              </div>
-              <div className="info-item">
-                <span className="label">Consulting Doctor</span>
-                <span className="val">{selectedPatient.patient?.doctorName || 'OP Doctor'}</span>
-              </div>
-            </PatientBanner>
-          )}
+          {/* ===== CONSULTATION WORKSPACE (two-panel) ===== */}
+          {selectedPatient && (() => {
+            const sp = selectedPatient;
+            const name = sp.patient?.patient_name || 'Unknown';
+            const initials = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, '').split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
+            const billedTime = sp.billed_date ? new Date(sp.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            const vDate = sp.vital_entry?.vital_entry_date || sp.vital_entry?.created_date;
+            const vitalsTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+            const consultStart = consultationStartTimes[sp.patient?.uhid];
+            const consultTime = consultStart ? new Date(consultStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+            const waitMins = sp.billed_date ? Math.floor((Date.now() - new Date(sp.billed_date).getTime()) / 60000) : 0;
+            const waitText = waitMins >= 60 ? `${Math.floor(waitMins/60)} hr ${waitMins%60} min` : `${waitMins} min`;
+            return (
+              <div style={{ display: 'flex', gap: '0', borderRadius: '18px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', minHeight: '500px' }}>
 
-          {selectedPatient && (
-            <>
-              {/* Back to queue */}
-              <div style={{ marginBottom: '16px' }}>
-                <button
-                  onClick={() => setSelectedPatient(null)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    background: '#f1f5f9', border: '1px solid #e2e8f0',
-                    color: '#475569', fontWeight: 600, fontSize: '0.82rem',
-                    cursor: 'pointer', padding: '6px 14px', borderRadius: '8px',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; }}
-                >
-                  ← Back to Patient Queue
-                </button>
-              </div>
-            </>
-          )}
+                {/* ── LEFT SIDEBAR ── */}
+                <div style={{ width: '220px', flexShrink: 0, background: 'linear-gradient(180deg,#0f172a 0%,#1e293b 100%)', display: 'flex', flexDirection: 'column', padding: '18px 16px', justifyContent: 'space-between' }}>
+                  <div>
+                    {/* ← Back to queue */}
+                    <button
+                      onClick={() => setSelectedPatient(null)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '8px',
+                        color: '#f1f5f9',
+                        fontWeight: 600,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginBottom: '16px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = '#0d9488'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                    >
+                      ← Back to queue
+                    </button>
 
-          {selectedPatient && (
-            <>
-              <TabNav>
-                <TabButton $active={activeTab === 'vitals'} $iconColor="#e11d48" onClick={() => setActiveTab('vitals')}>
-                  <Heart size={18} /> Vitals & Exam
-                </TabButton>
-                <TabButton $active={activeTab === 'clinical'} $iconColor="#4f46e5" onClick={() => setActiveTab('clinical')}>
-                  <Stethoscope size={18} /> Clinical Assessment
-                </TabButton>
-                <TabButton $active={activeTab === 'diagnostics'} $iconColor="#d97706" onClick={() => setActiveTab('diagnostics')}>
-                  <Activity size={18} /> Diagnostics
-                </TabButton>
-                <TabButton $active={activeTab === 'plan'} $iconColor="#ef4444" onClick={() => setActiveTab('plan')}>
-                  <Pill size={18} /> Plan & Prescriptions
-                </TabButton>
-              </TabNav>
+                    {/* Avatar */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                      <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg,#0d9488,#0891b2)', color: '#fff', fontWeight: 800, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', boxShadow: '0 4px 12px rgba(13,148,136,0.4)' }}>{initials}</div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f1f5f9', textAlign: 'center' }}>{name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#0d9488', fontWeight: 600, marginTop: '2px' }}>{sp.patient?.uhid}</div>
+                    </div>
 
-              {/* Wait Time Timeline */}
-              <TimelineBar>
-                <TimelineItem $bg="#f0fdf4" $color="#16a34a">
-                  <div className="icon-box"><Clock size={18} /></div>
-                  <div className="details">
-                    <span className="label">Billed Time</span>
-                    <span className="time">
-                      {selectedPatient.billed_date ? new Date(selectedPatient.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                    </span>
+                    {/* Info */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
+                      {[
+                        ['Age / Gender', `${sp.patient?.age || '--'} Yrs / ${sp.patient?.gender || '--'}`],
+                        ['Mobile', sp.patient?.mobilePhone || '--'],
+                      ].map(([lbl, val]) => (
+                        <div key={lbl}>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{lbl}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600, marginTop: '1px' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Start Consultation button */}
+                    {!consultStart && (
+                      <button
+                        onClick={() => {
+                          const startTime = new Date().toISOString();
+                          setConsultationStartTimes(prev => ({ ...prev, [sp.patient.uhid]: startTime }));
+                          handleStartConsultationAPI(startTime);
+                        }}
+                        style={{ width: '100%', padding: '10px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', marginBottom: '16px', transition: 'opacity 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity='0.88'; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity='1'; }}
+                      >Start Consultation</button>
+                    )}
+
+                    {/* Visit Timeline */}
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700, marginBottom: '12px' }}>Visit Timeline</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {[
+                          { label: 'Billed', time: billedTime, done: true, color: '#22c55e' },
+                          { label: 'Vitals taken', time: vitalsTime || 'Pending', done: !!vitalsTime, color: vitalsTime ? '#22c55e' : '#f59e0b' },
+                          { label: 'Consultation', time: consultTime || 'Pending', done: !!consultTime, color: consultTime ? '#22c55e' : '#f97316' },
+                        ].map(({ label, time, done, color }) => (
+                          <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, marginTop: '4px', flexShrink: 0, boxShadow: `0 0 6px ${color}` }} />
+                            <div>
+                              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{label}</div>
+                              <div style={{ fontSize: '0.8rem', color: done ? '#f1f5f9' : '#f59e0b', fontWeight: 700 }}>{time}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Total Wait */}
+                    <div style={{ marginTop: '16px', background: waitMins > 60 ? 'rgba(239,68,68,0.15)' : 'rgba(13,148,136,0.15)', borderRadius: '10px', padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Wait</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: waitMins > 60 ? '#f87171' : '#34d399' }}>{waitText}</span>
+                    </div>
                   </div>
-                </TimelineItem>
 
-                <TimelineItem $bg="#eff6ff" $color="#2563eb">
-                  <div className="icon-box"><Heart size={18} /></div>
-                  <div className="details">
-                    <span className="label">Vitals Taken</span>
-                    <span className="time">
-                      {selectedPatient.vital_entry?.vital_entry_date ? new Date(selectedPatient.vital_entry.vital_entry_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Pending'}
-                    </span>
+                  {/* Past History in Sidebar */}
+                  <div
+                    onClick={() => setShowHistoryModal(true)}
+                    style={{
+                      marginTop: '20px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: '10px',
+                      padding: '10px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = '#0d9488'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                  >
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f1f5f9' }}>Past History</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>{pastHistory.length}</span>
                   </div>
-                </TimelineItem>
+                </div>
 
-                <TimelineItem $bg="#fff7ed" $color="#ea580c">
-                  <div className="icon-box"><Stethoscope size={18} /></div>
-                  <div className="details">
-                    <span className="label">Consultation Started</span>
-                    <span className="time">
-                      {consultationStartTimes[selectedPatient?.patient?.uhid] ?
-                        new Date(consultationStartTimes[selectedPatient.patient.uhid]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : 'Pending'
-                      }
-                    </span>
+                {/* ── RIGHT PANEL ── */}
+                <div style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  {/* Tab bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '0 24px', gap: '0' }}>
+                    {[
+                      { key: 'vitals', label: 'Vitals & Exam' },
+                      { key: 'clinical', label: 'Clinical Assessment' },
+                      { key: 'diagnostics', label: 'Diagnostics' },
+                      { key: 'plan', label: 'Plan & Prescriptions' },
+                    ].map(t => (
+                      <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: '14px 20px', background: 'none', border: 'none', borderBottom: activeTab === t.key ? '2px solid #0d9488' : '2px solid transparent', color: activeTab === t.key ? '#0d9488' : '#64748b', fontWeight: activeTab === t.key ? 700 : 500, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '-1px' }}>
+                        {t.label}
+                      </button>
+                    ))}
+                    <div style={{ flex: 1 }} />
                   </div>
-                </TimelineItem>
 
-                {(() => {
-                  if (!selectedPatient.billed_date) return null;
-                  const billedTime = new Date(selectedPatient.billed_date).getTime();
-                  const now = new Date().getTime();
-                  const diffMs = now - billedTime;
-                  const diffMins = Math.floor(diffMs / 60000);
-                  const hours = Math.floor(diffMins / 60);
-                  const mins = diffMins % 60;
-                  const waitText = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
-                  return (
-                    <WaitTimeBadge $isLongWait={diffMins > 60}>
-                      <Clock size={16} /> Total Wait: {waitText}
-                    </WaitTimeBadge>
-                  );
-                })()}
-              </TimelineBar>
-
+                  {/* Tab content area */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
 
               {activeTab === 'clinical' && (
                 <TabContent>
@@ -2205,20 +2278,22 @@ const OPDoctorlogin = () => {
                 </TabContent>
               )}
 
-              {/* Bottom Action Bar: Only Save Consultation at Bottom of Page */}
-              <BottomActionBar style={{ justifyContent: 'flex-end' }}>
+              <BottomActionBar style={{ justifyContent: 'flex-end', padding: '12px 24px', borderTop: '1px solid #f1f5f9', marginTop: 0 }}>
                 <Button
                   $variant="primary"
                   onClick={handleSaveConsultation}
                   disabled={savingConsultation}
-                  style={{ padding: '12px 28px', fontSize: '0.95rem' }}
+                  style={{ padding: '10px 24px', fontSize: '0.92rem' }}
                 >
                   <Save size={18} />
                   {savingConsultation ? "Saving..." : "Save Consultation"}
                 </Button>
               </BottomActionBar>
-            </>
-          )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </Workspace>
       </MainGrid>
 
@@ -2227,13 +2302,10 @@ const OPDoctorlogin = () => {
         <ModalOverlay onClick={() => setShowHistoryModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Clock size={22} style={{ color: '#0d9488' }} />
-                <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>
-                  Past Consultation History - {selectedPatient.patient?.patient_name} ({selectedPatient.patient?.uhid})
-                </h2>
-              </div>
-              <X size={20} style={{ cursor: 'pointer' }} onClick={() => setShowHistoryModal(false)} />
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600, color: '#0f172a' }}>
+                Medical History
+              </h2>
+              <X size={22} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setShowHistoryModal(false)} />
             </div>
 
             {loadingHistory ? (
@@ -2255,7 +2327,7 @@ const OPDoctorlogin = () => {
                       >
                         <div className="patient-info">
                           <span>{selectedPatient?.patient?.patient_name || item.patient_name || 'Patient'}</span>
-                          <span>{selectedPatient?.patient?.uhid || item.uhid || ''}</span>
+                          <span className="uhid">{selectedPatient?.patient?.uhid || item.uhid || ''}</span>
                         </div>
                         <div className="date-info">
                           {item.created_date ? new Date(item.created_date).toLocaleDateString() : ''}
@@ -2268,54 +2340,91 @@ const OPDoctorlogin = () => {
                 <HistoryDetailPane>
                   {selectedHistoryItem ? (
                     <>
-                      <HistoryDetailHeader>
+                      <HistoryDetailHeader style={{ color: '#0d9488', fontSize: '1.35rem', fontWeight: 600, marginBottom: '20px' }}>
                         Medical History - {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleDateString() : ''}
                       </HistoryDetailHeader>
 
+                      {/* 1. Diagnosis Box */}
+                      <div style={{ marginBottom: '22px' }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Diagnosis</div>
+                        <div style={{
+                          background: '#f0fdfa',
+                          border: '1px solid #ccfbf1',
+                          borderRadius: '8px',
+                          padding: '16px 20px',
+                          minHeight: '70px',
+                        }}>
+                          {selectedHistoryItem.finding ? (
+                            <ul style={{ margin: 0, paddingLeft: '18px', color: '#0f172a', fontSize: '0.92rem' }}>
+                              <li>{selectedHistoryItem.finding}</li>
+                            </ul>
+                          ) : (
+                            <div style={{ color: '#94a3b8', fontSize: '0.88rem' }}>No diagnosis recorded.</div>
+                          )}
+                        </div>
+                      </div>
 
-                      {/* Vitals Grid */}
-                      {selectedHistoryItem.vitals && Object.keys(selectedHistoryItem.vitals).length > 0 && (
-                        <HistoryVitalsGrid>
-                          <div className="vital-card">
-                            <div className="icon-wrapper" style={{ background: '#fef2f2', color: '#ef4444' }}><Heart size={16} /></div>
-                            <div className="val">{selectedHistoryItem.vitals.pulse_rate || '--'}</div>
-                            <div className="lbl">Pulse Rate</div>
-                          </div>
-                          <div className="vital-card">
-                            <div className="icon-wrapper" style={{ background: '#eff6ff', color: '#3b82f6' }}><Activity size={16} /></div>
-                            <div className="val">{selectedHistoryItem.vitals.bp || '--'}</div>
-                            <div className="lbl">Blood Pressure</div>
-                          </div>
-                          <div className="vital-card">
-                            <div className="icon-wrapper" style={{ background: '#fffbeb', color: '#f59e0b' }}><Thermometer size={16} /></div>
-                            <div className="val">{selectedHistoryItem.vitals.temp || '--'}</div>
-                            <div className="lbl">Temperature</div>
-                          </div>
-                          <div className="vital-card">
-                            <div className="icon-wrapper" style={{ background: '#f0fdf4', color: '#22c55e' }}><Scale size={16} /></div>
-                            <div className="val">{selectedHistoryItem.vitals.weight || '--'} kg</div>
-                            <div className="lbl">Weight</div>
-                          </div>
-                        </HistoryVitalsGrid>
-                      )}
+                      {/* 2. Complaints Table */}
+                      <div style={{ marginBottom: '22px' }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Complaints</div>
+                        <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                              <tr style={{ background: '#0d9488', color: '#ffffff' }}>
+                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Complaints</th>
+                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration</th>
+                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration Unit</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr style={{ background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>{selectedHistoryItem.chief_complaints || 'N/A'}</td>
+                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
+                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
 
-                      <ThemeSectionBox>
-                        <div className="title"><Stethoscope size={18} /> Clinical Assessment</div>
-                        <ul style={{ listStyleType: 'disc' }}>
-                          {selectedHistoryItem.allergies && <li><span style={{ fontWeight: 600 }}>Allergies:</span> {selectedHistoryItem.allergies}</li>}
-                          {selectedHistoryItem.chief_complaints && <li><span style={{ fontWeight: 600 }}>Chief Complaints:</span> {selectedHistoryItem.chief_complaints}</li>}
-                          {selectedHistoryItem.symptoms?.map(s => <li key={s}><span style={{ fontWeight: 600 }}>Symptom:</span> {s}</li>)}
-                          {(!selectedHistoryItem.allergies && !selectedHistoryItem.chief_complaints && !selectedHistoryItem.symptoms?.length) && <li style={{ color: '#94a3b8' }}>No clinical assessment recorded.</li>}
-                        </ul>
-                      </ThemeSectionBox>
+                      {/* 3. Next Visit */}
+                      <div style={{ marginBottom: '22px' }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>Next Visit:</div>
+                        <div style={{ fontSize: '0.9rem', color: '#334155' }}>
+                          {selectedHistoryItem.followup_date ? new Date(selectedHistoryItem.followup_date).toLocaleDateString() : 'N/A'}
+                        </div>
+                      </div>
 
-                      <ThemeSectionBox>
-                        <div className="title"><FileText size={18} /> Diagnosis & Findings</div>
-                        <ul style={{ listStyleType: 'disc' }}>
-                          {selectedHistoryItem.finding && <li>{selectedHistoryItem.finding}</li>}
-                          {!selectedHistoryItem.finding && <li style={{ color: '#94a3b8' }}>No diagnosis or findings recorded.</li>}
-                        </ul>
-                      </ThemeSectionBox>
+                      {/* 4. Vitals Horizontal Row */}
+                      <div style={{ marginBottom: '26px' }}>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>Vitals</div>
+                        <div style={{ display: 'flex', gap: '50px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                              {selectedHistoryItem.vitals?.height || '--'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>height</div>
+                          </div>
+                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                              {selectedHistoryItem.vitals?.weight || '--'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>weight</div>
+                          </div>
+                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                              {selectedHistoryItem.vitals?.pulse_rate || '--'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>pulseRate</div>
+                          </div>
+                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                              {selectedHistoryItem.vitals?.bp || '--'}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>bloodPressure</div>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* Investigations */}
                       <HistoryTableContainer>
@@ -2478,19 +2587,10 @@ const OPDoctorlogin = () => {
                         {vitalsDone ? 'Ready' : 'Waiting'}
                       </span>
 
-                      {/* Avatar + Name */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '46px', height: '46px', borderRadius: '12px',
-                          background: avBg, color: avTxt,
-                          fontWeight: 800, fontSize: '1rem',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                        }}>{initials}</div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', lineHeight: 1.2, paddingRight: '52px' }}>{name}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px' }}>UHID</div>
-                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0d9488' }}>{p.patient?.uhid || '--'}</div>
-                        </div>
+                      {/* Name + UHID */}
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', lineHeight: 1.2, paddingRight: '60px' }}>{name}</div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0d9488', marginTop: '3px' }}>UHID: {p.patient?.uhid || '--'}</div>
                       </div>
 
                       {/* Details */}
