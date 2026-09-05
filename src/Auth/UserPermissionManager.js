@@ -708,14 +708,15 @@ const UserPermissionManager = () => {
 
   const departmentList = useMemo(() => {
     const set = new Set(["All"]);
-    employees.forEach(emp => {
-      if (emp.department) set.add(emp.department);
+    (employees || []).forEach(emp => {
+      if (emp?.department) set.add(emp.department);
     });
     return Array.from(set);
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
+    return (employees || []).filter(emp => {
+      if (!emp) return false;
       const name = (emp.employeeName || "").toLowerCase();
       const id = String(emp.employeeId || "").toLowerCase();
       const term = (searchTerm || "").toLowerCase();
@@ -726,7 +727,7 @@ const UserPermissionManager = () => {
   }, [employees, searchTerm, selectedDept]);
 
   const selectedEmployeeObj = useMemo(() => {
-    return employees.find(e => e.employeeId === selectedEmpId) || null;
+    return (employees || []).find(e => e?.employeeId === selectedEmpId) || null;
   }, [employees, selectedEmpId]);
 
   useEffect(() => {
@@ -866,7 +867,8 @@ const UserPermissionManager = () => {
     const newPageIds = new Set(permissions);
     const newSubPerms = { ...selectedSubPerms };
 
-    categoryPages.forEach(p => {
+    (categoryPages || []).forEach(p => {
+      if (!p) return;
       newPageIds.add(p.page_id);
       if (p.permissions && typeof p.permissions === 'object') {
         newSubPerms[p.page_id] = Object.keys(p.permissions);
@@ -878,7 +880,7 @@ const UserPermissionManager = () => {
   };
 
   const clearCategoryPages = (categoryPages) => {
-    const idsToRemove = new Set(categoryPages.map(p => p.page_id));
+    const idsToRemove = new Set((categoryPages || []).map(p => p?.page_id).filter(id => id != null));
     setPermissions(prev => prev.filter(id => !idsToRemove.has(id)));
     setSelectedSubPerms(prev => {
       const next = { ...prev };
@@ -939,13 +941,15 @@ const UserPermissionManager = () => {
 
   const groupedPermissions = useMemo(() => {
     const groups = {};
-    if (!sidebarData || sidebarData.length === 0) return groups;
+    if (!sidebarData || !Array.isArray(sidebarData) || sidebarData.length === 0) return groups;
 
     sidebarData.forEach(group => {
+      if (!group) return;
       const category = (group.group || group.category || "General").trim();
       if (!groups[category]) groups[category] = [];
 
-      group.pages.forEach(page => {
+      (group.pages || []).forEach(page => {
+        if (!page) return;
         if (!groups[category].some(p => p.page_id === page.page_id)) {
           groups[category].push({
             pageName: page.name,
@@ -963,14 +967,15 @@ const UserPermissionManager = () => {
     const term = (pageSearchTerm || "").toLowerCase();
     const groups = {};
 
-    Object.entries(groupedPermissions).forEach(([category, pages]) => {
-      const filteredPages = pages.filter(page => {
+    Object.entries(groupedPermissions || {}).forEach(([category, pages]) => {
+      const filteredPages = (pages || []).filter(page => {
+        if (!page) return false;
         const pageName = page.pageName || "";
         const route = page.route || "";
         const matchesSearch = pageName.toLowerCase().includes(term) || route.toLowerCase().includes(term);
         if (!matchesSearch) return false;
 
-        const isEnabled = permissions.includes(page.page_id);
+        const isEnabled = (permissions || []).includes(page.page_id);
         if (pageStatusFilter === 'enabled' && !isEnabled) return false;
         if (pageStatusFilter === 'disabled' && isEnabled) return false;
 
