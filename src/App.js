@@ -99,6 +99,10 @@ import Vitaldashboard from "./Components/OPEMR/Vitaldashboard";
 import Doctordashboard from "./Components/OPEMR/Doctordashboard";
 import Patientlivetracking from "./Components/OPEMR/Patientlivetracking";
 import OPDoctorlogin from "./Components/OPEMR/OPDoctorlogin";
+import IPEMRDesk from "./Components/IPEMR/IPEMRDesk";
+import IPNursingDesk from "./Components/IPEMR/IPNursingDesk";
+import IPPatientHistory from "./Components/IPEMR/IPPatientHistory";
+import IPDoctorDashboard from "./Components/IPEMR/IPDoctorDashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -365,6 +369,23 @@ function App() {
       "/Doctordashboard": "Doctor Dashboard",
       "/Patientlivetracking": "Patient Live Tracking",
       "/vitalwaitinglist": "Vital Waiting List",
+      "/OPDoctorlogin": "OP Doctor Consultation",
+      "/IPEMRDesk": "IP EMR Consultation & Clinical Notes",
+      "/ipemrdesk": "IP EMR Consultation & Clinical Notes",
+      "/IPEMR": "IP EMR Consultation & Clinical Notes",
+      "/ipemr": "IP EMR Consultation & Clinical Notes",
+      "/IPDoctorNotes": "Inpatient Doctor Clinical Notes",
+      "/ipdoctornotes": "Inpatient Doctor Clinical Notes",
+      "/IPNursingDesk": "Inpatient Nursing Desk & Vitals",
+      "/ipnursingdesk": "Inpatient Nursing Desk & Vitals",
+      "/IPNursingNotes": "Inpatient Nursing Notes & Vitals",
+      "/ipnursingnotes": "Inpatient Nursing Notes & Vitals",
+      "/IPDoctorLogin": "IP Doctor Workspace",
+      "/ipdoctorlogin": "IP Doctor Workspace",
+      "/IPDoctorDashboard": "Inpatient Doctor Dashboard & Analytics",
+      "/ipdoctordashboard": "Inpatient Doctor Dashboard & Analytics",
+      "/IPDoctorReport": "Inpatient Doctor Clinical Reports",
+      "/ipdoctorreport": "Inpatient Doctor Clinical Reports",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -659,6 +680,33 @@ function App() {
               <Route path="/OPDoctorlogin" element={<OPDoctorlogin />} />
               <Route path="/opdoctorlogin" element={<OPDoctorlogin />} />
               <Route path="/OPDoctorLogin" element={<OPDoctorlogin />} />
+
+              {/* Inpatient EMR Desk & Clinical Notes */}
+              <Route path="/IPEMRDesk" element={<IPEMRDesk />} />
+              <Route path="/ipemrdesk" element={<IPEMRDesk />} />
+              <Route path="/IPEMR" element={<IPEMRDesk />} />
+              <Route path="/ipemr" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorNotes" element={<IPEMRDesk />} />
+              <Route path="/ipdoctornotes" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorLogin" element={<IPEMRDesk />} />
+              <Route path="/ipdoctorlogin" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorlogin" element={<IPEMRDesk />} />
+
+              {/* Inpatient Nursing Desk & Notes */}
+              <Route path="/IPNursingDesk" element={<IPNursingDesk />} />
+              <Route path="/ipnursingdesk" element={<IPNursingDesk />} />
+              <Route path="/IPNursingNotes" element={<IPNursingDesk />} />
+              <Route path="/ipnursingnotes" element={<IPNursingDesk />} />
+
+              {/* Inpatient Patient Clinical History */}
+              <Route path="/IPPatientHistory" element={<IPPatientHistory />} />
+              <Route path="/ippatienthistory" element={<IPPatientHistory />} />
+
+              {/* Inpatient Doctor Dashboard & Analytics Report */}
+              <Route path="/IPDoctorDashboard" element={<IPDoctorDashboard />} />
+              <Route path="/ipdoctordashboard" element={<IPDoctorDashboard />} />
+              <Route path="/IPDoctorReport" element={<IPDoctorDashboard defaultTab="report" />} />
+              <Route path="/ipdoctorreport" element={<IPDoctorDashboard defaultTab="report" />} />
               {hasPagePermission(
                 "/VitalWaitingList",
                 allowedActions,
