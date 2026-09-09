@@ -23,14 +23,14 @@ export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}
     // 1. Check dynamic permissions (prioritized)
     if (dynamicPermissions && dynamicPermissions[route]) {
         const requiredPermissions = dynamicPermissions[route];
-        const hasReqPerms = Array.isArray(requiredPermissions) 
-            ? requiredPermissions.length > 0 
+        const hasReqPerms = Array.isArray(requiredPermissions)
+            ? requiredPermissions.length > 0
             : (requiredPermissions && typeof requiredPermissions === 'object' && Object.keys(requiredPermissions).length > 0);
 
         if (hasReqPerms) {
             // Normalize requiredPermissions to array for comparison
-            const reqArray = Array.isArray(requiredPermissions) 
-                ? requiredPermissions 
+            const reqArray = Array.isArray(requiredPermissions)
+                ? requiredPermissions
                 : Object.values(requiredPermissions);
 
             return reqArray.some(reqPerm =>
