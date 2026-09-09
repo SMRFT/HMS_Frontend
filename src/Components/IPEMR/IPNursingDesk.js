@@ -442,118 +442,160 @@ const Workspace = styled.div`
 
 const CompactPatientRibbon = styled.div`
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
-  padding: 6px 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  padding: 4px 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
-  overflow-x: auto;
-  white-space: nowrap;
-  scrollbar-width: thin;
-  &::-webkit-scrollbar { height: 3px; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 
-  .single-line-patient {
-    display: inline-flex;
+  .patient-main-block {
+    display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
 
     .avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
       background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
       color: white;
       font-weight: 800;
-      font-size: 0.82rem;
+      font-size: 0.88rem;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(13, 148, 136, 0.25);
     }
 
-    .p-name {
-      font-size: 0.94rem;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1.2;
-    }
+    .patient-meta-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
 
-    .gender-age-badge {
-      font-size: 0.72rem;
-      color: #475569;
-      font-weight: 600;
-      background: #f1f5f9;
-      padding: 2px 6px;
-      border-radius: 5px;
-    }
+      .top-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
 
-    .blood-badge {
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: #dc2626;
-      background: #fee2e2;
-      padding: 2px 6px;
-      border-radius: 5px;
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-    }
+        .p-name {
+          font-size: 0.92rem;
+          font-weight: 800;
+          color: #0f172a;
+          line-height: 1.1;
+        }
 
-    .visual-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-size: 0.72rem;
-      color: #334155;
-      font-weight: 600;
+        .gender-age-badge {
+          font-size: 0.68rem;
+          color: #475569;
+          font-weight: 600;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          padding: 1px 5px;
+          border-radius: 4px;
+        }
 
-      strong {
-        color: #0f172a;
-        font-weight: 700;
+        .blood-badge {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #dc2626;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          padding: 1px 5px;
+          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .room-chip {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          color: #166534;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 0.68rem;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+        }
       }
 
-      &.room-chip {
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-        color: #166534;
-      }
+      .bottom-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
 
-      &.doctor-chip {
-        background: #f0fdfa;
-        border-color: #99f6e4;
-        color: #0f766e;
-      }
+        .visual-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          padding: 1px 5px;
+          border-radius: 4px;
+          font-size: 0.68rem;
+          color: #475569;
+          font-weight: 600;
 
-      &.id-chip {
-        background: #f8fafc;
-        border-color: #cbd5e1;
+          strong {
+            color: #0f172a;
+            font-weight: 700;
+          }
+
+          &.id-chip {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+          }
+
+          &.ip-chip {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+          }
+
+          &.doctor-chip {
+            background: #f0fdfa;
+            border-color: #99f6e4;
+            color: #0f766e;
+          }
+        }
       }
     }
   }
 
   .note-meta-inline {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 6px;
     flex-shrink: 0;
 
     .status-badge {
-      font-size: 0.7rem;
-      font-weight: 800;
+      font-size: 0.68rem;
+      font-weight: 700;
       padding: 2px 7px;
       border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       background: ${props => props.$isFinal ? '#dcfce7' : '#fef3c7'};
       color: ${props => props.$isFinal ? '#166534' : '#92400e'};
+      border: 1px solid ${props => props.$isFinal ? '#bbf7d0' : '#fde68a'};
+
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: ${props => props.$isFinal ? '#16a34a' : '#d97706'};
+      }
     }
   }
 `;
@@ -1243,18 +1285,53 @@ const IPNursingDesk = ({ initialPatient = null, isModal = false, onClose = null 
 
             return (
               <CompactPatientRibbon $isFinal={formData.is_finalized}>
-                <div className="single-line-patient">
+                <div className="patient-main-block">
                   <div className="avatar">
                     {pInitial}
                   </div>
-                  <span className="p-name">{pName}</span>
-                  <span className="visual-chip id-chip">
-                    IP No: <strong>{pIp}</strong>
-                  </span>
+
+                  <div className="patient-meta-rows">
+                    {/* TOP ROW: Name, Gender & Age, Blood Group, Room Details */}
+                    <div className="top-row">
+                      <span className="p-name">{pName}</span>
+                      {(pGender || pAge) && (
+                        <span className="gender-age-badge">
+                          {pGender ? (pGender.toLowerCase().startsWith('m') ? '♂ Male' : pGender.toLowerCase().startsWith('f') ? '♀ Female' : pGender) : ''}
+                          {pGender && pAge ? ' · ' : ''}
+                          {pAge ? `${pAge}Y` : ''}
+                        </span>
+                      )}
+                      {pBlood && (
+                        <span className="blood-badge" title={`Blood Group: ${pBlood}`}>
+                          🩸 {pBlood}
+                        </span>
+                      )}
+                      {(pRoom || pBed) && (
+                        <span className="room-chip" title="Room / Bed Location">
+                          🛏️ {pRoom || '-'}{pBed ? ` · Bed ${pBed}` : ''}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* BOTTOM ROW: UHID, IP Number, Doctor (Icon-driven) */}
+                    <div className="bottom-row">
+                      <span className="visual-chip id-chip" title="UHID">
+                        🪪 <strong>{pUhid}</strong>
+                      </span>
+                      <span className="visual-chip ip-chip" title="IP Admission Number">
+                        🏥 <strong>{pIp}</strong>
+                      </span>
+                      {pDoc && (
+                        <span className="visual-chip doctor-chip" title="Attending Doctor">
+                          👨‍⚕️ <strong>{pDoc.replace(/^Dr\.?\s+/i, 'Dr. ')}</strong>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="note-meta-inline">
-                  <div className="shift-selector" style={{ marginRight: '6px' }}>
+                  <div className="shift-selector" style={{ marginRight: '4px' }}>
                     {['Morning', 'Evening', 'Night'].map(sh => (
                       <ShiftPill
                         key={sh}
@@ -1271,7 +1348,7 @@ const IPNursingDesk = ({ initialPatient = null, isModal = false, onClose = null 
                   </div>
 
                   <span className="status-badge">
-                    {formData.is_finalized ? 'Finalized Note' : 'Draft / Active'}
+                    <span className="dot" /> {formData.is_finalized ? 'Finalized' : 'Draft'}
                   </span>
 
                   {isModal && (

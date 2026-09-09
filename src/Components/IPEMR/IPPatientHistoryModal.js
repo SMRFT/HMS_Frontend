@@ -159,68 +159,128 @@ const ModalHeader = styled.div`
 const TopPatientRibbon = styled.div`
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
-  padding: 10px 20px;
+  padding: 6px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 
-  .patient-info {
+  .patient-main-block {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    flex-shrink: 0;
 
     .avatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
       background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
       color: white;
       font-weight: 800;
-      font-size: 1rem;
+      font-size: 0.92rem;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 1px 3px rgba(13, 148, 136, 0.25);
     }
 
-    .details {
-      .name-row {
+    .patient-meta-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+
+      .top-row {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        flex-wrap: wrap;
 
-        .name {
-          font-size: 1.05rem;
+        .p-name {
+          font-size: 0.94rem;
           font-weight: 800;
           color: #0f172a;
+          line-height: 1.1;
         }
 
-        .gender-age {
-          font-size: 0.78rem;
-          color: #64748b;
+        .gender-age-badge {
+          font-size: 0.68rem;
+          color: #475569;
           font-weight: 600;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          padding: 1px 6px;
+          border-radius: 4px;
+        }
+
+        .blood-badge {
+          font-size: 0.68rem;
+          font-weight: 800;
+          color: #dc2626;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          padding: 1px 6px;
+          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+        }
+
+        .location-chip {
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          color: #166534;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 0.68rem;
+          font-weight: 600;
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
         }
       }
 
-      .tags-row {
+      .bottom-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-top: 2px;
+        gap: 6px;
         flex-wrap: wrap;
 
-        .chip {
-          background: #f1f5f9;
-          padding: 2px 8px;
-          border-radius: 6px;
-          font-size: 0.74rem;
-          color: #334155;
+        .visual-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-size: 0.68rem;
+          color: #475569;
           font-weight: 600;
 
           strong {
             color: #0f172a;
+            font-weight: 700;
+          }
+
+          &.id-chip {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+          }
+
+          &.ip-chip {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+          }
+
+          &.phone-chip {
+            background: #faf5ff;
+            border-color: #e9d5ff;
+            color: #7e22ce;
           }
         }
       }
@@ -230,34 +290,37 @@ const TopPatientRibbon = styled.div`
   .search-box {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
 
     input {
-      padding: 6px 10px;
+      padding: 4px 8px;
       border-radius: 6px;
       border: 1px solid #cbd5e1;
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       outline: none;
-      width: 180px;
+      width: 170px;
+      background: #f8fafc;
 
       &:focus {
         border-color: #0d9488;
+        background: #fff;
         box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
       }
     }
 
     button {
-      padding: 6px 12px;
+      padding: 4px 10px;
       border-radius: 6px;
       border: none;
       background: #0d9488;
       color: white;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 4px;
+      transition: background 0.15s;
 
       &:hover {
         background: #0f766e;
@@ -266,12 +329,70 @@ const TopPatientRibbon = styled.div`
   }
 `;
 
-const TabNavigation = styled.div`
-  display: flex;
+const KPIOverviewStrip = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+  padding: 6px 14px;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
-  padding: 6px 16px;
-  gap: 6px;
+  flex-shrink: 0;
+
+  .kpi-chip {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: #0d9488;
+      box-shadow: 0 1px 4px rgba(13, 148, 136, 0.12);
+    }
+
+    .icon-wrap {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+
+    .kpi-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+
+      .val {
+        font-size: 0.88rem;
+        font-weight: 800;
+        color: #0f172a;
+      }
+
+      .lbl {
+        font-size: 0.62rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+      }
+    }
+  }
+`;
+
+const TabNavigation = styled.div`
+  display: flex;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 4px 14px;
+  gap: 4px;
   overflow-x: auto;
   flex-shrink: 0;
   scrollbar-width: thin;
@@ -280,12 +401,12 @@ const TabNavigation = styled.div`
 const NavTab = styled.button`
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 8px;
-  font-size: 0.8rem;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
   font-weight: 700;
-  border: none;
+  border: 1px solid ${props => props.$active ? '#0d9488' : 'transparent'};
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -293,19 +414,19 @@ const NavTab = styled.button`
   ${props => props.$active ? `
     background: #0d9488;
     color: white;
-    box-shadow: 0 2px 6px rgba(13, 148, 136, 0.25);
+    box-shadow: 0 1px 3px rgba(13, 148, 136, 0.2);
   ` : `
     background: transparent;
     color: #475569;
-    &:hover { background: #e2e8f0; color: #0f172a; }
+    &:hover { background: #f1f5f9; color: #0f172a; }
   `}
 
   .badge-count {
-    background: ${props => props.$active ? 'rgba(255, 255, 255, 0.25)' : '#e2e8f0'};
+    background: ${props => props.$active ? 'rgba(255, 255, 255, 0.28)' : '#e2e8f0'};
     color: ${props => props.$active ? 'white' : '#334155'};
-    padding: 1px 6px;
-    border-radius: 10px;
-    font-size: 0.7rem;
+    padding: 1px 5px;
+    border-radius: 8px;
+    font-size: 0.68rem;
     font-weight: 800;
   }
 `;
@@ -864,23 +985,49 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
 
         {/* 2. Top Patient Demographics Ribbon */}
         <TopPatientRibbon>
-          <div className="patient-info">
+          <div className="patient-main-block">
             <div className="avatar">
-              {patientProfile.patient_name ? patientProfile.patient_name[0] : 'P'}
+              {patientProfile.patient_name ? patientProfile.patient_name[0].toUpperCase() : 'P'}
             </div>
-            <div className="details">
-              <div className="name-row">
-                <span className="name">{patientProfile.patient_name || 'Patient'}</span>
-                <span className="gender-age">
-                  {patientProfile.gender || ''} {patientProfile.age ? `· ${patientProfile.age} yrs` : ''}
-                </span>
+
+            <div className="patient-meta-rows">
+              {/* TOP ROW: Name, Gender & Age, Blood Group, Location */}
+              <div className="top-row">
+                <span className="p-name">{patientProfile.patient_name || 'Patient'}</span>
+                {(patientProfile.gender || patientProfile.age) && (
+                  <span className="gender-age-badge">
+                    {patientProfile.gender ? (patientProfile.gender.toLowerCase().startsWith('m') ? '♂ Male' : patientProfile.gender.toLowerCase().startsWith('f') ? '♀ Female' : patientProfile.gender) : ''}
+                    {patientProfile.gender && patientProfile.age ? ' · ' : ''}
+                    {patientProfile.age ? `${patientProfile.age}Y` : ''}
+                  </span>
+                )}
+                {patientProfile.blood_group && (
+                  <span className="blood-badge" title={`Blood Group: ${patientProfile.blood_group}`}>
+                    🩸 {patientProfile.blood_group}
+                  </span>
+                )}
+                {patientProfile.address && (
+                  <span className="location-chip" title="Location / Area">
+                    📍 {patientProfile.address}
+                  </span>
+                )}
               </div>
-              <div className="tags-row">
-                <span className="chip">UHID: <strong>{patientProfile.uhid || targetUHID || '-'}</strong></span>
-                {targetIP && <span className="chip">IP No: <strong>{targetIP}</strong></span>}
-                {patientProfile.blood_group && <span className="chip">Blood: <strong>{patientProfile.blood_group}</strong></span>}
-                {patientProfile.mobile && <span className="chip">Mobile: <strong>{patientProfile.mobile}</strong></span>}
-                {patientProfile.address && <span className="chip">Location: {patientProfile.address}</span>}
+
+              {/* BOTTOM ROW: UHID, IP Number, Mobile (Clean visual icons) */}
+              <div className="bottom-row">
+                <span className="visual-chip id-chip" title="UHID">
+                  🪪 <strong>{patientProfile.uhid || targetUHID || '-'}</strong>
+                </span>
+                {targetIP && (
+                  <span className="visual-chip ip-chip" title="IP Admission Number">
+                    🏥 <strong>{targetIP}</strong>
+                  </span>
+                )}
+                {patientProfile.mobile && (
+                  <span className="visual-chip phone-chip" title="Contact Mobile">
+                    📱 <strong>{patientProfile.mobile}</strong>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -889,7 +1036,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
           <div className="search-box">
             <input
               type="text"
-              placeholder="Search other UHID..."
+              placeholder="Search UHID / IP..."
               value={searchUHID}
               onChange={(e) => setSearchUHID(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') fetchHistory(searchUHID); }}
@@ -900,13 +1047,64 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
           </div>
         </TopPatientRibbon>
 
-        {/* 3. Tab Navigation */}
+        {/* 3. Clinical Overview KPI Summary Strip */}
+        <KPIOverviewStrip>
+          <div className="kpi-chip" onClick={() => setActiveTab('lab_results')}>
+            <div className="icon-wrap" style={{ background: '#ccfbf1', color: '#0f766e' }}>🔬</div>
+            <div className="kpi-text">
+              <span className="val">{labInvestigations.length}</span>
+              <span className="lbl">Diagnostics</span>
+            </div>
+          </div>
+
+          <div className="kpi-chip" onClick={() => setActiveTab('admissions')}>
+            <div className="icon-wrap" style={{ background: '#dcfce7', color: '#166534' }}>🏥</div>
+            <div className="kpi-text">
+              <span className="val">{admissions.length}</span>
+              <span className="lbl">Admissions</span>
+            </div>
+          </div>
+
+          <div className="kpi-chip" onClick={() => setActiveTab('doctor_notes')}>
+            <div className="icon-wrap" style={{ background: '#e0e7ff', color: '#3730a3' }}>🩺</div>
+            <div className="kpi-text">
+              <span className="val">{doctorNotes.length}</span>
+              <span className="lbl">Doctor Notes</span>
+            </div>
+          </div>
+
+          <div className="kpi-chip" onClick={() => setActiveTab('nursing_notes')}>
+            <div className="icon-wrap" style={{ background: '#fef3c7', color: '#b45309' }}>🌡️</div>
+            <div className="kpi-text">
+              <span className="val">{nursingNotes.length}</span>
+              <span className="lbl">Vitals & Rounds</span>
+            </div>
+          </div>
+
+          <div className="kpi-chip" onClick={() => setActiveTab('discharge_summaries')}>
+            <div className="icon-wrap" style={{ background: '#dbeafe', color: '#1e40af' }}>📋</div>
+            <div className="kpi-text">
+              <span className="val">{dischargeSummaries.length}</span>
+              <span className="lbl">Discharges</span>
+            </div>
+          </div>
+
+          <div className="kpi-chip" onClick={() => setActiveTab('medications')}>
+            <div className="icon-wrap" style={{ background: '#f3e8ff', color: '#6b21a8' }}>💊</div>
+            <div className="kpi-text">
+              <span className="val">{medications.length}</span>
+              <span className="lbl">Medications</span>
+            </div>
+          </div>
+        </KPIOverviewStrip>
+
+        {/* 4. Tab Navigation */}
         <TabNavigation>
           <NavTab
             $active={activeTab === 'lab_results'}
             onClick={() => setActiveTab('lab_results')}
           >
-            <FlaskConical size={14} /> 🔬 Diagnostics & Lab Results
+            <FlaskConical size={13} /> Diagnostics
             <span className="badge-count">{labInvestigations.length}</span>
           </NavTab>
 
@@ -914,7 +1112,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'admissions'}
             onClick={() => setActiveTab('admissions')}
           >
-            <Bed size={14} /> 🏥 IP Admissions
+            <Bed size={13} /> IP Admissions
             <span className="badge-count">{admissions.length}</span>
           </NavTab>
 
@@ -922,7 +1120,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'doctor_notes'}
             onClick={() => setActiveTab('doctor_notes')}
           >
-            <Stethoscope size={14} /> 🩺 Doctor Notes
+            <Stethoscope size={13} /> Doctor Notes
             <span className="badge-count">{doctorNotes.length}</span>
           </NavTab>
 
@@ -930,7 +1128,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'nursing_notes'}
             onClick={() => setActiveTab('nursing_notes')}
           >
-            <Heart size={14} /> 🌡️ Nursing & Vitals
+            <Heart size={13} /> Nursing & Vitals
             <span className="badge-count">{nursingNotes.length}</span>
           </NavTab>
 
@@ -938,7 +1136,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'discharge_summaries'}
             onClick={() => setActiveTab('discharge_summaries')}
           >
-            <FileText size={14} /> 📋 Discharge Summaries
+            <FileText size={13} /> Discharge Summaries
             <span className="badge-count">{dischargeSummaries.length}</span>
           </NavTab>
 
@@ -946,7 +1144,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'medications'}
             onClick={() => setActiveTab('medications')}
           >
-            <Pill size={14} /> 💊 Medications Prescribed
+            <Pill size={13} /> Medications
             <span className="badge-count">{medications.length}</span>
           </NavTab>
 
@@ -954,7 +1152,7 @@ const IPPatientHistoryModal = ({ patient = null, uhid = null, ipNumber = null, i
             $active={activeTab === 'op_visits'}
             onClick={() => setActiveTab('op_visits')}
           >
-            <Building2 size={14} /> 🏥 OP Consultations
+            <Building2 size={13} /> OP Consultations
             <span className="badge-count">{opVisits.length}</span>
           </NavTab>
         </TabNavigation>
