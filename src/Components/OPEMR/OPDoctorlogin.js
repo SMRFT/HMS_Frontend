@@ -1210,6 +1210,7 @@ const OPDoctorlogin = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [queueViewMode, setQueueViewMode] = useState("card"); // 'card' | 'table'
+  const [statusFilter, setStatusFilter] = useState("all"); // 'all' | 'ready' | 'waiting' | 'completed'
 
   // Master Data
   const [symptomList, setSymptomList] = useState([]);
@@ -1236,11 +1237,31 @@ const OPDoctorlogin = () => {
   const [clinicalPastHistory, setClinicalPastHistory] = useState([]);
   const [presentMedications, setPresentMedications] = useState("");
 
+  // Clinical Assessment History & Exam State
+  const [socialHistory, setSocialHistory] = useState([]);
+  const [socialHistoryNotes, setSocialHistoryNotes] = useState("");
+  const [menstrualStatus, setMenstrualStatus] = useState("");
+  const [menstrualSpecify, setMenstrualSpecify] = useState("");
+  const [vaccinationHistory, setVaccinationHistory] = useState("");
+  const [obstetricsHistory, setObstetricsHistory] = useState("");
+  const [investigationDone, setInvestigationDone] = useState("");
+  const [physicalExamination, setPhysicalExamination] = useState("");
+  const [provisionalDiagnosis, setProvisionalDiagnosis] = useState("");
+  const [planOfCare, setPlanOfCare] = useState("");
+
   const handleTogglePastHistory = (item) => {
     if (clinicalPastHistory.includes(item)) {
       setClinicalPastHistory(clinicalPastHistory.filter(i => i !== item));
     } else {
       setClinicalPastHistory([...clinicalPastHistory, item]);
+    }
+  };
+
+  const handleToggleSocialHistory = (item) => {
+    if (socialHistory.includes(item)) {
+      setSocialHistory(socialHistory.filter(i => i !== item));
+    } else {
+      setSocialHistory([...socialHistory, item]);
     }
   };
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
@@ -1341,14 +1362,87 @@ const OPDoctorlogin = () => {
     if (selectedPatient?.patient?.uhid) {
       fetchPastHistory(selectedPatient.patient.uhid);
 
-      // Reset form state for new patient
-      setSelectedSymptoms([]);
-      setSelectedTestIds([]);
-      setSelectedMedicineIds([]);
-      setFinding("");
-      setDiet("");
-      setReferToDoctor("");
-      setFollowupDate("");
+      const consult = selectedPatient.consultation;
+      const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
+
+      // Only the doctor who created this consultation can view and edit it in the form fields
+      const isCreatedByLoggedInDoctor = consult && (
+        !loggedInDoctorId ||
+        String(consult.doctor_id || '').trim() === loggedInDoctorId ||
+        String(consult.created_by || '').trim() === loggedInDoctorId ||
+        Number(consult.doctor_id) === Number(loggedInDoctorId) ||
+        Number(consult.created_by) === Number(loggedInDoctorId)
+      );
+
+      if (consult && isCreatedByLoggedInDoctor) {
+        // Pre-populate saved consultation details for THIS doctor to view and edit
+        setSelectedSymptoms(Array.isArray(consult.symptoms) ? consult.symptoms : []);
+        setSelectedTestIds(Array.isArray(consult.investigation_test_ids) ? consult.investigation_test_ids : []);
+        setSelectedMedicineIds(Array.isArray(consult.prescription_item_ids) ? consult.prescription_item_ids : []);
+
+        if (Array.isArray(consult.prescription_details) && consult.prescription_details.length > 0) {
+          const pData = {};
+          consult.prescription_details.forEach(item => {
+            if (item && item.item_id) {
+              pData[item.item_id] = {
+                dosage: item.dosage || '',
+                frequency: item.frequency || '',
+                duration: item.duration || '',
+                total_dosage: item.total_dosage || ''
+              };
+            }
+          });
+          setPrescriptionData(pData);
+        } else {
+          setPrescriptionData({});
+        }
+
+        setFinding(consult.finding || "");
+        setDiet(consult.diet || "");
+        setReferToDoctor(consult.refer_to_doctor || "");
+        setFollowupDate(consult.followup_date || "");
+        setAllergies(consult.allergies || "");
+        setChiefComplaints(consult.chief_complaints || "");
+        setClinicalPastHistory(Array.isArray(consult.past_history) ? consult.past_history : []);
+        setPresentMedications(consult.present_medications || "");
+        setSocialHistory(Array.isArray(consult.social_history) ? consult.social_history : []);
+        setSocialHistoryNotes(consult.social_history_notes || "");
+
+        const mHist = consult.menstrual_history || {};
+        setMenstrualStatus(mHist.status || "");
+        setMenstrualSpecify(mHist.specify || "");
+
+        setVaccinationHistory(consult.vaccination_history || "");
+        setObstetricsHistory(consult.obstetrics_history || "");
+        setInvestigationDone(consult.investigation_done || "");
+        setPhysicalExamination(consult.physical_examination || "");
+        setProvisionalDiagnosis(consult.provisional_diagnosis || "");
+        setPlanOfCare(consult.plan_of_care || "");
+      } else {
+        // Reset form state to blank for new consultation or when opened by another doctor
+        setSelectedSymptoms([]);
+        setSelectedTestIds([]);
+        setSelectedMedicineIds([]);
+        setPrescriptionData({});
+        setFinding("");
+        setDiet("");
+        setReferToDoctor("");
+        setFollowupDate("");
+        setAllergies("");
+        setChiefComplaints("");
+        setClinicalPastHistory([]);
+        setPresentMedications("");
+        setSocialHistory([]);
+        setSocialHistoryNotes("");
+        setMenstrualStatus("");
+        setMenstrualSpecify("");
+        setVaccinationHistory("");
+        setObstetricsHistory("");
+        setInvestigationDone("");
+        setPhysicalExamination("");
+        setProvisionalDiagnosis("");
+        setPlanOfCare("");
+      }
     }
   }, [selectedPatient]);
 
@@ -1364,7 +1458,11 @@ const OPDoctorlogin = () => {
   const fetchBilledPatients = async () => {
     setLoadingPatients(true);
     try {
-      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_Doctor_patient/`, "GET");
+      const loggedInDoctorId = localStorage.getItem("employeeId") || "";
+      const url = loggedInDoctorId
+        ? `${Hmsbaseurl}OPEMR_get_Doctor_patient/?doctor_id=${encodeURIComponent(loggedInDoctorId)}`
+        : `${Hmsbaseurl}OPEMR_get_Doctor_patient/`;
+      const res = await apiRequest(url, "GET");
       if (res.success && res.data) {
         setPatients(res.data);
       } else {
@@ -1429,16 +1527,44 @@ const OPDoctorlogin = () => {
     }
   };
 
-  // Filter patients by search query
+  // Patient counts by status
+  const counts = useMemo(() => {
+    let waiting = 0, ready = 0, completed = 0;
+    patients.forEach(p => {
+      const isCompleted = p.is_consultation_completed || p.consultation_status === 'Completed';
+      const isReady = !isCompleted && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
+      if (isCompleted) {
+        completed++;
+      } else if (isReady) {
+        ready++;
+      } else {
+        waiting++;
+      }
+    });
+    return { all: patients.length, waiting, ready, completed };
+  }, [patients]);
+
+  // Filter patients by search query and statusFilter
   const filteredPatients = useMemo(() => {
-    if (!searchQuery) return patients;
-    const q = searchQuery.toLowerCase();
-    return patients.filter(p =>
-      (p.patient?.patient_name || "").toLowerCase().includes(q) ||
-      (p.patient?.uhid || "").toLowerCase().includes(q) ||
-      (p.bill_number || "").toString().toLowerCase().includes(q)
-    );
-  }, [patients, searchQuery]);
+    return patients.filter(p => {
+      const q = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery || (
+        (p.patient?.patient_name || "").toLowerCase().includes(q) ||
+        (p.patient?.uhid || "").toLowerCase().includes(q) ||
+        (p.bill_number || "").toString().toLowerCase().includes(q)
+      );
+      if (!matchesSearch) return false;
+
+      const isCompleted = p.is_consultation_completed || p.consultation_status === 'Completed';
+      const isReady = !isCompleted && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
+      const isWaiting = !isCompleted && !isReady;
+
+      if (statusFilter === 'completed') return isCompleted;
+      if (statusFilter === 'ready') return isReady;
+      if (statusFilter === 'waiting') return isWaiting;
+      return true;
+    });
+  }, [patients, searchQuery, statusFilter]);
 
   // Filtered Symptoms for dropdown
   const filteredSymptoms = useMemo(() => {
@@ -1561,9 +1687,12 @@ const OPDoctorlogin = () => {
       delete cleanVitals.lastmodified_date;
       delete cleanVitals['auth-user-id'];
 
+      const loggedInDoctorId = localStorage.getItem("employeeId") || "";
+      const currentDoctorId = loggedInDoctorId || selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "";
+
       const payload = {
         uhid: selectedPatient.patient?.uhid,
-        doctor_id: selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "",
+        doctor_id: currentDoctorId,
         vitals: cleanVitals, // id removed!
         symptoms: selectedSymptoms,
         investigation_test_ids: selectedTestIds, // Stored test_id array!
@@ -1591,7 +1720,19 @@ const OPDoctorlogin = () => {
         allergies: allergies,
         chief_complaints: chiefComplaints,
         past_history: clinicalPastHistory,
-        present_medications: presentMedications
+        present_medications: presentMedications,
+        social_history: socialHistory,
+        social_history_notes: socialHistoryNotes,
+        menstrual_history: isFemale ? {
+          status: menstrualStatus,
+          specify: menstrualSpecify
+        } : {},
+        vaccination_history: vaccinationHistory,
+        obstetrics_history: obstetricsHistory,
+        investigation_done: investigationDone,
+        physical_examination: physicalExamination,
+        provisional_diagnosis: provisionalDiagnosis,
+        plan_of_care: planOfCare
       };
 
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
@@ -1602,7 +1743,8 @@ const OPDoctorlogin = () => {
           delete newTimes[selectedPatient?.patient?.uhid];
           return newTimes;
         });
-        fetchPastHistory(selectedPatient.patient?.uhid);
+        setSelectedPatient(null);
+        fetchBilledPatients();
       } else {
         toast.error(res.error || "Failed to save consultation.");
       }
@@ -1613,6 +1755,14 @@ const OPDoctorlogin = () => {
       setSavingConsultation(false);
     }
   };
+
+  // Check if selected patient is female (strict check on patient.gender)
+  const isFemale = useMemo(() => {
+    if (!selectedPatient) return false;
+    const p = selectedPatient.patient || {};
+    const g = (p.gender || selectedPatient.gender || "").toLowerCase().trim();
+    return g === "female" || g === "f";
+  }, [selectedPatient]);
 
   // Vital entry data extracted from selectedPatient (VitalEntrySerializer)
   // Only display vitals if they were recorded for the current visit (vital_status === "Completed")
@@ -1647,10 +1797,83 @@ const OPDoctorlogin = () => {
                     <Users size={22} color="#fff" />
                   </div>
                   <div>
-                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Waiting Patients</h2>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Total {filteredPatients.length} Patients</p>
+                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Patient Queue</h2>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>Total {patients.length} Patient{patients.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
+
+                {/* Status Filter Pills */}
+                <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('all')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: statusFilter === 'all' ? '#0d9488' : 'transparent',
+                      color: statusFilter === 'all' ? '#fff' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    All ({counts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('ready')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: statusFilter === 'ready' ? '#16a34a' : 'transparent',
+                      color: statusFilter === 'ready' ? '#fff' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Ready ({counts.ready})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('waiting')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: statusFilter === 'waiting' ? '#d97706' : 'transparent',
+                      color: statusFilter === 'waiting' ? '#fff' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Waiting ({counts.waiting})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('completed')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '7px',
+                      border: 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: statusFilter === 'completed' ? '#7c3aed' : 'transparent',
+                      color: statusFilter === 'completed' ? '#fff' : '#64748b',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Completed ({counts.completed})
+                  </button>
+                </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   {/* View Mode Toggle */}
                   <ViewToggleGroup>
@@ -1725,14 +1948,16 @@ const OPDoctorlogin = () => {
                     </thead>
                     <tbody>
                       {filteredPatients.map((p, idx) => {
+                        const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
                         const name = p.patient?.patient_name || 'Unknown Patient';
                         const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
-                        const vitalsDone = p.vital_status === 'Completed';
+                        const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                        const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
                         const vDate = p.vital_entry?.vital_entry_date || p.vital_entry?.created_date;
                         const vitalTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
                         return (
-                          <tr key={p.bill_number || p.patient?.uhid || idx}>
+                          <tr key={p.bill_number || p.patient?.uhid || idx} style={{ background: isSelected ? '#f0fdfa' : 'transparent' }}>
                             <td style={{ fontWeight: 600, color: '#94a3b8' }}>{idx + 1}</td>
                             <td>
                               <span style={{ fontWeight: 700, color: '#0d9488', background: '#f0fdfa', padding: '4px 8px', borderRadius: '6px', border: '1px solid #ccfbf1', fontSize: '0.82rem' }}>
@@ -1740,7 +1965,23 @@ const OPDoctorlogin = () => {
                               </span>
                             </td>
                             <td>
-                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{name}</div>
+                              <div style={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {name}
+                                {p.is_referred && (
+                                  <span style={{
+                                    background: '#fef3c7',
+                                    color: '#92400e',
+                                    border: '1px solid #fde68a',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    padding: '2px 8px',
+                                    borderRadius: '12px',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    Referred {p.referred_from ? `(Dr. ${p.referred_from})` : ''}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td>
                               <span style={{ color: '#475569' }}>
@@ -1766,9 +2007,9 @@ const OPDoctorlogin = () => {
                             </td>
                             <td>
                               <span style={{
-                                background: vitalsDone ? '#f0fdf4' : '#fffbeb',
-                                color: vitalsDone ? '#16a34a' : '#d97706',
-                                border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`,
+                                background: isConsultDone ? '#f5f3ff' : (isReady ? '#f0fdf4' : '#fffbeb'),
+                                color: isConsultDone ? '#7c3aed' : (isReady ? '#16a34a' : '#d97706'),
+                                border: `1px solid ${isConsultDone ? '#ddd6fe' : (isReady ? '#bbf7d0' : '#fde68a')}`,
                                 fontSize: '0.75rem',
                                 fontWeight: 700,
                                 padding: '4px 10px',
@@ -1777,7 +2018,12 @@ const OPDoctorlogin = () => {
                                 alignItems: 'center',
                                 gap: '4px'
                               }}>
-                                {vitalsDone ? (
+                                {isConsultDone ? (
+                                  <>
+                                    <CheckCircle2 size={12} /> Completed
+                                    {p.consultation_time && <span style={{ fontSize: '0.7rem', color: '#6d28d9' }}>({new Date(p.consultation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>}
+                                  </>
+                                ) : isReady ? (
                                   <>
                                     <CheckCircle2 size={12} /> Ready
                                     {vitalTime && <span style={{ fontSize: '0.7rem', color: '#15803d' }}>({vitalTime})</span>}
@@ -1799,9 +2045,9 @@ const OPDoctorlogin = () => {
                                 }}
                                 style={{
                                   padding: '7px 14px',
-                                  background: '#0d9488',
-                                  color: '#ffffff',
-                                  border: 'none',
+                                  background: isConsultDone ? '#f5f3ff' : '#0d9488',
+                                  color: isConsultDone ? '#7c3aed' : '#ffffff',
+                                  border: isConsultDone ? '1.5px solid #8b5cf6' : 'none',
                                   borderRadius: '8px',
                                   fontWeight: 600,
                                   fontSize: '0.82rem',
@@ -1809,13 +2055,21 @@ const OPDoctorlogin = () => {
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   gap: '6px',
-                                  boxShadow: '0 2px 6px rgba(13,148,136,0.25)',
+                                  boxShadow: isConsultDone ? 'none' : '0 2px 6px rgba(13,148,136,0.25)',
                                   transition: 'all 0.2s ease'
                                 }}
-                                onMouseEnter={e => { e.currentTarget.style.background = '#0f766e'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.background = isConsultDone ? '#7c3aed' : '#0f766e';
+                                  e.currentTarget.style.color = '#ffffff';
+                                  e.currentTarget.style.transform = 'translateY(-1px)';
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.background = isConsultDone ? '#f5f3ff' : '#0d9488';
+                                  e.currentTarget.style.color = isConsultDone ? '#7c3aed' : '#ffffff';
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                }}
                               >
-                                Start Consultation →
+                                {isConsultDone ? 'View / Edit Consultation →' : 'Start Consultation →'}
                               </button>
                             </td>
                           </tr>
@@ -1825,8 +2079,9 @@ const OPDoctorlogin = () => {
                   </PatientTable>
                 </TableWrapper>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', alignItems: 'stretch' }}>
                   {filteredPatients.map((p, idx) => {
+                    const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
                     const name = p.patient?.patient_name || 'Unknown Patient';
                     const initials = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, '').split(' ').slice(0, 2).map(n => n[0]?.toUpperCase()).join('');
                     const avatarStyles = [
@@ -1843,111 +2098,218 @@ const OPDoctorlogin = () => {
                     const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
                     const vDate = p.vital_entry?.vital_entry_date || p.vital_entry?.created_date;
                     const vitalTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-                    const vitalsDone = p.vital_status === 'Completed';
+                    const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                    const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
                     return (
                       <div key={p.patient?.uhid} style={{
-                        background: '#fff', borderRadius: '16px',
-                        border: '1.5px solid #e8edf3',
+                        background: '#fff',
+                        borderRadius: '16px',
+                        border: `1.5px solid ${isSelected ? '#0d9488' : (isConsultDone ? '#ddd6fe' : '#e2e8f0')}`,
                         overflow: 'hidden',
-                        boxShadow: '0 1px 6px rgba(0,0,0,0.04)',
+                        boxShadow: isSelected ? '0 0 0 3px rgba(13,148,136,0.12)' : '0 2px 8px rgba(0,0,0,0.04)',
                         transition: 'all 0.22s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        height: '100%',
+                        minHeight: '260px'
                       }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e8edf3'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(13,148,136,0.12)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = isSelected ? '#0d9488' : (isConsultDone ? '#ddd6fe' : '#e2e8f0'); e.currentTarget.style.boxShadow = isSelected ? '0 0 0 3px rgba(13,148,136,0.12)' : '0 2px 8px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                       >
-                        <div style={{ padding: '0' }}>
-                          {/* Time banner — like appointment slot header */}
-                          <div style={{
-                            background: av.grad,
-                            padding: '10px 16px',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                            fontWeight: 700, fontSize: '0.88rem', color: '#fff', letterSpacing: '0.3px',
-                          }}>
-                            <Clock size={14} color="rgba(255,255,255,0.85)" />
-                            {billedTime}
-                            {vitalTime && (
-                              <>
-                                <span style={{ opacity: 0.7, fontWeight: 400 }}> → </span>
-                                <Heart size={14} color="rgba(255,255,255,0.85)" />
-                                {vitalTime}
-                              </>
-                            )}
-                          </div>
+                        {/* Time slot header */}
+                        <div style={{
+                          background: av.grad,
+                          padding: '8px 14px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                          fontWeight: 700, fontSize: '0.84rem', color: '#fff', letterSpacing: '0.3px',
+                          height: '38px', boxSizing: 'border-box', whiteSpace: 'nowrap'
+                        }}>
+                          <Clock size={14} color="rgba(255,255,255,0.9)" />
+                          {billedTime}
+                          {vitalTime && (
+                            <>
+                              <span style={{ opacity: 0.7, fontWeight: 400 }}> → </span>
+                              <Heart size={14} color="rgba(255,255,255,0.9)" />
+                              {vitalTime}
+                            </>
+                          )}
+                        </div>
 
-                          <div style={{ padding: '16px 18px 16px' }}>
-                            {/* Header row: Stethoscope & Heart Icon Badge + Name + Status */}
-                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                {/* Medical Stethoscope & Heart Badge */}
-                                <div style={{
-                                  width: '46px',
-                                  height: '46px',
-                                  borderRadius: '13px',
-                                  background: av.bg || '#f0fdfa',
-                                  border: `1.5px solid ${av.color}35`,
+                        {/* Card Content */}
+                        <div style={{
+                          padding: '16px 18px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flex: 1,
+                          justifyContent: 'space-between',
+                          boxSizing: 'border-box'
+                        }}>
+                          {/* Top Row: Avatar + Name/UHID + Status Badge */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                              {/* Icon Badge */}
+                              <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '12px',
+                                background: av.bg || '#f0fdfa',
+                                border: `1.5px solid ${av.color}35`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: av.color || '#0d9488',
+                                flexShrink: 0,
+                                boxShadow: `0 2px 6px ${av.color}20`,
+                                position: 'relative',
+                              }}>
+                                <Stethoscope size={20} strokeWidth={2.2} />
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '-2px',
+                                  right: '-2px',
+                                  width: '13px',
+                                  height: '13px',
+                                  borderRadius: '50%',
+                                  background: '#fff',
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  color: av.color || '#0d9488',
-                                  flexShrink: 0,
-                                  boxShadow: `0 3px 8px ${av.color}20`,
-                                  position: 'relative',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
                                 }}>
-                                  <Stethoscope size={22} strokeWidth={2.2} />
+                                  <Heart size={8} fill="#ef4444" stroke="#ef4444" />
+                                </span>
+                              </div>
+
+                              {/* Name + UHID */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  title={name}
+                                  style={{
+                                    fontWeight: 700,
+                                    fontSize: '0.94rem',
+                                    color: '#0f172a',
+                                    lineHeight: 1.25,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  {name}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0d9488', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                                  UHID: {p.patient?.uhid || '--'}
+                                </div>
+                                {p.is_referred && (
                                   <span style={{
-                                    position: 'absolute',
-                                    bottom: '-2px',
-                                    right: '-2px',
-                                    width: '14px',
-                                    height: '14px',
-                                    borderRadius: '50%',
-                                    background: '#fff',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                    display: 'inline-block',
+                                    background: '#fef3c7',
+                                    color: '#92400e',
+                                    border: '1px solid #fde68a',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 700,
+                                    padding: '1px 6px',
+                                    borderRadius: '10px',
+                                    marginTop: '2px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: '100%'
                                   }}>
-                                    <Heart size={9} fill="#ef4444" stroke="#ef4444" />
+                                    Referred {p.referred_from ? `(Dr. ${p.referred_from})` : ''}
                                   </span>
-                                </div>
-
-                                <div>
-                                  <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', lineHeight: 1.25 }}>{name}</div>
-                                  <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0d9488', marginTop: '2px' }}>UHID: {p.patient?.uhid || '--'}</div>
-                                </div>
+                                )}
                               </div>
-
-                              <span style={{
-                                background: vitalsDone ? '#f0fdf4' : '#fffbeb',
-                                color: vitalsDone ? '#16a34a' : '#d97706',
-                                border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`,
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                padding: '3px 10px',
-                                borderRadius: '20px',
-                                whiteSpace: 'nowrap',
-                              }}>
-                                {vitalsDone ? 'Ready' : 'Waiting'}
-                              </span>
                             </div>
-                            {/* Info */}
-                            <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '5px' }}>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} &bull; {p.patient?.gender || '--'}</div>
-                            {p.patient?.mobilePhone && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#64748b', marginBottom: '5px' }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={av.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.86-.86a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16z" /></svg>
-                                {p.patient.mobilePhone}
-                              </div>
-                            )}
-                            {/* CTA */}
-                            <button
-                              onClick={() => { setSelectedPatient(p); setActiveTab('vitals'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                              style={{ width: '100%', padding: '10px 0', background: '#fff', color: av.color, border: `1.5px solid ${av.color}`, borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.18s ease' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = av.color; e.currentTarget.style.color = '#fff'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = av.color; }}
-                            >
-                              Start Consultation →
-                            </button>
+
+                            {/* Status Badge */}
+                            <span style={{
+                              flexShrink: 0,
+                              background: isConsultDone ? '#f5f3ff' : (isReady ? '#f0fdf4' : '#fffbeb'),
+                              color: isConsultDone ? '#7c3aed' : (isReady ? '#16a34a' : '#d97706'),
+                              border: `1px solid ${isConsultDone ? '#ddd6fe' : (isReady ? '#bbf7d0' : '#fde68a')}`,
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              padding: '4px 9px',
+                              borderRadius: '20px',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              {isConsultDone ? (
+                                <>
+                                  <CheckCircle2 size={11} /> Completed
+                                </>
+                              ) : isReady ? (
+                                <>
+                                  <CheckCircle2 size={11} /> Ready
+                                </>
+                              ) : (
+                                <>
+                                  <Clock size={11} /> Waiting
+                                </>
+                              )}
+                            </span>
                           </div>
+
+                          {/* Info Section (Consistent Fixed Height) */}
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '5px',
+                            margin: '12px 0 16px 0',
+                            minHeight: '44px',
+                            justifyContent: 'center'
+                          }}>
+                            <div style={{ fontSize: '0.82rem', color: '#475569', fontWeight: 500 }}>
+                              {p.patient?.age ? `${p.patient.age} Yrs` : '--'} • {p.patient?.gender || '--'}
+                            </div>
+                            <div style={{
+                              fontSize: '0.82rem',
+                              color: p.patient?.mobilePhone ? '#475569' : '#94a3b8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontWeight: 500
+                            }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={av.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.5 2 2 0 0 1 3.59 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.5a16 16 0 0 0 6 6l.86-.86a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.5 16z" /></svg>
+                              {p.patient?.mobilePhone || 'No contact number'}
+                            </div>
+                          </div>
+
+                          {/* Pinned Bottom CTA Button */}
+                          <button
+                            onClick={() => { setSelectedPatient(p); setActiveTab('vitals'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                            style={{
+                              width: '100%',
+                              height: '40px',
+                              padding: '0 12px',
+                              marginTop: 'auto',
+                              background: isConsultDone ? '#f5f3ff' : '#fff',
+                              color: isConsultDone ? '#7c3aed' : av.color,
+                              border: `1.5px solid ${isConsultDone ? '#8b5cf6' : av.color}`,
+                              borderRadius: '10px',
+                              fontWeight: 700,
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              transition: 'all 0.18s ease',
+                              boxSizing: 'border-box'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = isConsultDone ? '#7c3aed' : av.color;
+                              e.currentTarget.style.color = '#fff';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = isConsultDone ? '#f5f3ff' : '#fff';
+                              e.currentTarget.style.color = isConsultDone ? '#7c3aed' : av.color;
+                            }}
+                          >
+                            {isConsultDone ? 'View / Edit Consultation →' : 'Start Consultation →'}
+                          </button>
                         </div>
                       </div>
                     );
@@ -1971,82 +2333,176 @@ const OPDoctorlogin = () => {
             return (
               <div style={{ display: 'flex', gap: '0', borderRadius: '18px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', minHeight: '500px' }}>
 
-                {/* ── LEFT SIDEBAR ── */}
-                <div style={{ width: '220px', flexShrink: 0, background: 'linear-gradient(180deg,#0f172a 0%,#1e293b 100%)', display: 'flex', flexDirection: 'column', padding: '18px 16px', justifyContent: 'space-between' }}>
+                {/* ── LEFT SIDEBAR (Redesigned to match hospital theme) ── */}
+                <div style={{ width: '230px', flexShrink: 0, background: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', padding: '18px 16px', justifyContent: 'space-between' }}>
                   <div>
                     {/* ← Back to queue */}
                     <button
                       onClick={() => setSelectedPatient(null)}
                       style={{
                         width: '100%',
-                        padding: '8px 12px',
-                        background: 'rgba(255,255,255,0.06)',
-                        border: '1px solid rgba(255,255,255,0.15)',
-                        borderRadius: '8px',
-                        color: '#f1f5f9',
-                        fontWeight: 600,
+                        padding: '9px 12px',
+                        background: '#f8fafc',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '9px',
+                        color: '#334155',
+                        fontWeight: 700,
                         fontSize: '0.82rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
                         marginBottom: '16px',
-                        transition: 'all 0.2s',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                        transition: 'all 0.18s ease',
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = '#0d9488'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = '#f0fdfa';
+                        e.currentTarget.style.borderColor = '#0d9488';
+                        e.currentTarget.style.color = '#0d9488';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = '#f8fafc';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.color = '#334155';
+                      }}
                     >
                       ← Back to queue
                     </button>
 
-                    {/* Avatar */}
+                    {/* Avatar & Patient Info */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
-                      <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg,#0d9488,#0891b2)', color: '#fff', fontWeight: 800, fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', boxShadow: '0 4px 12px rgba(13,148,136,0.4)' }}>{initials}</div>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f1f5f9', textAlign: 'center' }}>{name}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#0d9488', fontWeight: 600, marginTop: '2px' }}>{sp.patient?.uhid}</div>
+                      <div style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '16px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '1.22rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '10px',
+                        boxShadow: '0 4px 14px rgba(13,148,136,0.3)'
+                      }}>
+                        {initials}
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#0f172a', textAlign: 'center', lineHeight: 1.3 }}>
+                        {name}
+                      </div>
+                      <div style={{
+                        fontSize: '0.78rem',
+                        color: '#0d9488',
+                        fontWeight: 700,
+                        marginTop: '4px',
+                        background: '#f0fdfa',
+                        border: '1px solid #ccfbf1',
+                        padding: '2px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        {sp.patient?.uhid}
+                      </div>
+                      {sp.is_referred && (
+                        <div style={{
+                          background: '#fef3c7',
+                          color: '#92400e',
+                          border: '1px solid #fde68a',
+                          borderRadius: '8px',
+                          padding: '3px 8px',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          marginTop: '6px',
+                          textAlign: 'center'
+                        }}>
+                          🔄 Referred {sp.referred_from ? `from Dr. ${sp.referred_from}` : ''}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Info */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
+                    {/* Demographics */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
                       {[
                         ['Age / Gender', `${sp.patient?.age || '--'} Yrs / ${sp.patient?.gender || '--'}`],
                         ['Mobile', sp.patient?.mobilePhone || '--'],
                       ].map(([lbl, val]) => (
                         <div key={lbl}>
-                          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>{lbl}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#cbd5e1', fontWeight: 600, marginTop: '1px' }}>{val}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>{lbl}</div>
+                          <div style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600, marginTop: '1px' }}>{val}</div>
                         </div>
                       ))}
                     </div>
 
-                    {/* Start Consultation button */}
-                    {!consultStart && (
+                    {/* Start Consultation button or Completed badge */}
+                    {(sp.is_consultation_completed || sp.consultation_status === 'Completed') ? (
+                      <div style={{
+                        width: '100%',
+                        padding: '10px 8px',
+                        background: '#f0fdf4',
+                        border: '1.5px solid #86efac',
+                        color: '#16a34a',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        textAlign: 'center',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 1px 3px rgba(22,163,74,0.08)'
+                      }}>
+                        <CheckCircle2 size={15} /> Consultation Completed
+                      </div>
+                    ) : !consultStart ? (
                       <button
                         onClick={() => {
                           const startTime = new Date().toISOString();
                           setConsultationStartTimes(prev => ({ ...prev, [sp.patient.uhid]: startTime }));
                           handleStartConsultationAPI(startTime);
                         }}
-                        style={{ width: '100%', padding: '10px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', marginBottom: '16px', transition: 'opacity 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }}
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '10px',
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          marginBottom: '16px',
+                          boxShadow: '0 2px 8px rgba(13,148,136,0.25)',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
                         onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                      >Start Consultation</button>
-                    )}
+                      >
+                        Start Consultation
+                      </button>
+                    ) : null}
 
                     {/* Visit Timeline */}
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
-                      <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700, marginBottom: '12px' }}>Visit Timeline</div>
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+                      <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700, marginBottom: '12px' }}>
+                        Visit Timeline
+                      </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {[
-                          { label: 'Billed', time: billedTime, done: true, color: '#22c55e' },
-                          { label: 'Vitals taken', time: vitalsTime || 'Pending', done: !!vitalsTime, color: vitalsTime ? '#22c55e' : '#f59e0b' },
-                          { label: 'Consultation', time: consultTime || 'Pending', done: !!consultTime, color: consultTime ? '#22c55e' : '#f97316' },
+                          { label: 'Billed', time: billedTime, done: true, color: '#16a34a' },
+                          { label: 'Vitals taken', time: vitalsTime || 'Pending', done: !!vitalsTime, color: vitalsTime ? '#16a34a' : '#f59e0b' },
+                          {
+                            label: 'Consultation',
+                            time: consultTime || (sp.consultation_time ? new Date(sp.consultation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ((sp.is_consultation_completed || sp.consultation_status === 'Completed') ? 'Completed' : 'Pending')),
+                            done: !!consultTime || sp.is_consultation_completed || sp.consultation_status === 'Completed',
+                            color: (consultTime || sp.is_consultation_completed || sp.consultation_status === 'Completed') ? '#16a34a' : '#f97316'
+                          },
                         ].map(({ label, time, done, color }) => (
                           <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, marginTop: '4px', flexShrink: 0, boxShadow: `0 0 6px ${color}` }} />
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, marginTop: '4px', flexShrink: 0, boxShadow: `0 0 4px ${color}80` }} />
                             <div>
-                              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{label}</div>
-                              <div style={{ fontSize: '0.8rem', color: done ? '#f1f5f9' : '#f59e0b', fontWeight: 700 }}>{time}</div>
+                              <div style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>{label}</div>
+                              <div style={{ fontSize: '0.82rem', color: done ? '#0f172a' : '#d97706', fontWeight: 700 }}>{time}</div>
                             </div>
                           </div>
                         ))}
@@ -2054,9 +2510,18 @@ const OPDoctorlogin = () => {
                     </div>
 
                     {/* Total Wait */}
-                    <div style={{ marginTop: '16px', background: waitMins > 60 ? 'rgba(239,68,68,0.15)' : 'rgba(13,148,136,0.15)', borderRadius: '10px', padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Wait</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: waitMins > 60 ? '#f87171' : '#34d399' }}>{waitText}</span>
+                    <div style={{
+                      marginTop: '16px',
+                      background: waitMins > 60 ? '#fef2f2' : '#f0fdfa',
+                      border: `1px solid ${waitMins > 60 ? '#fee2e2' : '#ccfbf1'}`,
+                      borderRadius: '10px',
+                      padding: '9px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}>
+                      <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Wait</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: waitMins > 60 ? '#dc2626' : '#0d9488' }}>{waitText}</span>
                     </div>
                   </div>
 
@@ -2064,22 +2529,38 @@ const OPDoctorlogin = () => {
                   <div
                     onClick={() => setShowHistoryModal(true)}
                     style={{
-                      marginTop: '20px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.12)',
+                      marginTop: '18px',
+                      background: '#f8fafc',
+                      border: '1.5px solid #e2e8f0',
                       borderRadius: '10px',
                       padding: '10px 14px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
+                      transition: 'all 0.18s ease',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.borderColor = '#0d9488'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#f0fdfa';
+                      e.currentTarget.style.borderColor = '#0d9488';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                    }}
                   >
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#f1f5f9' }}>Past History</span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>{pastHistory.length}</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>Past History</span>
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      color: '#0d9488',
+                      background: '#f0fdfa',
+                      border: '1px solid #ccfbf1',
+                      padding: '2px 8px',
+                      borderRadius: '12px'
+                    }}>
+                      {pastHistory.length}
+                    </span>
                   </div>
                 </div>
 
@@ -2098,6 +2579,38 @@ const OPDoctorlogin = () => {
                       </button>
                     ))}
                     <div style={{ flex: 1 }} />
+                    {/* Status & Past History shortcut */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      {selectedPatient.consultation && (
+                        <span style={{ fontSize: '0.78rem', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', padding: '4px 10px', borderRadius: '16px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={12} /> Your Saved Consultation
+                        </span>
+                      )}
+                      {pastHistory.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowHistoryModal(true)}
+                          style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            color: '#0d9488',
+                            borderRadius: '8px',
+                            padding: '5px 12px',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#f0fdfa'; e.currentTarget.style.borderColor = '#0d9488'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                        >
+                          <FileText size={14} /> Past History ({pastHistory.length})
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tab content area */}
@@ -2147,6 +2660,174 @@ const OPDoctorlogin = () => {
                         <Card>
                           <CardTitle><Activity size={20} /> Present Medications</CardTitle>
                           <TextArea placeholder="Enter present medications..." value={presentMedications} onChange={e => setPresentMedications(e.target.value)} style={{ minHeight: '80px' }} />
+                        </Card>
+
+                        {/* 1. Social History */}
+                        <Card>
+                          <CardTitle><Users size={20} /> Social History</CardTitle>
+                          <CheckboxGrid>
+                            {['Smoking', 'Tobacco', 'Alcohol', 'Drug Abuse'].map(item => (
+                              <CheckboxLabel key={item}>
+                                <input
+                                  type="checkbox"
+                                  checked={socialHistory.includes(item)}
+                                  onChange={() => handleToggleSocialHistory(item)}
+                                />
+                                {item}
+                              </CheckboxLabel>
+                            ))}
+                            <CheckboxLabel style={{ gridColumn: '1 / -1' }}>
+                              <input
+                                type="checkbox"
+                                checked={socialHistory.some(h => typeof h === 'string' && h.startsWith('OTHERS:'))}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSocialHistory([...socialHistory, 'OTHERS: ']);
+                                  else setSocialHistory(socialHistory.filter(h => typeof h !== 'string' || !h.startsWith('OTHERS:')));
+                                }}
+                              />
+                              OTHERS
+                              <input
+                                type="text"
+                                style={{ marginLeft: '8px', borderBottom: '1px solid #cbd5e1', borderTop: 'none', borderLeft: 'none', borderRight: 'none', outline: 'none', flex: 1, padding: '2px 6px' }}
+                                placeholder="Specify other habits"
+                                value={socialHistory.find(h => typeof h === 'string' && h.startsWith('OTHERS:'))?.replace('OTHERS: ', '') || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setSocialHistory(prev => {
+                                    const filtered = prev.filter(h => typeof h !== 'string' || !h.startsWith('OTHERS:'));
+                                    return val ? [...filtered, `OTHERS: ${val}`] : filtered;
+                                  });
+                                }}
+                              />
+                            </CheckboxLabel>
+                          </CheckboxGrid>
+                          <TextArea
+                            placeholder="Additional social history notes (e.g. quantity/day, duration, cessation)..."
+                            value={socialHistoryNotes}
+                            onChange={e => setSocialHistoryNotes(e.target.value)}
+                            style={{ minHeight: '60px', marginTop: '12px' }}
+                          />
+                        </Card>
+
+                        {/* 2. Menstrual History (Displayed if female patient) */}
+                        {isFemale && (
+                          <Card>
+                            <CardTitle><Heart size={20} /> Menstrual History</CardTitle>
+                            <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginTop: '8px' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.92rem', fontWeight: 600, color: '#334155' }}>
+                                <input
+                                  type="radio"
+                                  name="menstrualStatus"
+                                  value="Normal"
+                                  checked={menstrualStatus === 'Normal'}
+                                  onChange={() => setMenstrualStatus('Normal')}
+                                  style={{ accentColor: '#0d9488', width: '17px', height: '17px', cursor: 'pointer' }}
+                                />
+                                Normal
+                              </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.92rem', fontWeight: 600, color: '#334155' }}>
+                                <input
+                                  type="radio"
+                                  name="menstrualStatus"
+                                  value="Abnormal"
+                                  checked={menstrualStatus === 'Abnormal'}
+                                  onChange={() => setMenstrualStatus('Abnormal')}
+                                  style={{ accentColor: '#ef4444', width: '17px', height: '17px', cursor: 'pointer' }}
+                                />
+                                Abnormal
+                              </label>
+                              {menstrualStatus && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setMenstrualStatus(''); setMenstrualSpecify(''); }}
+                                  style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            {menstrualStatus === 'Abnormal' && (
+                              <div style={{ marginTop: '14px' }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ef4444', marginBottom: '6px' }}>
+                                  Specify Abnormal Details:
+                                </div>
+                                <TextArea
+                                  placeholder="Specify abnormal menstrual details (e.g. irregular cycles, menorrhagia, dysmenorrhea, LMP, cycle length, flow)..."
+                                  value={menstrualSpecify}
+                                  onChange={e => setMenstrualSpecify(e.target.value)}
+                                  style={{ minHeight: '65px', borderColor: '#fca5a5' }}
+                                />
+                              </div>
+                            )}
+                          </Card>
+                        )}
+
+                        {/* 3. Vaccination History */}
+                        <Card>
+                          <CardTitle><FileText size={20} /> Vaccination History</CardTitle>
+                          <TextArea
+                            placeholder="Enter vaccination history (e.g. COVID-19, Hepatitis B, Tetanus/TT, Influenza, etc.)..."
+                            value={vaccinationHistory}
+                            onChange={e => setVaccinationHistory(e.target.value)}
+                            style={{ minHeight: '70px' }}
+                          />
+                        </Card>
+
+                        {/* 4. Obstetrics History */}
+                        <Card>
+                          <CardTitle>
+                            <Activity size={20} /> Obstetrics History {isFemale ? '' : <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>(Applicable for Female Patients)</span>}
+                          </CardTitle>
+                          <TextArea
+                            placeholder="Enter obstetrics history (e.g. Gravida, Para, Living children, Abortions, past delivery mode, complications, etc.)..."
+                            value={obstetricsHistory}
+                            onChange={e => setObstetricsHistory(e.target.value)}
+                            style={{ minHeight: '70px' }}
+                          />
+                        </Card>
+
+                        {/* 5. Investigation done if any */}
+                        <Card>
+                          <CardTitle><FileText size={20} /> Investigation Done (If any)</CardTitle>
+                          <TextArea
+                            placeholder="Enter details of previous/prior investigations done (e.g. Blood investigations, X-Ray, USG, CT, MRI, ECG, Biopsy, etc.)..."
+                            value={investigationDone}
+                            onChange={e => setInvestigationDone(e.target.value)}
+                            style={{ minHeight: '70px' }}
+                          />
+                        </Card>
+
+                        {/* 6. Physical Examination */}
+                        <Card>
+                          <CardTitle><Stethoscope size={20} /> Physical Examination</CardTitle>
+                          <TextArea
+                            placeholder="Enter physical examination details (General examination: Pallor, Icterus, Cyanosis, Clubbing, Lymphadenopathy, Edema; Systemic examination: CVS, RS, P/A, CNS, Local examination)..."
+                            value={physicalExamination}
+                            onChange={e => setPhysicalExamination(e.target.value)}
+                            style={{ minHeight: '80px' }}
+                          />
+                        </Card>
+
+                        {/* 7. Provisional Diagnosis */}
+                        <Card>
+                          <CardTitle><FileText size={20} /> Provisional Diagnosis</CardTitle>
+                          <TextArea
+                            placeholder="Enter provisional / working diagnosis..."
+                            value={provisionalDiagnosis}
+                            onChange={e => setProvisionalDiagnosis(e.target.value)}
+                            style={{ minHeight: '70px' }}
+                          />
+                        </Card>
+
+                        {/* 8. Plan of Care */}
+                        <Card>
+                          <CardTitle><FileText size={20} /> Plan of Care</CardTitle>
+                          <TextArea
+                            placeholder="Enter comprehensive plan of care (treatment goals, interventions, monitoring, patient counseling, next steps)..."
+                            value={planOfCare}
+                            onChange={e => setPlanOfCare(e.target.value)}
+                            style={{ minHeight: '70px' }}
+                          />
                         </Card>
                       </TabContent>
                     )}
@@ -2555,18 +3236,35 @@ const OPDoctorlogin = () => {
                 <HistorySidebar>
                   {pastHistory.map((item, idx) => {
                     const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
+                    const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
+                    const isOwn = (
+                      (item.doctor_id && String(item.doctor_id).trim() === loggedInDoctorId) ||
+                      (item.created_by && String(item.created_by).trim() === loggedInDoctorId) ||
+                      Number(item.doctor_id) === Number(loggedInDoctorId) ||
+                      Number(item.created_by) === Number(loggedInDoctorId)
+                    );
+                    const docName = item.doctor_name || (item.doctor_id ? `Dr. (${item.doctor_id})` : 'Doctor');
                     return (
                       <HistorySidebarCard
-                        key={item._id || idx}
+                        key={item._id || item.id || idx}
                         $active={isActive}
                         onClick={() => setSelectedHistoryItem(item)}
                       >
-                        <div className="patient-info">
-                          <span>{selectedPatient?.patient?.patient_name || item.patient_name || 'Patient'}</span>
-                          <span className="uhid">{selectedPatient?.patient?.uhid || item.uhid || ''}</span>
+                        <div className="patient-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.86rem', color: isActive ? '#0d9488' : '#0f172a' }}>
+                            {docName}
+                          </span>
+                          {isOwn && (
+                            <span style={{ fontSize: '0.68rem', background: '#dcfce7', color: '#16a34a', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                              You
+                            </span>
+                          )}
                         </div>
-                        <div className="date-info">
-                          {item.created_date ? new Date(item.created_date).toLocaleDateString() : ''}
+                        <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '3px' }}>
+                          UHID: {selectedPatient?.patient?.uhid || item.uhid || ''}
+                        </div>
+                        <div className="date-info" style={{ marginTop: '4px', fontSize: '0.74rem', color: '#64748b' }}>
+                          {item.created_date ? new Date(item.created_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
                         </div>
                       </HistorySidebarCard>
                     );
@@ -2576,9 +3274,27 @@ const OPDoctorlogin = () => {
                 <HistoryDetailPane>
                   {selectedHistoryItem ? (
                     <>
-                      <HistoryDetailHeader style={{ color: '#0d9488', fontSize: '1.35rem', fontWeight: 600, marginBottom: '20px' }}>
-                        Medical History - {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleDateString() : ''}
-                      </HistoryDetailHeader>
+                      <div style={{ marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                          <h3 style={{ color: '#0d9488', fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
+                            Consultation Record
+                          </h3>
+                          <span style={{
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            background: '#f0fdfa',
+                            color: '#0d9488',
+                            border: '1px solid #ccfbf1'
+                          }}>
+                            Consulted by: {selectedHistoryItem.doctor_name || (selectedHistoryItem.doctor_id ? `Dr. (${selectedHistoryItem.doctor_id})` : 'Doctor')}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>
+                          Recorded on: {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
+                        </div>
+                      </div>
 
                       {/* 1. Diagnosis Box */}
                       <div style={{ marginBottom: '22px' }}>
@@ -2727,10 +3443,22 @@ const OPDoctorlogin = () => {
                       <ThemeSectionBox>
                         <div className="title"><Calendar size={18} /> Plans & Follow-up</div>
                         <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {selectedHistoryItem.plan_of_care && <li><span style={{ fontWeight: 600, color: '#475569' }}>Plan of Care:</span> {selectedHistoryItem.plan_of_care}</li>}
+                          {selectedHistoryItem.provisional_diagnosis && <li><span style={{ fontWeight: 600, color: '#475569' }}>Provisional Diagnosis:</span> {selectedHistoryItem.provisional_diagnosis}</li>}
+                          {selectedHistoryItem.physical_examination && <li><span style={{ fontWeight: 600, color: '#475569' }}>Physical Exam:</span> {selectedHistoryItem.physical_examination}</li>}
+                          {selectedHistoryItem.investigation_done && <li><span style={{ fontWeight: 600, color: '#475569' }}>Investigation Done:</span> {selectedHistoryItem.investigation_done}</li>}
+                          {selectedHistoryItem.vaccination_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Vaccination:</span> {selectedHistoryItem.vaccination_history}</li>}
+                          {selectedHistoryItem.obstetrics_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Obstetrics:</span> {selectedHistoryItem.obstetrics_history}</li>}
+                          {isFemale && selectedHistoryItem.menstrual_history?.status && (
+                            <li><span style={{ fontWeight: 600, color: '#475569' }}>Menstrual History:</span> {selectedHistoryItem.menstrual_history.status} {selectedHistoryItem.menstrual_history.specify ? `(${selectedHistoryItem.menstrual_history.specify})` : ''}</li>
+                          )}
+                          {Array.isArray(selectedHistoryItem.social_history) && selectedHistoryItem.social_history.length > 0 && (
+                            <li><span style={{ fontWeight: 600, color: '#475569' }}>Social History:</span> {selectedHistoryItem.social_history.join(', ')}</li>
+                          )}
                           {selectedHistoryItem.diet && <li><span style={{ fontWeight: 600, color: '#475569' }}>Diet:</span> {selectedHistoryItem.diet}</li>}
                           {selectedHistoryItem.refer_to_doctor && <li><span style={{ fontWeight: 600, color: '#475569' }}>Referred To:</span> Dr. {(referralDoctors.find(d => String(d.employeeId) === String(selectedHistoryItem.refer_to_doctor))?.employeeName) || selectedHistoryItem.refer_to_doctor}</li>}
                           {selectedHistoryItem.followup_date && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
-                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
+                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date && !selectedHistoryItem.plan_of_care) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
                         </ul>
                       </ThemeSectionBox>
                     </>
@@ -2766,7 +3494,6 @@ const OPDoctorlogin = () => {
               <X size={22} style={{ cursor: 'pointer', color: '#94a3b8' }} onClick={() => setShowWaitingModal(false)} />
             </div>
 
-            {/* Search */}
             {/* Search & Toggle */}
             <div style={{ margin: '20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <SearchBox style={{ margin: 0, flex: 1 }}>
@@ -2778,6 +3505,79 @@ const OPDoctorlogin = () => {
                   onChange={e => setSearchQuery(e.target.value)}
                 />
               </SearchBox>
+
+              {/* Status Filter Pills */}
+              <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: statusFilter === 'all' ? '#0d9488' : 'transparent',
+                    color: statusFilter === 'all' ? '#fff' : '#64748b',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  All ({counts.all})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ready')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: statusFilter === 'ready' ? '#16a34a' : 'transparent',
+                    color: statusFilter === 'ready' ? '#fff' : '#64748b',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Ready ({counts.ready})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('waiting')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: statusFilter === 'waiting' ? '#d97706' : 'transparent',
+                    color: statusFilter === 'waiting' ? '#fff' : '#64748b',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Waiting ({counts.waiting})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('completed')}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: statusFilter === 'completed' ? '#7c3aed' : 'transparent',
+                    color: statusFilter === 'completed' ? '#fff' : '#64748b',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  Completed ({counts.completed})
+                </button>
+              </div>
+
               <ViewToggleGroup>
                 <ViewToggleButton
                   type="button"
@@ -2802,7 +3602,7 @@ const OPDoctorlogin = () => {
             {loadingPatients ? (
               <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading patients...</div>
             ) : filteredPatients.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>No patients waiting.</div>
+              <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>No patients matching filter.</div>
             ) : queueViewMode === 'table' ? (
               <TableWrapper>
                 <PatientTable>
@@ -2823,7 +3623,8 @@ const OPDoctorlogin = () => {
                       const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
                       const name = p.patient?.patient_name || 'Unknown Patient';
                       const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
-                      const vitalsDone = p.vital_status === 'Completed';
+                      const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                      const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
 
                       return (
                         <tr key={p.bill_number || p.patient?.uhid || idx} style={{ background: isSelected ? '#f0fdfa' : 'transparent' }}>
@@ -2855,9 +3656,9 @@ const OPDoctorlogin = () => {
                           </td>
                           <td>
                             <span style={{
-                              background: vitalsDone ? '#f0fdf4' : '#fffbeb',
-                              color: vitalsDone ? '#16a34a' : '#d97706',
-                              border: `1px solid ${vitalsDone ? '#bbf7d0' : '#fde68a'}`,
+                              background: isConsultDone ? '#f5f3ff' : (isReady ? '#f0fdf4' : '#fffbeb'),
+                              color: isConsultDone ? '#7c3aed' : (isReady ? '#16a34a' : '#d97706'),
+                              border: `1px solid ${isConsultDone ? '#ddd6fe' : (isReady ? '#bbf7d0' : '#fde68a')}`,
                               fontSize: '0.75rem',
                               fontWeight: 700,
                               padding: '4px 10px',
@@ -2866,7 +3667,11 @@ const OPDoctorlogin = () => {
                               alignItems: 'center',
                               gap: '4px'
                             }}>
-                              {vitalsDone ? (
+                              {isConsultDone ? (
+                                <>
+                                  <CheckCircle2 size={12} /> Completed
+                                </>
+                              ) : isReady ? (
                                 <>
                                   <CheckCircle2 size={12} /> Ready
                                 </>
@@ -2888,9 +3693,9 @@ const OPDoctorlogin = () => {
                               }}
                               style={{
                                 padding: '7px 14px',
-                                background: isSelected ? '#0d9488' : 'transparent',
-                                color: isSelected ? '#fff' : '#0d9488',
-                                border: `1.5px solid ${isSelected ? '#0d9488' : '#6ee7b7'}`,
+                                background: isSelected ? '#0d9488' : (isConsultDone ? '#f5f3ff' : 'transparent'),
+                                color: isSelected ? '#fff' : (isConsultDone ? '#7c3aed' : '#0d9488'),
+                                border: `1.5px solid ${isSelected ? '#0d9488' : (isConsultDone ? '#8b5cf6' : '#6ee7b7')}`,
                                 borderRadius: '8px',
                                 fontWeight: 700,
                                 fontSize: '0.82rem',
@@ -2900,10 +3705,10 @@ const OPDoctorlogin = () => {
                                 gap: '6px',
                                 transition: 'all 0.2s ease'
                               }}
-                              onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
-                              onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0d9488'; } }}
+                              onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#7c3aed' : '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
+                              onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#f5f3ff' : 'transparent'; e.currentTarget.style.color = isConsultDone ? '#7c3aed' : '#0d9488'; } }}
                             >
-                              {isSelected ? '✓ Selected' : 'Consult →'}
+                              {isSelected ? '✓ Selected' : (isConsultDone ? 'View / Edit →' : 'Consult →')}
                             </button>
                           </td>
                         </tr>
@@ -2913,7 +3718,7 @@ const OPDoctorlogin = () => {
                 </PatientTable>
               </TableWrapper>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(245px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px', alignItems: 'stretch' }}>
                 {filteredPatients.map((p, idx) => {
                   const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
                   const name = p.patient?.patient_name || 'Unknown Patient';
@@ -2925,52 +3730,83 @@ const OPDoctorlogin = () => {
                   ];
                   const [avBg, avTxt] = avatarPalette[idx % avatarPalette.length];
                   const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
-                  const vitalsDone = p.vital_status === 'Completed';
+                  const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                  const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
 
                   return (
                     <div key={p.patient?.uhid} style={{
                       background: '#fff',
                       borderRadius: '16px',
-                      border: `2px solid ${isSelected ? '#0d9488' : '#e2e8f0'}`,
-                      padding: '18px',
+                      border: `1.5px solid ${isSelected ? '#0d9488' : (isConsultDone ? '#ddd6fe' : '#e2e8f0')}`,
+                      padding: '16px 18px',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '12px',
-                      boxShadow: isSelected ? '0 0 0 3px rgba(13,148,136,0.12)' : '0 1px 4px rgba(0,0,0,0.04)',
+                      justifyContent: 'space-between',
+                      minHeight: '230px',
+                      height: '100%',
+                      boxSizing: 'border-box',
+                      boxShadow: isSelected ? '0 0 0 3px rgba(13,148,136,0.12)' : '0 2px 6px rgba(0,0,0,0.04)',
                       transition: 'all 0.2s ease',
                       position: 'relative',
                     }}>
-                      {/* Status badge */}
-                      <span style={{
-                        position: 'absolute', top: '14px', right: '14px',
-                        background: vitalsDone ? '#dcfce7' : '#fef9c3',
-                        color: vitalsDone ? '#16a34a' : '#ca8a04',
-                        fontSize: '0.68rem', fontWeight: 700,
-                        padding: '3px 10px', borderRadius: '20px', letterSpacing: '0.3px'
-                      }}>
-                        {vitalsDone ? 'Ready' : 'Waiting'}
-                      </span>
-
-                      {/* Name + UHID */}
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a', lineHeight: 1.2, paddingRight: '60px' }}>{name}</div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0d9488', marginTop: '3px' }}>UHID: {p.patient?.uhid || '--'}</div>
-                      </div>
-
-                      {/* Details */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.82rem', color: '#475569' }}>
-                        <div>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} • {p.patient?.gender || '--'}</div>
-                        {p.patient?.mobilePhone && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span>📞</span> {p.patient.mobilePhone}
+                        {/* Top row: Name/UHID & Status Badge */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              title={name}
+                              style={{
+                                fontWeight: 700,
+                                fontSize: '0.94rem',
+                                color: '#0f172a',
+                                lineHeight: 1.25,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              {name}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0d9488', marginTop: '2px', whiteSpace: 'nowrap' }}>
+                              UHID: {p.patient?.uhid || '--'}
+                            </div>
                           </div>
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Clock size={13} /> {billedTime}
+
+                          {/* Status badge */}
+                          <span style={{
+                            flexShrink: 0,
+                            background: isConsultDone ? '#f5f3ff' : (isReady ? '#dcfce7' : '#fef9c3'),
+                            color: isConsultDone ? '#7c3aed' : (isReady ? '#16a34a' : '#ca8a04'),
+                            border: `1px solid ${isConsultDone ? '#ddd6fe' : (isReady ? '#bbf7d0' : '#fde68a')}`,
+                            fontSize: '0.68rem', fontWeight: 700,
+                            padding: '3px 8px', borderRadius: '20px', letterSpacing: '0.3px',
+                            display: 'inline-flex', alignItems: 'center', gap: '3px'
+                          }}>
+                            {isConsultDone ? (
+                              <>
+                                <CheckCircle2 size={11} /> Completed
+                              </>
+                            ) : isReady ? (
+                              'Ready'
+                            ) : (
+                              'Waiting'
+                            )}
+                          </span>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.82rem', color: '#475569', minHeight: '42px' }}>
+                          <div>{p.patient?.age ? `${p.patient.age} Yrs` : '--'} • {p.patient?.gender || '--'}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>📞</span> {p.patient?.mobilePhone || 'No contact'}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
+                            <Clock size={13} /> {billedTime}
+                          </div>
                         </div>
                       </div>
 
-                      {/* CTA */}
+                      {/* Pinned Bottom CTA */}
                       <button
                         onClick={() => {
                           setSelectedPatient(p);
@@ -2978,19 +3814,19 @@ const OPDoctorlogin = () => {
                           setActiveTab('vitals');
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
-                        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0d9488'; } }}
+                        onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#7c3aed' : '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
+                        onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#f5f3ff' : 'transparent'; e.currentTarget.style.color = isConsultDone ? '#7c3aed' : '#0d9488'; } }}
                         style={{
-                          marginTop: '4px', width: '100%', padding: '10px',
-                          background: isSelected ? '#0d9488' : 'transparent',
-                          color: isSelected ? '#fff' : '#0d9488',
-                          border: `1.5px solid ${isSelected ? '#0d9488' : '#6ee7b7'}`,
-                          borderRadius: '10px', fontWeight: 700, fontSize: '0.85rem',
+                          marginTop: '14px', width: '100%', height: '38px', padding: '0 12px',
+                          background: isSelected ? '#0d9488' : (isConsultDone ? '#f5f3ff' : 'transparent'),
+                          color: isSelected ? '#fff' : (isConsultDone ? '#7c3aed' : '#0d9488'),
+                          border: `1.5px solid ${isSelected ? '#0d9488' : (isConsultDone ? '#8b5cf6' : '#6ee7b7')}`,
+                          borderRadius: '10px', fontWeight: 700, fontSize: '0.84rem',
                           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          gap: '8px', transition: 'all 0.2s ease',
+                          gap: '8px', transition: 'all 0.2s ease', boxSizing: 'border-box'
                         }}
                       >
-                        {isSelected ? '✓ Currently Selected' : 'Start Consultation →'}
+                        {isSelected ? '✓ Currently Selected' : (isConsultDone ? 'View / Edit Consultation →' : 'Start Consultation →')}
                       </button>
                     </div>
                   );
