@@ -314,11 +314,12 @@ const Workspace = styled.div`
 
 // --- Patient Banner ---
 const PatientBanner = styled.div`
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: white;
+  background: linear-gradient(135deg, #f0fdfa 0%, #e6fffa 50%, #f0fdf4 100%);
+  color: #0f172a;
+  border: 1.5px solid #ccfbf1;
   border-radius: 16px;
   padding: 20px 24px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.08);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
@@ -329,21 +330,22 @@ const PatientBanner = styled.div`
 
     span.label {
       font-size: 0.75rem;
-      color: #94a3b8;
+      color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 4px;
+      font-weight: 700;
     }
 
     span.val {
       font-size: 1.05rem;
       font-weight: 700;
-      color: #ffffff;
+      color: #0f172a;
     }
 
     &.primary-info span.val {
       font-size: 1.3rem;
-      color: #2dd4bf;
+      color: #0d9488;
     }
   }
 `;
@@ -1333,28 +1335,66 @@ const OPDoctorlogin = () => {
   const [savingConsultation, setSavingConsultation] = useState(false);
   const [pastHistory, setPastHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [patientLabTests, setPatientLabTests] = useState([]);
+  const [loadingLabTests, setLoadingLabTests] = useState(false);
+  const [historyTab, setHistoryTab] = useState('consultations'); // 'consultations' | 'labTests'
+  const [labSearch, setLabSearch] = useState('');
 
-  // Fetch Past Consultation History
+  // Fetch Past Consultation History & Diagnostic Test Details (core_testvalue)
   const fetchPastHistory = async (uhid) => {
     if (!uhid) {
       setPastHistory([]);
+      setPatientLabTests([]);
       return;
     }
     setLoadingHistory(true);
+    setLoadingLabTests(true);
+
+    // 1. Fetch Past Consultations
     try {
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/?uhid=${encodeURIComponent(uhid)}`, "GET");
+      let historyList = [];
       if (res.success && Array.isArray(res.data)) {
-        setPastHistory(res.data);
-        if (res.data.length > 0) {
-          setSelectedHistoryItem(res.data[0]);
-        } else {
-          setSelectedHistoryItem(null);
+        historyList = res.data;
+      }
+
+      // If selectedPatient has a consultation not yet in historyList, include it so doctor can view it in past history
+      const currentConsult = selectedPatient?.consultation;
+      if (currentConsult && (currentConsult.uhid === uhid || !currentConsult.uhid)) {
+        const alreadyExists = historyList.some(h => (h._id && h._id === currentConsult._id) || (h.id && h.id === currentConsult.id));
+        if (!alreadyExists) {
+          historyList = [{ ...currentConsult, is_last_stored: true }, ...historyList];
         }
+      }
+
+      setPastHistory(historyList);
+      if (historyList.length > 0) {
+        setSelectedHistoryItem(historyList[0]);
+      } else {
+        setSelectedHistoryItem(null);
       }
     } catch (err) {
       console.error("Error fetching past history:", err);
+      setPastHistory([]);
     } finally {
       setLoadingHistory(false);
+    }
+
+    // 2. Fetch Patient Lab Test Details from core_testvalue (same as discharge summary)
+    try {
+      const resLab = await apiRequest(`${Hmsbaseurl}OPEMR_get_patient_lab_results/?uhid=${encodeURIComponent(uhid)}`, "GET");
+      if (resLab.success && Array.isArray(resLab.data)) {
+        setPatientLabTests(resLab.data);
+      } else if (Array.isArray(resLab)) {
+        setPatientLabTests(resLab);
+      } else {
+        setPatientLabTests([]);
+      }
+    } catch (err) {
+      console.error("Error fetching lab test history:", err);
+      setPatientLabTests([]);
+    } finally {
+      setLoadingLabTests(false);
     }
   };
 
@@ -1362,89 +1402,82 @@ const OPDoctorlogin = () => {
     if (selectedPatient?.patient?.uhid) {
       fetchPastHistory(selectedPatient.patient.uhid);
 
-      const consult = selectedPatient.consultation;
-      const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
-
-      // Only the doctor who created this consultation can view and edit it in the form fields
-      const isCreatedByLoggedInDoctor = consult && (
-        !loggedInDoctorId ||
-        String(consult.doctor_id || '').trim() === loggedInDoctorId ||
-        String(consult.created_by || '').trim() === loggedInDoctorId ||
-        Number(consult.doctor_id) === Number(loggedInDoctorId) ||
-        Number(consult.created_by) === Number(loggedInDoctorId)
-      );
-
-      if (consult && isCreatedByLoggedInDoctor) {
-        // Pre-populate saved consultation details for THIS doctor to view and edit
-        setSelectedSymptoms(Array.isArray(consult.symptoms) ? consult.symptoms : []);
-        setSelectedTestIds(Array.isArray(consult.investigation_test_ids) ? consult.investigation_test_ids : []);
-        setSelectedMedicineIds(Array.isArray(consult.prescription_item_ids) ? consult.prescription_item_ids : []);
-
-        if (Array.isArray(consult.prescription_details) && consult.prescription_details.length > 0) {
-          const pData = {};
-          consult.prescription_details.forEach(item => {
-            if (item && item.item_id) {
-              pData[item.item_id] = {
-                dosage: item.dosage || '',
-                frequency: item.frequency || '',
-                duration: item.duration || '',
-                total_dosage: item.total_dosage || ''
-              };
-            }
-          });
-          setPrescriptionData(pData);
-        } else {
-          setPrescriptionData({});
-        }
-
-        setFinding(consult.finding || "");
-        setDiet(consult.diet || "");
-        setReferToDoctor(consult.refer_to_doctor || "");
-        setFollowupDate(consult.followup_date || "");
-        setAllergies(consult.allergies || "");
-        setChiefComplaints(consult.chief_complaints || "");
-        setClinicalPastHistory(Array.isArray(consult.past_history) ? consult.past_history : []);
-        setPresentMedications(consult.present_medications || "");
-        setSocialHistory(Array.isArray(consult.social_history) ? consult.social_history : []);
-        setSocialHistoryNotes(consult.social_history_notes || "");
-
-        const mHist = consult.menstrual_history || {};
-        setMenstrualStatus(mHist.status || "");
-        setMenstrualSpecify(mHist.specify || "");
-
-        setVaccinationHistory(consult.vaccination_history || "");
-        setObstetricsHistory(consult.obstetrics_history || "");
-        setInvestigationDone(consult.investigation_done || "");
-        setPhysicalExamination(consult.physical_examination || "");
-        setProvisionalDiagnosis(consult.provisional_diagnosis || "");
-        setPlanOfCare(consult.plan_of_care || "");
-      } else {
-        // Reset form state to blank for new consultation or when opened by another doctor
-        setSelectedSymptoms([]);
-        setSelectedTestIds([]);
-        setSelectedMedicineIds([]);
-        setPrescriptionData({});
-        setFinding("");
-        setDiet("");
-        setReferToDoctor("");
-        setFollowupDate("");
-        setAllergies("");
-        setChiefComplaints("");
-        setClinicalPastHistory([]);
-        setPresentMedications("");
-        setSocialHistory([]);
-        setSocialHistoryNotes("");
-        setMenstrualStatus("");
-        setMenstrualSpecify("");
-        setVaccinationHistory("");
-        setObstetricsHistory("");
-        setInvestigationDone("");
-        setPhysicalExamination("");
-        setProvisionalDiagnosis("");
-        setPlanOfCare("");
-      }
+      // ALWAYS keep consultation inputs fresh & clean for a new consultation.
+      // Past / last stored consultation records are viewed in "Past History".
+      setSelectedSymptoms([]);
+      setSelectedTestIds([]);
+      setSelectedMedicineIds([]);
+      setPrescriptionData({});
+      setFinding("");
+      setDiet("");
+      setReferToDoctor("");
+      setFollowupDate("");
+      setAllergies("");
+      setChiefComplaints("");
+      setClinicalPastHistory([]);
+      setPresentMedications("");
+      setSocialHistory([]);
+      setSocialHistoryNotes("");
+      setMenstrualStatus("");
+      setMenstrualSpecify("");
+      setVaccinationHistory("");
+      setObstetricsHistory("");
+      setInvestigationDone("");
+      setPhysicalExamination("");
+      setProvisionalDiagnosis("");
+      setPlanOfCare("");
     }
   }, [selectedPatient]);
+
+  // Optional convenience: doctor can copy a past consultation to form if explicitly desired
+  const handleCopyHistoryToForm = (item) => {
+    if (!item) return;
+    setSelectedSymptoms(Array.isArray(item.symptoms) ? item.symptoms : []);
+    setSelectedTestIds(Array.isArray(item.investigation_test_ids) ? item.investigation_test_ids : []);
+    setSelectedMedicineIds(Array.isArray(item.prescription_item_ids) ? item.prescription_item_ids : []);
+
+    if (Array.isArray(item.prescription_details) && item.prescription_details.length > 0) {
+      const pData = {};
+      item.prescription_details.forEach(it => {
+        if (it && it.item_id) {
+          pData[it.item_id] = {
+            dosage: it.dosage || '',
+            frequency: it.frequency || '',
+            duration: it.duration || '',
+            total_dosage: it.total_dosage || ''
+          };
+        }
+      });
+      setPrescriptionData(pData);
+    } else {
+      setPrescriptionData({});
+    }
+
+    setFinding(item.finding || "");
+    setDiet(item.diet || "");
+    setReferToDoctor(item.refer_to_doctor || "");
+    setFollowupDate(item.followup_date || "");
+    setAllergies(item.allergies || "");
+    setChiefComplaints(item.chief_complaints || "");
+    setClinicalPastHistory(Array.isArray(item.past_history) ? item.past_history : []);
+    setPresentMedications(item.present_medications || "");
+    setSocialHistory(Array.isArray(item.social_history) ? item.social_history : []);
+    setSocialHistoryNotes(item.social_history_notes || "");
+
+    const mHist = item.menstrual_history || {};
+    setMenstrualStatus(mHist.status || "");
+    setMenstrualSpecify(mHist.specify || "");
+
+    setVaccinationHistory(item.vaccination_history || "");
+    setObstetricsHistory(item.obstetrics_history || "");
+    setInvestigationDone(item.investigation_done || "");
+    setPhysicalExamination(item.physical_examination || "");
+    setProvisionalDiagnosis(item.provisional_diagnosis || "");
+    setPlanOfCare(item.plan_of_care || "");
+
+    setShowHistoryModal(false);
+    toast.success("Past consultation data copied to active form.");
+  };
 
   // 1. Fetch Patients & Masters on mount
   useEffect(() => {
@@ -2333,8 +2366,18 @@ const OPDoctorlogin = () => {
             return (
               <div style={{ display: 'flex', gap: '0', borderRadius: '18px', overflow: 'hidden', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 16px rgba(0,0,0,0.07)', minHeight: '500px' }}>
 
-                {/* ── LEFT SIDEBAR (Redesigned to match hospital theme) ── */}
-                <div style={{ width: '230px', flexShrink: 0, background: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', padding: '18px 16px', justifyContent: 'space-between' }}>
+                {/* ── LEFT SIDEBAR (Patient Details Panel with mild color background) ── */}
+                <div style={{
+                  width: '240px',
+                  flexShrink: 0,
+                  background: 'linear-gradient(180deg, #f0fdfa 0%, #f7fcfb 50%, #f8fafc 100%)',
+                  borderRight: '1.5px solid #ccfbf1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '18px 16px',
+                  justifyContent: 'space-between',
+                  boxSizing: 'border-box'
+                }}>
                   <div>
                     {/* ← Back to queue */}
                     <button
@@ -2342,10 +2385,10 @@ const OPDoctorlogin = () => {
                       style={{
                         width: '100%',
                         padding: '9px 12px',
-                        background: '#f8fafc',
-                        border: '1.5px solid #e2e8f0',
+                        background: '#ffffff',
+                        border: '1.5px solid #ccfbf1',
                         borderRadius: '9px',
-                        color: '#334155',
+                        color: '#0f766e',
                         fontWeight: 700,
                         fontSize: '0.82rem',
                         cursor: 'pointer',
@@ -2353,25 +2396,35 @@ const OPDoctorlogin = () => {
                         alignItems: 'center',
                         gap: '6px',
                         marginBottom: '16px',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                        boxShadow: '0 1px 3px rgba(13,148,136,0.06)',
                         transition: 'all 0.18s ease',
                       }}
                       onMouseEnter={e => {
-                        e.currentTarget.style.background = '#f0fdfa';
+                        e.currentTarget.style.background = '#e6fffa';
                         e.currentTarget.style.borderColor = '#0d9488';
                         e.currentTarget.style.color = '#0d9488';
                       }}
                       onMouseLeave={e => {
-                        e.currentTarget.style.background = '#f8fafc';
-                        e.currentTarget.style.borderColor = '#e2e8f0';
-                        e.currentTarget.style.color = '#334155';
+                        e.currentTarget.style.background = '#ffffff';
+                        e.currentTarget.style.borderColor = '#ccfbf1';
+                        e.currentTarget.style.color = '#0f766e';
                       }}
                     >
                       ← Back to queue
                     </button>
 
-                    {/* Avatar & Patient Info */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                    {/* Avatar & Patient Info Card */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      marginBottom: '14px',
+                      background: '#ffffff',
+                      border: '1px solid #ccfbf1',
+                      borderRadius: '12px',
+                      padding: '14px 10px',
+                      boxShadow: '0 1px 3px rgba(13,148,136,0.04)'
+                    }}>
                       <div style={{
                         width: '54px',
                         height: '54px',
@@ -2383,8 +2436,8 @@ const OPDoctorlogin = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: '10px',
-                        boxShadow: '0 4px 14px rgba(13,148,136,0.3)'
+                        marginBottom: '8px',
+                        boxShadow: '0 4px 14px rgba(13,148,136,0.25)'
                       }}>
                         {initials}
                       </div>
@@ -2420,14 +2473,24 @@ const OPDoctorlogin = () => {
                       )}
                     </div>
 
-                    {/* Demographics */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+                    {/* Demographics Card */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      marginBottom: '16px',
+                      background: '#ffffff',
+                      border: '1px solid #ccfbf1',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      boxShadow: '0 1px 3px rgba(13,148,136,0.04)'
+                    }}>
                       {[
                         ['Age / Gender', `${sp.patient?.age || '--'} Yrs / ${sp.patient?.gender || '--'}`],
                         ['Mobile', sp.patient?.mobilePhone || '--'],
                       ].map(([lbl, val]) => (
                         <div key={lbl}>
-                          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>{lbl}</div>
+                          <div style={{ fontSize: '0.68rem', color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 700 }}>{lbl}</div>
                           <div style={{ fontSize: '0.84rem', color: '#1e293b', fontWeight: 600, marginTop: '1px' }}>{val}</div>
                         </div>
                       ))}
@@ -3217,261 +3280,571 @@ const OPDoctorlogin = () => {
       {/* Past History Modal */}
       {showHistoryModal && selectedPatient && (
         <ModalOverlay onClick={() => setShowHistoryModal(false)}>
-          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1000px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 600, color: '#0f172a' }}>
-                Medical History
-              </h2>
+          <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '1100px', width: '95%' }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📋</span> Patient Past History
+                </h2>
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '3px' }}>
+                  {selectedPatient.patient?.patient_name} • UHID: <strong style={{ color: '#0d9488' }}>{selectedPatient.patient?.uhid}</strong>
+                </div>
+              </div>
               <X size={22} style={{ cursor: 'pointer', color: '#64748b' }} onClick={() => setShowHistoryModal(false)} />
             </div>
 
-            {loadingHistory ? (
-              <div style={{ padding: '24px', color: '#64748b', textAlign: 'center' }}>Loading past history...</div>
-            ) : pastHistory.length === 0 ? (
-              <div style={{ padding: '24px', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', textAlign: 'center' }}>
-                No prior consultation records found for this patient.
-              </div>
-            ) : (
-              <HistorySplitLayout>
-                <HistorySidebar>
-                  {pastHistory.map((item, idx) => {
-                    const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
-                    const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
-                    const isOwn = (
-                      (item.doctor_id && String(item.doctor_id).trim() === loggedInDoctorId) ||
-                      (item.created_by && String(item.created_by).trim() === loggedInDoctorId) ||
-                      Number(item.doctor_id) === Number(loggedInDoctorId) ||
-                      Number(item.created_by) === Number(loggedInDoctorId)
-                    );
-                    const docName = item.doctor_name || (item.doctor_id ? `Dr. (${item.doctor_id})` : 'Doctor');
-                    return (
-                      <HistorySidebarCard
-                        key={item._id || item.id || idx}
-                        $active={isActive}
-                        onClick={() => setSelectedHistoryItem(item)}
-                      >
-                        <div className="patient-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.86rem', color: isActive ? '#0d9488' : '#0f172a' }}>
-                            {docName}
-                          </span>
-                          {isOwn && (
-                            <span style={{ fontSize: '0.68rem', background: '#dcfce7', color: '#16a34a', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                              You
+            {/* Top Navigation Tabs: Consultations vs Lab Investigation Results */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '18px', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setHistoryTab('consultations')}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: historyTab === 'consultations' ? '#0d9488' : '#f1f5f9',
+                  color: historyTab === 'consultations' ? '#ffffff' : '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: historyTab === 'consultations' ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <FileText size={16} /> Past Consultations ({pastHistory.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryTab('labTests')}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: historyTab === 'labTests' ? '#0d9488' : '#f1f5f9',
+                  color: historyTab === 'labTests' ? '#ffffff' : '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: historyTab === 'labTests' ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Activity size={16} /> Lab Investigation Results ({patientLabTests.length})
+              </button>
+            </div>
+
+            {/* ── TAB 1: PAST CONSULTATIONS ── */}
+            {historyTab === 'consultations' && (
+              loadingHistory ? (
+                <div style={{ padding: '36px', color: '#64748b', textAlign: 'center' }}>Loading past consultations...</div>
+              ) : pastHistory.length === 0 ? (
+                <div style={{ padding: '36px', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', textAlign: 'center' }}>
+                  No prior consultation records found for this patient.
+                </div>
+              ) : (
+                <HistorySplitLayout>
+                  <HistorySidebar>
+                    {pastHistory.map((item, idx) => {
+                      const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
+                      const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
+                      const isOwn = (
+                        (item.doctor_id && String(item.doctor_id).trim() === loggedInDoctorId) ||
+                        (item.created_by && String(item.created_by).trim() === loggedInDoctorId) ||
+                        Number(item.doctor_id) === Number(loggedInDoctorId) ||
+                        Number(item.created_by) === Number(loggedInDoctorId)
+                      );
+                      const isLastStored = item.is_last_stored || idx === 0;
+                      const docName = item.doctor_name || (item.doctor_id ? `Dr. (${item.doctor_id})` : 'Doctor');
+                      return (
+                        <HistorySidebarCard
+                          key={item._id || item.id || idx}
+                          $active={isActive}
+                          onClick={() => setSelectedHistoryItem(item)}
+                          style={{
+                            borderLeft: isLastStored ? '4px solid #0d9488' : undefined
+                          }}
+                        >
+                          <div className="patient-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.86rem', color: isActive ? '#0d9488' : '#0f172a' }}>
+                              {docName}
                             </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '3px' }}>
-                          UHID: {selectedPatient?.patient?.uhid || item.uhid || ''}
-                        </div>
-                        <div className="date-info" style={{ marginTop: '4px', fontSize: '0.74rem', color: '#64748b' }}>
-                          {item.created_date ? new Date(item.created_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
-                        </div>
-                      </HistorySidebarCard>
-                    );
-                  })}
-                </HistorySidebar>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              {isLastStored && (
+                                <span style={{ fontSize: '0.66rem', background: '#ccfbf1', color: '#0f766e', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                  Last Stored
+                                </span>
+                              )}
+                              {isOwn && (
+                                <span style={{ fontSize: '0.66rem', background: '#dcfce7', color: '#16a34a', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '3px' }}>
+                            UHID: {selectedPatient?.patient?.uhid || item.uhid || ''}
+                          </div>
+                          <div className="date-info" style={{ marginTop: '4px', fontSize: '0.74rem', color: '#64748b' }}>
+                            {item.created_date ? new Date(item.created_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent'}
+                          </div>
+                        </HistorySidebarCard>
+                      );
+                    })}
+                  </HistorySidebar>
 
-                <HistoryDetailPane>
-                  {selectedHistoryItem ? (
-                    <>
-                      <div style={{ marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-                          <h3 style={{ color: '#0d9488', fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>
-                            Consultation Record
-                          </h3>
-                          <span style={{
-                            fontSize: '0.82rem',
-                            fontWeight: 700,
-                            padding: '4px 10px',
-                            borderRadius: '8px',
+                  <HistoryDetailPane>
+                    {selectedHistoryItem ? (
+                      <>
+                        <div style={{ marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <div>
+                              <h3 style={{ color: '#0d9488', fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                Consultation Record
+                                {(selectedHistoryItem.is_last_stored || pastHistory[0] === selectedHistoryItem) && (
+                                  <span style={{ fontSize: '0.72rem', background: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                                    ⭐ Last Stored Data
+                                  </span>
+                                )}
+                              </h3>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+                                Recorded on: {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recent Consultation'}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyHistoryToForm(selectedHistoryItem)}
+                                style={{
+                                  background: '#f0fdfa',
+                                  color: '#0d9488',
+                                  border: '1.5px solid #0d9488',
+                                  borderRadius: '8px',
+                                  padding: '6px 14px',
+                                  fontWeight: 700,
+                                  fontSize: '0.8rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  boxShadow: '0 1px 3px rgba(13,148,136,0.1)'
+                                }}
+                                title="Copy diagnosis, prescription & findings into current form"
+                              >
+                                📋 Copy to Form
+                              </button>
+                              <span style={{
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: '8px',
+                                background: '#f8fafc',
+                                color: '#334155',
+                                border: '1px solid #e2e8f0'
+                              }}>
+                                Dr: {selectedHistoryItem.doctor_name || (selectedHistoryItem.doctor_id ? `(${selectedHistoryItem.doctor_id})` : 'Doctor')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 1. Diagnosis Box */}
+                        <div style={{ marginBottom: '22px' }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Diagnosis</div>
+                          <div style={{
                             background: '#f0fdfa',
-                            color: '#0d9488',
-                            border: '1px solid #ccfbf1'
+                            border: '1px solid #ccfbf1',
+                            borderRadius: '8px',
+                            padding: '16px 20px',
+                            minHeight: '60px',
                           }}>
-                            Consulted by: {selectedHistoryItem.doctor_name || (selectedHistoryItem.doctor_id ? `Dr. (${selectedHistoryItem.doctor_id})` : 'Doctor')}
-                          </span>
+                            {selectedHistoryItem.finding ? (
+                              <ul style={{ margin: 0, paddingLeft: '18px', color: '#0f172a', fontSize: '0.92rem' }}>
+                                <li>{selectedHistoryItem.finding}</li>
+                              </ul>
+                            ) : (
+                              <div style={{ color: '#94a3b8', fontSize: '0.88rem' }}>No diagnosis recorded.</div>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '6px' }}>
-                          Recorded on: {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}
-                        </div>
-                      </div>
 
-                      {/* 1. Diagnosis Box */}
-                      <div style={{ marginBottom: '22px' }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Diagnosis</div>
-                        <div style={{
-                          background: '#f0fdfa',
-                          border: '1px solid #ccfbf1',
-                          borderRadius: '8px',
-                          padding: '16px 20px',
-                          minHeight: '70px',
-                        }}>
-                          {selectedHistoryItem.finding ? (
-                            <ul style={{ margin: 0, paddingLeft: '18px', color: '#0f172a', fontSize: '0.92rem' }}>
-                              <li>{selectedHistoryItem.finding}</li>
-                            </ul>
-                          ) : (
-                            <div style={{ color: '#94a3b8', fontSize: '0.88rem' }}>No diagnosis recorded.</div>
-                          )}
+                        {/* 2. Complaints Table */}
+                        <div style={{ marginBottom: '22px' }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Complaints</div>
+                          <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ background: '#0d9488', color: '#ffffff' }}>
+                                  <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Complaints</th>
+                                  <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration</th>
+                                  <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration Unit</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr style={{ background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
+                                  <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>{selectedHistoryItem.chief_complaints || 'N/A'}</td>
+                                  <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
+                                  <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* 2. Complaints Table */}
-                      <div style={{ marginBottom: '22px' }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>Complaints</div>
-                        <div style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        {/* 3. Next Visit */}
+                        <div style={{ marginBottom: '22px' }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>Next Visit:</div>
+                          <div style={{ fontSize: '0.9rem', color: '#334155' }}>
+                            {selectedHistoryItem.followup_date ? new Date(selectedHistoryItem.followup_date).toLocaleDateString() : 'N/A'}
+                          </div>
+                        </div>
+
+                        {/* 4. Vitals Horizontal Row */}
+                        <div style={{ marginBottom: '26px' }}>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>Vitals</div>
+                          <div style={{ display: 'flex', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                                {selectedHistoryItem.vitals?.height || '--'}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>height (cm)</div>
+                            </div>
+                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                                {selectedHistoryItem.vitals?.weight || '--'}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>weight (kg)</div>
+                            </div>
+                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                                {selectedHistoryItem.vitals?.pulse_rate || '--'}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>pulseRate</div>
+                            </div>
+                            <div style={{ textAlign: 'center', minWidth: '60px' }}>
+                              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                                {selectedHistoryItem.vitals?.bp || '--'}
+                              </div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>bloodPressure</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Investigations Ordered */}
+                        <HistoryTableContainer>
+                          <HistoryTableTitle><Activity size={18} /> Investigations Ordered</HistoryTableTitle>
+                          <HistoryTable>
                             <thead>
-                              <tr style={{ background: '#0d9488', color: '#ffffff' }}>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Complaints</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration</th>
-                                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }}>Duration Unit</th>
+                              <tr>
+                                <th>Test Name</th>
+                                <th>Department</th>
+                                <th>Status</th>
                               </tr>
                             </thead>
                             <tbody>
-                              <tr style={{ background: '#fff', borderBottom: '1px solid #f1f5f9' }}>
-                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>{selectedHistoryItem.chief_complaints || 'N/A'}</td>
-                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
-                                <td style={{ padding: '12px 16px', fontSize: '0.88rem', color: '#334155' }}>N/A</td>
-                              </tr>
+                              {selectedHistoryItem.investigation_details?.length > 0 ? (
+                                selectedHistoryItem.investigation_details.map(t => (
+                                  <tr key={t.test_id}>
+                                    <td>{t.test_name}</td>
+                                    <td>{t.department || 'N/A'}</td>
+                                    <td><span style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>Ordered</span></td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No investigations ordered.</td>
+                                </tr>
+                              )}
                             </tbody>
-                          </table>
-                        </div>
-                      </div>
+                          </HistoryTable>
+                        </HistoryTableContainer>
 
-                      {/* 3. Next Visit */}
-                      <div style={{ marginBottom: '22px' }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>Next Visit:</div>
-                        <div style={{ fontSize: '0.9rem', color: '#334155' }}>
-                          {selectedHistoryItem.followup_date ? new Date(selectedHistoryItem.followup_date).toLocaleDateString() : 'N/A'}
-                        </div>
-                      </div>
-
-                      {/* 4. Vitals Horizontal Row */}
-                      <div style={{ marginBottom: '26px' }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '14px' }}>Vitals</div>
-                        <div style={{ display: 'flex', gap: '50px', alignItems: 'center', flexWrap: 'wrap' }}>
-                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-                              {selectedHistoryItem.vitals?.height || '--'}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>height</div>
-                          </div>
-                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-                              {selectedHistoryItem.vitals?.weight || '--'}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>weight</div>
-                          </div>
-                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-                              {selectedHistoryItem.vitals?.pulse_rate || '--'}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>pulseRate</div>
-                          </div>
-                          <div style={{ textAlign: 'center', minWidth: '60px' }}>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-                              {selectedHistoryItem.vitals?.bp || '--'}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>bloodPressure</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Investigations */}
-                      <HistoryTableContainer>
-                        <HistoryTableTitle><Activity size={18} /> Investigations Ordered</HistoryTableTitle>
-                        <HistoryTable>
-                          <thead>
-                            <tr>
-                              <th>Test Name</th>
-                              <th>Department</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedHistoryItem.investigation_details?.length > 0 ? (
-                              selectedHistoryItem.investigation_details.map(t => (
-                                <tr key={t.test_id}>
-                                  <td>{t.test_name}</td>
-                                  <td>{t.department || 'N/A'}</td>
-                                  <td><span style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>Ordered</span></td>
-                                </tr>
-                              ))
-                            ) : (
+                        {/* Prescriptions */}
+                        <HistoryTableContainer>
+                          <HistoryTableTitle><Pill size={18} /> Prescriptions</HistoryTableTitle>
+                          <HistoryTable>
+                            <thead>
                               <tr>
-                                <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No investigations ordered.</td>
+                                <th>Medication</th>
+                                <th>Dosage</th>
+                                <th>Frequency</th>
+                                <th>Duration</th>
+                                <th>Total Dosage</th>
                               </tr>
-                            )}
-                          </tbody>
-                        </HistoryTable>
-                      </HistoryTableContainer>
-
-                      {/* Prescriptions */}
-                      <HistoryTableContainer>
-                        <HistoryTableTitle><Pill size={18} /> Prescriptions</HistoryTableTitle>
-                        <HistoryTable>
-                          <thead>
-                            <tr>
-                              <th>Medication</th>
-                              <th>Dosage</th>
-                              <th>Frequency</th>
-                              <th>Duration</th>
-                              <th>Total Dosage</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedHistoryItem.prescription_details?.length > 0 ? (
-                              selectedHistoryItem.prescription_details.map(m => (
-                                <tr key={m.item_id}>
-                                  <td style={{ fontWeight: 600 }}>{m.item_name}</td>
-                                  <td>{m.dosage || 'N/A'}</td>
-                                  <td>{m.frequency || 'N/A'}</td>
-                                  <td>{m.duration || 'N/A'}</td>
-                                  <td>{m.total_dosage || '0'}</td>
+                            </thead>
+                            <tbody>
+                              {selectedHistoryItem.prescription_details?.length > 0 ? (
+                                selectedHistoryItem.prescription_details.map(m => (
+                                  <tr key={m.item_id}>
+                                    <td style={{ fontWeight: 600 }}>{m.item_name}</td>
+                                    <td>{m.dosage || 'N/A'}</td>
+                                    <td>{m.frequency || 'N/A'}</td>
+                                    <td>{m.duration || 'N/A'}</td>
+                                    <td>{m.total_dosage || '0'}</td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8' }}>No prescriptions recorded.</td>
                                 </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8' }}>No prescriptions recorded.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </HistoryTable>
-                      </HistoryTableContainer>
+                              )}
+                            </tbody>
+                          </HistoryTable>
+                        </HistoryTableContainer>
 
-                      <ThemeSectionBox>
-                        <div className="title"><Calendar size={18} /> Plans & Follow-up</div>
-                        <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          {selectedHistoryItem.plan_of_care && <li><span style={{ fontWeight: 600, color: '#475569' }}>Plan of Care:</span> {selectedHistoryItem.plan_of_care}</li>}
-                          {selectedHistoryItem.provisional_diagnosis && <li><span style={{ fontWeight: 600, color: '#475569' }}>Provisional Diagnosis:</span> {selectedHistoryItem.provisional_diagnosis}</li>}
-                          {selectedHistoryItem.physical_examination && <li><span style={{ fontWeight: 600, color: '#475569' }}>Physical Exam:</span> {selectedHistoryItem.physical_examination}</li>}
-                          {selectedHistoryItem.investigation_done && <li><span style={{ fontWeight: 600, color: '#475569' }}>Investigation Done:</span> {selectedHistoryItem.investigation_done}</li>}
-                          {selectedHistoryItem.vaccination_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Vaccination:</span> {selectedHistoryItem.vaccination_history}</li>}
-                          {selectedHistoryItem.obstetrics_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Obstetrics:</span> {selectedHistoryItem.obstetrics_history}</li>}
-                          {isFemale && selectedHistoryItem.menstrual_history?.status && (
-                            <li><span style={{ fontWeight: 600, color: '#475569' }}>Menstrual History:</span> {selectedHistoryItem.menstrual_history.status} {selectedHistoryItem.menstrual_history.specify ? `(${selectedHistoryItem.menstrual_history.specify})` : ''}</li>
-                          )}
-                          {Array.isArray(selectedHistoryItem.social_history) && selectedHistoryItem.social_history.length > 0 && (
-                            <li><span style={{ fontWeight: 600, color: '#475569' }}>Social History:</span> {selectedHistoryItem.social_history.join(', ')}</li>
-                          )}
-                          {selectedHistoryItem.diet && <li><span style={{ fontWeight: 600, color: '#475569' }}>Diet:</span> {selectedHistoryItem.diet}</li>}
-                          {selectedHistoryItem.refer_to_doctor && <li><span style={{ fontWeight: 600, color: '#475569' }}>Referred To:</span> Dr. {(referralDoctors.find(d => String(d.employeeId) === String(selectedHistoryItem.refer_to_doctor))?.employeeName) || selectedHistoryItem.refer_to_doctor}</li>}
-                          {selectedHistoryItem.followup_date && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
-                          {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date && !selectedHistoryItem.plan_of_care) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
-                        </ul>
-                      </ThemeSectionBox>
-                    </>
-                  ) : (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                      Select a date from the left to view details.
-                    </div>
-                  )}
-                </HistoryDetailPane>
-              </HistorySplitLayout>
+                        <ThemeSectionBox>
+                          <div className="title"><Calendar size={18} /> Plans &amp; Follow-up</div>
+                          <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {selectedHistoryItem.plan_of_care && <li><span style={{ fontWeight: 600, color: '#475569' }}>Plan of Care:</span> {selectedHistoryItem.plan_of_care}</li>}
+                            {selectedHistoryItem.provisional_diagnosis && <li><span style={{ fontWeight: 600, color: '#475569' }}>Provisional Diagnosis:</span> {selectedHistoryItem.provisional_diagnosis}</li>}
+                            {selectedHistoryItem.physical_examination && <li><span style={{ fontWeight: 600, color: '#475569' }}>Physical Exam:</span> {selectedHistoryItem.physical_examination}</li>}
+                            {selectedHistoryItem.investigation_done && <li><span style={{ fontWeight: 600, color: '#475569' }}>Investigation Done:</span> {selectedHistoryItem.investigation_done}</li>}
+                            {selectedHistoryItem.vaccination_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Vaccination:</span> {selectedHistoryItem.vaccination_history}</li>}
+                            {selectedHistoryItem.obstetrics_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Obstetrics:</span> {selectedHistoryItem.obstetrics_history}</li>}
+                            {isFemale && selectedHistoryItem.menstrual_history?.status && (
+                              <li><span style={{ fontWeight: 600, color: '#475569' }}>Menstrual History:</span> {selectedHistoryItem.menstrual_history.status} {selectedHistoryItem.menstrual_history.specify ? `(${selectedHistoryItem.menstrual_history.specify})` : ''}</li>
+                            )}
+                            {Array.isArray(selectedHistoryItem.social_history) && selectedHistoryItem.social_history.length > 0 && (
+                              <li><span style={{ fontWeight: 600, color: '#475569' }}>Social History:</span> {selectedHistoryItem.social_history.join(', ')}</li>
+                            )}
+                            {selectedHistoryItem.diet && <li><span style={{ fontWeight: 600, color: '#475569' }}>Diet:</span> {selectedHistoryItem.diet}</li>}
+                            {selectedHistoryItem.refer_to_doctor && <li><span style={{ fontWeight: 600, color: '#475569' }}>Referred To:</span> Dr. {(referralDoctors.find(d => String(d.employeeId) === String(selectedHistoryItem.refer_to_doctor))?.employeeName) || selectedHistoryItem.refer_to_doctor}</li>}
+                            {selectedHistoryItem.followup_date && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
+                            {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date && !selectedHistoryItem.plan_of_care) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
+                          </ul>
+                        </ThemeSectionBox>
+                      </>
+                    ) : (
+                      <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                        Select a consultation from the left to view details.
+                      </div>
+                    )}
+                  </HistoryDetailPane>
+                </HistorySplitLayout>
+              )
             )}
 
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+            {/* ── TAB 2: DIAGNOSTIC & LAB TEST DETAILS (from core_testvalue) ── */}
+            {historyTab === 'labTests' && (
+              <div>
+                {/* Search Bar & Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Search test name or department..."
+                      value={labSearch}
+                      onChange={e => setLabSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 34px',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '8px',
+                        fontSize: '0.84rem',
+                        outline: 'none',
+                        background: '#f8fafc',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                    Showing <strong>{
+                      patientLabTests.filter(t => !labSearch || (t.testname || '').toLowerCase().includes(labSearch.toLowerCase()) || (t.department || '').toLowerCase().includes(labSearch.toLowerCase())).length
+                    }</strong> of {patientLabTests.length} tests from Lab (core_testvalue)
+                  </div>
+                </div>
+
+                {loadingLabTests ? (
+                  <div style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
+                    <Activity size={24} style={{ animation: 'spin 1s linear infinite', color: '#0d9488' }} />
+                    <div style={{ marginTop: '8px' }}>Fetching lab investigation results...</div>
+                  </div>
+                ) : patientLabTests.length === 0 ? (
+                  <div style={{ padding: '40px 20px', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🧪</div>
+                    <div style={{ fontWeight: 600, color: '#334155' }}>No Lab Test Results Found</div>
+                    <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '4px' }}>
+                      No diagnostic records found in core_testvalue matching UHID <strong>{selectedPatient.patient?.uhid}</strong>.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '520px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {patientLabTests
+                      .filter(t => !labSearch || (t.testname || '').toLowerCase().includes(labSearch.toLowerCase()) || (t.department || '').toLowerCase().includes(labSearch.toLowerCase()))
+                      .map((test, tIdx) => {
+                        const isApproved = test.is_approved;
+                        return (
+                          <div
+                            key={test.test_id ? `${test.test_id}-${tIdx}` : tIdx}
+                            style={{
+                              background: '#ffffff',
+                              border: '1.5px solid #e2e8f0',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                            }}
+                          >
+                            {/* Card Top Header */}
+                            <div style={{
+                              background: '#f8fafc',
+                              borderBottom: '1px solid #e2e8f0',
+                              padding: '12px 18px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: '10px'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  borderRadius: '8px',
+                                  background: '#f0fdfa',
+                                  color: '#0d9488',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: 800
+                                }}>
+                                  🔬
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#0f172a' }}>
+                                    {test.testname}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '0.74rem', color: '#64748b' }}>
+                                    <span>Dept: <strong style={{ color: '#334155' }}>{test.department || 'General'}</strong></span>
+                                    {test.specimen_type && <span>• Specimen: <strong>{test.specimen_type}</strong></span>}
+                                    {test.barcode && <span>• Barcode: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>{test.barcode}</code></span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Status Badge */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {isApproved ? (
+                                  <span style={{
+                                    background: '#f0fdf4',
+                                    color: '#16a34a',
+                                    border: '1px solid #bbf7d0',
+                                    padding: '4px 10px',
+                                    borderRadius: '16px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}>
+                                    <CheckCircle2 size={12} /> Approved
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    background: '#fffbeb',
+                                    color: '#d97706',
+                                    border: '1px solid #fde68a',
+                                    padding: '4px 10px',
+                                    borderRadius: '16px',
+                                    fontSize: '0.76rem',
+                                    fontWeight: 700
+                                  }}>
+                                    Pending
+                                  </span>
+                                )}
+                                {test.approve_time && test.approve_time !== 'N/A' && (
+                                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                    {test.approve_time}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Parameters Table (Same as discharge summary) */}
+                            {Array.isArray(test.parameters) && test.parameters.length > 0 ? (
+                              <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                                  <thead>
+                                    <tr style={{ background: '#f8fafc', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Parameter</th>
+                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Result Value</th>
+                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Unit</th>
+                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Reference Range</th>
+                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Method</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {test.parameters.map((p, pIdx) => (
+                                      <tr
+                                        key={pIdx}
+                                        style={{
+                                          borderBottom: '1px solid #f1f5f9',
+                                          background: pIdx % 2 === 0 ? '#ffffff' : '#fcfdfe'
+                                        }}
+                                      >
+                                        <td style={{ padding: '10px 16px', fontWeight: 500, color: '#1e293b' }}>
+                                          {p.name || p.test_name || p.test_code || `Parameter ${pIdx + 1}`}
+                                        </td>
+                                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#0d9488', fontSize: '0.92rem' }}>
+                                          {p.value !== undefined && p.value !== null && p.value !== '' ? String(p.value) : '—'}
+                                        </td>
+                                        <td style={{ padding: '10px 16px', color: '#64748b' }}>
+                                          {p.unit || '—'}
+                                        </td>
+                                        <td style={{ padding: '10px 16px', color: '#475569', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                                          {p.reference_range || p.referenceRange || '—'}
+                                        </td>
+                                        <td style={{ padding: '10px 16px', color: '#94a3b8', fontSize: '0.78rem' }}>
+                                          {p.method || '—'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div style={{ padding: '14px 18px', color: '#94a3b8', fontSize: '0.84rem' }}>
+                                No specific parameter breakdown recorded for this test.
+                              </div>
+                            )}
+
+                            {/* Remarks / Comments Footer */}
+                            {(test.comment || test.remarks || test.approve_by) && (
+                              <div style={{
+                                padding: '8px 18px',
+                                background: '#fafcfc',
+                                borderTop: '1px solid #f1f5f9',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                                fontSize: '0.76rem',
+                                color: '#64748b'
+                              }}>
+                                <div>
+                                  {test.comment && <span>Comment: <em>{test.comment}</em></span>}
+                                  {test.remarks && <span style={{ marginLeft: test.comment ? '14px' : 0 }}>Remarks: <em>{test.remarks}</em></span>}
+                                </div>
+                                {test.approve_by && (
+                                  <span>Verified &amp; Approved by: <strong>{test.approve_by}</strong></span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
               <Button $variant="secondary" onClick={() => setShowHistoryModal(false)}>Close</Button>
             </div>
           </ModalContent>

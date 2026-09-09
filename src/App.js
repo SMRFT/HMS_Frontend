@@ -215,9 +215,8 @@ import Feedbackreports from "./Components/QRScan/Feedbackreports";
 import OutpatientFeedbackreports from "./Components/QRScan/OutpatientFeedbackreports";
 import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
 import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
-
-
-
+import Registration360 from "./Components/Shanmuga360/360Registration";
+import Reports360 from "./Components/Shanmuga360/Reports";
 
 
 
@@ -805,12 +804,12 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               )) && (
-                <>
-                  <Route path="/Enquiry" element={<Enquiry />} />
-                  <Route path="/PatientInquiry" element={<Enquiry />} />
-                  <Route path="/PatientEnquiry" element={<Enquiry />} />
-                </>
-              )}
+                  <>
+                    <Route path="/Enquiry" element={<Enquiry />} />
+                    <Route path="/PatientInquiry" element={<Enquiry />} />
+                    <Route path="/PatientEnquiry" element={<Enquiry />} />
+                  </>
+                )}
               {hasPagePermission(
                 "/RegistrationBills",
                 allowedActions,
@@ -1852,6 +1851,15 @@ function App() {
               ) && (
                   <Route path="/MRDTracking" element={<MRDTracking />} />
                 )}
+
+
+              {/* #shanmuga360 */}
+              <Route path="/360Registration" element={<Registration360 />} />
+              <Route path="/360Reports" element={<Reports360 />} />
+              <Route path="/Reports" element={<Reports360 />} />
+              <Route path="/reports" element={<Reports360 />} />
+              <Route path="/Shanmuga360/Reports" element={<Reports360 />} />
+              <Route path="/shanmuga360/reports" element={<Reports360 />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
