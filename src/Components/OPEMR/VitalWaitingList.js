@@ -756,7 +756,10 @@ const VitalWaitingList = () => {
       setRefreshing(true);
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_billing_patient/`, "GET");
       if (res.success && res.data && Array.isArray(res.data)) {
-        setPatients(res.data);
+        const paidPatients = res.data.filter(
+          p => (p.payment_status || "").toLowerCase() === "paid"
+        );
+        setPatients(paidPatients);
       } else {
         setPatients([]);
         if (!res.success) {
@@ -785,6 +788,12 @@ const VitalWaitingList = () => {
         (patient.patient_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (patient.mobilePhone || "").includes(searchTerm) ||
         (p.bill_number || "").toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Only include paid bills
+      const paymentStatus = (p.payment_status || "").toLowerCase();
+      if (paymentStatus && paymentStatus !== "paid") {
+        return false;
+      }
 
       const matchesStatus =
         statusFilter === "All" || p.vital_status === statusFilter;
