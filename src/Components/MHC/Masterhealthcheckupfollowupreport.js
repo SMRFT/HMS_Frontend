@@ -477,6 +477,7 @@ export default function Masterhealthcheckupfollowupreport() {
                     <Th>Contact</Th>
                     <Th>OP Number</Th>
                     <Th>Package</Th>
+                    <Th>Reg Date</Th>
                     <Th>Follow Up Date</Th>
                     <Th>Description / Notes</Th>
                     <Th>Total Fees (₹)</Th>
@@ -492,6 +493,7 @@ export default function Masterhealthcheckupfollowupreport() {
                       <Td>{r.contact_number || "—"}</Td>
                       <Td style={{ fontWeight: 600, color: "#0d9488" }}>{r.op_number || "—"}</Td>
                       <Td style={{ fontWeight: 700 }}>{r.package || "—"}</Td>
+                      <Td>{r.registration_date || "—"}</Td>
                       <Td style={{ color: "#0f766e", fontWeight: 700 }}>{r.follow_up || "—"}</Td>
                       <Td>
                         {r.description ? (

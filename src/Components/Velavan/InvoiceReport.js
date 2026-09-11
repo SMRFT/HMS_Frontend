@@ -38,7 +38,7 @@ import {
 } from "../GlobalStyles";
 
 import apiRequest from "../../Auth/apiRequest";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -307,6 +307,7 @@ const InvoiceReport = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [returnModalRecord, setReturnModalRecord] = useState(null);
   const [returnLines, setReturnLines] = useState([]);
+  const [returnRemarks, setReturnRemarks] = useState("");
   const [returnLoading, setReturnLoading] = useState(false);
   const [returnLinesLoading, setReturnLinesLoading] = useState(false);
   const allowedActions = JSON.parse(
@@ -485,10 +486,10 @@ const InvoiceReport = () => {
         prev.map((r) =>
           r.grn_number === record.grn_number
             ? {
-                ...r,
-                is_approved: true,
-                approved_by: response.data.data?.approved_by,
-              }
+              ...r,
+              is_approved: true,
+              approved_by: response.data.data?.approved_by,
+            }
             : r,
         ),
       );
@@ -504,6 +505,7 @@ const InvoiceReport = () => {
 
   const openPurchaseReturnModal = async (record) => {
     setReturnModalRecord(record);
+    setReturnRemarks("");
     setReturnLines([]);
     setReturnLinesLoading(true);
     try {
@@ -585,6 +587,10 @@ const InvoiceReport = () => {
       toast.error("Select at least one item with quantity > 0");
       return;
     }
+    if (!returnRemarks.trim()) {
+      toast.error("Remarks is required");
+      return;
+    }
     const computed = toReturn.map((l) => ({
       ...l,
       calc: computePurchaseReturnLine(l),
@@ -606,6 +612,7 @@ const InvoiceReport = () => {
       ...rawTotals,
       roundAmount,
       totalAmount: rawTotals.totalAmount + roundAmount,
+      remarks: returnRemarks.trim(),
     };
 
     const payload = {
@@ -625,6 +632,7 @@ const InvoiceReport = () => {
         totalAmount: l.calc.lineTotal,
       })),
       summary,
+      remarks: returnRemarks.trim(),
       "auth-user-id": localStorage.getItem("employeeId"),
     };
 
@@ -752,11 +760,11 @@ const InvoiceReport = () => {
         </thead>
         <tbody>
           ${items
-            .map((item, i) => {
-              const qty = parseFloat(item.quantity || 0);
-              const unitPrice = parseFloat(item.unitPrice || 0);
-              const taxableAmt = unitPrice * qty;
-              return `<tr>
+          .map((item, i) => {
+            const qty = parseFloat(item.quantity || 0);
+            const unitPrice = parseFloat(item.unitPrice || 0);
+            const taxableAmt = unitPrice * qty;
+            return `<tr>
               <td>${i + 1}</td>
               <td class="l">${item.name || "N/A"}</td>
               <td>${item.hsn || "N/A"}</td>
@@ -777,8 +785,8 @@ const InvoiceReport = () => {
               <td class="r">₹${parseFloat(item.unitSellingCost || 0).toFixed(2)}</td>
               <td class="r"><b>₹${parseFloat(item.sellingCost || 0).toFixed(2)}</b></td>
             </tr>`;
-            })
-            .join("")}
+          })
+          .join("")}
           <tr class="tot">
             <td colspan="10" class="r"><b>TOTAL</b></td>
             <td class="r">₹${parseFloat(record.non_taxable_amount || 0).toFixed(2)}</td>
@@ -817,9 +825,8 @@ const InvoiceReport = () => {
             <div class="row"><b>Phone:</b> ${record.phone || "N/A"}</div>
           </div>
         </div>
-        ${
-          hasPatient
-            ? `
+        ${hasPatient
+        ? `
         <div class="sec">
           <div class="hdr">Patient Details</div>
           <div class="cnt">
@@ -829,8 +836,8 @@ const InvoiceReport = () => {
             ${record.surgeon_id ? `<div class="row"><b>Surgeon:</b> ${record.surgeon_name || record.surgeon_id}</div>` : ""}
           </div>
         </div>`
-            : ""
-        }
+        : ""
+      }
       </div>
       ${itemsHtml}
       <div class="summary">
@@ -865,135 +872,390 @@ const InvoiceReport = () => {
 
     openPrintWindow(`GRN Invoice - ${record.grn_number}`, css, body);
   };
-  // ── Velavan Purchase Report ──────────────────────────────────────
-  const handlePurchasePrint = () => {
-    const sortedData = [...filteredData].sort((a, b) =>
-      (a.vendor || a.vendor_id || "")
-        .toLowerCase()
-        .localeCompare((b.vendor || b.vendor_id || "").toLowerCase()),
+  // ── Fetch Purchase Returns in Date Range ─────────────────────────
+  const fetchReturnsForRegister = async () => {
+    const params = new URLSearchParams();
+    if (filters.from_date) params.append("from_date", filters.from_date);
+    if (filters.to_date) params.append("to_date", filters.to_date);
+    const r = await apiRequest(
+      `${HMSURL}velavan/purchase-return/list/?${params.toString()}`,
+      "GET",
     );
-    const vendorGroups = {};
-    let grandTotal = 0;
-    sortedData.forEach((row) => {
-      const vendor = row.vendor || row.vendor_id || "N/A";
-      if (!vendorGroups[vendor]) vendorGroups[vendor] = { rows: [], total: 0 };
-      vendorGroups[vendor].rows.push(row);
-      const amt = parseFloat(row.net_invoice_amount || 0);
-      vendorGroups[vendor].total += amt;
-      grandTotal += amt;
+    return r.success && r.data?.status === "success" ? r.data.data || [] : [];
+  };
+
+  // ── Build Grouped Purchase Data ──────────────────────────────────
+  const buildPurchaseReportGroups = (returnsList = []) => {
+    const idToNameMap = {};
+    const nameToIdMap = {};
+
+    [...filteredData, ...returnsList].forEach((item) => {
+      const vid = item.vendor_id ? String(item.vendor_id).trim() : "";
+      const name = (
+        item.vendor_company ||
+        item.vendor_name ||
+        item.vendor ||
+        ""
+      ).trim();
+
+      if (vid && name && name !== "N/A") {
+        idToNameMap[vid] = name;
+        nameToIdMap[name.toLowerCase()] = vid;
+      }
     });
+
+    const getVendorKeyAndName = (item) => {
+      let vid = item.vendor_id ? String(item.vendor_id).trim() : "";
+      let name = (
+        item.vendor_company ||
+        item.vendor_name ||
+        item.vendor ||
+        ""
+      ).trim();
+
+      if (vid && idToNameMap[vid]) {
+        name = idToNameMap[vid];
+      } else if (!vid && name && nameToIdMap[name.toLowerCase()]) {
+        vid = nameToIdMap[name.toLowerCase()];
+        if (idToNameMap[vid]) name = idToNameMap[vid];
+      }
+
+      const finalName = name || (vid ? `Vendor #${vid}` : "N/A");
+      const key = vid ? `ID_${vid}` : `NAME_${finalName.toLowerCase()}`;
+      return { key, displayName: finalName };
+    };
+
+    const vendorGroups = {};
+
+    filteredData.forEach((row) => {
+      const { key, displayName } = getVendorKeyAndName(row);
+      if (!vendorGroups[key]) {
+        vendorGroups[key] = {
+          vendorName: displayName,
+          purchaseRows: [],
+          returnRows: [],
+          purchaseTotal: 0,
+          returnTotal: 0,
+          netTotal: 0,
+        };
+      }
+      if (vendorGroups[key].vendorName === "N/A" && displayName !== "N/A") {
+        vendorGroups[key].vendorName = displayName;
+      }
+      vendorGroups[key].purchaseRows.push(row);
+      vendorGroups[key].purchaseTotal += parseFloat(
+        row.net_invoice_amount || row.total_amount || 0,
+      );
+    });
+
+    const grnInfoMap = {};
+    filteredData.forEach((row) => {
+      if (row.grn_number) {
+        grnInfoMap[row.grn_number] = {
+          invoice_no: row.invoice_no,
+          invoice_date: row.invoice_date,
+          date: row.date,
+        };
+      }
+    });
+
+    returnsList.forEach((r) => {
+      if (r.grn_number && grnInfoMap[r.grn_number]) {
+        if (!r.invoice_no) r.invoice_no = grnInfoMap[r.grn_number].invoice_no;
+        if (!r.invoice_date)
+          r.invoice_date = grnInfoMap[r.grn_number].invoice_date;
+        if (!r.grn_date) r.grn_date = grnInfoMap[r.grn_number].date;
+      }
+      const { key, displayName } = getVendorKeyAndName(r);
+      if (!vendorGroups[key]) {
+        vendorGroups[key] = {
+          vendorName: displayName,
+          purchaseRows: [],
+          returnRows: [],
+          purchaseTotal: 0,
+          returnTotal: 0,
+          netTotal: 0,
+        };
+      }
+      if (vendorGroups[key].vendorName === "N/A" && displayName !== "N/A") {
+        vendorGroups[key].vendorName = displayName;
+      }
+      vendorGroups[key].returnRows.push(r);
+      vendorGroups[key].returnTotal += parseFloat(r.total_amount || 0);
+    });
+
+    let grandPurchase = 0;
+    let grandReturn = 0;
+    let grandNet = 0;
+
+    const sortedVendorKeys = Object.keys(vendorGroups).sort((a, b) =>
+      vendorGroups[a].vendorName
+        .toLowerCase()
+        .localeCompare(vendorGroups[b].vendorName.toLowerCase()),
+    );
+
+    sortedVendorKeys.forEach((key) => {
+      const grp = vendorGroups[key];
+      grp.purchaseRows.sort((a, b) =>
+        (a.grn_number || "").localeCompare(b.grn_number || ""),
+      );
+      grp.returnRows.sort((a, b) =>
+        (a.grn_number || "").localeCompare(b.grn_number || ""),
+      );
+      grp.netTotal = grp.purchaseTotal - grp.returnTotal;
+
+      grandPurchase += grp.purchaseTotal;
+      grandReturn += grp.returnTotal;
+      grandNet += grp.netTotal;
+    });
+
+    return {
+      vendorGroups,
+      sortedVendorKeys,
+      grandPurchase,
+      grandReturn,
+      grandNet,
+    };
+  };
+
+  // ── Velavan Purchase Report ──────────────────────────────────────
+  const handlePurchasePrint = async () => {
+    let returnsList = [];
+    try {
+      returnsList = await fetchReturnsForRegister();
+    } catch {
+      returnsList = [];
+    }
+    const {
+      vendorGroups,
+      sortedVendorKeys,
+      grandNet,
+    } = buildPurchaseReportGroups(returnsList);
 
     let tableRows = "";
     let sl = 1;
-    let grandReturn = 0;
-    let grandNet = 0;
-    Object.keys(vendorGroups).forEach((vendor) => {
-      const { rows, total } = vendorGroups[vendor];
-      rows.sort((a, b) =>
-        (a.grn_number || "").localeCompare(b.grn_number || ""),
-      );
+
+    sortedVendorKeys.forEach((key) => {
+      const {
+        vendorName,
+        purchaseRows,
+        returnRows,
+        purchaseTotal,
+        returnTotal,
+        netTotal,
+      } = vendorGroups[key];
+
+      const hasPurchase = purchaseRows.length > 0;
+      const hasReturns = returnRows.length > 0;
+
+      // 1. Vendor Header Row
       tableRows += `<tr style="background:#e0f2fe">
-      <td colspan="7" style="font-weight:bold;padding:8px;color:#1e40af">${vendor}</td>
-    </tr>`;
-
-      let vendorReturn = 0;
-      let vendorNet = 0;
-      rows.forEach((row) => {
-        const ret = parseFloat(row.purchase_return_amount || 0);
-        const net = parseFloat(
-          row.net_amount_after_return ??
-            parseFloat(row.net_invoice_amount || 0) - ret,
-        );
-        vendorReturn += ret;
-        vendorNet += net;
-        grandReturn += ret;
-        grandNet += net;
-
-        tableRows += `<tr>
-        <td style="text-align:center">${sl++}</td>
-        <td>${row.grn_number || "N/A"}</td>
-        <td>${row.invoice_no || "N/A"}</td>
-        <td>${formatDate(row.invoice_date)}</td>
-        <td style="text-align:right">${formatCurrency(row.net_invoice_amount)}</td>
-        <td style="text-align:right;color:#dc2626">${ret > 0 ? "- " + formatCurrency(ret) : "—"}</td>
-        <td style="text-align:right;font-weight:bold">${formatCurrency(net)}</td>
+        <td colspan="4" style="font-weight:bold;padding:7px 10px;color:#1e40af;font-size:13px">${vendorName}</td>
       </tr>`;
-      });
 
-      tableRows += `<tr style="background:#fff3cd;font-weight:bold">
-      <td colspan="4" style="text-align:right;padding:8px;border:1px solid #000">Total</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(total)}</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${vendorReturn > 0 ? "- " + formatCurrency(vendorReturn) : "—"}</td>
-      <td style="text-align:right;padding:8px;border:1px solid #000">${formatCurrency(vendorNet)}</td>
-    </tr>`;
+      // 2. Purchase Section
+      if (hasPurchase) {
+        tableRows += `<tr style="background:#f8fafc;font-weight:bold">
+          <td colspan="4" style="padding:4px 10px;color:#1e293b;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">Purchase:</td>
+        </tr>`;
+
+        purchaseRows.forEach((row) => {
+          tableRows += `<tr>
+            <td style="text-align:center">${sl++}</td>
+            <td style="text-align:center">${row.grn_number || row.invoice_no || "—"}</td>
+            <td style="text-align:center">${formatDate(row.invoice_date || row.date)}</td>
+            <td style="text-align:right">${formatCurrency(row.net_invoice_amount || row.total_amount)}</td>
+          </tr>`;
+        });
+
+        tableRows += `<tr style="background:#fffbe0;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:6px 10px;border:1px solid #999">Total</td>
+          <td style="text-align:right;padding:6px 10px;border:1px solid #999">${formatCurrency(purchaseTotal)}</td>
+        </tr>`;
+      }
+
+      // 3. Purchase Return Section
+      if (hasReturns) {
+        tableRows += `<tr style="background:#fef2f2;font-weight:bold">
+          <td colspan="4" style="padding:4px 10px;color:#991b1b;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">Purchase Return:</td>
+        </tr>`;
+
+        returnRows.forEach((r) => {
+          tableRows += `<tr>
+            <td style="text-align:center;vertical-align:middle">${sl++}</td>
+            <td style="text-align:center;line-height:1.4">
+              <div><b>Bill No:</b> ${r.grn_number || r.invoice_no || "—"}</div>
+              <div><b>Rtn No:</b> ${r.return_number || "—"}</div>
+              ${r.remarks ? `<div style="color:#555;font-size:11px"><b>Remarks:</b> ${r.remarks}</div>` : ""}
+            </td>
+            <td style="text-align:center;line-height:1.4;white-space:nowrap">
+              <div><b>B.D:</b> ${formatDate(r.invoice_date || r.grn_date) || "—"}</div>
+              <div><b>R.D:</b> ${formatDate(r.return_date) || "—"}</div>
+            </td>
+            <td style="text-align:right;color:#dc2626">- ${formatCurrency(r.total_amount)}</td>
+          </tr>`;
+        });
+
+        tableRows += `<tr style="background:#fee2e2;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:6px 10px;border:1px solid #999">Total</td>
+          <td style="text-align:right;padding:6px 10px;border:1px solid #999;color:#dc2626">- ${formatCurrency(returnTotal)}</td>
+        </tr>`;
+      }
+
+      // 4. Final Amount Row after Purchase Return total
+      if (hasPurchase && hasReturns) {
+        tableRows += `<tr style="background:#fff3cd;font-weight:bold">
+          <td colspan="3" style="text-align:right;padding:7px 10px;border:1px solid #000">Final Amount</td>
+          <td style="text-align:right;padding:7px 10px;border:1px solid #000">${formatCurrency(netTotal)}</td>
+        </tr>`;
+      }
     });
 
     const css = `
-    body{font-family:Arial,sans-serif;padding:10px;font-size:18px}
-    h1{text-align:center;font-size:21px;margin:10px 0}
-    h2{text-align:center;font-size:18px;color:#555;margin:0 0 10px}
-    table{border-collapse:collapse;width:100%;border:1px solid #333;font-size:15px}
-    th,td{border:1px dashed #999;padding:8px 13px;vertical-align:top;word-wrap:break-word}
-    th{background:#e0e0e0;font-weight:bold;text-align:center}
-  `;
+      body{font-family:Arial,sans-serif;padding:10px;font-size:12.5px}
+      h1{text-align:center;font-size:18px;margin:8px 0;text-decoration:underline}
+      h2{text-align:center;font-size:13px;color:#555;margin:0 0 14px}
+      table{border-collapse:collapse;width:100%;border:1px solid #333}
+      th,td{border:1px dashed #999;padding:6px 10px}
+      th{background:#d0d0d0;font-weight:bold;text-align:center;font-size:12px}
+      .grand-row td{background:#d4edda;font-weight:bold}
+    `;
+
     const body = `
-    <h1>Velavan Party-wise Purchase Report</h1>
-    <h2>${getDateRangeLabel()}</h2>
-    <table>
-      <thead><tr>
-        <th>Sl.</th><th>GRN Number</th><th>Invoice No</th>
-        <th>Inv. Date</th>
-        <th style="text-align:right">Bill Amount</th>
-        <th style="text-align:right">Return Amt</th>
-        <th style="text-align:right">Net Amount</th>
-      </tr></thead>
-      <tbody>
-        ${tableRows}
-        <tr style="background:#d4edda;font-weight:bold">
-          <td colspan="4" style="text-align:right;padding:8px">Grand Total:</td>
-          <td style="text-align:right;padding:8px">${formatCurrency(grandTotal)}</td>
-          <td style="text-align:right;padding:8px">${grandReturn > 0 ? "- " + formatCurrency(grandReturn) : "—"}</td>
-          <td style="text-align:right;padding:8px">${formatCurrency(grandNet)}</td>
-        </tr>
-      </tbody>
-    </table>`;
+      <h1>Velavan Party-wise Purchase Report</h1>
+      <h2>${getDateRangeLabel()}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:45px">Sl.</th>
+            <th>Bill No</th>
+            <th>Bill Date</th>
+            <th style="text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+          <tr class="grand-row">
+            <td colspan="3" style="text-align:right;padding:8px">Grand Total:</td>
+            <td style="text-align:right;padding:8px">${formatCurrency(grandNet)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
 
     openPrintWindow("Velavan Purchase Report", css, body);
   };
-  // ── Export CSV ───────────────────────────────────────────────────
-  const exportToExcel = () => {
-    const headers = [
-      "Date",
-      "GRN Number",
-      "Vendor",
-      "Invoice No",
-      "Patient",
-      "Surgeon",
-      "IP Number",
-      "Total Amount",
+
+  // ── Export Excel / CSV ───────────────────────────────────────────
+  const exportToExcel = async () => {
+    const XLSX = require("xlsx");
+    let returnsList = [];
+    try {
+      returnsList = await fetchReturnsForRegister();
+    } catch {
+      returnsList = [];
+    }
+    const {
+      vendorGroups,
+      sortedVendorKeys,
+      grandNet,
+    } = buildPurchaseReportGroups(returnsList);
+
+    const wsData = [
+      [`Velavan Party-wise Purchase Report - ${getDateRangeLabel()}`],
+      [],
+      ["Sl.", "Bill No", "Bill Date", "Amount"],
     ];
-    const csvContent = [
-      headers.join(","),
-      ...filteredData.map((row) =>
-        [
-          formatDate(row.date),
-          row.grn_number,
-          `"${row.vendor || row.vendor_id || "N/A"}"`,
-          row.invoice_no,
-          `"${row.patient_name || "N/A"}"`,
-          `"${row.surgeon_name || row.surgeon_id || "N/A"}"`,
-          row.ip_number || "N/A",
-          parseFloat(row.net_invoice_amount || 0).toFixed(2),
-        ].join(","),
-      ),
-    ].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `VelavanInvoice_Report_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+
+    let sl = 1;
+    sortedVendorKeys.forEach((key) => {
+      const {
+        vendorName,
+        purchaseRows,
+        returnRows,
+        purchaseTotal,
+        returnTotal,
+        netTotal,
+      } = vendorGroups[key];
+
+      const hasPurchase = purchaseRows.length > 0;
+      const hasReturns = returnRows.length > 0;
+
+      wsData.push([vendorName]);
+
+      if (hasPurchase) {
+        wsData.push(["Purchase:"]);
+        purchaseRows.forEach((row) => {
+          wsData.push([
+            sl++,
+            row.grn_number || row.invoice_no || "—",
+            formatDate(row.invoice_date || row.date),
+            parseFloat(
+              parseFloat(
+                row.net_invoice_amount || row.total_amount || 0,
+              ).toFixed(2),
+            ),
+          ]);
+        });
+        wsData.push([
+          "",
+          "",
+          "Total",
+          parseFloat(purchaseTotal.toFixed(2)),
+        ]);
+      }
+
+      if (hasReturns) {
+        wsData.push(["Purchase Return:"]);
+        returnRows.forEach((r) => {
+          const docText = `Bill No: ${r.grn_number || r.invoice_no || "—"}\nRtn No: ${r.return_number || "—"}${r.remarks ? `\nRemarks: ${r.remarks}` : ""}`;
+          const dateText = `B.D: ${formatDate(r.invoice_date || r.grn_date) || "—"}\nR.D: ${formatDate(r.return_date) || "—"}`;
+          wsData.push([
+            sl++,
+            docText,
+            dateText,
+            -parseFloat(parseFloat(r.total_amount || 0).toFixed(2)),
+          ]);
+        });
+        wsData.push([
+          "",
+          "",
+          "Total",
+          -parseFloat(returnTotal.toFixed(2)),
+        ]);
+      }
+
+      if (hasPurchase && hasReturns) {
+        wsData.push([
+          "",
+          "",
+          "Final Amount",
+          parseFloat(netTotal.toFixed(2)),
+        ]);
+      }
+      wsData.push([]);
+    });
+
+    wsData.push([
+      "",
+      "",
+      "Grand Total:",
+      parseFloat(grandNet.toFixed(2)),
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [
+      { wch: 6 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 18 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Report");
+    XLSX.writeFile(
+      wb,
+      `PurchaseReport_${new Date().toISOString().split("T")[0]}.xlsx`,
+    );
   };
 
   // ── Pagination ───────────────────────────────────────────────────
@@ -1013,10 +1275,10 @@ const InvoiceReport = () => {
     );
     const stats = prices.length
       ? {
-          min: Math.min(...prices),
-          max: Math.max(...prices),
-          avg: prices.reduce((a, b) => a + b, 0) / prices.length,
-        }
+        min: Math.min(...prices),
+        max: Math.max(...prices),
+        avg: prices.reduce((a, b) => a + b, 0) / prices.length,
+      }
       : { min: 0, max: 0, avg: 0 };
     const totalStock = historyData.reduce(
       (t, h) => t + parseInt(h.matched_item?.totalstock || 0),
@@ -1961,6 +2223,18 @@ const InvoiceReport = () => {
                   </tbody>
                 </Table>
               </TableWrapper>
+              <div style={{ marginTop: 14 }}>
+                <Label style={{ fontWeight: 600, display: "block", marginBottom: 4 }}>
+                  Remarks <span style={{ color: "#dc2626" }}>*</span>
+                </Label>
+                <Input
+                  type="text"
+                  placeholder="Enter purchase return remarks / reason"
+                  value={returnRemarks}
+                  onChange={(e) => setReturnRemarks(e.target.value)}
+                  style={{ width: "100%" }}
+                />
+              </div>
               <div
                 style={{
                   display: "flex",
@@ -1980,6 +2254,7 @@ const InvoiceReport = () => {
           </ModalContainer>
         </ModalOverlay>
       )}
+      <ToastContainer position="top-right" autoClose={1500} />
     </Container>
   );
 };

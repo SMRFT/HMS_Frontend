@@ -876,14 +876,17 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
         <div><strong>Name</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {(pd.patient_name || "—").toUpperCase()}, {pd.gender || ""}, {pd.age ? `${pd.age} YEARS` : ""}</div>
         <div><strong>IP Number</strong> &nbsp;&nbsp;: {bill.ip_number || pd.ip_number || "—"}</div>
 
-        <div><strong>Address</strong> &nbsp;&nbsp;&nbsp;: {pd.address || pd.permanent_address || "—"}</div>
-        <div><strong>Billdate</strong> &nbsp;&nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}</div>
+        <div><strong>Phone</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {pd.mobile || pd.mobilePhone || pd.phone || "—"}</div>
+        <div><strong>Bill Date</strong> &nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}</div>
 
-        <div><strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}</div>
+        <div><strong>Address</strong> &nbsp;&nbsp;&nbsp;: {pd.address || pd.permanent_address || "—"}</div>
         <div><strong>DOA</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(pd.admission_date || pd.admissionDateTime)}</div>
 
-        <div><strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}</div>
+        <div><strong>Doctor</strong> &nbsp;&nbsp;&nbsp;&nbsp;: {pd.doctor || pd.admittingDoctorName || pd.admitting_doctor || "DR. ATTENDING PHYSICIAN"}</div>
         <div><strong>DOD</strong> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {fmtDateStr(bill.bill_date)}</div>
+
+        <div><strong>Room Details</strong>: {pd.room_no || pd.roomNo || "GENERAL WARD"}</div>
+        <div><strong>Next Visit</strong> &nbsp;: {bill.next_visit_date ? fmtDateStr(bill.next_visit_date) : "—"}</div>
       </div>
 
       {/* Items Table */}
@@ -910,13 +913,45 @@ const PrintSheet = React.forwardRef(({ bill }, ref) => {
 
       {/* Summary Totals */}
       <div style={{ borderTop: "1.5px solid #000", borderBottom: "1.5px solid #000", paddingTop: 8, paddingBottom: 8, marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.88rem", fontWeight: "bold" }}>
-          <span>Total :</span>
-          <span style={{ width: "100px", textAlign: "right" }}>{fmt(bill.total_amount)}</span>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
+          <span>Total Items Amount :</span>
+          <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.total_amount)}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.92rem", fontWeight: "bold", marginTop: 6 }}>
-          <span>Net Amount :</span>
-          <span style={{ width: "100px", textAlign: "right" }}>{fmt(bill.net_amount)}</span>
+        {parseFloat(bill.medicines_amount) > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
+            <span>Medicines :</span>
+            <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.medicines_amount)}</span>
+          </div>
+        )}
+        {parseFloat(bill.gst_amount) > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", marginBottom: 3 }}>
+            <span>GST :</span>
+            <span style={{ width: "110px", textAlign: "right" }}>₹{fmt(bill.gst_amount)}</span>
+          </div>
+        )}
+        {parseFloat(bill.advance_amount) > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
+            <span>Less: Advance Paid :</span>
+            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.advance_amount)}</span>
+          </div>
+        )}
+        {parseFloat(bill.sales_return) > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
+            <span>Less: Sales Return :</span>
+            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.sales_return)}</span>
+          </div>
+        )}
+        {parseFloat(bill.discount_amount) > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.84rem", color: "#b91c1c", marginBottom: 3 }}>
+            <span>Less: Discount :</span>
+            <span style={{ width: "110px", textAlign: "right" }}>-₹{fmt(bill.discount_amount)}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 24, fontSize: "0.92rem", fontWeight: "bold", marginTop: 6, borderTop: "1px dashed #666", paddingTop: 4 }}>
+          <span>{parseFloat(bill.net_amount) < 0 ? "Net Amount (Refund) :" : "Net Amount :"}</span>
+          <span style={{ width: "110px", textAlign: "right", color: parseFloat(bill.net_amount) < 0 ? "#b91c1c" : "#15803d" }}>
+            ₹{fmt(bill.net_amount)}
+          </span>
         </div>
       </div>
 

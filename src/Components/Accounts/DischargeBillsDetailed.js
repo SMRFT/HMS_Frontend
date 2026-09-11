@@ -149,8 +149,13 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
             if (discountOnly) params.set("discount_only", "true");
             const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
-            if (response.success && response.data && Array.isArray(response.data.data)) {
-                setReportData(response.data.data);
+            if (response.success && response.data) {
+                const rows = Array.isArray(response.data.data)
+                    ? response.data.data
+                    : Array.isArray(response.data)
+                    ? response.data
+                    : [];
+                setReportData(rows);
             }
         } catch (error) {
             console.error("Error fetching report:", error);
@@ -164,9 +169,11 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
     };
 
     const totals = reportData.reduce((acc, curr) => {
-        acc.amount += (curr.total_amount || 0);
-        acc.discount += (curr.total_disc || curr.discount_amount || 0);
-        acc.net += (curr.net_amount || 0);
+        const amt = Number(curr.total_amount) || 0;
+        const disc = Number(curr.total_disc || curr.discount_amount) || 0;
+        acc.amount += amt;
+        acc.discount += disc;
+        acc.net += (amt - disc);
         return acc;
     }, { amount: 0, discount: 0, net: 0 });
 

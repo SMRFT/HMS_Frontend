@@ -207,27 +207,42 @@ const AssetsManagement = () => {
       if (toDate) params.to_date = toDate;
       const query = new URLSearchParams(params).toString();
       const resp = await apiRequest(`${backendUrl}stores-assets-management/${query ? `?${query}` : ''}`, 'GET');
-      setAssets(resp.data);
+      if (resp && resp.success && Array.isArray(resp.data)) {
+        setAssets(resp.data);
+      } else {
+        setAssets([]);
+      }
     } catch (error) {
       console.error("Error fetching assets:", error);
+      setAssets([]);
     }
   };
 
   const fetchDepartments = async () => {
     try {
       const resp = await apiRequest(`${backendUrl}department-master/`, 'GET');
-      setDepartments(resp.data);
+      if (resp && resp.success && Array.isArray(resp.data)) {
+        setDepartments(resp.data);
+      } else {
+        setDepartments([]);
+      }
     } catch (error) {
       console.error("Error fetching departments:", error);
+      setDepartments([]);
     }
   };
 
   const fetchItemMasters = async () => {
     try {
       const resp = await apiRequest(`${backendUrl}item-master/`, 'GET');
-      setItemMasters(resp.data);
+      if (resp && resp.success && Array.isArray(resp.data)) {
+        setItemMasters(resp.data);
+      } else {
+        setItemMasters([]);
+      }
     } catch (error) {
       console.error("Error fetching item masters:", error);
+      setItemMasters([]);
     }
   };
 
@@ -448,9 +463,10 @@ const AssetsManagement = () => {
     toast.success("Exported successfully!");
   };
 
-  const filteredAssets = assets.filter(asset => {
-    const matchesSearch = asset.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredAssets = (Array.isArray(assets) ? assets : []).filter(asset => {
+    if (!asset) return false;
+    const matchesSearch = asset.asset_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      asset.asset_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.department?.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (statusFilter === "active") return matchesSearch && asset.is_active !== false;
@@ -501,9 +517,9 @@ const AssetsManagement = () => {
                   />
                   {showItemDropdown && (
                     <ItemDropdownList>
-                      {itemMasters
+                      {(Array.isArray(itemMasters) ? itemMasters : [])
                         .filter(item =>
-                          item.itemName?.toLowerCase().includes(itemSearch.toLowerCase())
+                          item?.itemName?.toLowerCase().includes(itemSearch.toLowerCase())
                         )
                         .map(item => (
                           <ItemDropdownItem
@@ -518,8 +534,8 @@ const AssetsManagement = () => {
                           </ItemDropdownItem>
                         ))
                       }
-                      {itemMasters.filter(item =>
-                        item.itemName?.toLowerCase().includes(itemSearch.toLowerCase())
+                      {(Array.isArray(itemMasters) ? itemMasters : []).filter(item =>
+                        item?.itemName?.toLowerCase().includes(itemSearch.toLowerCase())
                       ).length === 0 && (
                           <ItemDropdownItem style={{ color: colors.textMuted, cursor: "default" }}>
                             No items found
@@ -547,7 +563,7 @@ const AssetsManagement = () => {
                   required
                 >
                   <option value="">Select Department</option>
-                  {departments.map(dept => (
+                  {(Array.isArray(departments) ? departments : []).map(dept => (
                     <option key={dept.department_id} value={dept.department_name}>
                       {dept.department_name}
                     </option>

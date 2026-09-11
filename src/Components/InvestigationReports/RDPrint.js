@@ -271,6 +271,42 @@ const PatientTypeBadge = styled.span`
       : `background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;`}
 `;
 
+const CustomerTypeBadge = styled.span`
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+  ${(p) => {
+    const t = (p.type || "").toUpperCase();
+    if (t.includes("INSURANCE")) {
+      return `background: #fef3c7; color: #92400e; border: 1px solid #fde68a;`;
+    }
+    if (t.includes("CORPORATE")) {
+      return `background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff;`;
+    }
+    if (t.includes("CAMP") || t.includes("SCHEME")) {
+      return `background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0;`;
+    }
+    return `background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;`;
+  }}
+`;
+
+const PriceBadge = styled.span`
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.12rem 0.45rem;
+  border-radius: 5px;
+  background: #e0f2f1;
+  color: #00695c;
+  border: 1px solid #b2dfdb;
+  white-space: nowrap;
+  vertical-align: middle;
+`;
+
+
 
 const EmptyState = styled.div`
   text-align: center;
@@ -975,9 +1011,15 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
           display: inline-block; padding: 2px 6px; border-radius: 4px;
           font-size: 10.5px; font-weight: 700; white-space: nowrap;
         }
-        .b-ip   { background:#fee2e2; color:#b91c1c; border: 1px solid #fca5a5; }
-        .b-op   { background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd; }
-        .b-scan { background:#ede7f6; color:#4a148c; font-size: 10px; margin-top: 2px; }
+        .b-ip        { background:#fee2e2; color:#b91c1c; border: 1px solid #fca5a5; }
+        .b-op        { background:#e0f2fe; color:#0369a1; border: 1px solid #bae6fd; }
+        .b-cust-gen  { background:#f1f5f9; color:#334155; border: 1px solid #cbd5e1; }
+        .b-cust-ins  { background:#fef3c7; color:#92400e; border: 1px solid #fde68a; }
+        .b-cust-corp { background:#f3e8ff; color:#6b21a8; border: 1px solid #e9d5ff; }
+        .ins-comp    { font-size: 10px; font-weight: 700; color: #92400e; margin-top: 2px; display: block; line-height: 1.25; }
+        .b-scan      { background:#ede7f6; color:#4a148c; font-size: 10px; margin-top: 2px; }
+        .b-price     { background:#e0f2f1; color:#00695c; border: 1px solid #b2dfdb; font-size: 10px; font-weight: 700; margin-top: 2px; }
+
 
         .rpt-footer {
           margin-top: 10px; border-top: 1.5px solid #b2dfdb; padding-top: 6px;
@@ -1011,11 +1053,12 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
       <table>
         <colgroup>
           <col style="width:4%">
+          <col style="width:9%">
+          <col style="width:11%">
+          <col style="width:34%">
           <col style="width:10%">
-          <col style="width:12%">
-          <col style="width:40%">
-          <col style="width:12%">
-          <col style="width:22%">
+          <col style="width:14%">
+          <col style="width:18%">
         </colgroup>
         <thead>
           <tr>
@@ -1024,6 +1067,7 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
             <th>Bill No</th>
             <th>Patient Details with Address</th>
             <th style="text-align:center;">Patient Type</th>
+            <th style="text-align:center;">Customer Type</th>
             <th>Item / Scan Type</th>
           </tr>
         </thead>
@@ -1034,6 +1078,15 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
               const pTypeBadge = isIP
                 ? `<span class="badge b-ip">IP ${r.ipNumber ? `(${r.ipNumber})` : ""}</span>`
                 : `<span class="badge b-op">OP</span>`;
+
+              const cType = r.customer_type || r.customerType || "General";
+              const isIns = cType.toUpperCase().includes("INSURANCE");
+              const isCorp = cType.toUpperCase().includes("CORPORATE");
+              const cTypeClass = isIns ? "b-cust-ins" : (isCorp ? "b-cust-corp" : "b-cust-gen");
+              const cTypeBadge = `<span class="badge ${cTypeClass}">${cType}</span>`;
+              const compNameHTML = ((isIns || r.company_name) && r.company_name)
+                ? `<span class="ins-comp">🏢 ${r.company_name}</span>`
+                : "";
 
               return `
                 <tr>
@@ -1049,9 +1102,20 @@ const printPatientListHTML = (rows, fromDate, toDate, billTypeLabel) => {
                     ${r.address ? `<span class="p-addr"><strong>📍 Address:</strong> ${r.address}</span>` : ""}
                   </td>
                   <td style="text-align:center;">${pTypeBadge}</td>
+                  <td style="text-align:center;">
+                    ${cTypeBadge}
+                    ${compNameHTML}
+                  </td>
                   <td>
                     <div style="font-weight:700; color:#111;">${r.itemName || "—"}</div>
-                    ${r.scan_type ? `<span class="badge b-scan">${r.scan_type}</span>` : ""}
+                    <div style="display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap;">
+                      ${r.scan_type ? `<span class="badge b-scan">${r.scan_type}</span>` : ""}
+                      ${
+                        (r.finalPrice != null && r.finalPrice !== "") || (r.total != null && r.total !== "")
+                          ? `<span class="badge b-price">₹${Number(r.finalPrice != null && r.finalPrice !== "" ? r.finalPrice : r.total).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>`
+                          : ""
+                      }
+                    </div>
                   </td>
                 </tr>
               `;
@@ -1325,6 +1389,7 @@ const printRadiologyReportHTML = (row) => {
         /* FIX 1: Remove white-space:pre-wrap, use nl2br + innerHTML */
         .impression-content {
           font-size: 11px;
+          font-weight: 700;
           color: #111;
           line-height: 1.6;
           word-break: break-word;
@@ -2016,13 +2081,16 @@ const RDPrint = () => {
               <thead>
                 <tr>
                   <PTh style={{ width: "4%", textAlign: "center" }}>Sl.No</PTh>
-                  <PTh style={{ width: "10%" }}>Bill Date</PTh>
-                  <PTh style={{ width: "12%" }}>Bill No</PTh>
-                  <PTh style={{ width: "40%" }}>Patient Details with Address</PTh>
-                  <PTh style={{ width: "12%", textAlign: "center" }}>
+                  <PTh style={{ width: "9%" }}>Bill Date</PTh>
+                  <PTh style={{ width: "11%" }}>Bill No</PTh>
+                  <PTh style={{ width: "34%" }}>Patient Details with Address</PTh>
+                  <PTh style={{ width: "10%", textAlign: "center" }}>
                     Patient Type (IP or OP)
                   </PTh>
-                  <PTh style={{ width: "22%" }}>Item / Scan Type</PTh>
+                  <PTh style={{ width: "14%", textAlign: "center" }}>
+                    Customer Type
+                  </PTh>
+                  <PTh style={{ width: "18%" }}>Item / Scan Type</PTh>
                 </tr>
               </thead>
               <tbody>
@@ -2032,6 +2100,8 @@ const RDPrint = () => {
                       r.ipNumber && String(r.ipNumber).trim() !== ""
                     );
                     const pType = isIP ? "IP" : (r.patientType || "OP");
+                    const cType = r.customer_type || r.customerType || "General";
+                    const isIns = (cType || "").toUpperCase().includes("INSURANCE");
 
                     return (
                       <tr key={`${r.investBillNo}-${r.item_id}-${i}`}>
@@ -2109,6 +2179,34 @@ const RDPrint = () => {
                               : "OP"}
                           </PatientTypeBadge>
                         </PTd>
+                        <PTd alt={i % 2 === 1} style={{ textAlign: "center" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: "3px",
+                            }}
+                          >
+                            <CustomerTypeBadge type={cType}>
+                              {cType}
+                            </CustomerTypeBadge>
+                            {((isIns || r.company_name) && r.company_name) && (
+                              <span
+                                style={{
+                                  fontSize: "0.68rem",
+                                  fontWeight: 700,
+                                  color: "#92400e",
+                                  lineHeight: "1.2",
+                                  maxWidth: "140px",
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                🏢 {r.company_name}
+                              </span>
+                            )}
+                          </div>
+                        </PTd>
                         <PTd alt={i % 2 === 1}>
                           <div
                             style={{
@@ -2119,21 +2217,45 @@ const RDPrint = () => {
                           >
                             {r.itemName || "—"}
                           </div>
-                          {r.scan_type && (
-                            <ScanTypeBadge
-                              type={r.scan_type}
-                              style={{ marginLeft: 0, marginTop: "3px" }}
-                            >
-                              {r.scan_type}
-                            </ScanTypeBadge>
-                          )}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              marginTop: "3px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {r.scan_type && (
+                              <ScanTypeBadge
+                                type={r.scan_type}
+                                style={{ marginLeft: 0, marginTop: 0 }}
+                              >
+                                {r.scan_type}
+                              </ScanTypeBadge>
+                            )}
+                            {((r.finalPrice != null && r.finalPrice !== "") ||
+                              (r.total != null && r.total !== "")) && (
+                              <PriceBadge>
+                                ₹
+                                {Number(
+                                  r.finalPrice != null && r.finalPrice !== ""
+                                    ? r.finalPrice
+                                    : r.total
+                                ).toLocaleString("en-IN", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </PriceBadge>
+                            )}
+                          </div>
                         </PTd>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       <EmptyState>No patient records to display</EmptyState>
                     </td>
                   </tr>

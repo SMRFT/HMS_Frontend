@@ -19,7 +19,7 @@ function setforlocaldev() {
   if (dev_token && dev_token.trim() !== "") {
     const selectedBranch = "SHB001";
     localStorage.setItem("selected_branch", selectedBranch);
-    const selectedOutlet = "OLET005";
+    const selectedOutlet = "OLET002";
     localStorage.setItem("selected_outlet", selectedOutlet);
   }
   return dev_token;
@@ -111,16 +111,9 @@ function isPublicRoute() {
   const isPublic = isPublicRoute();
 
   try {
-    // Retrieve token from localStorage
-    let accessToken = localStorage.getItem("access_token");
-
-    // If no token found and not a public route, try development token
-    if (!accessToken && !isPublic) {
-      console.log(
-        "❌ No token found in localStorage, trying development token",
-      );
-      accessToken = setforlocaldev();
-    }
+    // If development token is provided, prioritize it for local development
+    const devToken = setforlocaldev();
+    let accessToken = (devToken && devToken.trim() !== "") ? devToken : localStorage.getItem("access_token");
 
     // If still no token (development token is empty) and not a public route, redirect to login
     if ((!accessToken || accessToken.trim() === "") && !isPublic) {

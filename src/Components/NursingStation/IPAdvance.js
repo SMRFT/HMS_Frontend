@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import styled, { createGlobalStyle, keyframes } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -76,21 +76,29 @@ const Page = styled.div`
   gap: 14px;
 `;
 
-const PageTitle = styled.div`
-  font-size: 1rem;
-  font-weight: 800;
-  color: ${T.tealDark};
-  letter-spacing: -0.02em;
+const PageHeader = styled.div`
+  background: linear-gradient(135deg, ${T.teal} 0%, ${T.tealDark} 100%);
+  color: white;
+  padding: 14px 20px;
+  border-radius: 8px 8px 0 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
-  &::before {
-    content: '';
-    width: 4px; height: 20px;
-    background: linear-gradient(180deg, ${T.teal}, ${T.blue});
-    border-radius: 2px;
-    display: block;
-  }
+  margin-bottom: 4px;
+`;
+const PageTitle = styled.h1`
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+`;
+const PageSubtitle = styled.p`
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  opacity: 0.85;
+  color: #fff;
 `;
 
 const Card = styled.div`
@@ -164,13 +172,14 @@ const Lbl = styled.label`
 `;
 
 const inputBase = `
-  height: 27px;
-  padding: 0 7px;
-  font-size: 0.75rem;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 0.84rem;
   border: 1px solid ${T.border};
-  border-radius: 5px;
+  border-radius: 6px;
   color: ${T.text};
   width: 100%;
+  box-sizing: border-box;
   outline: none;
   font-family: inherit;
   transition: border-color .14s, box-shadow .14s;
@@ -198,11 +207,11 @@ const Select = styled.select`
 `;
 
 const Btn = styled.button`
-  height: 29px;
-  padding: 0 16px;
-  font-size: 0.74rem;
+  height: 34px;
+  padding: 0 18px;
+  font-size: 0.82rem;
   font-weight: 700;
-  border-radius: 5px;
+  border-radius: 6px;
   border: none;
   cursor: pointer;
   transition: opacity .14s, transform .1s;
@@ -254,13 +263,18 @@ const KebabBtn = styled.button`
 `;
 
 const DropMenu = styled.div`
-  position: absolute; right: 0; top: 34px; z-index: 9999;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 99999;
   background: ${T.white};
   border: 1px solid ${T.border};
-  border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.14);
-  min-width: 178px; overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  min-width: 170px;
+  overflow: hidden;
   display: ${({ open }) => open ? "block" : "none"};
+  animation: ${slideDown} 0.12s ease;
 `;
 
 const DropItem = styled.button`
@@ -345,7 +359,8 @@ const ActionBar = styled.div`
 const TblWrap = styled.div`
   overflow-x: auto;
   overflow-y: visible;
-  padding: 0 14px 14px;
+  padding: 0 14px 60px;
+  min-height: 240px;
 `;
 
 const Tbl = styled.table`
@@ -357,12 +372,12 @@ const Tbl = styled.table`
 
 const Th = styled.th`
   background: #f1f5f9;
-  padding: 6px 8px;
+  padding: 10px 10px;
   text-align: ${({ right }) => right ? "right" : "left"};
   font-weight: 700;
   border-bottom: 2px solid ${T.border};
   white-space: nowrap;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: .04em;
   color: ${T.muted};
@@ -375,9 +390,10 @@ const Tr = styled.tr`
 `;
 
 const Td = styled.td`
-  padding: 5px 8px;
+  padding: 9px 10px;
   border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
+  font-size: 0.82rem;
   text-align: ${({ right }) => right ? "right" : "left"};
 `;
 
@@ -611,6 +627,180 @@ const RefundTag = styled.span`
   margin-left: 4px;
 `;
 
+// ─── Searchable Select Component ─────────────────────────────────────────────
+function SearchSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Search & select...",
+  disabled = false,
+  error = false,
+  name = "",
+  style = {},
+  height = "32px",
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef(null);
+
+  const normOptions = useMemo(() => {
+    return options.map(opt => {
+      if (typeof opt === "string") return { value: opt, label: opt, sub: "" };
+      const val = opt.value ?? opt.id ?? opt.bill_type ?? "";
+      const lbl = opt.label ?? opt.name ?? opt.bill_name ?? String(val);
+      const sub = opt.subLabel ?? opt.billTypeNo ?? "";
+      return { value: String(val), label: String(lbl), sub: sub ? String(sub) : "" };
+    });
+  }, [options]);
+
+  const selectedOpt = useMemo(() => {
+    return normOptions.find(o => String(o.value) === String(value));
+  }, [normOptions, value]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return normOptions;
+    const q = query.toLowerCase();
+    return normOptions.filter(o =>
+      o.label.toLowerCase().includes(q) ||
+      o.value.toLowerCase().includes(q) ||
+      (o.sub && o.sub.toLowerCase().includes(q))
+    );
+  }, [normOptions, query]);
+
+  useEffect(() => {
+    const handleOut = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleOut);
+    return () => document.removeEventListener("mousedown", handleOut);
+  }, []);
+
+  const handleChoose = (opt) => {
+    if (disabled) return;
+    onChange && onChange({ target: { name, value: opt.value } });
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    if (disabled) return;
+    onChange && onChange({ target: { name, value: "" } });
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
+      <div
+        onClick={() => { if (!disabled) { setIsOpen(!isOpen); setQuery(""); } }}
+        style={{
+          height: height,
+          boxSizing: "border-box",
+          padding: "0 10px",
+          fontSize: "0.78rem",
+          border: error ? "1px solid #ef4444" : isOpen ? "1px solid #0d9488" : "1px solid #e2e8f0",
+          borderRadius: "6px",
+          background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? "#64748b" : selectedOpt ? "#0f172a" : "#94a3b8",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: disabled ? "not-allowed" : "pointer",
+          boxShadow: isOpen ? "0 0 0 2px rgba(13,148,136,0.15)" : "none",
+          userSelect: "none",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+          {selectedOpt ? (selectedOpt.sub ? `${selectedOpt.label} (${selectedOpt.sub})` : selectedOpt.label) : placeholder}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+          {selectedOpt && !disabled && (
+            <span
+              onClick={handleClear}
+              title="Clear"
+              style={{ fontSize: "0.72rem", color: "#94a3b8", cursor: "pointer", padding: "0 2px" }}
+            >
+              ✕
+            </span>
+          )}
+          <span style={{ fontSize: "0.65rem", color: "#64748b" }}>{isOpen ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 3px)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            border: "1px solid #cbd5e1",
+            borderRadius: "6px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            zIndex: 99999,
+            maxHeight: "220px",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ padding: "6px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Type to filter..."
+              style={{
+                width: "100%",
+                height: "28px",
+                padding: "0 8px",
+                boxSizing: "border-box",
+                fontSize: "0.74rem",
+                border: "1px solid #cbd5e1",
+                borderRadius: "4px",
+                outline: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "10px", fontSize: "0.74rem", color: "#94a3b8", textAlign: "center" }}>
+              No matches found
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                onClick={() => handleChoose(opt)}
+                style={{
+                  padding: "7px 10px",
+                  fontSize: "0.76rem",
+                  cursor: "pointer",
+                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
+                  color: String(opt.value) === String(value) ? "#0f766e" : "#0f172a",
+                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  borderBottom: "1px solid #f8fafc",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
+              >
+                <span>{opt.label}</span>
+                {opt.sub && <span style={{ fontSize: "0.67rem", color: "#64748b", fontWeight: 600 }}>{opt.sub}</span>}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 const EMPTY_COMMON = {
   uhid: "", ipNumber: "", name: "", age: "", gender: "",
@@ -637,8 +827,9 @@ export default function IPAdvance() {
   const [saving, setSaving]           = useState(false);
   const [billTypes, setBillTypes]     = useState([]);
   const [selectedBillType, setSelectedBillType] = useState("");
+  const [activeTab, setActiveTab]                   = useState("create");
   const [selectedBillTypeNo, setSelectedBillTypeNo] = useState("");
-  const [loadingBillTypes, setLoadingBillTypes] = useState(false);
+  const [loadingBillTypes, setLoadingBillTypes]     = useState(false);
 
   // ── Edit state ────────────────────────────────────────────────────────────
   const [editingRecord, setEditingRecord] = useState(null);
@@ -687,8 +878,8 @@ export default function IPAdvance() {
   const total        = parseFloat(amount) || 0;
   const splitIP      = parseFloat(ipAdv)  || 0;
   const splitBill    = parseFloat(billAdv) || 0;
-  const splitTouched = ipAdv !== "" || billAdv !== "";
-  const splitOk      = total > 0 && Math.abs(splitIP + splitBill - total) < 0.01;
+  const splitEntered = ipAdv.trim() !== "" && billAdv.trim() !== "";
+  const splitOk      = total > 0 && splitEntered && Math.abs(splitIP + splitBill - total) < 0.01;
   const fmt = (v) => parseFloat(v || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 
   // ── Refund helpers ────────────────────────────────────────────────────────
@@ -778,10 +969,24 @@ export default function IPAdvance() {
     try {
       const qs  = new URLSearchParams(params).toString();
       const res = await apiRequest(`${BASE}get_active_admission/?${qs}`, "GET");
-      if (!res.success) return toast.error(res.error || "No active admission found");
+      if (!res.success) {
+        setAdmId(null);
+        setCommon(prev => ({
+          ...EMPTY_COMMON,
+          uhid: params.uhid !== undefined ? params.uhid : prev.uhid,
+          ipNumber: params.ip_number !== undefined ? params.ip_number : prev.ipNumber,
+        }));
+        return toast.error(res.error || res.message || "No active admission found");
+      }
       const adm = res?.data?.data ?? res?.data ?? res;
 
       if (!adm?.ipNumber && !adm?.uhid) {
+        setAdmId(null);
+        setCommon(prev => ({
+          ...EMPTY_COMMON,
+          uhid: params.uhid !== undefined ? params.uhid : prev.uhid,
+          ipNumber: params.ip_number !== undefined ? params.ip_number : prev.ipNumber,
+        }));
         return toast.error("No active admission found");
       }
 
@@ -878,8 +1083,10 @@ export default function IPAdvance() {
     if (total <= 0)               return toast.warning("Enter a valid advance amount");
     if (!selectedBillType || !selectedBillTypeNo)
       return toast.warning("Select a Bill Type");
-    if (splitTouched && !splitOk)
-      return toast.warning("IP Advance + Billing Advance must equal Advance Amount");
+    if (!splitEntered)
+      return toast.warning("Both IP Advance and Billing Advance must be entered");
+    if (!splitOk)
+      return toast.warning(`IP Advance (₹${fmt(splitIP)}) + Billing Advance (₹${fmt(splitBill)}) must equal Advance Amount (₹${fmt(total)})`);
 
     setSaving(true);
     try {
@@ -892,6 +1099,7 @@ export default function IPAdvance() {
         bill_type: selectedBillType,
         billTypeNo: selectedBillTypeNo,
       };
+      let savedRecord = null;
       if (editingRecord) {
         const res = await apiRequest(
           `${BASE}admission-advance/${encodeURIComponent(admissionId)}/`,
@@ -903,6 +1111,13 @@ export default function IPAdvance() {
         );
         if (!res.success) throw new Error(res.error || "Edit failed");
         toast.success("Advance updated!");
+        savedRecord = {
+          ...editingRecord,
+          ...payload,
+          ...(res.data || res.advance || {}),
+          ip_number: common.ipNumber,
+          patient_name: common.name,
+        };
         cancelEditMode();
       } else {
         const res = await apiRequest(
@@ -912,10 +1127,21 @@ export default function IPAdvance() {
         );
         if (!res.success) throw new Error(res.error || "Save failed");
         toast.success("Advance saved!");
+        savedRecord = {
+          ...payload,
+          ...(res.data || res.advance || {}),
+          ip_number: common.ipNumber,
+          patient_name: common.name,
+          bill_date: new Date().toISOString(),
+          paid_date: new Date().toISOString(),
+        };
       }
       setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); setPaymentMode("Cash");
       setSelectedBillType(""); setSelectedBillTypeNo("");
       fetchAdvancesByDate(filterFromDate, filterToDate);
+      if (savedRecord) {
+        openPrintModal(savedRecord);
+      }
     } catch (e) {
       toast.error(e.message || "Failed to save advance");
     } finally {
@@ -935,6 +1161,7 @@ export default function IPAdvance() {
     setSelectedBillType(String(record.bill_type || ""));
     setSelectedBillTypeNo(record.billTypeNo || "");
     loadActiveAdmission({ ip_number: ipNo });
+    setActiveTab("create");
     setTimeout(() => {
       advanceFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 200);
@@ -1167,378 +1394,439 @@ export default function IPAdvance() {
     <>
       <GlobalStyle />
       <Page className="no-print">
-        <PageTitle>💳 IP Advance Entry & Management</PageTitle>
+        {/* ── Header with Tabs ── */}
+        <PageHeader>
+          <div>
+            <PageTitle>💳 IP Advance</PageTitle>
+            <PageSubtitle>Inpatient Advance Payment &amp; Collection Management</PageSubtitle>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[
+              { id: "create", label: "+ Create Advance" },
+              { id: "list", label: "📋 Advance List" }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (tab.id === "list") fetchAdvancesByDate(filterFromDate, filterToDate);
+                }}
+                style={
+                  activeTab === tab.id
+                    ? {
+                        background: "white",
+                        color: T.teal,
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "6px 14px",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }
+                    : {
+                        background: "rgba(255,255,255,0.18)",
+                        color: "white",
+                        border: "1px solid rgba(255,255,255,0.35)",
+                        borderRadius: 6,
+                        padding: "6px 14px",
+                        fontSize: "0.8rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }
+                }
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </PageHeader>
 
-        {/* ── PATIENT & ADMISSION ── */}
-        <Card>
-          <CardHead color="teal">
-            <span>🏥 Patient &amp; Admission Details</span>
-          </CardHead>
-          <CardBody>
-            <Grid cols={6}>
-              <GroupLabel c="teal">Search Admission</GroupLabel>
-              <F span={2}>
-                <Lbl>UHID</Lbl>
-                <Inp value={common.uhid} placeholder="Enter UHID"
-                  onChange={e => setCommon(p => ({ ...p, uhid: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && searchByUHID()} />
-              </F>
-              <F span={2}>
-                <Lbl>IP No</Lbl>
-                <Inp value={common.ipNumber} placeholder="Enter IP No"
-                  onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
-                  onKeyDown={e => e.key === "Enter" && searchByIP()} />
-              </F>
-               <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={handleSearch}>🔍 Search</Btn></F>
-              <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
+        {activeTab === "create" && (
+          <>
+            {/* ── PATIENT & ADMISSION ── */}
+            <Card>
+              <CardHead color="teal">
+                <span>🏥 Patient &amp; Admission Details</span>
+              </CardHead>
+              <CardBody>
+                <Grid cols={6}>
+                  <GroupLabel c="teal">Search Admission</GroupLabel>
+                  <F span={2}>
+                    <Lbl>UHID</Lbl>
+                    <Inp value={common.uhid} placeholder="Enter UHID"
+                      onChange={e => setCommon(p => ({ ...p, uhid: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && searchByUHID()} />
+                  </F>
+                  <F span={2}>
+                    <Lbl>IP No</Lbl>
+                    <Inp value={common.ipNumber} placeholder="Enter IP No"
+                      onChange={e => setCommon(p => ({ ...p, ipNumber: e.target.value }))}
+                      onKeyDown={e => e.key === "Enter" && searchByIP()} />
+                  </F>
+                  <F span={1}><Lbl>&nbsp;</Lbl><Btn onClick={handleSearch}>🔍 Search</Btn></F>
+                  <F span={1}><Lbl>&nbsp;</Lbl><Btn v="reset" onClick={handleResetForm}>↺ Reset</Btn></F>
 
-              <GroupLabel c="teal">Patient Info</GroupLabel>
-              <F span={3}><Lbl>Patient Name</Lbl><Inp value={common.name} readOnly /></F>
-              <F><Lbl>Age</Lbl><Inp value={common.age} readOnly /></F>
-              <F><Lbl>Gender</Lbl><Inp value={common.gender} readOnly /></F>
-              <F><Lbl>Customer Type</Lbl><Inp value={common.customer_type} readOnly /></F>
-              <F span={4}><Lbl>Address</Lbl><Inp value={common.address} readOnly /></F>
-              <F span={2}><Lbl>Company</Lbl><Inp value={common.company} readOnly /></F>
+                  <GroupLabel c="teal">Patient Info</GroupLabel>
+                  <F span={3}><Lbl>Patient Name</Lbl><Inp value={common.name} readOnly /></F>
+                  <F><Lbl>Age</Lbl><Inp value={common.age} readOnly /></F>
+                  <F><Lbl>Gender</Lbl><Inp value={common.gender} readOnly /></F>
+                  <F><Lbl>Customer Type</Lbl><Inp value={common.customer_type} readOnly /></F>
+                  <F span={4}><Lbl>Address</Lbl><Inp value={common.address} readOnly /></F>
+                  <F span={2}><Lbl>Company</Lbl><Inp value={common.company} readOnly /></F>
 
-              <GroupLabel c="teal">Admission Details</GroupLabel>
-              <F><Lbl>Room No</Lbl><Inp value={common.roomNo} readOnly /></F>
-              <F><Lbl>Bed No</Lbl><Inp value={common.bedNo} readOnly /></F>
-              <F span={2}><Lbl>Admitting Date</Lbl><Inp value={common.admittingDate} readOnly /></F>
-              <F span={2}><Lbl>Admitting Doctor</Lbl><Inp value={common.admittingDoctor} readOnly /></F>
-              <F span={2} />
-            </Grid>
-          </CardBody>
-        </Card>
+                  <GroupLabel c="teal">Admission Details</GroupLabel>
+                  <F><Lbl>Room No</Lbl><Inp value={common.roomNo} readOnly /></F>
+                  <F><Lbl>Bed No</Lbl><Inp value={common.bedNo} readOnly /></F>
+                  <F span={2}><Lbl>Admitting Date</Lbl><Inp value={common.admittingDate} readOnly /></F>
+                  <F span={2}><Lbl>Admitting Doctor</Lbl><Inp value={common.admittingDoctor} readOnly /></F>
+                  <F span={2} />
+                </Grid>
+              </CardBody>
+            </Card>
 
-        {/* ── ADVANCE INPUT FORM ── */}
-        <div ref={advanceFormRef}>
-          <Card editing={!!editingRecord}>
-            <CardHead color={editingRecord ? "orange" : "teal"}>
-              <span>{editingRecord ? "✏️ Edit Advance" : "💵 Advance Input"}</span>
-              {editingRecord && (
-                <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
-                  Editing: {editingRecord.advance_id} | Bill: {editingRecord.bill_no}
-                </span>
-              )}
-            </CardHead>
-
-            {editingRecord && (
-              <EditBanner>
-                ⚠️ You are editing an existing advance. The original entry will be marked as
-                <strong style={{ marginLeft: 4 }}>Edited</strong> and a new entry will be created.
-              </EditBanner>
-            )}
-
-            <CardBody>
-              <Grid cols={6}>
-                <GroupLabel c="teal">Payment Details</GroupLabel>
-                <F span={1}>
-                  <Lbl>Date</Lbl>
-                  <Inp type="date" value={date} onChange={e => setDate(e.target.value)} />
-                </F>
-                <F span={2}>
-                  <Lbl>Advance Amount (₹)</Lbl>
-                  <BigInp type="number" min="0" step="0.01"
-                    value={amount} placeholder="Enter total advance amount"
-                    onChange={e => handleAmountChange(e.target.value)} />
-                </F>
-                <F span={2}>
-                  <Lbl>Bill Type *</Lbl>
-                  <Select
-                    value={selectedBillType}
-                    onChange={e => {
-                      const val = e.target.value;
-                      setSelectedBillType(val);
-                      const found = billTypes.find(b => String(b.bill_type) === val);
-                      setSelectedBillTypeNo(found ? found.billTypeNo : "");
-                    }}
-                    disabled={!!editingRecord}
-                  >
-                    <option value="">Select Bill Type</option>
-                    {billTypes.map(bt => (
-                      <option key={bt.bill_type} value={String(bt.bill_type)}>
-                        {bt.bill_name} ({bt.billTypeNo})
-                      </option>
-                    ))}
-                  </Select>
-                </F>
-
-                <SplitBox>
-                  <SplitHeader>↳ Split Advance</SplitHeader>
-                  <SplitGrid>
-                    <F>
-                      <Lbl>IP Advance (₹)</Lbl>
-                      <Inp type="number" min="0" step="0.01"
-                        value={ipAdv} placeholder="0.00"
-                        disabled={total <= 0}
-                        onChange={e => handleIpAdvChange(e.target.value)} />
-                    </F>
-                    <F>
-                      <Lbl>Billing Advance (₹)</Lbl>
-                      <Inp type="number" min="0" step="0.01"
-                        value={billAdv} placeholder="0.00"
-                        disabled={total <= 0}
-                        onChange={e => setBillAdv(e.target.value)} />
-                    </F>
-                  </SplitGrid>
-                  {total > 0 && (
-                    <SplitNote ok={!splitTouched || splitOk}>
-                      {!splitTouched
-                        ? `Total to split: ₹${fmt(total)}`
-                        : splitOk
-                          ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
-                          : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
-                    </SplitNote>
+            {/* ── ADVANCE INPUT FORM ── */}
+            <div ref={advanceFormRef}>
+              <Card editing={!!editingRecord}>
+                <CardHead color={editingRecord ? "orange" : "teal"}>
+                  <span>{editingRecord ? "✏️ Edit Advance" : "💵 Advance Input"}</span>
+                  {editingRecord && (
+                    <span style={{ fontSize: "0.68rem", opacity: 0.9, fontWeight: 500 }}>
+                      Editing: {editingRecord.advance_id} | Bill: {editingRecord.bill_no}
+                    </span>
                   )}
-                </SplitBox>
-              </Grid>
-            </CardBody>
+                </CardHead>
 
-            <ActionBar>
-              {editingRecord ? (
-                <>
-                  <Btn v="reset" onClick={cancelEditMode}>✕ Cancel Edit</Btn>
-                  <Btn c="orange"
-                    onClick={handleSave}
-                    disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}>
-                    {saving ? "Updating…" : "✏️ Update Advance"}
-                  </Btn>
-                </>
-              ) : (
-                <>
-                  <Btn v="reset" onClick={() => { setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); }}>
-                    ↺ Reset Form
-                  </Btn>
-                  <Btn onClick={handleSave}
-                    disabled={saving || !admissionId || total <= 0 || (splitTouched && !splitOk)}>
-                    {saving ? "Saving…" : "💾 Save Advance"}
-                  </Btn>
-                </>
-              )}
-            </ActionBar>
-          </Card>
-        </div>
-
-        {/* ── FILTERS ── */}
-        <Card>
-          <CardHead color="blue">🔎 Filters &amp; Search</CardHead>
-          <CardBody>
-            <Grid cols={6}>
-              <F span={2}>
-                <Lbl>From Date</Lbl>
-                <Inp type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} />
-              </F>
-              <F span={2}>
-                <Lbl>To Date</Lbl>
-                <Inp type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} />
-              </F>
-              <F span={2}>
-                <Lbl>Status</Lbl>
-                <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-                  <option value="">All Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Refunded">Fully Refunded</option>
-                </Select>
-              </F>
-              <F span={1}><Lbl>&nbsp;</Lbl>
-                <Btn onClick={handleSearchFilters} disabled={loading}>
-                  {loading ? "Loading…" : "🔍 Search"}
-                </Btn>
-              </F>
-              <F span={1}><Lbl>&nbsp;</Lbl>
-                <Btn v="reset" onClick={handleResetFilters}>Reset Filters</Btn>
-              </F>
-            </Grid>
-          </CardBody>
-        </Card>
-
-        {/* ── RECORDS TABLE ── */}
-        <Card>
-          <CardHead color="violet">📋 Advance Payment Records</CardHead>
-          <TblWrap>
-            <Tbl>
-              <thead>
-                <tr>
-                  <Th>#</Th>
-                  <Th>Bill Date</Th>
-                  <Th>Bill No</Th>
-                  <Th>IP No</Th>
-                  <Th>Patient Name</Th>
-                  <Th>Bill Type</Th>
-                  <Th>Payment Mode</Th>
-                  <Th>Paid Date</Th>
-                  <Th right>Advance Amount</Th>
-                  <Th right>IP Advance</Th>
-                  <Th right>Billing Advance</Th>
-                  <Th right>Total Refunded</Th>
-                  <Th right>Net Balance</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
-                      ⏳ Loading records…
-                    </Td>
-                  </tr>
-                ) : filteredPayments.length === 0 ? (
-                  <tr>
-                    <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
-                      No advance records found for the selected date range / filters
-                    </Td>
-                  </tr>
-                ) : (
-                  filteredPayments.map((p, i) => {
-                    const status      = p.status || "Pending";
-                    const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
-                    const patientName = p.patient_name || p.name || p.patientName || "—";
-                    const ipNo        = p.ip_number    || p.ipNumber || "—";
-                    const billTypeStr = p.bill_type ? `${p.bill_type} (${p.billTypeNo || ""})` : "—";
-                    const menuId      = p.advance_id || `row-${i}`;
-                    const totalRefunded = getTotalRefunded(p);
-                    const netBalance    = (parseFloat(p.advance_amount) || 0) - totalRefunded;
-                    const hasRefunds    = totalRefunded > 0;
-
-                    const allowEdit   = canEdit(p);
-                    const allowCancel = canCancel(p);
-                    const allowRefund = canRefund(p);
-
-                    return (
-                      <Tr key={menuId} even={i % 2 === 0}>
-                        <Td style={{ fontWeight: 700, color: T.muted }}>{i + 1}</Td>
-                        <Td>{billDate}</Td>
-                        <Td style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700 }}>
-                          {p.bill_no || "—"}
-                        </Td>
-                        <Td style={{ fontWeight: 700, color: T.tealDark }}>{ipNo}</Td>
-                       <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {patientName}
-                        </Td>
-                        <Td style={{ fontSize: "0.68rem" }}>{billTypeStr}</Td>
-                        <Td>{p.payment_mode || "-"}</Td>
-                        <Td>
-                          {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
-                        </Td>
-                        <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
-                        <Td right>₹{fmt(p.ip_advance)}</Td>
-                        <Td right>₹{fmt(p.billing_advance)}</Td>
-                        {/* Total Refunded */}
-                        <Td right style={{ color: hasRefunds ? T.purple : T.muted, fontWeight: hasRefunds ? 700 : 400 }}>
-                          {hasRefunds ? `- ₹${fmt(totalRefunded)}` : "—"}
-                          {hasRefunds && (
-                            <RefundTag title={`${(p.refund_details || []).length} refund(s)`}>
-                              ×{(p.refund_details || []).length}
-                            </RefundTag>
-                          )}
-                        </Td>
-                        {/* Net Balance */}
-                        <Td right style={{
-                          fontWeight: 700,
-                          color: netBalance <= 0 ? T.red : T.green,
-                        }}>
-                          ₹{fmt(netBalance)}
-                        </Td>
-                        <Td>
-                          <StatusBadge status={status}>{status}</StatusBadge>
-                        </Td>
-                        <Td style={{ position: "relative", overflow: "visible" }}>
-                          <KebabWrap>
-                            <KebabBtn onClick={(e) => toggleMenu(menuId, e)} title="Actions">
-                              ⋮
-                            </KebabBtn>
-                            <DropMenu open={openMenuId === menuId}>
-
-                              {/* EDIT */}
-                              <DropItem
-                                disabled={!allowEdit}
-                                title={!allowEdit ? `Cannot edit — status is ${status}` : "Edit this advance"}
-                                onClick={() => {
-                                  if (!allowEdit) return;
-                                  setOpenMenuId(null);
-                                  handleEdit(p);
-                                }}
-                              >
-                                ✏️ Edit
-                                {!allowEdit && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
-                                )}
-                              </DropItem>
-
-                              {/* REFUND */}
-                              <DropItem
-                                purple
-                                disabled={!allowRefund}
-                                title={
-                                  !allowRefund
-                                    ? status !== "Paid"
-                                      ? `Refund only available for Paid advances (status: ${status})`
-                                      : "No refundable amount remaining"
-                                    : `Refund — ₹${fmt(getRefundableAmount(p))} available`
-                                }
-                                onClick={() => {
-                                  if (!allowRefund) return;
-                                  setOpenMenuId(null);
-                                  openRefundModal(p);
-                                }}
-                              >
-                                💜 Refund
-                                {allowRefund && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.purple, fontWeight: 700 }}>
-                                    ₹{fmt(getRefundableAmount(p))}
-                                  </span>
-                                )}
-                                {!allowRefund && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
-                                )}
-                              </DropItem>
-
-                              {/* PRINT */}
-                              <DropItem onClick={() => { setOpenMenuId(null); openPrintModal(p); }}>
-                                🖨️ Print Slip
-                              </DropItem>
-
-                              <DropDivider />
-
-                              {/* CANCEL */}
-                              <DropItem
-                                danger
-                                disabled={!allowCancel}
-                                title={!allowCancel ? `Cannot cancel — status is ${status}` : "Cancel this advance"}
-                                onClick={() => {
-                                  if (!allowCancel) return;
-                                  setOpenMenuId(null);
-                                  handleCancel(p.advance_id, ipNo);
-                                }}
-                              >
-                                {status === "Cancelled" ? "✕ Cancelled" : "✕ Cancel Advance"}
-                                {!allowCancel && (
-                                  <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
-                                )}
-                              </DropItem>
-
-                            </DropMenu>
-                          </KebabWrap>
-                        </Td>
-                      </Tr>
-                    );
-                  })
+                {editingRecord && (
+                  <EditBanner>
+                    ⚠️ You are editing an existing advance. The original entry will be marked as
+                    <strong style={{ marginLeft: 4 }}>Edited</strong> and a new entry will be created.
+                  </EditBanner>
                 )}
-              </tbody>
-            </Tbl>
-          </TblWrap>
 
-          <CardBody style={{ background: "#f9fafb", padding: "10px 14px", fontSize: "0.72rem", color: T.muted }}>
-            Showing <strong>{filteredPayments.length}</strong> records &nbsp;|&nbsp;
-            Pending: <strong>{filteredPayments.filter(p => p.status === "Pending").length}</strong> &nbsp;|&nbsp;
-            Paid: <strong>{filteredPayments.filter(p => p.status === "Paid").length}</strong> &nbsp;|&nbsp;
-            Cancelled: <strong>{filteredPayments.filter(p => p.status === "Cancelled").length}</strong> &nbsp;|&nbsp;
-            Refunds processed: <strong>{filteredPayments.filter(p => (p.refund_details || []).length > 0).length}</strong>
-          </CardBody>
-        </Card>
+                <CardBody>
+                  <Grid cols={6}>
+                    <GroupLabel c="teal">Payment Details</GroupLabel>
+                    <F span={1}>
+                      <Lbl>Date</Lbl>
+                      <Inp type="date" value={date} onChange={e => setDate(e.target.value)} />
+                    </F>
+                    <F span={2}>
+                      <Lbl>Advance Amount (₹)</Lbl>
+                      <BigInp type="number" min="0" step="0.01"
+                        value={amount} placeholder="Enter total advance amount"
+                        onChange={e => handleAmountChange(e.target.value)} />
+                    </F>
+                    <F span={2}>
+                      <Lbl>Bill Type *</Lbl>
+                      <SearchSelect
+                        options={billTypes.map(bt => ({
+                          value: String(bt.bill_type),
+                          label: bt.bill_name,
+                          subLabel: bt.billTypeNo,
+                        }))}
+                        value={selectedBillType}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSelectedBillType(val);
+                          const found = billTypes.find(b => String(b.bill_type) === val);
+                          setSelectedBillTypeNo(found ? found.billTypeNo : "");
+                        }}
+                        placeholder="Search Bill Type..."
+                        disabled={!!editingRecord}
+                        height="32px"
+                      />
+                    </F>
+
+                    <SplitBox>
+                      <SplitHeader>↳ Split Advance</SplitHeader>
+                      <SplitGrid>
+                        <F>
+                          <Lbl>IP Advance (₹)</Lbl>
+                          <Inp type="number" min="0" step="0.01"
+                            value={ipAdv} placeholder="0.00"
+                            disabled={total <= 0}
+                            onChange={e => handleIpAdvChange(e.target.value)} />
+                        </F>
+                        <F>
+                          <Lbl>Billing Advance (₹)</Lbl>
+                          <Inp type="number" min="0" step="0.01"
+                            value={billAdv} placeholder="0.00"
+                            disabled={total <= 0}
+                            onChange={e => setBillAdv(e.target.value)} />
+                        </F>
+                      </SplitGrid>
+                      {total > 0 && (
+                        <SplitNote ok={splitOk}>
+                          {!splitEntered
+                            ? `⚠ Enter both IP Advance & Billing Advance (Total: ₹${fmt(total)})`
+                            : splitOk
+                              ? `✓ Balanced — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} = ₹${fmt(total)}`
+                              : `⚠ Mismatch — ₹${fmt(splitIP)} + ₹${fmt(splitBill)} ≠ ₹${fmt(total)}`}
+                        </SplitNote>
+                      )}
+                    </SplitBox>
+                  </Grid>
+                </CardBody>
+
+                <ActionBar>
+                  {editingRecord ? (
+                    <>
+                      <Btn v="reset" onClick={cancelEditMode}>✕ Cancel Edit</Btn>
+                      <Btn c="orange"
+                        onClick={handleSave}
+                        disabled={saving || !admissionId || total <= 0 || !splitOk}>
+                        {saving ? "Updating…" : "✏️ Update Advance"}
+                      </Btn>
+                    </>
+                  ) : (
+                    <>
+                      <Btn v="reset" onClick={() => { setAmount(""); setIpAdv(""); setBillAdv(""); setDate(today()); }}>
+                        ↺ Reset Form
+                      </Btn>
+                      <Btn onClick={handleSave}
+                        disabled={saving || !admissionId || total <= 0 || !splitOk}>
+                        {saving ? "Saving…" : "💾 Save Advance"}
+                      </Btn>
+                    </>
+                  )}
+                </ActionBar>
+              </Card>
+            </div>
+          </>
+        )}
+
+        {activeTab === "list" && (
+          <>
+            {/* ── FILTERS ── */}
+            <Card>
+              <CardHead color="blue">🔎 Filters &amp; Search</CardHead>
+              <CardBody>
+                <Grid cols={6}>
+                  <F span={2}>
+                    <Lbl>From Date</Lbl>
+                    <Inp type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} />
+                  </F>
+                  <F span={2}>
+                    <Lbl>To Date</Lbl>
+                    <Inp type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} />
+                  </F>
+                  <F span={2}>
+                    <Lbl>Status</Lbl>
+                    <Select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                      <option value="">All Status</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Refunded">Fully Refunded</option>
+                    </Select>
+                  </F>
+                  <F span={1}><Lbl>&nbsp;</Lbl>
+                    <Btn onClick={handleSearchFilters} disabled={loading}>
+                      {loading ? "Loading…" : "🔍 Search"}
+                    </Btn>
+                  </F>
+                  <F span={1}><Lbl>&nbsp;</Lbl>
+                    <Btn v="reset" onClick={handleResetFilters}>Reset Filters</Btn>
+                  </F>
+                </Grid>
+              </CardBody>
+            </Card>
+
+            {/* ── RECORDS TABLE ── */}
+            <Card>
+              <CardHead color="violet">📋 Advance Payment Records</CardHead>
+              <TblWrap>
+                <Tbl>
+                  <thead>
+                    <tr>
+                      <Th>#</Th>
+                      <Th>Bill Date</Th>
+                      <Th>Bill No</Th>
+                      <Th>IP No</Th>
+                      <Th>Patient Name</Th>
+                      <Th>Bill Type</Th>
+                      <Th>Payment Mode</Th>
+                      <Th>Paid Date</Th>
+                      <Th right>Advance Amount</Th>
+                      <Th right>IP Advance</Th>
+                      <Th right>Billing Advance</Th>
+                      <Th right>Total Refunded</Th>
+                      <Th right>Net Balance</Th>
+                      <Th>Status</Th>
+                      <Th>Actions</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <tr>
+                        <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                          ⏳ Loading records…
+                        </Td>
+                      </tr>
+                    ) : filteredPayments.length === 0 ? (
+                      <tr>
+                        <Td colSpan={15} style={{ textAlign: "center", padding: 28, color: T.muted }}>
+                          No advance records found for the selected date range / filters
+                        </Td>
+                      </tr>
+                    ) : (
+                      filteredPayments.map((p, i) => {
+                        const status      = p.status || "Pending";
+                        const billDate    = p.bill_date ? new Date(p.bill_date).toLocaleDateString("en-IN") : "—";
+                        const patientName = p.patient_name || p.name || p.patientName || "—";
+                        const ipNo        = p.ip_number    || p.ipNumber || "—";
+                        const billTypeStr = p.bill_type ? `${p.bill_type} (${p.billTypeNo || ""})` : "—";
+                        const menuId      = String(p.bill_no || `${ipNo}_${p.advance_id || i}_${i}`);
+                        const totalRefunded = getTotalRefunded(p);
+                        const netBalance    = (parseFloat(p.advance_amount) || 0) - totalRefunded;
+                        const hasRefunds    = totalRefunded > 0;
+
+                        const allowEdit   = canEdit(p);
+                        const allowCancel = canCancel(p);
+                        const allowRefund = canRefund(p);
+
+                        return (
+                          <Tr key={menuId} even={i % 2 === 0}>
+                            <Td style={{ fontWeight: 700, color: T.muted }}>{i + 1}</Td>
+                            <Td>{billDate}</Td>
+                            <Td style={{ fontFamily: "monospace", fontSize: "0.7rem", fontWeight: 700 }}>
+                              {p.bill_no || "—"}
+                            </Td>
+                            <Td style={{ fontWeight: 700, color: T.tealDark }}>{ipNo}</Td>
+                            <Td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {patientName}
+                            </Td>
+                            <Td style={{ fontSize: "0.68rem" }}>{billTypeStr}</Td>
+                            <Td>{p.payment_mode || "-"}</Td>
+                            <Td>
+                              {p.paid_date ? new Date(p.paid_date).toLocaleString("en-IN") : "-"}
+                            </Td>
+                            <Td right style={{ fontWeight: 700 }}>₹{fmt(p.advance_amount)}</Td>
+                            <Td right>₹{fmt(p.ip_advance)}</Td>
+                            <Td right>₹{fmt(p.billing_advance)}</Td>
+                            {/* Total Refunded */}
+                            <Td right style={{ color: hasRefunds ? T.purple : T.muted, fontWeight: hasRefunds ? 700 : 400 }}>
+                              {hasRefunds ? `- ₹${fmt(totalRefunded)}` : "—"}
+                              {hasRefunds && (
+                                <RefundTag title={`${(p.refund_details || []).length} refund(s)`}>
+                                  ×{(p.refund_details || []).length}
+                                </RefundTag>
+                              )}
+                            </Td>
+                            {/* Net Balance */}
+                            <Td right style={{
+                              fontWeight: 700,
+                              color: netBalance <= 0 ? T.red : T.green,
+                            }}>
+                              ₹{fmt(netBalance)}
+                            </Td>
+                            <Td>
+                              <StatusBadge status={status}>{status}</StatusBadge>
+                            </Td>
+                            <Td style={{ position: "relative", overflow: "visible" }}>
+                              <KebabWrap>
+                                <KebabBtn onClick={(e) => toggleMenu(menuId, e)} title="Actions">
+                                  ⋮
+                                </KebabBtn>
+                                <DropMenu open={openMenuId === menuId}>
+
+                                  {/* EDIT */}
+                                  <DropItem
+                                    disabled={!allowEdit}
+                                    title={!allowEdit ? `Cannot edit — status is ${status}` : "Edit this advance"}
+                                    onClick={() => {
+                                      if (!allowEdit) return;
+                                      setOpenMenuId(null);
+                                      handleEdit(p);
+                                    }}
+                                  >
+                                    ✏️ Edit
+                                    {!allowEdit && (
+                                      <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
+                                    )}
+                                  </DropItem>
+
+                                  {/* REFUND */}
+                                  <DropItem
+                                    purple
+                                    disabled={!allowRefund}
+                                    title={
+                                      !allowRefund
+                                        ? status !== "Paid"
+                                          ? `Refund only available for Paid advances (status: ${status})`
+                                          : "No refundable amount remaining"
+                                        : `Refund — ₹${fmt(getRefundableAmount(p))} available`
+                                    }
+                                    onClick={() => {
+                                      if (!allowRefund) return;
+                                      setOpenMenuId(null);
+                                      openRefundModal(p);
+                                    }}
+                                  >
+                                    💜 Refund
+                                    {allowRefund && (
+                                      <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.purple, fontWeight: 700 }}>
+                                        ₹{fmt(getRefundableAmount(p))}
+                                      </span>
+                                    )}
+                                    {!allowRefund && (
+                                      <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
+                                    )}
+                                  </DropItem>
+
+                                  {/* PRINT */}
+                                  <DropItem onClick={() => { setOpenMenuId(null); openPrintModal(p); }}>
+                                    🖨️ Print Slip
+                                  </DropItem>
+
+                                  <DropDivider />
+
+                                  {/* CANCEL */}
+                                  <DropItem
+                                    danger
+                                    disabled={!allowCancel}
+                                    title={!allowCancel ? `Cannot cancel — status is ${status}` : "Cancel this advance"}
+                                    onClick={() => {
+                                      if (!allowCancel) return;
+                                      setOpenMenuId(null);
+                                      handleCancel(p.advance_id, ipNo);
+                                    }}
+                                  >
+                                    {status === "Cancelled" ? "✕ Cancelled" : "✕ Cancel Advance"}
+                                    {!allowCancel && (
+                                      <span style={{ marginLeft: "auto", fontSize: "0.6rem", color: T.muted }}>{status}</span>
+                                    )}
+                                  </DropItem>
+
+                                </DropMenu>
+                              </KebabWrap>
+                            </Td>
+                          </Tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </Tbl>
+              </TblWrap>
+
+              <CardBody style={{ background: "#f9fafb", padding: "10px 14px", fontSize: "0.72rem", color: T.muted }}>
+                Showing <strong>{filteredPayments.length}</strong> records &nbsp;|&nbsp;
+                Pending: <strong>{filteredPayments.filter(p => p.status === "Pending").length}</strong> &nbsp;|&nbsp;
+                Paid: <strong>{filteredPayments.filter(p => p.status === "Paid").length}</strong> &nbsp;|&nbsp;
+                Cancelled: <strong>{filteredPayments.filter(p => p.status === "Cancelled").length}</strong> &nbsp;|&nbsp;
+                Refunds processed: <strong>{filteredPayments.filter(p => (p.refund_details || []).length > 0).length}</strong>
+              </CardBody>
+            </Card>
+          </>
+        )}
       </Page>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
@@ -1748,8 +2036,7 @@ export default function IPAdvance() {
 
                       <BillSection>
                         <BillRow divider><BillLabel>Description</BillLabel><BillValue>Amount</BillValue></BillRow>
-                        <BillRow><span>1. IP Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.ip_advance)}</BillValue></BillRow>
-                        <BillRow><span>2. Billing Advance</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.billing_advance)}</BillValue></BillRow>
+                        <BillRow><span>Advance Amount</span><BillValue style={{ fontWeight: "bold" }}>₹{fmt(printRecord.advance_amount)}</BillValue></BillRow>
                       </BillSection>
 
                       {refundHistory.length > 0 && (

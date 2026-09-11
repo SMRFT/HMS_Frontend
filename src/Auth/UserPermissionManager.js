@@ -708,14 +708,15 @@ const UserPermissionManager = () => {
 
   const departmentList = useMemo(() => {
     const set = new Set(["All"]);
-    employees.forEach(emp => {
-      if (emp.department) set.add(emp.department);
+    (employees || []).forEach(emp => {
+      if (emp?.department) set.add(emp.department);
     });
     return Array.from(set);
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter(emp => {
+    return (employees || []).filter(emp => {
+      if (!emp) return false;
       const name = (emp.employeeName || "").toLowerCase();
       const id = String(emp.employeeId || "").toLowerCase();
       const term = (searchTerm || "").toLowerCase();
@@ -726,7 +727,7 @@ const UserPermissionManager = () => {
   }, [employees, searchTerm, selectedDept]);
 
   const selectedEmployeeObj = useMemo(() => {
-    return employees.find(e => e.employeeId === selectedEmpId) || null;
+    return (employees || []).find(e => e?.employeeId === selectedEmpId) || null;
   }, [employees, selectedEmpId]);
 
   useEffect(() => {
@@ -985,7 +986,7 @@ const UserPermissionManager = () => {
 
   const groupedPermissions = useMemo(() => {
     const groups = {};
-    if (!sidebarData || sidebarData.length === 0) return groups;
+    if (!sidebarData || !Array.isArray(sidebarData) || sidebarData.length === 0) return groups;
 
     sidebarData.forEach(group => {
       if (!group) return;
@@ -1011,14 +1012,15 @@ const UserPermissionManager = () => {
     const term = (pageSearchTerm || "").toLowerCase();
     const groups = {};
 
-    Object.entries(groupedPermissions).forEach(([category, pages]) => {
-      const filteredPages = pages.filter(page => {
+    Object.entries(groupedPermissions || {}).forEach(([category, pages]) => {
+      const filteredPages = (pages || []).filter(page => {
+        if (!page) return false;
         const pageName = page.pageName || "";
         const route = page.route || "";
         const matchesSearch = pageName.toLowerCase().includes(term) || route.toLowerCase().includes(term);
         if (!matchesSearch) return false;
 
-        const isEnabled = permissions.includes(page.page_id);
+        const isEnabled = (permissions || []).includes(page.page_id);
         if (pageStatusFilter === 'enabled' && !isEnabled) return false;
         if (pageStatusFilter === 'disabled' && isEnabled) return false;
 

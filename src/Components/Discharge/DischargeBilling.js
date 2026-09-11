@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import apiRequest from "../../Auth/apiRequest";
 import styled, { keyframes, createGlobalStyle } from "styled-components";
@@ -34,234 +34,517 @@ const GlobalStyle = createGlobalStyle`
 `;
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
-const PageWrap = styled.div`min-height:100vh;background:${T.bg};`;
+const PageWrap = styled.div`min-height: 100vh; background: #f8fafc;`;
 const AppBar = styled.header`
-  background:${T.primary};height:50px;padding:0 24px;
-  display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,0.15);
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  height: 52px; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 10px rgba(15, 118, 110, 0.2);
 `;
-const AppTitle = styled.div`color:#fff;font-weight:700;font-size:0.92rem;display:flex;align-items:center;gap:8px;`;
-const Crumb = styled.div`color:rgba(255,255,255,0.75);font-size:0.75rem;`;
+const AppTitle = styled.div`color: #fff; font-weight: 700; font-size: 0.94rem; display: flex; align-items: center; gap: 8px;`;
+const Crumb = styled.div`color: rgba(255, 255, 255, 0.8); font-size: 0.76rem; font-weight: 500;`;
 const Content = styled.div`
-  max-width:1400px;margin:0 auto;padding:16px;
-  @media (max-width:600px){padding:8px;}
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 16px 22px;
+  box-sizing: border-box;
+  @media (max-width: 768px) { padding: 10px; }
 `;
 
 const TabBar = styled.div`
-  display:flex;gap:4px;margin-bottom:16px;
-  background:${T.surface};border:1px solid ${T.border};
-  border-radius:${T.radius};padding:4px;width:fit-content;
-  box-shadow:${T.shadow};
+  display: flex; gap: 6px; margin-bottom: 16px;
+  background: ${T.surface}; border: 1px solid ${T.border};
+  border-radius: 10px; padding: 5px; width: fit-content;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 `;
 const Tab = styled.button`
-  padding:8px 20px;border:none;border-radius:6px;cursor:pointer;
-  font-size:0.83rem;font-weight:600;transition:all 0.15s;display:flex;align-items:center;gap:6px;
-  background:${p => p.$active ? T.primary : "transparent"};
-  color:${p => p.$active ? "#fff" : T.textMid};
-  &:hover{background:${p => p.$active ? T.primary : T.bg};}
+  padding: 8px 20px; border: none; border-radius: 7px; cursor: pointer;
+  font-size: 0.84rem; font-weight: 600; transition: all 0.18s ease; display: flex; align-items: center; gap: 7px;
+  background: ${p => p.$active ? "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)" : "transparent"};
+  color: ${p => p.$active ? "#fff" : T.textMid};
+  box-shadow: ${p => p.$active ? "0 2px 6px rgba(15,118,110,0.3)" : "none"};
+  &:hover {
+    background: ${p => p.$active ? "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)" : "#f1f5f9"};
+    color: ${p => p.$active ? "#fff" : T.textMain};
+  }
 `;
 
 const Card = styled.div`
-  background:${T.surface}; border:1px solid ${T.border};
-  border-radius:10px; box-shadow:${T.shadow};
-  margin-bottom:16px; overflow:hidden; animation:${fadeUp} 0.2s ease;
-  transition: box-shadow 0.2s ease;
-  &:hover { box-shadow: ${T.shadowMd}; }
+  background: ${T.surface}; border: 1px solid ${T.border};
+  border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.05), 0 1px 2px rgba(15,23,42,0.03);
+  margin-bottom: 16px; overflow: hidden; animation: ${fadeUp} 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  &:hover { box-shadow: 0 4px 16px rgba(15,23,42,0.08); border-color: #cbd5e1; }
 `;
 const CardHead = styled.div`
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom:1px solid ${T.border}; padding:12px 18px;
-  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  border-bottom: 1px solid ${T.border}; padding: 11px 18px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
 `;
 const CardTitle = styled.span`
-  font-size:0.75rem; font-weight:800; text-transform:uppercase;
-  letter-spacing:0.7px; color:${T.primary};
-  display:flex; align-items:center; gap:8px;
+  font-size: 0.76rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.7px; color: ${T.primary};
+  display: flex; align-items: center; gap: 8px;
   &::before {
-    content:''; display:inline-block; width:4px; height:14px;
-    background:${T.primary}; border-radius:2px;
+    content: ''; display: inline-block; width: 4px; height: 14px;
+    background: ${T.primary}; border-radius: 2px;
   }
 `;
 
 const Badge = styled.span`
-  display:inline-flex;align-items:center;padding:3px 10px;
-  border-radius:20px;font-size:0.68rem;font-weight:700;
-  background:${p => ({ estimate: "#fef3c7", billed: "#dcfce7", pending: "#dbeafe", manual: "#f1f5f9", converting: "#ede9fe" }[p.$v] || "#f1f5f9")};
-  color:${p => ({ estimate: T.amber, billed: T.success, pending: T.blue, manual: T.textMuted, converting: "#7c3aed" }[p.$v] || T.textMuted)};
+  display: inline-flex; align-items: center; padding: 4px 11px;
+  border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+  background: ${p => ({ estimate: "#fef3c7", billed: "#dcfce7", pending: "#dbeafe", manual: "#f1f5f9", converting: "#ede9fe" }[p.$v] || "#f1f5f9")};
+  color: ${p => ({ estimate: T.amber, billed: T.success, pending: T.blue, manual: T.textMuted, converting: "#7c3aed" }[p.$v] || T.textMuted)};
 `;
 
 const Toast = styled.div`
-  position:fixed;top:14px;right:16px;z-index:9999;
-  padding:10px 18px;border-radius:${T.radius};color:#fff;
-  font-weight:600;font-size:0.84rem;max-width:380px;
-  background:${p => p.$err ? T.danger : T.success};
-  box-shadow:${T.shadowMd};animation:${slideDown} 0.2s ease;
+  position: fixed; top: 14px; right: 16px; z-index: 9999;
+  padding: 10px 18px; border-radius: ${T.radius}; color: #fff;
+  font-weight: 600; font-size: 0.84rem; max-width: 380px;
+  background: ${p => p.$err ? T.danger : T.success};
+  box-shadow: ${T.shadowMd}; animation: ${slideDown} 0.2s ease;
 `;
 
-const ConvertBanner = styled.div`
-  display:flex;align-items:flex-start;gap:12px;
-  padding:12px 16px;margin-bottom:12px;
-  background:#ede9fe;border:1.5px solid #7c3aed;
-  border-radius:${T.radius};color:#5b21b6;
-  animation:${slideDown} 0.25s ease;
-`;
-
-const SearchBar = styled.div`
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
-  padding:16px;background:#fafafa;border-bottom:1px solid ${T.border};align-items:flex-end;
-`;
-const FG = styled.div`display:flex;flex-direction:column;gap:4px;width:100%;`;
-const FL = styled.label`font-size:0.68rem;font-weight:700;color:${T.textMid};text-transform:uppercase;letter-spacing:0.4px;`;
-const Req = styled.span`color:${T.danger};margin-left:2px;`;
+const FG = styled.div`display: flex; flex-direction: column; gap: 4px; width: 100%; min-width: 0;`;
+const FL = styled.label`font-size: 0.68rem; font-weight: 700; color: ${T.textMid}; text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;`;
+const Req = styled.span`color: ${T.danger}; margin-left: 2px;`;
 const FInput = styled.input`
-  height:34px;padding:0 10px;font-size:0.83rem;box-sizing:border-box;width:100%;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};transition:border 0.12s,box-shadow 0.12s;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-  &[type=date]{cursor:pointer;}
-  &::placeholder{color:${T.textMuted};}
+  height: 34px; padding: 0 10px; font-size: 0.84rem; box-sizing: border-box; width: 100%; min-width: 0;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain}; transition: border 0.12s, box-shadow 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  &[type=date] { cursor: pointer; }
+  &::placeholder { color: ${T.textMuted}; }
 `;
 const FSelect = styled.select`
-  height:34px;padding:0 10px;font-size:0.83rem;box-sizing:border-box;width:100%;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};transition:border 0.12s;cursor:pointer;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-  &:disabled{background:#f8fafc;color:${T.textMuted};cursor:not-allowed;}
+  height: 34px; padding: 0 10px; font-size: 0.84rem; box-sizing: border-box; width: 100%; min-width: 0;
+  border: 1px solid ${T.border}; border-radius: 6px; outline: none;
+  background: #fff; color: ${T.textMain}; transition: border 0.12s; cursor: pointer;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  &:disabled { background: #f8fafc; color: ${T.textMuted}; cursor: not-allowed; }
 `;
 
 const Btn = styled.button`
-  height:${p => p.$sm ? "32px" : "38px"};padding:0 ${p => p.$sm ? "14px" : "20px"};
-  border-radius:6px;font-size:${p => p.$sm ? "0.78rem" : "0.84rem"};
-  font-weight:700;cursor:pointer;border:1.5px solid transparent;
-  display:inline-flex;align-items:center;gap:6px;transition:all 0.13s;
-  ${p => p.$primary && `background:${T.primary};color:#fff;border-color:${T.primary};`}
-  ${p => p.$amber && `background:${T.amber};color:#fff;border-color:${T.amber};`}
-  ${p => p.$ghost && `background:#f1f5f9;color:${T.textMid};border-color:${T.border};`}
-  ${p => p.$purple && `background:#7c3aed;color:#fff;border-color:#7c3aed;`}
-  &:hover{opacity:0.9;} &:disabled{opacity:0.45;cursor:not-allowed;}
+  height: ${p => p.$sm ? "32px" : "38px"}; padding: 0 ${p => p.$sm ? "14px" : "20px"};
+  border-radius: 7px; font-size: ${p => p.$sm ? "0.78rem" : "0.84rem"};
+  font-weight: 700; cursor: pointer; border: 1.5px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: all 0.15s ease;
+  ${p => p.$primary && `background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%); color:#fff; border-color:transparent; box-shadow: 0 2px 6px rgba(15,118,110,0.25);`}
+  ${p => p.$amber && `background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color:#fff; border-color:transparent; box-shadow: 0 2px 6px rgba(217,119,6,0.25);`}
+  ${p => p.$ghost && `background:#f1f5f9; color:${T.textMid}; border-color:${T.border};`}
+  ${p => p.$purple && `background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color:#fff; border-color:transparent; box-shadow: 0 2px 6px rgba(124,58,237,0.25);`}
+  &:hover { opacity: 0.92; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+  &:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 `;
 const IconBtn = styled.button`
-  width:36px;height:34px;border-radius:6px;border:none;flex-shrink:0;
-  background:${T.primary};color:#fff;cursor:pointer;font-size:0.9rem;
-  display:flex;align-items:center;justify-content:center;transition:opacity 0.12s;
-  &:hover{opacity:0.88;} &:disabled{opacity:0.5;cursor:not-allowed;}
+  width: 34px; height: 34px; border-radius: 6px; border: none; flex-shrink: 0;
+  background: ${T.primary}; color: #fff; cursor: pointer; font-size: 0.88rem;
+  display: flex; align-items: center; justify-content: center; transition: opacity 0.12s;
+  &:hover { opacity: 0.88; } &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 const Spinner = styled.div`
-  width:14px;height:14px;border:2px solid rgba(255,255,255,0.35);
-  border-top-color:#fff;border-radius:50%;animation:${spin} 0.6s linear infinite;
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff; border-radius: 50%; animation: ${spin} 0.6s linear infinite;
 `;
 const MiniSpinner = styled.div`
-  width:10px;height:10px;border:2px solid #94a3b8;
-  border-top-color:${T.primary};border-radius:50%;
-  animation:${spin} 0.6s linear infinite;display:inline-block;
+  width: 10px; height: 10px; border: 2px solid #94a3b8;
+  border-top-color: ${T.primary}; border-radius: 50%;
+  animation: ${spin} 0.6s linear infinite; display: inline-block;
 `;
 
-const SearchDetailsGrid = styled.div`
+const SearchSectionWrap = styled.div`
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+`;
+
+const TopSearchRow = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 16px;
-  align-items: start;
-  @media (max-width: 960px) {
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  @media (max-width: 640px) {
     grid-template-columns: 1fr;
-    gap: 14px;
-    padding: 12px;
+    gap: 10px;
   }
 `;
 
-// ─── Patient grid ─────────────────────────────────────────────────────────────
-const PGrid = styled.div`
-  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
-  background:${T.border}; border-radius: 8px; overflow: hidden;
-  @media(max-width:1200px){grid-template-columns:repeat(2,1fr);}
-  @media(max-width:520px){grid-template-columns:1fr;}
+const SearchInputWrap = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
 `;
-const PCell = styled.div`
-  background:#fff;padding:10px 14px;display:flex;flex-direction:column;justify-content:center;
+
+const SearchActionBtn = styled.button`
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 32px;
+  border-radius: 5px;
+  border: none;
+  background: ${T.primary};
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  transition: all 0.15s ease;
+  &:hover { background: #0d9488; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
-const PLbl = styled.div`font-size:0.65rem;font-weight:700;color:${T.textMuted};text-transform:uppercase;letter-spacing:0.5px;`;
-const PVal = styled.div`font-size:0.85rem;font-weight:600;color:${T.textMain};margin-top:3px;word-break:break-word;`;
+
+const PatientSectionSplit = styled.div`
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  @media (max-width: 1060px) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+`;
+
+const StayParamsCard = styled.div`
+  background: #ffffff;
+  border: 1px solid ${T.border};
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  min-width: 0;
+  box-sizing: border-box;
+`;
+
+const StayParamsTitle = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: ${T.textMid};
+  padding-bottom: 6px;
+  border-bottom: 1px solid ${T.border};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const PatientProfileCard = styled.div`
+  background: linear-gradient(135deg, #f8fafc 0%, #f0fdfa 100%);
+  border: 1px solid #ccfbf1;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(15, 118, 110, 0.04);
+  min-width: 0;
+  box-sizing: border-box;
+`;
+
+const PatientAvatar = styled.div`
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+`;
+
+const PatientMainInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 220px;
+`;
+
+const PatientNameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const PatientNameText = styled.span`
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: ${T.textMain};
+  letter-spacing: -0.2px;
+`;
+
+const PatientMetaPills = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: ${T.textMid};
+  flex-wrap: wrap;
+`;
+
+const MetaChip = styled.span`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-family: ${p => p.$mono ? "monospace" : "inherit"};
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: ${T.textMain};
+`;
+
+const PatientMetrics2Col = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+`;
+
+const MetricBox = styled.div`
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+`;
+
+const MetricLabel = styled.div`
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: ${T.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+`;
+
+const MetricVal = styled.div`
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: ${T.textMain};
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+`;
+
+const PatientEmptyState = styled.div`
+  padding: 20px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  color: ${T.textMid};
+  font-size: 0.83rem;
+  font-weight: 500;
+  min-height: 140px;
+`;
+
+const WardWarningPill = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef9c3;
+  border: 1px solid #fde047;
+  color: #854d0e;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+`;
 
 // ─── Items table ──────────────────────────────────────────────────────────────
 const TScrollWrap = styled.div`
-  overflow-x:auto; overflow-y:visible; width:100%;
+  overflow-x: auto; overflow-y: visible; width: 100%; box-sizing: border-box;
   &::-webkit-scrollbar { height: 6px; }
   &::-webkit-scrollbar-track { background: #f1f5f9; }
   &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
   &::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 `;
-const ITable = styled.table`width:100%;border-collapse:collapse;font-size:0.8rem;min-width:1080px;table-layout:fixed;`;
-const ITHead = styled.thead`background:#f8fafc;`;
+const ITable = styled.table`width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 980px; table-layout: fixed;`;
+const ITHead = styled.thead`background: #f8fafc;`;
 const ITH = styled.th`
-  padding:10px 10px;text-align:${p => p.$align || "left"};font-size:0.66rem;font-weight:700;
-  text-transform:uppercase;letter-spacing:0.5px;color:${T.textMid};
-  border-bottom:2px solid ${T.border};white-space:nowrap;box-sizing:border-box;
+  padding: 9px 8px; text-align: ${p => p.$align || "left"}; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.4px; color: ${T.textMid};
+  border-bottom: 2px solid ${T.border}; white-space: nowrap; box-sizing: border-box;
 `;
-const ITR = styled.tr`border-bottom:1px solid ${T.border};&:hover{background:#f8fafc;}`;
-const AddRow = styled.tr`background:#fffdf5;border-bottom:2px solid ${T.amber};`;
-const ITD = styled.td`padding:8px 10px;color:${T.textMain};vertical-align:middle;overflow:visible;position:relative;text-align:${p => p.$align || "left"};box-sizing:border-box;`;
+const ITR = styled.tr`border-bottom: 1px solid ${T.border}; &:hover { background: #f8fafc; }`;
+const AddRow = styled.tr`background: #fffdf5; border-bottom: 2px solid ${T.amber};`;
+const ITD = styled.td`padding: 7px 8px; color: ${T.textMain}; vertical-align: middle; overflow: visible; position: relative; text-align: ${p => p.$align || "left"}; box-sizing: border-box;`;
 const TInput = styled.input`
-  width:100%;box-sizing:border-box;height:32px;padding:4px 8px;font-size:0.8rem;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:${p => p.$ro ? "#f8fafc" : "#fff"};color:${p => p.$ro ? T.textMuted : T.textMain};
-  text-align:${p => p.$align || "left"};transition:border 0.12s;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
+  width: 100%; box-sizing: border-box; height: 32px; padding: 4px 6px; font-size: 0.82rem;
+  border: 1px solid ${T.border}; border-radius: 5px; outline: none;
+  background: ${p => p.$ro ? "#f8fafc" : "#fff"}; color: ${p => p.$ro ? T.textMuted : T.textMain};
+  text-align: ${p => p.$align || "left"}; transition: border 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
 `;
-const TSelect = styled.select`
-  width:100%;box-sizing:border-box;height:32px;padding:4px 6px;font-size:0.8rem;
-  border:1px solid ${T.border};border-radius:6px;outline:none;
-  background:#fff;color:${T.textMain};cursor:pointer;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-`;
-const EmptyRow = styled.div`text-align:center;padding:36px;color:${T.textMuted};font-size:0.86rem;`;
+const EmptyRow = styled.div`text-align: center; padding: 30px; color: ${T.textMuted}; font-size: 0.84rem;`;
 
 // ─── Item search autocomplete ─────────────────────────────────────────────────
 const SuggestionItem = styled.div`
-  padding:7px 10px;font-size:0.8rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
-  border-bottom:1px solid #f1f5f9;
-  &:last-child{border-bottom:none;}
-  &:hover{background:#e6f7f5;}
+  padding: 7px 10px; font-size: 0.8rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  &:last-child { border-bottom: none; }
+  &:hover { background: #e6f7f5; }
 `;
-const SugName = styled.span`font-weight:600;color:${T.textMain};`;
-const SugPrice = styled.span`font-size:0.74rem;color:${T.success};font-weight:700;`;
-const SugEmpty = styled.div`padding:10px;text-align:center;font-size:0.78rem;color:${T.textMuted};`;
+const SugName = styled.span`font-weight: 600; color: ${T.textMain};`;
+const SugPrice = styled.span`font-size: 0.74rem; color: ${T.success}; font-weight: 700;`;
+const SugEmpty = styled.div`padding: 10px; text-align: center; font-size: 0.78rem; color: ${T.textMuted};`;
 
 // ─── Bill type bar ────────────────────────────────────────────────────────────
 const BillTypeBar = styled.div`
-  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  padding:10px 16px;background:#f0fdf4;border-bottom:1px solid #bbf7d0;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 16px; background: #f0fdf4; border-bottom: 1px solid #bbf7d0;
 `;
 
 // ─── Financials ───────────────────────────────────────────────────────────────
 const FinGrid = styled.div`
-  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
-  background:${T.border};border-top:1px solid ${T.border};
-  @media(max-width:960px){grid-template-columns:repeat(2,1fr);}
-  @media(max-width:600px){grid-template-columns:1fr;}
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  border-top: 1px solid ${T.border};
+  box-sizing: border-box;
+  width: 100%;
+  @media(max-width: 1140px) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  @media(max-width: 640px) { grid-template-columns: 1fr; gap: 10px; padding: 10px; }
 `;
 const FinCol = styled.div`
-  background:#fff;padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+  background: #fff;
+  border: 1px solid ${T.border};
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  min-width: 0;
+  box-sizing: border-box;
 `;
-const FinRow = styled.div`display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:0.8rem;`;
-const FinLbl = styled.span`min-width:100px;color:${T.textMid};font-weight:600;font-size:0.76rem;flex-shrink:0;`;
+const FinCardTitle = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: ${T.textMid};
+  padding-bottom: 6px;
+  border-bottom: 1px solid ${T.border};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+const FinRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.78rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+`;
+const FinLbl = styled.span`
+  min-width: 100px;
+  color: ${T.textMid};
+  font-weight: 600;
+  font-size: 0.74rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+`;
 const FinIn = styled.input`
-  flex:1;height:32px;padding:0 10px;font-size:0.82rem;box-sizing:border-box;
-  border:1px solid ${T.border};border-radius:6px;outline:none;text-align:right;min-width:0;
-  background:${p => p.$ro ? "#f8fafc" : "#fff"};color:${T.textMain};
-  font-weight:${p => p.$ro ? 600 : 400};transition:border 0.12s;
-  &:focus{border-color:${T.primary};box-shadow:0 0 0 2px rgba(15,118,110,0.12);}
-  ${p => p.$net && `font-weight:700;color:${T.success};background:#f0fdf4;border-color:#86efac;font-size:0.92rem;`}
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 0.83rem;
+  box-sizing: border-box;
+  border: 1px solid ${T.border};
+  border-radius: 6px;
+  outline: none;
+  text-align: ${p => p.$align || "right"};
+  min-width: 0;
+  width: 100%;
+  background: ${p => p.$ro ? "#f8fafc" : "#fff"};
+  color: ${T.textMain};
+  font-weight: ${p => p.$ro ? 600 : 400};
+  transition: border 0.12s, box-shadow 0.12s;
+  &:focus { border-color: ${T.primary}; box-shadow: 0 0 0 2px rgba(15,118,110,0.12); }
+  ${p => p.$net && `
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: ${p.$refund ? T.danger : T.success};
+    background: ${p.$refund ? "#fef2f2" : "#f0fdf4"};
+    border-color: ${p.$refund ? "#fecaca" : "#86efac"};
+  `}
 `;
-const Rupee = styled.span`color:${T.textMuted};font-size:0.75rem;flex-shrink:0;`;
+const Rupee = styled.span`color: ${T.textMuted}; font-size: 0.75rem; flex-shrink: 0; font-weight: 600;`;
+const NetBadgeBox = styled.div`
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: ${p => p.$refund ? "#fff1f2" : "#f0fdf4"};
+  border: 1.5px solid ${p => p.$refund ? "#fecdd3" : "#bbf7d0"};
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  text-align: center;
+`;
 const FinActions = styled.div`
-  display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 18px;
-  background:#fafafa;border-top:1px solid ${T.border};flex-wrap:wrap;
-  @media(max-width:600px){
-    justify-content:stretch;
-    & > button { flex:1; }
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 14px 18px;
+  background: #fafafa; border-top: 1px solid ${T.border}; flex-wrap: wrap; width: 100%; box-sizing: border-box;
+  @media(max-width: 600px) {
+    justify-content: stretch;
+    & > button { flex: 1; }
   }
 `;
-const ErrMsg = styled.div`color:${T.danger};font-size:0.78rem;padding:8px 16px;background:#fee2e2;border-bottom:1px solid #fecaca;display:flex;align-items:center;gap:6px;font-weight:600;`;
+const ActiveBanner = styled.div`
+  background: #fef9c3;
+  border: 1.5px solid #fde047;
+  border-radius: 7px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: #713f12;
+  font-weight: 500;
+  margin-bottom: 12px;
+`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Constants & Helpers
@@ -272,7 +555,9 @@ const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
 const EMPTY_FORM = {
   advance_amount: "", sales_return: "", medicines: "", taxable: "", non_tax: "",
-  gst_amount: "", discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
+  gst_amount: "", room_tax: "",
+  discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
+  next_visit_date: "",
   bill_upto: new Date().toISOString().split("T")[0],
 };
 const EMPTY_ITEM = {
@@ -280,7 +565,10 @@ const EMPTY_ITEM = {
   doctor: "", doctor_fee: "", item_description: "", package_name: ""
 };
 
-const fmt = v => (parseFloat(v) || 0).toFixed(2);
+const fmt = v => {
+  const n = parseFloat(v);
+  return isNaN(n) ? "0.00" : n.toFixed(2);
+};
 
 const formatAdmissionDate = str => {
   if (!str) return "—";
@@ -302,19 +590,36 @@ const formatAdmissionDate = str => {
   }
 };
 
+const getInitials = name => {
+  if (!name) return "PT";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
 const calcTotals = (items, f) => {
   const totalAmount = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
-  const itemDisc = items.reduce((s, i) => s + (parseFloat(i.discount) || 0), 0);
   const discPct = parseFloat(f.discount_percent) || 0;
   const discAmt = parseFloat(f.discount_amount) || (totalAmount * discPct / 100);
-  const totalDisc = discAmt + itemDisc;
-  const netAmount = Math.max(0,
-    totalAmount
-    + (parseFloat(f.gst_amount) || 0) + (parseFloat(f.medicines) || 0)
-    - (parseFloat(f.advance_amount) || 0) - (parseFloat(f.sales_return) || 0)
-    - totalDisc
-  );
-  return { totalAmount, itemDisc, discAmt, totalDisc, netAmount };
+  const totalDisc = discAmt;
+
+  const medicines = parseFloat(f.medicines) || 0;
+  const gstAmount = parseFloat(f.gst_amount) || 0;
+  const roomTax = parseFloat(f.room_tax) || 0;
+  const taxable = parseFloat(f.taxable) || 0;
+  const advanceAmount = parseFloat(f.advance_amount) || 0;
+  const salesReturn = parseFloat(f.sales_return) || 0;
+
+  // Total Charges = (Total Items + Medicines + GST + Room Tax + Taxable) - Total Disc
+  const totalCharges = totalAmount + medicines + gstAmount + roomTax + taxable - totalDisc;
+  
+  // Net Amount = totalCharges - advanceAmount - salesReturn
+  // (If advance > totalCharges, netAmount will be negative -> Net Amount(Refund))
+  const netAmount = totalCharges - advanceAmount - salesReturn;
+
+  return { totalAmount, discAmt, totalDisc, netAmount, totalCharges };
 };
 
 const buildPayload = (items, f, totals, status, patient, editReason = "") => ({
@@ -327,16 +632,16 @@ const buildPayload = (items, f, totals, status, patient, editReason = "") => ({
   sales_return: parseFloat(f.sales_return) || 0,
   medicines_amount: parseFloat(f.medicines) || 0,
   taxable_amount: parseFloat(f.taxable) || 0,
-  non_tax_amount: parseFloat(f.non_tax) || 0,
+  non_tax_amount: parseFloat(f.non_tax) || totals.totalAmount,
   gst_amount: parseFloat(f.gst_amount) || 0,
   room_tax: parseFloat(f.room_tax) || 0,
   discount_percent: parseFloat(f.discount_percent) || 0,
   discount_amount: totals.discAmt,
   disc_reason: f.disc_reason || "",
-  item_disc: totals.itemDisc,
   total_disc: totals.totalDisc,
   net_amount: totals.netAmount,
   remarks: f.remarks || "",
+  next_visit_date: f.next_visit_date || null,
   edit_reason: editReason || "",
 });
 
@@ -394,14 +699,15 @@ const estToForm = e => ({
   medicines: String(parseFloat(e.medicines_amount) || ""),
   taxable: String(parseFloat(e.taxable_amount) || ""),
   non_tax: String(parseFloat(e.non_tax_amount) || ""),
-  tpa_paid: "", sales_tax: "",
   gst_amount: String(parseFloat(e.gst_amount) || ""),
   room_tax: String(parseFloat(e.room_tax) || ""),
-  cess: "", luxury_tax: "",
   discount_percent: String(parseFloat(e.discount_percent) || ""),
   discount_amount: String(parseFloat(e.discount_amount) || ""),
   disc_reason: e.disc_reason || "",
   remarks: e.remarks || "",
+  next_visit_date: e.next_visit_date
+    ? new Date(e.next_visit_date).toISOString().split("T")[0]
+    : "",
   bill_upto: e.bill_date
     ? new Date(e.bill_date).toISOString().split("T")[0]
     : new Date().toISOString().split("T")[0],
@@ -555,43 +861,395 @@ const ItemSearchInput = ({ value, onChange, onSelect, disabled, allItems = [], i
 // FinancialGrid
 // ═════════════════════════════════════════════════════════════════════════════
 
-const FinancialGrid = ({ f, onChange, totals }) => (
-  <FinGrid>
-    <FinCol>
-      <FinRow><FinLbl>Total Amount</FinLbl><Rupee>₹</Rupee><FinIn $ro value={fmt(totals.totalAmount)} readOnly /></FinRow>
-      <FinRow><FinLbl>Advance</FinLbl>     <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.advance_amount} onChange={e => onChange("advance_amount", e.target.value)} /></FinRow>
-      <FinRow><FinLbl>Sales Return</FinLbl><Rupee>₹</Rupee><FinIn type="number" min={0} value={f.sales_return} onChange={e => onChange("sales_return", e.target.value)} /></FinRow>
-      <FinRow><FinLbl>Medicines</FinLbl>   <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.medicines} onChange={e => onChange("medicines", e.target.value)} /></FinRow>
-    </FinCol>
-    <FinCol>
-      <FinRow><FinLbl>Taxable</FinLbl>  <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.taxable} onChange={e => onChange("taxable", e.target.value)} /></FinRow>
-      <FinRow><FinLbl>Non Tax</FinLbl>  <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.non_tax} onChange={e => onChange("non_tax", e.target.value)} /></FinRow>
-      <FinRow><FinLbl>GST</FinLbl>      <Rupee>₹</Rupee><FinIn type="number" min={0} value={f.gst_amount} onChange={e => onChange("gst_amount", e.target.value)} /></FinRow>
-      <FinRow><FinLbl>Remarks</FinLbl>  <FinIn value={f.remarks} onChange={e => onChange("remarks", e.target.value)} style={{ textAlign: "left" }} /></FinRow>
-    </FinCol>
-    <FinCol>
-      <FinRow>
-        <FinLbl>Discount %</FinLbl>
-        <FinIn type="number" min={0} max={100} value={f.discount_percent}
-          onChange={e => onChange("discount_percent", e.target.value)}
-          placeholder="0%" style={{ textAlign: "right" }} />
-      </FinRow>
-      <FinRow>
-        <FinLbl>Discount Amount</FinLbl>
-        <Rupee>₹</Rupee>
-        <FinIn type="number" min={0} value={f.discount_amount}
-          onChange={e => onChange("discount_amount", e.target.value)}
-          placeholder="0.00" />
-      </FinRow>
-      <FinRow><FinLbl>Disc Reason</FinLbl><FinIn value={f.disc_reason} onChange={e => onChange("disc_reason", e.target.value)} style={{ textAlign: "left" }} /></FinRow>
-      <FinRow style={{ marginTop: 4, paddingTop: 6, borderTop: `1px dashed ${T.border}` }}>
-        <FinLbl style={{ fontWeight: 700, color: T.primary, fontSize: "0.88rem" }}>Net Amount</FinLbl>
-        <Rupee style={{ fontWeight: 700, color: T.success }}>₹</Rupee>
-        <FinIn $ro $net value={fmt(totals.netAmount)} readOnly />
-      </FinRow>
-    </FinCol>
-  </FinGrid>
-);
+const FinancialGrid = ({ f, onChange, totals }) => {
+  const isRefund = totals.netAmount < 0;
+
+  return (
+    <FinGrid>
+      {/* Column 1: Charges & Advances */}
+      <FinCol>
+        <FinCardTitle>💳 Charges &amp; Credits</FinCardTitle>
+        <FinRow>
+          <FinLbl>Total Amount</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn $ro value={fmt(totals.totalAmount)} readOnly />
+        </FinRow>
+        <FinRow>
+          <FinLbl title="Advance amount received from patient">
+            Advance Amount <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
+          </FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.advance_amount}
+            onChange={e => onChange("advance_amount", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl title="Sales return from pharmacy">
+            Sales Return <span style={{ cursor: "help", fontSize: "0.75rem" }}>ℹ️</span>
+          </FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.sales_return}
+            onChange={e => onChange("sales_return", e.target.value)}
+            placeholder="0"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Medicines</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.medicines}
+            onChange={e => onChange("medicines", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+      </FinCol>
+
+      {/* Column 2: Tax Breakdown */}
+      <FinCol>
+        <FinCardTitle>⚖️ Tax Breakdown</FinCardTitle>
+        <FinRow>
+          <FinLbl>Taxable</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.taxable}
+            onChange={e => onChange("taxable", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Non Tax</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.non_tax !== "" ? f.non_tax : fmt(totals.totalAmount)}
+            onChange={e => onChange("non_tax", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>GST</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.gst_amount}
+            onChange={e => onChange("gst_amount", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Room Tax</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.room_tax}
+            onChange={e => onChange("room_tax", e.target.value)}
+            placeholder="0.00"
+          />
+        </FinRow>
+      </FinCol>
+
+      {/* Column 3: Discounts & Remarks */}
+      <FinCol>
+        <FinCardTitle>🏷️ Discounts &amp; Remarks</FinCardTitle>
+        <FinRow>
+          <FinLbl>Discount (%)</FinLbl>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flex: 1, minWidth: 0 }}>
+            <FinIn
+              type="number"
+              min={0}
+              max={100}
+              value={f.discount_percent}
+              onChange={e => {
+                const pctVal = e.target.value;
+                onChange("discount_percent", pctVal);
+                if (pctVal !== "" && totals.totalAmount > 0) {
+                  const amt = ((parseFloat(totals.totalAmount) || 0) * (parseFloat(pctVal) || 0)) / 100;
+                  onChange("discount_amount", amt ? amt.toFixed(2) : "");
+                } else if (pctVal === "") {
+                  onChange("discount_amount", "");
+                }
+              }}
+              placeholder="0"
+              style={{ textAlign: "right" }}
+            />
+            <span style={{ fontSize: "0.76rem", color: T.textMuted, fontWeight: 700 }}>%</span>
+          </div>
+        </FinRow>
+        <FinRow>
+          <FinLbl>Discount (₹)</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn
+            type="number"
+            min={0}
+            value={f.discount_amount}
+            onChange={e => {
+              const amtVal = e.target.value;
+              onChange("discount_amount", amtVal);
+              if (amtVal !== "" && totals.totalAmount > 0) {
+                const pct = ((parseFloat(amtVal) || 0) / parseFloat(totals.totalAmount)) * 100;
+                onChange("discount_percent", pct ? pct.toFixed(2) : "");
+              } else if (amtVal === "") {
+                onChange("discount_percent", "");
+              }
+            }}
+            placeholder="0.00"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Disc Reason</FinLbl>
+          <FinIn
+            $align="left"
+            value={f.disc_reason}
+            onChange={e => onChange("disc_reason", e.target.value)}
+            placeholder="Reason for discount…"
+          />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Remarks</FinLbl>
+          <FinIn
+            $align="left"
+            value={f.remarks || ""}
+            onChange={e => onChange("remarks", e.target.value)}
+            placeholder="General remarks…"
+          />
+        </FinRow>
+      </FinCol>
+
+      {/* Column 4: Settlement Summary */}
+      <FinCol style={{ background: isRefund ? "#fffafb" : "#fafffd", borderColor: isRefund ? "#fecdd3" : "#bbf7d0" }}>
+        <FinCardTitle style={{ color: isRefund ? T.danger : T.primary }}>
+          {isRefund ? "🛑 Settlement (Refund)" : "✅ Settlement Summary"}
+        </FinCardTitle>
+        <FinRow>
+          <FinLbl>Total Disc</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn $ro value={fmt(totals.totalDisc)} readOnly />
+        </FinRow>
+        <FinRow>
+          <FinLbl>Total Charges</FinLbl>
+          <Rupee>₹</Rupee>
+          <FinIn $ro value={fmt(totals.totalCharges)} readOnly />
+        </FinRow>
+        
+        <NetBadgeBox $refund={isRefund}>
+          <span style={{ fontSize: "0.68rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px", color: isRefund ? T.danger : T.primary }}>
+            {isRefund ? "⚠️ Patient Refund Amount" : "💵 Final Net Payable"}
+          </span>
+          <div style={{ fontSize: "1.25rem", fontWeight: 800, color: isRefund ? T.danger : T.success, letterSpacing: "-0.5px" }}>
+            ₹{fmt(totals.netAmount)}
+          </div>
+        </NetBadgeBox>
+      </FinCol>
+    </FinGrid>
+  );
+};
+
+// ─── Searchable Select Component ─────────────────────────────────────────────
+const SearchSelect = ({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "— Select —",
+  disabled = false,
+  height = "32px",
+  style = {},
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 200 });
+  const wrapRef = useRef(null);
+  const dropRef = useRef(null);
+
+  const normOptions = useMemo(() => {
+    return options.map(opt => {
+      if (typeof opt === "string") return { value: opt, label: opt, sub: "" };
+      const val = opt.value ?? opt.id ?? opt.bill_type ?? "";
+      const lbl = opt.label ?? opt.name ?? opt.bill_name ?? String(val);
+      const sub = opt.subLabel ?? opt.billTypeNo ?? "";
+      return { value: String(val), label: String(lbl), sub: sub ? String(sub) : "" };
+    });
+  }, [options]);
+
+  const selectedOpt = useMemo(() => {
+    return normOptions.find(o => String(o.value) === String(value));
+  }, [normOptions, value]);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return normOptions;
+    const q = query.toLowerCase();
+    return normOptions.filter(o =>
+      o.label.toLowerCase().includes(q) ||
+      (o.sub && o.sub.toLowerCase().includes(q))
+    );
+  }, [normOptions, query]);
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      const inWrap = wrapRef.current?.contains(e.target);
+      const inDrop = dropRef.current?.contains(e.target);
+      if (!inWrap && !inDrop) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    };
+    const onScroll = () => {
+      if (wrapRef.current) {
+        const r = wrapRef.current.getBoundingClientRect();
+        setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, []);
+
+  const handleOpen = () => {
+    if (disabled) return;
+    if (wrapRef.current) {
+      const r = wrapRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 3, left: r.left, width: Math.max(r.width, 220) });
+    }
+    setIsOpen(!isOpen);
+    setQuery("");
+  };
+
+  const handleSelect = (opt) => {
+    onChange && onChange({ target: { value: opt.value } });
+    setIsOpen(false);
+    setQuery("");
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange && onChange({ target: { value: "" } });
+    setQuery("");
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", width: "100%", ...style }}>
+      <div
+        onClick={handleOpen}
+        style={{
+          height,
+          boxSizing: "border-box",
+          padding: "0 8px",
+          fontSize: "0.8rem",
+          border: `1px solid ${T.border}`,
+          borderRadius: "6px",
+          background: disabled ? "#f8fafc" : "#fff",
+          color: disabled ? T.textMuted : selectedOpt ? T.textMain : T.textMuted,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: disabled ? "not-allowed" : "pointer",
+          userSelect: "none",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, fontWeight: selectedOpt ? 600 : 400 }}>
+          {selectedOpt ? (selectedOpt.sub ? `${selectedOpt.label} (${selectedOpt.sub})` : selectedOpt.label) : placeholder}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 4 }}>
+          {selectedOpt && !disabled && (
+            <span
+              onClick={handleClear}
+              title="Clear"
+              style={{ fontSize: "0.72rem", color: T.textMuted, cursor: "pointer", padding: "0 2px" }}
+            >
+              ✕
+            </span>
+          )}
+          <span style={{ fontSize: "0.65rem", color: T.textMuted }}>{isOpen ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div
+          ref={dropRef}
+          style={{
+            position: "fixed",
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
+            background: "#fff",
+            border: `1px solid ${T.border}`,
+            borderRadius: "6px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+            zIndex: 99999,
+            maxHeight: "240px",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ padding: "6px", borderBottom: `1px solid ${T.border}`, background: "#f8fafc", position: "sticky", top: 0, zIndex: 1 }}>
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Type to search…"
+              style={{
+                width: "100%",
+                height: "26px",
+                padding: "0 8px",
+                boxSizing: "border-box",
+                fontSize: "0.76rem",
+                border: `1px solid ${T.border}`,
+                borderRadius: "4px",
+                outline: "none",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "10px", fontSize: "0.76rem", color: T.textMuted, textAlign: "center" }}>
+              No matches found
+            </div>
+          ) : (
+            filtered.map((opt) => (
+              <div
+                key={opt.value}
+                onClick={() => handleSelect(opt)}
+                style={{
+                  padding: "7px 10px",
+                  fontSize: "0.78rem",
+                  cursor: "pointer",
+                  background: String(opt.value) === String(value) ? "#f0fdf4" : "transparent",
+                  color: String(opt.value) === String(value) ? T.primary : T.textMain,
+                  fontWeight: String(opt.value) === String(value) ? 700 : 400,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  borderBottom: "1px solid #f8fafc",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#e6f7f5"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = String(opt.value) === String(value) ? "#f0fdf4" : "transparent"; }}
+              >
+                <span>{opt.label}</span>
+                {opt.sub && <span style={{ fontSize: "0.68rem", color: T.textMuted, fontWeight: 600 }}>{opt.sub}</span>}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // ItemsSection
@@ -637,14 +1295,18 @@ const ItemsSection = ({
           <ITD><TInput $align="right" type="number" min={0} value={newItem.discount} onChange={e => onNIChange("discount", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput $align="right" $ro value={fmt(newItem.amount)} readOnly /></ITD>
           <ITD>
-            <TSelect value={newItem.doctor} onChange={e => onNIChange("doctor", e.target.value)} disabled={disabled}>
-              <option value="">— Doctor —</option>
-              {doctors.map((d, i) => {
+            <SearchSelect
+              options={doctors.map(d => {
                 const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
-                const id = d.employeeId || d.doctor_id || d.id || i;
-                return <option key={id} value={name}>{name}</option>;
+                return { value: name, label: name };
               })}
-            </TSelect>
+              value={newItem.doctor}
+              onChange={e => onNIChange("doctor", e.target.value)}
+              placeholder="— Doctor —"
+              disabled={disabled}
+              height="32px"
+              style={{ minWidth: "130px" }}
+            />
           </ITD>
           <ITD><TInput $align="right" type="number" min={0} value={newItem.doctor_fee} onChange={e => onNIChange("doctor_fee", e.target.value)} disabled={disabled} /></ITD>
           <ITD><TInput value={newItem.item_description} onChange={e => onNIChange("item_description", e.target.value)} disabled={disabled} placeholder="Notes…" /></ITD>
@@ -677,14 +1339,17 @@ const ItemsSection = ({
             <ITD><TInput $align="right" type="number" min={0} value={item.discount} onChange={e => onEdit(item._key, "discount", e.target.value)} /></ITD>
             <ITD $align="right" style={{ fontWeight: 700, fontSize: "0.82rem" }}>₹{fmt(item.amount)}</ITD>
             <ITD>
-              <TSelect value={item.doctor || ""} onChange={e => onEdit(item._key, "doctor", e.target.value)}>
-                <option value="">— Doctor —</option>
-                {doctors.map((d, i) => {
+              <SearchSelect
+                options={doctors.map(d => {
                   const name = d.employeeName || d.doctor_name || d.name || (typeof d === "string" ? d : "");
-                  const id = d.employeeId || d.doctor_id || d.id || i;
-                  return <option key={id} value={name}>{name}</option>;
+                  return { value: name, label: name };
                 })}
-              </TSelect>
+                value={item.doctor || ""}
+                onChange={e => onEdit(item._key, "doctor", e.target.value)}
+                placeholder="— Doctor —"
+                height="32px"
+                style={{ minWidth: "130px" }}
+              />
             </ITD>
             <ITD><TInput $align="right" type="number" min={0} value={item.doctor_fee || ""} onChange={e => onEdit(item._key, "doctor_fee", e.target.value)} /></ITD>
             <ITD>
@@ -918,6 +1583,16 @@ const DischargeBilling = () => {
         setPatient(norm);
         if (norm.uhid) setUhid(norm.uhid);
         if (norm.ip_number) setIpNumber(norm.ip_number);
+        if (norm.room_category) setPatientWard(norm.room_category);
+        if (norm.advance_amount != null && norm.advance_amount !== "") {
+          setForm("advance_amount", String(norm.advance_amount));
+        }
+        if (norm.sales_return != null && norm.sales_return !== "") {
+          setForm("sales_return", String(norm.sales_return));
+        }
+        if (norm.medicines_amount != null && norm.medicines_amount !== "") {
+          setForm("medicines", String(norm.medicines_amount));
+        }
         if (Array.isArray(res.invest_items) && res.invest_items.length)
           setItems(res.invest_items.map(investToRow));
       } else {
@@ -1121,96 +1796,159 @@ const DischargeBilling = () => {
           {/* Patient search & details */}
           <Card>
             <CardHead>
-              <CardTitle>Patient Search &amp; Details</CardTitle>
-              {patient && (
-                <Badge $v={editingEst ? "converting" : "billed"}>
-                  {editingEst ? `✏️ Editing ${editingEst.bill_no || editingEst.estimate_number || "Record"}` : "✓ Patient Loaded"}
-                </Badge>
+              <CardTitle>Patient Lookup &amp; Admission Information</CardTitle>
+              {patient ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {!patient.is_ready_for_billing && (
+                    <WardWarningPill>
+                      ⚠️ Ward Status: {patient.ward_status || "Not Sent for billing"}
+                    </WardWarningPill>
+                  )}
+                  <Badge $v={editingEst ? "converting" : "billed"}>
+                    {editingEst ? `✏️ Editing ${editingEst.bill_no || editingEst.estimate_number || "Record"}` : "✓ Active Admission"}
+                  </Badge>
+                </div>
+              ) : (
+                <span style={{ fontSize: "0.74rem", color: T.textMuted }}>Enter UHID or IP to search</span>
               )}
             </CardHead>
 
-            <SearchDetailsGrid>
-              {/* Left Column: Search Inputs */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  <FG style={{ flex: 1, minWidth: "150px" }}>
-                    <FL>UHID <Req>*</Req></FL>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      <FInput
-                        style={{ flex: 1 }}
-                        value={uhid}
-                        onChange={e => { setUhid(e.target.value); setSearchErr(""); }}
-                        placeholder="e.g. S025/011667"
-                        onKeyDown={e => e.key === "Enter" && doSearch("uhid")}
-                      />
-                      <IconBtn onClick={() => doSearch("uhid")} disabled={searching}>
-                        {searching ? <Spinner /> : "🔍"}
-                      </IconBtn>
-                    </div>
-                  </FG>
-                  <FG style={{ flex: 1, minWidth: "150px" }}>
-                    <FL>IP Number <Req>*</Req></FL>
-                    <div style={{ display: "flex", gap: 5 }}>
-                      <FInput
-                        style={{ flex: 1 }}
-                        value={ipNumber}
-                        onChange={e => { setIpNumber(e.target.value); setSearchErr(""); }}
-                        placeholder="e.g. S025/012488"
-                        onKeyDown={e => e.key === "Enter" && doSearch("ip")}
-                      />
-                      <IconBtn onClick={() => doSearch("ip")} disabled={searching}>
-                        {searching ? <Spinner /> : "🔍"}
-                      </IconBtn>
-                    </div>
-                  </FG>
-                </div>
+            <SearchSectionWrap>
+              {/* Top Row: Search by UHID and IP Number */}
+              <TopSearchRow>
+                {/* UHID Search */}
+                <FG>
+                  <FL>UHID <Req>*</Req></FL>
+                  <SearchInputWrap>
+                    <FInput
+                      value={uhid}
+                      onChange={e => { setUhid(e.target.value); setSearchErr(""); }}
+                      placeholder="e.g. S026/00548"
+                      onKeyDown={e => e.key === "Enter" && doSearch("uhid")}
+                      style={{ paddingRight: 38 }}
+                    />
+                    <SearchActionBtn onClick={() => doSearch("uhid")} disabled={searching} title="Search UHID">
+                      {searching ? <MiniSpinner /> : "🔍"}
+                    </SearchActionBtn>
+                  </SearchInputWrap>
+                </FG>
 
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                  {/* Patient Ward Select Dropdown */}
-                  <FG style={{ flex: 1, minWidth: "150px" }}>
+                {/* IP Number Search */}
+                <FG>
+                  <FL>IP Number <Req>*</Req></FL>
+                  <SearchInputWrap>
+                    <FInput
+                      value={ipNumber}
+                      onChange={e => { setIpNumber(e.target.value); setSearchErr(""); }}
+                      placeholder="e.g. S026/500017"
+                      onKeyDown={e => e.key === "Enter" && doSearch("ip")}
+                      style={{ paddingRight: 38 }}
+                    />
+                    <SearchActionBtn onClick={() => doSearch("ip")} disabled={searching} title="Search IP Number">
+                      {searching ? <MiniSpinner /> : "🔍"}
+                    </SearchActionBtn>
+                  </SearchInputWrap>
+                </FG>
+              </TopSearchRow>
+
+              {searchErr && (
+                <div style={{ color: T.danger, fontSize: "0.78rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                  ⚠️ {searchErr}
+                </div>
+              )}
+
+              {/* Main Split: Left (Stay Parameters) & Right (Patient Profile) */}
+              <PatientSectionSplit>
+                {/* Left Side: Stay & Discharge Parameters */}
+                <StayParamsCard>
+                  <StayParamsTitle>🛏️ Stay &amp; Discharge Parameters</StayParamsTitle>
+                  <FG>
                     <FL>Patient Ward</FL>
-                    <FSelect
-                      value={patientWard}
-                      onChange={handleWardChange}
-                    >
+                    <FSelect value={patientWard} onChange={handleWardChange}>
                       <option value="GENERAL WARD">GENERAL WARD (-5%)</option>
                       <option value="SEMI-PRIVATE WARD">SEMI-PRIVATE WARD (Normal)</option>
                       <option value="PRIVATE WARD">PRIVATE WARD (+5%)</option>
                     </FSelect>
                   </FG>
 
-                  {/* Discharge Date (Current Date, Disabled) */}
-                  <FG style={{ flex: 1, minWidth: "150px" }}>
+                  <FG>
                     <FL>Discharge Date</FL>
                     <FInput
                       type="date"
                       value={form.bill_upto || new Date().toISOString().split("T")[0]}
                       disabled
                       readOnly
-                      style={{ background: "#f1f5f9", color: T.textMid, cursor: "not-allowed" }}
+                      style={{ background: "#f8fafc", color: T.textMid, cursor: "not-allowed" }}
                     />
                   </FG>
-                </div>
-                {searchErr && <span style={{ color: T.danger, fontSize: "0.76rem", fontWeight: "600" }}>⚠ {searchErr}</span>}
-              </div>
 
-              {/* Right Column: Patient Details Grid (Always visible; shows dashes if not searched) */}
-              <div style={{
-                background: "#ffffff", border: `1px solid ${T.border}`, borderRadius: "8px",
-                padding: "8px", opacity: patient ? 1 : 0.6, pointerEvents: patient ? "auto" : "none"
-              }}>
-                <PGrid>
-                  <PCell><PLbl>Name</PLbl> <PVal>{patient?.patient_name || "—"}</PVal></PCell>
-                  <PCell><PLbl>Age / Gender</PLbl> <PVal>{patient ? `${patient.age || "—"} / ${patient.gender || "—"}` : "—"}</PVal></PCell>
-                  <PCell><PLbl>Doctor</PLbl> <PVal style={{ fontSize: "0.79rem" }}>{patient?.doctor || "—"}</PVal></PCell>
-                  <PCell $nr><PLbl>Admission Date</PLbl> <PVal style={{ fontSize: "0.78rem" }}>{formatAdmissionDate(patient?.admission_date)}</PVal></PCell>
-                  <PCell $nb><PLbl>UHID / IP No</PLbl> <PVal style={{ fontFamily: "monospace", fontSize: "0.78rem" }}>{patient ? `${patient.uhid || "—"} / ${patient.ip_number || "—"}` : "—"}</PVal></PCell>
-                  <PCell $nb><PLbl>Mobile</PLbl> <PVal>{patient?.mobile || "—"}</PVal></PCell>
-                  <PCell $nb><PLbl>Room / Days</PLbl> <PVal>{patient ? `${patient.room_no || "—"} / ${patient.total_days ?? 0}d` : "—"}</PVal></PCell>
-                  <PCell $nb $nr><PLbl>Type / Company</PLbl><PVal style={{ fontSize: "0.78rem", textTransform: "uppercase" }}>{patient ? `${patient.patient_type || "—"} / ${patient.company || "—"}` : "—"}</PVal></PCell>
-                </PGrid>
-              </div>
-            </SearchDetailsGrid>
+                  <FG>
+                    <FL>Next Visit Date <span style={{ textTransform: "none", color: T.textMuted, fontWeight: 400 }}>(Optional)</span></FL>
+                    <FInput
+                      type="date"
+                      value={form.next_visit_date || ""}
+                      onChange={e => setForm("next_visit_date", e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                    />
+                  </FG>
+                </StayParamsCard>
+
+                {/* Right Side: Patient Profile Card */}
+                {patient ? (
+                  <PatientProfileCard>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <PatientAvatar>{getInitials(patient.patient_name)}</PatientAvatar>
+                      <PatientMainInfo>
+                        <PatientNameRow>
+                          <PatientNameText>{patient.patient_name}</PatientNameText>
+                          <span style={{ fontSize: "0.82rem", fontWeight: 600, color: T.textMid }}>
+                            {patient.age || "—"} yrs / {patient.gender || "—"}
+                          </span>
+                        </PatientNameRow>
+                        <PatientMetaPills>
+                          <MetaChip $mono>UHID: {patient.uhid}</MetaChip>
+                          <MetaChip $mono>IP: {patient.ip_number}</MetaChip>
+                          {patient.mobile && <span>📞 {patient.mobile}</span>}
+                        </PatientMetaPills>
+                      </PatientMainInfo>
+                    </div>
+
+                    <PatientMetrics2Col>
+                      {/* Left Column: Doctor & Admission Date */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+                        <MetricBox>
+                          <MetricLabel>👨‍⚕️ Attending Doctor</MetricLabel>
+                          <MetricVal title={patient.doctor}>{patient.doctor || "—"}</MetricVal>
+                        </MetricBox>
+                        <MetricBox>
+                          <MetricLabel>📅 Admission Date</MetricLabel>
+                          <MetricVal>{formatAdmissionDate(patient.admission_date)}</MetricVal>
+                        </MetricBox>
+                      </div>
+
+                      {/* Right Column: Room & Stay and Billing Type */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
+                        <MetricBox>
+                          <MetricLabel>🛏️ Room &amp; Stay</MetricLabel>
+                          <MetricVal>{patient.room_no ? `Room ${patient.room_no}` : "—"} · {patient.total_days ?? 0} Days</MetricVal>
+                        </MetricBox>
+                        <MetricBox>
+                          <MetricLabel>🏢 Billing Type</MetricLabel>
+                          <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.company || patient.company_code}>
+                            {patient.patient_type || "General"}
+                            {patient.company ? ` / ${patient.company}` : patient.company_code ? ` / ${patient.company_code}` : ""}
+                          </MetricVal>
+                        </MetricBox>
+                      </div>
+                    </PatientMetrics2Col>
+                  </PatientProfileCard>
+                ) : (
+                  <PatientEmptyState>
+                    <span>🔍 Enter a <strong>UHID</strong> or <strong>IP Number</strong> above and click Search to load patient records &amp; stay details.</span>
+                  </PatientEmptyState>
+                )}
+              </PatientSectionSplit>
+            </SearchSectionWrap>
           </Card>
 
           {/* Bill type selector + Items */}
@@ -1243,22 +1981,20 @@ const DischargeBilling = () => {
               <span style={{ fontSize: "0.76rem", fontWeight: 700, color: T.textMid, flexShrink: 0 }}>
                 Bill Type:
               </span>
-              <FSelect
-                value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
-                onChange={handleBillTypeChange}
-                disabled={masterLoading}
-                style={{ height: 32, fontSize: "0.82rem", maxWidth: 320, flex: "0 1 320px" }}
-              >
-                {billTypes.length === 0 ? (
-                  <option value="">Select Bill Type</option>
-                ) : (
-                  billTypes.map(b => (
-                    <option key={b.bill_type} value={String(b.bill_type)}>
-                      {b.bill_name}
-                    </option>
-                  ))
-                )}
-              </FSelect>
+              <div style={{ maxWidth: 320, flex: "0 1 320px" }}>
+                <SearchSelect
+                  options={billTypes.map(b => ({
+                    value: String(b.bill_type),
+                    label: b.bill_name,
+                    subLabel: b.billTypeNo,
+                  }))}
+                  value={selectedBT.bill_type != null ? String(selectedBT.bill_type) : ""}
+                  onChange={e => handleBillTypeChange({ target: { value: e.target.value } })}
+                  placeholder="Search Bill Type..."
+                  disabled={masterLoading}
+                  height="32px"
+                />
+              </div>
 
               {masterLoading && (
                 <span style={{ fontSize: "0.73rem", color: T.textMuted, display: "flex", alignItems: "center", gap: 5 }}>
@@ -1287,7 +2023,7 @@ const DischargeBilling = () => {
 
           {/* Financials + actions */}
           <Card>
-            <CardHead><CardTitle>Financial Summary</CardTitle></CardHead>
+            <CardHead><CardTitle>Financial Assessment &amp; Settlement</CardTitle></CardHead>
             <FinancialGrid f={form} onChange={setForm} totals={totals} />
             <FinActions>
               <Btn $ghost onClick={handleReset}>✕ Reset</Btn>

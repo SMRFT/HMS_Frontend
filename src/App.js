@@ -50,14 +50,11 @@ import RDReportForm from "./Components/InvestigationReports/RDReportForm";
 import MHCList from "./Components/MHC/MHCList";
 import MHCReportForm from "./Components/MHC/MHCReportForm";
 import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
-
-import MHCReviewList from "./Components/MHC/MHCReviewList";
-// import Masterhealthcheck from "./Components/MHC/Masterhealthcheck";
 import MasterHealthcheckupReport from "./Components/MHC/MasterHealthcheckupReport";
 import MasterHealthcheckupDashboard from "./Components/MHC/MasterHealthcheckupDashboard";
+import MHCReviewList from "./Components/MHC/MHCReviewList";
 import Masterhealthcheckupfollowup from "./Components/MHC/Masterhealthcheckupfollowup";
 import Masterhealthcheckupfollowupreport from "./Components/MHC/Masterhealthcheckupfollowupreport";
-
 
 import ABHAPatients from "./Components/Register/ABHAPatients";
 
@@ -97,6 +94,15 @@ import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
 import DoctorDashboard from "./Components/Dashboard/DoctorDashboard";
 import DepartmentDashboard from "./Components/Dashboard/DepartmentDashboard";
 import OPEMRDesk from "./Components/EMR/OPEMRDesk";
+import VitalWaitingList from "./Components/OPEMR/VitalWaitingList";
+import Vitaldashboard from "./Components/OPEMR/Vitaldashboard";
+import Doctordashboard from "./Components/OPEMR/Doctordashboard";
+import Patientlivetracking from "./Components/OPEMR/Patientlivetracking";
+import OPDoctorlogin from "./Components/OPEMR/OPDoctorlogin";
+import IPEMRDesk from "./Components/IPEMR/IPEMRDesk";
+import IPNursingDesk from "./Components/IPEMR/IPNursingDesk";
+import IPPatientHistory from "./Components/IPEMR/IPPatientHistory";
+import IPDoctorDashboard from "./Components/IPEMR/IPDoctorDashboard";
 import RegistrationBills from "./Components/Register/RegistrationBills";
 import MobileRegistration from "./Components/Register/MobileRegistration";
 import SidebarEditor from "./Components/Admin/SidebarEditor";
@@ -113,6 +119,11 @@ import StoreIntentApproval from "./Components/Stores/StoreIntentApproval";
 import Generalstorevendor from "./Components/Stores/Generalstorevendor";
 import LabDailyUsage from "./Components/Stores/Labdailyusage";
 import LabInventoryReport from "./Components/Stores/LabInventoryReport";
+import StoresAbcVedReport from "./Components/Stores/StoresAbcVedReport";
+import VendingMachineReport from "./Components/Stores/VendingMachineReport";
+import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
+import StoresSupplierGrnReport from "./Components/Stores/StoresSupplierGrnReport";
+import StoresDepartmentIndentReport from "./Components/Stores/StoresDepartmentIndentReport";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -204,9 +215,8 @@ import Feedbackreports from "./Components/QRScan/Feedbackreports";
 import OutpatientFeedbackreports from "./Components/QRScan/OutpatientFeedbackreports";
 import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
 import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
-
-
-
+import Registration360 from "./Components/Shanmuga360/360Registration";
+import Reports360 from "./Components/Shanmuga360/Reports";
 
 
 
@@ -353,6 +363,28 @@ function App() {
       "/DoctorDashboard": "Doctor Dashboard",
       "/DepartmentDashboard": "Department Dashboard",
       "/OPEMRDesk": "OP EMR Consultation",
+      "/VitalWaitingList": "Vital Waiting List",
+      "/Vitaldashboard": "Vital Dashboard",
+      "/Doctordashboard": "Doctor Dashboard",
+      "/Patientlivetracking": "Patient Live Tracking",
+      "/vitalwaitinglist": "Vital Waiting List",
+      "/OPDoctorlogin": "OP Doctor Consultation",
+      "/IPEMRDesk": "IP EMR Consultation & Clinical Notes",
+      "/ipemrdesk": "IP EMR Consultation & Clinical Notes",
+      "/IPEMR": "IP EMR Consultation & Clinical Notes",
+      "/ipemr": "IP EMR Consultation & Clinical Notes",
+      "/IPDoctorNotes": "Inpatient Doctor Clinical Notes",
+      "/ipdoctornotes": "Inpatient Doctor Clinical Notes",
+      "/IPNursingDesk": "Inpatient Nursing Desk & Vitals",
+      "/ipnursingdesk": "Inpatient Nursing Desk & Vitals",
+      "/IPNursingNotes": "Inpatient Nursing Notes & Vitals",
+      "/ipnursingnotes": "Inpatient Nursing Notes & Vitals",
+      "/IPDoctorLogin": "IP Doctor Workspace",
+      "/ipdoctorlogin": "IP Doctor Workspace",
+      "/IPDoctorDashboard": "Inpatient Doctor Dashboard & Analytics",
+      "/ipdoctordashboard": "Inpatient Doctor Dashboard & Analytics",
+      "/IPDoctorReport": "Inpatient Doctor Clinical Reports",
+      "/ipdoctorreport": "Inpatient Doctor Clinical Reports",
       "/PatientRegistrationForm": "Patient Registration",
       "/Admission": "Admission",
       "/IPAdvance": "IPAdvance",
@@ -380,7 +412,9 @@ function App() {
       "/Masterhealthcheckupfollowupreport": "MHC Follow-up Report",
       "/JRDReport": "JRD Report",
       "/DischargeReport": "Discharge Report",
-      "/Enquiry": "Enquiry",
+      "/Enquiry": "Patient Inquiry",
+      "/PatientInquiry": "Patient Inquiry",
+      "/PatientEnquiry": "Patient Inquiry",
       "/Package": "Package",
       "/MedicinePackage": "MedicinePackage",
       "/Investigationprice": "Investigation Price",
@@ -397,6 +431,11 @@ function App() {
       "/StoresIntentApproval": "Store Intent Approval",
       "/Generalstorevendor": "General Store Vendor",
       "/GeneralStoresVendor": "General Store Vendor",
+      "/StoresAbcVedReport": "Stores ABC & VED Analysis Report",
+      "/VendingMachineReport": "Vending Machine Sales & Stock Reconciliation Report",
+      "/StoresReportsDashboard": "Stores Reports Dashboard",
+      "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
+      "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -632,6 +671,46 @@ function App() {
               <Route path="/DepartmentDashboard" element={<DepartmentDashboard />} />
 
               <Route path="/OPEMRDesk" element={<OPEMRDesk />} />
+              <Route path="/VitalWaitingList" element={<VitalWaitingList />} />
+              <Route path="/vitalwaitinglist" element={<VitalWaitingList />} />
+              <Route path="/Vitaldashboard" element={<Vitaldashboard />} />
+              <Route path="/Doctordashboard" element={<Doctordashboard />} />
+              <Route path="/Patientlivetracking" element={<Patientlivetracking />} />
+              <Route path="/OPDoctorlogin" element={<OPDoctorlogin />} />
+              <Route path="/opdoctorlogin" element={<OPDoctorlogin />} />
+              <Route path="/OPDoctorLogin" element={<OPDoctorlogin />} />
+
+              {/* Inpatient EMR Desk & Clinical Notes */}
+              <Route path="/IPEMRDesk" element={<IPEMRDesk />} />
+              <Route path="/ipemrdesk" element={<IPEMRDesk />} />
+              <Route path="/IPEMR" element={<IPEMRDesk />} />
+              <Route path="/ipemr" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorNotes" element={<IPEMRDesk />} />
+              <Route path="/ipdoctornotes" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorLogin" element={<IPEMRDesk />} />
+              <Route path="/ipdoctorlogin" element={<IPEMRDesk />} />
+              <Route path="/IPDoctorlogin" element={<IPEMRDesk />} />
+
+              {/* Inpatient Nursing Desk & Notes */}
+              <Route path="/IPNursingDesk" element={<IPNursingDesk />} />
+              <Route path="/ipnursingdesk" element={<IPNursingDesk />} />
+              <Route path="/IPNursingNotes" element={<IPNursingDesk />} />
+              <Route path="/ipnursingnotes" element={<IPNursingDesk />} />
+
+              {/* Inpatient Patient Clinical History */}
+              <Route path="/IPPatientHistory" element={<IPPatientHistory />} />
+              <Route path="/ippatienthistory" element={<IPPatientHistory />} />
+
+              {/* Inpatient Doctor Dashboard & Analytics Report */}
+              <Route path="/IPDoctorDashboard" element={<IPDoctorDashboard />} />
+              <Route path="/ipdoctordashboard" element={<IPDoctorDashboard />} />
+              <Route path="/IPDoctorReport" element={<IPDoctorDashboard defaultTab="report" />} />
+              <Route path="/ipdoctorreport" element={<IPDoctorDashboard defaultTab="report" />} />
+              {hasPagePermission(
+                "/VitalWaitingList",
+                allowedActions,
+                dynamicPermissions,
+              ) && <Route path="/VitalWaitingList" element={<VitalWaitingList />} />}
 
               {/* User Permission Manager */}
               {hasPagePermission(
@@ -716,11 +795,21 @@ function App() {
                     <Route path="/ABHAPatients" element={<ABHAPatients />} />
                   </>
                 )}
-              {hasPagePermission(
+              {(hasPagePermission(
                 "/Enquiry",
                 allowedActions,
                 dynamicPermissions,
-              ) && <Route path="/Enquiry" element={<Enquiry />} />}
+              ) || hasPagePermission(
+                "/PatientInquiry",
+                allowedActions,
+                dynamicPermissions,
+              )) && (
+                  <>
+                    <Route path="/Enquiry" element={<Enquiry />} />
+                    <Route path="/PatientInquiry" element={<Enquiry />} />
+                    <Route path="/PatientEnquiry" element={<Enquiry />} />
+                  </>
+                )}
               {hasPagePermission(
                 "/RegistrationBills",
                 allowedActions,
@@ -1421,6 +1510,23 @@ function App() {
               )}
               <Route path="/LabDailyUsage" element={<LabDailyUsage />} />
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
+              <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
+              <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
+              <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              )}
+              {hasPagePermission("/StoresSupplierGrnReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              )}
+              {hasPagePermission("/StoresDepartmentIndentReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              )}
+              {hasPagePermission("/VendingMachineReport", allowedActions, dynamicPermissions) && (
+                <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
+              )}
               {hasPagePermission("/AssetsManagement", allowedActions) && (
                 <Route
                   path="/AssetsManagement"
@@ -1745,6 +1851,15 @@ function App() {
               ) && (
                   <Route path="/MRDTracking" element={<MRDTracking />} />
                 )}
+
+
+              {/* #shanmuga360 */}
+              <Route path="/360Registration" element={<Registration360 />} />
+              <Route path="/360Reports" element={<Reports360 />} />
+              <Route path="/Reports" element={<Reports360 />} />
+              <Route path="/reports" element={<Reports360 />} />
+              <Route path="/Shanmuga360/Reports" element={<Reports360 />} />
+              <Route path="/shanmuga360/reports" element={<Reports360 />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />
