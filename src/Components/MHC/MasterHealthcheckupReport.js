@@ -815,6 +815,7 @@ export default function MasterHealthcheckupReport() {
                   <tr>
                     <Th>#</Th>
                     <Th>Date</Th>
+                    <Th>Reg Date</Th>
                     <Th>Patient Name</Th>
                     <Th>Age</Th>
                     <Th>Gender</Th>
@@ -837,6 +838,7 @@ export default function MasterHealthcheckupReport() {
                     <Tr key={r.id || i}>
                       <Td style={{ color: "#94a3b8", fontWeight: 600 }}>{i + 1}</Td>
                       <Td>{formatDate(r.created_date)}</Td>
+                      <Td>{r.registration_date || "—"}</Td>
                       <Td style={{ fontWeight: 700, color: "#1e293b" }}>{r.patient_name || "—"}</Td>
                       <Td>{r.age ?? "—"}</Td>
                       <Td>

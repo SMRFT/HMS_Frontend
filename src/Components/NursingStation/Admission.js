@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import apiRequest from "../../Auth/apiRequest";
@@ -12,11 +12,11 @@ import {
 } from "../GlobalStyles";
 
 // ─── Animations ────────────────────────────────────────────────────────────────
-const fadeIn   = keyframes`from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}`;
-const pulse    = keyframes`0%,100%{opacity:1}50%{opacity:.45}`;
+const fadeIn = keyframes`from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}`;
+const pulse = keyframes`0%,100%{opacity:1}50%{opacity:.45}`;
 const slideUp2 = keyframes`from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}`;
 const openAnim = keyframes`from{max-height:0;opacity:0}to{max-height:2400px;opacity:1}`;
-const popIn    = keyframes`from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}`;
+const popIn = keyframes`from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}`;
 
 // ─── Page Shell ────────────────────────────────────────────────────────────────
 const PageHeader = styled.div`
@@ -34,39 +34,39 @@ const NewAdmBtn = styled.button`
 
 // ─── Stat Cards ────────────────────────────────────────────────────────────────
 const StatStrip = styled.div`display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1px solid #e5e7eb;`;
-const StatCard  = styled.div`
+const StatCard = styled.div`
   padding:14px 22px;display:flex;align-items:center;gap:14px;
   border-right:1px solid #e5e7eb;&:last-child{border-right:none;}
-  animation:${fadeIn} .35s ease both;animation-delay:${p=>p.i*.08}s;
+  animation:${fadeIn} .35s ease both;animation-delay:${p => p.i * .08}s;
 `;
-const SIcon  = styled.div`width:44px;height:44px;border-radius:10px;background:${p=>p.bg||'#f0fdf4'};display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;`;
+const SIcon = styled.div`width:44px;height:44px;border-radius:10px;background:${p => p.bg || '#f0fdf4'};display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;`;
 const SLabel = styled.div`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;`;
 const SValue = styled.div`font-size:1.7rem;font-weight:800;color:#111827;line-height:1.1;`;
 
 // ─── Filter Bar ────────────────────────────────────────────────────────────────
-const FilterBar  = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
-const FF         = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p=>p.flex||'1 1 150px'};`;
-const FL         = styled.label`font-size:.74rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;`;
-const FSel       = styled.select`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const FInp       = styled.input`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
-const SearchBtn  = styled.button`height:36px;padding:0 20px;font-size:.84rem;font-weight:700;background:#0d9488;color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;&:hover{background:#0f766e;}`;
+const FilterBar = styled.div`display:flex;gap:10px;align-items:flex-end;padding:12px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;background:#fafafa;`;
+const FF = styled.div`display:flex;flex-direction:column;gap:3px;flex:${p => p.flex || '1 1 150px'};`;
+const FL = styled.label`font-size:.74rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;`;
+const FSel = styled.select`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const FInp = styled.input`height:36px;padding:0 10px;font-size:.84rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#111827;outline:none;&:focus{border-color:#0d9488;}`;
+const SearchBtn = styled.button`height:36px;padding:0 20px;font-size:.84rem;font-weight:700;background:#0d9488;color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:6px;&:hover{background:#0f766e;}`;
 
 // ─── Form Panel ────────────────────────────────────────────────────────────────
 const FormPanel = styled.div`overflow:hidden;border-bottom:2px solid #0d9488;animation:${openAnim} .4s ease both;`;
-const FPHead    = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
-const FPTitle   = styled.div`font-size:.88rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
-const CloseFP   = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1.1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
-const FGrid     = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:8px 14px;padding:16px 20px;`;
-const Field     = styled.div`display:flex;flex-direction:column;gap:3px;grid-column:span ${p=>p.span||1};`;
-const Lbl       = styled.label`font-size:.76rem;font-weight:600;color:#374151;&::after{content:${p=>p.req?'" *"':'""'};color:#ef4444;}`;
-const Inp       = styled.input`height:34px;padding:0 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:${p=>p.readOnly?'#f3f4f6':'#fff'};color:${p=>p.readOnly?'#6b7280':'#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
-const Sel       = styled.select`height:34px;padding:0 8px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
-const Txta      = styled.textarea`padding:6px 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;resize:vertical;min-height:50px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
-const SecDiv    = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:8px 0 4px;padding-top:8px;font-size:.76rem;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
-const IRow      = styled.div`display:flex;align-items:center;gap:4px;`;
-const IconBtn   = styled.button`height:34px;padding:0 12px;font-size:.82rem;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
-const FActions  = styled.div`display:flex;gap:10px;justify-content:flex-end;padding:12px 20px 18px;border-top:1px solid #e5e7eb;margin-top:8px;`;
-const SmBtn     = styled.button`height:34px;padding:0 22px;font-size:.82rem;font-weight:700;border-radius:5px;border:none;cursor:pointer;background:${p=>p.secondary?'#e5e7eb':'#0d9488'};color:${p=>p.secondary?'#374151':'#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
+const FPHead = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:#f0fdf4;border-bottom:1px solid #d1fae5;`;
+const FPTitle = styled.div`font-size:.88rem;font-weight:700;color:#0d9488;display:flex;align-items:center;gap:8px;`;
+const CloseFP = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #d1fae5;background:#fff;cursor:pointer;font-size:1.1rem;color:#6b7280;display:flex;align-items:center;justify-content:center;&:hover{background:#fee2e2;color:#dc2626;}`;
+const FGrid = styled.div`display:grid;grid-template-columns:repeat(6,1fr);gap:8px 14px;padding:16px 20px;`;
+const Field = styled.div`display:flex;flex-direction:column;gap:3px;grid-column:span ${p => p.span || 1};`;
+const Lbl = styled.label`font-size:.76rem;font-weight:600;color:#374151;&::after{content:${p => p.req ? '" *"' : '""'};color:#ef4444;}`;
+const Inp = styled.input`height:34px;padding:0 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:${p => p.readOnly ? '#f3f4f6' : '#fff'};color:${p => p.readOnly ? '#6b7280' : '#111827'};outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;box-shadow:0 0 0 2px #ccfbf1;}`;
+const Sel = styled.select`height:34px;padding:0 8px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;color:#111827;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}&:disabled{background:#f3f4f6;color:#6b7280;}`;
+const Txta = styled.textarea`padding:6px 9px;font-size:.84rem;border:1px solid #d1d5db;border-radius:5px;resize:vertical;min-height:50px;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;outline:none;}`;
+const SecDiv = styled.div`grid-column:span 6;border-top:1px solid #e5e7eb;margin:8px 0 4px;padding-top:8px;font-size:.76rem;font-weight:800;color:#0d9488;text-transform:uppercase;letter-spacing:.05em;`;
+const IRow = styled.div`display:flex;align-items:center;gap:4px;`;
+const IconBtn = styled.button`height:34px;padding:0 12px;font-size:.82rem;background:#0d9488;color:#fff;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;flex-shrink:0;&:hover{background:#0f766e;}&:disabled{opacity:.5;cursor:not-allowed;}`;
+const FActions = styled.div`display:flex;gap:10px;justify-content:flex-end;padding:12px 20px 18px;border-top:1px solid #e5e7eb;margin-top:8px;`;
+const SmBtn = styled.button`height:34px;padding:0 22px;font-size:.82rem;font-weight:700;border-radius:5px;border:none;cursor:pointer;background:${p => p.secondary ? '#e5e7eb' : '#0d9488'};color:${p => p.secondary ? '#374151' : '#fff'};&:hover{opacity:.88;}&:disabled{opacity:.5;cursor:not-allowed;}`;
 
 // ─── Active Admission Banner ───────────────────────────────────────────────────
 const ActiveBanner = styled.div`
@@ -84,52 +84,94 @@ const FieldError = styled.span`
   display: block;
 `;
 
-// ─── Room History Timeline ─────────────────────────────────────────────────────
-const TimelineWrap  = styled.div`grid-column:span 6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin-top:6px;`;
-const TimelineTitle = styled.div`font-size:.72rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px;`;
-const TLList        = styled.div`display:flex;flex-direction:column;`;
-const TLItem        = styled.div`
-  display:flex;align-items:flex-start;gap:12px;position:relative;
-  padding-bottom:${p=>p.last?'0':'18px'};
-  &:not(:last-child)::before{content:"";position:absolute;left:10px;top:24px;bottom:0;width:2px;background:${p=>p.active?'linear-gradient(#0d9488,#e5e7eb)':'#e5e7eb'};}
+// ─── High Risk Toggle & Alert Box ─────────────────────────────────────────────
+const ToggleSwitchWrapper = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
 `;
-const TLDot    = styled.div`width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;background:${p=>p.active?'#0d9488':p.shift?'#7e22ce':'#94a3b8'};border:3px solid ${p=>p.active?'#ccfbf1':p.shift?'#e9d5ff':'#e5e7eb'};`;
-const TLBody   = styled.div`flex:1;min-width:0;`;
+const ToggleTrack = styled.div`
+  width: 44px;
+  height: 24px;
+  background: ${p => p.active ? "#dc2626" : "#cbd5e1"};
+  border-radius: 12px;
+  position: relative;
+  transition: background 0.25s ease;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+`;
+const ToggleThumb = styled.div`
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
+  border-radius: 50%;
+  position: absolute;
+  top: 3px;
+  left: ${p => p.active ? "23px" : "3px"};
+  transition: left 0.25s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+`;
+const HighRiskBox = styled.div`
+  grid-column: span 6;
+  background: #fff5f5;
+  border: 1.5px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 2px;
+  animation: ${fadeIn} 0.25s ease both;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px 14px;
+`;
+
+// ─── Room History Timeline ─────────────────────────────────────────────────────
+const TimelineWrap = styled.div`grid-column:span 6;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;margin-top:6px;`;
+const TimelineTitle = styled.div`font-size:.72rem;font-weight:700;color:#0d9488;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:8px;`;
+const TLList = styled.div`display:flex;flex-direction:column;`;
+const TLItem = styled.div`
+  display:flex;align-items:flex-start;gap:12px;position:relative;
+  padding-bottom:${p => p.last ? '0' : '18px'};
+  &:not(:last-child)::before{content:"";position:absolute;left:10px;top:24px;bottom:0;width:2px;background:${p => p.active ? 'linear-gradient(#0d9488,#e5e7eb)' : '#e5e7eb'};}
+`;
+const TLDot = styled.div`width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;background:${p => p.active ? '#0d9488' : p.shift ? '#7e22ce' : '#94a3b8'};border:3px solid ${p => p.active ? '#ccfbf1' : p.shift ? '#e9d5ff' : '#e5e7eb'};`;
+const TLBody = styled.div`flex:1;min-width:0;`;
 const TLRoomNo = styled.div`font-size:.8rem;font-weight:700;color:#111827;display:flex;align-items:center;gap:6px;flex-wrap:wrap;`;
-const TLMeta   = styled.div`font-size:.67rem;color:#6b7280;margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;`;
-const TLBadge  = styled.span`padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;background:${p=>p.active?'#dcfce7':p.shift?'#f3e8ff':p.cleaned?'#eff6ff':'#f3f4f6'};color:${p=>p.active?'#166534':p.shift?'#7e22ce':p.cleaned?'#1d4ed8':'#6b7280'};`;
-const TLDays   = styled.span`padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;background:#fef3c7;color:#92400e;`;
+const TLMeta = styled.div`font-size:.67rem;color:#6b7280;margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;`;
+const TLBadge = styled.span`padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;background:${p => p.active ? '#dcfce7' : p.shift ? '#f3e8ff' : p.cleaned ? '#eff6ff' : '#f3f4f6'};color:${p => p.active ? '#166534' : p.shift ? '#7e22ce' : p.cleaned ? '#1d4ed8' : '#6b7280'};`;
+const TLDays = styled.span`padding:1px 8px;border-radius:10px;font-size:.6rem;font-weight:700;background:#fef3c7;color:#92400e;`;
 
 // ─── Already Admitted Modal ────────────────────────────────────────────────────
-const AlertMC   = styled(ModalContainer)`max-width:420px;animation:${popIn} .22s ease;`;
+const AlertMC = styled(ModalContainer)`max-width:420px;animation:${popIn} .22s ease;`;
 const AlertBody = styled(ModalBody)`padding:24px;text-align:center;`;
 const AlertIcon = styled.div`font-size:3rem;margin-bottom:12px;`;
-const AlertMsg  = styled.div`font-size:.88rem;color:#374151;line-height:1.6;margin-bottom:16px;`;
-const AlertIP   = styled.div`display:inline-block;padding:6px 18px;border-radius:20px;background:#fef3c7;border:1px solid #fde68a;font-size:.85rem;font-weight:800;color:#92400e;letter-spacing:.04em;margin-bottom:6px;`;
+const AlertMsg = styled.div`font-size:.88rem;color:#374151;line-height:1.6;margin-bottom:16px;`;
+const AlertIP = styled.div`display:inline-block;padding:6px 18px;border-radius:20px;background:#fef3c7;border:1px solid #fde68a;font-size:.85rem;font-weight:800;color:#92400e;letter-spacing:.04em;margin-bottom:6px;`;
 const AlertMeta = styled.div`font-size:.72rem;color:#6b7280;margin-bottom:20px;`;
 const AlertBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
-const ABtn      = styled.button`height:34px;padding:0 20px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.primary?'#0d9488':'#e5e7eb'};color:${p=>p.primary?'#fff':'#374151'};&:hover{opacity:.88;}`;
+const ABtn = styled.button`height:34px;padding:0 20px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p => p.primary ? '#0d9488' : '#e5e7eb'};color:${p => p.primary ? '#fff' : '#374151'};&:hover{opacity:.88;}`;
 
 // ─── Generic Confirm Modal ─────────────────────────────────────────────────────
-const ConfirmMC   = styled(ModalContainer)`max-width:440px;animation:${popIn} .22s ease;`;
+const ConfirmMC = styled(ModalContainer)`max-width:440px;animation:${popIn} .22s ease;`;
 const ConfirmBody = styled(ModalBody)`padding:28px 24px 20px;text-align:center;`;
 const ConfirmIcon = styled.div`font-size:2.8rem;margin-bottom:12px;`;
-const ConfirmTitle= styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
-const ConfirmMsg  = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
+const ConfirmTitle = styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
+const ConfirmMsg = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
 const ConfirmBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
-const CBtn        = styled.button`height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.danger?'#dc2626':p.primary?'#0d9488':'#e5e7eb'};color:${p=>(p.danger||p.primary)?'#fff':'#374151'};&:hover{opacity:.88;}`;
+const CBtn = styled.button`height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p => p.danger ? '#dc2626' : p.primary ? '#0d9488' : '#e5e7eb'};color:${p => (p.danger || p.primary) ? '#fff' : '#374151'};&:hover{opacity:.88;}`;
 
 // ─── Generic Info Modal ────────────────────────────────────────────────────────
-const InfoMC   = styled(ModalContainer)`max-width:400px;animation:${popIn} .22s ease;`;
+const InfoMC = styled(ModalContainer)`max-width:400px;animation:${popIn} .22s ease;`;
 const InfoBody = styled(ModalBody)`padding:28px 24px 20px;text-align:center;`;
 const InfoIcon = styled.div`font-size:2.8rem;margin-bottom:12px;`;
-const InfoTitle= styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
-const InfoMsg  = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
+const InfoTitle = styled.div`font-size:1rem;font-weight:700;color:#111827;margin-bottom:8px;`;
+const InfoMsg = styled.div`font-size:.83rem;color:#6b7280;line-height:1.65;margin-bottom:20px;`;
 const InfoBtns = styled.div`display:flex;gap:10px;justify-content:center;`;
-const IBtn     = styled.button`height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p=>p.primary?'#0d9488':'#e5e7eb'};color:${p=>p.primary?'#fff':'#374151'};&:hover{opacity:.88;}`;
+const IBtn = styled.button`height:34px;padding:0 22px;font-size:.78rem;font-weight:700;border-radius:6px;border:none;cursor:pointer;background:${p => p.primary ? '#0d9488' : '#e5e7eb'};color:${p => p.primary ? '#fff' : '#374151'};&:hover{opacity:.88;}`;
 
 // ─── Reason Modal (shared for Cancel and Edit) ────────────────────────────────
-const ReasonMC   = styled(ModalContainer)`max-width:460px;animation:${popIn} .22s ease;`;
+const ReasonMC = styled(ModalContainer)`max-width:460px;animation:${popIn} .22s ease;`;
 const ReasonBody = styled(ModalBody)`padding:24px;`;
 const ReasonTxta = styled.textarea`width:100%;box-sizing:border-box;padding:8px 10px;font-size:.8rem;border:1.5px solid #d1d5db;border-radius:6px;resize:vertical;min-height:80px;outline:none;&:focus{border-color:#0d9488;}`;
 const ReasonBtns = styled.div`display:flex;gap:10px;justify-content:flex-end;margin-top:14px;`;
@@ -137,17 +179,17 @@ const ReasonBtns = styled.div`display:flex;gap:10px;justify-content:flex-end;mar
 // ─── Table ─────────────────────────────────────────────────────────────────────
 const TTBar = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid #e5e7eb;flex-wrap:wrap;gap:8px;`;
 const TWrap = styled.div`overflow-x:auto;`;
-const Tbl   = styled.table`width:100%;border-collapse:collapse;font-size:.82rem;`;
+const Tbl = styled.table`width:100%;border-collapse:collapse;font-size:.82rem;`;
 const Thead = styled.thead`background:#f9fafb;`;
-const Th    = styled.th`padding:10px 12px;text-align:left;font-size:.72rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
-const Tr    = styled.tr`border-bottom:1px solid #f3f4f6;animation:${fadeIn} .28s ease both;animation-delay:${p=>p.i*.035}s;&:hover{background:#f0fdf4;}`;
-const Td    = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
-const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p=>p.t==='admitted'?'#dcfce7':p.t==='discharged'?'#dbeafe':'#fee2e2'};color:${p=>p.t==='admitted'?'#166534':p.t==='discharged'?'#1d4ed8':'#991b1b'};`;
-const RoomHistBtn   = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
-const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p=>p.src==='shifting'?'#f3e8ff':'#f0fdf4'};color:${p=>p.src==='shifting'?'#7e22ce':'#166534'};`;
+const Th = styled.th`padding:10px 12px;text-align:left;font-size:.72rem;font-weight:700;color:#4b5563;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid #e5e7eb;white-space:nowrap;`;
+const Tr = styled.tr`border-bottom:1px solid #f3f4f6;animation:${fadeIn} .28s ease both;animation-delay:${p => p.i * .035}s;&:hover{background:#f0fdf4;}`;
+const Td = styled.td`padding:9px 12px;color:#374151;white-space:nowrap;`;
+const Badge = styled.span`padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;background:${p => p.t === 'admitted' ? '#dcfce7' : p.t === 'discharged' ? '#dbeafe' : '#fee2e2'};color:${p => p.t === 'admitted' ? '#166534' : p.t === 'discharged' ? '#1d4ed8' : '#991b1b'};`;
+const RoomHistBtn = styled.button`height:26px;padding:0 10px;font-size:.68rem;font-weight:600;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;&:hover{background:#dbeafe;}`;
+const RoomSourceTag = styled.span`font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:6px;margin-left:4px;vertical-align:middle;background:${p => p.src === 'shifting' ? '#f3e8ff' : '#f0fdf4'};color:${p => p.src === 'shifting' ? '#7e22ce' : '#166534'};`;
 
 // ─── Dropdown ──────────────────────────────────────────────────────────────────
-const AW   = styled.div`position:relative;display:inline-block;`;
+const AW = styled.div`position:relative;display:inline-block;`;
 const DotB = styled.button`width:28px;height:28px;border-radius:50%;border:1px solid #e5e7eb;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#6b7280;&:hover{background:#f3f4f6;}`;
 const Drop = styled.div`
   position: fixed;
@@ -179,94 +221,150 @@ const Drop = styled.div`
     background: #94a3b8;
   }
 `;
-const DI   = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;display:flex;align-items:center;gap:8px;color:${p=>p.disabled?'#9ca3af':p.danger?'#dc2626':'#374151'};cursor:${p=>p.disabled?'not-allowed':'pointer'};&:hover:not(:disabled){background:${p=>p.danger?'#fff1f2':'#f0fdf4'};}`;
+const DI = styled.button`width:100%;padding:9px 14px;text-align:left;font-size:.78rem;font-weight:500;background:none;border:none;display:flex;align-items:center;gap:8px;color:${p => p.disabled ? '#9ca3af' : p.danger ? '#dc2626' : '#374151'};cursor:${p => p.disabled ? 'not-allowed' : 'pointer'};&:hover:not(:disabled){background:${p => p.danger ? '#fff1f2' : '#f0fdf4'};}`;
 
 // ─── Pagination ────────────────────────────────────────────────────────────────
 const Pager = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid #e5e7eb;font-size:.75rem;color:#6b7280;flex-wrap:wrap;gap:6px;`;
-const PB    = styled.button`height:28px;padding:0 13px;font-size:.75rem;border:1px solid #e5e7eb;border-radius:4px;background:${p=>p.active?'#0d9488':'#fff'};color:${p=>p.active?'#fff':'#374151'};cursor:pointer;&:disabled{opacity:.45;cursor:default;}&:hover:not(:disabled){background:${p=>p.active?'#0d9488':'#f3f4f6'};}`;
+const PB = styled.button`height:28px;padding:0 13px;font-size:.75rem;border:1px solid #e5e7eb;border-radius:4px;background:${p => p.active ? '#0d9488' : '#fff'};color:${p => p.active ? '#fff' : '#374151'};cursor:pointer;&:disabled{opacity:.45;cursor:default;}&:hover:not(:disabled){background:${p => p.active ? '#0d9488' : '#f3f4f6'};}`;
 
 // ─── Room Picker ───────────────────────────────────────────────────────────────
-const RMC  = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
-const RMB  = styled(ModalBody)`background:#f8fafc;padding:14px;`;
-const FBR  = styled.div`display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:flex-end;`;
-const FFR  = styled.div`display:flex;flex-direction:column;gap:2px;flex:1 1 120px;`;
-const FLR  = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
-const FIR  = styled.input`height:28px;padding:0 7px;font-size:.75rem;border:1px solid #d1d5db;border-radius:4px;background:#fff;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}`;
-const FBR2 = styled.button`height:28px;padding:0 14px;font-size:.75rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.clear?'#6b7280':'#0d9488'};color:#fff;align-self:flex-end;&:hover{opacity:.88;}`;
+const RMC = styled(ModalContainer)`max-width:960px;max-height:88vh;`;
+const RMB = styled(ModalBody)`background:#f8fafc;padding:14px;`;
+const FBR = styled.div`
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+`;
+const FFR = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 140px;
+  min-width: 120px;
+`;
+const FLR = styled.label`font-size:.68rem;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;`;
+const FIR = styled.input`height:32px;padding:0 9px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;outline:none;width:100%;box-sizing:border-box;&:focus{border-color:#0d9488;}`;
+const FSelR = styled.select`height:32px;padding:0 9px;font-size:.78rem;border:1px solid #d1d5db;border-radius:5px;background:#fff;outline:none;width:100%;box-sizing:border-box;cursor:pointer;&:focus{border-color:#0d9488;}`;
+const FBR2 = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:700;border-radius:5px;border:none;cursor:pointer;background:${p => p.clear ? '#6b7280' : '#0d9488'};color:#fff;align-self:flex-end;white-space:nowrap;&:hover{opacity:.88;}`;
 const LBar = styled.div`display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:6px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;`;
-const LI   = styled.div`display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:500;color:#6b7280;`;
-const LD   = styled.span`display:inline-block;width:12px;height:12px;border-radius:3px;background:${p=>p.c};flex-shrink:0;`;
-const BS2  = styled.div`background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;animation:${slideUp2} .25s ease both;animation-delay:${p=>p.i*40}ms;`;
-const BH2  = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:.78rem;font-weight:700;color:#0d9488;`;
-const FG2  = styled.div`padding:10px 12px;`;
-const FL2  = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
+const LI = styled.div`display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:500;color:#6b7280;`;
+const LD = styled.span`display:inline-block;width:12px;height:12px;border-radius:3px;background:${p => p.c};flex-shrink:0;`;
+const BS2 = styled.div`background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;animation:${slideUp2} .25s ease both;animation-delay:${p => p.i * 40}ms;`;
+const BH2 = styled.div`padding:7px 12px;background:#f0fdf4;border-bottom:1px solid #e5e7eb;font-size:.78rem;font-weight:700;color:#0d9488;`;
+const FG2 = styled.div`padding:10px 12px;`;
+const FL2 = styled.div`font-size:.68rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:6px;&::after{content:"";flex:1;height:1px;background:#e5e7eb;}`;
 const BedMiniSVG = ({ color = "#64748b", size = 16 }) => (
   <svg width={size} height={Math.round(size * 0.7)} viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-    <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M1 10H23" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
-    <path d="M5 6C5 5.45 5.45 5 6 5H8C8.55 5 9 5.45 9 6C9 6.55 8.55 7 8 7H6C5.45 7 5 6.55 5 6Z" fill={color}/>
-    <path d="M2 14V16M22 14V16" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M1 14V3C1 2.45 1.45 2 2 2C2.55 2 3 2.45 3 3V9H13V5C13 4.45 13.45 4 14 4H22C22.55 4 23 4.45 23 5V14" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M1 10H23" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M5 6C5 5.45 5.45 5 6 5H8C8.55 5 9 5.45 9 6C9 6.55 8.55 7 8 7H6C5.45 7 5 6.55 5 6Z" fill={color} />
+    <path d="M2 14V16M22 14V16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
   </svg>
 );
 
-const RG2  = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:10px;`;
-const RC   = styled.div`
-  border:1.5px solid ${p=>p.hasOccupied?'#fca5a5':'#e2e8f0'};
+const RG2 = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:10px;`;
+const RC = styled.div`
+  border:1.5px solid ${p => p.hasOccupied ? '#fca5a5' : '#e2e8f0'};
   border-radius:7px;overflow:hidden;background:#fff;
   box-shadow:0 1px 3px rgba(0,0,0,0.06);transition:all .14s ease;
   display:flex;flex-direction:column;
   &:hover{border-color:#0d9488;box-shadow:0 3px 10px rgba(0,0,0,0.08);}
 `;
-const RCT  = styled.div`
+const RCT = styled.div`
   display:flex;align-items:center;justify-content:space-between;padding:5px 8px;
-  background:${p=>p.hasOccupied?'#fff5f5':'#f8fafc'};
-  border-bottom:1px solid ${p=>p.hasOccupied?'#fee2e2':'#e2e8f0'};
+  background:${p => p.hasOccupied ? '#fff5f5' : '#f8fafc'};
+  border-bottom:1px solid ${p => p.hasOccupied ? '#fee2e2' : '#e2e8f0'};
 `;
 const RNum = styled.span`font-size:.78rem;font-weight:800;color:#0f172a;`;
-const RSP  = styled.span`font-size:.58rem;font-weight:800;padding:1px 6px;border-radius:10px;background:${p=>p.s==='available'?'#dcfce7':p.s==='occupied'?'#fee2e2':p.s==='not-cleaned'?'#fef3c7':p.s==='reserved'?'#ede9fe':'#f1f5f9'};color:${p=>p.s==='available'?'#15803d':p.s==='occupied'?'#b91c1c':p.s==='not-cleaned'?'#b45309':p.s==='reserved'?'#6d28d9':'#334155'};text-transform:capitalize;`;
-const BRow = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:5px;padding:6px 8px;`;
-const BC   = styled.button`
-  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  padding:4px 3px;height:46px;border-radius:5px;
-  border:1.5px solid ${p=>p.bs==='Available'?'#86efac':p.bs==='Occupied'?'#fca5a5':p.bs==='Available - Not Cleaned'?'#fde047':p.bs==='Reserved'?'#d8b4fe':'#cbd5e1'};
-  background:${p=>p.bs==='Available'?'#dcfce7':p.bs==='Occupied'?'#fee2e2':p.bs==='Available - Not Cleaned'?'#fef3c7':p.bs==='Reserved'?'#ede9fe':'#f1f5f9'};
-  cursor:${p=>p.disabled?'not-allowed':'pointer'};
-  opacity:${p=>p.disabled?.55:1};
-  transition:all .12s ease;outline:none;user-select:none;
-  &:hover:not(:disabled){transform:scale(1.05);border-color:#16a34a;box-shadow:0 2px 8px rgba(22,163,74,0.25);}
+const RSP = styled.span`font-size:.58rem;font-weight:800;padding:1px 6px;border-radius:10px;background:${p => p.s === 'available' ? '#dcfce7' : p.s === 'occupied' ? '#fee2e2' : p.s === 'not-cleaned' ? '#fef3c7' : p.s === 'reserved' ? '#ede9fe' : '#f1f5f9'};color:${p => p.s === 'available' ? '#15803d' : p.s === 'occupied' ? '#b91c1c' : p.s === 'not-cleaned' ? '#b45309' : p.s === 'reserved' ? '#6d28d9' : '#334155'};text-transform:capitalize;`;
+const CategoryTag = styled.span`
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  max-width: 95px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
-const RT2  = styled.span`font-size:.58rem;font-weight:700;color:#64748b;background:#fff;border:1px solid #e2e8f0;padding:1px 5px;border-radius:4px;text-transform:uppercase;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
+
+const BedCountPill = styled.span`
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: ${p => p.available > 0 ? "#dcfce7" : "#fee2e2"};
+  color: ${p => p.available > 0 ? "#15803d" : "#b91c1c"};
+`;
+
+const BRow = styled.div`display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:5px;padding:6px 8px;`;
+const BC = styled.button`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 3px;
+  height: 48px;
+  border-radius: 5px;
+  border: 1.5px solid ${p => p.cfg?.border || "#cbd5e1"};
+  background: ${p => p.cfg?.light || "#f1f5f9"};
+  cursor: ${p => p.isAv ? "pointer" : "not-allowed"};
+  opacity: ${p => p.isAv ? 1 : 0.65};
+  transition: all 0.12s ease;
+  outline: none;
+  user-select: none;
+  box-sizing: border-box;
+
+  ${p => p.isAv && css`
+    &:hover {
+      transform: scale(1.05);
+      border-color: ${p.cfg?.color || "#16a34a"};
+      box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+    }
+  `}
+`;
+const RT2 = styled.span`font-size:.58rem;font-weight:700;color:#64748b;background:#fff;border:1px solid #e2e8f0;padding:1px 5px;border-radius:4px;text-transform:uppercase;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`;
 const Skel = styled.div`height:100px;border-radius:7px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:${pulse} 1.4s ease-in-out infinite;`;
-const NR   = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
+const NR = styled.div`text-align:center;padding:30px;color:#6b7280;font-size:.8rem;`;
 
 // ─── Room History Modal ────────────────────────────────────────────────────────
 const RHModal = styled(ModalContainer)`max-width:620px;max-height:90vh;`;
-const RHBody  = styled(ModalBody)`padding:0;background:#f8fafc;overflow-y:auto;max-height:calc(90vh - 56px);`;
-const RHSection = styled.div`padding:10px 20px 6px;font-size:.7rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.08em;background:${p=>p.shift?'linear-gradient(90deg,#7e22ce,#9333ea)':'linear-gradient(90deg,#0d9488,#0f766e)'};display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:2;`;
+const RHBody = styled(ModalBody)`padding:0;background:#f8fafc;overflow-y:auto;max-height:calc(90vh - 56px);`;
+const RHSection = styled.div`padding:10px 20px 6px;font-size:.7rem;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:.08em;background:${p => p.shift ? 'linear-gradient(90deg,#7e22ce,#9333ea)' : 'linear-gradient(90deg,#0d9488,#0f766e)'};display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:2;`;
 const RHSectionCount = styled.span`background:rgba(255,255,255,.25);padding:1px 8px;border-radius:10px;font-size:.65rem;`;
-const RHCard   = styled.div`margin:10px 16px;background:#fff;border-radius:8px;border:1.5px solid ${p=>p.active?'#0d9488':p.shift?'#c084fc':'#e5e7eb'};overflow:hidden;animation:${fadeIn} .2s ease both;animation-delay:${p=>p.i*.05}s;box-shadow:${p=>p.active?'0 0 0 3px #ccfbf1':'none'};`;
-const RHCardHead = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${p=>p.active?'#f0fdf4':p.shift?'#faf5ff':'#f9fafb'};border-bottom:1px solid ${p=>p.active?'#bbf7d0':p.shift?'#e9d5ff':'#f3f4f6'};`;
+const RHCard = styled.div`margin:10px 16px;background:#fff;border-radius:8px;border:1.5px solid ${p => p.active ? '#0d9488' : p.shift ? '#c084fc' : '#e5e7eb'};overflow:hidden;animation:${fadeIn} .2s ease both;animation-delay:${p => p.i * .05}s;box-shadow:${p => p.active ? '0 0 0 3px #ccfbf1' : 'none'};`;
+const RHCardHead = styled.div`display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${p => p.active ? '#f0fdf4' : p.shift ? '#faf5ff' : '#f9fafb'};border-bottom:1px solid ${p => p.active ? '#bbf7d0' : p.shift ? '#e9d5ff' : '#f3f4f6'};`;
 const RHRoomLabel = styled.div`font-size:.9rem;font-weight:800;color:#111827;`;
-const RHRoomSub   = styled.div`font-size:.64rem;color:#9ca3af;margin-top:1px;`;
-const RHStatusPill= styled.span`padding:3px 10px;border-radius:12px;font-size:.64rem;font-weight:700;white-space:nowrap;background:${p=>p.active?'#dcfce7':p.cleaned?'#dbeafe':p.shift?'#f3e8ff':'#f3f4f6'};color:${p=>p.active?'#166534':p.cleaned?'#1d4ed8':p.shift?'#7e22ce':'#6b7280'};`;
-const RHGrid  = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#f3f4f6;`;
-const RHCell  = styled.div`padding:9px 14px;background:#fff;`;
-const RHCLbl  = styled.div`font-size:.6rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;`;
-const RHCVal  = styled.div`font-size:.76rem;color:#111827;font-weight:600;margin-top:2px;`;
-const RHFooter= styled.div`padding:8px 14px;background:${p=>p.active?'#f0fdf4':p.shift?'#faf5ff':'#f8fafc'};border-top:1px solid ${p=>p.active?'#bbf7d0':p.shift?'#e9d5ff':'#f3f4f6'};font-size:.7rem;font-weight:600;color:${p=>p.active?'#166534':p.shift?'#7e22ce':'#374151'};display:flex;align-items:center;gap:8px;`;
+const RHRoomSub = styled.div`font-size:.64rem;color:#9ca3af;margin-top:1px;`;
+const RHStatusPill = styled.span`padding:3px 10px;border-radius:12px;font-size:.64rem;font-weight:700;white-space:nowrap;background:${p => p.active ? '#dcfce7' : p.cleaned ? '#dbeafe' : p.shift ? '#f3e8ff' : '#f3f4f6'};color:${p => p.active ? '#166534' : p.cleaned ? '#1d4ed8' : p.shift ? '#7e22ce' : '#6b7280'};`;
+const RHGrid = styled.div`display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#f3f4f6;`;
+const RHCell = styled.div`padding:9px 14px;background:#fff;`;
+const RHCLbl = styled.div`font-size:.6rem;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;`;
+const RHCVal = styled.div`font-size:.76rem;color:#111827;font-weight:600;margin-top:2px;`;
+const RHFooter = styled.div`padding:8px 14px;background:${p => p.active ? '#f0fdf4' : p.shift ? '#faf5ff' : '#f8fafc'};border-top:1px solid ${p => p.active ? '#bbf7d0' : p.shift ? '#e9d5ff' : '#f3f4f6'};font-size:.7rem;font-weight:600;color:${p => p.active ? '#166534' : p.shift ? '#7e22ce' : '#374151'};display:flex;align-items:center;gap:8px;`;
 
 // ─── Print Slip ────────────────────────────────────────────────────────────────
-const PMC  = styled(ModalContainer)`max-width:520px;`;
-const PMB  = styled(ModalBody)`padding:0;background:#fff;`;
+const PMC = styled(ModalContainer)`max-width:520px;`;
+const PMB = styled(ModalBody)`padding:0;background:#fff;`;
 const Slip = styled.div`padding:16px;font-family:'Courier New',monospace;font-size:12px;color:#000;border:2px solid #000;margin:16px;`;
-const SR   = styled.div`display:flex;justify-content:space-between;gap:12px;`;
-const SL   = styled.div`flex:1;`;
-const SRt  = styled.div`text-align:right;`;
+const SR = styled.div`display:flex;justify-content:space-between;gap:12px;`;
+const SL = styled.div`flex:1;`;
+const SRt = styled.div`text-align:right;`;
 const SBig = styled.div`font-size:18px;font-weight:900;letter-spacing:.5px;`;
-const SLn  = styled.div`margin:2px 0;font-size:11px;`;
-const SBold= styled.div`font-weight:700;margin:2px 0;font-size:12px;`;
-const PA   = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
-const PBt  = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p=>p.sec?'#e5e7eb':'#7c3aed'};color:${p=>p.sec?'#374151':'#fff'};&:hover{opacity:.88;}`;
+const SLn = styled.div`margin:2px 0;font-size:11px;`;
+const SBold = styled.div`font-weight:700;margin:2px 0;font-size:12px;`;
+const PA = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
+const PBt = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p => p.sec ? '#e5e7eb' : '#7c3aed'};color:${p => p.sec ? '#374151' : '#fff'};&:hover{opacity:.88;}`;
 
 // ─── Room Shifting Modal wrapper ───────────────────────────────────────────────
 const ShiftMC = styled(ModalContainer)`max-width:860px;max-height:92vh;`;
@@ -277,7 +375,7 @@ const ViewMC = styled(ModalContainer)`max-width:820px;max-height:90vh;display:fl
 const ViewBody = styled(ModalBody)`padding:18px 24px;overflow-y:auto;background:#f8fafc;display:flex;flex-direction:column;gap:14px;`;
 const SectionBox = styled.div`background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,0.03);`;
 const SectionTitle = styled.div`font-size:.76rem;font-weight:700;color:#0f766e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px;`;
-const InfoGrid = styled.div`display:grid;grid-template-columns:repeat(auto-fit, minmax(${p=>p.minWidth||'180px'}, 1fr));gap:10px 14px;`;
+const InfoGrid = styled.div`display:grid;grid-template-columns:repeat(auto-fit, minmax(${p => p.minWidth || '180px'}, 1fr));gap:10px 14px;`;
 const InfoItem = styled.div`display:flex;flex-direction:column;gap:2px;`;
 const InfoLbl = styled.span`font-size:.66rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;`;
 const InfoVal = styled.span`font-size:.82rem;font-weight:600;color:#1e293b;word-break:break-word;`;
@@ -292,17 +390,17 @@ const EditReasonText = styled.div`font-size:.78rem;color:#334155;background:#f1f
 
 // ─── Code128B Barcode ──────────────────────────────────────────────────────────
 const CODE128_PATTERNS = [
-  "11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000",
-  "11001000100","11000100100","10110011100","10011011100","10011001110","10111001100","10011101100","10011100110","11001110010","11001011100",
-  "11001001110","11011100100","11001110100","11101101110","11101001100","11100101100","11100100110","11101100100","11100110100","11100110010",
-  "11011011000","11011000110","11000110110","10100011000","10001011000","10001000110","10110001000","10001101000","10001100010","11010001000",
-  "11000101000","11000100010","10110111000","10110001110","10001101110","10111011000","10111000110","10001110110","11101110110","11010001110",
-  "11000101110","11011101000","11011100010","11011101110","11101011000","11101000110","11100010110","11101101000","11101100010","11100011010",
-  "11101111010","11001000010","11110001010","10100110000","10100001100","10010110000","10010000110","10000101100","10000100110","10110010000",
-  "10110000100","10011010000","10011000010","10000110100","10000110010","11000010010","11001010000","11110111010","11000010100","10001111010",
-  "10100111100","10010111100","10010011110","10111100100","10011110100","10011110010","11110100100","11110010100","11110010010","11011011110",
-  "11011110110","11110110110","10101111000","10100011110","10001011110","10111101000","10111100010","11110101000","11110100010","10111011110",
-  "10111101110","11101011110","11110101110","11010000100","11010010000","11010011100","1100011101011",
+  "11011001100", "11001101100", "11001100110", "10010011000", "10010001100", "10001001100", "10011001000", "10011000100", "10001100100", "11001001000",
+  "11001000100", "11000100100", "10110011100", "10011011100", "10011001110", "10111001100", "10011101100", "10011100110", "11001110010", "11001011100",
+  "11001001110", "11011100100", "11001110100", "11101101110", "11101001100", "11100101100", "11100100110", "11101100100", "11100110100", "11100110010",
+  "11011011000", "11011000110", "11000110110", "10100011000", "10001011000", "10001000110", "10110001000", "10001101000", "10001100010", "11010001000",
+  "11000101000", "11000100010", "10110111000", "10110001110", "10001101110", "10111011000", "10111000110", "10001110110", "11101110110", "11010001110",
+  "11000101110", "11011101000", "11011100010", "11011101110", "11101011000", "11101000110", "11100010110", "11101101000", "11101100010", "11100011010",
+  "11101111010", "11001000010", "11110001010", "10100110000", "10100001100", "10010110000", "10010000110", "10000101100", "10000100110", "10110010000",
+  "10110000100", "10011010000", "10011000010", "10000110100", "10000110010", "11000010010", "11001010000", "11110111010", "11000010100", "10001111010",
+  "10100111100", "10010111100", "10010011110", "10111100100", "10011110100", "10011110010", "11110100100", "11110010100", "11110010010", "11011011110",
+  "11011110110", "11110110110", "10101111000", "10100011110", "10001011110", "10111101000", "10111100010", "11110101000", "11110100010", "10111011110",
+  "10111101110", "11101011110", "11110101110", "11010000100", "11010010000", "11010011100", "1100011101011",
 ];
 const START_B = 104;
 function encodeCode128(text) {
@@ -331,12 +429,12 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
   }
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={width} height={height}
-      style={{ display:"block" }} viewBox={`0 0 ${width} ${height}`}>
+      style={{ display: "block" }} viewBox={`0 0 ${width} ${height}`}>
       {rects.map((r, i) => (
         <rect key={i} x={r.x.toFixed(2)} y={0} width={Math.max(r.w, 0.6).toFixed(2)} height={barH} fill="#000" />
       ))}
       {showText && (
-        <text x={width/2} y={height} textAnchor="middle"
+        <text x={width / 2} y={height} textAnchor="middle"
           fontFamily="'Courier New',monospace" fontSize="10" fill="#000" letterSpacing="1.5">
           {value}
         </text>
@@ -349,37 +447,38 @@ function BarcodeSVG({ value = "", width = 240, height = 64, showText = true }) {
 // HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
 const EMPTY = {
-  uhid:"", ipNumber:"", admittingDoctor:"", consultingDoctor:"",
-  roomNo:"", bedNo:"", reasonForAdmission:"",
-  packageNo:"", packageName:"",
-  mlc_type:"", mlc_doc:null, mlc_remarks:"",
-  attender_name:"", attender_relationship:"", attender_phone:"",
-  salutation:"", firstName:"", middleName:"", lastName:"",
-  dob:"", age:"", age_type:"Y", gender:"", mobilePhone:"", permanent_address:"",
-  area:"", zipcode:"", city:"", state:"",
-  customerType:"General", insuranceCompanyName:"", company_code:"",
-  room_details:[], roomShitingDetails:[], edit_history:[],
+  uhid: "", ipNumber: "", admittingDoctor: "", consultingDoctor: "",
+  roomNo: "", bedNo: "", reasonForAdmission: "",
+  packageNo: "", packageName: "",
+  mlc_type: "", mlc_doc: null, mlc_remarks: "",
+  attender_name: "", attender_relationship: "", attender_phone: "",
+  is_high_risk: false, high_risk_reason: "", high_risk_date: new Date().toISOString().slice(0, 10),
+  salutation: "", firstName: "", middleName: "", lastName: "",
+  dob: "", age: "", age_type: "Y", gender: "", mobilePhone: "", permanent_address: "",
+  area: "", zipcode: "", city: "", state: "",
+  customerType: "General", insuranceCompanyName: "", company_code: "",
+  room_details: [], roomShitingDetails: [], edit_history: [],
 };
 
 const RELATIONSHIP_OPTIONS = [
-  { value: "Father",       label: "Father" },
-  { value: "Mother",       label: "Mother" },
-  { value: "Spouse",       label: "Spouse (Husband / Wife)" },
-  { value: "Son",          label: "Son" },
-  { value: "Daughter",     label: "Daughter" },
-  { value: "Brother",      label: "Brother" },
-  { value: "Sister",       label: "Sister" },
-  { value: "Grandfather",  label: "Grandfather" },
-  { value: "Grandmother",  label: "Grandmother" },
-  { value: "Uncle",        label: "Uncle" },
-  { value: "Aunt",         label: "Aunt" },
-  { value: "Cousin",       label: "Cousin" },
-  { value: "Guardian",     label: "Guardian / Caregiver" },
-  { value: "Relative",     label: "Relative" },
-  { value: "Friend",       label: "Friend" },
-  { value: "Neighbour",    label: "Neighbour" },
-  { value: "Colleague",    label: "Colleague" },
-  { value: "Other",        label: "Other" },
+  { value: "Father", label: "Father" },
+  { value: "Mother", label: "Mother" },
+  { value: "Spouse", label: "Spouse (Husband / Wife)" },
+  { value: "Son", label: "Son" },
+  { value: "Daughter", label: "Daughter" },
+  { value: "Brother", label: "Brother" },
+  { value: "Sister", label: "Sister" },
+  { value: "Grandfather", label: "Grandfather" },
+  { value: "Grandmother", label: "Grandmother" },
+  { value: "Uncle", label: "Uncle" },
+  { value: "Aunt", label: "Aunt" },
+  { value: "Cousin", label: "Cousin" },
+  { value: "Guardian", label: "Guardian / Caregiver" },
+  { value: "Relative", label: "Relative" },
+  { value: "Friend", label: "Friend" },
+  { value: "Neighbour", label: "Neighbour" },
+  { value: "Colleague", label: "Colleague" },
+  { value: "Other", label: "Other" },
 ];
 
 function safeParseList(value) {
@@ -389,7 +488,7 @@ function safeParseList(value) {
     try {
       const parsed = JSON.parse(value);
       return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
-    } catch (_) {}
+    } catch (_) { }
     try {
       const j = value
         .replace(/OrderedDict\(\[/g, "{").replace(/\]\)/g, "}")
@@ -398,14 +497,14 @@ function safeParseList(value) {
         .replace(/,\s*([}\]])/g, "$1");
       const parsed = JSON.parse(j);
       return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
-    } catch (_) {}
+    } catch (_) { }
   }
   return [];
 }
 
 function normalizeAdm(adm) {
   if (!adm) return adm;
-  adm.room_details       = safeParseList(adm.room_details);
+  adm.room_details = safeParseList(adm.room_details);
   adm.roomShitingDetails = safeParseList(adm.roomShitingDetails);
   return adm;
 }
@@ -413,14 +512,14 @@ function normalizeAdm(adm) {
 const getRoomStatus = beds => {
   if (!beds?.length) return "available";
   const s = beds.map(b => b.status);
-  if (s.every(x => x === "Maintenance"))             return "maintenance";
-  if (s.every(x => x === "Occupied"))                return "occupied";
-  if (s.every(x => x === "Reserved"))                return "reserved";
+  if (s.every(x => x === "Maintenance")) return "maintenance";
+  if (s.every(x => x === "Occupied")) return "occupied";
+  if (s.every(x => x === "Reserved")) return "reserved";
   if (s.every(x => x === "Available - Not Cleaned")) return "not-cleaned";
   if (s.some(x => x === "Occupied") && s.some(x => x === "Available" || x === "Available - Not Cleaned")) return "partial";
-  if (s.some(x => x === "Occupied"))                 return "partial";
-  if (s.some(x => x === "Reserved"))                 return "reserved";
-  if (s.some(x => x === "Available - Not Cleaned"))  return "not-cleaned";
+  if (s.some(x => x === "Occupied")) return "partial";
+  if (s.some(x => x === "Reserved")) return "reserved";
+  if (s.some(x => x === "Available - Not Cleaned")) return "not-cleaned";
   return "available";
 };
 
@@ -428,32 +527,32 @@ const getActiveRoom = adm => {
   const shifts = safeParseList(adm.roomShitingDetails);
   for (const s of shifts) {
     if (s && s.is_roomActive === true)
-      return { roomNo: s.newRoomNo||"-", bedNo: s.newBedNo||"-", source:"shifting" };
+      return { roomNo: s.newRoomNo || "-", bedNo: s.newBedNo || "-", source: "shifting" };
   }
   const rooms = safeParseList(adm.room_details);
   for (const r of rooms) {
     if (r && r.is_roomActive === true)
-      return { roomNo: r.roomNo||"-", bedNo: r.bedNo||"-", source:"room_details" };
+      return { roomNo: r.roomNo || "-", bedNo: r.bedNo || "-", source: "room_details" };
   }
-  return { roomNo: adm.roomNo||"-", bedNo: adm.bedNo||"-", source:"fallback" };
+  return { roomNo: adm.roomNo || "-", bedNo: adm.bedNo || "-", source: "fallback" };
 };
 
 const getAdmStatus = adm => {
-  if (adm.is_discharged)  return "discharged";
-  if (adm.is_cancelled)   return "cancelled";
-  if (adm.is_admitted)    return "admitted";
+  if (adm.is_discharged) return "discharged";
+  if (adm.is_cancelled) return "cancelled";
+  if (adm.is_admitted) return "admitted";
   return "cancelled";
 };
 
-const fmtDate     = d => { try { return new Date(d).toLocaleDateString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric"}); } catch{return "-";} };
-const fmtTime     = d => { try { return new Date(d).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",hour12:true}); } catch{return "-";} };
-const fmtDateTime = d => { if(!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch{return "—";} };
+const fmtDate = d => { try { return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); } catch { return "-"; } };
+const fmtTime = d => { try { return new Date(d).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }); } catch { return "-"; } };
+const fmtDateTime = d => { if (!d) return "—"; try { return `${fmtDate(d)}, ${fmtTime(d)}`; } catch { return "—"; } };
 
 function calcDuration(start, end) {
   if (!start) return null;
   const ms = (end ? new Date(end) : new Date()) - new Date(start);
-  if (ms < 0) return { days:0, hours:0 };
-  return { days: Math.floor(ms/86400000), hours: Math.floor((ms%86400000)/3600000) };
+  if (ms < 0) return { days: 0, hours: 0 };
+  return { days: Math.floor(ms / 86400000), hours: Math.floor((ms % 86400000) / 3600000) };
 }
 
 function pName(d) {
@@ -463,10 +562,10 @@ function pName(d) {
 // ══════════════════════════════════════════════════════════════════════════════
 // SUB-COMPONENTS
 // ══════════════════════════════════════════════════════════════════════════════
-function ConfirmModal({ icon="⚠️", title, message, confirmLabel="Confirm", cancelLabel="Cancel", onConfirm, onCancel, danger=false }) {
+function ConfirmModal({ icon = "⚠️", title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, onCancel, danger = false }) {
   return (
     <ModalOverlay onClick={onCancel}>
-      <ConfirmMC onClick={e=>e.stopPropagation()}>
+      <ConfirmMC onClick={e => e.stopPropagation()}>
         <ConfirmBody>
           <ConfirmIcon>{icon}</ConfirmIcon>
           <ConfirmTitle>{title}</ConfirmTitle>
@@ -481,11 +580,11 @@ function ConfirmModal({ icon="⚠️", title, message, confirmLabel="Confirm", c
   );
 }
 
-function InfoModal({ icon="ℹ️", title, message, onClose, type="info" }) {
-  const iconMap = { warning:"⚠️", error:"❌", success:"✅", info:"ℹ️" };
+function InfoModal({ icon = "ℹ️", title, message, onClose, type = "info" }) {
+  const iconMap = { warning: "⚠️", error: "❌", success: "✅", info: "ℹ️" };
   return (
     <ModalOverlay onClick={onClose}>
-      <InfoMC onClick={e=>e.stopPropagation()}>
+      <InfoMC onClick={e => e.stopPropagation()}>
         <InfoBody>
           <InfoIcon>{iconMap[type] || icon}</InfoIcon>
           <InfoTitle>{title}</InfoTitle>
@@ -498,20 +597,20 @@ function InfoModal({ icon="ℹ️", title, message, onClose, type="info" }) {
 }
 
 // ─── Reason Modal — used for both Cancel and Edit ─────────────────────────────
-function ReasonModal({ mode="cancel", onConfirm, onCancel }) {
+function ReasonModal({ mode = "cancel", onConfirm, onCancel }) {
   const [reason, setReason] = useState("");
   const isCancel = mode === "cancel";
   return (
     <ModalOverlay onClick={onCancel}>
-      <ReasonMC onClick={e=>e.stopPropagation()}>
+      <ReasonMC onClick={e => e.stopPropagation()}>
         <ModalHeader>
           <ModalTitle>{isCancel ? "🗑️ Cancel Admission" : "✏️ Edit Admission"}</ModalTitle>
           <CloseButton onClick={onCancel}>×</CloseButton>
         </ModalHeader>
         <ReasonBody>
-          <div style={{fontSize:".8rem",color:"#374151",marginBottom:8}}>
+          <div style={{ fontSize: ".8rem", color: "#374151", marginBottom: 8 }}>
             <strong>{isCancel ? "Cancellation" : "Edit"} Reason</strong>
-            <span style={{color:"#ef4444",marginLeft:3}}>*</span>
+            <span style={{ color: "#ef4444", marginLeft: 3 }}>*</span>
           </div>
           <ReasonTxta
             placeholder={isCancel
@@ -538,48 +637,48 @@ function ReasonModal({ mode="cancel", onConfirm, onCancel }) {
   );
 }
 
-function RoomTimeline({ roomDetails=[], shiftingDetails=[] }) {
+function RoomTimeline({ roomDetails = [], shiftingDetails = [] }) {
   const roomEntries = roomDetails.map(r => ({
-    key:`rd-${r.room_entry_id??Math.random()}`, roomNo:r.roomNo||"—", bedNo:r.bedNo||"—",
-    isActive:Boolean(r.is_roomActive), isCleaned:Boolean(r.is_roomCleaned),
-    start:r.startDateTime, end:r.endDateTime,
-    label:`Entry #${r.room_entry_id||"?"}`, isShift:false,
+    key: `rd-${r.room_entry_id ?? Math.random()}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
+    isActive: Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
+    start: r.startDateTime, end: r.endDateTime,
+    label: `Entry #${r.room_entry_id || "?"}`, isShift: false,
   }));
   const shiftEntries = shiftingDetails.map(s => ({
-    key:`sh-${s.shifting_id}`, roomNo:s.newRoomNo||"—", bedNo:s.newBedNo||"—",
-    isActive:Boolean(s.is_roomActive), isCleaned:Boolean(s.is_roomCleaned),
-    start:s.startDateTime, end:s.endDateTime,
-    label:`Shifted from ${s.oldRoomNo||"?"}/${s.oldBedNo||"?"}`,
-    shiftId:s.shifting_id, isShift:true,
+    key: `sh-${s.shifting_id}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
+    isActive: Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
+    start: s.startDateTime, end: s.endDateTime,
+    label: `Shifted from ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
+    shiftId: s.shifting_id, isShift: true,
   }));
-  const all = [...roomEntries,...shiftEntries].sort((a,b)=>new Date(a.start||0)-new Date(b.start||0));
+  const all = [...roomEntries, ...shiftEntries].sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
   if (!all.length) return null;
   return (
     <TimelineWrap>
       <TimelineTitle>🏨 Room Stay History
-        <span style={{fontWeight:400,color:"#6b7280",textTransform:"none",fontSize:".7rem"}}>
-          ({roomEntries.length} detail{roomEntries.length!==1?"s":""} · {shiftEntries.length} shifting{shiftEntries.length!==1?"s":""})
+        <span style={{ fontWeight: 400, color: "#6b7280", textTransform: "none", fontSize: ".7rem" }}>
+          ({roomEntries.length} detail{roomEntries.length !== 1 ? "s" : ""} · {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""})
         </span>
       </TimelineTitle>
       <TLList>
-        {all.map((r,idx) => {
+        {all.map((r, idx) => {
           const dur = calcDuration(r.start, r.end);
           return (
-            <TLItem key={r.key} active={r.isActive} last={idx===all.length-1}>
-              <TLDot active={r.isActive} shift={r.isShift&&!r.isActive}/>
+            <TLItem key={r.key} active={r.isActive} last={idx === all.length - 1}>
+              <TLDot active={r.isActive} shift={r.isShift && !r.isActive} />
               <TLBody>
                 <TLRoomNo>
                   Room <strong>{r.roomNo}</strong> / Bed <strong>{r.bedNo}</strong>
-                  {r.isActive&&<TLBadge active>🟢 Current</TLBadge>}
-                  {!r.isActive&&r.isCleaned&&<TLBadge cleaned>✅ Cleaned</TLBadge>}
-                  {!r.isActive&&!r.isCleaned&&<TLBadge>Past</TLBadge>}
-                  {r.isShift&&<TLBadge shift>🔄 Shifted · {r.shiftId}</TLBadge>}
-                  {dur&&<TLDays>⏱ {dur.days}d {dur.hours}h</TLDays>}
+                  {r.isActive && <TLBadge active>🟢 Current</TLBadge>}
+                  {!r.isActive && r.isCleaned && <TLBadge cleaned>✅ Cleaned</TLBadge>}
+                  {!r.isActive && !r.isCleaned && <TLBadge>Past</TLBadge>}
+                  {r.isShift && <TLBadge shift>🔄 Shifted · {r.shiftId}</TLBadge>}
+                  {dur && <TLDays>⏱ {dur.days}d {dur.hours}h</TLDays>}
                 </TLRoomNo>
                 <TLMeta>
                   <span>{r.label}</span>
                   <span>In: {fmtDateTime(r.start)}</span>
-                  {r.end?<span>Out: {fmtDateTime(r.end)}</span>:r.isActive&&<span style={{color:"#0d9488",fontWeight:600}}>Still occupied</span>}
+                  {r.end ? <span>Out: {fmtDateTime(r.end)}</span> : r.isActive && <span style={{ color: "#0d9488", fontWeight: 600 }}>Still occupied</span>}
                 </TLMeta>
               </TLBody>
             </TLItem>
@@ -591,45 +690,45 @@ function RoomTimeline({ roomDetails=[], shiftingDetails=[] }) {
 }
 
 function RoomHistoryModal({ adm, onClose }) {
-  const roomDetails  = Array.isArray(adm.room_details)       ? adm.room_details       : [];
+  const roomDetails = Array.isArray(adm.room_details) ? adm.room_details : [];
   const shiftDetails = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails : [];
-  const totalCount   = roomDetails.length + shiftDetails.length;
+  const totalCount = roomDetails.length + shiftDetails.length;
 
-  const roomEntries = roomDetails.map((r,idx) => ({
-    key:`rd-${r.room_entry_id??idx}`, roomNo:r.roomNo||"—", bedNo:r.bedNo||"—",
-    isActive:Boolean(r.is_roomActive), isCleaned:Boolean(r.is_roomCleaned),
-    start:r.startDateTime, end:r.endDateTime,
-    label:`Admission room entry #${r.room_entry_id||idx+1}`, isShift:false,
-  })).sort((a,b)=>new Date(a.start||0)-new Date(b.start||0));
+  const roomEntries = roomDetails.map((r, idx) => ({
+    key: `rd-${r.room_entry_id ?? idx}`, roomNo: r.roomNo || "—", bedNo: r.bedNo || "—",
+    isActive: Boolean(r.is_roomActive), isCleaned: Boolean(r.is_roomCleaned),
+    start: r.startDateTime, end: r.endDateTime,
+    label: `Admission room entry #${r.room_entry_id || idx + 1}`, isShift: false,
+  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
 
-  const shiftEntries = shiftDetails.map((s,idx) => ({
-    key:`sh-${s.shifting_id??idx}`, roomNo:s.newRoomNo||"—", bedNo:s.newBedNo||"—",
-    isActive:Boolean(s.is_roomActive), isCleaned:Boolean(s.is_roomCleaned),
-    start:s.startDateTime, end:s.endDateTime,
-    label:`Shifted from Room ${s.oldRoomNo||"?"}/${s.oldBedNo||"?"}`,
-    shiftId:s.shifting_id, isShift:true,
-  })).sort((a,b)=>new Date(a.start||0)-new Date(b.start||0));
+  const shiftEntries = shiftDetails.map((s, idx) => ({
+    key: `sh-${s.shifting_id ?? idx}`, roomNo: s.newRoomNo || "—", bedNo: s.newBedNo || "—",
+    isActive: Boolean(s.is_roomActive), isCleaned: Boolean(s.is_roomCleaned),
+    start: s.startDateTime, end: s.endDateTime,
+    label: `Shifted from Room ${s.oldRoomNo || "?"}/${s.oldBedNo || "?"}`,
+    shiftId: s.shifting_id, isShift: true,
+  })).sort((a, b) => new Date(a.start || 0) - new Date(b.start || 0));
 
-  const renderCard = (r,i) => {
+  const renderCard = (r, i) => {
     const dur = calcDuration(r.start, r.end);
     return (
       <RHCard key={r.key} i={i} active={r.isActive} shift={r.isShift}>
         <RHCardHead active={r.isActive} shift={r.isShift}>
           <div>
             <RHRoomLabel>Room {r.roomNo} / Bed {r.bedNo}</RHRoomLabel>
-            <RHRoomSub>{r.label}{r.shiftId?` · ID: ${r.shiftId}`:""}</RHRoomSub>
+            <RHRoomSub>{r.label}{r.shiftId ? ` · ID: ${r.shiftId}` : ""}</RHRoomSub>
           </div>
-          <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift&&!r.isActive}>
-            {r.isActive?"🟢 Currently Active":r.isCleaned?"✅ Cleaned":r.isShift?"🔄 Shifted":"⬜ Past"}
+          <RHStatusPill active={r.isActive} cleaned={r.isCleaned} shift={r.isShift && !r.isActive}>
+            {r.isActive ? "🟢 Currently Active" : r.isCleaned ? "✅ Cleaned" : r.isShift ? "🔄 Shifted" : "⬜ Past"}
           </RHStatusPill>
         </RHCardHead>
         <RHGrid>
           <RHCell><RHCLbl>Check-In</RHCLbl><RHCVal>{fmtDateTime(r.start)}</RHCVal></RHCell>
-          <RHCell><RHCLbl>Check-Out</RHCLbl><RHCVal>{r.end?fmtDateTime(r.end):"—"}</RHCVal></RHCell>
+          <RHCell><RHCLbl>Check-Out</RHCLbl><RHCVal>{r.end ? fmtDateTime(r.end) : "—"}</RHCVal></RHCell>
         </RHGrid>
-        <RHFooter active={r.isActive} shift={r.isShift&&!r.isActive}>
-          ⏱ Duration: {dur?`${dur.days}d ${dur.hours}h`:"—"}
-          {r.isActive&&" (ongoing)"}{!r.isActive&&!r.end&&" · no checkout recorded"}
+        <RHFooter active={r.isActive} shift={r.isShift && !r.isActive}>
+          ⏱ Duration: {dur ? `${dur.days}d ${dur.hours}h` : "—"}
+          {r.isActive && " (ongoing)"}{!r.isActive && !r.end && " · no checkout recorded"}
         </RHFooter>
       </RHCard>
     );
@@ -637,34 +736,36 @@ function RoomHistoryModal({ adm, onClose }) {
 
   return (
     <ModalOverlay onClick={onClose}>
-      <RHModal onClick={e=>e.stopPropagation()}>
-        <ModalHeader style={{borderBottom:"none",paddingBottom:8}}>
+      <RHModal onClick={e => e.stopPropagation()}>
+        <ModalHeader style={{ borderBottom: "none", paddingBottom: 8 }}>
           <div>
             <ModalTitle>🏨 Room History — {adm.ipNumber}</ModalTitle>
-            <div style={{fontSize:".7rem",color:"#6b7280",marginTop:2}}>
-              {pName(adm)} &nbsp;·&nbsp; {totalCount} total record{totalCount!==1?"s":""}
+            <div style={{ fontSize: ".7rem", color: "#6b7280", marginTop: 2 }}>
+              {pName(adm)} &nbsp;·&nbsp; {totalCount} total record{totalCount !== 1 ? "s" : ""}
             </div>
           </div>
           <CloseButton onClick={onClose}>×</CloseButton>
         </ModalHeader>
-        <div style={{display:"flex",gap:8,padding:"6px 20px 10px",borderBottom:"1px solid #e5e7eb",flexWrap:"wrap"}}>
-          <span style={{fontSize:".72rem",padding:"3px 10px",borderRadius:10,background:"#f0fdf4",border:"1px solid #bbf7d0",color:"#166534",fontWeight:600}}>
-            📋 {roomEntries.length} room detail{roomEntries.length!==1?"s":""}
+        <div style={{ display: "flex", gap: 8, padding: "6px 20px 10px", borderBottom: "1px solid #e5e7eb", flexWrap: "wrap" }}>
+          <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", fontWeight: 600 }}>
+            📋 {roomEntries.length} room detail{roomEntries.length !== 1 ? "s" : ""}
           </span>
-          <span style={{fontSize:".72rem",padding:"3px 10px",borderRadius:10,background:"#f3e8ff",border:"1px solid #e9d5ff",color:"#7e22ce",fontWeight:600}}>
-            🔄 {shiftEntries.length} shifting{shiftEntries.length!==1?"s":""}
+          <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#f3e8ff", border: "1px solid #e9d5ff", color: "#7e22ce", fontWeight: 600 }}>
+            🔄 {shiftEntries.length} shifting{shiftEntries.length !== 1 ? "s" : ""}
           </span>
-          {(()=>{const{roomNo,bedNo,source}=getActiveRoom(adm);return(
-            <span style={{fontSize:".72rem",padding:"3px 10px",borderRadius:10,background:"#dcfce7",border:"1px solid #86efac",color:"#166534",fontWeight:700}}>
-              🟢 Active: Room {roomNo} / Bed {bedNo}{source==="shifting"&&" 🔄"}
-            </span>
-          );})()}
+          {(() => {
+            const { roomNo, bedNo, source } = getActiveRoom(adm); return (
+              <span style={{ fontSize: ".72rem", padding: "3px 10px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", color: "#166534", fontWeight: 700 }}>
+                🟢 Active: Room {roomNo} / Bed {bedNo}{source === "shifting" && " 🔄"}
+              </span>
+            );
+          })()}
         </div>
         <RHBody>
-          {totalCount===0&&<NR>No room history found.</NR>}
-          {roomEntries.length>0&&<><RHSection>📋 Room Details<RHSectionCount>{roomEntries.length} entr{roomEntries.length!==1?"ies":"y"}</RHSectionCount></RHSection>{roomEntries.map((r,i)=>renderCard(r,i))}</>}
-          {shiftEntries.length>0&&<><RHSection shift>🔄 Room Shiftings<RHSectionCount>{shiftEntries.length} entr{shiftEntries.length!==1?"ies":"y"}</RHSectionCount></RHSection>{shiftEntries.map((r,i)=>renderCard(r,i))}</>}
-          <div style={{height:12}}/>
+          {totalCount === 0 && <NR>No room history found.</NR>}
+          {roomEntries.length > 0 && <><RHSection>📋 Room Details<RHSectionCount>{roomEntries.length} entr{roomEntries.length !== 1 ? "ies" : "y"}</RHSectionCount></RHSection>{roomEntries.map((r, i) => renderCard(r, i))}</>}
+          {shiftEntries.length > 0 && <><RHSection shift>🔄 Room Shiftings<RHSectionCount>{shiftEntries.length} entr{shiftEntries.length !== 1 ? "ies" : "y"}</RHSectionCount></RHSection>{shiftEntries.map((r, i) => renderCard(r, i))}</>}
+          <div style={{ height: 12 }} />
         </RHBody>
       </RHModal>
     </ModalOverlay>
@@ -683,8 +784,10 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
 
   const rawDoc = adm.mlc_doc || "";
   const fileName = rawDoc ? rawDoc.split("/").pop().split("\\").pop() : "";
-  const docUrl = fileName ? `${HmsBaseUrl}admission-mlc-doc/${encodeURIComponent(fileName)}` : null;
-  const isImage = fileName && /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName);
+  const isDirectUrl = rawDoc.startsWith("http://") || rawDoc.startsWith("https://") || rawDoc.startsWith("data:");
+  const docUrl = isDirectUrl ? rawDoc : (fileName ? `${HmsBaseUrl}admission-mlc-doc/${encodeURIComponent(fileName)}` : null);
+  const isPdf = fileName && /\.pdf$/i.test(fileName);
+  const isImage = !fileName || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(fileName) || rawDoc.startsWith("data:image");
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -843,6 +946,23 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
             </InfoGrid>
           </SectionBox>
 
+          {/* High Risk Alert Box if Active */}
+          {adm.is_high_risk && (
+            <SectionBox style={{ background: "#fff5f5", borderColor: "#fca5a5", borderLeft: "4px solid #dc2626" }}>
+              <SectionTitle style={{ color: "#dc2626" }}>⚠️ Patient High Risk Alert</SectionTitle>
+              <InfoGrid minWidth="180px">
+                <InfoItem>
+                  <InfoLbl>Risk Identified Date</InfoLbl>
+                  <InfoVal style={{ color: "#b91c1c" }}>{fmtDate(adm.high_risk_date)}</InfoVal>
+                </InfoItem>
+                <InfoItem style={{ gridColumn: "span 2" }}>
+                  <InfoLbl>High Risk Reason</InfoLbl>
+                  <InfoVal style={{ color: "#b91c1c", fontWeight: 700 }}>{adm.high_risk_reason || "Not specified"}</InfoVal>
+                </InfoItem>
+              </InfoGrid>
+            </SectionBox>
+          )}
+
           {/* MLC Details */}
           <SectionBox>
             <SectionTitle>⚖️ MLC Details</SectionTitle>
@@ -858,35 +978,34 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                 </InfoVal>
               </InfoItem>
               <InfoItem style={{ gridColumn: "span 2" }}>
-                <InfoLbl>MLC Document</InfoLbl>
+                <InfoLbl>MLC Document / Image</InfoLbl>
                 <InfoVal>
                   {adm.mlc_doc ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
                       <span style={{ color: "#2563eb", fontWeight: 700, fontSize: ".82rem", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                        📄 {fileName}
+                        📄 {fileName || "Attached Document"}
                       </span>
-                      {isImage && (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewImage(docUrl)}
-                          style={{
-                            background: "#0d9488",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: 4,
-                            padding: "4px 12px",
-                            fontSize: ".75rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 5,
-                            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                          }}
-                        >
-                          👁️ View Image
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPreviewImage(docUrl)}
+                        style={{
+                          background: "#0d9488",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 4,
+                          padding: "5px 14px",
+                          fontSize: ".75rem",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        👁️ View Document
+                      </button>
                     </div>
                   ) : (
                     <span style={{ color: "#9ca3af" }}>No document attached</span>
@@ -900,7 +1019,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
             </InfoGrid>
           </SectionBox>
 
-          {/* Full Image Preview Modal / Lightbox */}
+          {/* Full Document / Image Preview Modal / Lightbox */}
           {previewImage && (
             <ModalOverlay onClick={() => setPreviewImage(null)} style={{ zIndex: 9999 }}>
               <div
@@ -911,6 +1030,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                   padding: 16,
                   maxWidth: "92vw",
                   maxHeight: "92vh",
+                  width: isPdf ? "850px" : "auto",
                   display: "flex",
                   flexDirection: "column",
                   gap: 12,
@@ -919,7 +1039,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: ".9rem", color: "#0f766e", display: "flex", alignItems: "center", gap: 6 }}>
-                    🖼️ MLC Document: {fileName}
+                    🖼️ Document: {fileName || "Preview"}
                   </span>
                   <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                     <button
@@ -931,7 +1051,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                           const blobUrl = window.URL.createObjectURL(blob);
                           const a = document.createElement("a");
                           a.href = blobUrl;
-                          a.download = fileName || "mlc_document";
+                          a.download = fileName || "document";
                           document.body.appendChild(a);
                           a.click();
                           document.body.removeChild(a);
@@ -954,7 +1074,7 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                         gap: 5,
                       }}
                     >
-                      ⬇️ Download Image
+                      ⬇️ Download
                     </button>
                     <a
                       href={previewImage}
@@ -980,11 +1100,26 @@ function ViewAdmissionModal({ adm, doctors, packages, onClose }) {
                   </div>
                 </div>
                 <div style={{ overflow: "auto", textAlign: "center", maxHeight: "calc(88vh - 80px)", background: "#f8fafc", padding: 12, borderRadius: 6 }}>
-                  <img
-                    src={previewImage}
-                    alt="MLC Document Full Preview"
-                    style={{ maxWidth: "100%", maxHeight: "76vh", objectFit: "contain", borderRadius: 4, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-                  />
+                  {isPdf ? (
+                    <iframe
+                      src={previewImage}
+                      title="Document Viewer"
+                      style={{ width: "100%", height: "76vh", border: "none", borderRadius: 4 }}
+                    />
+                  ) : (
+                    <img
+                      src={previewImage}
+                      alt="Document Preview"
+                      style={{ maxWidth: "100%", maxHeight: "76vh", objectFit: "contain", borderRadius: 4, boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = "block";
+                      }}
+                    />
+                  )}
+                  <div style={{ display: "none", padding: "20px", color: "#64748b" }}>
+                    Unable to display inline image preview. <a href={previewImage} target="_blank" rel="noreferrer" style={{ color: "#0d9488", fontWeight: 700 }}>Click here to view / download document</a>.
+                  </div>
                 </div>
               </div>
             </ModalOverlay>
@@ -1225,71 +1360,72 @@ function SearchSelect({
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Admission() {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-  const API_ADMISSION_LIST   = `${HmsBaseUrl}admission-list/`;
+  const API_ADMISSION_LIST = `${HmsBaseUrl}admission-list/`;
   const API_ADMISSION_DETAIL = (ipNumber) => `${HmsBaseUrl}admission-detail/${encodeURIComponent(ipNumber)}/`;
-  const API_ROOM_SEARCH      = `${HmsBaseUrl}admission-room-search/`;
+  const API_ROOM_SEARCH = `${HmsBaseUrl}admission-room-search/`;
 
-  const [admissions,     setAdmissions]     = useState([]);
-  const [doctors,        setDoctors]        = useState([]);
-  const [packages,       setPackages]       = useState([]);
-  const [customerTypes,  setCustomerTypes]  = useState([]);
+  const [admissions, setAdmissions] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [customerTypes, setCustomerTypes] = useState([]);
   const [insuranceProviders, setInsuranceProviders] = useState([]);
-  const [loading,        setLoading]        = useState(false);
-  const [saving,         setSaving]         = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0, 10);
   const [fDoctor, setFDoctor] = useState("ALL");
-  const [fFrom,   setFFrom]   = useState(today);
-  const [fTo,     setFTo]     = useState(today);
+  const [fFrom, setFFrom] = useState(today);
+  const [fTo, setFTo] = useState(today);
   const [fStatus, setFStatus] = useState("All");
   const [tSearch, setTSearch] = useState("");
   const [perPage, setPerPage] = useState(15);
-  const [page,    setPage]    = useState(1);
+  const [page, setPage] = useState(1);
 
-  const [formOpen,  setFormOpen]  = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form,      setForm]      = useState(EMPTY);
+  const [form, setForm] = useState(EMPTY);
 
   // ── When form is in edit mode, store the editReason until submit ──────────
   // ── Grid View ─────────────────────────────────────────────────────────────
-  const [viewMode,    setViewMode]    = useState("table");
-  const [gridData,    setGridData]    = useState([]);
+  const [viewMode, setViewMode] = useState("table");
+  const [gridData, setGridData] = useState([]);
   const [gridLoading, setGridLoading] = useState(false);
 
   const [pendingEditReason, setPendingEditReason] = useState("");
 
-  const [showRoom,  setShowRoom]  = useState(false);
-  const [rFilter,   setRFilter]   = useState({ room_number:"", block:"", floor:"" });
-  const [allRooms,  setAllRooms]  = useState([]);
+  const [showRoom, setShowRoom] = useState(false);
+  const [roomModalStatus, setRoomModalStatus] = useState("Available");
+  const [rFilter, setRFilter] = useState({ room_number: "", block: "", category: "", nursing_station: "" });
+  const [allRooms, setAllRooms] = useState([]);
   const [loadRooms, setLoadRooms] = useState(false);
-  const [showBed,   setShowBed]   = useState(false);
-  const [selRoom,   setSelRoom]   = useState(null);
+  const [showBed, setShowBed] = useState(false);
+  const [selRoom, setSelRoom] = useState(null);
 
-  const [printData,      setPrintData]      = useState(null);
-  const [historyAdm,     setHistoryAdm]     = useState(null);
-  const [viewModalAdm,   setViewModalAdm]   = useState(null);
+  const [printData, setPrintData] = useState(null);
+  const [historyAdm, setHistoryAdm] = useState(null);
+  const [viewModalAdm, setViewModalAdm] = useState(null);
   const [alreadyAdmInfo, setAlreadyAdmInfo] = useState(null);
-  const [errors,         setErrors]         = useState({});
-  const [confirmModal,   setConfirmModal]   = useState(null);
-  const [infoModal,      setInfoModal]      = useState(null);
-  const [openMenu,       setOpenMenu]       = useState(null);
-  const [menuPos,        setMenuPos]        = useState({ top:0, bottom:0, left:0, placement:"bottom", maxHeight:280 });
+  const [errors, setErrors] = useState({});
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [infoModal, setInfoModal] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, bottom: 0, left: 0, placement: "bottom", maxHeight: 280 });
   const menuRef = useRef(null);
 
   // ── Reason modals ─────────────────────────────────────────────────────────
-  const [reasonModal,    setReasonModal]    = useState(null); // { mode:"cancel"|"edit", adm }
+  const [reasonModal, setReasonModal] = useState(null); // { mode:"cancel"|"edit", adm }
 
   // ── Room Shifting modal ───────────────────────────────────────────────────
-  const [shiftAdm,       setShiftAdm]       = useState(null); // adm object to prefill
+  const [shiftAdm, setShiftAdm] = useState(null); // adm object to prefill
 
   // ── IP Advance modal ─────────────────────────────────────────────────────
-  const [ipAdvAdm,       setIpAdvAdm]       = useState(null); // adm object to prefill
+  const [ipAdvAdm, setIpAdvAdm] = useState(null); // adm object to prefill
 
   const showConfirm = (opts) => new Promise(resolve => {
     setConfirmModal({
       ...opts,
       onConfirm: () => { setConfirmModal(null); resolve(true); },
-      onCancel:  () => { setConfirmModal(null); resolve(false); },
+      onCancel: () => { setConfirmModal(null); resolve(false); },
     });
   });
   const showInfo = (opts) => { setInfoModal({ ...opts, onClose: () => setInfoModal(null) }); };
@@ -1333,16 +1469,16 @@ export default function Admission() {
     setGridLoading(true);
     try {
       const response = await apiRequest(`${HmsBaseUrl}room-enquiry/`, "GET");
-      const apiData  = response?.data || response;
+      const apiData = response?.data || response;
       if (!Array.isArray(apiData)) { setGridData([]); return; }
       const grouped = {};
       apiData.forEach((floorEntry) => {
-        const floor = floorEntry.floor;
         (floorEntry.rooms || []).forEach((room) => {
-          const blockName = room.block || "UNKNOWN BLOCK";
+          const blockName = room.block || "MAIN BLOCK";
+          const stationName = room.nursing_station || (floorEntry.floor ? `Floor ${floorEntry.floor}` : "General Ward");
           if (!grouped[blockName]) grouped[blockName] = { block: { block_name: blockName }, floors: {} };
-          if (!grouped[blockName].floors[floor]) grouped[blockName].floors[floor] = [];
-          grouped[blockName].floors[floor].push({ ...room, id: `${room.room_number}_${floor}` });
+          if (!grouped[blockName].floors[stationName]) grouped[blockName].floors[stationName] = [];
+          grouped[blockName].floors[stationName].push({ ...room, id: `${room.room_number}_${stationName}` });
         });
       });
       setGridData(Object.values(grouped));
@@ -1365,7 +1501,7 @@ export default function Admission() {
     try {
       const res = await apiRequest(`${HmsBaseUrl}doctor_list_diagnostics/`, "GET");
       if (res.success) setDoctors(res.data || []);
-    } catch {}
+    } catch { }
   };
 
   const fetchCustomerTypes = async () => {
@@ -1375,7 +1511,7 @@ export default function Admission() {
       if (Array.isArray(list)) {
         setCustomerTypes(list.filter(t => t.is_active !== false));
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchInsuranceProviders = async () => {
@@ -1385,50 +1521,51 @@ export default function Admission() {
       if (Array.isArray(list)) {
         setInsuranceProviders(list.filter(p => !p.blocked));
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchAdmissions = async () => {
     setLoading(true);
     try {
       const p = new URLSearchParams();
-      if (fFrom)             p.append("from_date",        fFrom);
-      if (fTo)               p.append("to_date",          fTo);
+      if (fFrom) p.append("from_date", fFrom);
+      if (fTo) p.append("to_date", fTo);
       if (fDoctor !== "ALL") p.append("admitting_doctor", fDoctor);
-      if (fStatus !== "All") p.append("status",           fStatus);
-      const q   = p.toString() ? `?${p.toString()}` : "";
+      if (fStatus !== "All") p.append("status", fStatus);
+      const q = p.toString() ? `?${p.toString()}` : "";
       const res = await apiRequest(`${API_ADMISSION_LIST}${q}`, "GET");
       const list = Array.isArray(res?.data?.data) ? res.data.data : Array.isArray(res?.data) ? res.data : [];
       setAdmissions(list.map(normalizeAdm));
     } catch { setAdmissions([]); }
-    finally  { setLoading(false); }
+    finally { setLoading(false); }
   };
 
   const fetchPackages = async () => {
     try {
-      const res  = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
+      const res = await apiRequest(`${HmsBaseUrl}packages/`, "GET");
       const list = res?.packages || res?.data?.packages || res?.data || [];
       setPackages(Array.isArray(list) ? list : []);
     } catch { setPackages([]); }
   };
 
-  const fetchAllRooms = async (fo={}) => {
+  const fetchAllRooms = async (fo = {}) => {
     setLoadRooms(true);
     try {
       const f = { ...rFilter, ...fo };
       const p = new URLSearchParams();
       if (f.room_number) p.append("room_number", f.room_number);
-      if (f.block)       p.append("block",        f.block);
-      if (f.floor)       p.append("floor",        f.floor);
-      const q   = p.toString() ? `?${p.toString()}` : "";
+      if (f.block && f.block !== "ALL") p.append("block", f.block);
+      if (f.category && f.category !== "ALL") p.append("room_category", f.category);
+      if (f.nursing_station && f.nursing_station !== "ALL") p.append("nursing_station", f.nursing_station);
+      const q = p.toString() ? `?${p.toString()}` : "";
       const res = await apiRequest(`${API_ROOM_SEARCH}${q}`, "GET");
       let rooms = [];
-      if (Array.isArray(res))              rooms = res;
-      else if (Array.isArray(res?.data))   rooms = res.data;
+      if (Array.isArray(res)) rooms = res;
+      else if (Array.isArray(res?.data)) rooms = res.data;
       else if (Array.isArray(res?.data?.data)) rooms = res.data.data;
       setAllRooms(rooms);
     } catch { setAllRooms([]); }
-    finally  { setLoadRooms(false); }
+    finally { setLoadRooms(false); }
   };
 
   // ── Fetch patient by UHID — also checks for active admission ─────────────
@@ -1468,7 +1605,7 @@ export default function Admission() {
           ipNumber: activeAdm.ipNumber,
           admissionDateTime: activeAdm.admissionDateTime,
           roomNo: roomNo || activeAdm.roomNo,
-          bedNo:  bedNo || activeAdm.bedNo,
+          bedNo: bedNo || activeAdm.bedNo,
         };
         setAlreadyAdmInfo(admInfo);
         loadAdmissionIntoForm(admInfo);
@@ -1478,18 +1615,18 @@ export default function Admission() {
         setEditingId(null);
         setForm(p => ({
           ...p,
-          salutation: d.salutation||"", firstName: d.firstName||"",
-          middleName: d.middleName||"", lastName:  d.lastName||"",
-          dob:  d.dob||d.dateOfBirth||"",
-          age:  d.age||"",             // Calculated from DOB by backend
-          age_type: d.age_type||"Y",
-          gender: d.gender||"",
-          mobilePhone: d.mobilePhone||d.phone||"",
-          permanent_address: d.permanent_address||"", area: d.area||"",
-          zipcode: d.zipcode||"", city: d.city||"", state: d.state||"",
-          customerType: d.customerType||d.customer_type||"General",
-          insuranceCompanyName: d.insuranceCompanyName||d.company_name||"",
-          company_code: d.company_code||"",
+          salutation: d.salutation || "", firstName: d.firstName || "",
+          middleName: d.middleName || "", lastName: d.lastName || "",
+          dob: d.dob || d.dateOfBirth || "",
+          age: d.age || "",             // Calculated from DOB by backend
+          age_type: d.age_type || "Y",
+          gender: d.gender || "",
+          mobilePhone: d.mobilePhone || d.phone || "",
+          permanent_address: d.permanent_address || "", area: d.area || "",
+          zipcode: d.zipcode || "", city: d.city || "", state: d.state || "",
+          customerType: d.customerType || d.customer_type || "General",
+          insuranceCompanyName: d.insuranceCompanyName || d.company_name || "",
+          company_code: d.company_code || "",
         }));
         toast.success("Patient loaded");
       }
@@ -1506,8 +1643,8 @@ export default function Admission() {
     }
     try {
       const res = await apiRequest(`${API_ADMISSION_LIST}?ip_number=${encodeURIComponent(ip)}`, "GET");
-      if (!res.success) throw new Error(res.error||"Not found");
-      const list = Array.isArray(res.data?.data)?res.data.data:Array.isArray(res.data)?res.data:[];
+      if (!res.success) throw new Error(res.error || "Not found");
+      const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       if (!list.length) {
         toast.error("No admission found for this IP Number.");
         return;
@@ -1523,15 +1660,15 @@ export default function Admission() {
           ipNumber: found.ipNumber,
           admissionDateTime: found.admissionDateTime,
           roomNo: roomNo || found.roomNo,
-          bedNo:  bedNo || found.bedNo,
+          bedNo: bedNo || found.bedNo,
         });
       } else {
         setAlreadyAdmInfo(null);
       }
       loadAdmissionIntoForm(found);
-      toast.success(`Admission loaded: ${found.ipNumber||ip}`);
-    } catch(err) {
-      toast.error(err.message||"Could not retrieve admission.");
+      toast.success(`Admission loaded: ${found.ipNumber || ip}`);
+    } catch (err) {
+      toast.error(err.message || "Could not retrieve admission.");
     }
   };
 
@@ -1539,56 +1676,59 @@ export default function Admission() {
     setEditingId(adm.ipNumber);
     const { roomNo, bedNo } = getActiveRoom(adm);
     const storedPackageNo = adm.packageNo || "";
-    const resolvedName    = resolvePackageName(storedPackageNo);
+    const resolvedName = resolvePackageName(storedPackageNo);
     setPendingEditReason("");
     setForm({
       ...EMPTY,
-      uhid:                 adm.uhid                ||"",
-      ipNumber:             adm.ipNumber            ||"",
-      admittingDoctor:      adm.admittingDoctor      ||"",
-      consultingDoctor:     adm.consultingDoctor     ||"",
+      uhid: adm.uhid || "",
+      ipNumber: adm.ipNumber || "",
+      admittingDoctor: adm.admittingDoctor || "",
+      consultingDoctor: adm.consultingDoctor || "",
       roomNo,
       bedNo,
-      reasonForAdmission:   adm.reasonForAdmission  ||"",
-      packageNo:            storedPackageNo,
-      packageName:          resolvedName,
-      mlc_type:             adm.mlc_type            ||"",
-      mlc_doc:              adm.mlc_doc             ||null,
-      mlc_remarks:          adm.mlc_remarks         ||"",
-      attender_name:        adm.attender_name       ||"",
-      attender_relationship:adm.attender_relationship||"",
-      attender_phone:       adm.attender_phone      ||"",
-      salutation:           adm.salutation          ||"",
-      firstName:            adm.firstName           ||"",
-      middleName:           adm.middleName          ||"",
-      lastName:             adm.lastName            ||"",
-      dob:                  adm.dob                 ||"",
-      age:                  adm.age                 ||"",
-      age_type:             adm.age_type            ||"Y",
-      gender:               adm.gender              ||"",
-      mobilePhone:          adm.mobilePhone         ||"",
-      permanent_address:    adm.permanent_address   ||"",
-      area:                 adm.area                ||"",
-      zipcode:              adm.zipcode             ||"",
-      city:                 adm.city                ||"",
-      state:                adm.state               ||"",
-      customerType:         adm.customerType        ||adm.customer_type||"General",
-      insuranceCompanyName: adm.insuranceCompanyName||adm.insurance_company||"",
-      company_code:         adm.company_code        ||"",
-      room_details:       safeParseList(adm.room_details),
+      reasonForAdmission: adm.reasonForAdmission || "",
+      packageNo: storedPackageNo,
+      packageName: resolvedName,
+      mlc_type: adm.mlc_type || "",
+      mlc_doc: adm.mlc_doc || null,
+      mlc_remarks: adm.mlc_remarks || "",
+      attender_name: adm.attender_name || "",
+      attender_relationship: adm.attender_relationship || "",
+      attender_phone: adm.attender_phone || "",
+      salutation: adm.salutation || "",
+      firstName: adm.firstName || "",
+      middleName: adm.middleName || "",
+      lastName: adm.lastName || "",
+      dob: adm.dob || "",
+      age: adm.age || "",
+      age_type: adm.age_type || "Y",
+      gender: adm.gender || "",
+      mobilePhone: adm.mobilePhone || "",
+      permanent_address: adm.permanent_address || "",
+      area: adm.area || "",
+      zipcode: adm.zipcode || "",
+      city: adm.city || "",
+      state: adm.state || "",
+      customerType: adm.customerType || adm.customer_type || "General",
+      insuranceCompanyName: adm.insuranceCompanyName || adm.insurance_company || "",
+      company_code: adm.company_code || "",
+      is_high_risk: !!adm.is_high_risk,
+      high_risk_reason: adm.high_risk_reason || "",
+      high_risk_date: adm.high_risk_date ? String(adm.high_risk_date).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      room_details: safeParseList(adm.room_details),
       roomShitingDetails: safeParseList(adm.roomShitingDetails),
-      edit_history:       safeParseList(adm.edit_history),
+      edit_history: safeParseList(adm.edit_history),
     });
   }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const stats = {
-    admitted:   admissions.filter(a => getAdmStatus(a)==="admitted").length,
+    admitted: admissions.filter(a => getAdmStatus(a) === "admitted").length,
     discharged: admissions.filter(a => a.is_discharged).length,
   };
 
   const getDrName = id =>
-    doctors.find(d => String(d.employeeId)===String(id))?.employeeName || String(id||"-");
+    doctors.find(d => String(d.employeeId) === String(id))?.employeeName || String(id || "-");
 
   const filtered = admissions.filter(a => {
     if (!tSearch) return true;
@@ -1597,11 +1737,11 @@ export default function Admission() {
     return `${a.uhid} ${a.ipNumber} ${pName(a)} ${getDrName(a.admittingDoctor)} ${roomNo} ${bedNo}`
       .toLowerCase().includes(q);
   });
-  const totalPages = Math.max(1, Math.ceil(filtered.length/perPage));
-  const paginated  = filtered.slice((page-1)*perPage, page*perPage);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  const paginated = filtered.slice((page - 1) * perPage, page * perPage);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
-  const openNewForm  = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); };
+  const openNewForm = () => { setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); setFormOpen(true); };
   const handleGridBedClick = (room, bed) => {
     setEditingId(null);
     setForm({ ...EMPTY, roomNo: room.room_number, bedNo: bed.bed_number });
@@ -1610,8 +1750,8 @@ export default function Admission() {
     setAlreadyAdmInfo(null);
     setFormOpen(true);
   };
-  const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setErrors({}); setFormOpen(true); window.scrollTo({top:0,behavior:"smooth"}); };
-  const closeForm    = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); };
+  const openEditForm = adm => { setOpenMenu(null); loadAdmissionIntoForm(adm); setErrors({}); setFormOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const closeForm = () => { setFormOpen(false); setEditingId(null); setForm(EMPTY); setPendingEditReason(""); setErrors({}); setAlreadyAdmInfo(null); };
 
   const handleFormChange = e => {
     const { name, value, type, files } = e.target;
@@ -1622,7 +1762,7 @@ export default function Admission() {
       const resolvedName = resolvePackageName(value);
       setForm(p => ({ ...p, packageNo: value, packageName: resolvedName }));
     } else {
-      setForm(p => ({ ...p, [name]: type==="file" ? files[0] : value }));
+      setForm(p => ({ ...p, [name]: type === "file" ? files[0] : value }));
     }
   };
 
@@ -1644,6 +1784,14 @@ export default function Admission() {
     if (form.customerType === "Insurance" && (!form.company_code && !form.insuranceCompanyName)) {
       newErrors.insurance = "This field is required";
     }
+    if (form.is_high_risk) {
+      if (!form.high_risk_reason?.trim()) {
+        newErrors.high_risk_reason = "Reason is required for High Risk alert";
+      }
+      if (!form.high_risk_date) {
+        newErrors.high_risk_date = "Date is required for High Risk alert";
+      }
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -1654,7 +1802,7 @@ export default function Admission() {
 
     // Edit requires a reason — prompt via ReasonModal first
     if (editingId) {
-      setReasonModal({ mode:"edit", adm: null });
+      setReasonModal({ mode: "edit", adm: null });
       return;
     }
 
@@ -1671,15 +1819,20 @@ export default function Admission() {
   const _doSave = async (editReason = "") => {
     setSaving(true);
     const payload = new FormData();
-    ["uhid","admittingDoctor","consultingDoctor","roomNo","bedNo",
-     "reasonForAdmission","mlc_type","mlc_remarks","attender_name","attender_relationship","attender_phone","customerType","company_code",
-     "insuranceCompanyName","age","age_type"].forEach(k => {
-      if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
-        payload.append(k, form[k]);
-      }
-    });
+    ["uhid", "admittingDoctor", "consultingDoctor", "roomNo", "bedNo",
+      "reasonForAdmission", "mlc_type", "mlc_remarks", "attender_name", "attender_relationship", "attender_phone", "customerType", "company_code",
+      "insuranceCompanyName", "age", "age_type"].forEach(k => {
+        if (form[k] !== undefined && form[k] !== null && form[k] !== "") {
+          payload.append(k, form[k]);
+        }
+      });
     if (form.packageNo) payload.append("packageNo", form.packageNo);
     payload.append("admissionDateTime", new Date().toISOString());
+    payload.append("is_high_risk", form.is_high_risk ? "true" : "false");
+    if (form.is_high_risk) {
+      if (form.high_risk_reason) payload.append("high_risk_reason", form.high_risk_reason.trim());
+      if (form.high_risk_date) payload.append("high_risk_date", form.high_risk_date);
+    }
     if (form.mlc_doc instanceof File) payload.append("mlc_doc", form.mlc_doc);
 
     if (editingId) {
@@ -1727,12 +1880,12 @@ export default function Admission() {
         fetchAdmissions();
         setPrintData(slipData);
       } else if (res.already_admitted) {
-        setAlreadyAdmInfo({ ipNumber:res.ipNumber, admissionDateTime:res.admissionDateTime, roomNo:res.roomNo, bedNo:res.bedNo });
+        setAlreadyAdmInfo({ ipNumber: res.ipNumber, admissionDateTime: res.admissionDateTime, roomNo: res.roomNo, bedNo: res.bedNo });
       } else {
-        showInfo({ type:"error", title:"Save Failed", message: res.error||"Failed to save admission. Please try again." });
+        showInfo({ type: "error", title: "Save Failed", message: res.error || "Failed to save admission. Please try again." });
       }
     } catch {
-      showInfo({ type:"error", title:"Error", message:"An unexpected error occurred while saving. Please try again." });
+      showInfo({ type: "error", title: "Error", message: "An unexpected error occurred while saving. Please try again." });
     }
     finally { setSaving(false); }
   };
@@ -1741,7 +1894,7 @@ export default function Admission() {
   // Opens ReasonModal first, then sends PUT action=cancel with reason
   const handleCancel = (adm) => {
     setOpenMenu(null);
-    setReasonModal({ mode:"cancel", adm });
+    setReasonModal({ mode: "cancel", adm });
   };
 
   const handleCancelConfirmed = async (adm, reason) => {
@@ -1752,8 +1905,8 @@ export default function Admission() {
         cancelled_Reason: reason,
       });
       if (res.success) { toast.success("Admission cancelled"); fetchAdmissions(); }
-      else showInfo({ type:"error", title:"Cancel Failed", message: res.error||"Failed to cancel admission." });
-    } catch { showInfo({ type:"error", title:"Error", message:"Failed to cancel admission. Please try again." }); }
+      else showInfo({ type: "error", title: "Cancel Failed", message: res.error || "Failed to cancel admission." });
+    } catch { showInfo({ type: "error", title: "Error", message: "Failed to cancel admission. Please try again." }); }
   };
 
   const handlePrint = adm => { setOpenMenu(null); setPrintData({ ...adm, admittingDoctorName: getDrName(adm.admittingDoctor) }); };
@@ -1761,9 +1914,9 @@ export default function Admission() {
   const handleMenuToggle = (ipNumber, e) => {
     if (openMenu === ipNumber) { setOpenMenu(null); return; }
     const rect = e.currentTarget.getBoundingClientRect();
-    const mw   = 200;
+    const mw = 200;
     const windowHeight = window.innerHeight;
-    const windowWidth  = window.innerWidth;
+    const windowWidth = window.innerWidth;
     const menuEstimatedHeight = 250;
 
     let left = rect.right - mw;
@@ -1791,34 +1944,106 @@ export default function Admission() {
   };
 
   const doPrint = () => {
-    const pd    = printData;
+    const pd = printData;
     const admDT = pd.admissionDateTime ? new Date(pd.admissionDateTime) : new Date();
-    const ipStr = pd.ipNumber||"";
+    const ipStr = pd.ipNumber || "";
     const { roomNo, bedNo } = getActiveRoom(pd);
     const encoded = encodeCode128(ipStr);
-    const bW = 240, modW = bW/encoded.length;
-    let barsHtml="", xPos=0;
-    for (let i=0;i<encoded.length;i++) { if(i%2===0) barsHtml+=`<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW,0.6).toFixed(2)}" height="50" fill="black"/>`; xPos+=modW; }
+    const bW = 240, modW = bW / encoded.length;
+    let barsHtml = "", xPos = 0;
+    for (let i = 0; i < encoded.length; i++) { if (i % 2 === 0) barsHtml += `<rect x="${xPos.toFixed(2)}" y="0" width="${Math.max(modW, 0.6).toFixed(2)}" height="50" fill="black"/>`; xPos += modW; }
     const attenderLine = pd.attender_name ? `<div class="line">Attender: ${pd.attender_name}${pd.attender_relationship ? ` (${pd.attender_relationship})` : ""}${pd.attender_phone ? ` - ${pd.attender_phone}` : ""}</div>` : "";
-    const w = window.open("","_blank","width=640,height=440");
-    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age||""} ${pd.gender||""}</div><div class="line">${pd.permanent_address||""}</div><div class="line">${[pd.area,pd.city,pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone||""}</div>${attenderLine}<div class="line">Admitted: Dr. ${pd.admittingDoctorName||getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName||""}</div><div class="line">UHID : ${pd.uhid||""}</div><div class="line">DOB  : ${pd.dob||"-"}</div><div class="line">Age  : ${pd.age||"-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
+    const w = window.open("", "_blank", "width=640,height=440");
+    w.document.write(`<!DOCTYPE html><html><head><title>IP Admission Slip</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Courier New',monospace;font-size:12px;padding:20px;}.slip{width:540px;border:2px solid #000;padding:14px;}.row{display:flex;justify-content:space-between;gap:14px;}.right{text-align:right;}.big{font-size:18px;font-weight:900;letter-spacing:.5px;}.bold{font-weight:700;font-size:12px;}.line{margin:2px 0;font-size:11px;}.bc-label{font-family:'Courier New',monospace;font-size:9px;text-align:center;display:block;letter-spacing:1.5px;margin-bottom:4px;}@media print{body{padding:0;}.slip{border:none;}}</style></head><body><div class="slip"><div class="row"><div class="left"><svg xmlns="http://www.w3.org/2000/svg" width="${bW}" height="50" viewBox="0 0 ${bW} 50">${barsHtml}</svg><span class="bc-label">${ipStr}</span><div class="bold">${pName(pd)}</div><div class="line">${pd.age || ""} ${pd.gender || ""}</div><div class="line">${pd.permanent_address || ""}</div><div class="line">${[pd.area, pd.city, pd.state].filter(Boolean).join(", ")}</div><div class="line">${pd.mobilePhone || ""}</div>${attenderLine}<div class="line">Admitted: Dr. ${pd.admittingDoctorName || getDrName(pd.admittingDoctor)}</div></div><div class="right"><div class="big">IP NO: ${ipStr}</div><div class="line">${pd.insuranceCompanyName || ""}</div><div class="line">UHID : ${pd.uhid || ""}</div><div class="line">DOB  : ${pd.dob || "-"}</div><div class="line">Age  : ${pd.age || "-"}</div><div class="line">DOA  : ${admDT.toLocaleDateString("en-IN")}</div><div class="line">TIME : ${admDT.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}</div><div class="line">Room : ${roomNo} / ${bedNo}</div></div></div></div><script>window.onload=function(){window.print();window.close();};<\/script></body></html>`);
     w.document.close();
   };
 
-  const openRoomModal = () => { setShowRoom(true); fetchAllRooms(); };
-  const grouped = (() => {
-    const g={};
-    allRooms.forEach(r => { const bl=r.block||"UNKNOWN",fl=r.floor??"?"; if(!g[bl])g[bl]={}; if(!g[bl][fl])g[bl][fl]=[]; g[bl][fl].push(r); });
+  const openRoomModal = () => {
+    setShowRoom(true);
+    setRoomModalStatus("Available");
+    fetchAllRooms();
+  };
+
+  const roomFilterOptions = useMemo(() => {
+    const blocks = new Set();
+    const categories = new Set();
+    const stations = new Set();
+    allRooms.forEach(r => {
+      if (r.block) blocks.add(r.block);
+      const cat = r.room_category || r.room_type;
+      if (cat) categories.add(cat);
+      if (r.nursing_station) stations.add(r.nursing_station);
+    });
+    return {
+      blocks: Array.from(blocks).sort(),
+      categories: Array.from(categories).sort(),
+      stations: Array.from(stations).sort(),
+    };
+  }, [allRooms]);
+
+  const roomStats = useMemo(() => {
+    let total = 0, available = 0, occupied = 0, notCleaned = 0, reserved = 0, maintenance = 0;
+    allRooms.forEach(room => {
+      (room.beds || []).forEach(b => {
+        total++;
+        const bs = (b.status || b.bed_status || "").toLowerCase();
+        if (bs === "available") available++;
+        else if (bs === "occupied") occupied++;
+        else if (bs.includes("clean")) notCleaned++;
+        else if (bs === "reserved" || bs === "booked") reserved++;
+        else maintenance++;
+      });
+    });
+    return { total, available, occupied, notCleaned, reserved, maintenance };
+  }, [allRooms]);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    allRooms
+      .filter(r => {
+        if (rFilter.block && rFilter.block !== "ALL" && String(r.block || "").toLowerCase() !== rFilter.block.toLowerCase()) return false;
+        if (rFilter.category && rFilter.category !== "ALL") {
+          const cat = String(r.room_category || r.room_type || "");
+          if (cat.toLowerCase() !== rFilter.category.toLowerCase()) return false;
+        }
+        if (rFilter.nursing_station && rFilter.nursing_station !== "ALL") {
+          const st = String(r.nursing_station || "");
+          if (st.toLowerCase() !== rFilter.nursing_station.toLowerCase()) return false;
+        }
+        if (rFilter.room_number && !String(r.room_number || "").toLowerCase().includes(rFilter.room_number.toLowerCase())) return false;
+        return true;
+      })
+      .map(r => {
+        const beds = (r.beds || []).filter(b => {
+          if (roomModalStatus === "ALL") return true;
+          const bs = (b.status || b.bed_status || "").toLowerCase();
+          if (roomModalStatus === "Available") return bs === "available";
+          if (roomModalStatus === "Occupied") return bs === "occupied";
+          if (roomModalStatus === "Not Cleaned") return bs.includes("clean");
+          if (roomModalStatus === "Reserved") return bs === "reserved" || bs === "booked";
+          if (roomModalStatus === "Maintenance") return bs === "maintenance" || bs === "blocked";
+          return true;
+        });
+        return { ...r, filteredBeds: beds };
+      })
+      .filter(r => roomModalStatus === "ALL" || r.filteredBeds.length > 0)
+      .forEach(r => {
+        const bl = r.block || "MAIN BLOCK";
+        const fl = r.nursing_station || (r.floor ? `Floor ${r.floor}` : "General Ward");
+        if (!g[bl]) g[bl] = {};
+        if (!g[bl][fl]) g[bl][fl] = [];
+        g[bl][fl].push(r);
+      });
     return g;
-  })();
+  }, [allRooms, rFilter, roomModalStatus]);
   const handleRoomClick = room => {
     if (getRoomStatus(room.beds) === "maintenance") return;
-    const hasAvail = (room.beds||[]).some(b => b.status === "Available");
+    const hasAvail = (room.beds || []).some(b => b.status === "Available");
     if (!hasAvail) return;
     setSelRoom(room); setShowRoom(false); setShowBed(true);
   };
   const handleBedSelect = (bedNumber, room) => {
-    const r = room||selRoom;
+    const r = room || selRoom;
     if (!r) return;
     setForm(p => ({ ...p, roomNo: r.room_number, bedNo: bedNumber }));
     setErrors(p => {
@@ -1834,18 +2059,18 @@ export default function Admission() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <PageWrapper>
-      <Container style={{ padding:0 }}>
+      <Container style={{ padding: 0 }}>
 
         <PageHeader>
           <PageTitle>🏥 Admission</PageTitle>
-          <div style={{display:"flex", gap:"8px", alignItems:"center"}}>
-            <div style={{display:"flex", background:"rgba(255,255,255,0.2)", borderRadius:"5px", padding:"2px"}}>
-              <button 
-                onClick={()=>setViewMode("table")} 
-                style={{padding:"4px 10px", fontSize:".75rem", fontWeight:600, border:"none", borderRadius:"4px", cursor:"pointer", background:viewMode==="table"?"#fff":"transparent", color:viewMode==="table"?"#0d9488":"#fff", transition:"all 0.2s"}}>📋 Table</button>
-              <button 
-                onClick={()=>setViewMode("grid")} 
-                style={{padding:"4px 10px", fontSize:".75rem", fontWeight:600, border:"none", borderRadius:"4px", cursor:"pointer", background:viewMode==="grid"?"#fff":"transparent", color:viewMode==="grid"?"#0d9488":"#fff", transition:"all 0.2s"}}>🔲 Grid</button>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div style={{ display: "flex", background: "rgba(255,255,255,0.2)", borderRadius: "5px", padding: "2px" }}>
+              <button
+                onClick={() => { setViewMode("table"); if (formOpen) closeForm(); }}
+                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "table" ? "#fff" : "transparent", color: viewMode === "table" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>📋 Table</button>
+              <button
+                onClick={() => { setViewMode("grid"); if (formOpen) closeForm(); }}
+                style={{ padding: "4px 10px", fontSize: ".75rem", fontWeight: 600, border: "none", borderRadius: "4px", cursor: "pointer", background: viewMode === "grid" ? "#fff" : "transparent", color: viewMode === "grid" ? "#0d9488" : "#fff", transition: "all 0.2s" }}>🔲 Grid</button>
             </div>
             <NewAdmBtn onClick={() => { formOpen ? closeForm() : openNewForm(); }}>
               {formOpen ? "− Close Form" : "+ New Admission"}
@@ -1855,9 +2080,9 @@ export default function Admission() {
 
         <StatStrip>
           {[
-            { label:"Total Admissions", value:stats.admitted,   icon:"🛏️", bg:"#f0fdf4" },
-            { label:"Total Discharges", value:stats.discharged, icon:"📤", bg:"#eff6ff" },
-          ].map((s,i) => (
+            { label: "Total Admissions", value: stats.admitted, icon: "🛏️", bg: "#f0fdf4" },
+            { label: "Total Discharges", value: stats.discharged, icon: "📤", bg: "#eff6ff" },
+          ].map((s, i) => (
             <StatCard key={i} i={i}>
               <SIcon bg={s.bg}>{s.icon}</SIcon>
               <div><SLabel>{s.label}</SLabel><SValue>{s.value}</SValue></div>
@@ -1876,11 +2101,11 @@ export default function Admission() {
               height="32px"
             />
           </FF>
-          <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e=>{setFFrom(e.target.value);setPage(1);}}/></FF>
-          <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e=>{setFTo(e.target.value);setPage(1);}}/></FF>
+          <FF flex="0 0 150px"><FL>From Date</FL><FInp type="date" value={fFrom} onChange={e => { setFFrom(e.target.value); setPage(1); }} /></FF>
+          <FF flex="0 0 150px"><FL>To Date</FL><FInp type="date" value={fTo} onChange={e => { setFTo(e.target.value); setPage(1); }} /></FF>
           <FF flex="0 0 140px">
             <FL>Status</FL>
-            <FSel value={fStatus} onChange={e=>{setFStatus(e.target.value);setPage(1);}}>
+            <FSel value={fStatus} onChange={e => { setFStatus(e.target.value); setPage(1); }}>
               <option>All</option><option>Admitted</option><option>Discharged</option>
             </FSel>
           </FF>
@@ -1893,13 +2118,13 @@ export default function Admission() {
             <FPHead>
               <FPTitle>
                 {editingId ? "✏️ Edit Admission" : "🏥 New Admission"}
-                {editingId && <span style={{fontWeight:400,color:"#6b7280",fontSize:".72rem"}}>&nbsp; IP: {editingId}</span>}
-                {editingId && form.is_cancelled && <span style={{background:"#fee2e2",color:"#991b1b",fontSize:".68rem",padding:"1px 8px",borderRadius:10,marginLeft:4}}>Cancelled</span>}
+                {editingId && <span style={{ fontWeight: 400, color: "#6b7280", fontSize: ".72rem" }}>&nbsp; IP: {editingId}</span>}
+                {editingId && form.is_cancelled && <span style={{ background: "#fee2e2", color: "#991b1b", fontSize: ".68rem", padding: "1px 8px", borderRadius: 10, marginLeft: 4 }}>Cancelled</span>}
               </FPTitle>
               <CloseFP onClick={closeForm}>×</CloseFP>
             </FPHead>
 
-            <div style={{background:"linear-gradient(180deg,#f0fdf4 0%,#fff 80px)"}}>
+            <div style={{ background: "linear-gradient(180deg,#f0fdf4 0%,#fff 80px)" }}>
               <FGrid>
 
                 {/* ── Active admission warning banner (yellow container) ── */}
@@ -1935,30 +2160,30 @@ export default function Admission() {
                       name="ipNumber"
                       value={form.ipNumber}
                       onChange={handleFormChange}
-                      placeholder={editingId?"":"Enter IP to load admission"}
+                      placeholder={editingId ? "" : "Enter IP to load admission"}
                       readOnly={!!editingId}
                       style={{ ...(editingId ? { background: "#f3f4f6" } : {}), ...(errors.ipNumber ? { borderColor: "#ef4444" } : {}) }}
                     />
-                    {!editingId&&<IconBtn type="button" onClick={fetchAdmissionByIP} title="Search by IP">🔍</IconBtn>}
+                    {!editingId && <IconBtn type="button" onClick={fetchAdmissionByIP} title="Search by IP">🔍</IconBtn>}
                   </IRow>
                   {errors.ipNumber && <FieldError>{errors.ipNumber}</FieldError>}
                 </Field>
 
                 <Field span={2}>
                   <Lbl>Date &amp; Time</Lbl>
-                  <Inp value={`${fmtDate(new Date())}  ${fmtTime(new Date())}`} readOnly style={{fontFamily:"monospace",background:"#f3f4f6"}}/>
+                  <Inp value={`${fmtDate(new Date())}  ${fmtTime(new Date())}`} readOnly style={{ fontFamily: "monospace", background: "#f3f4f6" }} />
                 </Field>
 
                 <SecDiv>Patient Details (auto-filled from UHID)</SecDiv>
-                <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(form)} readOnly/></Field>
-                <Field><Lbl>DOB</Lbl><Inp value={form.dob||""} readOnly style={{background:"#f3f4f6"}}/></Field>
+                <Field span={3}><Lbl>Patient Name</Lbl><Inp value={pName(form)} readOnly /></Field>
+                <Field><Lbl>DOB</Lbl><Inp value={form.dob || ""} readOnly style={{ background: "#f3f4f6" }} /></Field>
                 <Field>
                   <Lbl>Age (calculated)</Lbl>
                   <Inp value={form.age ? `${form.age} ${form.age_type || "Y"}` : ""} readOnly
-                    style={{background:"#f0fdf4",fontWeight:700,color:"#0d9488"}}
-                    title="Automatically calculated from Date of Birth"/>
+                    style={{ background: "#f0fdf4", fontWeight: 700, color: "#0d9488" }}
+                    title="Automatically calculated from Date of Birth" />
                 </Field>
-                <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly/></Field>
+                <Field><Lbl>Gender</Lbl><Inp value={form.gender} readOnly /></Field>
                 <Field span={2}>
                   <Lbl req>Customer Type</Lbl>
                   <Sel
@@ -2017,12 +2242,70 @@ export default function Admission() {
                     <Inp value="Not Applicable" readOnly style={{ background: "#f3f4f6", color: "#9ca3af" }} />
                   )}
                 </Field>
-                <Field span={2}><Lbl>Phone</Lbl><Inp value={form.mobilePhone} readOnly/></Field>
-                <Field span={4}><Lbl>Address</Lbl><Inp value={form.permanent_address} readOnly/></Field>
-                <Field span={2}><Lbl>Area</Lbl><Inp value={form.area} readOnly/></Field>
-                <Field><Lbl>City</Lbl><Inp value={form.city} readOnly/></Field>
-                <Field><Lbl>State</Lbl><Inp value={form.state} readOnly/></Field>
-                <Field><Lbl>Zip</Lbl><Inp value={form.zipcode} readOnly/></Field>
+                <Field span={2}><Lbl>Phone</Lbl><Inp value={form.mobilePhone} readOnly /></Field>
+                <Field span={4}><Lbl>Address</Lbl><Inp value={form.permanent_address} readOnly /></Field>
+                <Field span={2}><Lbl>Area</Lbl><Inp value={form.area} readOnly /></Field>
+                <Field><Lbl>City</Lbl><Inp value={form.city} readOnly /></Field>
+                <Field><Lbl>State</Lbl><Inp value={form.state} readOnly /></Field>
+                <Field><Lbl>Zip</Lbl><Inp value={form.zipcode} readOnly /></Field>
+
+                {/* ── Patient High Risk Alert ── */}
+                <SecDiv style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, color: form.is_high_risk ? "#dc2626" : "#0d9488" }}>
+                    ⚠️ Patient High Risk Alert
+                  </span>
+                  <ToggleSwitchWrapper onClick={() => {
+                    setForm(p => {
+                      const nextActive = !p.is_high_risk;
+                      return {
+                        ...p,
+                        is_high_risk: nextActive,
+                        high_risk_date: nextActive ? (p.high_risk_date || new Date().toISOString().slice(0, 10)) : "",
+                        high_risk_reason: nextActive ? p.high_risk_reason : ""
+                      };
+                    });
+                    setErrors(p => {
+                      const next = { ...p };
+                      delete next.high_risk_reason;
+                      delete next.high_risk_date;
+                      return next;
+                    });
+                  }}>
+                    <span style={{ fontSize: ".72rem", fontWeight: 700, color: form.is_high_risk ? "#dc2626" : "#64748b" }}>
+                      {form.is_high_risk ? "🚨 High Risk Active" : "No (Normal)"}
+                    </span>
+                    <ToggleTrack active={form.is_high_risk}>
+                      <ToggleThumb active={form.is_high_risk} />
+                    </ToggleTrack>
+                  </ToggleSwitchWrapper>
+                </SecDiv>
+
+                {form.is_high_risk && (
+                  <HighRiskBox>
+                    <Field span={2}>
+                      <Lbl req>Risk Identified Date</Lbl>
+                      <Inp
+                        type="date"
+                        name="high_risk_date"
+                        value={form.high_risk_date || ""}
+                        onChange={handleFormChange}
+                        style={errors.high_risk_date ? { borderColor: "#ef4444" } : {}}
+                      />
+                      {errors.high_risk_date && <FieldError>{errors.high_risk_date}</FieldError>}
+                    </Field>
+                    <Field span={4}>
+                      <Lbl req>Reason / Clinical Alert</Lbl>
+                      <Inp
+                        name="high_risk_reason"
+                        value={form.high_risk_reason || ""}
+                        onChange={handleFormChange}
+                        placeholder="Enter reason for high risk (e.g. Fall Risk, Cardiac Critical, Severe Drug Allergy, Post-Op Complications)"
+                        style={errors.high_risk_reason ? { borderColor: "#ef4444" } : {}}
+                      />
+                      {errors.high_risk_reason && <FieldError>{errors.high_risk_reason}</FieldError>}
+                    </Field>
+                  </HighRiskBox>
+                )}
 
                 <SecDiv>Attender Details</SecDiv>
                 <Field span={2}>
@@ -2106,16 +2389,16 @@ export default function Admission() {
                   />
                   {errors.bedNo && <FieldError>{errors.bedNo}</FieldError>}
                 </Field>
-                <Field span={2}/>
+                <Field span={2} />
 
                 {editingId && (
-                  <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails}/>
+                  <RoomTimeline roomDetails={form.room_details} shiftingDetails={form.roomShitingDetails} />
                 )}
 
                 <SecDiv>Admission &amp; Package</SecDiv>
                 <Field span={3}>
                   <Lbl>Reason for Admission</Lbl>
-                  <Txta name="reasonForAdmission" value={form.reasonForAdmission} onChange={handleFormChange} rows={2}/>
+                  <Txta name="reasonForAdmission" value={form.reasonForAdmission} onChange={handleFormChange} rows={2} />
                 </Field>
                 <Field span={3}>
                   <Lbl>Package</Lbl>
@@ -2131,7 +2414,7 @@ export default function Admission() {
                     name="packageNo"
                   />
                   {form.packageNo && (
-                    <span style={{fontSize:".68rem",color:"#6b7280",marginTop:2}}>
+                    <span style={{ fontSize: ".68rem", color: "#6b7280", marginTop: 2 }}>
                       Selected: {resolvePackageName(form.packageNo) || form.packageName || "—"}
                     </span>
                   )}
@@ -2153,16 +2436,16 @@ export default function Admission() {
                 </Field>
                 <Field span={2}>
                   <Lbl>MLC Document</Lbl>
-                  <Inp type="file" name="mlc_doc" onChange={handleFormChange} style={{paddingTop:3,height:"auto"}}/>
+                  <Inp type="file" name="mlc_doc" onChange={handleFormChange} style={{ paddingTop: 3, height: "auto" }} />
                   {typeof form.mlc_doc === "string" && form.mlc_doc && (
-                    <span style={{fontSize:".65rem",color:"#0d9488",marginTop:2,display:"block"}}>
+                    <span style={{ fontSize: ".65rem", color: "#0d9488", marginTop: 2, display: "block" }}>
                       📄 Attached: {form.mlc_doc.split("/").pop()}
                     </span>
                   )}
                 </Field>
                 <Field span={2}>
                   <Lbl>MLC Remarks</Lbl>
-                  <Txta name="mlc_remarks" value={form.mlc_remarks} onChange={handleFormChange} rows={2} placeholder="Enter MLC observations / police notes…"/>
+                  <Txta name="mlc_remarks" value={form.mlc_remarks} onChange={handleFormChange} rows={2} placeholder="Enter MLC observations / police notes…" />
                 </Field>
 
               </FGrid>
@@ -2170,7 +2453,7 @@ export default function Admission() {
               <FActions>
                 <SmBtn secondary onClick={closeForm}>Discard</SmBtn>
                 <SmBtn onClick={handleSubmit} disabled={saving}>
-                  {saving?"Saving…":editingId?"Update Admission":"Save Admission"}
+                  {saving ? "Saving…" : editingId ? "Update Admission" : "Save Admission"}
                 </SmBtn>
               </FActions>
             </div>
@@ -2178,162 +2461,186 @@ export default function Admission() {
         )}
 
         {viewMode === "grid" ? (
-          <AdmissionGrid data={gridData} loading={gridLoading} onBedClick={handleGridBedClick} />
+          <AdmissionGrid data={gridData} loading={gridLoading} onBedClick={handleGridBedClick} doctors={doctors} />
         ) : (
           <>
             {/* ── Table Controls ── */}
             <TTBar>
-          <div style={{display:"flex",alignItems:"center",gap:6,fontSize:".75rem",color:"#6b7280"}}>
-            Show&nbsp;
-            <FSel style={{width:60,height:28}} value={perPage} onChange={e=>{setPerPage(Number(e.target.value));setPage(1);}}>
-              {[10,15,25,50].map(n=><option key={n}>{n}</option>)}
-            </FSel>
-            &nbsp;entries
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:6,fontSize:".75rem",color:"#6b7280"}}>
-            Search:&nbsp;
-            <input value={tSearch} onChange={e=>{setTSearch(e.target.value);setPage(1);}}
-              placeholder="Name / UHID / IP / Room…"
-              style={{height:28,padding:"0 8px",fontSize:".75rem",border:"1px solid #d1d5db",borderRadius:4,outline:"none"}}/>
-          </div>
-        </TTBar>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                Show&nbsp;
+                <FSel style={{ width: 60, height: 28 }} value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}>
+                  {[10, 15, 25, 50].map(n => <option key={n}>{n}</option>)}
+                </FSel>
+                &nbsp;entries
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".75rem", color: "#6b7280" }}>
+                Search:&nbsp;
+                <input value={tSearch} onChange={e => { setTSearch(e.target.value); setPage(1); }}
+                  placeholder="Name / UHID / IP / Room…"
+                  style={{ height: 28, padding: "0 8px", fontSize: ".75rem", border: "1px solid #d1d5db", borderRadius: 4, outline: "none" }} />
+              </div>
+            </TTBar>
 
-        {/* ── Table ── */}
-        <TWrap>
-          <Tbl>
-            <Thead>
-              <tr>
-                <Th>Status</Th><Th>Adm Date</Th><Th>Time</Th>
-                <Th>UHID</Th><Th>IP No.</Th><Th>Name</Th><Th>Age</Th><Th>Gender</Th>
-                <Th>Admitting Dr.</Th><Th>Active Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {loading ? (
-                <tr><Td colSpan={12} style={{textAlign:"center",padding:28}}>Loading…</Td></tr>
-              ) : paginated.length===0 ? (
-                <tr><Td colSpan={12} style={{textAlign:"center",padding:28,color:"#6b7280"}}>No admissions found</Td></tr>
-              ) : paginated.map((adm,idx) => {
-                const t = getAdmStatus(adm);
-                const { roomNo, bedNo, source } = getActiveRoom(adm);
-                const rdCount    = Array.isArray(adm.room_details)       ? adm.room_details.length       : 0;
-                const shCount    = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
-                const totalCount = rdCount + shCount;
+            {/* ── Table ── */}
+            <TWrap>
+              <Tbl>
+                <Thead>
+                  <tr>
+                    <Th>Status</Th><Th>Adm Date</Th><Th>Time</Th>
+                    <Th>UHID</Th><Th>IP No.</Th><Th>Name</Th><Th>Age</Th><Th>Gender</Th>
+                    <Th>Admitting Dr.</Th><Th>Active Room / Bed</Th><Th>Room History</Th><Th>Actions</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {loading ? (
+                    <tr><Td colSpan={12} style={{ textAlign: "center", padding: 28 }}>Loading…</Td></tr>
+                  ) : paginated.length === 0 ? (
+                    <tr><Td colSpan={12} style={{ textAlign: "center", padding: 28, color: "#6b7280" }}>No admissions found</Td></tr>
+                  ) : paginated.map((adm, idx) => {
+                    const t = getAdmStatus(adm);
+                    const { roomNo, bedNo, source } = getActiveRoom(adm);
+                    const rdCount = Array.isArray(adm.room_details) ? adm.room_details.length : 0;
+                    const shCount = Array.isArray(adm.roomShitingDetails) ? adm.roomShitingDetails.length : 0;
+                    const totalCount = rdCount + shCount;
 
-                return (
-                  <Tr key={adm.ipNumber||idx} i={idx}>
-                    <Td><Badge t={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</Badge></Td>
-                    <Td>{adm.admissionDateTime ? fmtDate(adm.admissionDateTime) : "-"}</Td>
-                    <Td>{adm.admissionDateTime ? fmtTime(adm.admissionDateTime) : "-"}</Td>
-                    <Td style={{fontWeight:600,color:"#0d9488"}}>{adm.uhid||"-"}</Td>
-                    <Td style={{fontWeight:600,color:"#6d28d9"}}>{adm.ipNumber||"-"}</Td>
-                    <Td style={{fontWeight:600}}>{pName(adm)}</Td>
-                    <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
-                    <Td>{adm.gender||"-"}</Td>
-                    <Td>{adm.admittingDoctorName||getDrName(adm.admittingDoctor)}</Td>
-                    <Td>
-                      {roomNo!=="-" ? (
-                        <span>
-                          <span style={{fontWeight:700}}>{roomNo}</span>
-                          <span style={{color:"#6b7280"}}>/</span>
-                          <span style={{fontWeight:700}}>{bedNo}</span>
-                          {source==="shifting"&&<RoomSourceTag src="shifting" title="Room from shifting record">🔄</RoomSourceTag>}
-                          {source==="room_details"&&<RoomSourceTag src="room_details" title="Room from admission details">📋</RoomSourceTag>}
-                        </span>
-                      ) : <span style={{color:"#9ca3af",fontSize:".72rem"}}>—</span>}
-                    </Td>
-                    <Td>
-                      {totalCount>0 ? (
-                        <RoomHistBtn onClick={()=>setHistoryAdm(adm)}>
-                          🏨 {totalCount} entr{totalCount>1?"ies":"y"}
-                          {shCount>0&&<span style={{marginLeft:4,opacity:.7}}>({rdCount}+{shCount})</span>}
-                        </RoomHistBtn>
-                      ) : <span style={{color:"#9ca3af",fontSize:".72rem"}}>—</span>}
-                    </Td>
-                    <Td>
-                      <AW><DotB onClick={e=>handleMenuToggle(adm.ipNumber,e)}>⋮</DotB></AW>
-                    </Td>
-                  </Tr>
-                );
-              })}
-            </tbody>
-          </Tbl>
-        </TWrap>
+                    return (
+                      <Tr key={adm.ipNumber || idx} i={idx}>
+                        <Td><Badge t={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Badge></Td>
+                        <Td>{adm.admissionDateTime ? fmtDate(adm.admissionDateTime) : "-"}</Td>
+                        <Td>{adm.admissionDateTime ? fmtTime(adm.admissionDateTime) : "-"}</Td>
+                        <Td style={{ fontWeight: 600, color: "#0d9488" }}>{adm.uhid || "-"}</Td>
+                        <Td style={{ fontWeight: 600, color: "#6d28d9" }}>{adm.ipNumber || "-"}</Td>
+                        <Td style={{ fontWeight: 600 }}>
+                          {pName(adm)}
+                          {adm.is_high_risk && (
+                            <span
+                              style={{
+                                marginLeft: 6,
+                                background: "#fee2e2",
+                                color: "#b91c1c",
+                                border: "1px solid #fca5a5",
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                fontSize: "0.62rem",
+                                fontWeight: 800,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 3,
+                                verticalAlign: "middle",
+                                cursor: "help"
+                              }}
+                              title={`⚠️ High Risk Patient\nReason: ${adm.high_risk_reason || "Not specified"}\nDate: ${fmtDate(adm.high_risk_date)}`}
+                            >
+                              ⚠️ High Risk
+                            </span>
+                          )}
+                        </Td>
+                        <Td>{adm.age ? `${adm.age} ${adm.age_type || "Y"}` : "-"}</Td>
+                        <Td>{adm.gender || "-"}</Td>
+                        <Td>{adm.admittingDoctorName || getDrName(adm.admittingDoctor)}</Td>
+                        <Td>
+                          {roomNo !== "-" ? (
+                            <span>
+                              <span style={{ fontWeight: 700 }}>{roomNo}</span>
+                              <span style={{ color: "#6b7280" }}>/</span>
+                              <span style={{ fontWeight: 700 }}>{bedNo}</span>
+                              {source === "shifting" && <RoomSourceTag src="shifting" title="Room from shifting record">🔄</RoomSourceTag>}
+                              {source === "room_details" && <RoomSourceTag src="room_details" title="Room from admission details">📋</RoomSourceTag>}
+                            </span>
+                          ) : <span style={{ color: "#9ca3af", fontSize: ".72rem" }}>—</span>}
+                        </Td>
+                        <Td>
+                          {totalCount > 0 ? (
+                            <RoomHistBtn onClick={() => setHistoryAdm(adm)}>
+                              🏨 {totalCount} entr{totalCount > 1 ? "ies" : "y"}
+                              {shCount > 0 && <span style={{ marginLeft: 4, opacity: .7 }}>({rdCount}+{shCount})</span>}
+                            </RoomHistBtn>
+                          ) : <span style={{ color: "#9ca3af", fontSize: ".72rem" }}>—</span>}
+                        </Td>
+                        <Td>
+                          <AW><DotB onClick={e => handleMenuToggle(adm.ipNumber, e)}>⋮</DotB></AW>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
+                </tbody>
+              </Tbl>
+            </TWrap>
 
-        <Pager>
-          <span>Showing {filtered.length===0?0:(page-1)*perPage+1}–{Math.min(page*perPage,filtered.length)} of {filtered.length} entries</span>
-          <div style={{display:"flex",gap:4}}>
-            <PB onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>Previous</PB>
-            {Array.from({length:totalPages},(_,i)=>i+1).slice(Math.max(0,page-3),page+2).map(n=><PB key={n} active={n===page} onClick={()=>setPage(n)}>{n}</PB>)}
-            <PB onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}>Next</PB>
-          </div>
-        </Pager>
+            <Pager>
+              <span>Showing {filtered.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, filtered.length)} of {filtered.length} entries</span>
+              <div style={{ display: "flex", gap: 4 }}>
+                <PB onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</PB>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, page - 3), page + 2).map(n => <PB key={n} active={n === page} onClick={() => setPage(n)}>{n}</PB>)}
+                <PB onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</PB>
+              </div>
+            </Pager>
           </>
         )}
       </Container>
 
       {/* ══ ACTION DROPDOWN ══ */}
-{openMenu!==null&&(()=>{
-         const adm = paginated.find(a=>a.ipNumber===openMenu);
-         if (!adm) return null;
-         const t = getAdmStatus(adm);
-         const isAdmitted = t==="admitted";
-         return (
-           <Drop
-             ref={menuRef}
-             top={menuPos.top}
-             bottom={menuPos.bottom}
-             left={menuPos.left}
-             placement={menuPos.placement}
-             maxHeight={menuPos.maxHeight}
-           >
-             <DI onClick={()=>{setOpenMenu(null);setViewModalAdm(adm);}}>
-               👁️ View Details
-             </DI>
-             <DI onClick={()=>{if(isAdmitted)openEditForm(adm);}} disabled={!isAdmitted}
-               title={!isAdmitted?`Cannot edit — admission is ${t}`:"Edit admission"}>
-               ✏️ Edit{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
-             </DI>
-             <DI onClick={()=>{setOpenMenu(null);setHistoryAdm(adm);}}>🏨 Room History</DI>
-             {/* ── Room Shifting ── */}
-             <DI onClick={()=>{setOpenMenu(null); setShiftAdm(adm);}} disabled={!isAdmitted}
-               title={!isAdmitted?`Cannot shift — admission is ${t}`:"Shift room"}>
-               🔄 Room Shifting{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
-             </DI>
-             {/* ── IP Advance ── */}
-             <DI onClick={()=>{setOpenMenu(null); setIpAdvAdm(adm);}} disabled={!isAdmitted}
-               title={!isAdmitted?`Cannot add advance — admission is ${t}`:"Add IP Advance"}>
-               💳 IP Advance{!isAdmitted&&<span style={{fontSize:".62rem",color:"#9ca3af",marginLeft:"auto"}}>({t})</span>}
-             </DI>
-             <DI danger onClick={()=>{if(isAdmitted)handleCancel(adm);}} disabled={!isAdmitted}
-               title={!isAdmitted?`Cannot cancel — admission is ${t}`:"Cancel admission"}>
-               🗑️ Cancel Admission{!isAdmitted&&<span style={{fontSize:".62rem",color:"#fca5a5",marginLeft:"auto"}}>({t})</span>}
-             </DI>
-             <DI onClick={()=>handlePrint(adm)}>🖨️ Print Slip</DI>
-           </Drop>
-         );
-       })()}
+      {openMenu !== null && (() => {
+        const adm = paginated.find(a => a.ipNumber === openMenu);
+        if (!adm) return null;
+        const t = getAdmStatus(adm);
+        const isAdmitted = t === "admitted";
+        return (
+          <Drop
+            ref={menuRef}
+            top={menuPos.top}
+            bottom={menuPos.bottom}
+            left={menuPos.left}
+            placement={menuPos.placement}
+            maxHeight={menuPos.maxHeight}
+          >
+            <DI onClick={() => { setOpenMenu(null); setViewModalAdm(adm); }}>
+              👁️ View Details
+            </DI>
+            <DI onClick={() => { if (isAdmitted) openEditForm(adm); }} disabled={!isAdmitted}
+              title={!isAdmitted ? `Cannot edit — admission is ${t}` : "Edit admission"}>
+              ✏️ Edit{!isAdmitted && <span style={{ fontSize: ".62rem", color: "#9ca3af", marginLeft: "auto" }}>({t})</span>}
+            </DI>
+            <DI onClick={() => { setOpenMenu(null); setHistoryAdm(adm); }}>🏨 Room History</DI>
+            {/* ── Room Shifting ── */}
+            <DI onClick={() => { setOpenMenu(null); setShiftAdm(adm); }} disabled={!isAdmitted}
+              title={!isAdmitted ? `Cannot shift — admission is ${t}` : "Shift room"}>
+              🔄 Room Shifting{!isAdmitted && <span style={{ fontSize: ".62rem", color: "#9ca3af", marginLeft: "auto" }}>({t})</span>}
+            </DI>
+            {/* ── IP Advance ── */}
+            <DI onClick={() => { setOpenMenu(null); setIpAdvAdm(adm); }} disabled={!isAdmitted}
+              title={!isAdmitted ? `Cannot add advance — admission is ${t}` : "Add IP Advance"}>
+              💳 IP Advance{!isAdmitted && <span style={{ fontSize: ".62rem", color: "#9ca3af", marginLeft: "auto" }}>({t})</span>}
+            </DI>
+            <DI danger onClick={() => { if (isAdmitted) handleCancel(adm); }} disabled={!isAdmitted}
+              title={!isAdmitted ? `Cannot cancel — admission is ${t}` : "Cancel admission"}>
+              🗑️ Cancel Admission{!isAdmitted && <span style={{ fontSize: ".62rem", color: "#fca5a5", marginLeft: "auto" }}>({t})</span>}
+            </DI>
+            <DI onClick={() => handlePrint(adm)}>🖨️ Print Slip</DI>
+          </Drop>
+        );
+      })()}
 
-      {confirmModal&&<ConfirmModal {...confirmModal}/>}
-      {infoModal&&<InfoModal {...infoModal}/>}
+      {confirmModal && <ConfirmModal {...confirmModal} />}
+      {infoModal && <InfoModal {...infoModal} />}
 
       {/* ── View Admission Modal ── */}
-      {viewModalAdm&&(
+      {viewModalAdm && (
         <ViewAdmissionModal
           adm={viewModalAdm}
           doctors={doctors}
           packages={packages}
-          onClose={()=>setViewModalAdm(null)}
+          onClose={() => setViewModalAdm(null)}
         />
       )}
 
       {/* ── Reason Modal (cancel or edit) ── */}
-      {reasonModal&&(
+      {reasonModal && (
         <ReasonModal
           mode={reasonModal.mode}
-          onCancel={()=>setReasonModal(null)}
-          onConfirm={reason=>{
-            if (reasonModal.mode==="cancel") handleCancelConfirmed(reasonModal.adm, reason);
+          onCancel={() => setReasonModal(null)}
+          onConfirm={reason => {
+            if (reasonModal.mode === "cancel") handleCancelConfirmed(reasonModal.adm, reason);
             else handleEditConfirmed(reason);
           }}
         />
@@ -2341,15 +2648,15 @@ export default function Admission() {
 
 
 
-      {historyAdm&&<RoomHistoryModal adm={historyAdm} onClose={()=>setHistoryAdm(null)}/>}
+      {historyAdm && <RoomHistoryModal adm={historyAdm} onClose={() => setHistoryAdm(null)} />}
 
       {/* ══ ROOM SHIFTING MODAL ══ */}
-      {shiftAdm&&(
-        <ModalOverlay onClick={()=>setShiftAdm(null)}>
-          <ShiftMC onClick={e=>e.stopPropagation()}>
+      {shiftAdm && (
+        <ModalOverlay onClick={() => setShiftAdm(null)}>
+          <ShiftMC onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>🔄 Room Shifting — {shiftAdm.ipNumber}</ModalTitle>
-              <CloseButton onClick={()=>setShiftAdm(null)}>×</CloseButton>
+              <CloseButton onClick={() => setShiftAdm(null)}>×</CloseButton>
             </ModalHeader>
             <ShiftMB>
               {/*
@@ -2359,150 +2666,297 @@ export default function Admission() {
               */}
               <RoomShifting
                 patient={{
-                  uhid:     shiftAdm.uhid,
+                  uhid: shiftAdm.uhid,
                   ipNumber: shiftAdm.ipNumber,
                   patient_details: {
-                    uhid:     shiftAdm.uhid,
+                    uhid: shiftAdm.uhid,
                     ipNumber: shiftAdm.ipNumber,
                   }
                 }}
-                onClose={()=>setShiftAdm(null)}
-                onSaved={()=>{ setShiftAdm(null); fetchAdmissions(); }}
+                onClose={() => setShiftAdm(null)}
+                onSaved={() => { setShiftAdm(null); fetchAdmissions(); }}
               />
             </ShiftMB>
-</ShiftMC>
-         </ModalOverlay>
-       )}
+          </ShiftMC>
+        </ModalOverlay>
+      )}
 
-       {/* ── IP ADVANCE MODAL ── */}
-       {ipAdvAdm&&(
-         <ModalOverlay onClick={()=>setIpAdvAdm(null)}>
-           <ShiftMC onClick={e=>e.stopPropagation()}>
-             <ModalHeader>
-               <ModalTitle>💳 IP Advance — {ipAdvAdm.ipNumber}</ModalTitle>
-               <CloseButton onClick={()=>setIpAdvAdm(null)}>×</CloseButton>
-             </ModalHeader>
-             <ShiftMB>
-               {/*
+      {/* ── IP ADVANCE MODAL ── */}
+      {ipAdvAdm && (
+        <ModalOverlay onClick={() => setIpAdvAdm(null)}>
+          <ShiftMC onClick={e => e.stopPropagation()}>
+            <ModalHeader>
+              <ModalTitle>💳 IP Advance — {ipAdvAdm.ipNumber}</ModalTitle>
+              <CloseButton onClick={() => setIpAdvAdm(null)}>×</CloseButton>
+            </ModalHeader>
+            <ShiftMB>
+              {/*
                  Pass the admission as `patient` prop so IPAdvance
                  pre-fills UHID / IP and loads the admission automatically.
                  onSaved triggers a refresh and closes the modal.
                */}
-               <IPAdvance
-                 patient={{
-                   uhid:     ipAdvAdm.uhid,
-                   ipNumber: ipAdvAdm.ipNumber,
-                   patient_details: {
-                     uhid:     ipAdvAdm.uhid,
-                     ipNumber: ipAdvAdm.ipNumber,
-                   }
-                 }}
-                 onClose={()=>setIpAdvAdm(null)}
-                 onSaved={()=>{ setIpAdvAdm(null); fetchAdmissions(); }}
-               />
-             </ShiftMB>
-           </ShiftMC>
-         </ModalOverlay>
-       )}
+              <IPAdvance
+                patient={{
+                  uhid: ipAdvAdm.uhid,
+                  ipNumber: ipAdvAdm.ipNumber,
+                  patient_details: {
+                    uhid: ipAdvAdm.uhid,
+                    ipNumber: ipAdvAdm.ipNumber,
+                  }
+                }}
+                onClose={() => setIpAdvAdm(null)}
+                onSaved={() => { setIpAdvAdm(null); fetchAdmissions(); }}
+              />
+            </ShiftMB>
+          </ShiftMC>
+        </ModalOverlay>
+      )}
 
-       {/* ══ ROOM PICKER ══ */}
-      {showRoom&&(
-        <ModalOverlay onClick={()=>setShowRoom(false)}>
-          <RMC onClick={e=>e.stopPropagation()}>
+      {/* ══ ROOM PICKER ══ */}
+      {showRoom && (
+        <ModalOverlay onClick={() => setShowRoom(false)}>
+          <RMC onClick={e => e.stopPropagation()}>
             <ModalHeader>
               <ModalTitle>🏨 Select Room</ModalTitle>
-              <CloseButton onClick={()=>setShowRoom(false)}>×</CloseButton>
+              <CloseButton onClick={() => setShowRoom(false)}>×</CloseButton>
             </ModalHeader>
             <RMB>
               <FBR>
-                {[["room_number","Room Number","e.g. 101"],["block","Block","e.g. A"]].map(([k,lbl,ph])=>(
-                  <FFR key={k}><FLR>{lbl}</FLR>
-                    <FIR placeholder={ph} value={rFilter[k]} onChange={e=>setRFilter(p=>({...p,[k]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&fetchAllRooms()}/>
-                  </FFR>
-                ))}
-                <FFR><FLR>Floor</FLR><FIR type="number" placeholder="e.g. 2" value={rFilter.floor} onChange={e=>setRFilter(p=>({...p,floor:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&fetchAllRooms()}/></FFR>
-                <FBR2 onClick={()=>fetchAllRooms()}>Search</FBR2>
-                <FBR2 clear onClick={()=>{setRFilter({room_number:"",block:"",floor:""});fetchAllRooms({room_number:"",block:"",floor:""});}}>Clear</FBR2>
+                <FFR>
+                  <FLR>Room Number</FLR>
+                  <FIR
+                    placeholder="e.g. 101"
+                    value={rFilter.room_number}
+                    onChange={e => setRFilter(p => ({ ...p, room_number: e.target.value }))}
+                    onKeyDown={e => e.key === "Enter" && fetchAllRooms()}
+                  />
+                </FFR>
+
+                <FFR>
+                  <FLR>Block</FLR>
+                  <FSelR
+                    value={rFilter.block || "ALL"}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setRFilter(p => ({ ...p, block: val }));
+                    }}
+                  >
+                    <option value="ALL">🏢 All Blocks</option>
+                    {roomFilterOptions.blocks.map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </FSelR>
+                </FFR>
+
+                <FFR>
+                  <FLR>Category</FLR>
+                  <FSelR
+                    value={rFilter.category || "ALL"}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setRFilter(p => ({ ...p, category: val }));
+                    }}
+                  >
+                    <option value="ALL">🏷️ All Categories</option>
+                    {roomFilterOptions.categories.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </FSelR>
+                </FFR>
+
+                <FFR>
+                  <FLR>Nursing Station</FLR>
+                  <FSelR
+                    value={rFilter.nursing_station || "ALL"}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setRFilter(p => ({ ...p, nursing_station: val }));
+                    }}
+                  >
+                    <option value="ALL">🩺 All Stations</option>
+                    {roomFilterOptions.stations.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </FSelR>
+                </FFR>
+
+                <FBR2 onClick={() => fetchAllRooms()}>Search</FBR2>
+                <FBR2
+                  clear
+                  onClick={() => {
+                    const resetF = { room_number: "", block: "", category: "", nursing_station: "" };
+                    setRFilter(resetF);
+                    setRoomModalStatus("Available");
+                    fetchAllRooms(resetF);
+                  }}
+                >
+                  Clear
+                </FBR2>
               </FBR>
-              <LBar>
-                {[["#22c55e","Available"],["#eab308","Not Cleaned"],["#3b82f6","Partial"],["#9333ea","Reserved"],["#ef4444","Occupied"],["#9ca3af","Maintenance"]].map(([c,l])=>(
-                  <LI key={l}><LD c={c}/>{l}</LI>
-                ))}
-              </LBar>
-              {loadRooms ? (
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(148px,1fr))",gap:8}}>
-                  {Array.from({length:12}).map((_,i)=><Skel key={i}/>)}
+
+              {/* Bed Status Quick Filter Bar (Radio / Pill Style) */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 12, padding: "8px 12px", background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.68rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                    🎨 Status Filter:
+                  </span>
+                  {[
+                    { status: "ALL", label: "All Beds", count: roomStats.total, color: "#0d9488", light: "#f0fdfa", border: "#99f6e4" },
+                    { status: "Available", label: "Available", count: roomStats.available, color: "#16a34a", light: "#dcfce7", border: "#86efac" },
+                    { status: "Occupied", label: "Occupied", count: roomStats.occupied, color: "#dc2626", light: "#fee2e2", border: "#fca5a5" },
+                    { status: "Not Cleaned", label: "Not Cleaned", count: roomStats.notCleaned, color: "#d97706", light: "#fef3c7", border: "#fde047" },
+                    { status: "Reserved", label: "Reserved", count: roomStats.reserved, color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe" },
+                    { status: "Maintenance", label: "Maintenance", count: roomStats.maintenance, color: "#64748b", light: "#f1f5f9", border: "#cbd5e1" },
+                  ].map(item => {
+                    const active = roomModalStatus === item.status;
+                    return (
+                      <button
+                        key={item.status}
+                        type="button"
+                        onClick={() => setRoomModalStatus(prev => prev === item.status ? "ALL" : item.status)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          fontSize: "0.68rem",
+                          fontWeight: 700,
+                          border: `1.5px solid ${active ? item.color : item.border}`,
+                          background: active ? item.color : item.light,
+                          color: active ? "#ffffff" : item.color,
+                          cursor: "pointer",
+                          transition: "all 0.12s ease",
+                        }}
+                      >
+                        <span style={{ width: 7, height: 7, borderRadius: "50%", background: active ? "#ffffff" : item.color }} />
+                        <span>{item.label}</span>
+                        <span style={{
+                          fontSize: "0.6rem",
+                          fontWeight: 800,
+                          padding: "0 4px",
+                          borderRadius: 10,
+                          background: active ? "rgba(255,255,255,0.3)" : "#ffffff",
+                          color: active ? "#ffffff" : item.color,
+                          border: active ? "none" : `1px solid ${item.border}`,
+                        }}>
+                          {item.count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ) : Object.keys(grouped).length===0 ? <NR>No rooms found.</NR>
-              : Object.entries(grouped).map(([block,floors],bIdx)=>(
-                <BS2 key={block} i={bIdx}>
-                  <BH2>🏢 Block {block}</BH2>
-                  {Object.entries(floors).sort(([a],[b])=>Number(a)-Number(b)).map(([floor,rooms])=>(
-                    <FG2 key={floor}>
-                      <FL2>Floor {floor}</FL2>
-                      <RG2>
-                        {rooms.map(room=>{
-                          const s = getRoomStatus(room.beds);
-                          const occCount = (room.beds||[]).filter(b=>b.status==="Occupied").length;
-                          const hasOcc = occCount > 0;
-                          return (
-                            <RC key={room.room_number} hasOccupied={hasOcc}>
-                              <RCT hasOccupied={hasOcc}>
-                                <RNum>Room {room.room_number}</RNum>
-                                <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                                  <RT2>{room.room_type || room.room_category || "General"}</RT2>
-                                  <RSP s={s}>{s==="partial"?"Partial":s==="not-cleaned"?"Unclean":s==="reserved"?"Reserved":s==="maintenance"?"Maintenance":s==="occupied"?"Occupied":"Available"}</RSP>
-                                </div>
-                              </RCT>
-                              <BRow>
-                                {(room.beds||[]).map((bed,i)=>{
-                                  const isAv = bed.status === "Available";
-                                  const color = isAv ? "#15803d" : bed.status === "Occupied" ? "#b91c1c" : bed.status === "Available - Not Cleaned" ? "#b45309" : bed.status === "Reserved" ? "#6d28d9" : "#64748b";
-                                  return (
-                                    <BC key={i} bs={bed.status} disabled={!isAv}
-                                      title={isAv?"✅ Ready — Click to select":bed.status}
-                                      onClick={e=>{if(isAv){e.stopPropagation();handleBedSelect(bed.bed_number,room);}}}>
-                                      <BedMiniSVG color={color} size={15} />
-                                      <span style={{fontSize:".65rem",fontWeight:800,color}}>B{bed.bed_number}</span>
-                                      <span style={{fontSize:".48rem",fontWeight:700,color,textTransform:"uppercase"}}>{isAv?"Ready":bed.status}</span>
-                                    </BC>
-                                  );
-                                })}
-                              </BRow>
-                            </RC>
-                          );
-                        })}
-                      </RG2>
-                    </FG2>
-                  ))}
-                </BS2>
-              ))}
+                <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
+                  Defaulting to <strong style={{ color: "#16a34a" }}>Available</strong> beds
+                </div>
+              </div>
+
+              {loadRooms ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 8 }}>
+                  {Array.from({ length: 12 }).map((_, i) => <Skel key={i} />)}
+                </div>
+              ) : Object.keys(grouped).length === 0 ? <NR>No rooms found matching filter.</NR>
+                : Object.entries(grouped).map(([block, floors], bIdx) => (
+                  <BS2 key={block} i={bIdx}>
+                    <BH2>🏢 Block {block}</BH2>
+                    {Object.entries(floors).map(([floor, rooms]) => (
+                      <FG2 key={floor}>
+                        <FL2>📍 {floor}</FL2>
+                        <RG2>
+                          {rooms.map(room => {
+                            const availableBeds = (room.beds || []).filter(bd => (bd.status || bd.bed_status || "").toLowerCase() === "available").length;
+                            const occupiedBeds = (room.beds || []).filter(bd => (bd.status || bd.bed_status || "").toLowerCase() === "occupied").length;
+                            const hasOcc = occupiedBeds > 0;
+
+                            return (
+                              <RC key={room.room_number} hasOccupied={hasOcc}>
+                                <RCT hasOccupied={hasOcc}>
+                                  <RNum>Room {room.room_number}</RNum>
+                                  <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                    <CategoryTag>{room.room_type || room.room_category || "General"}</CategoryTag>
+                                    <BedCountPill available={availableBeds}>
+                                      {availableBeds}/{room.beds?.length || 0} Ready
+                                    </BedCountPill>
+                                  </div>
+                                </RCT>
+                                <BRow>
+                                  {(room.filteredBeds || room.beds || []).map((bed, i) => {
+                                    const bs = (bed.status || bed.bed_status || "Available").trim();
+                                    const bsLower = bs.toLowerCase();
+                                    const isAv = bsLower === "available";
+                                    const isOcc = bsLower === "occupied";
+                                    const isCl = bsLower.includes("clean");
+                                    const isRes = bsLower === "reserved" || bsLower === "booked";
+
+                                    const cfg = isAv
+                                      ? { color: "#16a34a", light: "#dcfce7", border: "#86efac", label: "Ready" }
+                                      : isOcc
+                                      ? { color: "#dc2626", light: "#fee2e2", border: "#fca5a5", label: "Occupied" }
+                                      : isCl
+                                      ? { color: "#d97706", light: "#fef3c7", border: "#fde047", label: "Unclean" }
+                                      : isRes
+                                      ? { color: "#7c3aed", light: "#ede9fe", border: "#d8b4fe", label: "Reserved" }
+                                      : { color: "#64748b", light: "#f1f5f9", border: "#cbd5e1", label: "Blocked" };
+
+                                    return (
+                                      <BC
+                                        key={i}
+                                        cfg={cfg}
+                                        isAv={isAv}
+                                        disabled={!isAv}
+                                        title={isAv ? `✅ Bed ${bed.bed_number} — Click to assign` : `Bed ${bed.bed_number} (${bs})`}
+                                        onClick={e => {
+                                          if (isAv) {
+                                            e.stopPropagation();
+                                            handleBedSelect(bed.bed_number, room);
+                                          }
+                                        }}
+                                      >
+                                        <BedMiniSVG color={cfg.color} size={15} />
+                                        <span style={{ fontSize: ".66rem", fontWeight: 800, color: cfg.color, lineHeight: 1 }}>
+                                          B{bed.bed_number}
+                                        </span>
+                                        <span style={{ fontSize: ".48rem", fontWeight: 700, color: cfg.color, textTransform: "uppercase" }}>
+                                          {cfg.label}
+                                        </span>
+                                      </BC>
+                                    );
+                                  })}
+                                </BRow>
+                              </RC>
+                            );
+                          })}
+                        </RG2>
+                      </FG2>
+                    ))}
+                  </BS2>
+                ))}
             </RMB>
           </RMC>
         </ModalOverlay>
       )}
 
       {/* ══ BED FALLBACK ══ */}
-      {showBed&&selRoom&&(
-        <ModalOverlay onClick={()=>setShowBed(false)}>
-          <ModalContainer onClick={e=>e.stopPropagation()} style={{maxWidth:420}}>
+      {showBed && selRoom && (
+        <ModalOverlay onClick={() => setShowBed(false)}>
+          <ModalContainer onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <ModalHeader>
               <ModalTitle>Select Bed — Room {selRoom.room_number}</ModalTitle>
-              <CloseButton onClick={()=>setShowBed(false)}>×</CloseButton>
+              <CloseButton onClick={() => setShowBed(false)}>×</CloseButton>
             </ModalHeader>
             <ModalBody>
-              <div style={{display:"flex",flexWrap:"wrap",gap:10,padding:12}}>
-                {(selRoom.beds||[]).map((bed,i)=>{
-                  const avail=bed.status==="Available";
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: 12 }}>
+                {(selRoom.beds || []).map((bed, i) => {
+                  const avail = bed.status === "Available";
                   return (
                     <BC key={i} bs={bed.status} disabled={!avail}
-                      style={{minWidth:70,height:42,fontSize:".82rem",flex:"1 1 70px"}}
-                      onClick={()=>avail&&handleBedSelect(bed.bed_number,selRoom)}>
-                      {bed.bed_number}<br/><span style={{fontSize:".6rem",opacity:.85}}>{bed.status}</span>
+                      style={{ minWidth: 70, height: 42, fontSize: ".82rem", flex: "1 1 70px" }}
+                      onClick={() => avail && handleBedSelect(bed.bed_number, selRoom)}>
+                      {bed.bed_number}<br /><span style={{ fontSize: ".6rem", opacity: .85 }}>{bed.status}</span>
                     </BC>
                   );
                 })}
-                {(!selRoom.beds||selRoom.beds.length===0)&&<NR>No beds configured.</NR>}
+                {(!selRoom.beds || selRoom.beds.length === 0) && <NR>No beds configured.</NR>}
               </div>
             </ModalBody>
           </ModalContainer>
@@ -2510,39 +2964,39 @@ export default function Admission() {
       )}
 
       {/* ══ PRINT SLIP ══ */}
-      {printData&&(()=>{
-        const {roomNo,bedNo}=getActiveRoom(printData);
+      {printData && (() => {
+        const { roomNo, bedNo } = getActiveRoom(printData);
         return (
-          <ModalOverlay onClick={()=>setPrintData(null)}>
-            <PMC onClick={e=>e.stopPropagation()}>
-              <ModalHeader><ModalTitle>🖨️ Admission Slip</ModalTitle><CloseButton onClick={()=>setPrintData(null)}>×</CloseButton></ModalHeader>
+          <ModalOverlay onClick={() => setPrintData(null)}>
+            <PMC onClick={e => e.stopPropagation()}>
+              <ModalHeader><ModalTitle>🖨️ Admission Slip</ModalTitle><CloseButton onClick={() => setPrintData(null)}>×</CloseButton></ModalHeader>
               <PMB>
                 <Slip>
                   <SR>
                     <SL>
-                      <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText/>
+                      <BarcodeSVG value={printData.ipNumber} width={240} height={64} showText />
                       <SBold>{pName(printData)}</SBold>
                       <SLn>
                         {printData.dob ? `DOB: ${printData.dob}  ` : ""}
                         {printData.age ? `Age: ${printData.age}` : ""}
                         {printData.gender ? `  ${printData.gender}` : ""}
                       </SLn>
-                      <SLn>{printData.permanent_address||""}</SLn>
-                      <SLn>{[printData.area,printData.city,printData.state].filter(Boolean).join(", ")}</SLn>
-                      <SLn>{printData.mobilePhone||""}</SLn>
-                      <SLn>Admitted: Dr. {printData.admittingDoctorName||getDrName(printData.admittingDoctor)}</SLn>
+                      <SLn>{printData.permanent_address || ""}</SLn>
+                      <SLn>{[printData.area, printData.city, printData.state].filter(Boolean).join(", ")}</SLn>
+                      <SLn>{printData.mobilePhone || ""}</SLn>
+                      <SLn>Admitted: Dr. {printData.admittingDoctorName || getDrName(printData.admittingDoctor)}</SLn>
                     </SL>
                     <SRt>
-                      <SBig>IP NO: {printData.ipNumber||""}</SBig>
-                      <SLn>{printData.insuranceCompanyName||""}</SLn>
-                      <SLn>UHID : {printData.uhid||""}</SLn>
-                      <SLn>DOA  : {printData.admissionDateTime?fmtDate(printData.admissionDateTime):"-"}</SLn>
-                      <SLn>TIME : {printData.admissionDateTime?new Date(printData.admissionDateTime).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}):"-"}</SLn>
+                      <SBig>IP NO: {printData.ipNumber || ""}</SBig>
+                      <SLn>{printData.insuranceCompanyName || ""}</SLn>
+                      <SLn>UHID : {printData.uhid || ""}</SLn>
+                      <SLn>DOA  : {printData.admissionDateTime ? fmtDate(printData.admissionDateTime) : "-"}</SLn>
+                      <SLn>TIME : {printData.admissionDateTime ? new Date(printData.admissionDateTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "-"}</SLn>
                       <SLn>Room : {roomNo} / {bedNo}</SLn>
                     </SRt>
                   </SR>
                 </Slip>
-                <PA><PBt sec onClick={()=>setPrintData(null)}>Close</PBt><PBt onClick={doPrint}>🖨️ Print</PBt></PA>
+                <PA><PBt sec onClick={() => setPrintData(null)}>Close</PBt><PBt onClick={doPrint}>🖨️ Print</PBt></PA>
               </PMB>
             </PMC>
           </ModalOverlay>

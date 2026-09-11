@@ -63,6 +63,21 @@ const formatDateStr = (dateInput) => {
   }
 };
 
+const formatTimeStr = (dateInput) => {
+  if (!dateInput) return "";
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "";
+  }
+};
+
 const getRelativeTime = (dateInput) => {
   if (!dateInput) return "";
   try {
@@ -94,6 +109,14 @@ const extractDateOnly = (dateInput) => {
   } catch {
     return "Unknown Date";
   }
+};
+
+const getTodayIsoDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -137,6 +160,32 @@ const HeaderTitle = styled.div`
     margin: 3px 0 0;
     font-size: clamp(0.72rem, 0.85vw, 0.84rem);
     opacity: 0.9;
+  }
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const BackToSummaryBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  backdrop-filter: blur(4px);
+  &:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: translateY(-1px);
   }
 `;
 
@@ -258,7 +307,247 @@ const SpinIcon = styled.span`
   animation: ${spin} 0.8s linear infinite;
 `;
 
-/* ── Hero Patient Profile Card ── */
+/* ── DAILY SUMMARY SECTION STYLES ── */
+const SummaryHeroCard = styled.div`
+  background: ${T.white};
+  border: 1.5px solid ${T.grayBorder};
+  border-radius: 10px;
+  padding: clamp(14px, 1.5vw, 20px);
+  margin-bottom: 14px;
+  box-shadow: ${T.shadowSm};
+  animation: ${fadeIn} 0.25s ease both;
+`;
+
+const DailyCardsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+`;
+
+const DailyMetricCard = styled.div`
+  background: ${p => p.$bg || "#fff"};
+  border: 2px solid ${p => p.$active ? p.$activeBorder : p.$border || T.grayBorder};
+  border-radius: 10px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  box-shadow: ${p => p.$active ? "0 6px 20px rgba(0,0,0,0.08)" : T.shadowSm};
+  transform: ${p => p.$active ? "translateY(-2px)" : "none"};
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.09);
+    border-color: ${p => p.$activeBorder || T.primary};
+  }
+`;
+
+const MetricCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+`;
+
+const MetricTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: ${p => p.$color || T.textMain};
+`;
+
+const MetricBadge = styled.span`
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: ${p => p.$bg || "#e2e8f0"};
+  color: ${p => p.$color || T.textMid};
+`;
+
+const MetricValue = styled.div`
+  font-size: clamp(1.8rem, 2.4vw, 2.3rem);
+  font-weight: 900;
+  color: ${p => p.$color || T.textMain};
+  line-height: 1.1;
+`;
+
+const MetricFooter = styled.div`
+  margin-top: 8px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: ${T.textMuted};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+/* ── Activity Table Controls ── */
+const DailyControlBar = styled.div`
+  background: #f8fafc;
+  border: 1px solid ${T.grayBorder};
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+`;
+
+const TabSwitcher = styled.div`
+  display: flex;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
+`;
+
+const TabBtn = styled.button`
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-family: ${T.font};
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s;
+  background: ${p => p.$active ? (p.$color || T.primary) : "transparent"};
+  color: ${p => p.$active ? "#fff" : T.textMid};
+  box-shadow: ${p => p.$active ? "0 2px 6px rgba(0,0,0,0.12)" : "none"};
+`;
+
+const DateSelectorWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const DateInput = styled.input`
+  height: 34px;
+  padding: 0 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: ${T.font};
+  border: 1.5px solid ${T.grayBorder};
+  border-radius: 6px;
+  background: #fff;
+  color: ${T.textMain};
+  outline: none;
+  &:focus {
+    border-color: ${T.primary};
+  }
+`;
+
+const QuickDateBtn = styled.button`
+  height: 34px;
+  padding: 0 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: ${T.font};
+  border-radius: 6px;
+  border: 1px solid ${p => p.$active ? T.primary : T.grayBorder};
+  background: ${p => p.$active ? T.primaryLt : "#fff"};
+  color: ${p => p.$active ? T.primaryDk : T.textMid};
+  cursor: pointer;
+  transition: all 0.12s;
+  &:hover { border-color: ${T.primary}; }
+`;
+
+/* ── Activity Tables ── */
+const TableContainer = styled.div`
+  background: #fff;
+  border: 1.5px solid ${T.grayBorder};
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: ${T.shadowSm};
+`;
+
+const TableHeaderSummary = styled.div`
+  padding: 12px 16px;
+  background: ${p => p.$bg || "#f8fafc"};
+  border-bottom: 1px solid ${T.grayBorder};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: ${p => p.$color || T.textMain};
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+`;
+
+const ModernTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  background: #fff;
+`;
+
+const MTh = styled.th`
+  background: #f1f5f9;
+  padding: 10px 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: ${T.textMid};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid ${T.grayBorder};
+  text-align: ${p => p.$align || "left"};
+  white-space: nowrap;
+`;
+
+const MTd = styled.td`
+  padding: 10px 12px;
+  color: ${T.textMain};
+  border-bottom: 1px solid #f1f5f9;
+  text-align: ${p => p.$align || "left"};
+  vertical-align: middle;
+`;
+
+const MTr = styled.tr`
+  transition: background 0.1s ease;
+  &:hover {
+    background: #f8fafc;
+  }
+`;
+
+const ActionEnquiryBtn = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: ${T.primaryLt};
+  color: ${T.primaryDk};
+  border: 1px solid #99f6e4;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.14s;
+
+  &:hover {
+    background: ${T.primary};
+    color: #fff;
+    border-color: ${T.primary};
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.25);
+  }
+`;
+
+/* ── Hero Patient Profile Card (Single Patient View) ── */
 const PatientHero = styled.div`
   background: ${T.white};
   border: 1.5px solid ${T.grayBorder};
@@ -593,7 +882,6 @@ const VisitBody = styled.div`
   background: #fff;
 `;
 
-/* ── Section inside Visit ── */
 const VisitSection = styled.div`
   background: #f8fafc;
   border: 1px solid ${T.grayBorder};
@@ -615,7 +903,6 @@ const SectionHeader = styled.div`
   gap: 8px;
 `;
 
-/* ── Itemized List Grid (For Clean Test & Medicine Badges) ── */
 const ItemGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -699,21 +986,57 @@ const EmptyNotice = styled.div`
 `;
 
 /* ─────────────────────────────────────────────────────────────
-   MAIN PATIENT INQUIRY COMPONENT
+   MAIN PATIENT ENQUIRY COMPONENT
    ───────────────────────────────────────────────────────────── */
 const Enquiry = () => {
-  const [searchParam,  setSearchParam]  = useState("");
-  const [searchMode,   setSearchMode]   = useState("ALL"); // ALL, UHID, IP, MOBILE
-  const [loading,      setLoading]      = useState(false);
-  const [inquiryData,  setInquiryData]  = useState(null);
-  const [viewMode,     setViewMode]     = useState("TIMELINE"); // TIMELINE vs CATEGORIZED
-  const [dateRange,    setDateRange]    = useState("ALL"); // ALL, 30DAYS, 6MONTHS, 1YEAR
-  const [expandedVisits, setExpandedVisits] = useState({}); // { [dateStr]: boolean }
-  const [activeTab,    setActiveTab]    = useState("admission"); // admission, op_visits, investigations, pharmacy, profile
-  const [filterText,   setFilterText]   = useState("");
+  const [searchParam,    setSearchParam]    = useState("");
+  const [searchMode,     setSearchMode]     = useState("ALL"); // ALL, UHID, IP, MOBILE
+  const [loading,        setLoading]        = useState(false);
+  const [inquiryData,    setInquiryData]    = useState(null);
+
+  // Daily Summary States (Initial Dashboard)
+  const [summaryData,    setSummaryData]    = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [fromDate,       setFromDate]       = useState(getTodayIsoDate());
+  const [toDate,         setToDate]         = useState(getTodayIsoDate());
+  const [dailyTab,       setDailyTab]       = useState("REGISTERED"); // REGISTERED, ADMISSIONS, DISCHARGES
+  const [dailyFilter,    setDailyFilter]    = useState("");
+
+  // Single Patient Detail View States
+  const [viewMode,       setViewMode]       = useState("TIMELINE"); // TIMELINE vs CATEGORIZED
+  const [dateRange,      setDateRange]      = useState("ALL"); // ALL, 30DAYS, 6MONTHS, 1YEAR
+  const [expandedVisits, setExpandedVisits] = useState({});
+  const [activeTab,      setActiveTab]      = useState("admission");
+  const [filterText,     setFilterText]     = useState("");
 
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+  /* ── 1. Fetch Today's / Date Range Summary ── */
+  const fetchDailySummary = useCallback(async (fDate, tDate) => {
+    setSummaryLoading(true);
+    try {
+      const fromD = fDate || fromDate;
+      const toD   = tDate || toDate;
+      const response = await apiRequest(`${HmsBaseUrl}patient-inquiry/?from_date=${fromD}&to_date=${toD}`, "GET");
+      const res = response?.data || response;
+      if (res && res.success && res.is_summary) {
+        setSummaryData(res);
+      } else {
+        setSummaryData(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch daily enquiry summary:", err);
+      toast.error("Failed to load registration & admission summary");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [HmsBaseUrl, fromDate, toDate]);
+
+  useEffect(() => {
+    fetchDailySummary(fromDate, toDate);
+  }, [fetchDailySummary, fromDate, toDate]);
+
+  /* ── 2. Search Specific Patient ── */
   const handleSearch = useCallback(async (customQuery) => {
     const q = (customQuery !== undefined ? customQuery : searchParam).trim();
     if (!q) {
@@ -722,7 +1045,7 @@ const Enquiry = () => {
     }
 
     setLoading(true);
-    try {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+    try {
       let queryParams = new URLSearchParams();
 
       if (searchMode === "UHID") {
@@ -740,6 +1063,7 @@ const Enquiry = () => {
 
       if (res && res.success && res.patient) {
         setInquiryData(res);
+        setSearchParam(q);
         setExpandedVisits({});
         toast.success(`Loaded clinical history for ${res.patient.name || res.patient.uhid}`);
       } else {
@@ -760,21 +1084,26 @@ const Enquiry = () => {
     setSearchParam("");
     setInquiryData(null);
     setFilterText("");
+    fetchDailySummary(fromDate, toDate);
+  };
+
+  const handleSelectPatient = (patientIdentifier) => {
+    if (!patientIdentifier) return;
+    setSearchParam(patientIdentifier);
+    handleSearch(patientIdentifier);
   };
 
   const patient    = inquiryData?.patient || {};
   const stats      = inquiryData?.summary_stats || {};
-  const admissions = inquiryData?.admissions || [];
-  const regVisits  = inquiryData?.registration_visits || [];
-  const investBills= inquiryData?.investigation_bills || [];
-  const pharmBills = inquiryData?.pharmacy_bills || [];
+  const admissions = useMemo(() => inquiryData?.admissions || [], [inquiryData]);
+  const regVisits  = useMemo(() => inquiryData?.registration_visits || [], [inquiryData]);
+  const investBills= useMemo(() => inquiryData?.investigation_bills || [], [inquiryData]);
+  const pharmBills = useMemo(() => inquiryData?.pharmacy_bills || [], [inquiryData]);
 
   const isAdmitted = inquiryData?.is_currently_admitted === true;
   const isIpPatient= inquiryData?.patient_type === "IP";
 
-  /* ─────────────────────────────────────────────────────────────
-     UNIFIED DATE-WISE & VISIT-WISE CHRONOLOGICAL AGGREGATOR
-     ───────────────────────────────────────────────────────────── */
+  /* ── Chronological History Aggregator for Single Patient ── */
   const chronologicalVisits = useMemo(() => {
     if (!inquiryData) return [];
 
@@ -892,7 +1221,48 @@ const Enquiry = () => {
     setExpandedVisits(all);
   };
 
-  /* ── In-Tab Filtering for Bills ── */
+  /* ── Filtered Daily Activity Lists ── */
+  const filteredDailyRegistered = useMemo(() => {
+    const list = summaryData?.today_registered || [];
+    const q = dailyFilter.toLowerCase().trim();
+    if (!q) return list;
+    return list.filter(p =>
+      String(p.uhid || "").toLowerCase().includes(q) ||
+      String(p.name || "").toLowerCase().includes(q) ||
+      String(p.mobilePhone || "").toLowerCase().includes(q) ||
+      String(p.doctorName || "").toLowerCase().includes(q) ||
+      String(p.city || "").toLowerCase().includes(q)
+    );
+  }, [summaryData, dailyFilter]);
+
+  const filteredDailyAdmissions = useMemo(() => {
+    const list = summaryData?.today_admissions || [];
+    const q = dailyFilter.toLowerCase().trim();
+    if (!q) return list;
+    return list.filter(a =>
+      String(a.ipNumber || "").toLowerCase().includes(q) ||
+      String(a.uhid || "").toLowerCase().includes(q) ||
+      String(a.name || "").toLowerCase().includes(q) ||
+      String(a.admittingDoctorName || "").toLowerCase().includes(q) ||
+      String(a.roomNo || "").toLowerCase().includes(q) ||
+      String(a.insuranceCompany || "").toLowerCase().includes(q)
+    );
+  }, [summaryData, dailyFilter]);
+
+  const filteredDailyDischarges = useMemo(() => {
+    const list = summaryData?.today_discharges || [];
+    const q = dailyFilter.toLowerCase().trim();
+    if (!q) return list;
+    return list.filter(d =>
+      String(d.ipNumber || "").toLowerCase().includes(q) ||
+      String(d.uhid || "").toLowerCase().includes(q) ||
+      String(d.name || "").toLowerCase().includes(q) ||
+      String(d.bill_no || "").toLowerCase().includes(q) ||
+      String(d.discharged_by || "").toLowerCase().includes(q)
+    );
+  }, [summaryData, dailyFilter]);
+
+  /* ── Filtered Bills within Single Patient tabs ── */
   const filteredInvestBills = useMemo(() => {
     const q = filterText.toLowerCase().trim();
     if (!q) return investBills;
@@ -913,6 +1283,12 @@ const Enquiry = () => {
     );
   }, [pharmBills, filterText]);
 
+  const todayCounts = summaryData?.counts || { registered: 0, admissions: 0, discharges: 0, total_activity: 0 };
+  const isTodayRange = fromDate === getTodayIsoDate() && toDate === getTodayIsoDate();
+  const dateRangeLabel = fromDate === toDate
+    ? (isTodayRange ? "Today" : formatDateStr(fromDate))
+    : `${formatDateStr(fromDate)} to ${formatDateStr(toDate)}`;
+
   return (
     <PageWrapper>
       <InquiryContainer>
@@ -920,12 +1296,24 @@ const Enquiry = () => {
         {/* ── Top Header ── */}
         <HeaderBar>
           <HeaderTitle>
-            <h1>🔍 Unified Patient Inquiry &amp; Complete Clinical History</h1>
-            <p>Date-wise timeline with full lists of Ordered Investigation Tests, Prescribed &amp; Dispensed Medicines, and Admissions</p>
+            <h1>🔍 Unified Patient Enquiry &amp; Clinical History</h1>
+            <p>
+              {inquiryData
+                ? `Clinical timeline & services for ${patient.name || patient.uhid}`
+                : `Activity Overview: Registered, Admitted, and Discharged Patients (${dateRangeLabel})`}
+            </p>
           </HeaderTitle>
+
+          <HeaderActions>
+            {inquiryData && (
+              <BackToSummaryBtn onClick={handleClear}>
+                ← Back to Summary
+              </BackToSummaryBtn>
+            )}
+          </HeaderActions>
         </HeaderBar>
 
-        {/* ── Search Toolbar ── */}
+        {/* ── Search Toolbar (Always accessible at top) ── */}
         <SearchCard>
           <SearchTypeToggle>
             <TypePill $active={searchMode === "ALL"} onClick={() => setSearchMode("ALL")}>
@@ -955,7 +1343,6 @@ const Enquiry = () => {
                 }
                 value={searchParam}
                 onChange={(e) => setSearchParam(e.target.value)}
-                autoFocus
               />
             </FieldCol>
 
@@ -973,13 +1360,496 @@ const Enquiry = () => {
 
             {inquiryData && (
               <ClearButton type="button" onClick={handleClear}>
-                ✕ Clear
+                ✕ Clear &amp; Return
               </ClearButton>
             )}
           </SearchForm>
         </SearchCard>
 
-        {/* ── Patient Profile Hero & Overview ── */}
+        {/* ═════════════════════════════════════════════════════════════
+            INITIAL VIEW: REGISTERED, ADMISSION & DISCHARGE OVERVIEW
+            ═════════════════════════════════════════════════════════════ */}
+        {!inquiryData && (
+          <SummaryHeroCard>
+            {/* 3 Metric Summary Cards */}
+            <DailyCardsGrid>
+              {/* 1. Registered Patients */}
+              <DailyMetricCard
+                $bg="#f0fdfa"
+                $border="#99f6e4"
+                $activeBorder={T.primary}
+                $active={dailyTab === "REGISTERED"}
+                onClick={() => setDailyTab("REGISTERED")}
+              >
+                <MetricCardHeader>
+                  <MetricTitle $color={T.primaryDk}>
+                    <span>📋</span>
+                    <span>Registered Patients</span>
+                  </MetricTitle>
+                  <MetricBadge $bg={T.primaryMd} $color={T.primaryDk}>
+                    New Patients
+                  </MetricBadge>
+                </MetricCardHeader>
+                <MetricValue $color={T.primaryDk}>
+                  {summaryLoading ? <SpinIcon>🔄</SpinIcon> : todayCounts.registered}
+                </MetricValue>
+                <MetricFooter>
+                  <span>OP &amp; Direct Registrations</span>
+                  <span style={{ fontWeight: 800, color: T.primaryDk }}>Click to View List →</span>
+                </MetricFooter>
+              </DailyMetricCard>
+
+              {/* 2. Admissions */}
+              <DailyMetricCard
+                $bg="#f0fdf4"
+                $border="#bbf7d0"
+                $activeBorder={T.green}
+                $active={dailyTab === "ADMISSIONS"}
+                onClick={() => setDailyTab("ADMISSIONS")}
+              >
+                <MetricCardHeader>
+                  <MetricTitle $color={T.greenDk}>
+                    <span>🏥</span>
+                    <span>Admissions</span>
+                  </MetricTitle>
+                  <MetricBadge $bg={T.greenLt} $color={T.greenDk}>
+                    In-Patients
+                  </MetricBadge>
+                </MetricCardHeader>
+                <MetricValue $color={T.greenDk}>
+                  {summaryLoading ? <SpinIcon>🔄</SpinIcon> : todayCounts.admissions}
+                </MetricValue>
+                <MetricFooter>
+                  <span>Admitted into Wards/Rooms</span>
+                  <span style={{ fontWeight: 800, color: T.greenDk }}>Click to View List →</span>
+                </MetricFooter>
+              </DailyMetricCard>
+
+              {/* 3. Discharges */}
+              <DailyMetricCard
+                $bg="#eff6ff"
+                $border="#bfdbfe"
+                $activeBorder={T.blue}
+                $active={dailyTab === "DISCHARGES"}
+                onClick={() => setDailyTab("DISCHARGES")}
+              >
+                <MetricCardHeader>
+                  <MetricTitle $color={T.blueDk}>
+                    <span>🚪</span>
+                    <span>Discharges</span>
+                  </MetricTitle>
+                  <MetricBadge $bg={T.blueLt} $color={T.blueDk}>
+                    Discharges
+                  </MetricBadge>
+                </MetricCardHeader>
+                <MetricValue $color={T.blueDk}>
+                  {summaryLoading ? <SpinIcon>🔄</SpinIcon> : todayCounts.discharges}
+                </MetricValue>
+                <MetricFooter>
+                  <span>Discharged &amp; Billed</span>
+                  <span style={{ fontWeight: 800, color: T.blueDk }}>Click to View List →</span>
+                </MetricFooter>
+              </DailyMetricCard>
+            </DailyCardsGrid>
+
+            {/* Controls: Tab Switcher + From-To Date Pickers + Today Quick Button + Instant Filter */}
+            <DailyControlBar>
+              <TabSwitcher>
+                <TabBtn
+                  $active={dailyTab === "REGISTERED"}
+                  $color={T.primary}
+                  onClick={() => setDailyTab("REGISTERED")}
+                >
+                  📋 Registered ({todayCounts.registered})
+                </TabBtn>
+                <TabBtn
+                  $active={dailyTab === "ADMISSIONS"}
+                  $color={T.green}
+                  onClick={() => setDailyTab("ADMISSIONS")}
+                >
+                  🏥 Admissions ({todayCounts.admissions})
+                </TabBtn>
+                <TabBtn
+                  $active={dailyTab === "DISCHARGES"}
+                  $color={T.blue}
+                  onClick={() => setDailyTab("DISCHARGES")}
+                >
+                  🚪 Discharges ({todayCounts.discharges})
+                </TabBtn>
+              </TabSwitcher>
+
+              {/* From-To Date Selector & Search Box */}
+              <DateSelectorWrap>
+                <span style={{ fontSize: "0.74rem", fontWeight: 800, color: T.textMid, textTransform: "uppercase" }}>
+                  From:
+                </span>
+                <DateInput
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFromDate(val);
+                    const newTo = val > toDate ? val : toDate;
+                    if (val > toDate) setToDate(val);
+                    fetchDailySummary(val, newTo);
+                  }}
+                />
+
+                <span style={{ fontSize: "0.74rem", fontWeight: 800, color: T.textMid, textTransform: "uppercase" }}>
+                  To:
+                </span>
+                <DateInput
+                  type="date"
+                  value={toDate}
+                  min={fromDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setToDate(val);
+                    fetchDailySummary(fromDate, val);
+                  }}
+                />
+
+                <QuickDateBtn
+                  $active={isTodayRange}
+                  onClick={() => {
+                    const todayStr = getTodayIsoDate();
+                    setFromDate(todayStr);
+                    setToDate(todayStr);
+                    fetchDailySummary(todayStr, todayStr);
+                  }}
+                >
+                  Today
+                </QuickDateBtn>
+
+                <SearchInput
+                  style={{ height: 34, width: 220 }}
+                  type="text"
+                  placeholder="Filter table list..."
+                  value={dailyFilter}
+                  onChange={(e) => setDailyFilter(e.target.value)}
+                />
+
+                <QuickDateBtn onClick={() => fetchDailySummary(fromDate, toDate)} title="Refresh Data">
+                  🔄
+                </QuickDateBtn>
+              </DateSelectorWrap>
+            </DailyControlBar>
+
+            {/* TAB 1: REGISTERED PATIENTS */}
+            {dailyTab === "REGISTERED" && (
+              <TableContainer>
+                <TableHeaderSummary $bg="#f0fdfa" $color={T.primaryDk}>
+                  <h3>
+                    <span>📋</span>
+                    <span>Registered Patients ({filteredDailyRegistered.length})</span>
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: T.textMuted }}>
+                    Click "View Patient Enquiry" on any row to open complete clinical history
+                  </span>
+                </TableHeaderSummary>
+
+                {filteredDailyRegistered.length === 0 ? (
+                  <EmptyNotice>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>
+                      No patients registered in selected date range.
+                    </p>
+                    {summaryData?.recent_registered?.length > 0 && (
+                      <div style={{ marginTop: 18, textAlign: "left" }}>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 800, color: T.textMid, textTransform: "uppercase", marginBottom: 8 }}>
+                          🕒 Recent Registered Patients (Quick Access):
+                        </div>
+                        <ModernTable>
+                          <thead>
+                            <tr>
+                              <MTh>UHID</MTh>
+                              <MTh>Patient Name</MTh>
+                              <MTh>Reg Date</MTh>
+                              <MTh>Doctor</MTh>
+                              <MTh>Mobile</MTh>
+                              <MTh $align="center">Action</MTh>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summaryData.recent_registered.map((rp, rIdx) => (
+                              <MTr key={rIdx}>
+                                <MTd><strong>{rp.uhid}</strong></MTd>
+                                <MTd><strong>{rp.name}</strong> ({rp.gender || "—"}, {rp.age}Y)</MTd>
+                                <MTd>{formatDateStr(rp.registration_date)}</MTd>
+                                <MTd>{rp.doctorName || "—"}</MTd>
+                                <MTd>{rp.mobilePhone || "—"}</MTd>
+                                <MTd $align="center">
+                                  <ActionEnquiryBtn onClick={() => handleSelectPatient(rp.uhid)}>
+                                    🔍 View Enquiry
+                                  </ActionEnquiryBtn>
+                                </MTd>
+                              </MTr>
+                            ))}
+                          </tbody>
+                        </ModernTable>
+                      </div>
+                    )}
+                  </EmptyNotice>
+                ) : (
+                  <ModernTable>
+                    <thead>
+                      <tr>
+                        <MTh>#</MTh>
+                        <MTh>UHID</MTh>
+                        <MTh>Patient Name</MTh>
+                        <MTh>Age / Gender</MTh>
+                        <MTh>Mobile</MTh>
+                        <MTh>Consulting Doctor</MTh>
+                        <MTh>Category / Insurance</MTh>
+                        <MTh>City / Area</MTh>
+                        <MTh>Reg Time</MTh>
+                        <MTh $align="center">Action</MTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyRegistered.map((pt, idx) => (
+                        <MTr key={pt.uhid || idx}>
+                          <MTd style={{ color: T.textMuted, fontWeight: 700 }}>{idx + 1}</MTd>
+                          <MTd>
+                            <strong style={{ color: T.primaryDk, cursor: "pointer" }} onClick={() => handleSelectPatient(pt.uhid)}>
+                              {pt.uhid}
+                            </strong>
+                          </MTd>
+                          <MTd>
+                            <strong>{pt.name}</strong>
+                          </MTd>
+                          <MTd>
+                            {pt.age ? `${pt.age} ${pt.age_type || 'Y'}` : "—"} / {pt.gender || "—"}
+                          </MTd>
+                          <MTd>{pt.mobilePhone || "—"}</MTd>
+                          <MTd>{pt.doctorName || "—"}</MTd>
+                          <MTd>
+                            <InfoTag style={{ background: pt.customerType === "Insurance" ? T.purpleLt : "#f1f5f9", color: pt.customerType === "Insurance" ? T.purpleDk : T.textMid }}>
+                              {pt.customerType || "General"}
+                            </InfoTag>
+                          </MTd>
+                          <MTd>{[pt.area, pt.city].filter(Boolean).join(", ") || "—"}</MTd>
+                          <MTd>
+                            {formatTimeStr(pt.created_date) || "—"}
+                          </MTd>
+                          <MTd $align="center">
+                            <ActionEnquiryBtn onClick={() => handleSelectPatient(pt.uhid)}>
+                              🔍 View Enquiry
+                            </ActionEnquiryBtn>
+                          </MTd>
+                        </MTr>
+                      ))}
+                    </tbody>
+                  </ModernTable>
+                )}
+              </TableContainer>
+            )}
+
+            {/* TAB 2: IP ADMISSIONS */}
+            {dailyTab === "ADMISSIONS" && (
+              <TableContainer>
+                <TableHeaderSummary $bg="#f0fdf4" $color={T.greenDk}>
+                  <h3>
+                    <span>🏥</span>
+                    <span>Admitted Patients ({filteredDailyAdmissions.length})</span>
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: T.textMuted }}>
+                    Click "View Patient Enquiry" to inspect complete admission &amp; clinical timeline
+                  </span>
+                </TableHeaderSummary>
+
+                {filteredDailyAdmissions.length === 0 ? (
+                  <EmptyNotice>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>
+                      No patients admitted in selected date range.
+                    </p>
+                    {summaryData?.recent_admissions?.length > 0 && (
+                      <div style={{ marginTop: 18, textAlign: "left" }}>
+                        <div style={{ fontSize: "0.78rem", fontWeight: 800, color: T.textMid, textTransform: "uppercase", marginBottom: 8 }}>
+                          🕒 Recent IP Admissions (Quick Access):
+                        </div>
+                        <ModernTable>
+                          <thead>
+                            <tr>
+                              <MTh>IP Number</MTh>
+                              <MTh>UHID</MTh>
+                              <MTh>Patient Name</MTh>
+                              <MTh>Admission Date</MTh>
+                              <MTh>Doctor</MTh>
+                              <MTh>Room / Bed</MTh>
+                              <MTh>Status</MTh>
+                              <MTh $align="center">Action</MTh>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {summaryData.recent_admissions.map((ra, rIdx) => (
+                              <MTr key={rIdx}>
+                                <MTd><strong style={{ color: T.greenDk }}>{ra.ipNumber}</strong></MTd>
+                                <MTd>{ra.uhid}</MTd>
+                                <MTd><strong>{ra.name}</strong></MTd>
+                                <MTd>{formatDateStr(ra.admissionDateTime)}</MTd>
+                                <MTd>{ra.admittingDoctorName || "—"}</MTd>
+                                <MTd>Room {ra.roomNo} (Bed {ra.bedNo})</MTd>
+                                <MTd>
+                                  <StatusBadge $bg={ra.is_discharged ? T.blueLt : T.greenLt} $color={ra.is_discharged ? T.blueDk : T.greenDk}>
+                                    {ra.is_discharged ? "Discharged" : "Admitted"}
+                                  </StatusBadge>
+                                </MTd>
+                                <MTd $align="center">
+                                  <ActionEnquiryBtn onClick={() => handleSelectPatient(ra.ipNumber || ra.uhid)}>
+                                    🔍 View Enquiry
+                                  </ActionEnquiryBtn>
+                                </MTd>
+                              </MTr>
+                            ))}
+                          </tbody>
+                        </ModernTable>
+                      </div>
+                    )}
+                  </EmptyNotice>
+                ) : (
+                  <ModernTable>
+                    <thead>
+                      <tr>
+                        <MTh>#</MTh>
+                        <MTh>IP Number</MTh>
+                        <MTh>UHID</MTh>
+                        <MTh>Patient Name</MTh>
+                        <MTh>Age / Gender</MTh>
+                        <MTh>Room &amp; Bed</MTh>
+                        <MTh>Admitting Doctor</MTh>
+                        <MTh>Admission Time</MTh>
+                        <MTh $align="right">Advance Paid</MTh>
+                        <MTh>Status</MTh>
+                        <MTh $align="center">Action</MTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyAdmissions.map((adm, idx) => (
+                        <MTr key={adm.ipNumber || idx}>
+                          <MTd style={{ color: T.textMuted, fontWeight: 700 }}>{idx + 1}</MTd>
+                          <MTd>
+                            <strong style={{ color: T.greenDk, cursor: "pointer" }} onClick={() => handleSelectPatient(adm.ipNumber)}>
+                              {adm.ipNumber}
+                            </strong>
+                          </MTd>
+                          <MTd>{adm.uhid}</MTd>
+                          <MTd>
+                            <strong>{adm.name}</strong>
+                          </MTd>
+                          <MTd>
+                            {adm.age ? `${adm.age} ${adm.age_type || 'Y'}` : "—"} / {adm.gender || "—"}
+                          </MTd>
+                          <MTd>
+                            <strong>Room {adm.roomNo}</strong> (Bed {adm.bedNo})
+                          </MTd>
+                          <MTd>{adm.admittingDoctorName || adm.consultingDoctorName || "—"}</MTd>
+                          <MTd>
+                            {formatTimeStr(adm.admissionDateTime) || formatDateStr(adm.admissionDateTime)}
+                          </MTd>
+                          <MTd $align="right">
+                            <strong style={{ color: T.greenDk }}>₹{Number(adm.advance_paid || 0).toLocaleString("en-IN")}</strong>
+                          </MTd>
+                          <MTd>
+                            <StatusBadge $bg={adm.is_discharged ? T.blueLt : T.greenLt} $color={adm.is_discharged ? T.blueDk : T.greenDk}>
+                              {adm.is_discharged ? "Discharged" : "Admitted"}
+                            </StatusBadge>
+                          </MTd>
+                          <MTd $align="center">
+                            <ActionEnquiryBtn onClick={() => handleSelectPatient(adm.ipNumber || adm.uhid)}>
+                              🔍 View Enquiry
+                            </ActionEnquiryBtn>
+                          </MTd>
+                        </MTr>
+                      ))}
+                    </tbody>
+                  </ModernTable>
+                )}
+              </TableContainer>
+            )}
+
+            {/* TAB 3: IP DISCHARGES */}
+            {dailyTab === "DISCHARGES" && (
+              <TableContainer>
+                <TableHeaderSummary $bg="#eff6ff" $color={T.blueDk}>
+                  <h3>
+                    <span>🚪</span>
+                    <span>Discharged Patients ({filteredDailyDischarges.length})</span>
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: T.textMuted }}>
+                    Click "View Patient Enquiry" to inspect discharge billing &amp; treatment details
+                  </span>
+                </TableHeaderSummary>
+
+                {filteredDailyDischarges.length === 0 ? (
+                  <EmptyNotice>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>
+                      No patients discharged in selected date range.
+                    </p>
+                  </EmptyNotice>
+                ) : (
+                  <ModernTable>
+                    <thead>
+                      <tr>
+                        <MTh>#</MTh>
+                        <MTh>IP Number</MTh>
+                        <MTh>UHID</MTh>
+                        <MTh>Patient Name</MTh>
+                        <MTh>Age / Gender</MTh>
+                        <MTh>Discharge Bill No</MTh>
+                        <MTh $align="right">Gross Total</MTh>
+                        <MTh $align="right">Net Amount</MTh>
+                        <MTh>Status</MTh>
+                        <MTh $align="center">Action</MTh>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredDailyDischarges.map((dis, idx) => (
+                        <MTr key={dis.ipNumber || idx}>
+                          <MTd style={{ color: T.textMuted, fontWeight: 700 }}>{idx + 1}</MTd>
+                          <MTd>
+                            <strong style={{ color: T.blueDk, cursor: "pointer" }} onClick={() => handleSelectPatient(dis.ipNumber || dis.uhid)}>
+                              {dis.ipNumber}
+                            </strong>
+                          </MTd>
+                          <MTd>{dis.uhid}</MTd>
+                          <MTd>
+                            <strong>{dis.name}</strong>
+                          </MTd>
+                          <MTd>
+                            {dis.age ? `${dis.age} Y` : "—"} / {dis.gender || "—"}
+                          </MTd>
+                          <MTd>
+                            <strong>{dis.bill_no || "—"}</strong>
+                          </MTd>
+                          <MTd $align="right">
+                            ₹{Number(dis.total_amount || 0).toLocaleString("en-IN")}
+                          </MTd>
+                          <MTd $align="right">
+                            <strong style={{ color: T.primaryDk }}>₹{Number(dis.net_amount || 0).toLocaleString("en-IN")}</strong>
+                          </MTd>
+                          <MTd>
+                            <StatusBadge $bg={T.blueLt} $color={T.blueDk} $border="#bfdbfe">
+                              {dis.status || "Discharged"}
+                            </StatusBadge>
+                          </MTd>
+                          <MTd $align="center">
+                            <ActionEnquiryBtn onClick={() => handleSelectPatient(dis.ipNumber || dis.uhid)}>
+                              🔍 View Enquiry
+                            </ActionEnquiryBtn>
+                          </MTd>
+                        </MTr>
+                      ))}
+                    </tbody>
+                  </ModernTable>
+                )}
+              </TableContainer>
+            )}
+          </SummaryHeroCard>
+        )}
+
+        {/* ═════════════════════════════════════════════════════════════
+            INDIVIDUAL PATIENT PROFILE HERO & DETAILED CLINICAL HISTORY
+            ═════════════════════════════════════════════════════════════ */}
         {inquiryData && (
           <PatientHero>
             <HeroTop>
@@ -1014,7 +1884,7 @@ const Enquiry = () => {
               </PatientIdentity>
 
               {/* Status Pill */}
-              <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {isAdmitted ? (
                   <StatusBadge $bg={T.greenLt} $color={T.greenDk} $border="#86efac">
                     <PulseIndicator />
@@ -1034,6 +1904,10 @@ const Enquiry = () => {
                     🩺 OUT-PATIENT (OP)
                   </StatusBadge>
                 )}
+
+                <BackToSummaryBtn onClick={handleClear} style={{ color: T.textMid, background: "#f1f5f9", borderColor: T.grayBorder }}>
+                  ✕ Close Profile
+                </BackToSummaryBtn>
               </div>
             </HeroTop>
 
@@ -1096,7 +1970,7 @@ const Enquiry = () => {
           </PatientHero>
         )}
 
-        {/* ── View Controls & Date Range Filter ── */}
+        {/* ── View Controls & Date Range Filter (Single Patient View) ── */}
         {inquiryData && (
           <ControlBar>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1286,7 +2160,7 @@ const Enquiry = () => {
                               </VisitSection>
                             )}
 
-                            {/* 3. Ordered Investigation Tests (Itemized Test Cards) */}
+                            {/* 3. Ordered Investigation Tests */}
                             {visit.testsList.length > 0 && (
                               <VisitSection style={{ background: "#fffbeb", borderColor: "#fde68a" }}>
                                 <SectionHeader $color={T.amberDk}>
@@ -1313,7 +2187,7 @@ const Enquiry = () => {
                               </VisitSection>
                             )}
 
-                            {/* 4. Prescribed & Dispensed Medicines (Itemized Medicine Cards) */}
+                            {/* 4. Prescribed & Dispensed Medicines */}
                             {visit.medicinesList.length > 0 && (
                               <VisitSection style={{ background: "#faf5ff", borderColor: "#e9d5ff" }}>
                                 <SectionHeader $color={T.purpleDk}>

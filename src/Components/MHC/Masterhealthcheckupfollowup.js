@@ -434,6 +434,7 @@ export default function Masterhealthcheckupfollowup() {
                   <Th>OP Number</Th>
                   <Th>Contact</Th>
                   <Th>Package</Th>
+                  <Th>Reg Date</Th>
                   <Th>Follow Up Date</Th>
                   <Th>Description</Th>
                   <Th>Action</Th>
@@ -447,6 +448,7 @@ export default function Masterhealthcheckupfollowup() {
                     <Td style={{ fontWeight: 600, color: "#0d9488" }}>{r.op_number || "—"}</Td>
                     <Td>{r.contact_number || "—"}</Td>
                     <Td style={{ fontWeight: 700 }}>{r.package || "—"}</Td>
+                    <Td>{r.registration_date || "—"}</Td>
                     <Td style={{ color: "#0f766e", fontWeight: 700 }}>{r.follow_up || "—"}</Td>
                     <Td style={{ fontStyle: r.description ? "normal" : "italic", color: r.description ? "#334155" : "#94a3b8", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {r.description || "No notes added"}
