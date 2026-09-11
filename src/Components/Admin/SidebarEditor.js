@@ -453,7 +453,7 @@ const Badge = styled.div`
   color: #64748b;
 `;
 
-const PermissionKeyValueEditor = ({ value, onChange }) => {
+const PermissionKeyValueEditor = ({ value, onChange, duplicatePermsSet = new Set() }) => {
     // value can be array or object. Normalize to object.
     const normalize = (val) => {
         if (Array.isArray(val)) {
@@ -508,7 +508,7 @@ const PermissionKeyValueEditor = ({ value, onChange }) => {
             [newKey.trim()]: newCode.trim()
         };
         
-        skipNextSync.current = false; // Allow a hard sync here to reset IDs and IDs
+        skipNextSync.current = false;
         onChange(next);
         setNewKey('');
         setNewCode('');
@@ -516,7 +516,7 @@ const PermissionKeyValueEditor = ({ value, onChange }) => {
 
     const removeRow = (idx) => {
         const nextRows = localRows.filter((_, i) => i !== idx);
-        setLocalRows(nextRows); // Update local first for snappy UI
+        setLocalRows(nextRows);
         
         const result = {};
         nextRows.forEach(row => {
@@ -536,26 +536,38 @@ const PermissionKeyValueEditor = ({ value, onChange }) => {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '220px' }}>
-            {localRows.map((row, idx) => (
-                <div key={row.id} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <Input 
-                        value={row.k} 
-                        onChange={e => updateRow(idx, 'k', e.target.value)}
-                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
-                        placeholder="Key"
-                    />
-                    <span style={{ color: 'var(--muted)' }}>:</span>
-                    <Input 
-                        value={row.v} 
-                        onChange={e => updateRow(idx, 'v', e.target.value)}
-                        style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
-                        placeholder="Code"
-                    />
-                    <IconButton onClick={() => removeRow(idx)} danger style={{ padding: '2px' }}>
-                        <FiTrash2 size={12} />
-                    </IconButton>
-                </div>
-            ))}
+            {localRows.map((row, idx) => {
+                const isDup = row.v && duplicatePermsSet.has(row.v.trim());
+                return (
+                    <div key={row.id} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <Input 
+                            value={row.k} 
+                            onChange={e => updateRow(idx, 'k', e.target.value)}
+                            style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 1 }}
+                            placeholder="Key"
+                        />
+                        <span style={{ color: 'var(--muted)' }}>:</span>
+                        <Input 
+                            value={row.v} 
+                            onChange={e => updateRow(idx, 'v', e.target.value)}
+                            style={{ fontSize: '0.7rem', padding: '2px 6px', flex: 2 }}
+                            placeholder="Code"
+                            title={isDup ? "Shared permission code used across multiple pages" : ""}
+                        />
+                        {isDup && (
+                            <span 
+                                title="Shared permission code used across multiple pages"
+                                style={{ color: '#475569', fontSize: '0.62rem', fontWeight: 700, padding: '2px 4px', background: '#f1f5f9', borderRadius: '4px', border: '1px solid #cbd5e1', whiteSpace: 'nowrap' }}
+                            >
+                                Shared
+                            </span>
+                        )}
+                        <IconButton onClick={() => removeRow(idx)} danger style={{ padding: '2px' }}>
+                            <FiTrash2 size={12} />
+                        </IconButton>
+                    </div>
+                );
+            })}
             
             {/* Add New Row */}
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginTop: '4px', borderTop: '1px dashed var(--border)', paddingTop: '6px' }}>
@@ -590,6 +602,25 @@ const SidebarEditor = () => {
     const [loading, setLoading] = useState(true);
 
     const isFiltering = !!(searchTerm.trim() || selectedOutlet !== 'ALL');
+
+    const duplicatePermsSet = React.useMemo(() => {
+        const counts = {};
+        mapping.forEach(g => {
+            (g.pages || []).forEach(p => {
+                const perms = p.permissions;
+                if (Array.isArray(perms)) {
+                    perms.forEach(v => { if (v) counts[v] = (counts[v] || 0) + 1; });
+                } else if (typeof perms === 'object' && perms !== null) {
+                    Object.values(perms).forEach(v => { if (v) counts[v] = (counts[v] || 0) + 1; });
+                }
+            });
+        });
+        const dups = new Set();
+        Object.entries(counts).forEach(([code, count]) => {
+            if (count > 1) dups.add(code);
+        });
+        return dups;
+    }, [mapping]);
 
     const filteredMapping = React.useMemo(() => {
         return mapping.map(g => {
@@ -1004,6 +1035,7 @@ const SidebarEditor = () => {
                                                                                             <PermissionKeyValueEditor
                                                                                                 value={page.permissions || {}}
                                                                                                 onChange={val => handlePageChange(group.id, page.id, 'permissions', val)}
+                                                                                                duplicatePermsSet={duplicatePermsSet}
                                                                                             />
                                                                                         </td>
                                                                                         <td>
