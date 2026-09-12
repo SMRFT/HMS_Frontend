@@ -18,28 +18,68 @@ export const hasPagePermission = (route, allowedActions, dynamicPermissions = {}
         permissions = allowedActions.allowed_pages;
     }
 
-    if (permissions.length === 0) return false;
+    // 1. Super Admin bypass
+    if (permissions.includes("HMS-R-SA")) return true;
 
-    // 1. Check dynamic permissions (prioritized)
+    // 2. Check hms_pages from localStorage (Page ID based access)
+    try {
+        const storedHmsPages = JSON.parse(localStorage.getItem("hms_pages") || "[]");
+        const numericHmsPages = Array.isArray(storedHmsPages) ? storedHmsPages.map(Number) : [];
+
+        if (numericHmsPages.length > 0) {
+            const pageData = dynamicPermissions ? dynamicPermissions[route] : null;
+            let pageId = null;
+            if (pageData) {
+                if (typeof pageData === 'object' && !Array.isArray(pageData) && pageData.page_id != null) {
+                    pageId = Number(pageData.page_id);
+                } else if (typeof pageData === 'number') {
+                    pageId = pageData;
+                }
+            }
+
+            if (pageId != null && numericHmsPages.includes(pageId)) {
+                return true;
+            }
+        }
+    } catch (e) {
+        console.error("Error checking hms_pages in hasPagePermission:", e);
+    }
+
+    // 3. Check dynamic permissions (Action String based access)
     if (dynamicPermissions && dynamicPermissions[route]) {
-        const requiredPermissions = dynamicPermissions[route];
+        const entry = dynamicPermissions[route];
+        const requiredPermissions = (typeof entry === 'object' && !Array.isArray(entry) && entry.permissions)
+            ? entry.permissions
+            : entry;
+
         const hasReqPerms = Array.isArray(requiredPermissions)
             ? requiredPermissions.length > 0
             : (requiredPermissions && typeof requiredPermissions === 'object' && Object.keys(requiredPermissions).length > 0);
 
-        if (hasReqPerms) {
-            // Normalize requiredPermissions to array for comparison
+        if (hasReqPerms && permissions.length > 0) {
             const reqArray = Array.isArray(requiredPermissions)
                 ? requiredPermissions
                 : Object.values(requiredPermissions);
 
-            return reqArray.some(reqPerm =>
-                permissions.some(action => action.startsWith(reqPerm))
-            );
+            if (reqArray.some(reqPerm => permissions.some(action => action.startsWith(reqPerm)))) {
+                return true;
+            }
         }
     }
 
-    // 2. Fallback check for missing routes
+    if (permissions.length === 0) {
+        // Check if hms_pages exists and has entries
+        try {
+            const storedHmsPages = JSON.parse(localStorage.getItem("hms_pages") || "[]");
+            if (Array.isArray(storedHmsPages) && storedHmsPages.length > 0) {
+                // If hms_pages is used instead of allowedActions, allow access if route isn't strictly restricted
+                const permissionId = PAGE_PERMISSIONS[route];
+                if (!permissionId) return true;
+            }
+        } catch (e) {}
+    }
+
+    // 4. Fallback check for missing routes
     const permissionId = PAGE_PERMISSIONS[route];
 
     if (!permissionId) return true; // Open access if not mapped

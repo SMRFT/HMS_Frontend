@@ -276,12 +276,11 @@ function App() {
           allSidebarData.forEach((group) => {
             if (group.pages) {
               group.pages.forEach((page) => {
-                if (
-                  page.route &&
-                  page.permissions &&
-                  page.permissions.length > 0
-                ) {
-                  dPerms[page.route] = page.permissions;
+                if (page.route) {
+                  dPerms[page.route] = {
+                    permissions: page.permissions || [],
+                    page_id: page.page_id != null ? Number(page.page_id) : null,
+                  };
                 }
               });
             }
