@@ -962,8 +962,10 @@ const HistorySidebarCard = styled.div`
   border-radius: 8px;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: center;
   align-items: flex-start;
+  gap: 4px;
   transition: all 0.2s;
   
   &:hover {
@@ -1429,6 +1431,7 @@ const OPDoctorlogin = () => {
     }
   }, [selectedPatient]);
 
+  /*
   // Optional convenience: doctor can copy a past consultation to form if explicitly desired
   const handleCopyHistoryToForm = (item) => {
     if (!item) return;
@@ -1478,6 +1481,7 @@ const OPDoctorlogin = () => {
     setShowHistoryModal(false);
     toast.success("Past consultation data copied to active form.");
   };
+  */
 
   // 1. Fetch Patients & Masters on mount
   useEffect(() => {
@@ -3353,45 +3357,19 @@ const OPDoctorlogin = () => {
                   <HistorySidebar>
                     {pastHistory.map((item, idx) => {
                       const isActive = selectedHistoryItem?._id === item._id || selectedHistoryItem === item;
-                      const loggedInDoctorId = String(localStorage.getItem("employeeId") || "").trim();
-                      const isOwn = (
-                        (item.doctor_id && String(item.doctor_id).trim() === loggedInDoctorId) ||
-                        (item.created_by && String(item.created_by).trim() === loggedInDoctorId) ||
-                        Number(item.doctor_id) === Number(loggedInDoctorId) ||
-                        Number(item.created_by) === Number(loggedInDoctorId)
-                      );
-                      const isLastStored = item.is_last_stored || idx === 0;
-                      const docName = item.doctor_name || (item.doctor_id ? `Dr. (${item.doctor_id})` : 'Doctor');
                       return (
                         <HistorySidebarCard
                           key={item._id || item.id || idx}
                           $active={isActive}
                           onClick={() => setSelectedHistoryItem(item)}
                           style={{
-                            borderLeft: isLastStored ? '4px solid #0d9488' : undefined
+                            borderLeft: isActive ? '4px solid #0d9488' : undefined
                           }}
                         >
-                          <div className="patient-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.86rem', color: isActive ? '#0d9488' : '#0f172a' }}>
-                              {docName}
-                            </span>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              {isLastStored && (
-                                <span style={{ fontSize: '0.66rem', background: '#ccfbf1', color: '#0f766e', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                  Last Stored
-                                </span>
-                              )}
-                              {isOwn && (
-                                <span style={{ fontSize: '0.66rem', background: '#dcfce7', color: '#16a34a', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                                  You
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '3px' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.86rem', color: isActive ? '#0d9488' : '#0f172a' }}>
                             UHID: {selectedPatient?.patient?.uhid || item.uhid || ''}
                           </div>
-                          <div className="date-info" style={{ marginTop: '4px', fontSize: '0.74rem', color: '#64748b' }}>
+                          <div className="date-info" style={{ marginTop: '2px', fontSize: '0.76rem', color: '#64748b' }}>
                             {item.created_date ? new Date(item.created_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : 'Recent'}
                           </div>
                         </HistorySidebarCard>
@@ -3405,40 +3383,14 @@ const OPDoctorlogin = () => {
                         <div style={{ marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                             <div>
-                              <h3 style={{ color: '#0d9488', fontSize: '1.2rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <h3 style={{ color: '#0d9488', fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>
                                 Consultation Record
-                                {(selectedHistoryItem.is_last_stored || pastHistory[0] === selectedHistoryItem) && (
-                                  <span style={{ fontSize: '0.72rem', background: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4', padding: '2px 8px', borderRadius: '12px', fontWeight: 700 }}>
-                                    ⭐ Last Stored Data
-                                  </span>
-                                )}
                               </h3>
                               <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
                                 Recorded on: {selectedHistoryItem.created_date ? new Date(selectedHistoryItem.created_date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Recent Consultation'}
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyHistoryToForm(selectedHistoryItem)}
-                                style={{
-                                  background: '#f0fdfa',
-                                  color: '#0d9488',
-                                  border: '1.5px solid #0d9488',
-                                  borderRadius: '8px',
-                                  padding: '6px 14px',
-                                  fontWeight: 700,
-                                  fontSize: '0.8rem',
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  boxShadow: '0 1px 3px rgba(13,148,136,0.1)'
-                                }}
-                                title="Copy diagnosis, prescription & findings into current form"
-                              >
-                                📋 Copy to Form
-                              </button>
                               <span style={{
                                 fontSize: '0.82rem',
                                 fontWeight: 700,

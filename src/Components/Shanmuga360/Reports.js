@@ -139,9 +139,9 @@ export default function Reports360() {
       const staff = (item.staff_name || "").toLowerCase();
       const transport = (item.transportation_mode || "").toLowerCase();
 
-      const doctors = toArray(item.doctor_name).join(" ").toLowerCase();
-      const medicines = toArray(item.medicine_name).join(" ").toLowerCase();
-      const tests = toArray(item.test_name || item.test).join(" ").toLowerCase();
+      const doctors = toArray(item.doctor_name).map((d) => (typeof d === "object" && d ? d.doctor_name || d.name || "" : String(d || ""))).join(" ").toLowerCase();
+      const medicines = toArray(item.medicine_name).map((m) => (typeof m === "object" && m ? m.medicine_name || m.title || "" : String(m || ""))).join(" ").toLowerCase();
+      const tests = toArray(item.test_name || item.test).map((t) => (typeof t === "object" && t ? t.test_name || t.name || "" : String(t || ""))).join(" ").toLowerCase();
       const services = toArray(item.service_list).join(" ").toLowerCase();
 
       return (
@@ -198,6 +198,8 @@ export default function Reports360() {
       "S.No",
       "Date",
       "Bill Number",
+      "Lab Test Bill Number",
+      "Medicine Bill Number",
       "Patient Name",
       "Mobile Number",
       "Doctors",
@@ -206,10 +208,13 @@ export default function Reports360() {
       "Medicines",
       "Tests",
       "Transportation Mode",
+      "Sample Collector",
+      "Home Care Type",
+      "Cash Collected Amount",
       "Total Amount",
       "Doctor Fees",
       "Staff Nurse Fees",
-      "Doctor/Staff Fees Remaining",
+      "Remaining Amount",
       "Medicine Charge",
       "Hospital Amount",
       "Reference ID",
@@ -221,14 +226,19 @@ export default function Reports360() {
       i + 1,
       r.date ? String(r.date).slice(0, 10) : "",
       r.bill_number || "",
+      r.lab_test_bill_number || r.labtestbillnumber || "",
+      r.medicine_bill_number || "",
       r.patient_name || "",
       r.mobile_number || "",
-      toArray(r.doctor_name).join("; "),
+      toArray(r.doctor_name).map((d) => (typeof d === "object" && d ? d.doctor_name || d.name || "" : d)).join("; "),
       r.staff_name || "",
       toArray(r.service_list).join("; "),
-      toArray(r.medicine_name).join("; "),
-      toArray(r.test_name || r.test).join("; "),
+      toArray(r.medicine_name).map((m) => (typeof m === "object" && m ? `${m.medicine_name || m.title || ""}${m.amount != null && m.amount !== "" ? ` (₹${m.amount})` : ""}` : m)).join("; "),
+      toArray(r.test_name || r.test).map((t) => (typeof t === "object" && t ? `${t.test_name || t.name || ""}${t.amount != null && t.amount !== "" ? ` (₹${t.amount})` : ""}` : t)).join("; "),
       r.transportation_mode || "",
+      r.sample_collector || "",
+      r.home_care_type || "",
+      r.cash_collected_amount != null ? Number(r.cash_collected_amount) : "",
       r.total_amount != null ? Number(r.total_amount) : "",
       r.doctor_fees != null ? Number(r.doctor_fees) : "",
       r.staff_nurse_fees != null ? Number(r.staff_nurse_fees) : "",
@@ -530,9 +540,24 @@ export default function Reports360() {
                         {row.date ? String(row.date).slice(0, 10) : "-"}
                       </td>
                       <td style={styles.tdBill}>
-                        <span style={styles.billBadge}>
-                          {row.bill_number || "—"}
-                        </span>
+                        {row.bill_number ? (
+                          <span style={styles.billBadge}>
+                            {row.bill_number}
+                          </span>
+                        ) : null}
+                        {(row.lab_test_bill_number || row.labtestbillnumber) && (
+                          <div style={{ ...styles.subMeta, color: "#0f766e", fontWeight: 600 }}>
+                            Lab: {row.lab_test_bill_number || row.labtestbillnumber}
+                          </div>
+                        )}
+                        {row.medicine_bill_number && (
+                          <div style={{ ...styles.subMeta, color: "#2563eb", fontWeight: 600 }}>
+                            Med: {row.medicine_bill_number}
+                          </div>
+                        )}
+                        {!row.bill_number && !row.lab_test_bill_number && !row.labtestbillnumber && !row.medicine_bill_number && (
+                          <span style={{ color: "#9ca3af" }}>—</span>
+                        )}
                         {row.reference_id && (
                           <div style={styles.subMeta}>Ref: {row.reference_id}</div>
                         )}
@@ -582,11 +607,20 @@ export default function Reports360() {
                       <td style={styles.tdTags}>
                         {medicines.length > 0 ? (
                           <div style={styles.tagList}>
-                            {medicines.map((med, mIdx) => (
-                              <span key={mIdx} style={styles.medicineChip}>
-                                💊 {med}
-                              </span>
-                            ))}
+                            {medicines.map((med, mIdx) => {
+                              const medName = typeof med === "object" && med ? (med.medicine_name || med.title || "") : med;
+                              const medAmt = typeof med === "object" && med && med.amount != null && med.amount !== "" ? Number(med.amount) : null;
+                              return (
+                                <span key={mIdx} style={styles.medicineChip}>
+                                  💊 {medName}
+                                  {medAmt != null && !isNaN(medAmt) && (
+                                    <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4, color: "#1e40af" }}>
+                                      (₹{medAmt.toFixed(2)})
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         ) : (
                           <span style={styles.mutedText}>—</span>
@@ -595,11 +629,20 @@ export default function Reports360() {
                       <td style={styles.tdTags}>
                         {tests.length > 0 ? (
                           <div style={styles.tagList}>
-                            {tests.map((t, tIdx) => (
-                              <span key={tIdx} style={styles.testChip}>
-                                🔬 {t}
-                              </span>
-                            ))}
+                            {tests.map((t, tIdx) => {
+                              const tName = typeof t === "object" && t ? (t.test_name || t.name || "") : t;
+                              const tAmt = typeof t === "object" && t && t.amount != null && t.amount !== "" ? Number(t.amount) : null;
+                              return (
+                                <span key={tIdx} style={styles.testChip}>
+                                  🔬 {tName}
+                                  {tAmt != null && !isNaN(tAmt) && (
+                                    <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4, color: "#0f766e" }}>
+                                      (₹{tAmt.toFixed(2)})
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })}
                           </div>
                         ) : (
                           <span style={styles.mutedText}>—</span>
@@ -607,10 +650,17 @@ export default function Reports360() {
                       </td>
                       <td style={styles.tdMode}>
                         {row.transportation_mode ? (
-                          <span style={styles.modeBadge}>
-                            {row.transportation_mode === "Bus" ? "🚌 " : "🚶 "}
-                            {row.transportation_mode}
-                          </span>
+                          <div>
+                            <span style={styles.modeBadge}>
+                              {row.transportation_mode === "Bus" ? "🚌 " : "🚶 "}
+                              {row.transportation_mode}
+                            </span>
+                            {row.sample_collector && (
+                              <div style={{ fontSize: 11, color: "#475569", marginTop: 2, fontWeight: 500 }}>
+                                👤 {row.sample_collector}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span style={styles.mutedText}>—</span>
                         )}
@@ -675,11 +725,22 @@ export default function Reports360() {
                 <div style={styles.modalGrid}>
                   <ModalField label="Patient Name" value={selectedRecord.patient_name} />
                   <ModalField label="Mobile Number" value={selectedRecord.mobile_number} />
-                  <ModalField label="Bill Number" value={selectedRecord.bill_number} />
+                  {selectedRecord.bill_number && (
+                    <ModalField label="Bill Number" value={selectedRecord.bill_number} />
+                  )}
+                  {(selectedRecord.lab_test_bill_number || selectedRecord.labtestbillnumber) && (
+                    <ModalField label="Lab Test Bill Number" value={selectedRecord.lab_test_bill_number || selectedRecord.labtestbillnumber} />
+                  )}
+                  {selectedRecord.medicine_bill_number && (
+                    <ModalField label="Medicine Bill Number" value={selectedRecord.medicine_bill_number} />
+                  )}
                   <ModalField label="Date" value={selectedRecord.date ? String(selectedRecord.date).slice(0, 10) : "—"} />
                   <ModalField label="Reference ID" value={selectedRecord.reference_id} />
                   <ModalField label="Order ID" value={selectedRecord.order_id} />
                   <ModalField label="Transportation Mode" value={selectedRecord.transportation_mode} />
+                  {selectedRecord.sample_collector && (
+                    <ModalField label="Sample Collector" value={selectedRecord.sample_collector} />
+                  )}
                   <ModalField label="Staff Name" value={selectedRecord.staff_name} />
                 </div>
               </div>
@@ -722,11 +783,20 @@ export default function Reports360() {
                   <span style={styles.modalSubLabel}>Diagnostic Tests:</span>
                   <div style={styles.modalChipsList}>
                     {toArray(selectedRecord.test_name || selectedRecord.test).length > 0 ? (
-                      toArray(selectedRecord.test_name || selectedRecord.test).map((t, idx) => (
-                        <span key={idx} style={styles.testChip}>
-                          🔬 {t}
-                        </span>
-                      ))
+                      toArray(selectedRecord.test_name || selectedRecord.test).map((t, idx) => {
+                        const tName = typeof t === "object" && t ? (t.test_name || t.name || "") : t;
+                        const tAmt = typeof t === "object" && t && t.amount != null && t.amount !== "" ? Number(t.amount) : null;
+                        return (
+                          <span key={idx} style={styles.testChip}>
+                            🔬 {tName}
+                            {tAmt != null && !isNaN(tAmt) && (
+                              <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4, color: "#0f766e" }}>
+                                (₹{tAmt.toFixed(2)})
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })
                     ) : (
                       <span style={styles.mutedText}>No tests recorded</span>
                     )}
@@ -739,11 +809,20 @@ export default function Reports360() {
                 <h4 style={styles.modalSecTitle}>💊 Prescribed Medicines</h4>
                 <div style={styles.modalChipsList}>
                   {toArray(selectedRecord.medicine_name).length > 0 ? (
-                    toArray(selectedRecord.medicine_name).map((med, idx) => (
-                      <span key={idx} style={styles.medicineChip}>
-                        💊 {med}
-                      </span>
-                    ))
+                    toArray(selectedRecord.medicine_name).map((med, idx) => {
+                      const medName = typeof med === "object" && med ? (med.medicine_name || med.title || "") : med;
+                      const medAmt = typeof med === "object" && med && med.amount != null && med.amount !== "" ? Number(med.amount) : null;
+                      return (
+                        <span key={idx} style={styles.medicineChip}>
+                          💊 {medName}
+                          {medAmt != null && !isNaN(medAmt) && (
+                            <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4, color: "#1e40af" }}>
+                              (₹{medAmt.toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })
                   ) : (
                     <span style={styles.mutedText}>No medicines recorded</span>
                   )}
@@ -754,6 +833,20 @@ export default function Reports360() {
               <div style={styles.modalSection}>
                 <h4 style={styles.modalSecTitle}>💵 Financial Breakdown</h4>
                 <div style={styles.finGrid}>
+                  {selectedRecord.home_care_type && (
+                    <div style={styles.finBox}>
+                      <div style={styles.finLabel}>Home Care Type</div>
+                      <div style={{ ...styles.finVal, fontSize: 13, fontWeight: 700, color: "#0f766e" }}>
+                        {selectedRecord.home_care_type}
+                      </div>
+                    </div>
+                  )}
+                  {selectedRecord.cash_collected_amount != null && (
+                    <div style={styles.finBox}>
+                      <div style={styles.finLabel}>Cash Collected</div>
+                      <div style={styles.finVal}>{formatCurrency(selectedRecord.cash_collected_amount)}</div>
+                    </div>
+                  )}
                   <div style={styles.finBox}>
                     <div style={styles.finLabel}>Doctor Fees</div>
                     <div style={styles.finVal}>{formatCurrency(selectedRecord.doctor_fees)}</div>
