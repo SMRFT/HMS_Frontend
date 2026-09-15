@@ -543,13 +543,15 @@ const StoresAbcVedReport = () => {
             cumulativeValue += item.stockValue;
             const cumulativePct = totalValue > 0 ? (cumulativeValue / totalValue) * 100 : 100;
 
-            let abc = 'C';
-            if (cumulativePct <= 70) {
-                abc = 'A';
-            } else if (cumulativePct <= 90) {
-                abc = 'B';
-            } else {
-                abc = 'C';
+            let abc = item.abc_category ? item.abc_category.toUpperCase() : '';
+            if (!abc || !['A', 'B', 'C'].includes(abc)) {
+                if (cumulativePct <= 70) {
+                    abc = 'A';
+                } else if (cumulativePct <= 90) {
+                    abc = 'B';
+                } else {
+                    abc = 'C';
+                }
             }
 
             const matrixCode = `${abc}${item.ved_category}`; // e.g. AV, AE, BD, CD

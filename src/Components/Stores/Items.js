@@ -442,6 +442,49 @@ const Items = () => {
                         <Input name="stockReorderLevel" value={formData.stockReorderLevel || ''} onChange={handleInputChange} placeholder="Stock Reorder Level" required />
                     </InputWrapper>
                     <InputWrapper>
+                        <Label>VED Category (Manual)</Label>
+                        <StyledSelect
+                            name="ved_category"
+                            value={formData.ved_category || 'D'}
+                            onChange={handleInputChange}
+                            style={{ height: '38px' }}
+                        >
+                            <option value="V">V - Vital</option>
+                            <option value="E">E - Essential</option>
+                            <option value="D">D - Desirable</option>
+                        </StyledSelect>
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>ABC Category (Manual)</Label>
+                        <StyledSelect
+                            name="abc_category"
+                            value={formData.abc_category || 'C'}
+                            onChange={handleInputChange}
+                            style={{ height: '38px' }}
+                        >
+                            <option value="A">A - High Value</option>
+                            <option value="B">B - Medium Value</option>
+                            <option value="C">C - Low Value</option>
+                        </StyledSelect>
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Unit Price (₹)</Label>
+                        <Input name="unit_price" type="number" step="0.01" value={formData.unit_price ?? ''} onChange={handleInputChange} placeholder="0.00" />
+                    </InputWrapper>
+                    <InputWrapper style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
+                        <input
+                            type="checkbox"
+                            id="is_VM"
+                            name="is_VM"
+                            checked={!!formData.is_VM}
+                            onChange={(e) => setFormData(prev => ({ ...prev, is_VM: e.target.checked }))}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <Label htmlFor="is_VM" style={{ margin: 0, cursor: 'pointer', fontWeight: '600' }}>
+                            Vending Machine Item
+                        </Label>
+                    </InputWrapper>
+                    <InputWrapper>
                         <Label>Total Quantity</Label>
                         <Input name="total_quantity" type="number" value={formData.total_quantity || 0} onChange={handleInputChange} placeholder="Total Quantity" disabled />
                     </InputWrapper>
@@ -606,6 +649,8 @@ const Items = () => {
                                                         <Th>HSN</Th>
                                                         <Th>Group</Th>
                                                         <Th>Category</Th>
+                                                        <Th>VED</Th>
+                                                        <Th>ABC</Th>
                                                         <Th>Supplier</Th>
                                                         <Th>Manufacturer</Th>
                                                         <Th>Quantity</Th>
@@ -626,12 +671,45 @@ const Items = () => {
 
                                                 return (
                                                     <Tr key={item[idField]} style={isLowStock ? { backgroundColor: '#fff1f2' } : {}}>
-                                                        <Td style={{ fontWeight: '500' }}>{item[nameField]}</Td>
+                                                        <Td style={{ fontWeight: '500' }}>
+                                                            {item[nameField]}
+                                                            {item.is_VM && (
+                                                                <span style={{ marginLeft: '8px', fontSize: '0.7rem', background: '#ecfdf5', color: '#059669', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0', fontWeight: '700' }}>
+                                                                    VM
+                                                                </span>
+                                                            )}
+                                                        </Td>
                                                         {activeTab.id === 'item' && (
-                                                            <>
+                                                             <>
                                                                 <Td>{item.hsn || '-'}</Td>
                                                                 <Td>{getGroupName(item.group)}</Td>
                                                                 <Td>{getCategoryName(item.category)}</Td>
+                                                                <Td>
+                                                                    <span style={{
+                                                                        padding: '3px 8px',
+                                                                        borderRadius: '12px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: '700',
+                                                                        background: item.ved_category === 'V' ? '#fee2e2' : item.ved_category === 'E' ? '#eff6ff' : '#f1f5f9',
+                                                                        color: item.ved_category === 'V' ? '#dc2626' : item.ved_category === 'E' ? '#2563eb' : '#475569',
+                                                                        border: `1px solid ${item.ved_category === 'V' ? '#fca5a5' : item.ved_category === 'E' ? '#bfdbfe' : '#cbd5e1'}`
+                                                                    }}>
+                                                                        {item.ved_category || 'D'}
+                                                                    </span>
+                                                                </Td>
+                                                                <Td>
+                                                                    <span style={{
+                                                                        padding: '3px 8px',
+                                                                        borderRadius: '12px',
+                                                                        fontSize: '0.75rem',
+                                                                        fontWeight: '700',
+                                                                        background: item.abc_category === 'A' ? '#f5f3ff' : item.abc_category === 'B' ? '#ecfdf5' : '#f8fafc',
+                                                                        color: item.abc_category === 'A' ? '#7c3aed' : item.abc_category === 'B' ? '#059669' : '#64748b',
+                                                                        border: `1px solid ${item.abc_category === 'A' ? '#ddd6fe' : item.abc_category === 'B' ? '#a7f3d0' : '#e2e8f0'}`
+                                                                    }}>
+                                                                        {item.abc_category || 'C'}
+                                                                    </span>
+                                                                </Td>
                                                                 <Td>{getVendorName(item.supplier)}</Td>
                                                                 <Td>{getVendorName(item.manufacturer)}</Td>
                                                                 <Td style={{ fontWeight: '700', color: isLowStock ? colors.danger : colors.success }}>
@@ -674,7 +752,7 @@ const Items = () => {
                                             })}
                                             {filteredItems.length === 0 && (
                                                 <Tr>
-                                                    <Td colSpan={activeTab.id === 'item' ? "9" : "4"} style={{ textAlign: 'center', padding: '20px' }}>No records found</Td>
+                                                    <Td colSpan={activeTab.id === 'item' ? "11" : "4"} style={{ textAlign: 'center', padding: '20px' }}>No records found</Td>
                                                 </Tr>
                                             )}
                                         </tbody>

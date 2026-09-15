@@ -124,6 +124,15 @@ import VendingMachineReport from "./Components/Stores/VendingMachineReport";
 import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
 import StoresSupplierGrnReport from "./Components/Stores/StoresSupplierGrnReport";
 import StoresDepartmentIndentReport from "./Components/Stores/StoresDepartmentIndentReport";
+import StoresPurchaseOrderFormat from "./Components/Stores/StoresPurchaseOrderFormat";
+import StoresPurchaseReturn from "./Components/Stores/StoresPurchaseReturn";
+import StoresPurchaseAnalysisReport from "./Components/Stores/StoresPurchaseAnalysisReport";
+import StoresPreviousDayStockReport from "./Components/Stores/StoresPreviousDayStockReport";
+import StoresSupplierWiseReport from "./Components/Stores/StoresSupplierWiseReport";
+import StoresNonMovingReport from "./Components/Stores/StoresNonMovingReport";
+import StoresShortExpiryReport from "./Components/Stores/StoresShortExpiryReport";
+import StoresReorderLevelReport from "./Components/Stores/StoresReorderLevelReport";
+import StoresRackClassification from "./Components/Stores/StoresRackClassification";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -435,6 +444,15 @@ function App() {
       "/StoresReportsDashboard": "Stores Reports Dashboard",
       "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
       "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
+      "/StoresPurchaseOrderFormat": "Stores Purchase Order Format",
+      "/StoresPurchaseReturn": "Stores Purchase Return & Debit Note",
+      "/StoresPurchaseAnalysisReport": "Stores Purchase Analysis Report",
+      "/StoresPreviousDayStockReport": "Stores Previous Day Stock Report",
+      "/StoresSupplierWiseReport": "Stores Supplier-Wise Report",
+      "/StoresNonMovingReport": "Stores Non-Moving Items Report",
+      "/StoresShortExpiryReport": "Stores Short Expiry Report",
+      "/StoresReorderLevelReport": "Stores Reorder Level Indication Report",
+      "/StoresRackClassification": "Stores Barcode & Rack Classification",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -1511,9 +1529,18 @@ function App() {
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
-              <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+               <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
+              <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
+              <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />
+              <Route path="/StoresPreviousDayStockReport" element={<StoresPreviousDayStockReport />} />
+              <Route path="/StoresSupplierWiseReport" element={<StoresSupplierWiseReport />} />
+              <Route path="/StoresNonMovingReport" element={<StoresNonMovingReport />} />
+              <Route path="/StoresShortExpiryReport" element={<StoresShortExpiryReport />} />
+              <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
+              <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
               {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               )}
@@ -1522,6 +1549,33 @@ function App() {
               )}
               {hasPagePermission("/StoresDepartmentIndentReport", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              )}
+              {hasPagePermission("/StoresPurchaseOrderFormat", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
+              )}
+              {hasPagePermission("/StoresPurchaseReturn", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
+              )}
+              {hasPagePermission("/StoresPurchaseAnalysisReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />
+              )}
+              {hasPagePermission("/StoresPreviousDayStockReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPreviousDayStockReport" element={<StoresPreviousDayStockReport />} />
+              )}
+              {hasPagePermission("/StoresSupplierWiseReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresSupplierWiseReport" element={<StoresSupplierWiseReport />} />
+              )}
+              {hasPagePermission("/StoresNonMovingReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresNonMovingReport" element={<StoresNonMovingReport />} />
+              )}
+              {hasPagePermission("/StoresShortExpiryReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresShortExpiryReport" element={<StoresShortExpiryReport />} />
+              )}
+              {hasPagePermission("/StoresReorderLevelReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
+              )}
+              {hasPagePermission("/StoresRackClassification", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
               )}
               {hasPagePermission("/VendingMachineReport", allowedActions, dynamicPermissions) && (
                 <Route path="/VendingMachineReport" element={<VendingMachineReport />} />

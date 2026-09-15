@@ -121,7 +121,8 @@ const StoresGRNReport = () => {
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     const today = dayjs().format('YYYY-MM-DD');
-    const [fromDate, setFromDate] = useState(today);
+    const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
+    const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
 
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -177,8 +178,8 @@ const StoresGRNReport = () => {
     };
 
     const clearFilter = () => {
-        setFromDate('');
-        setToDate('');
+        setFromDate(oneMonthAgo);
+        setToDate(today);
         setTimeout(() => fetchGRNs(), 0);
     };
 
