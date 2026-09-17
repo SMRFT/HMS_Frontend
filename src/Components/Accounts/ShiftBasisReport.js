@@ -4,7 +4,8 @@ import { toast } from "react-toastify";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaEye, FaTimes } from "react-icons/fa";
+import { FaEye, FaTimes, FaPrint, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import {
     PageWrapper,
     colors,
@@ -30,6 +31,7 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 
 const SummaryCard = styled.div`
     background: ${colors.surface};
@@ -222,7 +224,58 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!summaryData || summaryData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = summaryData.map((s, i) => ({
+                "S.No": i + 1,
+                "Outlet / Counter": getOutletName(s.SelectedOutlet),
+                "Date": s.date || "",
+                "Shift No": s.shiftno || "",
+                "Cashier Name": s.User || "",
+                "Start Time": s.StartTime || "",
+                "End Time": s.EndTime || "Active",
+                "Opening Balance (₹)": Number(parseFloat(s.OpeningBalance || 0).toFixed(2)),
+                "Closing Balance (₹)": Number(parseFloat(s.ClosingBalance || 0).toFixed(2)),
+                "Collection (₹)": Number(parseFloat(s.collected_Amount || 0).toFixed(2)),
+                "Return (₹)": Number(parseFloat(s.SalesReturnAmount || 0).toFixed(2)),
+                "Remitted to Bank (₹)": Number(parseFloat(s.RemittedToBank || 0).toFixed(2)),
+                "Handover Amount (₹)": Number(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2))
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Shift Summary");
+
+            // Also add detailed itemized sheet if available
+            if (reportData && reportData.length > 0) {
+                const detailedRows = reportData.map((b, idx) => ({
+                    "S.No": idx + 1,
+                    "Shift No": b.shiftno || "",
+                    "Bill No": b.bill_no || "",
+                    "UHID / OP No": b.uhid || "",
+                    "Patient Name": b.patient_name || "",
+                    "Amount (₹)": Number(parseFloat(b.display_amount || 0).toFixed(2)),
+                    "Type": b.type_name || b.type || ""
+                }));
+                const wsDet = XLSX.utils.json_to_sheet(detailedRows);
+                wsDet["!cols"] = Object.keys(detailedRows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+                XLSX.utils.book_append_sheet(wb, wsDet, "Itemized Transactions");
+            }
+
+            XLSX.writeFile(wb, `Shift_Basis_Accounts_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     // Helper to group reportData by shiftno
@@ -297,11 +350,18 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             </Select>
                         </InputWrapper>
                         <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", flex: 1 }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px" }}>
                                 {loading ? "..." : "Filter"}
                             </Button>
-                            <Button onClick={handlePrint} secondary style={{ height: "35px", flex: 1 }}>
-                                Print
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || summaryData.length === 0} 
+                                style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
+                                <FaPrint style={{ marginRight: "6px" }} /> Print
                             </Button>
                         </div>
                     </FormRow>
@@ -675,8 +735,26 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                 )}
             </PageWrapper>
 
+            <style>
+                {`
+                @media print {
+                    @page { size: landscape; margin: 8mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; font-family: 'Times New Roman', serif; }
+                }
+                `}
+            </style>
+
             {/* PROFESSIONAL PRINT TEMPLATE - MOVED OUTSIDE PAGEWRAPPER */}
-            <PrintTemplate id="printable-shift-report">
+            <PrintTemplate id="printable-report-area">
                 <PrintHeader>
                     <h1>{hospital_name}</h1>
                     <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>

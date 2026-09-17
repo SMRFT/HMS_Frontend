@@ -3,9 +3,12 @@ import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaUser } from "react-icons/fa";
+import { FaPrint, FaUser, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -219,7 +222,7 @@ const CashierWiseReport = ({ startDate, endDate }) => {
 
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
     };
 
     // Grouping helper to process shift blocks
@@ -404,6 +407,40 @@ const CashierWiseReport = ({ startDate, endDate }) => {
 
     const shiftBlocks = getShiftBlocks();
 
+    const handleExportExcel = () => {
+        if (!shiftBlocks || shiftBlocks.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = [];
+            shiftBlocks.forEach((block) => {
+                block.categories.forEach((cat, cIdx) => {
+                    rows.push({
+                        "Shift No": block.shiftno,
+                        "Cashier Name": block.cashierName,
+                        "Date": block.date ? format(new Date(block.date), "dd/MM/yyyy") : `${fromDate} to ${toDate}`,
+                        "SlNo": cIdx + 1,
+                        "Bill Type / Category": cat.name,
+                        "Receipts (₹)": Number((cat.receipts || 0).toFixed(2)),
+                        "Payments (₹)": Number((cat.payments || 0).toFixed(2)),
+                        "Closing Balance (₹)": Number((block.closingBalance || 0).toFixed(2))
+                    });
+                });
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 15) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Cashier Wise Report");
+            XLSX.writeFile(wb, `Cashier_Wise_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
     return (
         <PageWrapper>
             <SectionTitle className="no-print">
@@ -413,7 +450,7 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                 </p>
             </SectionTitle>
 
-            <FormRow className="no-print">
+            <FormRow className="no-print" style={{ alignItems: "flex-end" }}>
                 <InputWrapper>
                     <Label>From Date</Label>
                     <DatePicker 
@@ -446,9 +483,18 @@ const CashierWiseReport = ({ startDate, endDate }) => {
                         ))}
                     </Select>
                 </InputWrapper>
-                <Button onClick={handlePrint} secondary style={{ height: "40px", marginTop: "24px" }}>
-                    <FaPrint style={{ marginRight: "8px" }} /> Print
-                </Button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
+                    <Button 
+                        onClick={handleExportExcel} 
+                        disabled={loading || shiftBlocks.length === 0} 
+                        style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                    >
+                        <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                    </Button>
+                    <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                        <FaPrint style={{ marginRight: "8px" }} /> Print
+                    </Button>
+                </div>
             </FormRow>
 
             {/* SCREEN VIEW */}

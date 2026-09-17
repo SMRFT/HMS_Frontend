@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaShieldAlt } from "react-icons/fa";
+import { FaPrint, FaSearch, FaShieldAlt, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -81,7 +84,34 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
     }, [fetchReport]);
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((adm, index) => ({
+                "S.No": index + 1,
+                "IP No": adm.ip_number || adm.ipno || "",
+                "UHID": adm.uhid || "",
+                "Patient Name": adm.patient_name || adm.patientname || "",
+                "Insurance Company": adm.insurance_company || adm.insuranceCompanyName || "",
+                "Admission Date": adm.admissionDateTime ? format(new Date(adm.admissionDateTime), "dd/MM/yyyy HH:mm") : "N/A"
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 15) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Insurance Registration");
+            XLSX.writeFile(wb, `Advance_Registration_Insurance_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     return (
@@ -116,6 +146,13 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                        </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print

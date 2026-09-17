@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaFileCsv } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileCsv, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -165,7 +168,7 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
     };
 
     // Filter by type and search query
@@ -240,6 +243,38 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
         document.body.removeChild(link);
     };
 
+    const handleExportExcel = () => {
+        if (filteredData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = filteredData.map((item, index) => ({
+                "S.No": index + 1,
+                "Patient Name": item.patient_name || "",
+                "UHID": item.uhid || "",
+                "Bill Type": item.bill_type || "",
+                "Bill No": item.bill_no || "",
+                "Bill Date": item.bill_date || "",
+                "Cancelled Date": item.cancelled_date || "",
+                "Created By": item.created_by || "",
+                "Cancelled By": item.cancelled_by || "",
+                "Amount (₹)": Number((item.net_amount || 0).toFixed(2)),
+                "Remarks": item.remarks || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Cancelled Bills");
+            XLSX.writeFile(wb, `Bill_Cancel_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
     return (
         <PageWrapper>
             <SectionTitle className="no-print">
@@ -293,8 +328,12 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Refreshing..." : "Refresh"}
                         </Button>
-                        <Button onClick={handleExportCSV} style={{ height: "40px", background: colors.success, borderColor: colors.success }}>
-                            <FaFileCsv style={{ marginRight: "8px" }} /> CSV
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || filteredData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print

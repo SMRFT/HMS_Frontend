@@ -3,6 +3,8 @@ import { toast } from "react-toastify";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
+import { FaPrint, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import { 
     PageWrapper, 
     colors, 
@@ -29,6 +31,7 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 
 // ─── STYLED COMPONENTS ───────────────────────────────────────────────────────
 const SummaryCard = styled.div`
@@ -246,6 +249,39 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
         return acc;
     }, { total: 0, ip: 0, billing: 0 });
 
+    const handleExportExcel = () => {
+        if (!data || data.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = data.map((entry, idx) => ({
+                "S.No": idx + 1,
+                "Date": entry.bill_date ? format(new Date(entry.bill_date), "dd/MM/yyyy") : "",
+                "Bill No": entry.bill_no || "",
+                "UHID": entry.uhid || "",
+                "Patient Name": entry.patient_name || "",
+                "IP Number": entry.ip_number || "",
+                "Advance Type": entry.advance_id || "",
+                "Total Amount (₹)": Number((entry.advance_amount || 0).toFixed(2)),
+                "IP Advance (₹)": Number((entry.ip_advance || 0).toFixed(2)),
+                "Billing Advance (₹)": Number((entry.billing_advance || 0).toFixed(2)),
+                "Payment Mode": (entry.payment_mode || "").toUpperCase(),
+                "Status": entry.status || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "IP Advance Report");
+            XLSX.writeFile(wb, `IP_Advance_Report_${filterMode === 'date' ? `${fromDate}_to_${toDate}` : filterMode}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
     return (
         <PageWrapper>
             <SectionTitle>
@@ -308,8 +344,15 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                         <Button onClick={fetchData} disabled={loading} style={{ height: "35px", minWidth: "100px" }}>
                             {loading ? "..." : "Search"}
                         </Button>
-                        <Button onClick={() => window.print()} secondary style={{ height: "35px" }}>
-                            Print
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || data.length === 0} 
+                            style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                        </Button>
+                        <Button onClick={() => printAccountsReport("printable-report-area", "landscape")} secondary style={{ height: "35px" }}>
+                            <FaPrint style={{ marginRight: "6px" }} /> Print
                         </Button>
                     </div>
                 </FormRow>
