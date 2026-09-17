@@ -51,6 +51,7 @@ const DailyCashReport = lazy(() => import("../Accounts/DailyCashReport"));
 const DebitBillsReport = lazy(() => import("../Accounts/DebitBillsReport"));
 const AuditReport = lazy(() => import("../Accounts/AuditReport"));
 const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
+const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRegister"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 
@@ -498,6 +499,14 @@ const ReportsDashboard = () => {
             description: "Rate-wise GST register for pharmacy OP/IP sales and returns (approximate)",
             icon: <Percent size={24} />,
             component: SalesTaxRegister,
+            color: colors.primary
+        },
+        {
+            id: "daywise_sales_tax_register",
+            title: "Day-wise Sales Tax Register (GST)",
+            description: "Daily rate-wise GST register (Exempted, 5%, 12%, 18%, 28%) with multi-column breakdown",
+            icon: <Percent size={24} />,
+            component: DaywiseSalesTaxRegister,
             color: colors.primary
         },
         {
