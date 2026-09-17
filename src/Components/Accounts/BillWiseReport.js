@@ -23,6 +23,9 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import * as XLSX from "xlsx";
+import { FaFileExcel } from "react-icons/fa";
+import { printAccountsReport } from "./printAccountsReport";
 
 const SummaryCard = styled.div`
     background: ${colors.surface};
@@ -133,7 +136,6 @@ const PrintSignatures = styled.div`
     }
 `;
 
-
 const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
@@ -188,7 +190,48 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((b, i) => ({
+                "S.No": i + 1,
+                "Type": b.type,
+                "Bill No": b.bill_no,
+                "Bill Date": b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY HH:mm") : "N/A",
+                "UHID": b.uhid,
+                "Patient Name": b.patient_name,
+                "Amount (₹)": Number((b.net_amount || 0).toFixed(2)),
+                "Payment Mode": b.payment_mode,
+                "Cashier": b.cashier_name
+            }));
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Bill Wise Report");
+
+            if (summary) {
+                const sumRows = [
+                    { "Metric": "Total Collection (₹)", "Value": Number((summary.total_collection || 0).toFixed(2)) },
+                    { "Metric": "Total Return (₹)", "Value": Number((summary.total_return || 0).toFixed(2)) },
+                    { "Metric": "Net Collection (₹)", "Value": Number((summary.net_collection || 0).toFixed(2)) },
+                    { "Metric": "Bill Count", "Value": summary.count || 0 }
+                ];
+                const wsSum = XLSX.utils.json_to_sheet(sumRows);
+                XLSX.utils.book_append_sheet(wb, wsSum, "Summary");
+            }
+
+            XLSX.writeFile(wb, `Bill_Wise_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     const toggleRow = (index) => {
@@ -251,9 +294,16 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                             onChange={(e) => setUhid(e.target.value)}
                         />
                     </InputWrapper>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "100px" }}>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                        <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "90px" }}>
                             {loading ? "..." : "Filter"}
+                        </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
                             Print

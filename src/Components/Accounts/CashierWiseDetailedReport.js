@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaUser } from "react-icons/fa";
+import { FaPrint, FaUser, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -188,7 +191,36 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
     }, [selectedShiftId, shifts]);
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((row, index) => ({
+                "S.No": index + 1,
+                "Shift No": row.shiftno || "",
+                "Bill No": row.bill_no || "",
+                "UHID / OP No": row.uhid || "",
+                "Patient Name": row.patient_name || "",
+                "Collected (₹)": row.display_amount >= 0 ? Number(row.display_amount.toFixed(2)) : 0,
+                "Return (₹)": row.display_amount < 0 ? Number(Math.abs(row.display_amount).toFixed(2)) : 0,
+                "Type / Category": row.type_name || row.type || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Cashier Detailed");
+            XLSX.writeFile(wb, `Cashier_Wise_Detailed_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     const selectedShift = shifts.find(sh => sh.shiftno === selectedShiftId);
@@ -235,9 +267,18 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
                         ))}
                     </Select>
                 </InputWrapper>
-                <Button onClick={handlePrint} secondary style={{ height: "40px", marginTop: "24px" }}>
-                    <FaPrint style={{ marginRight: "8px" }} /> Print
-                </Button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", marginTop: "24px" }}>
+                    <Button 
+                        onClick={handleExportExcel} 
+                        disabled={loading || reportData.length === 0} 
+                        style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                    >
+                        <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                    </Button>
+                    <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                        <FaPrint style={{ marginRight: "8px" }} /> Print
+                    </Button>
+                </div>
             </FormRow>
 
             {selectedShift && (

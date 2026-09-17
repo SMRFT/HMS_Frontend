@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -58,6 +61,69 @@ const FilterSection = styled.div`
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 `;
 
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        width: 100%;
+        background: white;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 10px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
 const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
@@ -67,6 +133,9 @@ const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) 
     const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
+    const branch_name = localStorage.getItem("branch_name") || "Main Branch";
+    const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
     useEffect(() => {
         if (startDate) setFromDate(startDate);
@@ -93,7 +162,44 @@ const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) 
         }
     };
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => printAccountsReport("printable-report-area", "landscape");
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            // Find all unique department names
+            const allDeptKeys = new Set();
+            reportData.forEach(row => {
+                Object.keys(row.by_type || {}).forEach(k => allDeptKeys.add(k));
+            });
+            const deptList = Array.from(allDeptKeys);
+
+            const rows = reportData.map((row, index) => {
+                const rowObj = {
+                    "S.No": index + 1,
+                    "Date": dayjs(row.date).format("DD/MM/YYYY"),
+                    "Total Collection (₹)": Number((row.total || 0).toFixed(2))
+                };
+                deptList.forEach(dept => {
+                    rowObj[`${dept} (₹)`] = Number(((row.by_type && row.by_type[dept]) || 0).toFixed(2));
+                });
+                return rowObj;
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 15) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Collection Summary");
+            XLSX.writeFile(wb, `Datewise_Collection_Summary_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
 
     return (
         <PageWrapper>
@@ -128,6 +234,13 @@ const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) 
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
                         </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                        </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
                         </Button>
@@ -146,7 +259,7 @@ const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) 
                 </SummaryCard>
             </div>
 
-            <TableWrapper>
+            <TableWrapper className="no-print">
                 <Table>
                     <thead>
                         <Tr>
@@ -215,10 +328,79 @@ const DatewiseCollectionSummary = ({ isModalView = false, startDate, endDate }) 
 
             <style>{`
                 @media print {
-                    .no-print { display: none !important; }
-                    body { background: white !important; }
+                    @page { size: portrait; margin: 10mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; font-family: 'Times New Roman', serif; }
                 }
             `}</style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{hospital_name}</h1>
+                    <p>{branch_name}</p>
+                    <div className="report-title">Date-wise Collection Summary Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "35%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "35%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Days:</strong> {reportData.length}</td>
+                            <td><strong>Grand Total Collection:</strong> ₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {user_id}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th style={{ width: "40px" }}>S.No</th>
+                            <th>Date</th>
+                            <th>Department Breakdown</th>
+                            <th style={{ textAlign: "right", width: "130px" }}>Total Collection (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reportData.map((row, index) => (
+                            <tr key={index}>
+                                <td>{index + 1}</td>
+                                <td style={{ fontWeight: "bold" }}>{dayjs(row.date).format("DD/MM/YYYY")}</td>
+                                <td>
+                                    {Object.entries(row.by_type || {}).map(([type, amt], i) => (
+                                        <span key={i} style={{ marginRight: "12px", display: "inline-block" }}>
+                                            {type}: ₹{amt.toFixed(2)}
+                                        </span>
+                                    ))}
+                                </td>
+                                <td style={{ textAlign: "right", fontWeight: "bold" }}>₹{(row.total || 0).toFixed(2)}</td>
+                            </tr>
+                        ))}
+                        <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                            <td colSpan="3" style={{ textAlign: "right" }}>GRAND TOTAL:</td>
+                            <td style={{ textAlign: "right" }}>₹{grandTotal.toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };

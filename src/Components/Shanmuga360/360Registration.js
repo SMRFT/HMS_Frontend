@@ -258,6 +258,8 @@ export default function Registration360() {
     selectedMedicines,
     form.cash_collected_amount,
     form.doctor_fees,
+    form.staff_nurse_fees,
+    form.medicine_charge,
     form.home_care_type,
     form.hospital_amount,
     isLabTest,

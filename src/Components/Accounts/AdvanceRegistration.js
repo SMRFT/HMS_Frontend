@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaMoneyBillWave } from "react-icons/fa";
+import { FaPrint, FaSearch, FaMoneyBillWave, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -78,7 +81,42 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
     }, [fetchReport]);
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((adv, index) => {
+                const amt = Number(adv.advance_amount || adv.amount || 0);
+                const isCash = (adv.payment_mode || "").toLowerCase() === "cash";
+                return {
+                    "S.No": index + 1,
+                    "IP No": adv.ip_number || adv.ipno || "",
+                    "Bill No": adv.bill_no || adv.billno || "",
+                    "UHID": adv.uhid || "",
+                    "Patient Name": adv.patient_name || adv.patientName || "",
+                    "Cash Amount (₹)": isCash ? Number(amt.toFixed(2)) : 0,
+                    "Credit / Other Amount (₹)": !isCash ? Number(amt.toFixed(2)) : 0,
+                    "Total Amount (₹)": Number(amt.toFixed(2)),
+                    "Payment Mode": (adv.payment_mode || "").toUpperCase(),
+                    "Cashier": adv.created_by || adv.cashier_id || ""
+                };
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Advance Registration");
+            XLSX.writeFile(wb, `Advance_Registration_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     const totals = reportData.reduce((acc, curr) => {
@@ -124,6 +162,13 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                        </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
