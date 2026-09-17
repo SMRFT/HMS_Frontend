@@ -119,10 +119,69 @@ export default function Registration360() {
       .catch(() => { });
   }, []);
 
+  const isLabTest = selectedServices.some((s) => s.toLowerCase() === "lab test");
+  const isMedicineDelivery = selectedServices.some((s) => s.toLowerCase() === "medicine delivery");
+  const isHomeCare = selectedServices.some((s) => s.toLowerCase() === "home care");
+
+  const calculateHomeCareAmounts = (totalVal, doctorFeesVal, careType) => {
+    const hasTotal = totalVal !== "" && totalVal != null && !isNaN(Number(totalVal));
+    const total = hasTotal ? Number(totalVal) : 0;
+    const isNursingOnly = careType === "Nursing Care";
+
+    // Deduct 400 for doctor fees (or 0 if Nursing Care, or custom doctorFeesVal if explicitly passed/edited)
+    let dFees = 400;
+    if (isNursingOnly) {
+      dFees = 0;
+    } else if (doctorFeesVal !== "" && doctorFeesVal != null && !isNaN(Number(doctorFeesVal))) {
+      dFees = Number(doctorFeesVal);
+    }
+
+    const remAfterDr = Math.max(0, total - dFees);
+    // 20% for nurse from remaining amount after doctor fees
+    const sFees = Math.round(remAfterDr * 0.20 * 100) / 100;
+    // Remaining amount after nurse fees
+    const remAmt = Math.max(0, Math.round((remAfterDr - sFees) * 100) / 100);
+
+    const mTotal = selectedMedicines.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    const medCharge = isMedicineDelivery ? (mTotal > 0 ? mTotal : (Number(form.medicine_charge) || 0)) : 0;
+    const hAmt = (hasTotal ? remAmt : 0) + medCharge;
+
+    return {
+      doctor_fees: isNursingOnly ? "" : (hasTotal ? dFees.toFixed(2) : (doctorFeesVal || "400.00")),
+      staff_nurse_fees: hasTotal ? sFees.toFixed(2) : "",
+      doctor_staff_fees_remaining: hasTotal ? remAmt.toFixed(2) : "",
+      hospital_amount: hAmt > 0 ? hAmt.toFixed(2) : (hasTotal ? "0.00" : ""),
+    };
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+
+    if (isHomeCare && (name === "total_amount" || name === "cash_collected_amount")) {
+      const calcs = calculateHomeCareAmounts(value, form.doctor_fees, form.home_care_type);
+      setForm((prev) => ({
+        ...prev,
+        total_amount: value,
+        cash_collected_amount: value,
+        ...calcs,
+      }));
+      return;
+    }
+
+    if (isHomeCare && name === "doctor_fees") {
+      const calcs = calculateHomeCareAmounts(form.total_amount, value, form.home_care_type);
+      setForm((prev) => ({
+        ...prev,
+        doctor_fees: value,
+        staff_nurse_fees: calcs.staff_nurse_fees,
+        doctor_staff_fees_remaining: calcs.doctor_staff_fees_remaining,
+        hospital_amount: calcs.hospital_amount,
+      }));
+      return;
+    }
+
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const validate = () => {
@@ -190,66 +249,37 @@ export default function Registration360() {
     }
   };
 
-  const isLabTest = selectedServices.some((s) => s.toLowerCase() === "lab test");
-  const isMedicineDelivery = selectedServices.some((s) => s.toLowerCase() === "medicine delivery");
-  const isHomeCare = selectedServices.some((s) => s.toLowerCase() === "home care");
-
   const testsTotal = selectedTests.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const medicinesTotal = selectedMedicines.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
 
-  // Auto-calculate Total Amount, Staff Nurse Fees, Remaining, Hospital Amount and Medicine Charge
+  // Auto-calculate Total Amount and charges for Lab Test / Medicine Delivery / Non-HomeCare
   useEffect(() => {
     const tTotal = selectedTests.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const mTotal = selectedMedicines.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
 
-    if (isHomeCare && form.home_care_type === "Dr + Staff Nurse Visit") {
-      const hasCash = form.cash_collected_amount !== "" && !isNaN(Number(form.cash_collected_amount));
-      const cash = hasCash ? Number(form.cash_collected_amount) : 0;
-      const dFees = Number(form.doctor_fees) || 0;
-      const remAfterDr = Math.max(0, cash - dFees);
-      const sFees = Math.round(remAfterDr * 0.20 * 100) / 100;
-      const remAmt = Math.max(0, remAfterDr - sFees);
-      const medCharge = isMedicineDelivery ? (mTotal > 0 ? mTotal : (Number(form.medicine_charge) || 0)) : 0;
-      const hAmt = (hasCash ? remAmt : 0) + medCharge;
-      const grand = (hasCash ? cash : 0) + medCharge + (isLabTest ? tTotal : 0);
-
-      setForm((prev) => ({
-        ...prev,
-        staff_nurse_fees: hasCash ? sFees.toFixed(2) : "",
-        doctor_staff_fees_remaining: hasCash ? remAmt.toFixed(2) : "",
-        hospital_amount: hAmt > 0 ? hAmt.toFixed(2) : "",
-        medicine_charge: isMedicineDelivery && mTotal > 0 ? mTotal.toFixed(2) : (isMedicineDelivery ? prev.medicine_charge : ""),
-        total_amount: grand > 0 ? grand.toFixed(2) : "",
-      }));
-    } else if (isHomeCare && form.home_care_type === "Nursing Care") {
-      const hasCash = form.cash_collected_amount !== "" && !isNaN(Number(form.cash_collected_amount));
-      const cash = hasCash ? Number(form.cash_collected_amount) : 0;
-      const sFees = Math.round(cash * 0.20 * 100) / 100;
-      const remAmt = Math.max(0, cash - sFees);
-      const medCharge = isMedicineDelivery ? (mTotal > 0 ? mTotal : (Number(form.medicine_charge) || 0)) : 0;
-      const hAmt = (hasCash ? remAmt : 0) + medCharge;
-      const grand = (hasCash ? cash : 0) + medCharge + (isLabTest ? tTotal : 0);
-
-      setForm((prev) => ({
-        ...prev,
-        doctor_fees: "",
-        staff_nurse_fees: hasCash ? sFees.toFixed(2) : "",
-        doctor_staff_fees_remaining: hasCash ? remAmt.toFixed(2) : "",
-        hospital_amount: hAmt > 0 ? hAmt.toFixed(2) : "",
-        medicine_charge: isMedicineDelivery && mTotal > 0 ? mTotal.toFixed(2) : (isMedicineDelivery ? prev.medicine_charge : ""),
-        total_amount: grand > 0 ? grand.toFixed(2) : "",
-      }));
+    if (isHomeCare) {
+      if (isMedicineDelivery) {
+        const medCharge = mTotal > 0 ? mTotal.toFixed(2) : form.medicine_charge;
+        const remAmt = Number(form.doctor_staff_fees_remaining) || 0;
+        const newHAmt = remAmt + (Number(medCharge) || 0);
+        setForm((prev) => {
+          if (prev.medicine_charge === medCharge && Number(prev.hospital_amount) === newHAmt) {
+            return prev;
+          }
+          return {
+            ...prev,
+            medicine_charge: medCharge,
+            hospital_amount: newHAmt > 0 ? newHAmt.toFixed(2) : prev.hospital_amount,
+          };
+        });
+      }
     } else {
-      const dFees = isHomeCare ? (Number(form.doctor_fees) || 0) : 0;
-      const nFees = isHomeCare ? (Number(form.staff_nurse_fees) || 0) : 0;
       const hAmt = Number(form.hospital_amount) || 0;
-      const grand = (isLabTest ? tTotal : 0) + (isMedicineDelivery ? mTotal : 0) + dFees + nFees + hAmt;
-      const rem = dFees + nFees;
+      const grand = (isLabTest ? tTotal : 0) + (isMedicineDelivery ? mTotal : 0) + hAmt;
 
       setForm((prev) => ({
         ...prev,
         medicine_charge: isMedicineDelivery && mTotal > 0 ? mTotal.toFixed(2) : (isMedicineDelivery ? prev.medicine_charge : ""),
-        doctor_staff_fees_remaining: isHomeCare && rem > 0 ? rem.toFixed(2) : (isHomeCare ? prev.doctor_staff_fees_remaining : ""),
         total_amount: grand > 0 ? grand.toFixed(2) : "",
       }));
     }
@@ -265,6 +295,9 @@ export default function Registration360() {
     isLabTest,
     isMedicineDelivery,
     isHomeCare,
+    form.hospital_amount,
+    form.doctor_staff_fees_remaining,
+    form.medicine_charge,
   ]);
 
   const handleReset = () => {
@@ -434,13 +467,26 @@ export default function Registration360() {
           setForm((f) => ({
             ...f,
             home_care_type: "",
-            cash_collected_amount: "",
             doctor_name: [],
             staff_name: "",
             doctor_fees: "",
             staff_nurse_fees: "",
             doctor_staff_fees_remaining: "",
           }));
+        }
+      } else {
+        if (itemLower === "home care") {
+          setForm((f) => {
+            const careType = f.home_care_type || "Dr + Staff Nurse Visit";
+            const initialDocFees = "400.00";
+            const calcs = calculateHomeCareAmounts(f.total_amount, initialDocFees, careType);
+            return {
+              ...f,
+              home_care_type: careType,
+              doctor_fees: initialDocFees,
+              ...calcs,
+            };
+          });
         }
       }
 
@@ -596,20 +642,15 @@ export default function Registration360() {
                   value={form.home_care_type}
                   onChange={(e) => {
                     const val = e.target.value;
-                    setForm((prev) => {
-                      if (val === "Nursing Care") {
-                        return {
-                          ...prev,
-                          home_care_type: val,
-                          doctor_fees: "",
-                          doctor_name: [],
-                        };
-                      }
-                      return {
-                        ...prev,
-                        home_care_type: val,
-                      };
-                    });
+                    const docFees = val === "Nursing Care" ? "" : "400.00";
+                    const calcs = calculateHomeCareAmounts(form.total_amount, docFees, val);
+                    setForm((prev) => ({
+                      ...prev,
+                      home_care_type: val,
+                      doctor_name: val === "Nursing Care" ? [] : prev.doctor_name,
+                      doctor_fees: docFees,
+                      ...calcs,
+                    }));
                   }}
                   style={styles.input}
                 >
@@ -1165,8 +1206,75 @@ export default function Registration360() {
         {/* Section: Financial */}
         <SectionTitle icon="💰" title="Financial Details" />
         <div style={styles.grid3}>
-          {isHomeCare && form.home_care_type === "Dr + Staff Nurse Visit" && (
+          {isHomeCare ? (
             <>
+              <Field
+                label="Total Amount (₹)"
+                name="total_amount"
+                type="number"
+                value={form.total_amount}
+                onChange={handleChange}
+                placeholder="Enter Total Amount"
+                step="0.01"
+                min="0"
+              />
+              {form.home_care_type !== "Nursing Care" && (
+                <Field
+                  label="Doctor Fees (₹)"
+                  name="doctor_fees"
+                  type="number"
+                  value={form.doctor_fees}
+                  onChange={handleChange}
+                  placeholder="400.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
+              <Field
+                label="Staff Nurse (20%) (₹)"
+                name="staff_nurse_fees"
+                type="number"
+                value={form.staff_nurse_fees}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                readOnly
+              />
+              <Field
+                label="Remaining Amount (₹)"
+                name="doctor_staff_fees_remaining"
+                type="number"
+                value={form.doctor_staff_fees_remaining}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                readOnly
+              />
+              {isMedicineDelivery && (
+                <Field
+                  label="Medicine Charge (₹)"
+                  name="medicine_charge"
+                  type="number"
+                  value={form.medicine_charge}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
+              <Field
+                label="Hospital Amount (₹)"
+                name="hospital_amount"
+                type="number"
+                value={form.hospital_amount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                readOnly
+              />
               <Field
                 label="Cash Collected Amount (₹)"
                 name="cash_collected_amount"
@@ -1177,40 +1285,42 @@ export default function Registration360() {
                 step="0.01"
                 min="0"
               />
-              <Field
-                label="Doctor Fees (₹)"
-                name="doctor_fees"
-                type="number"
-                value={form.doctor_fees}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-              <Field
-                label="Staff Nurse (20%) (₹)"
-                name="staff_nurse_fees"
-                type="number"
-                value={form.staff_nurse_fees}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-              <Field
-                label="Remaining Amount (₹)"
-                name="doctor_staff_fees_remaining"
-                type="number"
-                value={form.doctor_staff_fees_remaining}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
             </>
-          )}
-          {isHomeCare && form.home_care_type === "Nursing Care" && (
+          ) : (
             <>
+              {isMedicineDelivery && (
+                <Field
+                  label="Medicine Charge (₹)"
+                  name="medicine_charge"
+                  type="number"
+                  value={form.medicine_charge}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              )}
+              <Field
+                label="Hospital Amount (₹)"
+                name="hospital_amount"
+                type="number"
+                value={form.hospital_amount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+              />
+              <Field
+                label="Total Amount (₹)"
+                name="total_amount"
+                type="number"
+                value={form.total_amount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                readOnly
+              />
               <Field
                 label="Cash Collected Amount (₹)"
                 name="cash_collected_amount"
@@ -1221,94 +1331,8 @@ export default function Registration360() {
                 step="0.01"
                 min="0"
               />
-              <Field
-                label="Staff Nurse (20%) (₹)"
-                name="staff_nurse_fees"
-                type="number"
-                value={form.staff_nurse_fees}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-              <Field
-                label="Remaining Amount (₹)"
-                name="doctor_staff_fees_remaining"
-                type="number"
-                value={form.doctor_staff_fees_remaining}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
             </>
           )}
-          {isHomeCare && !form.home_care_type && (
-            <>
-              <Field
-                label="Doctor Fees (₹)"
-                name="doctor_fees"
-                type="number"
-                value={form.doctor_fees}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-              <Field
-                label="Nurse Fees (₹)"
-                name="staff_nurse_fees"
-                type="number"
-                value={form.staff_nurse_fees}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-              <Field
-                label="Remaining Amount (₹)"
-                name="doctor_staff_fees_remaining"
-                type="number"
-                value={form.doctor_staff_fees_remaining}
-                onChange={handleChange}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
-            </>
-          )}
-          {isMedicineDelivery && (
-            <Field
-              label="Medicine Charge (₹)"
-              name="medicine_charge"
-              type="number"
-              value={form.medicine_charge}
-              onChange={handleChange}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-            />
-          )}
-          <Field
-            label="Hospital Amount (₹)"
-            name="hospital_amount"
-            type="number"
-            value={form.hospital_amount}
-            onChange={handleChange}
-            placeholder="0.00"
-            step="0.01"
-            min="0"
-          />
-          <Field
-            label="Total Amount (₹)"
-            name="total_amount"
-            type="number"
-            value={form.total_amount}
-            onChange={handleChange}
-            placeholder="0.00"
-            step="0.01"
-            min="0"
-          />
         </div>
 
         {/* Section: Payment Details */}
@@ -1351,7 +1375,7 @@ function SectionTitle({ icon, title }) {
   );
 }
 
-function Field({ label, name, value, onChange, type = "text", placeholder, error, step, min, maxLength }) {
+function Field({ label, name, value, onChange, type = "text", placeholder, error, step, min, maxLength, readOnly }) {
   return (
     <div style={styles.fieldWrap}>
       <label style={styles.label}>{label}</label>
@@ -1364,7 +1388,12 @@ function Field({ label, name, value, onChange, type = "text", placeholder, error
         step={step}
         min={min}
         maxLength={maxLength}
-        style={{ ...styles.input, ...(error ? styles.inputError : {}) }}
+        readOnly={readOnly}
+        style={{
+          ...styles.input,
+          ...(error ? styles.inputError : {}),
+          ...(readOnly ? { background: "#f8fafc", cursor: "default", color: "#334155" } : {}),
+        }}
         autoComplete="off"
       />
       {error && <span style={styles.errorMsg}>{error}</span>}
