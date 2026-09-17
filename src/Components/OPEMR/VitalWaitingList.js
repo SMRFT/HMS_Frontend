@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import styled from "styled-components";
 import axios from "axios";
 import apiRequest from "../../Auth/apiRequest";
@@ -23,7 +23,19 @@ import {
   Edit,
   Phone,
   Calendar,
-  FileText
+  FileText,
+  UploadCloud,
+  File,
+  Image as ImageIcon,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  ExternalLink,
+  Download,
+  Paperclip,
+  Plus,
+  FolderOpen
 } from "lucide-react";
 import { colors } from "../GlobalStyles";
 
@@ -435,7 +447,7 @@ const ModalOverlay = styled.div`
 const ModalContent = styled.div`
   background: white;
   width: 100%;
-  max-width: 680px;
+  max-width: 840px;
   border-radius: 20px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   overflow: hidden;
@@ -711,6 +723,391 @@ const FormCard = styled.div`
   }
 `;
 
+const UploadCard = styled.div`
+  background: white;
+  border-radius: 16px;
+  border: none;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+  padding: 24px;
+  margin: 0 24px 24px 24px;
+
+  .upload-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    h3 {
+      font-size: 1.1rem;
+      color: #0f172a;
+      font-weight: 700;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      svg {
+        color: #0d9488;
+      }
+    }
+  }
+
+  .upload-subtitle {
+    font-size: 0.8125rem;
+    color: #64748b;
+    margin: 0 0 16px 0;
+    line-height: 1.4;
+  }
+`;
+
+const UploadDropZone = styled.div`
+  border: 2px dashed ${props => props.$isDragging ? '#0d9488' : '#cbd5e1'};
+  background: ${props => props.$isDragging ? '#f0fdfa' : '#f8fafc'};
+  border-radius: 14px;
+  padding: 22px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    border-color: #0d9488;
+    background: #f0fdfa;
+  }
+
+  .icon-circle {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: rgba(13, 148, 136, 0.1);
+    color: #0d9488;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .drop-main-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e293b;
+    span {
+      color: #0d9488;
+      text-decoration: underline;
+    }
+  }
+
+  .drop-sub-text {
+    font-size: 0.775rem;
+    color: #94a3b8;
+  }
+`;
+
+const FileCountBadge = styled.span`
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+`;
+
+const FileList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+`;
+
+const FileItemRow = styled.div`
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: #cbd5e1;
+    background: #ffffff;
+    box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  @media (max-width: 700px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const FileInfoGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 200px;
+
+  .thumb-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .meta-text {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+
+    .name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    .size {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+  }
+`;
+
+const FileInputGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  select {
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.8125rem;
+    color: #334155;
+    background: white;
+    outline: none;
+    transition: border-color 0.2s ease;
+    &:focus {
+      border-color: #0d9488;
+    }
+  }
+
+  input {
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 0.8125rem;
+    color: #334155;
+    background: white;
+    width: 160px;
+    outline: none;
+    transition: border-color 0.2s ease;
+    &:focus {
+      border-color: #0d9488;
+    }
+  }
+`;
+
+const FileActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const PreviewButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #0d9488;
+    color: white;
+  }
+`;
+
+const DeleteButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #ef4444;
+    color: white;
+  }
+`;
+
+const AddMoreButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: #ffffff;
+  color: #0d9488;
+  border: 1px dashed #0d9488;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #f0fdfa;
+  }
+`;
+
+const PastDocChip = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: #f0fdfa;
+  color: #0d9488;
+  border: 1px solid #99f6e4;
+  border-radius: 6px;
+  font-size: 0.725rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: #0d9488;
+    color: white;
+  }
+`;
+
+// Preview Modal styled components
+const PreviewOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 20px;
+`;
+
+const PreviewModalBox = styled.div`
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+`;
+
+const PreviewModalHeader = styled.div`
+  padding: 14px 20px;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  .title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+
+    h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+`;
+
+const ToolButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.28);
+  }
+`;
+
+const PreviewModalBody = styled.div`
+  flex: 1;
+  overflow: auto;
+  background: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  min-height: 420px;
+  max-height: calc(92vh - 65px);
+`;
+
 const getTodayDateString = () => {
   const d = new Date();
   const year = d.getFullYear();
@@ -738,6 +1135,19 @@ const VitalWaitingList = () => {
   const [vitalHistory, setVitalHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Dynamic uploaded files: [{ file, file_name, file_type, file_size, category, title, previewUrl, url, isNew }]
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Preview Modal state
+  const [previewModal, setPreviewModal] = useState({
+    isOpen: false,
+    file: null,
+    zoom: 1,
+    rotation: 0
+  });
+
   // Vital Form Data
   const [vitalData, setVitalData] = useState({
     height: "",
@@ -748,7 +1158,8 @@ const VitalWaitingList = () => {
     pulse_rate: "",
     spo2: "",
     respiratory_rate: "",
-    blood_sugar: ""
+    blood_sugar: "",
+    pain_score: ""
   });
 
   const fetchBilledPatients = async () => {
@@ -852,20 +1263,167 @@ const VitalWaitingList = () => {
     setVitalData(updated);
   };
 
+  // --- Dynamic File Upload & Preview Handlers ---
+
+  const handleFilesSelected = (newFileList) => {
+    if (!newFileList || newFileList.length === 0) return;
+    const fileArray = Array.from(newFileList);
+
+    const mapped = fileArray.map(file => {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name);
+      const previewUrl = URL.createObjectURL(file);
+      return {
+        file,
+        file_name: file.name,
+        file_type: file.type || (isPdf ? "application/pdf" : isImage ? "image/jpeg" : "application/octet-stream"),
+        file_size: file.size,
+        category: "Old Hospital File",
+        title: "",
+        previewUrl,
+        isNew: true
+      };
+    });
+
+    setUploadedFiles(prev => [...prev, ...mapped]);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer && e.dataTransfer.files) {
+      handleFilesSelected(e.dataTransfer.files);
+    }
+  };
+
+  const handleRemoveFile = (index) => {
+    setUploadedFiles(prev => {
+      const target = prev[index];
+      if (target?.previewUrl && target.isNew) {
+        try { URL.revokeObjectURL(target.previewUrl); } catch (_) {}
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleFileCategoryChange = (index, category) => {
+    setUploadedFiles(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], category };
+      return copy;
+    });
+  };
+
+  const handleFileTitleChange = (index, title) => {
+    setUploadedFiles(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], title };
+      return copy;
+    });
+  };
+
+  const handleOpenPreview = (fileItem) => {
+    setPreviewModal({
+      isOpen: true,
+      file: fileItem,
+      zoom: 1,
+      rotation: 0
+    });
+  };
+
+  const handleClosePreview = () => {
+    setPreviewModal({
+      isOpen: false,
+      file: null,
+      zoom: 1,
+      rotation: 0
+    });
+  };
+
+  const handleZoomIn = () => {
+    setPreviewModal(prev => ({ ...prev, zoom: Math.min(prev.zoom + 0.25, 4) }));
+  };
+
+  const handleZoomOut = () => {
+    setPreviewModal(prev => ({ ...prev, zoom: Math.max(prev.zoom - 0.25, 0.5) }));
+  };
+
+  const handleResetZoom = () => {
+    setPreviewModal(prev => ({ ...prev, zoom: 1, rotation: 0 }));
+  };
+
+  const handleRotate = () => {
+    setPreviewModal(prev => ({ ...prev, rotation: (prev.rotation + 90) % 360 }));
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
   const handleOpenModal = async (record) => {
     setSelectedRecord(record);
-    setVitalData({
-      height: "",
-      weight: "",
-      bp: "",
-      bmi: "",
-      temp: "",
-      pulse_rate: "",
-      spo2: "",
-      respiratory_rate: "",
-      blood_sugar: "",
-      pain_score: ""
-    });
+
+    // Only populate input fields if vitals were completed TODAY (within current day / 24 hours).
+    // If status is "Pending" (or from a previous day), input fields remain completely blank
+    // so nurse can enter fresh new vitals for the new visit! Past vitals show in history.
+    const isCompletedToday = record.vital_status === "Completed" && record.vital_entry;
+
+    if (isCompletedToday) {
+      const existingEntry = record.vital_entry;
+      setVitalData({
+        height: existingEntry.height != null ? existingEntry.height : "",
+        weight: existingEntry.weight != null ? existingEntry.weight : "",
+        bp: existingEntry.bp || "",
+        bmi: existingEntry.bmi != null ? existingEntry.bmi : "",
+        temp: existingEntry.temp != null ? existingEntry.temp : "",
+        pulse_rate: existingEntry.pulse_rate != null ? existingEntry.pulse_rate : "",
+        spo2: existingEntry.spo2 != null ? existingEntry.spo2 : "",
+        respiratory_rate: existingEntry.respiratory_rate != null ? existingEntry.respiratory_rate : "",
+        blood_sugar: existingEntry.blood_sugar != null ? existingEntry.blood_sugar : "",
+        pain_score: existingEntry.pain_score != null ? existingEntry.pain_score : ""
+      });
+
+      // Populate existing attachments if already uploaded today
+      if (existingEntry.attachments && Array.isArray(existingEntry.attachments)) {
+        setUploadedFiles(existingEntry.attachments.map(att => ({
+          ...att,
+          previewUrl: att.url || (att.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${att.file_id}/` : ""),
+          isNew: false
+        })));
+      } else {
+        setUploadedFiles([]);
+      }
+    } else {
+      // Empty input fields for fresh new entry for the day!
+      setVitalData({
+        height: "",
+        weight: "",
+        bp: "",
+        bmi: "",
+        temp: "",
+        pulse_rate: "",
+        spo2: "",
+        respiratory_rate: "",
+        blood_sugar: "",
+        pain_score: ""
+      });
+      setUploadedFiles([]);
+    }
+
     setIsModalOpen(true);
 
     if (record.patient?.uhid) {
@@ -895,6 +1453,12 @@ const VitalWaitingList = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedRecord(null);
+    uploadedFiles.forEach(f => {
+      if (f.previewUrl && f.isNew) {
+        try { URL.revokeObjectURL(f.previewUrl); } catch (_) {}
+      }
+    });
+    setUploadedFiles([]);
   };
 
   const handleSubmitVitals = async (e) => {
@@ -906,6 +1470,48 @@ const VitalWaitingList = () => {
 
     try {
       setSubmitting(true);
+
+      // 1. Upload any newly staged files to GridFS
+      const finalAttachments = [];
+      for (const fItem of uploadedFiles) {
+        if (!fItem.isNew) {
+          finalAttachments.push({
+            file_id: fItem.file_id,
+            file_name: fItem.file_name,
+            file_type: fItem.file_type,
+            file_size: fItem.file_size,
+            category: fItem.category || "Old Hospital File",
+            title: fItem.title || "",
+            url: fItem.url || fItem.previewUrl,
+            uploaded_at: fItem.uploaded_at || new Date().toISOString()
+          });
+        } else if (fItem.file) {
+          const formData = new FormData();
+          formData.append("file", fItem.file);
+          formData.append("category", fItem.category || "Old Hospital File");
+          formData.append("title", fItem.title || "");
+
+          const upRes = await apiRequest(`${Hmsbaseurl}OPEMR_upload_vital_file/`, "POST", formData);
+          if (upRes.success && upRes.data) {
+            const fileMeta = Array.isArray(upRes.data) ? upRes.data[0] : (upRes.data.data || upRes.data);
+            finalAttachments.push({
+              file_id: fileMeta.file_id,
+              file_name: fileMeta.file_name || fItem.file_name,
+              file_type: fileMeta.file_type || fItem.file_type,
+              file_size: fileMeta.file_size || fItem.file_size,
+              category: fItem.category || "Old Hospital File",
+              title: fItem.title || "",
+              url: fileMeta.url,
+              uploaded_at: fileMeta.uploaded_at || new Date().toISOString()
+            });
+          } else {
+            console.error("Upload error for", fItem.file_name, upRes.error);
+            toast.warn(`Failed to upload ${fItem.file_name}`);
+          }
+        }
+      }
+
+      // 2. Prepare payload
       const payload = {
         uhid: selectedRecord.patient.uhid,
         doctor_id: selectedRecord.doctor_id || selectedRecord.patient?.doctor_id || null,
@@ -919,12 +1525,17 @@ const VitalWaitingList = () => {
         respiratory_rate: vitalData.respiratory_rate !== "" ? parseInt(vitalData.respiratory_rate, 10) : null,
         blood_sugar: vitalData.blood_sugar !== "" ? parseFloat(vitalData.blood_sugar) : null,
         pain_score: vitalData.pain_score !== "" ? parseInt(vitalData.pain_score, 10) : null,
+        attachments: finalAttachments,
         created_by: localStorage.getItem("employee_id") || "Staff"
       };
 
+      if (selectedRecord.vital_status === "Completed" && selectedRecord.vital_entry?.id) {
+        payload.vital_entry_id = selectedRecord.vital_entry.id;
+      }
+
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_VitalEntry/`, "POST", payload);
       if (res.success) {
-        toast.success("Vital details recorded successfully!");
+        toast.success("Vital details and patient documents recorded successfully!");
         handleCloseModal();
         fetchBilledPatients();
       } else {
@@ -1187,11 +1798,13 @@ const VitalWaitingList = () => {
                           <th>BP/Pain</th>
                           <th>Temp/Pulse</th>
                           <th>SpO2/Resp</th>
+                          <th>Documents</th>
                         </tr>
                       </thead>
                       <tbody>
                         {vitalHistory.map((v, i) => {
                           const dateStr = v.vital_entry_date ? new Date(v.vital_entry_date).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : "-";
+                          const pastAttachments = Array.isArray(v.attachments) ? v.attachments : [];
                           return (
                             <tr key={v.id || i}>
                               <td>{dateStr}</td>
@@ -1199,6 +1812,27 @@ const VitalWaitingList = () => {
                               <td>{v.bp || "-"} / {v.pain_score != null ? `PS: ${v.pain_score}` : "-"}</td>
                               <td>{v.temp ? `${v.temp}°F` : "-" } / {v.pulse_rate || "-"}bpm</td>
                               <td>{v.spo2 ? `${v.spo2}%` : "-"} / {v.respiratory_rate || "-"}bpm</td>
+                              <td>
+                                {pastAttachments.length > 0 ? (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                    {pastAttachments.map((att, attIdx) => (
+                                      <PastDocChip
+                                        key={attIdx}
+                                        type="button"
+                                        onClick={() => handleOpenPreview({
+                                          ...att,
+                                          previewUrl: att.url || (att.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${att.file_id}/` : "")
+                                        })}
+                                        title={`Preview ${att.file_name}`}
+                                      >
+                                        <Paperclip size={11} /> {att.category || "File"}
+                                      </PastDocChip>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>None</span>
+                                )}
+                              </td>
                             </tr>
                           );
                         })}
@@ -1333,6 +1967,138 @@ const VitalWaitingList = () => {
               </FormGrid>
             </FormCard>
 
+              {/* Dynamic Old Hospital Files & Patient Documents Upload */}
+              <UploadCard>
+                <div className="upload-header">
+                  <h3>
+                    <UploadCloud size={20} /> Old Hospital Records & Document Uploads
+                  </h3>
+                  {uploadedFiles.length > 0 && (
+                    <FileCountBadge>
+                      <Paperclip size={13} /> {uploadedFiles.length} {uploadedFiles.length === 1 ? "Document" : "Documents"}
+                    </FileCountBadge>
+                  )}
+                </div>
+                <p className="upload-subtitle">
+                  Upload past hospital discharge summaries, previous prescriptions, lab reports, X-rays/scans, or other medical records brought by the patient. You can upload any number of files (1, 5, or more) and preview each document to verify legibility.
+                </p>
+
+                {/* Hidden file input supporting multiple files */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  multiple
+                  accept=".pdf,image/*,.doc,.docx"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    handleFilesSelected(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+
+                {/* Drag and Drop Zone */}
+                <UploadDropZone
+                  $isDragging={isDragging}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                >
+                  <div className="icon-circle">
+                    <UploadCloud size={24} />
+                  </div>
+                  <div className="drop-main-text">
+                    Drag & drop files here, or <span>browse from device</span>
+                  </div>
+                  <div className="drop-sub-text">
+                    Supports PDF, JPG, PNG, WEBP, Scans. Dynamic upload: add 1, 5, or more files!
+                  </div>
+                </UploadDropZone>
+
+                {/* Dynamic File List */}
+                {uploadedFiles.length > 0 && (
+                  <FileList>
+                    {uploadedFiles.map((item, idx) => {
+                      const isImage = (item.file_type || "").startsWith("image/") || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(item.file_name);
+                      const isPdf = item.file_type === "application/pdf" || (item.file_name || "").toLowerCase().endsWith(".pdf");
+
+                      return (
+                        <FileItemRow key={idx}>
+                          <FileInfoGroup>
+                            <div className="thumb-box">
+                              {isImage && item.previewUrl ? (
+                                <img src={item.previewUrl} alt={item.file_name} />
+                              ) : isPdf ? (
+                                <FileText size={22} color="#dc2626" />
+                              ) : (
+                                <File size={22} color="#0d9488" />
+                              )}
+                            </div>
+                            <div className="meta-text">
+                              <span className="name" title={item.file_name}>
+                                {item.file_name}
+                              </span>
+                              <span className="size">
+                                {formatFileSize(item.file_size)} &bull; {item.isNew ? "Pending save" : "Saved"}
+                              </span>
+                            </div>
+                          </FileInfoGroup>
+
+                          <FileInputGroup>
+                            <select
+                              value={item.category || "Old Hospital File"}
+                              onChange={(e) => handleFileCategoryChange(idx, e.target.value)}
+                            >
+                              <option value="Old Hospital File">Old Hospital File</option>
+                              <option value="Discharge Summary">Discharge Summary</option>
+                              <option value="Previous Lab Report">Previous Lab Report</option>
+                              <option value="Previous Prescription">Previous Prescription</option>
+                              <option value="Scan / X-Ray / Imaging">Scan / X-Ray / Imaging</option>
+                              <option value="ECG / Echo Report">ECG / Echo Report</option>
+                              <option value="Other Document">Other Document</option>
+                            </select>
+
+                            <input
+                              type="text"
+                              placeholder="Notes (e.g. Apollo 2023)"
+                              value={item.title || ""}
+                              onChange={(e) => handleFileTitleChange(idx, e.target.value)}
+                            />
+                          </FileInputGroup>
+
+                          <FileActions>
+                            <PreviewButton
+                              type="button"
+                              onClick={() => handleOpenPreview(item)}
+                              title="Preview Document"
+                            >
+                              <Eye size={14} /> Preview
+                            </PreviewButton>
+
+                            <DeleteButton
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              title="Remove Document"
+                            >
+                              <Trash2 size={15} />
+                            </DeleteButton>
+                          </FileActions>
+                        </FileItemRow>
+                      );
+                    })}
+
+                    <div>
+                      <AddMoreButton
+                        type="button"
+                        onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                      >
+                        <Plus size={15} /> + Add More Files
+                      </AddMoreButton>
+                    </div>
+                  </FileList>
+                )}
+              </UploadCard>
+
             <ModalFooter>
                 <CancelButton type="button" onClick={handleCloseModal}>
                   Cancel
@@ -1344,6 +2110,118 @@ const VitalWaitingList = () => {
             </ModalBody>
           </ModalContent>
         </ModalOverlay>
+      )}
+
+      {/* Rich Preview Modal for Nurse to inspect and verify uploaded files */}
+      {previewModal.isOpen && previewModal.file && (
+        <PreviewOverlay onClick={handleClosePreview}>
+          <PreviewModalBox onClick={(e) => e.stopPropagation()}>
+            <PreviewModalHeader>
+              <div className="title-wrap">
+                <Eye size={20} color="#0d9488" />
+                <div>
+                  <h3 title={previewModal.file.file_name}>
+                    {previewModal.file.file_name}
+                  </h3>
+                  <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>
+                    {previewModal.file.category || "Document"} &bull; {formatFileSize(previewModal.file.file_size)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="toolbar">
+                {((previewModal.file.file_type || "").startsWith("image/") || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(previewModal.file.file_name)) && (
+                  <>
+                    <ToolButton type="button" onClick={handleZoomIn} title="Zoom In">
+                      <ZoomIn size={17} />
+                    </ToolButton>
+                    <ToolButton type="button" onClick={handleZoomOut} title="Zoom Out">
+                      <ZoomOut size={17} />
+                    </ToolButton>
+                    <ToolButton type="button" onClick={handleRotate} title="Rotate 90°">
+                      <RotateCw size={17} />
+                    </ToolButton>
+                    <ToolButton type="button" onClick={handleResetZoom} title="Reset (100%)">
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700 }}>1:1</span>
+                    </ToolButton>
+                  </>
+                )}
+
+                {previewModal.file.previewUrl && (
+                  <ToolButton
+                    as="a"
+                    href={previewModal.file.previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Open in New Tab"
+                  >
+                    <ExternalLink size={17} />
+                  </ToolButton>
+                )}
+
+                <ToolButton type="button" onClick={handleClosePreview} title="Close Preview">
+                  <X size={18} />
+                </ToolButton>
+              </div>
+            </PreviewModalHeader>
+
+            <PreviewModalBody>
+              {((previewModal.file.file_type || "").startsWith("image/") || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(previewModal.file.file_name)) ? (
+                <div style={{ textAlign: "center", overflow: "auto", maxWidth: "100%", maxHeight: "100%" }}>
+                  <img
+                    src={previewModal.file.previewUrl}
+                    alt={previewModal.file.file_name}
+                    style={{
+                      transform: `scale(${previewModal.zoom}) rotate(${previewModal.rotation}deg)`,
+                      transformOrigin: "center center",
+                      transition: "transform 0.2s ease",
+                      maxWidth: "100%",
+                      maxHeight: "70vh",
+                      objectFit: "contain",
+                      borderRadius: "6px",
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.5)"
+                    }}
+                  />
+                </div>
+              ) : (previewModal.file.file_type === "application/pdf" || (previewModal.file.file_name || "").toLowerCase().endsWith(".pdf")) ? (
+                <div style={{ width: "100%", height: "72vh", display: "flex", flexDirection: "column" }}>
+                  <iframe
+                    src={previewModal.file.previewUrl}
+                    title="PDF Document Preview"
+                    style={{ width: "100%", height: "100%", border: "none", borderRadius: "8px", background: "#ffffff" }}
+                  />
+                </div>
+              ) : (
+                <div style={{ textAlign: "center", color: "#e2e8f0", padding: "40px" }}>
+                  <File size={56} style={{ marginBottom: "16px", color: "#0d9488" }} />
+                  <h4 style={{ margin: "0 0 8px 0", fontSize: "1.1rem" }}>{previewModal.file.file_name}</h4>
+                  <p style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "20px" }}>
+                    Preview for this file type is best viewed in a separate tab or downloaded.
+                  </p>
+                  <a
+                    href={previewModal.file.previewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "10px 18px",
+                      background: "#0d9488",
+                      color: "white",
+                      borderRadius: "8px",
+                      textDecoration: "none",
+                      fontWeight: 600,
+                      fontSize: "0.875rem"
+                    }}
+                  >
+                    <ExternalLink size={16} /> Open Document
+                  </a>
+                </div>
+              )}
+            </PreviewModalBody>
+          </PreviewModalBox>
+        </PreviewOverlay>
       )}
     </PageWrapper>
   );

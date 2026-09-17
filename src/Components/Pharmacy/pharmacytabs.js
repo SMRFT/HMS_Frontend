@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
-import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo } from "react-icons/fa";
+import { FaPills, FaFileInvoiceDollar, FaListAlt, FaChartBar, FaUndo, FaPrescription } from "react-icons/fa";
 
 import PharmacyViewBills from "../Pharmacy/PharmacyViewBills";
 import OPPharmacy from "../Pharmacy/Pharmacy";
@@ -8,14 +8,16 @@ import ViewEstimate from "../Pharmacy/Viewestimate";
 import MedicineChart from "./Medicinechart";
 import apiRequest from "../../Auth/apiRequest";
 import WardReturnApprovals from "./WardReturnApprovals";
+import PrescriptionDetails from "./PrescriptionDetails";
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
 const TABS = [
-  { key: "pharmacy_bill", label: "Pharmacy Bill", Icon: FaPills            },
-  { key: "view_estimate", label: "View Estimate",    Icon: FaFileInvoiceDollar },
-  { key: "view_bills",    label: "View Bills",       Icon: FaListAlt           },
-  { key: "medichart",     label: "Medichart",        Icon: FaChartBar          },
-  { key: "ward_returns",  label: "Ward Returns",     Icon: FaUndo              },
+  { key: "pharmacy_bill",        label: "Pharmacy Bill",        Icon: FaPills            },
+  { key: "view_estimate",        label: "View Estimate",        Icon: FaFileInvoiceDollar },
+  { key: "view_bills",           label: "View Bills",           Icon: FaListAlt           },
+  { key: "medichart",            label: "Medichart",            Icon: FaChartBar          },
+  { key: "ward_returns",         label: "Ward Returns",         Icon: FaUndo              },
+  { key: "prescription_details", label: "Prescription Details", Icon: FaPrescription      },
 ];
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -100,7 +102,19 @@ const OPPharmacyTabs = () => {
 
   // ── Ward request state (used for MedicineChart → Convert to Bill flow) ──
   const [wardRequestToLoad, setWardRequestToLoad] = useState(null);
+
+  // ── Doctor Prescription state (used for PrescriptionDetails → Convert to Bill flow) ──
+  const [prescriptionToLoad, setPrescriptionToLoad] = useState(null);
   const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+  const handleConvertPrescription = (prescription) => {
+    setPrescriptionToLoad(prescription);
+    setActiveTab("pharmacy_bill");
+  };
+
+  const handlePrescriptionLoaded = () => {
+    setPrescriptionToLoad(null);
+  };
 
   const handleConvertEstimate = (estimate) => {
     setEstimateToLoad(estimate);
@@ -254,6 +268,8 @@ const OPPharmacyTabs = () => {
           onBillEditLoaded={handleBillEditLoaded}
           wardRequestToLoad={wardRequestToLoad}
           onWardRequestLoaded={handleWardRequestLoaded}
+          prescriptionToLoad={prescriptionToLoad}
+          onPrescriptionLoaded={handlePrescriptionLoaded}
           onEstimateSaved={handleEstimateSaved}
         />
       </TabPanel>
@@ -279,6 +295,11 @@ const OPPharmacyTabs = () => {
       {/* ── Ward Returns tab ── */}
       <TabPanel $visible={activeTab === "ward_returns"}>
         <WardReturnApprovals />
+      </TabPanel>
+
+      {/* ── Prescription Details tab ── */}
+      <TabPanel $visible={activeTab === "prescription_details"}>
+        <PrescriptionDetails onConvertToBill={handleConvertPrescription} />
       </TabPanel>
     </Wrapper>
   );

@@ -33,8 +33,20 @@ import {
   Info,
   Pill,
   LayoutGrid,
-  List
+  List,
+  Eye,
+  File,
+  Image as ImageIcon,
+  Lock,
+  Play,
+  Upload,
+  Trash2,
+  ExternalLink,
+  Download,
+  Loader2
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -42,6 +54,15 @@ const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 const fadeIn = keyframes`
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+`;
+
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const SpinningLoader = styled(Loader2)`
+  animation: ${spin} 1s linear infinite;
 `;
 
 // --- Styled Components ---
@@ -1219,27 +1240,30 @@ const OPDoctorlogin = () => {
   // Master Data
   const [symptomList, setSymptomList] = useState([]);
   const [testList, setTestList] = useState([]);
+  const [ctList, setCtList] = useState([]);
+  const [mriList, setMriList] = useState([]);
+  const [xrayList, setXrayList] = useState([]);
   const [medicineList, setMedicineList] = useState([]);
   const [loadingMasters, setLoadingMasters] = useState(false);
 
   // Form State
   const [activeTab, setActiveTab] = useState("vitals");
-  const [consultationStartTimes, setConsultationStartTimes] = useState(() => {
-    try {
-      const saved = localStorage.getItem("consultationStartTimes");
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [consultationStartTimes, setConsultationStartTimes] = useState({});
 
   useEffect(() => {
-    localStorage.setItem("consultationStartTimes", JSON.stringify(consultationStartTimes));
-  }, [consultationStartTimes]);
+    try {
+      localStorage.removeItem("consultationStartTimes");
+    } catch {}
+  }, []);
   const [allergies, setAllergies] = useState("");
+  const [allergyOption, setAllergyOption] = useState(""); // 'no_known' | 'if_any'
   const [chiefComplaints, setChiefComplaints] = useState("");
   const [clinicalPastHistory, setClinicalPastHistory] = useState([]);
   const [presentMedications, setPresentMedications] = useState("");
+  const [presentMedicationFiles, setPresentMedicationFiles] = useState([]);
+  const [uploadingMedFiles, setUploadingMedFiles] = useState(false);
+  const [previewModalFile, setPreviewModalFile] = useState(null);
+  const medFileInputRef = useRef(null);
 
   // Clinical Assessment History & Exam State
   const [socialHistory, setSocialHistory] = useState([]);
@@ -1252,6 +1276,23 @@ const OPDoctorlogin = () => {
   const [physicalExamination, setPhysicalExamination] = useState("");
   const [provisionalDiagnosis, setProvisionalDiagnosis] = useState("");
   const [planOfCare, setPlanOfCare] = useState("");
+  const [planOfCarePoints, setPlanOfCarePoints] = useState([]);
+  const [newPlanPoint, setNewPlanPoint] = useState("");
+
+  const handleAddPlanPoint = () => {
+    const trimmed = newPlanPoint.trim();
+    if (!trimmed) return;
+    const updated = [...planOfCarePoints, trimmed];
+    setPlanOfCarePoints(updated);
+    setPlanOfCare(updated.map(p => `• ${p}`).join('\n'));
+    setNewPlanPoint("");
+  };
+
+  const handleRemovePlanPoint = (indexToRemove) => {
+    const updated = planOfCarePoints.filter((_, idx) => idx !== indexToRemove);
+    setPlanOfCarePoints(updated);
+    setPlanOfCare(updated.length > 0 ? updated.map(p => `• ${p}`).join('\n') : "");
+  };
 
   const handleTogglePastHistory = (item) => {
     if (clinicalPastHistory.includes(item)) {
@@ -1270,6 +1311,9 @@ const OPDoctorlogin = () => {
   };
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [selectedTestIds, setSelectedTestIds] = useState([]); // Stores test_id
+  const [selectedCtIds, setSelectedCtIds] = useState([]); // Stores CT test ids
+  const [selectedMriIds, setSelectedMriIds] = useState([]); // Stores MRI test ids
+  const [selectedXrayIds, setSelectedXrayIds] = useState([]); // Stores X-Ray test ids
   const [selectedMedicineIds, setSelectedMedicineIds] = useState([]); // Stores item_id
   const [finding, setFinding] = useState("");
   const [diet, setDiet] = useState("");
@@ -1330,8 +1374,412 @@ const OPDoctorlogin = () => {
     };
   }, []);
 
+  // Helper to ensure uniform metadata, proper file names, and reliable preview URLs
+  const normalizeMedicationFile = (fileItem) => {
+    if (!fileItem) return null;
+    const fileId = fileItem.file_id || fileItem.id || fileItem._id || '';
+    const fileName = fileItem.file_name || fileItem.name || fileItem.title || fileItem.filename || 'Medication Document';
+    const fileType = (fileItem.file_type || fileItem.type || fileItem.content_type || '').toLowerCase();
+    const fileSize = Number(fileItem.file_size || fileItem.size || 0);
+
+    let viewUrl = fileItem.url || fileItem.previewUrl || '';
+    if (!viewUrl && fileId) {
+      viewUrl = `${Hmsbaseurl}OPEMR_get_vital_file/${fileId}/`;
+    }
+
+    const isImg = fileType.startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif|svg)$/i.test(fileName);
+    const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+
+    return {
+      ...fileItem,
+      file_id: fileId,
+      file_name: fileName,
+      file_type: fileType || (isPdf ? 'application/pdf' : isImg ? 'image/jpeg' : 'application/octet-stream'),
+      file_size: fileSize,
+      url: viewUrl,
+      isImg,
+      isPdf,
+      category: fileItem.category || 'Present Medication',
+      title: fileItem.title || fileName,
+      uploaded_at: fileItem.uploaded_at || ''
+    };
+  };
+
+  // Present Medication File Handlers
+  const handleMedicationsFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setUploadingMedFiles(true);
+      const uploadedList = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const formData = new FormData();
+        formData.append("files", file);
+        formData.append("category", "Present Medication");
+        formData.append("title", file.name);
+
+        const res = await apiRequest(`${Hmsbaseurl}OPEMR_upload_vital_file/`, "POST", formData);
+        if (res.success && Array.isArray(res.files) && res.files.length > 0) {
+          uploadedList.push(...res.files);
+        } else if (res.success && res.data) {
+          const item = Array.isArray(res.data) ? res.data[0] : res.data;
+          uploadedList.push(item);
+        }
+      }
+
+      if (uploadedList.length > 0) {
+        const normalized = uploadedList.map(normalizeMedicationFile).filter(Boolean);
+        setPresentMedicationFiles(prev => [...prev, ...normalized]);
+        toast.success(`${normalized.length} medication file(s) uploaded successfully!`);
+      } else {
+        toast.error("Failed to upload medication file(s).");
+      }
+    } catch (err) {
+      console.error("Error uploading medication files:", err);
+      toast.error("Error uploading medication files.");
+    } finally {
+      setUploadingMedFiles(false);
+      if (medFileInputRef.current) {
+        medFileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveMedicationFile = async (indexToRemove) => {
+    const target = presentMedicationFiles[indexToRemove];
+    if (!target) return;
+
+    const fileId = target.file_id || target.id;
+    const fileName = target.file_name || target.name || 'File';
+
+    // Immediately remove from UI state
+    setPresentMedicationFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
+
+    // Also remove from MongoDB GridFS if fileId exists
+    if (fileId) {
+      try {
+        await apiRequest(`${Hmsbaseurl}OPEMR_delete_vital_file/${fileId}/`, "DELETE");
+        toast.success(`"${fileName}" deleted successfully.`);
+      } catch (err) {
+        console.warn("Could not delete file from server storage:", err);
+        toast.info(`Removed "${fileName}" from consultation.`);
+      }
+    } else {
+      toast.success(`Removed "${fileName}" from consultation.`);
+    }
+  };
+
   // Modal & History State
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const printSummaryRef = useRef(null);
+
+  const handlePrintSummary = () => {
+    if (!printSummaryRef.current) return;
+    const printContent = printSummaryRef.current.innerHTML;
+    const patientName = selectedPatient?.patient?.patient_name || 'Patient';
+    const patientUhid = selectedPatient?.patient?.uhid || '';
+
+    const printWindow = window.open('', '_blank', 'width=950,height=800');
+    if (!printWindow) {
+      toast.error('Unable to open print preview. Please allow popups.');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Consultation_Summary_${patientName.replace(/\\s+/g, '_')}_${patientUhid}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm 12mm 10mm 12mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              color: #0f172a;
+              background: #ffffff;
+              font-size: 11px;
+              line-height: 1.35;
+              padding: 10px;
+            }
+            .no-print {
+              display: none !important;
+            }
+            .header-wrap {
+              border-bottom: 2px solid #0d9488;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+            }
+            .hosp-name {
+              font-size: 19px;
+              font-weight: 900;
+              color: #0d9488;
+              letter-spacing: -0.3px;
+              text-transform: uppercase;
+              margin-bottom: 2px;
+            }
+            .hosp-sub {
+              font-size: 9.5px;
+              color: #64748b;
+              line-height: 1.3;
+            }
+            .doc-info {
+              text-align: right;
+            }
+            .doc-name {
+              font-size: 12.5px;
+              font-weight: 800;
+              color: #0f172a;
+              margin-bottom: 2px;
+            }
+            .doc-sub {
+              font-size: 9.5px;
+              color: #475569;
+            }
+            .patient-banner {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              padding: 8px 12px;
+              margin-bottom: 10px;
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 8px;
+            }
+            .pb-item .lbl {
+              display: block;
+              font-size: 8px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+            }
+            .pb-item .val {
+              font-size: 10.5px;
+              font-weight: 700;
+              color: #0f172a;
+            }
+            .sec-card {
+              margin-bottom: 10px;
+              page-break-inside: avoid;
+            }
+            .sec-title {
+              font-size: 10.5px;
+              font-weight: 800;
+              color: #0d9488;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+              border-bottom: 1.5px solid #ccfbf1;
+              padding-bottom: 2px;
+              margin-bottom: 5px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            .vitals-grid {
+              display: grid;
+              grid-template-columns: repeat(5, 1fr);
+              gap: 6px;
+              background: #f0fdfa;
+              border: 1px solid #ccfbf1;
+              border-radius: 6px;
+              padding: 6px 10px;
+            }
+            .vital-cell {
+              text-align: center;
+            }
+            .vital-cell .vlbl {
+              font-size: 8px;
+              color: #64748b;
+              text-transform: uppercase;
+              font-weight: 600;
+            }
+            .vital-cell .vval {
+              font-size: 11px;
+              font-weight: 800;
+              color: #0f766e;
+              margin-top: 1px;
+            }
+            .styled-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 4px;
+              font-size: 10px;
+            }
+            .styled-table th, .styled-table td {
+              border: 1px solid #cbd5e1;
+              padding: 4px 8px;
+              text-align: left;
+            }
+            .styled-table th {
+              background: #f1f5f9;
+              font-weight: 700;
+              color: #334155;
+            }
+            .badge-pill {
+              display: inline-block;
+              padding: 2px 7px;
+              border-radius: 4px;
+              font-size: 9.5px;
+              font-weight: 600;
+              background: #f1f5f9;
+              color: #334155;
+              border: 1px solid #e2e8f0;
+              margin-right: 4px;
+              margin-bottom: 3px;
+            }
+            .badge-accent {
+              background: #f0fdfa;
+              color: #0d9488;
+              border-color: #99f6e4;
+            }
+            .bullet-list {
+              padding-left: 18px;
+              margin-top: 3px;
+            }
+            .bullet-list li {
+              margin-bottom: 2px;
+            }
+            .footer-grid {
+              margin-top: 20px;
+              padding-top: 10px;
+              border-top: 1px dashed #cbd5e1;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              page-break-inside: avoid;
+            }
+            .sig-area {
+              text-align: center;
+            }
+            .sig-line {
+              width: 150px;
+              border-bottom: 1px solid #0f172a;
+              margin-bottom: 4px;
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 450);
+  };
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!printSummaryRef.current || downloadingPdf) return;
+    setDownloadingPdf(true);
+    const toastId = toast.loading ? toast.loading("Generating consultation summary PDF...") : null;
+    if (!toastId) {
+      toast.info("Generating consultation summary PDF...");
+    }
+    try {
+      const patientName = (selectedPatient?.patient?.patient_name || 'Patient').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const patientUhid = (selectedPatient?.patient?.uhid || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+      const fileName = `Consultation_Summary_${patientName}${patientUhid ? `_${patientUhid}` : ''}.pdf`;
+
+      const element = printSummaryRef.current;
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const PAGE_W_MM = 210;
+      const PAGE_H_MM = 297;
+      const MARGIN_MM = 8;
+      const printableWidth = PAGE_W_MM - (MARGIN_MM * 2);
+      const printableHeight = PAGE_H_MM - (MARGIN_MM * 2);
+
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const ratio = printableWidth / canvas.width;
+      const renderedH = canvas.height * ratio;
+
+      if (renderedH <= printableHeight) {
+        doc.addImage(imgData, 'JPEG', MARGIN_MM, MARGIN_MM, printableWidth, renderedH);
+      } else {
+        let yOffset = 0;
+        let pageIndex = 0;
+        const slicePixH = Math.round(printableHeight / ratio);
+
+        while (yOffset < canvas.height) {
+          const sliceH = Math.min(slicePixH, canvas.height - yOffset);
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceH;
+          const ctx = sliceCanvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, yOffset, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+          if (pageIndex > 0) doc.addPage();
+          const sliceRenderH = sliceH * ratio;
+          doc.addImage(sliceCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', MARGIN_MM, MARGIN_MM, printableWidth, sliceRenderH);
+
+          yOffset += sliceH;
+          pageIndex++;
+        }
+      }
+
+      doc.save(fileName);
+      if (toastId && toast.update) {
+        toast.update(toastId, {
+          render: 'Consultation Summary PDF downloaded successfully!',
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000
+        });
+      } else {
+        toast.success('Consultation Summary PDF downloaded successfully!');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      if (toastId && toast.update) {
+        toast.update(toastId, {
+          render: 'Failed to generate PDF. Opening print preview...',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
+      } else {
+        toast.error('Failed to generate PDF. Opening print preview...');
+      }
+      handlePrintSummary();
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState(null);
   const [savingConsultation, setSavingConsultation] = useState(false);
@@ -1357,21 +1805,136 @@ const OPDoctorlogin = () => {
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/?uhid=${encodeURIComponent(uhid)}`, "GET");
       let historyList = [];
       if (res.success && Array.isArray(res.data)) {
-        historyList = res.data;
-      }
-
-      // If selectedPatient has a consultation not yet in historyList, include it so doctor can view it in past history
-      const currentConsult = selectedPatient?.consultation;
-      if (currentConsult && (currentConsult.uhid === uhid || !currentConsult.uhid)) {
-        const alreadyExists = historyList.some(h => (h._id && h._id === currentConsult._id) || (h.id && h.id === currentConsult.id));
-        if (!alreadyExists) {
-          historyList = [{ ...currentConsult, is_last_stored: true }, ...historyList];
+        const seenIds = new Set();
+        for (const h of res.data) {
+          const idKey = String(h._id || h.id || `${h.uhid}_${h.created_date || h.date}`);
+          if (!seenIds.has(idKey)) {
+            seenIds.add(idKey);
+            historyList.push(h);
+          }
         }
       }
 
       setPastHistory(historyList);
       if (historyList.length > 0) {
         setSelectedHistoryItem(historyList[0]);
+
+        const isTodayDate = (dateVal) => {
+          if (!dateVal) return false;
+          let d = new Date(dateVal);
+          if (isNaN(d.getTime())) {
+            const parts = String(dateVal).trim().split(/[-/]/);
+            if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+              d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+          }
+          if (isNaN(d.getTime())) return false;
+          const now = new Date();
+          return d.getFullYear() === now.getFullYear() &&
+            d.getMonth() === now.getMonth() &&
+            d.getDate() === now.getDate();
+        };
+
+        // Find if any consultation was entered/saved today
+        const todayConsult = historyList.find(h => {
+          const cDateVal = h.created_date || h.date || h.consultation_start_time || h.consultation_end_time;
+          return isTodayDate(cDateVal);
+        });
+
+        if (todayConsult && uhid) {
+          const tStart = todayConsult.consultation_start_time || todayConsult.created_date || todayConsult.date;
+          if (tStart) {
+            setConsultationStartTimes(prev => {
+              if (!prev[uhid]) {
+                return { ...prev, [uhid]: tStart };
+              }
+              return prev;
+            });
+          }
+        }
+
+        // Only populate form if consultation was saved today and not already populated from selectedPatient.consultation
+        if (todayConsult && !selectedPatient?.consultation) {
+          setClinicalPastHistory(Array.isArray(todayConsult.past_history) ? todayConsult.past_history : []);
+          setSocialHistory(Array.isArray(todayConsult.social_history) ? todayConsult.social_history : []);
+          setSocialHistoryNotes(todayConsult.social_history_notes || "");
+          setSelectedSymptoms(Array.isArray(todayConsult.symptoms) ? todayConsult.symptoms : []);
+          setSelectedTestIds(Array.isArray(todayConsult.investigation_test_ids) ? todayConsult.investigation_test_ids : []);
+          setSelectedMedicineIds(Array.isArray(todayConsult.prescription_item_ids) ? todayConsult.prescription_item_ids : []);
+
+          if (Array.isArray(todayConsult.prescription_details) && todayConsult.prescription_details.length > 0) {
+            const pData = {};
+            todayConsult.prescription_details.forEach(it => {
+              if (it && it.item_id) {
+                pData[it.item_id] = {
+                  dosage: it.dosage || '',
+                  frequency: it.frequency || '',
+                  duration: it.duration || '',
+                  total_dosage: it.total_dosage || ''
+                };
+              }
+            });
+            setPrescriptionData(pData);
+          } else {
+            setPrescriptionData({});
+          }
+
+          setFinding(todayConsult.finding || "");
+          setDiet(todayConsult.diet || "");
+          setReferToDoctor(todayConsult.refer_to_doctor || "");
+          setFollowupDate(todayConsult.followup_date ? String(todayConsult.followup_date).split('T')[0] : "");
+
+          const pastAllergies = todayConsult.allergies || "";
+          setAllergies(pastAllergies);
+          if (pastAllergies.trim().toUpperCase() === "NO KNOWN ALLERGIES") {
+            setAllergyOption("no_known");
+          } else if (pastAllergies.trim().length > 0) {
+            setAllergyOption("if_any");
+          } else {
+            setAllergyOption("");
+          }
+
+          setChiefComplaints(todayConsult.chief_complaints || "");
+          setPresentMedications(todayConsult.present_medications || "");
+          setPresentMedicationFiles(Array.isArray(todayConsult.present_medications_attachments) ? todayConsult.present_medications_attachments.map(normalizeMedicationFile).filter(Boolean) : []);
+
+          if (Array.isArray(todayConsult.ct_scan_details)) {
+            setSelectedCtIds(todayConsult.ct_scan_details.map(x => x.id || x.item_id || x.name));
+          } else {
+            setSelectedCtIds([]);
+          }
+          if (Array.isArray(todayConsult.mri_scan_details)) {
+            setSelectedMriIds(todayConsult.mri_scan_details.map(x => x.id || x.item_id || x.name));
+          } else {
+            setSelectedMriIds([]);
+          }
+          if (Array.isArray(todayConsult.xray_details)) {
+            setSelectedXrayIds(todayConsult.xray_details.map(x => x.id || x.item_id || x.name));
+          } else {
+            setSelectedXrayIds([]);
+          }
+
+          const mHist = todayConsult.menstrual_history || {};
+          setMenstrualStatus(mHist.status || "");
+          setMenstrualSpecify(mHist.specify || "");
+
+          setVaccinationHistory(todayConsult.vaccination_history || "");
+          setObstetricsHistory(todayConsult.obstetrics_history || "");
+          setInvestigationDone(todayConsult.investigation_done || "");
+          setPhysicalExamination(todayConsult.physical_examination || "");
+          setProvisionalDiagnosis(todayConsult.provisional_diagnosis || "");
+          const loadedPlan = todayConsult.plan_of_care || "";
+          setPlanOfCare(loadedPlan);
+          if (loadedPlan) {
+            const points = loadedPlan
+              .split('\n')
+              .map(line => line.replace(/^[•\s*-]+/, '').trim())
+              .filter(Boolean);
+            setPlanOfCarePoints(points);
+          } else {
+            setPlanOfCarePoints([]);
+          }
+        }
       } else {
         setSelectedHistoryItem(null);
       }
@@ -1404,30 +1967,159 @@ const OPDoctorlogin = () => {
     if (selectedPatient?.patient?.uhid) {
       fetchPastHistory(selectedPatient.patient.uhid);
 
-      // ALWAYS keep consultation inputs fresh & clean for a new consultation.
-      // Past / last stored consultation records are viewed in "Past History".
-      setSelectedSymptoms([]);
-      setSelectedTestIds([]);
-      setSelectedMedicineIds([]);
-      setPrescriptionData({});
-      setFinding("");
-      setDiet("");
-      setReferToDoctor("");
-      setFollowupDate("");
-      setAllergies("");
-      setChiefComplaints("");
-      setClinicalPastHistory([]);
-      setPresentMedications("");
-      setSocialHistory([]);
-      setSocialHistoryNotes("");
-      setMenstrualStatus("");
-      setMenstrualSpecify("");
-      setVaccinationHistory("");
-      setObstetricsHistory("");
-      setInvestigationDone("");
-      setPhysicalExamination("");
-      setProvisionalDiagnosis("");
-      setPlanOfCare("");
+      const isTodayDate = (dateVal) => {
+        if (!dateVal) return false;
+        let d = new Date(dateVal);
+        if (isNaN(d.getTime())) {
+          const parts = String(dateVal).trim().split(/[-/]/);
+          if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+            d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+        }
+        if (isNaN(d.getTime())) return false;
+        const now = new Date();
+        return d.getFullYear() === now.getFullYear() &&
+          d.getMonth() === now.getMonth() &&
+          d.getDate() === now.getDate();
+      };
+
+      // Only load consultation if it was saved TODAY!
+      const tc = selectedPatient.consultation;
+      const tcDateVal = tc ? (tc.created_date || tc.date || tc.consultation_start_time || tc.consultation_end_time) : null;
+      const isTcToday = tc && isTodayDate(tcDateVal);
+
+      if (tc && isTcToday) {
+        const uhidKey = selectedPatient.patient?.uhid || selectedPatient.uhid;
+        const tcStartTime = tc.consultation_start_time || tc.created_date || tc.date || selectedPatient.consultation_time;
+        if (uhidKey && tcStartTime) {
+          setConsultationStartTimes(prev => {
+            if (!prev[uhidKey]) {
+              return { ...prev, [uhidKey]: tcStartTime };
+            }
+            return prev;
+          });
+        }
+
+        setSelectedSymptoms(Array.isArray(tc.symptoms) ? tc.symptoms : []);
+        setSelectedTestIds(Array.isArray(tc.investigation_test_ids) ? tc.investigation_test_ids : []);
+        setSelectedMedicineIds(Array.isArray(tc.prescription_item_ids) ? tc.prescription_item_ids : []);
+
+        if (Array.isArray(tc.prescription_details) && tc.prescription_details.length > 0) {
+          const pData = {};
+          tc.prescription_details.forEach(it => {
+            if (it && it.item_id) {
+              pData[it.item_id] = {
+                dosage: it.dosage || '',
+                frequency: it.frequency || '',
+                duration: it.duration || '',
+                total_dosage: it.total_dosage || ''
+              };
+            }
+          });
+          setPrescriptionData(pData);
+        } else {
+          setPrescriptionData({});
+        }
+
+        setFinding(tc.finding || "");
+        setDiet(tc.diet || "");
+        setReferToDoctor(tc.refer_to_doctor || "");
+        setFollowupDate(tc.followup_date ? String(tc.followup_date).split('T')[0] : "");
+
+        const pastAllergies = tc.allergies || "";
+        setAllergies(pastAllergies);
+        if (pastAllergies.trim().toUpperCase() === "NO KNOWN ALLERGIES") {
+          setAllergyOption("no_known");
+        } else if (pastAllergies.trim().length > 0) {
+          setAllergyOption("if_any");
+        } else {
+          setAllergyOption("");
+        }
+
+        setChiefComplaints(tc.chief_complaints || "");
+        setClinicalPastHistory(Array.isArray(tc.past_history) ? tc.past_history : []);
+        setPresentMedications(tc.present_medications || "");
+        const consultAttachments = Array.isArray(tc.present_medications_attachments) ? tc.present_medications_attachments : [];
+        const triageAttachments = Array.isArray(selectedPatient?.vital_entry?.attachments)
+          ? selectedPatient.vital_entry.attachments.filter(a => a.category === "Present Medication")
+          : [];
+        const combinedAttachments = consultAttachments.length > 0 ? consultAttachments : triageAttachments;
+        setPresentMedicationFiles(combinedAttachments.map(normalizeMedicationFile).filter(Boolean));
+        setSocialHistory(Array.isArray(tc.social_history) ? tc.social_history : []);
+        setSocialHistoryNotes(tc.social_history_notes || "");
+
+        if (Array.isArray(tc.ct_scan_details)) {
+          setSelectedCtIds(tc.ct_scan_details.map(x => x.id || x.item_id || x.name));
+        } else {
+          setSelectedCtIds([]);
+        }
+        if (Array.isArray(tc.mri_scan_details)) {
+          setSelectedMriIds(tc.mri_scan_details.map(x => x.id || x.item_id || x.name));
+        } else {
+          setSelectedMriIds([]);
+        }
+        if (Array.isArray(tc.xray_details)) {
+          setSelectedXrayIds(tc.xray_details.map(x => x.id || x.item_id || x.name));
+        } else {
+          setSelectedXrayIds([]);
+        }
+
+        const mHist = tc.menstrual_history || {};
+        setMenstrualStatus(mHist.status || "");
+        setMenstrualSpecify(mHist.specify || "");
+
+        setVaccinationHistory(tc.vaccination_history || "");
+        setObstetricsHistory(tc.obstetrics_history || "");
+        setInvestigationDone(tc.investigation_done || "");
+        setPhysicalExamination(tc.physical_examination || "");
+        setProvisionalDiagnosis(tc.provisional_diagnosis || "");
+        const loadedPlan = tc.plan_of_care || "";
+        setPlanOfCare(loadedPlan);
+        if (loadedPlan) {
+          const points = loadedPlan
+            .split('\n')
+            .map(line => line.replace(/^[•\s*-]+/, '').trim())
+            .filter(Boolean);
+          setPlanOfCarePoints(points);
+        } else {
+          setPlanOfCarePoints([]);
+        }
+      } else {
+        // Clean fresh form for a new patient consultation
+        setSelectedSymptoms([]);
+        setSelectedTestIds([]);
+        setSelectedCtIds([]);
+        setSelectedMriIds([]);
+        setSelectedXrayIds([]);
+        setSelectedMedicineIds([]);
+        setPrescriptionData({});
+        setFinding("");
+        setDiet("");
+        setReferToDoctor("");
+        setFollowupDate("");
+        setAllergies("");
+        setAllergyOption("");
+        setChiefComplaints("");
+        setClinicalPastHistory([]);
+        const isVitalToday = selectedPatient.vital_status === "Completed" ||
+          (selectedPatient.vital_entry && (isTodayDate(selectedPatient.vital_entry.created_date) || isTodayDate(selectedPatient.vital_entry.date)));
+        const triageMedFiles = isVitalToday && Array.isArray(selectedPatient?.vital_entry?.attachments)
+          ? selectedPatient.vital_entry.attachments.filter(a => a.category === "Present Medication")
+          : [];
+        setPresentMedicationFiles(triageMedFiles.map(normalizeMedicationFile).filter(Boolean));
+        setSocialHistory([]);
+        setSocialHistoryNotes("");
+        setMenstrualStatus("");
+        setMenstrualSpecify("");
+        setVaccinationHistory("");
+        setObstetricsHistory("");
+        setInvestigationDone("");
+        setPhysicalExamination("");
+        setProvisionalDiagnosis("");
+        setPlanOfCare("");
+        setPlanOfCarePoints([]);
+        setNewPlanPoint("");
+      }
     }
   }, [selectedPatient]);
 
@@ -1460,10 +2152,19 @@ const OPDoctorlogin = () => {
     setDiet(item.diet || "");
     setReferToDoctor(item.refer_to_doctor || "");
     setFollowupDate(item.followup_date || "");
-    setAllergies(item.allergies || "");
+    const pastAllergies = item.allergies || "";
+    setAllergies(pastAllergies);
+    if (pastAllergies.trim().toUpperCase() === "NO KNOWN ALLERGIES") {
+      setAllergyOption("no_known");
+    } else if (pastAllergies.trim().length > 0) {
+      setAllergyOption("if_any");
+    } else {
+      setAllergyOption("");
+    }
     setChiefComplaints(item.chief_complaints || "");
     setClinicalPastHistory(Array.isArray(item.past_history) ? item.past_history : []);
     setPresentMedications(item.present_medications || "");
+    setPresentMedicationFiles(Array.isArray(item.present_medications_attachments) ? item.present_medications_attachments.map(normalizeMedicationFile).filter(Boolean) : []);
     setSocialHistory(Array.isArray(item.social_history) ? item.social_history : []);
     setSocialHistoryNotes(item.social_history_notes || "");
 
@@ -1476,7 +2177,17 @@ const OPDoctorlogin = () => {
     setInvestigationDone(item.investigation_done || "");
     setPhysicalExamination(item.physical_examination || "");
     setProvisionalDiagnosis(item.provisional_diagnosis || "");
-    setPlanOfCare(item.plan_of_care || "");
+    const loadedPlan = item.plan_of_care || "";
+    setPlanOfCare(loadedPlan);
+    if (loadedPlan) {
+      const points = loadedPlan
+        .split('\n')
+        .map(line => line.replace(/^[•\s*-]+/, '').trim())
+        .filter(Boolean);
+      setPlanOfCarePoints(points);
+    } else {
+      setPlanOfCarePoints([]);
+    }
 
     setShowHistoryModal(false);
     toast.success("Past consultation data copied to active form.");
@@ -1490,6 +2201,7 @@ const OPDoctorlogin = () => {
     fetchDiagnosticsTests();
     fetchMedicines();
     fetchReferralDoctors();
+    fetchRadiologyItems();
   }, []);
 
   const fetchBilledPatients = async () => {
@@ -1564,11 +2276,29 @@ const OPDoctorlogin = () => {
     }
   };
 
+  const fetchRadiologyItems = async () => {
+    try {
+      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_radiology_items/`, "GET");
+      if (res.success) {
+        setCtList(Array.isArray(res.ct) ? res.ct : []);
+        setMriList(Array.isArray(res.mri) ? res.mri : []);
+        setXrayList(Array.isArray(res.xray) ? res.xray : []);
+      }
+    } catch (err) {
+      console.error("Error fetching radiology items:", err);
+    }
+  };
+
   // Patient counts by status
   const counts = useMemo(() => {
     let waiting = 0, ready = 0, completed = 0;
     patients.forEach(p => {
-      const isCompleted = p.is_consultation_completed || p.consultation_status === 'Completed';
+      const isCompleted = Boolean(
+        p.is_consultation_completed ||
+        p.consultation_status === 'Completed' ||
+        p.consultation?.status === 'Completed' ||
+        p.consultation?.consultation_end_time
+      );
       const isReady = !isCompleted && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
       if (isCompleted) {
         completed++;
@@ -1592,7 +2322,12 @@ const OPDoctorlogin = () => {
       );
       if (!matchesSearch) return false;
 
-      const isCompleted = p.is_consultation_completed || p.consultation_status === 'Completed';
+      const isCompleted = Boolean(
+        p.is_consultation_completed ||
+        p.consultation_status === 'Completed' ||
+        p.consultation?.status === 'Completed' ||
+        p.consultation?.consultation_end_time
+      );
       const isReady = !isCompleted && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
       const isWaiting = !isCompleted && !isReady;
 
@@ -1633,20 +2368,73 @@ const OPDoctorlogin = () => {
   const symptomOptions = useMemo(() => symptomList.map(s => ({ value: s, label: s })), [symptomList]);
 
   const selectedSymptomOptions = useMemo(() => {
-    return selectedSymptoms.map(s => ({ value: s, label: s }));
+    return selectedSymptoms
+      .filter(s => s !== 'OTHERS' && (typeof s !== 'string' || !s.startsWith('OTHERS:')))
+      .map(s => ({ value: s, label: s }));
   }, [selectedSymptoms]);
 
-  const testOptions = useMemo(() => testList.map(t => ({
-    value: t.test_id,
-    label: t.department ? `${t.test_name} [${t.department}]` : t.test_name
-  })), [testList]);
+  const testOptions = useMemo(() => testList.map(t => {
+    const sc = t.shortcut ? ` (${t.shortcut})` : '';
+    const dept = t.department ? ` [${t.department}]` : '';
+    return {
+      value: t.test_id,
+      label: `${t.test_name}${sc}${dept}`,
+      shortcut: t.shortcut || '',
+      test_name: t.test_name,
+      department: t.department || ''
+    };
+  }), [testList]);
 
   const selectedTestOptions = useMemo(() => {
     return selectedTestIds.map(id => {
       const t = testList.find(x => x.test_id === id);
-      return { value: id, label: t ? t.test_name : `Test #${id}` };
+      if (!t) return { value: id, label: `Test #${id}` };
+      const sc = t.shortcut ? ` (${t.shortcut})` : '';
+      return { value: id, label: `${t.test_name}${sc}` };
     });
   }, [selectedTestIds, testList]);
+
+  // CT Options
+  const ctOptions = useMemo(() => ctList.map(item => ({
+    value: item.id || item.item_id || item.name,
+    label: item.name,
+    data: item
+  })), [ctList]);
+
+  const selectedCtOptions = useMemo(() => {
+    return selectedCtIds.map(id => {
+      const found = ctList.find(x => (x.id === id || x.item_id === id || x.name === id));
+      return { value: id, label: found ? found.name : id };
+    });
+  }, [selectedCtIds, ctList]);
+
+  // MRI Options
+  const mriOptions = useMemo(() => mriList.map(item => ({
+    value: item.id || item.item_id || item.name,
+    label: item.name,
+    data: item
+  })), [mriList]);
+
+  const selectedMriOptions = useMemo(() => {
+    return selectedMriIds.map(id => {
+      const found = mriList.find(x => (x.id === id || x.item_id === id || x.name === id));
+      return { value: id, label: found ? found.name : id };
+    });
+  }, [selectedMriIds, mriList]);
+
+  // X-Ray Options
+  const xrayOptions = useMemo(() => xrayList.map(item => ({
+    value: item.id || item.item_id || item.name,
+    label: item.name,
+    data: item
+  })), [xrayList]);
+
+  const selectedXrayOptions = useMemo(() => {
+    return selectedXrayIds.map(id => {
+      const found = xrayList.find(x => (x.id === id || x.item_id === id || x.name === id));
+      return { value: id, label: found ? found.name : id };
+    });
+  }, [selectedXrayIds, xrayList]);
 
   const doctorOptions = useMemo(() => referralDoctors.map(d => ({ value: d.employeeId, label: d.employeeName })), [referralDoctors]);
 
@@ -1689,22 +2477,39 @@ const OPDoctorlogin = () => {
     setFollowupDate(d.toISOString().split('T')[0]);
   };
 
-  const handleStartConsultationAPI = async (startTimeStr) => {
-    if (!selectedPatient) return;
+  const handleStartConsultationAPI = async (startTimeStr, targetPatient = null) => {
+    const p = targetPatient || selectedPatient;
+    if (!p) return;
     try {
+      const patientUhid = p.patient?.uhid || p.uhid;
+      const consultId = p.consultation?._id || p.consultation?.id || null;
       const payload = {
-        uhid: selectedPatient.patient?.uhid,
-        doctor_id: selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "",
+        id: consultId,
+        uhid: patientUhid,
+        doctor_id: p.doctor_id || p.patient?.doctor_id || "",
         consultation_start_time: startTimeStr,
+        status: "In Progress"
       };
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
-      if (!res.success) {
+      if (res.success && res.data) {
+        setSelectedPatient(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            consultation: res.data,
+            consultation_time: res.data.consultation_start_time || startTimeStr,
+            consultation_status: "In Consultation",
+          };
+        });
+        fetchBilledPatients();
+      } else {
         console.error("Failed to start consultation in DB");
       }
     } catch (err) {
       console.error(err);
     }
   };
+
 
   // Save Doctor Consultation
   const handleSaveConsultation = async () => {
@@ -1718,7 +2523,9 @@ const OPDoctorlogin = () => {
       const cleanVitals = { ...(selectedPatient.vital_entry || {}) };
       delete cleanVitals.id;
       delete cleanVitals._id;
-      delete cleanVitals.created_by;
+      delete cleanVitals.created_by_name; // Do NOT store created_by name
+      // Store employee ID in created_by
+      cleanVitals.created_by = String(selectedPatient.vital_entry?.created_by || cleanVitals.created_by || "");
       delete cleanVitals.created_date;
       delete cleanVitals.lastmodified_by;
       delete cleanVitals.lastmodified_date;
@@ -1727,13 +2534,44 @@ const OPDoctorlogin = () => {
       const loggedInDoctorId = localStorage.getItem("employeeId") || "";
       const currentDoctorId = loggedInDoctorId || selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "";
 
+      const selectedCtObjects = selectedCtIds.map(id => {
+        const found = ctList.find(x => x.id === id || x.item_id === id || x.name === id);
+        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'CT' } : { id, name: id, category: 'CT' };
+      });
+      const selectedMriObjects = selectedMriIds.map(id => {
+        const found = mriList.find(x => x.id === id || x.item_id === id || x.name === id);
+        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'MRI' } : { id, name: id, category: 'MRI' };
+      });
+      const selectedXrayObjects = selectedXrayIds.map(id => {
+        const found = xrayList.find(x => x.id === id || x.item_id === id || x.name === id);
+        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'X-Ray' } : { id, name: id, category: 'X-Ray' };
+      });
+
+      const patientUhid = selectedPatient.patient?.uhid || selectedPatient.uhid || "";
+      const consultId = selectedPatient.consultation?._id || selectedPatient.consultation?.id || null;
+      const resolvedStartTime = consultationStartTimes[patientUhid] ||
+        selectedPatient?.consultation?.consultation_start_time ||
+        selectedPatient?.consultation_time ||
+        selectedPatient?.consultation?.created_date ||
+        selectedPatient?.consultation?.date ||
+        new Date().toISOString();
+
       const payload = {
-        uhid: selectedPatient.patient?.uhid,
+        id: consultId,
+        uhid: patientUhid,
         doctor_id: currentDoctorId,
         vitals: cleanVitals, // id removed!
         symptoms: selectedSymptoms,
         investigation_test_ids: selectedTestIds, // Stored test_id array!
-        investigation_details: testList.filter(t => selectedTestIds.includes(t.test_id)),
+        investigation_details: [
+          ...testList.filter(t => selectedTestIds.includes(t.test_id)),
+          ...selectedCtObjects.map(c => ({ test_id: c.id, test_name: c.name, department: 'CT' })),
+          ...selectedMriObjects.map(m => ({ test_id: m.id, test_name: m.name, department: 'MRI' })),
+          ...selectedXrayObjects.map(x => ({ test_id: x.id, test_name: x.name, department: 'X-Ray' }))
+        ],
+        ct_scan_details: selectedCtObjects,
+        mri_scan_details: selectedMriObjects,
+        xray_details: selectedXrayObjects,
         prescription_item_ids: selectedMedicineIds, // Stored item_id array!
         prescription_details: selectedMedicineIds.map(id => {
           const m = medicineList.find(x => x.item_id === id);
@@ -1752,12 +2590,14 @@ const OPDoctorlogin = () => {
         diet: diet,
         refer_to_doctor: referToDoctor,
         followup_date: followupDate,
-        consultation_start_time: consultationStartTimes[selectedPatient?.patient?.uhid] || null,
+        consultation_start_time: resolvedStartTime,
         consultation_end_time: new Date().toISOString(),
+        status: "Completed",
         allergies: allergies,
         chief_complaints: chiefComplaints,
         past_history: clinicalPastHistory,
         present_medications: presentMedications,
+        present_medications_attachments: presentMedicationFiles,
         social_history: socialHistory,
         social_history_notes: socialHistoryNotes,
         menstrual_history: isFemale ? {
@@ -1769,7 +2609,7 @@ const OPDoctorlogin = () => {
         investigation_done: investigationDone,
         physical_examination: physicalExamination,
         provisional_diagnosis: provisionalDiagnosis,
-        plan_of_care: planOfCare
+        plan_of_care: planOfCarePoints.length > 0 ? planOfCarePoints.map(p => `• ${p}`).join('\n') : planOfCare
       };
 
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_DoctorConsultation/`, "POST", payload);
@@ -1780,7 +2620,11 @@ const OPDoctorlogin = () => {
           delete newTimes[selectedPatient?.patient?.uhid];
           return newTimes;
         });
-        setSelectedPatient(null);
+        if (res.data) {
+          setSelectedPatient(prev => prev ? ({ ...prev, consultation: res.data, consultation_status: "Completed" }) : null);
+        } else {
+          setSelectedPatient(null);
+        }
         fetchBilledPatients();
       } else {
         toast.error(res.error || "Failed to save consultation.");
@@ -1988,7 +2832,12 @@ const OPDoctorlogin = () => {
                         const isSelected = selectedPatient?.patient?.uhid === p.patient?.uhid;
                         const name = p.patient?.patient_name || 'Unknown Patient';
                         const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
-                        const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                        const isConsultDone = Boolean(
+                          p.is_consultation_completed ||
+                          p.consultation_status === 'Completed' ||
+                          p.consultation?.status === 'Completed' ||
+                          p.consultation?.consultation_end_time
+                        );
                         const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
                         const vDate = p.vital_entry?.vital_entry_date || p.vital_entry?.created_date;
                         const vitalTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
@@ -2135,7 +2984,12 @@ const OPDoctorlogin = () => {
                     const billedTime = p.billed_date ? new Date(p.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
                     const vDate = p.vital_entry?.vital_entry_date || p.vital_entry?.created_date;
                     const vitalTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-                    const isConsultDone = p.is_consultation_completed || p.consultation_status === 'Completed';
+                    const isConsultDone = Boolean(
+                      p.is_consultation_completed ||
+                      p.consultation_status === 'Completed' ||
+                      p.consultation?.status === 'Completed' ||
+                      p.consultation?.consultation_end_time
+                    );
                     const isReady = !isConsultDone && (p.vital_status === 'Completed' || p.consultation_status === 'Ready');
                     return (
                       <div key={p.patient?.uhid} style={{
@@ -2363,7 +3217,12 @@ const OPDoctorlogin = () => {
             const billedTime = sp.billed_date ? new Date(sp.billed_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
             const vDate = sp.vital_entry?.vital_entry_date || sp.vital_entry?.created_date;
             const vitalsTime = vDate ? new Date(vDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-            const consultStart = consultationStartTimes[sp.patient?.uhid];
+            const isConsultDone = Boolean(
+              (sp.consultation && (sp.consultation.status === 'Completed' || sp.consultation.consultation_end_time)) ||
+              (sp.is_consultation_completed && sp.consultation)
+            );
+            const consultStart = sp.consultation?.consultation_start_time || sp.consultation_time || consultationStartTimes[sp.patient?.uhid];
+            const isConsultationStarted = Boolean(consultStart || isConsultDone);
             const consultTime = consultStart ? new Date(consultStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
             const waitMins = sp.billed_date ? Math.floor((Date.now() - new Date(sp.billed_date).getTime()) / 60000) : 0;
             const waitText = waitMins >= 60 ? `${Math.floor(waitMins / 60)} hr ${waitMins % 60} min` : `${waitMins} min`;
@@ -2429,22 +3288,6 @@ const OPDoctorlogin = () => {
                       padding: '14px 10px',
                       boxShadow: '0 1px 3px rgba(13,148,136,0.04)'
                     }}>
-                      <div style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '16px',
-                        background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '1.22rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '8px',
-                        boxShadow: '0 4px 14px rgba(13,148,136,0.25)'
-                      }}>
-                        {initials}
-                      </div>
                       <div style={{ fontWeight: 700, fontSize: '0.96rem', color: '#0f172a', textAlign: 'center', lineHeight: 1.3 }}>
                         {name}
                       </div>
@@ -2501,10 +3344,11 @@ const OPDoctorlogin = () => {
                     </div>
 
                     {/* Start Consultation button or Completed badge */}
-                    {(sp.is_consultation_completed || sp.consultation_status === 'Completed') ? (
+                    {/* Status badge when Completed or In Consultation */}
+                    {isConsultDone && (
                       <div style={{
                         width: '100%',
-                        padding: '10px 8px',
+                        padding: '8px',
                         background: '#f0fdf4',
                         border: '1.5px solid #86efac',
                         color: '#16a34a',
@@ -2512,7 +3356,7 @@ const OPDoctorlogin = () => {
                         fontWeight: 700,
                         fontSize: '0.82rem',
                         textAlign: 'center',
-                        marginBottom: '16px',
+                        marginBottom: '10px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2521,33 +3365,60 @@ const OPDoctorlogin = () => {
                       }}>
                         <CheckCircle2 size={15} /> Consultation Completed
                       </div>
-                    ) : !consultStart ? (
-                      <button
-                        onClick={() => {
-                          const startTime = new Date().toISOString();
-                          setConsultationStartTimes(prev => ({ ...prev, [sp.patient.uhid]: startTime }));
-                          handleStartConsultationAPI(startTime);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '10px',
-                          background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '10px',
-                          fontWeight: 700,
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          marginBottom: '16px',
-                          boxShadow: '0 2px 8px rgba(13,148,136,0.25)',
-                          transition: 'all 0.18s ease'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
-                        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-                      >
-                        Start Consultation
-                      </button>
-                    ) : null}
+                    )}
+
+                    {!isConsultDone && consultStart && (
+                      <div style={{
+                        width: '100%',
+                        padding: '8px',
+                        background: '#f0fdfa',
+                        border: '1.5px solid #99f6e4',
+                        color: '#0d9488',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        textAlign: 'center',
+                        marginBottom: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        boxShadow: '0 1px 3px rgba(13,148,136,0.08)'
+                      }}>
+                        <Activity size={15} /> In Consultation
+                      </div>
+                    )}
+
+                    {/* Always display Start Consultation button (for initial consultation or review after investigation) */}
+                    <button
+                      onClick={() => {
+                        const patientUhid = sp.patient?.uhid || sp.uhid;
+                        const startTime = new Date().toISOString();
+                        if (patientUhid) {
+                          setConsultationStartTimes(prev => ({ ...prev, [patientUhid]: startTime }));
+                        }
+                        handleStartConsultationAPI(startTime, sp);
+                        toast.success(isConsultDone ? "Consultation started for investigation review." : "Consultation started successfully.");
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        marginBottom: '16px',
+                        boxShadow: '0 2px 8px rgba(13,148,136,0.25)',
+                        transition: 'all 0.18s ease'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+                    >
+                      Start Consultation
+                    </button>
 
                     {/* Visit Timeline */}
                     <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
@@ -2616,7 +3487,10 @@ const OPDoctorlogin = () => {
                       e.currentTarget.style.borderColor = '#e2e8f0';
                     }}
                   >
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>Past History</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <FileText size={15} color="#0d9488" />
+                      Past History
+                    </span>
                     <span style={{
                       fontSize: '0.78rem',
                       fontWeight: 700,
@@ -2632,13 +3506,62 @@ const OPDoctorlogin = () => {
                 </div>
 
                 {/* ── RIGHT PANEL ── */}
-                <div style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ flex: 1, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                  {/* Lock Shield when consultation has not been started (Button is ONLY on sidebar) */}
+                  {!isConsultationStarted && (
+                    <div
+                      onClick={() => {
+                        toast.info("Please click 'Start Consultation' on the left sidebar to unlock and edit fields.");
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 100,
+                        background: 'rgba(248, 250, 252, 0.65)',
+                        backdropFilter: 'blur(2px)',
+                        WebkitBackdropFilter: 'blur(2px)',
+                        cursor: 'not-allowed',
+                        userSelect: 'none',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'center',
+                        paddingTop: '20px'
+                      }}
+                    >
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toast.info("Please click 'Start Consultation' on the left sidebar to unlock and edit fields.");
+                        }}
+                        style={{
+                          background: '#ffffff',
+                          border: '1.5px solid #ccfbf1',
+                          borderRadius: '12px',
+                          padding: '10px 22px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          boxShadow: '0 4px 18px rgba(13, 148, 136, 0.12)',
+                          color: '#0f766e',
+                          fontWeight: 700,
+                          fontSize: '0.86rem',
+                          cursor: 'not-allowed'
+                        }}
+                      >
+                        <Lock size={16} color="#0d9488" />
+                        <span>Consultation Locked — Click <strong>&quot;Start Consultation&quot;</strong> on the left sidebar to edit fields</span>
+                      </div>
+                    </div>
+                  )}
                   {/* Tab bar */}
                   <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #f1f5f9', padding: '0 24px', gap: '0' }}>
                     {[
                       { key: 'vitals', label: 'Vitals & Exam' },
                       { key: 'clinical', label: 'Clinical Assessment' },
-                      { key: 'diagnostics', label: 'Diagnostics' },
+                      { key: 'diagnostics', label: 'Diagnosis' },
                       { key: 'plan', label: 'Plan & Prescriptions' },
                     ].map(t => (
                       <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: '14px 20px', background: 'none', border: 'none', borderBottom: activeTab === t.key ? '2px solid #0d9488' : '2px solid transparent', color: activeTab === t.key ? '#0d9488' : '#64748b', fontWeight: activeTab === t.key ? 700 : 500, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.15s', marginBottom: '-1px' }}>
@@ -2653,6 +3576,36 @@ const OPDoctorlogin = () => {
                           <CheckCircle2 size={12} /> Your Saved Consultation
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedPatient) {
+                            toast.warning("Please select a patient first.");
+                            return;
+                          }
+                          setShowPrintModal(true);
+                        }}
+                        style={{
+                          background: '#ffffff',
+                          border: '1.5px solid #0d9488',
+                          color: '#0d9488',
+                          borderRadius: '8px',
+                          padding: '5px 12px',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 1px 2px rgba(13, 148, 136, 0.08)',
+                          transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f0fdfa'; e.currentTarget.style.borderColor = '#0f766e'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#0d9488'; }}
+                        title="Print Summary / View PDF of today's consultation"
+                      >
+                        <Printer size={14} color="#0d9488" /> Print Summary
+                      </button>
                       {pastHistory.length > 0 && (
                         <button
                           type="button"
@@ -2687,7 +3640,53 @@ const OPDoctorlogin = () => {
                       <TabContent>
                         <Card>
                           <CardTitle><AlertCircle size={20} /> Allergies</CardTitle>
-                          <TextArea placeholder="Enter any known allergies..." value={allergies} onChange={e => setAllergies(e.target.value)} style={{ minHeight: '60px' }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginTop: '12px', marginBottom: allergyOption === 'if_any' ? '12px' : '4px', flexWrap: 'wrap' }}>
+                            <CheckboxLabel style={{ fontWeight: allergyOption === 'no_known' ? '600' : 'normal', color: allergyOption === 'no_known' ? '#0f766e' : '#334155' }}>
+                              <input
+                                type="checkbox"
+                                checked={allergyOption === 'no_known'}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setAllergyOption('no_known');
+                                    setAllergies('NO Known Allergies');
+                                  } else {
+                                    setAllergyOption('');
+                                    setAllergies('');
+                                  }
+                                }}
+                              />
+                              NO Known Allergies
+                            </CheckboxLabel>
+
+                            <CheckboxLabel style={{ fontWeight: allergyOption === 'if_any' ? '600' : 'normal', color: allergyOption === 'if_any' ? '#0f766e' : '#334155' }}>
+                              <input
+                                type="checkbox"
+                                checked={allergyOption === 'if_any'}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setAllergyOption('if_any');
+                                    if (allergies.trim().toUpperCase() === 'NO KNOWN ALLERGIES') {
+                                      setAllergies('');
+                                    }
+                                  } else {
+                                    setAllergyOption('');
+                                    setAllergies('');
+                                  }
+                                }}
+                              />
+                              If any
+                            </CheckboxLabel>
+                          </div>
+
+                          {allergyOption === 'if_any' && (
+                            <TextArea
+                              placeholder="Enter allergy details (e.g. Drug allergies, Food allergies, etc.)..."
+                              value={allergies}
+                              onChange={(e) => setAllergies(e.target.value)}
+                              style={{ minHeight: '60px', marginTop: '6px' }}
+                              autoFocus
+                            />
+                          )}
                         </Card>
 
                         <Card>
@@ -2725,8 +3724,302 @@ const OPDoctorlogin = () => {
                         </Card>
 
                         <Card>
-                          <CardTitle><Activity size={20} /> Present Medications</CardTitle>
-                          <TextArea placeholder="Enter present medications..." value={presentMedications} onChange={e => setPresentMedications(e.target.value)} style={{ minHeight: '80px' }} />
+                          <CardTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Activity size={20} /> Present Medications
+                            </span>
+                            {presentMedicationFiles.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#0d9488', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                                {presentMedicationFiles.length} file{presentMedicationFiles.length > 1 ? 's' : ''} attached
+                              </span>
+                            )}
+                          </CardTitle>
+                          <TextArea
+                            placeholder="Enter present medications notes, ongoing prescriptions, dosages..."
+                            value={presentMedications}
+                            onChange={e => setPresentMedications(e.target.value)}
+                            style={{ minHeight: '80px', marginBottom: '12px' }}
+                          />
+
+                          {/* File Upload Action Bar */}
+                          <div style={{
+                            border: '1.5px dashed #cbd5e1',
+                            borderRadius: '10px',
+                            padding: '12px 16px',
+                            background: '#f8fafc',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '8px',
+                                background: '#e0f2fe',
+                                color: '#0284c7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }}>
+                                <Upload size={18} />
+                              </div>
+                              <div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e293b' }}>
+                                  Upload Prescription / Medicine Files
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                  Attach photos of old medicine strips, prescription slips, or bills (Images or PDF)
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <input
+                                type="file"
+                                ref={medFileInputRef}
+                                multiple
+                                accept="image/*,application/pdf"
+                                style={{ display: 'none' }}
+                                onChange={handleMedicationsFileUpload}
+                              />
+                              <button
+                                type="button"
+                                disabled={uploadingMedFiles}
+                                onClick={() => medFileInputRef.current && medFileInputRef.current.click()}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  padding: '7px 14px',
+                                  borderRadius: '8px',
+                                  fontSize: '0.8125rem',
+                                  fontWeight: 600,
+                                  background: uploadingMedFiles ? '#94a3b8' : '#0d9488',
+                                  color: '#ffffff',
+                                  border: 'none',
+                                  cursor: uploadingMedFiles ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                }}
+                              >
+                                {uploadingMedFiles ? (
+                                  <>
+                                    <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                                    Uploading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload size={14} /> Upload Files
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Uploaded Medication Files Gallery & Previews */}
+                          {presentMedicationFiles.length > 0 && (
+                            <div style={{ marginTop: '14px' }}>
+                              <div style={{
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                color: '#475569',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                                marginBottom: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between'
+                              }}>
+                                <span>Attached Prescriptions &amp; Strips ({presentMedicationFiles.length})</span>
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500, textTransform: 'none' }}>
+                                  Click any image thumbnail to preview full size
+                                </span>
+                              </div>
+
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                gap: '12px'
+                              }}>
+                                {presentMedicationFiles.map((fileItem, idx) => {
+                                  const norm = normalizeMedicationFile(fileItem) || fileItem;
+                                  const isImg = norm.isImg || (norm.file_type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif|svg)$/i.test(norm.file_name);
+                                  const isPdf = norm.isPdf || norm.file_type === 'application/pdf' || (norm.file_name || '').toLowerCase().endsWith('.pdf');
+                                  const viewUrl = norm.url || (norm.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${norm.file_id}/` : '');
+                                  const formattedSize = norm.file_size ? (norm.file_size > 1024 * 1024 ? `${(norm.file_size / (1024 * 1024)).toFixed(1)} MB` : `${(norm.file_size / 1024).toFixed(1)} KB`) : 'Attached Document';
+
+                                  return (
+                                    <div
+                                      key={norm.file_id || idx}
+                                      style={{
+                                        background: '#ffffff',
+                                        border: '1.5px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '10px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                    >
+                                      {/* Top Row: Thumbnail + Details */}
+                                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                        {/* Visual Thumbnail */}
+                                        <div
+                                          onClick={() => {
+                                            if (isImg && viewUrl) {
+                                              setPreviewModalFile({ ...norm, url: viewUrl });
+                                            } else if (viewUrl) {
+                                              window.open(viewUrl, '_blank');
+                                            }
+                                          }}
+                                          title={isImg ? "Click to enlarge photo" : "Click to view file"}
+                                          style={{
+                                            width: '60px',
+                                            height: '60px',
+                                            borderRadius: '8px',
+                                            background: isImg ? '#f8fafc' : isPdf ? '#fef2f2' : '#f1f5f9',
+                                            border: `1.5px solid ${isImg ? '#0d9488' : isPdf ? '#ef4444' : '#cbd5e1'}`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            overflow: 'hidden',
+                                            cursor: viewUrl ? 'pointer' : 'default',
+                                            flexShrink: 0,
+                                            position: 'relative'
+                                          }}
+                                        >
+                                          {isImg && viewUrl ? (
+                                            <img
+                                              src={viewUrl}
+                                              alt={norm.file_name}
+                                              style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                objectFit: 'cover'
+                                              }}
+                                              onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                                e.currentTarget.parentElement.innerHTML = '<span style="font-size:10px;color:#0d9488;font-weight:700">IMAGE</span>';
+                                              }}
+                                            />
+                                          ) : isPdf ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                              <FileText size={22} color="#dc2626" />
+                                              <span style={{ fontSize: '8px', fontWeight: 800, color: '#dc2626', marginTop: '2px' }}>PDF</span>
+                                            </div>
+                                          ) : (
+                                            <File size={22} color="#64748b" />
+                                          )}
+                                        </div>
+
+                                        {/* Name & Metadata */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, justifyContent: 'center' }}>
+                                          <div
+                                            style={{
+                                              fontSize: '0.825rem',
+                                              fontWeight: 600,
+                                              color: '#0f172a',
+                                              whiteSpace: 'nowrap',
+                                              overflow: 'hidden',
+                                              textOverflow: 'ellipsis',
+                                              marginBottom: '3px'
+                                            }}
+                                            title={norm.file_name}
+                                          >
+                                            {norm.file_name}
+                                          </div>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                            <span style={{
+                                              fontSize: '0.68rem',
+                                              fontWeight: 700,
+                                              padding: '1px 6px',
+                                              borderRadius: '4px',
+                                              background: isImg ? '#f0fdfa' : isPdf ? '#fef2f2' : '#f1f5f9',
+                                              color: isImg ? '#0d9488' : isPdf ? '#dc2626' : '#64748b',
+                                              border: `1px solid ${isImg ? '#99f6e4' : isPdf ? '#fecaca' : '#e2e8f0'}`
+                                            }}>
+                                              {isImg ? 'IMAGE' : isPdf ? 'PDF' : 'DOC'}
+                                            </span>
+                                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                                              {formattedSize}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Bottom Row: Action Buttons */}
+                                      <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'flex-end',
+                                        gap: '8px',
+                                        borderTop: '1px solid #f1f5f9',
+                                        paddingTop: '8px'
+                                      }}>
+                                        {viewUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (isImg) {
+                                                setPreviewModalFile({ ...norm, url: viewUrl });
+                                              } else {
+                                                window.open(viewUrl, '_blank');
+                                              }
+                                            }}
+                                            style={{
+                                              padding: '5px 10px',
+                                              borderRadius: '6px',
+                                              background: '#f0fdfa',
+                                              color: '#0d9488',
+                                              border: '1px solid #99f6e4',
+                                              fontSize: '0.75rem',
+                                              fontWeight: 600,
+                                              cursor: 'pointer',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                          >
+                                            <Eye size={12} /> Preview
+                                          </button>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveMedicationFile(idx)}
+                                          title="Delete this uploaded file"
+                                          style={{
+                                            padding: '5px 10px',
+                                            borderRadius: '6px',
+                                            background: '#fef2f2',
+                                            color: '#dc2626',
+                                            border: '1px solid #fecaca',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            transition: 'all 0.15s ease'
+                                          }}
+                                          onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = '#fff'; }}
+                                          onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}
+                                        >
+                                          <Trash2 size={12} /> Delete
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </Card>
 
                         {/* 1. Social History */}
@@ -2886,15 +4179,176 @@ const OPDoctorlogin = () => {
                           />
                         </Card>
 
-                        {/* 8. Plan of Care */}
+                        {/* 8. Plan of Care (Bullet Point List) */}
                         <Card>
-                          <CardTitle><FileText size={20} /> Plan of Care</CardTitle>
-                          <TextArea
-                            placeholder="Enter comprehensive plan of care (treatment goals, interventions, monitoring, patient counseling, next steps)..."
-                            value={planOfCare}
-                            onChange={e => setPlanOfCare(e.target.value)}
-                            style={{ minHeight: '70px' }}
-                          />
+                          <CardTitle><List size={20} /> Plan of Care</CardTitle>
+
+                          {/* Bullet points display list */}
+                          {planOfCarePoints.length > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '8px',
+                              marginTop: '12px',
+                              marginBottom: '14px'
+                            }}>
+                              {planOfCarePoints.map((point, idx) => (
+                                <div
+                                  key={idx}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    background: '#f8fafc',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    padding: '10px 14px',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#f0fdfa';
+                                    e.currentTarget.style.borderColor = '#ccfbf1';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = '#f8fafc';
+                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                  }}
+                                >
+                                  {/* Bullet Dot */}
+                                  <div style={{
+                                    width: '10px',
+                                    height: '10px',
+                                    borderRadius: '50%',
+                                    background: '#0d9488',
+                                    flexShrink: 0,
+                                    boxShadow: '0 0 0 3px rgba(13, 148, 136, 0.15)'
+                                  }} />
+
+                                  {/* Point text */}
+                                  <div style={{
+                                    flex: 1,
+                                    fontSize: '0.9rem',
+                                    color: '#1e293b',
+                                    fontWeight: 500,
+                                    lineHeight: 1.4,
+                                    wordBreak: 'break-word'
+                                  }}>
+                                    {point}
+                                  </div>
+
+                                  {/* Remove point button */}
+                                  <button
+                                    type="button"
+                                    title="Remove point"
+                                    onClick={() => handleRemovePlanPoint(idx)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#94a3b8',
+                                      cursor: 'pointer',
+                                      padding: '4px',
+                                      borderRadius: '6px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={e => {
+                                      e.currentTarget.style.color = '#ef4444';
+                                      e.currentTarget.style.background = '#fee2e2';
+                                    }}
+                                    onMouseLeave={e => {
+                                      e.currentTarget.style.color = '#94a3b8';
+                                      e.currentTarget.style.background = 'none';
+                                    }}
+                                  >
+                                    <X size={15} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Input to type and add bullet point */}
+                          <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            alignItems: 'center',
+                            marginTop: planOfCarePoints.length > 0 ? '4px' : '10px'
+                          }}>
+                            <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
+                              <div style={{
+                                position: 'absolute',
+                                left: '14px',
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                background: '#0d9488',
+                                pointerEvents: 'none'
+                              }} />
+                              <input
+                                type="text"
+                                placeholder="Type a plan of care point and press Enter..."
+                                value={newPlanPoint}
+                                onChange={e => setNewPlanPoint(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddPlanPoint();
+                                  }
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px 14px 10px 32px',
+                                  border: '1.5px solid #cbd5e1',
+                                  borderRadius: '10px',
+                                  fontSize: '0.88rem',
+                                  color: '#1e293b',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                onFocus={e => {
+                                  e.currentTarget.style.borderColor = '#0d9488';
+                                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.12)';
+                                }}
+                                onBlur={e => {
+                                  e.currentTarget.style.borderColor = '#cbd5e1';
+                                  e.currentTarget.style.boxShadow = 'none';
+                                }}
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleAddPlanPoint}
+                              disabled={!newPlanPoint.trim()}
+                              style={{
+                                padding: '10px 18px',
+                                background: newPlanPoint.trim() ? 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)' : '#e2e8f0',
+                                color: newPlanPoint.trim() ? '#ffffff' : '#94a3b8',
+                                border: 'none',
+                                borderRadius: '10px',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                cursor: newPlanPoint.trim() ? 'pointer' : 'not-allowed',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                flexShrink: 0,
+                                boxShadow: newPlanPoint.trim() ? '0 2px 8px rgba(13, 148, 136, 0.25)' : 'none',
+                                transition: 'all 0.18s ease'
+                              }}
+                            >
+                              <Plus size={16} /> Add Point
+                            </button>
+                          </div>
+
+                          {planOfCarePoints.length === 0 && (
+                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '8px', fontStyle: 'italic' }}>
+                              Type a care instruction and press Enter or click "+ Add Point" to create bulleted care points.
+                            </div>
+                          )}
                         </Card>
                       </TabContent>
                     )}
@@ -3003,6 +4457,80 @@ const OPDoctorlogin = () => {
                               <VitalDateBadge>
                                 <Clock size={16} /> Vital Recorded Date: {vitals.vital_entry_date ? new Date(vitals.vital_entry_date).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) : 'N/A'}
                               </VitalDateBadge>
+
+                              {/* Attached Old Hospital Documents & Files */}
+                              {vitals.attachments && Array.isArray(vitals.attachments) && vitals.attachments.length > 0 && (
+                                <div style={{ marginTop: '20px', background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <FileText size={18} color="#0d9488" /> Old Hospital Records & Patient Documents ({vitals.attachments.length})
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', color: '#0d9488', background: '#f0fdfa', border: '1px solid #99f6e4', padding: '3px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                                      Uploaded by: {vitals.created_by_name || vitals.created_by || 'Staff'}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
+                                    {vitals.attachments.map((att, attIdx) => {
+                                      const isImg = (att.file_type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(att.file_name);
+                                      const isPdf = att.file_type === 'application/pdf' || (att.file_name || '').toLowerCase().endsWith('.pdf');
+                                      const fileUrl = att.url || (att.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${att.file_id}/` : '');
+
+                                      return (
+                                        <div
+                                          key={attIdx}
+                                          style={{
+                                            background: '#f8fafc',
+                                            border: '1px solid #e2e8f0',
+                                            borderRadius: '10px',
+                                            padding: '10px 12px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: '10px'
+                                          }}
+                                        >
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #cbd5e1', flexShrink: 0 }}>
+                                              {isImg ? <ImageIcon size={16} color="#0d9488" /> : isPdf ? <FileText size={16} color="#dc2626" /> : <File size={16} color="#64748b" />}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                                              <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={att.file_name}>
+                                                {att.file_name}
+                                              </span>
+                                              <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                                {att.category || 'Document'}{att.title ? ` • ${att.title}` : ''}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          {fileUrl && (
+                                            <a
+                                              href={fileUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              style={{
+                                                padding: '5px 10px',
+                                                borderRadius: '6px',
+                                                background: '#f0fdfa',
+                                                color: '#0d9488',
+                                                border: '1px solid #99f6e4',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                textDecoration: 'none',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                flexShrink: 0
+                                              }}
+                                            >
+                                              <Eye size={12} /> View
+                                            </a>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </>
                           ) : (
                             <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
@@ -3018,7 +4546,7 @@ const OPDoctorlogin = () => {
                         {/* 2. Diagnostics Dropdown (HMS_Symptoms_list) */}
                         <Card>
                           <CardTitle>
-                            <Stethoscope size={20} /> Diagnostics / Symptoms (from HMS_Symptoms_list)
+                            <Stethoscope size={20} />Symptoms
                           </CardTitle>
                           <div style={{ marginTop: '12px' }}>
                             <Select
@@ -3029,7 +4557,99 @@ const OPDoctorlogin = () => {
                               options={symptomOptions}
                               value={selectedSymptomOptions}
                               onChange={(selected) => {
-                                setSelectedSymptoms(selected ? selected.map(s => s.value) : []);
+                                const newVals = selected ? selected.map(s => s.value) : [];
+                                const otherItem = selectedSymptoms.find(s => s === 'OTHERS' || (typeof s === 'string' && s.startsWith('OTHERS:')));
+                                setSelectedSymptoms(otherItem ? [...newVals, otherItem] : newVals);
+                              }}
+                              menuPortalTarget={document.body}
+                              styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                control: (base) => ({
+                                  ...base,
+                                  borderRadius: '8px',
+                                  borderColor: '#e2e8f0',
+                                  boxShadow: 'none',
+                                  '&:hover': {
+                                    borderColor: '#cbd5e1'
+                                  }
+                                })
+                              }}
+                            />
+                          </div>
+
+                          {/* Others Option for Symptoms / Diagnosis */}
+                          <div style={{ marginTop: '14px' }}>
+                            <CheckboxLabel style={{ fontWeight: selectedSymptoms.some(s => s === 'OTHERS' || (typeof s === 'string' && s.startsWith('OTHERS:'))) ? 600 : 500, color: selectedSymptoms.some(s => s === 'OTHERS' || (typeof s === 'string' && s.startsWith('OTHERS:'))) ? '#0f766e' : '#334155' }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedSymptoms.some(s => s === 'OTHERS' || (typeof s === 'string' && s.startsWith('OTHERS:')))}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSymptoms(prev => [...prev.filter(s => s !== 'OTHERS' && (typeof s !== 'string' || !s.startsWith('OTHERS:'))), 'OTHERS: ']);
+                                  } else {
+                                    setSelectedSymptoms(prev => prev.filter(s => s !== 'OTHERS' && (typeof s !== 'string' || !s.startsWith('OTHERS:'))));
+                                  }
+                                }}
+                              />
+                              Others
+                            </CheckboxLabel>
+
+                            {selectedSymptoms.some(s => s === 'OTHERS' || (typeof s === 'string' && s.startsWith('OTHERS:'))) && (
+                              <div style={{ marginTop: '8px' }}>
+                                <input
+                                  type="text"
+                                  placeholder="Specify other symptoms / diagnosis..."
+                                  value={selectedSymptoms.find(s => typeof s === 'string' && s.startsWith('OTHERS:'))?.replace(/^OTHERS:\s*/, '') || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setSelectedSymptoms(prev => {
+                                      const filtered = prev.filter(s => s !== 'OTHERS' && (typeof s !== 'string' || !s.startsWith('OTHERS:')));
+                                      return [...filtered, `OTHERS: ${val}`];
+                                    });
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    border: '1.5px solid #0d9488',
+                                    borderRadius: '8px',
+                                    fontSize: '0.88rem',
+                                    color: '#1e293b',
+                                    outline: 'none',
+                                    boxSizing: 'border-box',
+                                    boxShadow: '0 0 0 2px rgba(13, 148, 136, 0.12)',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  autoFocus
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+
+                        {/* 3. Investigation Dropdown (Diagnostics_test_details) */}
+                        <Card>
+                          <CardTitle>
+                            <FileText size={20} /> Investigation Tests
+                          </CardTitle>
+                          <div style={{ marginTop: '12px' }}>
+                            <Select
+                              isMulti
+                              closeMenuOnSelect={false}
+                              components={{ MenuList: CustomMenuList }}
+                              placeholder="Search and select investigation tests (by name, shortcut, or department)..."
+                              options={testOptions}
+                              value={selectedTestOptions}
+                              filterOption={(candidate, input) => {
+                                if (!input) return true;
+                                const q = input.toLowerCase().trim();
+                                const label = (candidate.label || '').toLowerCase();
+                                const shortcut = (candidate.data?.shortcut || '').toLowerCase();
+                                const testName = (candidate.data?.test_name || '').toLowerCase();
+                                const dept = (candidate.data?.department || '').toLowerCase();
+                                return label.includes(q) || shortcut.includes(q) || testName.includes(q) || dept.includes(q);
+                              }}
+                              onChange={(selected) => {
+                                setSelectedTestIds(selected ? selected.map(s => s.value) : []);
                               }}
                               menuPortalTarget={document.body}
                               styles={{
@@ -3048,21 +4668,126 @@ const OPDoctorlogin = () => {
                           </div>
                         </Card>
 
-                        {/* 3. Investigation Dropdown (Diagnostics_test_details) */}
+                        {/* 4. CT Scan Dropdown */}
                         <Card>
-                          <CardTitle>
-                            <FileText size={20} /> Investigation Tests (from Diagnostics_test_details)
+                          <CardTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Activity size={20} color="#0284c7" /> CT Scan
+                            </span>
+                            {selectedCtIds.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#0369a1', background: '#e0f2fe', border: '1px solid #bae6fd', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                                {selectedCtIds.length} CT scan{selectedCtIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
                           </CardTitle>
                           <div style={{ marginTop: '12px' }}>
                             <Select
                               isMulti
                               closeMenuOnSelect={false}
                               components={{ MenuList: CustomMenuList }}
-                              placeholder="Search and select investigation tests..."
-                              options={testOptions}
-                              value={selectedTestOptions}
+                              placeholder="Search and select CT scans (e.g. CT Brain Plain, CT Chest HRCT, CT Abdomen)..."
+                              options={ctOptions}
+                              value={selectedCtOptions}
+                              filterOption={(candidate, input) => {
+                                if (!input) return true;
+                                const q = input.toLowerCase().trim();
+                                const label = (candidate.label || '').toLowerCase();
+                                return label.includes(q);
+                              }}
                               onChange={(selected) => {
-                                setSelectedTestIds(selected ? selected.map(s => s.value) : []);
+                                setSelectedCtIds(selected ? selected.map(s => s.value) : []);
+                              }}
+                              menuPortalTarget={document.body}
+                              styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                control: (base) => ({
+                                  ...base,
+                                  borderRadius: '8px',
+                                  borderColor: '#e2e8f0',
+                                  boxShadow: 'none',
+                                  '&:hover': {
+                                    borderColor: '#cbd5e1'
+                                  }
+                                })
+                              }}
+                            />
+                          </div>
+                        </Card>
+
+                        {/* 5. MRI Scan Dropdown */}
+                        <Card>
+                          <CardTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Activity size={20} color="#7c3aed" /> MRI Scan
+                            </span>
+                            {selectedMriIds.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#6d28d9', background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                                {selectedMriIds.length} MRI scan{selectedMriIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </CardTitle>
+                          <div style={{ marginTop: '12px' }}>
+                            <Select
+                              isMulti
+                              closeMenuOnSelect={false}
+                              components={{ MenuList: CustomMenuList }}
+                              placeholder="Search and select MRI scans (e.g. MRI Brain Plain, MRI Lumbar Spine, MRI Knee)..."
+                              options={mriOptions}
+                              value={selectedMriOptions}
+                              filterOption={(candidate, input) => {
+                                if (!input) return true;
+                                const q = input.toLowerCase().trim();
+                                const label = (candidate.label || '').toLowerCase();
+                                return label.includes(q);
+                              }}
+                              onChange={(selected) => {
+                                setSelectedMriIds(selected ? selected.map(s => s.value) : []);
+                              }}
+                              menuPortalTarget={document.body}
+                              styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                control: (base) => ({
+                                  ...base,
+                                  borderRadius: '8px',
+                                  borderColor: '#e2e8f0',
+                                  boxShadow: 'none',
+                                  '&:hover': {
+                                    borderColor: '#cbd5e1'
+                                  }
+                                })
+                              }}
+                            />
+                          </div>
+                        </Card>
+
+                        {/* 6. X-Ray Dropdown */}
+                        <Card>
+                          <CardTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <FileText size={20} color="#ea580c" /> X-Ray
+                            </span>
+                            {selectedXrayIds.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#c2410c', background: '#fff7ed', border: '1px solid #fed7aa', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                                {selectedXrayIds.length} X-Ray{selectedXrayIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </CardTitle>
+                          <div style={{ marginTop: '12px' }}>
+                            <Select
+                              isMulti
+                              closeMenuOnSelect={false}
+                              components={{ MenuList: CustomMenuList }}
+                              placeholder="Search and select X-Ray procedures (e.g. Chest X-Ray PA, X-Ray KUB, X-Ray Spine)..."
+                              options={xrayOptions}
+                              value={selectedXrayOptions}
+                              filterOption={(candidate, input) => {
+                                if (!input) return true;
+                                const q = input.toLowerCase().trim();
+                                const label = (candidate.label || '').toLowerCase();
+                                return label.includes(q);
+                              }}
+                              onChange={(selected) => {
+                                setSelectedXrayIds(selected ? selected.map(s => s.value) : []);
                               }}
                               menuPortalTarget={document.body}
                               styles={{
@@ -3262,7 +4987,22 @@ const OPDoctorlogin = () => {
                       </TabContent>
                     )}
 
-                    <BottomActionBar style={{ justifyContent: 'flex-end', padding: '12px 24px', borderTop: '1px solid #f1f5f9', marginTop: 0 }}>
+                    <BottomActionBar style={{ justifyContent: 'flex-end', padding: '12px 24px', borderTop: '1px solid #f1f5f9', marginTop: 0, gap: '10px' }}>
+                      <Button
+                        $variant="secondary"
+                        onClick={() => {
+                          if (!selectedPatient) {
+                            toast.warning("Please select a patient first.");
+                            return;
+                          }
+                          setShowPrintModal(true);
+                        }}
+                        style={{ padding: '10px 18px', fontSize: '0.92rem' }}
+                        title="Preview full consultation summary and print/save as PDF before saving"
+                      >
+                        <Printer size={17} color="#0d9488" />
+                        Print Summary / View PDF
+                      </Button>
                       <Button
                         $variant="primary"
                         onClick={handleSaveConsultation}
@@ -3400,7 +5140,17 @@ const OPDoctorlogin = () => {
                                 color: '#334155',
                                 border: '1px solid #e2e8f0'
                               }}>
-                                Dr: {selectedHistoryItem.doctor_name || (selectedHistoryItem.doctor_id ? `(${selectedHistoryItem.doctor_id})` : 'Doctor')}
+                                {(() => {
+                                  const raw = (selectedHistoryItem.doctor_name || '').trim();
+                                  if (raw && raw.toLowerCase() !== 'doctor') {
+                                    return raw.toLowerCase().startsWith('dr') ? raw : `Dr. ${raw}`;
+                                  }
+                                  const dId = selectedHistoryItem.doctor_id || selectedHistoryItem.created_by;
+                                  if (dId) {
+                                    return `Dr. (${dId})`;
+                                  }
+                                  return 'Consulting Doctor';
+                                })()}
                               </span>
                             </div>
                           </div>
@@ -3448,6 +5198,46 @@ const OPDoctorlogin = () => {
                             </table>
                           </div>
                         </div>
+
+                        {/* Present Medications & Attachments */}
+                        {(selectedHistoryItem.present_medications || (Array.isArray(selectedHistoryItem.present_medications_attachments) && selectedHistoryItem.present_medications_attachments.length > 0)) && (
+                          <div style={{ marginBottom: '22px' }}>
+                            <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Activity size={16} color="#0d9488" /> Present Medications &amp; Attachments
+                            </div>
+                            {selectedHistoryItem.present_medications && (
+                              <div style={{ fontSize: '0.88rem', color: '#334155', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginBottom: '8px' }}>
+                                {selectedHistoryItem.present_medications}
+                              </div>
+                            )}
+                            {Array.isArray(selectedHistoryItem.present_medications_attachments) && selectedHistoryItem.present_medications_attachments.length > 0 && (
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                                {selectedHistoryItem.present_medications_attachments.map((att, attIdx) => {
+                                  const isImg = (att.file_type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(att.file_name);
+                                  const isPdf = att.file_type === 'application/pdf' || (att.file_name || '').toLowerCase().endsWith('.pdf');
+                                  const fileUrl = att.url || (att.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${att.file_id}/` : '');
+                                  return (
+                                    <div key={attIdx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #cbd5e1', flexShrink: 0 }}>
+                                          {isImg ? <ImageIcon size={14} color="#0d9488" /> : isPdf ? <FileText size={14} color="#dc2626" /> : <File size={14} color="#64748b" />}
+                                        </div>
+                                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={att.file_name}>
+                                          {att.file_name}
+                                        </span>
+                                      </div>
+                                      {fileUrl && (
+                                        <a href={fileUrl} target="_blank" rel="noreferrer" style={{ padding: '3px 8px', borderRadius: '4px', background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4', fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                                          <Eye size={11} /> View
+                                        </a>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* 3. Next Visit */}
                         <div style={{ marginBottom: '22px' }}>
@@ -3553,7 +5343,23 @@ const OPDoctorlogin = () => {
                         <ThemeSectionBox>
                           <div className="title"><Calendar size={18} /> Plans &amp; Follow-up</div>
                           <ul style={{ listStyleType: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {selectedHistoryItem.plan_of_care && <li><span style={{ fontWeight: 600, color: '#475569' }}>Plan of Care:</span> {selectedHistoryItem.plan_of_care}</li>}
+                            {selectedHistoryItem.allergies && <li><span style={{ fontWeight: 600, color: '#475569' }}>Allergies:</span> {selectedHistoryItem.allergies}</li>}
+                            {selectedHistoryItem.plan_of_care && (
+                              <li>
+                                <span style={{ fontWeight: 600, color: '#475569' }}>Plan of Care:</span>
+                                {selectedHistoryItem.plan_of_care.includes('\n') ? (
+                                  <ul style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {selectedHistoryItem.plan_of_care.split('\n').map((pt, pIdx) => (
+                                      <li key={pIdx} style={{ listStyleType: 'disc' }}>
+                                        {pt.replace(/^[•\s*-]+/, '').trim()}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  ` ${selectedHistoryItem.plan_of_care}`
+                                )}
+                              </li>
+                            )}
                             {selectedHistoryItem.provisional_diagnosis && <li><span style={{ fontWeight: 600, color: '#475569' }}>Provisional Diagnosis:</span> {selectedHistoryItem.provisional_diagnosis}</li>}
                             {selectedHistoryItem.physical_examination && <li><span style={{ fontWeight: 600, color: '#475569' }}>Physical Exam:</span> {selectedHistoryItem.physical_examination}</li>}
                             {selectedHistoryItem.investigation_done && <li><span style={{ fontWeight: 600, color: '#475569' }}>Investigation Done:</span> {selectedHistoryItem.investigation_done}</li>}
@@ -3802,6 +5608,693 @@ const OPDoctorlogin = () => {
           </ModalContent>
         </ModalOverlay>
       )}
+
+      {/* ── PRINT SUMMARY / VIEW AS PDF MODAL (CURRENT CONSULTATION: TODAY'S SAVED & IN-PROGRESS DATA) ── */}
+      {showPrintModal && selectedPatient && (() => {
+        const pat = selectedPatient.patient || {};
+
+        // 1. Identify today's consultation record (if already saved today)
+        const isTodayDate = (dateVal) => {
+          if (!dateVal) return false;
+          let d = new Date(dateVal);
+          if (isNaN(d.getTime())) {
+            const parts = String(dateVal).trim().split(/[-/]/);
+            if (parts.length === 3 && parts[0].length === 2 && parts[2].length === 4) {
+              d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            }
+          }
+          if (isNaN(d.getTime())) return false;
+          const now = new Date();
+          return d.getFullYear() === now.getFullYear() &&
+            d.getMonth() === now.getMonth() &&
+            d.getDate() === now.getDate();
+        };
+
+        const todayConsult = (() => {
+          if (selectedPatient?.consultation) {
+            const cDateVal = selectedPatient.consultation.created_date ||
+              selectedPatient.consultation.date ||
+              selectedPatient.consultation.consultation_start_time ||
+              selectedPatient.consultation.consultation_end_time;
+            if (isTodayDate(cDateVal)) {
+              return selectedPatient.consultation;
+            }
+          }
+          if (Array.isArray(pastHistory) && pastHistory.length > 0) {
+            const todayItem = pastHistory.find(h => {
+              const cDateVal = h.created_date || h.date || h.consultation_start_time || h.consultation_end_time;
+              return isTodayDate(cDateVal);
+            });
+            if (todayItem) {
+              return todayItem;
+            }
+          }
+          return null;
+        })();
+
+        const hasTodaySaved = !!todayConsult;
+        const isCompleted = selectedPatient.is_consultation_completed ||
+          selectedPatient.consultation_status === 'Completed' ||
+          todayConsult?.status === 'Completed';
+
+        const doctorName = pat.DoctorName || selectedPatient.doctor_name || (localStorage.getItem("employeeName") ? `Dr. ${localStorage.getItem("employeeName")}` : "Consulting Physician");
+
+        const consultDate = todayConsult?.created_date && isTodayDate(todayConsult.created_date)
+          ? new Date(todayConsult.created_date).toLocaleDateString('en-GB')
+          : new Date().toLocaleDateString('en-GB');
+
+        const consultTime = todayConsult?.created_date && isTodayDate(todayConsult.created_date)
+          ? new Date(todayConsult.created_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+          : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+        // Vitals: ONLY display vitals completed/recorded TODAY. Never show old vitals from previous visits.
+        const isVitalToday = selectedPatient.vital_status === 'Completed' ||
+          (selectedPatient.vital_entry && (isTodayDate(selectedPatient.vital_entry.created_date) || isTodayDate(selectedPatient.vital_entry.date))) ||
+          (todayConsult?.vitals && (isTodayDate(todayConsult.vitals.created_date) || isTodayDate(todayConsult.created_date)));
+
+        const pVitals = isVitalToday
+          ? (selectedPatient.vital_entry && Object.keys(selectedPatient.vital_entry).length > 0 ? selectedPatient.vital_entry : (todayConsult?.vitals || {}))
+          : (todayConsult?.vitals || {});
+
+        const vHeight = pVitals.height ? `${pVitals.height} cm` : (todayConsult?.vitals?.height ? `${todayConsult.vitals.height} cm` : '--');
+        const vWeight = pVitals.weight ? `${pVitals.weight} kg` : (todayConsult?.vitals?.weight ? `${todayConsult.vitals.weight} kg` : '--');
+        const vBmi = pVitals.bmi || todayConsult?.vitals?.bmi || '--';
+        const vBp = (pVitals.bp_systolic && pVitals.bp_diastolic)
+          ? `${pVitals.bp_systolic}/${pVitals.bp_diastolic} mmHg`
+          : (pVitals.bp || todayConsult?.vitals?.bp || (todayConsult?.vitals?.bp_systolic && todayConsult?.vitals?.bp_diastolic ? `${todayConsult.vitals.bp_systolic}/${todayConsult.vitals.bp_diastolic} mmHg` : '--'));
+        const vPulse = pVitals.pulse_rate ? `${pVitals.pulse_rate} bpm` : (todayConsult?.vitals?.pulse_rate ? `${todayConsult.vitals.pulse_rate} bpm` : '--');
+        const vTemp = (pVitals.temperature || pVitals.temp) ? `${pVitals.temperature || pVitals.temp} °F` : ((todayConsult?.vitals?.temperature || todayConsult?.vitals?.temp) ? `${todayConsult.vitals.temperature || todayConsult.vitals.temp} °F` : '--');
+        const vSpo2 = pVitals.spo2 ? `${pVitals.spo2}%` : (todayConsult?.vitals?.spo2 ? `${todayConsult.vitals.spo2}%` : '--');
+        const vRr = pVitals.respiratory_rate ? `${pVitals.respiratory_rate} /min` : (todayConsult?.vitals?.respiratory_rate ? `${todayConsult.vitals.respiratory_rate} /min` : '--');
+        const vSugar = pVitals.blood_sugar ? `${pVitals.blood_sugar} mg/dL` : (todayConsult?.vitals?.blood_sugar ? `${todayConsult.vitals.blood_sugar} mg/dL` : '--');
+        const vPain = (pVitals.pain_score !== undefined && pVitals.pain_score !== null && pVitals.pain_score !== '')
+          ? `${pVitals.pain_score}/10`
+          : ((todayConsult?.pain_score !== undefined && todayConsult?.pain_score !== null && todayConsult?.pain_score !== '') ? `${todayConsult.pain_score}/10` : '--');
+
+        // Chief Complaints & Allergies
+        const displayChiefComplaints = chiefComplaints.trim() || todayConsult?.chief_complaints || 'None reported';
+        const displayAllergies = allergyOption === 'no_known'
+          ? 'NO KNOWN ALLERGIES'
+          : (allergies.trim() || todayConsult?.allergies || 'None recorded');
+
+        // Diagnosis & Findings
+        const displayProvisionalDiagnosis = provisionalDiagnosis.trim() || todayConsult?.provisional_diagnosis || 'None specified';
+        const displayFindings = (finding || physicalExamination || '').trim() || todayConsult?.finding || todayConsult?.physical_examination || 'None recorded';
+        const currentSymptoms = selectedSymptoms.length > 0
+          ? selectedSymptoms
+          : (Array.isArray(todayConsult?.symptoms) ? todayConsult.symptoms : []);
+
+        // Medical History & Present Medications
+        const currentPastHistory = clinicalPastHistory.length > 0
+          ? clinicalPastHistory
+          : (Array.isArray(todayConsult?.past_history) ? todayConsult.past_history : []);
+
+        const currentSocialHistory = socialHistory.length > 0
+          ? socialHistory
+          : (Array.isArray(todayConsult?.social_history) ? todayConsult.social_history : []);
+
+        const currentSocialNotes = socialHistoryNotes || todayConsult?.social_history_notes || '';
+        const displayPresentMeds = presentMedications.trim() || todayConsult?.present_medications || 'None reported';
+        const currentMedFiles = (Array.isArray(presentMedicationFiles) && presentMedicationFiles.length > 0)
+          ? presentMedicationFiles
+          : (Array.isArray(todayConsult?.present_medications_attachments) ? todayConsult.present_medications_attachments : []);
+
+        const currentMenstrualStatus = menstrualStatus || todayConsult?.menstrual_history?.status || '';
+        const currentMenstrualSpecify = menstrualSpecify || todayConsult?.menstrual_history?.specify || '';
+        const currentObstetrics = obstetricsHistory || todayConsult?.obstetrics_history || '';
+
+        // Ordered Diagnostic Tests (Lab)
+        let currentTests = [];
+        if (selectedTestIds.length > 0) {
+          currentTests = selectedTestIds.map(id => {
+            const t = testList.find(x => x.test_id === id);
+            return t ? { id, name: t.test_name, dept: t.department || 'Diagnostics', mrp: t.MRP } : { id, name: `Test #${id}`, dept: 'Diagnostics', mrp: null };
+          });
+        } else if (Array.isArray(todayConsult?.investigation_details) && todayConsult.investigation_details.length > 0) {
+          currentTests = todayConsult.investigation_details
+            .filter(d => d.department !== 'CT' && d.department !== 'MRI' && d.department !== 'X-Ray')
+            .map(d => ({ id: d.test_id || d.id, name: d.test_name || d.name, dept: d.department || 'Diagnostics', mrp: d.MRP }));
+        } else if (Array.isArray(todayConsult?.investigation_test_ids) && todayConsult.investigation_test_ids.length > 0) {
+          currentTests = todayConsult.investigation_test_ids.map(id => {
+            const t = testList.find(x => x.test_id === id);
+            return t ? { id, name: t.test_name, dept: t.department || 'Diagnostics', mrp: t.MRP } : { id, name: `Test #${id}`, dept: 'Diagnostics', mrp: null };
+          });
+        }
+
+        // Radiology (CT, MRI, X-Ray)
+        let currentCts = [];
+        if (selectedCtIds.length > 0) {
+          currentCts = selectedCtIds.map(id => {
+            const found = ctList.find(x => x.id === id || x.item_id === id || x.name === id);
+            return found ? found.name : id;
+          });
+        } else if (Array.isArray(todayConsult?.ct_scan_details) && todayConsult.ct_scan_details.length > 0) {
+          currentCts = todayConsult.ct_scan_details.map(c => c.name || c.test_name || c.id);
+        }
+
+        let currentMris = [];
+        if (selectedMriIds.length > 0) {
+          currentMris = selectedMriIds.map(id => {
+            const found = mriList.find(x => x.id === id || x.item_id === id || x.name === id);
+            return found ? found.name : id;
+          });
+        } else if (Array.isArray(todayConsult?.mri_scan_details) && todayConsult.mri_scan_details.length > 0) {
+          currentMris = todayConsult.mri_scan_details.map(m => m.name || m.test_name || m.id);
+        }
+
+        let currentXrays = [];
+        if (selectedXrayIds.length > 0) {
+          currentXrays = selectedXrayIds.map(id => {
+            const found = xrayList.find(x => x.id === id || x.item_id === id || x.name === id);
+            return found ? found.name : id;
+          });
+        } else if (Array.isArray(todayConsult?.xray_details) && todayConsult.xray_details.length > 0) {
+          currentXrays = todayConsult.xray_details.map(x => x.name || x.test_name || x.id);
+        }
+
+        // Prescriptions (Rx Table)
+        let currentPrescriptions = [];
+        if (selectedMedicineIds.length > 0) {
+          currentPrescriptions = selectedMedicineIds.map((id, idx) => {
+            const m = medicineList.find(x => x.item_id === id);
+            const pd = prescriptionData[id] || {};
+            return {
+              sn: idx + 1,
+              name: m?.item_name || `Medicine #${id}`,
+              dosage: pd.dosage || 'N/A',
+              frequency: pd.frequency || 'N/A',
+              duration: pd.duration ? (String(pd.duration).includes('Day') ? pd.duration : `${pd.duration} Days`) : 'N/A',
+              total_dosage: pd.total_dosage || '0'
+            };
+          });
+        } else if (Array.isArray(todayConsult?.prescription_details) && todayConsult.prescription_details.length > 0) {
+          currentPrescriptions = todayConsult.prescription_details.map((rx, idx) => ({
+            sn: idx + 1,
+            name: rx.item_name || rx.medicine_name || `Medicine #${rx.item_id || idx + 1}`,
+            dosage: rx.dosage || 'N/A',
+            frequency: rx.frequency || 'N/A',
+            duration: rx.duration ? (String(rx.duration).includes('Day') ? rx.duration : `${rx.duration} Days`) : 'N/A',
+            total_dosage: rx.total_dosage || '0'
+          }));
+        } else if (Array.isArray(todayConsult?.prescription_item_ids) && todayConsult.prescription_item_ids.length > 0) {
+          currentPrescriptions = todayConsult.prescription_item_ids.map((id, idx) => {
+            const m = medicineList.find(x => x.item_id === id);
+            return {
+              sn: idx + 1,
+              name: m?.item_name || `Medicine #${id}`,
+              dosage: 'N/A',
+              frequency: 'N/A',
+              duration: 'N/A',
+              total_dosage: '0'
+            };
+          });
+        }
+
+        // Plan of Care, Diet & Follow-up
+        let currentPlanPoints = [];
+        if (planOfCarePoints.length > 0) {
+          currentPlanPoints = [...planOfCarePoints];
+          if (newPlanPoint && newPlanPoint.trim() && !currentPlanPoints.includes(newPlanPoint.trim())) {
+            currentPlanPoints.push(newPlanPoint.trim());
+          }
+        } else if (newPlanPoint && newPlanPoint.trim()) {
+          currentPlanPoints = [newPlanPoint.trim()];
+        } else if (planOfCare.trim()) {
+          currentPlanPoints = planOfCare.split('\n').map(l => l.replace(/^[•\s*-]+/, '').trim()).filter(Boolean);
+        } else if (todayConsult?.plan_of_care) {
+          currentPlanPoints = todayConsult.plan_of_care.split('\n').map(l => l.replace(/^[•\s*-]+/, '').trim()).filter(Boolean);
+        }
+
+        const displayDiet = diet.trim() || todayConsult?.diet || 'Normal diet';
+        const displayReferral = (() => {
+          const docVal = referToDoctor || todayConsult?.refer_to_doctor || '';
+          if (!docVal) return '';
+          const match = referralDoctors.find(d => d.employeeId === docVal || d.employeeName === docVal);
+          return match ? match.employeeName : docVal;
+        })();
+        const displayFollowup = followupDate || todayConsult?.followup_date || '';
+
+        const opNumber = pat.billing_id || pat.op_number || selectedPatient.billing_id || '--';
+
+        return (
+          <ModalOverlay onClick={() => setShowPrintModal(false)} style={{ zIndex: 10001 }}>
+            <ModalContent
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: '960px',
+                width: '95vw',
+                maxHeight: '94vh',
+                padding: 0,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: '16px',
+                background: '#f1f5f9'
+              }}
+            >
+              {/* Modal Top Header Bar */}
+              <div style={{
+                padding: '16px 24px',
+                background: '#0f172a',
+                color: '#ffffff',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexShrink: 0,
+                borderBottom: '1px solid #1e293b'
+              }}>
+                <div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText size={20} color="#14b8a6" />
+                    <span>Outpatient Consultation Summary Preview</span>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+                    Current Consultation Data (Today's Saved &amp; In-Progress Data) • Ready to Download as PDF or Print
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={handleDownloadPDF}
+                    disabled={downloadingPdf}
+                    style={{
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.86rem',
+                      cursor: downloadingPdf ? 'not-allowed' : 'pointer',
+                      opacity: downloadingPdf ? 0.8 : 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(2,132,199,0.3)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => { if (!downloadingPdf) e.currentTarget.style.background = '#0369a1'; }}
+                    onMouseLeave={e => { if (!downloadingPdf) e.currentTarget.style.background = '#0284c7'; }}
+                    title="Download consultation summary directly as a PDF file"
+                  >
+                    {downloadingPdf ? <SpinningLoader size={16} /> : <Download size={16} />}
+                    {downloadingPdf ? 'Generating PDF...' : 'Download as PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePrintSummary}
+                    style={{
+                      background: '#0d9488',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 18px',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.86rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(13,148,136,0.3)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#0f766e'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#0d9488'}
+                    title="Open browser print dialog"
+                  >
+                    <Printer size={16} /> Print / Save as PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrintModal(false)}
+                    style={{
+                      background: '#334155',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '8px',
+                      fontWeight: 600,
+                      fontSize: '0.86rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#475569'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#334155'}
+                  >
+                    <X size={16} /> Close
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Document Body */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '24px 20px', background: '#f8fafc' }}>
+                {/* Printable A4 Sheet Paper */}
+                <div
+                  ref={printSummaryRef}
+                  style={{
+                    maxWidth: '850px',
+                    margin: '0 auto',
+                    background: '#ffffff',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+                    border: '1px solid #e2e8f0',
+                    padding: '28px 32px',
+                    color: '#0f172a',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    fontSize: '11px',
+                    lineHeight: 1.4
+                  }}
+                >
+                  {/* Hospital & Doctor Header */}
+                  <div className="header-wrap" style={{ borderBottom: '2.5px solid #0d9488', paddingBottom: '12px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div className="hosp-name" style={{ fontSize: '20px', fontWeight: 900, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '-0.3px', margin: 0 }}>
+                        SHANMUGA HOSPITAL
+                      </div>
+                      <div className="hosp-sub" style={{ fontSize: '9.5px', color: '#64748b', marginTop: '3px', lineHeight: 1.35 }}>
+                        Multi-Speciality Healthcare Centre · Outpatient Care<br />
+                        Phone: 0427-2345678 · Salem, Tamil Nadu
+                      </div>
+                    </div>
+                    <div className="doc-info" style={{ textAlign: 'right' }}>
+                      <div className="doc-name" style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                        {doctorName}
+                      </div>
+                      <div className="doc-sub" style={{ fontSize: '9.5px', color: '#475569', marginTop: '2px' }}>
+                        Date &amp; Time: <strong>{consultDate} {consultTime}</strong>
+                      </div>
+                      <div style={{ marginTop: '4px' }}>
+                        <span style={{ fontSize: '8px', fontWeight: 700, color: hasTodaySaved ? '#16a34a' : '#0d9488', background: hasTodaySaved ? '#f0fdf4' : '#f0fdfa', border: `1px solid ${hasTodaySaved ? '#bbf7d0' : '#ccfbf1'}`, padding: '2px 8px', borderRadius: '10px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                          {isCompleted ? "Today's Consultation (Completed)" : hasTodaySaved ? "Today's Consultation (Saved)" : "Current Consultation (Draft / Pre-Save)"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Patient Demographic Banner */}
+                  <div className="patient-banner" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                    <div className="pb-item">
+                      <span className="lbl" style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Patient Name</span>
+                      <strong className="val" style={{ fontSize: '11.5px', color: '#0f172a' }}>{pat.patient_name || '--'}</strong>
+                    </div>
+                    <div className="pb-item">
+                      <span className="lbl" style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>UHID / Bill No</span>
+                      <strong className="val" style={{ fontSize: '11.5px', color: '#0d9488' }}>{pat.uhid || '--'} {opNumber !== '--' ? `(${opNumber})` : ''}</strong>
+                    </div>
+                    <div className="pb-item">
+                      <span className="lbl" style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Age / Gender</span>
+                      <strong className="val" style={{ fontSize: '11px', color: '#0f172a' }}>{pat.age ? `${pat.age} Yrs` : '--'} / {pat.gender || '--'}</strong>
+                    </div>
+                    <div className="pb-item">
+                      <span className="lbl" style={{ display: 'block', fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Contact No</span>
+                      <strong className="val" style={{ fontSize: '11px', color: '#0f172a' }}>{pat.mobilePhone || '--'}</strong>
+                    </div>
+                  </div>
+
+                  {/* Vital Signs Grid */}
+                  <div className="sec-card" style={{ marginBottom: '14px' }}>
+                    <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
+                      Vital Signs
+                    </div>
+                    <div className="vitals-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '6px', background: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div className="vital-cell" style={{ textAlign: 'center' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Height</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vHeight}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Weight</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vWeight}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>BMI</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vBmi}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Blood Pressure</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vBp}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Pulse Rate</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vPulse}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Temperature</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vTemp}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>SpO2</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vSpo2}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Resp. Rate</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vRr}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Blood Sugar</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vSugar}</div>
+                      </div>
+                      <div className="vital-cell" style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div className="vlbl" style={{ fontSize: '8px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Pain Score</div>
+                        <div className="vval" style={{ fontSize: '11px', fontWeight: 800, color: '#0f766e' }}>{vPain}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chief Complaints & Allergies */}
+                  <div className="sec-card" style={{ marginBottom: '14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', marginBottom: '4px' }}>Chief Complaints</div>
+                      <div style={{ fontSize: '11px', color: '#1e293b', whiteSpace: 'pre-wrap' }}>
+                        {displayChiefComplaints}
+                      </div>
+                    </div>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', marginBottom: '4px' }}>Allergies</div>
+                      <div>
+                        {displayAllergies.toUpperCase().includes('NO KNOWN') ? (
+                          <span style={{ display: 'inline-block', fontSize: '9.5px', fontWeight: 700, color: '#16a34a', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '4px' }}>
+                            ✓ {displayAllergies}
+                          </span>
+                        ) : displayAllergies !== 'None recorded' ? (
+                          <span style={{ display: 'inline-block', fontSize: '9.5px', fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: '4px' }}>
+                            ⚠️ {displayAllergies}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>None recorded</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Diagnosis, Symptoms & Findings */}
+                  <div className="sec-card" style={{ marginBottom: '14px' }}>
+                    <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
+                      Clinical Assessment &amp; Diagnosis
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                        <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Provisional Diagnosis</div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a' }}>
+                          {displayProvisionalDiagnosis}
+                        </div>
+                      </div>
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                        <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '2px' }}>Clinical Findings / Notes</div>
+                        <div style={{ fontSize: '11px', color: '#334155', whiteSpace: 'pre-wrap' }}>
+                          {displayFindings}
+                        </div>
+                      </div>
+                    </div>
+                    {currentSymptoms.length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <span style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginRight: '6px' }}>Symptoms:</span>
+                        {currentSymptoms.map((sym, i) => (
+                          <span key={i} className="badge-pill" style={{ display: 'inline-block', padding: '2px 7px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 600, background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', marginRight: '4px', marginBottom: '3px' }}>
+                            {sym}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Medical History & Present Medications */}
+                  <div className="sec-card" style={{ marginBottom: '14px' }}>
+                    <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
+                      Medical History &amp; Medications
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '10.5px' }}>
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                        <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Past Medical / Surgical History</div>
+                        <div>
+                          {currentPastHistory.length > 0 ? currentPastHistory.map((h, idx) => (
+                            <span key={idx} className="badge-pill" style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 600, background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', marginRight: '4px', marginBottom: '3px' }}>
+                              {h}
+                            </span>
+                          )) : <span style={{ color: '#64748b' }}>None recorded</span>}
+                        </div>
+                        {currentSocialHistory.length > 0 && (
+                          <div style={{ marginTop: '6px' }}>
+                            <span style={{ fontSize: '8px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Social History: </span>
+                            <span style={{ color: '#334155' }}>{currentSocialHistory.join(', ')} {currentSocialNotes ? `(${currentSocialNotes})` : ''}</span>
+                          </div>
+                        )}
+                        {isFemale && (currentMenstrualStatus || currentObstetrics) && (
+                          <div style={{ marginTop: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
+                            {currentMenstrualStatus && <div><strong>Menstrual:</strong> {currentMenstrualStatus} {currentMenstrualSpecify ? `(${currentMenstrualSpecify})` : ''}</div>}
+                            {currentObstetrics && <div><strong>Obstetrics:</strong> {currentObstetrics}</div>}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                        <div style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '3px' }}>Present Medications</div>
+                        <div style={{ color: '#334155', whiteSpace: 'pre-wrap' }}>
+                          {displayPresentMeds}
+                        </div>
+                        {Array.isArray(currentMedFiles) && currentMedFiles.length > 0 && (
+                          <div style={{ marginTop: '6px', fontSize: '9px', color: '#0d9488', fontWeight: 600 }}>
+                            📎 Attached {currentMedFiles.length} file(s): {currentMedFiles.map(f => f.file_name || f.title).filter(Boolean).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Investigations & Radiology Orders */}
+                  {(currentTests.length > 0 || currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0) && (
+                    <div className="sec-card" style={{ marginBottom: '14px' }}>
+                      <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
+                        Ordered Investigations &amp; Imaging
+                      </div>
+                      {currentTests.length > 0 && (
+                        <div style={{ marginBottom: '8px' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: '3px' }}>Diagnostic Lab Tests:</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {currentTests.map((t, i) => (
+                              <span key={i} className="badge-pill badge-accent" style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 600, background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4' }}>
+                                • {t.name} <span style={{ fontSize: '8px', color: '#64748b' }}>({t.dept})</span>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0) && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
+                          {currentCts.length > 0 && (
+                            <div>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>CT Scan: </span>
+                              <span style={{ fontSize: '10px', color: '#0f172a', fontWeight: 600 }}>{currentCts.join(', ')}</span>
+                            </div>
+                          )}
+                          {currentMris.length > 0 && (
+                            <div>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>MRI Scan: </span>
+                              <span style={{ fontSize: '10px', color: '#0f172a', fontWeight: 600 }}>{currentMris.join(', ')}</span>
+                            </div>
+                          )}
+                          {currentXrays.length > 0 && (
+                            <div>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>X-Ray: </span>
+                              <span style={{ fontSize: '10px', color: '#0f172a', fontWeight: 600 }}>{currentXrays.join(', ')}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Prescription (Rx) Table */}
+                  <div className="sec-card" style={{ marginBottom: '14px' }}>
+                    <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
+                      Rx - Prescribed Medications ({currentPrescriptions.length})
+                    </div>
+                    {currentPrescriptions.length === 0 ? (
+                      <div style={{ padding: '8px 12px', color: '#64748b', background: '#f8fafc', borderRadius: '6px', fontSize: '10.5px' }}>
+                        No medications prescribed.
+                      </div>
+                    ) : (
+                      <table className="styled-table" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '4px', fontSize: '10.5px' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9' }}>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px', width: '36px', textAlign: 'center' }}>#</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px' }}>Medicine / Drug Name</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px', width: '90px' }}>Dosage</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px', width: '90px' }}>Frequency</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px', width: '80px' }}>Duration</th>
+                            <th style={{ border: '1px solid #cbd5e1', padding: '5px 8px', width: '60px', textAlign: 'center' }}>Qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentPrescriptions.map((rx) => (
+                            <tr key={rx.sn} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>{rx.sn}</td>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', fontWeight: 700, color: '#0f172a' }}>{rx.name}</td>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', color: '#334155' }}>{rx.dosage}</td>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', color: '#334155' }}>{rx.frequency}</td>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', color: '#334155' }}>{rx.duration}</td>
+                              <td style={{ border: '1px solid #e2e8f0', padding: '5px 8px', textAlign: 'center', fontWeight: 700, color: '#0d9488' }}>{rx.total_dosage}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  {/* Plan of Care, Diet & Follow-up */}
+                  <div className="sec-card" style={{ marginBottom: '14px', display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '12px' }}>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', marginBottom: '4px' }}>Plan of Care</div>
+                      {currentPlanPoints.length === 0 ? (
+                        <div style={{ fontSize: '10.5px', color: '#64748b' }}>None recorded</div>
+                      ) : (
+                        <ul className="bullet-list" style={{ margin: 0, paddingLeft: '18px', fontSize: '10.5px', color: '#1e293b' }}>
+                          {currentPlanPoints.map((pt, i) => (
+                            <li key={i} style={{ marginBottom: '2px' }}>{pt}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div>
+                        <span style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Diet Advice: </span>
+                        <span style={{ fontSize: '10.5px', color: '#1e293b' }}>{displayDiet}</span>
+                      </div>
+                      {displayReferral && (
+                        <div>
+                          <span style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Referral: </span>
+                          <span style={{ fontSize: '10.5px', color: '#0d9488', fontWeight: 700 }}>{displayReferral}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Next Follow-up: </span>
+                        <strong style={{ fontSize: '11px', color: displayFollowup ? '#0d9488' : '#64748b' }}>
+                          {displayFollowup ? new Date(displayFollowup).toLocaleDateString('en-GB') : 'SOS / As needed'}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Print & Sign-off Footer */}
+                  <div className="footer-grid" style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <div style={{ fontSize: '9px', color: '#64748b' }}>
+                      <div>Entered / Updated: <strong>{consultDate} {consultTime}</strong></div>
+                      <div style={{ marginTop: '2px' }}>Hospital EMR System · Current Consultation Summary</div>
+                    </div>
+                    <div className="sig-area" style={{ textAlign: 'center' }}>
+                      <div className="sig-line" style={{ width: '160px', borderBottom: '1px solid #0f172a', marginBottom: '4px' }}></div>
+                      <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0f172a' }}>{doctorName}</div>
+                      <div style={{ fontSize: '8.5px', color: '#64748b' }}>Attending Physician Signature</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ModalContent>
+          </ModalOverlay>
+        );
+      })()}
+
       {showWaitingModal && (
         <ModalOverlay onClick={() => setShowWaitingModal(false)}>
           <ModalContent onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', width: '95vw', maxHeight: '90vh', overflowY: 'auto', padding: '28px' }}>
@@ -4011,10 +6504,8 @@ const OPDoctorlogin = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                setSelectedPatient(p);
+                                handleSelectPatientAndStart(p);
                                 setShowWaitingModal(false);
-                                setActiveTab('vitals');
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
                               style={{
                                 padding: '7px 14px',
@@ -4134,10 +6625,8 @@ const OPDoctorlogin = () => {
                       {/* Pinned Bottom CTA */}
                       <button
                         onClick={() => {
-                          setSelectedPatient(p);
+                          handleSelectPatientAndStart(p);
                           setShowWaitingModal(false);
-                          setActiveTab('vitals');
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
                         onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#7c3aed' : '#0d9488'; e.currentTarget.style.color = '#fff'; } }}
                         onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = isConsultDone ? '#f5f3ff' : 'transparent'; e.currentTarget.style.color = isConsultDone ? '#7c3aed' : '#0d9488'; } }}
@@ -4159,6 +6648,146 @@ const OPDoctorlogin = () => {
               </div>
             )}
           </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* Lightbox / Full-Screen Preview Modal for Present Medication Files */}
+      {previewModalFile && (
+        <ModalOverlay onClick={() => setPreviewModalFile(null)} style={{ zIndex: 10002 }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              width: '92%',
+              maxWidth: '850px',
+              maxHeight: '92vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              background: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '8px',
+                  background: '#e0f2fe',
+                  color: '#0284c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <ImageIcon size={18} />
+                </div>
+                <div style={{ overflow: 'hidden' }}>
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: '0.95rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '520px'
+                  }}>
+                    {previewModalFile.file_name || 'Prescription / Medication Image'}
+                  </h4>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                    {previewModalFile.file_size ? `${(previewModalFile.file_size / 1024).toFixed(1)} KB` : 'Prescription Attachment'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                {previewModalFile.url && (
+                  <a
+                    href={previewModalFile.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '6px 12px',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      textDecoration: 'none',
+                      border: '1px solid #cbd5e1'
+                    }}
+                  >
+                    <ExternalLink size={13} /> Open Full Size
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalFile(null)}
+                  style={{
+                    background: '#f1f5f9',
+                    border: 'none',
+                    borderRadius: '8px',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748b'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body with Preview */}
+            <div style={{
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#0f172a',
+              overflow: 'auto',
+              maxHeight: 'calc(92vh - 75px)'
+            }}>
+              {previewModalFile.isPdf ? (
+                <iframe
+                  src={previewModalFile.url}
+                  title="PDF Document Preview"
+                  style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '8px', background: '#fff' }}
+                />
+              ) : (
+                <img
+                  src={previewModalFile.url}
+                  alt={previewModalFile.file_name}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '75vh',
+                    objectFit: 'contain',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                  }}
+                />
+              )}
+            </div>
+          </div>
         </ModalOverlay>
       )}
     </Container>
