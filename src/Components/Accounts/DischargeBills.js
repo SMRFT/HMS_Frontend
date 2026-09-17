@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaEye, FaPrint, FaSearch } from "react-icons/fa";
+import { FaEye, FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -170,7 +173,39 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((bill, index) => ({
+                "S.No": index + 1,
+                "Patient Name": bill.patient_details?.patient_name || "N/A",
+                "IP No": bill.ip_number || "",
+                "Branch": bill.branch_code || "N/A",
+                "Room": bill.patient_details?.room_no || "N/A",
+                "Admission Date": bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : "N/A",
+                "Discharge Date": bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A",
+                "Bill No": bill.bill_no || "",
+                "Payment Mode": bill.payment_mode || "Cash",
+                "Insurance": bill.has_insurance ? (bill.insurance_company || "Yes") : "No",
+                "Net Total (₹)": Number((bill.net_amount || 0).toFixed(2))
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Discharge Bills");
+            XLSX.writeFile(wb, `Discharge_Bills_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     const grandTotal = reportData.reduce((acc, curr) => acc + (curr.net_amount || 0), 0);
@@ -231,6 +266,13 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                        </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
                         </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
