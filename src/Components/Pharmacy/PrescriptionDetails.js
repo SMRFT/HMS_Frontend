@@ -744,6 +744,7 @@ const PrescriptionDetails = ({ onConvertToBill }) => {
                                 <tr>
                                   <th>#</th>
                                   <th>Item Name</th>
+                                  <th>Batch No</th>
                                   <th>Dosage</th>
                                   <th>Frequency</th>
                                   <th>Duration</th>
@@ -755,6 +756,21 @@ const PrescriptionDetails = ({ onConvertToBill }) => {
                                   <tr key={idx}>
                                     <td style={{ color: T.slateLight }}>{idx + 1}</td>
                                     <td style={{ fontWeight: 600 }}>{item.item_name}</td>
+                                    <td>
+                                      <span
+                                        style={{
+                                          background: "#f8fafc",
+                                          border: "1px solid #e2e8f0",
+                                          color: T.navyDark,
+                                          padding: "2px 6px",
+                                          borderRadius: 4,
+                                          fontSize: "0.75rem",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {item.batch_number || item.batch_no || "—"}
+                                      </span>
+                                    </td>
                                     <td>{item.dosage || "—"}</td>
                                     <td>
                                       <span
