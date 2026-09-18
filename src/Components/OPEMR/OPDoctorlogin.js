@@ -2651,6 +2651,20 @@ const OPDoctorlogin = () => {
     }
   };
 
+  const handleSelectPatientAndStart = (p) => {
+    if (!p) return;
+    setSelectedPatient(p);
+    setActiveTab('vitals');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const patientUhid = p.patient?.uhid || p.uhid;
+    const startTime = new Date().toISOString();
+    if (patientUhid && !consultationStartTimes[patientUhid]) {
+      setConsultationStartTimes(prev => ({ ...prev, [patientUhid]: startTime }));
+    }
+    handleStartConsultationAPI(startTime, p);
+  };
+
 
   // Save Doctor Consultation
   const handleSaveConsultation = async () => {
