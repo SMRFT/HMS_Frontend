@@ -1243,6 +1243,7 @@ const OPDoctorlogin = () => {
   const [ctList, setCtList] = useState([]);
   const [mriList, setMriList] = useState([]);
   const [xrayList, setXrayList] = useState([]);
+  const [usgList, setUsgList] = useState([]);
   const [medicineList, setMedicineList] = useState([]);
   const [loadingMasters, setLoadingMasters] = useState(false);
 
@@ -1314,6 +1315,7 @@ const OPDoctorlogin = () => {
   const [selectedCtIds, setSelectedCtIds] = useState([]); // Stores CT test ids
   const [selectedMriIds, setSelectedMriIds] = useState([]); // Stores MRI test ids
   const [selectedXrayIds, setSelectedXrayIds] = useState([]); // Stores X-Ray test ids
+  const [selectedUsgIds, setSelectedUsgIds] = useState([]); // Stores USG test ids
   const [selectedMedicineIds, setSelectedMedicineIds] = useState([]); // Stores item_id
   const [finding, setFinding] = useState("");
   const [diet, setDiet] = useState("");
@@ -1789,6 +1791,78 @@ const OPDoctorlogin = () => {
   const [loadingLabTests, setLoadingLabTests] = useState(false);
   const [historyTab, setHistoryTab] = useState('consultations'); // 'consultations' | 'labTests'
   const [labSearch, setLabSearch] = useState('');
+  const [labDepartmentFilter, setLabDepartmentFilter] = useState('ALL');
+  const [labViewMode, setLabViewMode] = useState('table'); // Default to table format as requested!
+
+  // Helper to determine if a result is HIGH, LOW, or NORMAL based on reference range
+  const getParamFlag = (valStr, rangeStr) => {
+    if (!valStr || !rangeStr) return null;
+    const num = parseFloat(String(valStr).replace(/[^0-9.-]/g, ''));
+    if (isNaN(num)) return null;
+
+    const strRange = String(rangeStr).trim();
+    // Pattern: < 40 or <40
+    const lessMatch = strRange.match(/<\s*=?\s*([0-9.]+)/);
+    if (lessMatch) {
+      const maxVal = parseFloat(lessMatch[1]);
+      if (!isNaN(maxVal) && num > maxVal) return 'HIGH';
+      return 'NORMAL';
+    }
+
+    // Pattern: > 40 or >40
+    const greaterMatch = strRange.match(/>\s*=?\s*([0-9.]+)/);
+    if (greaterMatch) {
+      const minVal = parseFloat(greaterMatch[1]);
+      if (!isNaN(minVal) && num < minVal) return 'LOW';
+      return 'NORMAL';
+    }
+
+    // Pattern: 80 - 120 or 12.5 - 15.5 or 4.0 - 10.0
+    const rangeMatch = strRange.match(/([0-9.]+)\s*-\s*([0-9.]+)/);
+    if (rangeMatch) {
+      const low = parseFloat(rangeMatch[1]);
+      const high = parseFloat(rangeMatch[2]);
+      if (!isNaN(low) && !isNaN(high)) {
+        if (num < low) return 'LOW';
+        if (num > high) return 'HIGH';
+        return 'NORMAL';
+      }
+    }
+    return null;
+  };
+
+  // Extract unique departments from patientLabTests
+  const labDepartments = useMemo(() => {
+    const depts = new Set(['ALL']);
+    patientLabTests.forEach(t => {
+      const d = (t.department || '').trim();
+      if (d) depts.add(d);
+    });
+    return Array.from(depts);
+  }, [patientLabTests]);
+
+  // Filtered lab tests matching search query and selected department
+  const filteredLabTests = useMemo(() => {
+    const q = labSearch.toLowerCase().trim();
+    return patientLabTests.filter(t => {
+      const matchesDept = labDepartmentFilter === 'ALL' ||
+        (t.department || '').toLowerCase() === labDepartmentFilter.toLowerCase();
+      if (!matchesDept) return false;
+
+      if (!q) return true;
+
+      const nameMatch = (t.testname || '').toLowerCase().includes(q);
+      const deptMatch = (t.department || '').toLowerCase().includes(q);
+      const bcMatch = (t.barcode || '').toLowerCase().includes(q);
+      const paramMatch = Array.isArray(t.parameters) && t.parameters.some(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.test_code || '').toLowerCase().includes(q) ||
+        String(p.value || '').toLowerCase().includes(q) ||
+        (p.method || '').toLowerCase().includes(q)
+      );
+      return nameMatch || deptMatch || bcMatch || paramMatch;
+    });
+  }, [patientLabTests, labSearch, labDepartmentFilter]);
 
   // Fetch Past Consultation History & Diagnostic Test Details (core_testvalue)
   const fetchPastHistory = async (uhid) => {
@@ -1870,7 +1944,8 @@ const OPDoctorlogin = () => {
                   dosage: it.dosage || '',
                   frequency: it.frequency || '',
                   duration: it.duration || '',
-                  total_dosage: it.total_dosage || ''
+                  total_dosage: it.total_dosage || '',
+                  batch_number: it.batch_number || it.batch_no || ''
                 };
               }
             });
@@ -1899,19 +1974,24 @@ const OPDoctorlogin = () => {
           setPresentMedicationFiles(Array.isArray(todayConsult.present_medications_attachments) ? todayConsult.present_medications_attachments.map(normalizeMedicationFile).filter(Boolean) : []);
 
           if (Array.isArray(todayConsult.ct_scan_details)) {
-            setSelectedCtIds(todayConsult.ct_scan_details.map(x => x.id || x.item_id || x.name));
+            setSelectedCtIds(todayConsult.ct_scan_details.map(x => x.item_id || x.id || x.name));
           } else {
             setSelectedCtIds([]);
           }
           if (Array.isArray(todayConsult.mri_scan_details)) {
-            setSelectedMriIds(todayConsult.mri_scan_details.map(x => x.id || x.item_id || x.name));
+            setSelectedMriIds(todayConsult.mri_scan_details.map(x => x.item_id || x.id || x.name));
           } else {
             setSelectedMriIds([]);
           }
           if (Array.isArray(todayConsult.xray_details)) {
-            setSelectedXrayIds(todayConsult.xray_details.map(x => x.id || x.item_id || x.name));
+            setSelectedXrayIds(todayConsult.xray_details.map(x => x.item_id || x.id || x.name));
           } else {
             setSelectedXrayIds([]);
+          }
+          if (Array.isArray(todayConsult.usg_details)) {
+            setSelectedUsgIds(todayConsult.usg_details.map(x => x.item_id || x.id || x.name));
+          } else {
+            setSelectedUsgIds([]);
           }
 
           const mHist = todayConsult.menstrual_history || {};
@@ -2012,7 +2092,8 @@ const OPDoctorlogin = () => {
                 dosage: it.dosage || '',
                 frequency: it.frequency || '',
                 duration: it.duration || '',
-                total_dosage: it.total_dosage || ''
+                total_dosage: it.total_dosage || '',
+                batch_number: it.batch_number || it.batch_no || ''
               };
             }
           });
@@ -2049,19 +2130,24 @@ const OPDoctorlogin = () => {
         setSocialHistoryNotes(tc.social_history_notes || "");
 
         if (Array.isArray(tc.ct_scan_details)) {
-          setSelectedCtIds(tc.ct_scan_details.map(x => x.id || x.item_id || x.name));
+          setSelectedCtIds(tc.ct_scan_details.map(x => x.item_id || x.id || x.name));
         } else {
           setSelectedCtIds([]);
         }
         if (Array.isArray(tc.mri_scan_details)) {
-          setSelectedMriIds(tc.mri_scan_details.map(x => x.id || x.item_id || x.name));
+          setSelectedMriIds(tc.mri_scan_details.map(x => x.item_id || x.id || x.name));
         } else {
           setSelectedMriIds([]);
         }
         if (Array.isArray(tc.xray_details)) {
-          setSelectedXrayIds(tc.xray_details.map(x => x.id || x.item_id || x.name));
+          setSelectedXrayIds(tc.xray_details.map(x => x.item_id || x.id || x.name));
         } else {
           setSelectedXrayIds([]);
+        }
+        if (Array.isArray(tc.usg_details)) {
+          setSelectedUsgIds(tc.usg_details.map(x => x.item_id || x.id || x.name));
+        } else {
+          setSelectedUsgIds([]);
         }
 
         const mHist = tc.menstrual_history || {};
@@ -2091,6 +2177,7 @@ const OPDoctorlogin = () => {
         setSelectedCtIds([]);
         setSelectedMriIds([]);
         setSelectedXrayIds([]);
+        setSelectedUsgIds([]);
         setSelectedMedicineIds([]);
         setPrescriptionData({});
         setFinding("");
@@ -2139,7 +2226,8 @@ const OPDoctorlogin = () => {
             dosage: it.dosage || '',
             frequency: it.frequency || '',
             duration: it.duration || '',
-            total_dosage: it.total_dosage || ''
+            total_dosage: it.total_dosage || '',
+            batch_number: it.batch_number || it.batch_no || ''
           };
         }
       });
@@ -2279,10 +2367,49 @@ const OPDoctorlogin = () => {
   const fetchRadiologyItems = async () => {
     try {
       const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_radiology_items/`, "GET");
-      if (res.success) {
-        setCtList(Array.isArray(res.ct) ? res.ct : []);
-        setMriList(Array.isArray(res.mri) ? res.mri : []);
-        setXrayList(Array.isArray(res.xray) ? res.xray : []);
+      if (res.success && res.data) {
+        const body = res.data;
+        const allItems = Array.isArray(body.all)
+          ? body.all
+          : (Array.isArray(body) ? body : (Array.isArray(body.data) ? body.data : []));
+
+        // Group by category as specified: "CT", "MRI", "X-Ray", "USG"
+        const ctData = Array.isArray(body.ct) && body.ct.length > 0
+          ? body.ct
+          : (Array.isArray(body.data?.ct) && body.data.ct.length > 0
+              ? body.data.ct
+              : allItems.filter(x => String(x.category || '').toUpperCase() === 'CT' || String(x.billTypeNo || '').toUpperCase() === 'CT01'));
+
+        const mriData = Array.isArray(body.mri) && body.mri.length > 0
+          ? body.mri
+          : (Array.isArray(body.data?.mri) && body.data.mri.length > 0
+              ? body.data.mri
+              : allItems.filter(x => String(x.category || '').toUpperCase() === 'MRI' || String(x.billTypeNo || '').toUpperCase() === 'MRI01'));
+
+        const xrayData = Array.isArray(body.xray) && body.xray.length > 0
+          ? body.xray
+          : (Array.isArray(body.data?.xray) && body.data.xray.length > 0
+              ? body.data.xray
+              : allItems.filter(x => {
+                  const c = String(x.category || '').toUpperCase();
+                  const b = String(x.billTypeNo || '').toUpperCase();
+                  return c === 'X-RAY' || c === 'XRAY' || b === 'XRAY01';
+                }));
+
+        const usgData = Array.isArray(body.usg) && body.usg.length > 0
+          ? body.usg
+          : (Array.isArray(body.data?.usg) && body.data.usg.length > 0
+              ? body.data.usg
+              : allItems.filter(x => {
+                  const c = String(x.category || '').toUpperCase();
+                  const b = String(x.billTypeNo || '').toUpperCase();
+                  return c === 'USG' || c === 'ULTRASOUND' || b === 'USG01';
+                }));
+
+        setCtList(ctData);
+        setMriList(mriData);
+        setXrayList(xrayData);
+        setUsgList(usgData);
       }
     } catch (err) {
       console.error("Error fetching radiology items:", err);
@@ -2396,45 +2523,59 @@ const OPDoctorlogin = () => {
 
   // CT Options
   const ctOptions = useMemo(() => ctList.map(item => ({
-    value: item.id || item.item_id || item.name,
-    label: item.name,
+    value: item.item_id || item.id || item.name,
+    label: item.name || item.itemName,
     data: item
   })), [ctList]);
 
   const selectedCtOptions = useMemo(() => {
     return selectedCtIds.map(id => {
-      const found = ctList.find(x => (x.id === id || x.item_id === id || x.name === id));
-      return { value: id, label: found ? found.name : id };
+      const found = ctList.find(x => (String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id));
+      return { value: id, label: found ? (found.name || found.itemName) : id };
     });
   }, [selectedCtIds, ctList]);
 
   // MRI Options
   const mriOptions = useMemo(() => mriList.map(item => ({
-    value: item.id || item.item_id || item.name,
-    label: item.name,
+    value: item.item_id || item.id || item.name,
+    label: item.name || item.itemName,
     data: item
   })), [mriList]);
 
   const selectedMriOptions = useMemo(() => {
     return selectedMriIds.map(id => {
-      const found = mriList.find(x => (x.id === id || x.item_id === id || x.name === id));
-      return { value: id, label: found ? found.name : id };
+      const found = mriList.find(x => (String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id));
+      return { value: id, label: found ? (found.name || found.itemName) : id };
     });
   }, [selectedMriIds, mriList]);
 
   // X-Ray Options
   const xrayOptions = useMemo(() => xrayList.map(item => ({
-    value: item.id || item.item_id || item.name,
-    label: item.name,
+    value: item.item_id || item.id || item.name,
+    label: item.name || item.itemName,
     data: item
   })), [xrayList]);
 
   const selectedXrayOptions = useMemo(() => {
     return selectedXrayIds.map(id => {
-      const found = xrayList.find(x => (x.id === id || x.item_id === id || x.name === id));
-      return { value: id, label: found ? found.name : id };
+      const found = xrayList.find(x => (String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id));
+      return { value: id, label: found ? (found.name || found.itemName) : id };
     });
   }, [selectedXrayIds, xrayList]);
+
+  // USG Options
+  const usgOptions = useMemo(() => usgList.map(item => ({
+    value: item.item_id || item.id || item.name,
+    label: item.name || item.itemName,
+    data: item
+  })), [usgList]);
+
+  const selectedUsgOptions = useMemo(() => {
+    return selectedUsgIds.map(id => {
+      const found = usgList.find(x => (String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id));
+      return { value: id, label: found ? (found.name || found.itemName) : id };
+    });
+  }, [selectedUsgIds, usgList]);
 
   const doctorOptions = useMemo(() => referralDoctors.map(d => ({ value: d.employeeId, label: d.employeeName })), [referralDoctors]);
 
@@ -2535,16 +2676,32 @@ const OPDoctorlogin = () => {
       const currentDoctorId = loggedInDoctorId || selectedPatient.doctor_id || selectedPatient.patient?.doctor_id || "";
 
       const selectedCtObjects = selectedCtIds.map(id => {
-        const found = ctList.find(x => x.id === id || x.item_id === id || x.name === id);
-        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'CT' } : { id, name: id, category: 'CT' };
+        const found = ctList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+        return {
+          billTypeNo: found?.billTypeNo || "CT01",
+          item_id: found?.item_id || found?.id || id
+        };
       });
       const selectedMriObjects = selectedMriIds.map(id => {
-        const found = mriList.find(x => x.id === id || x.item_id === id || x.name === id);
-        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'MRI' } : { id, name: id, category: 'MRI' };
+        const found = mriList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+        return {
+          billTypeNo: found?.billTypeNo || "MRI01",
+          item_id: found?.item_id || found?.id || id
+        };
       });
       const selectedXrayObjects = selectedXrayIds.map(id => {
-        const found = xrayList.find(x => x.id === id || x.item_id === id || x.name === id);
-        return found ? { id: found.id, item_id: found.item_id, name: found.name, category: 'X-Ray' } : { id, name: id, category: 'X-Ray' };
+        const found = xrayList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+        return {
+          billTypeNo: found?.billTypeNo || "XRAY01",
+          item_id: found?.item_id || found?.id || id
+        };
+      });
+      const selectedUsgObjects = selectedUsgIds.map(id => {
+        const found = usgList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+        return {
+          billTypeNo: found?.billTypeNo || "USG01",
+          item_id: found?.item_id || found?.id || id
+        };
       });
 
       const patientUhid = selectedPatient.patient?.uhid || selectedPatient.uhid || "";
@@ -2564,22 +2721,29 @@ const OPDoctorlogin = () => {
         symptoms: selectedSymptoms,
         investigation_test_ids: selectedTestIds, // Stored test_id array!
         investigation_details: [
-          ...testList.filter(t => selectedTestIds.includes(t.test_id)),
-          ...selectedCtObjects.map(c => ({ test_id: c.id, test_name: c.name, department: 'CT' })),
-          ...selectedMriObjects.map(m => ({ test_id: m.id, test_name: m.name, department: 'MRI' })),
-          ...selectedXrayObjects.map(x => ({ test_id: x.id, test_name: x.name, department: 'X-Ray' }))
+          ...selectedTestIds.map(id => ({ test_id: id })),
+          ...selectedCtObjects.map(c => ({ billTypeNo: c.billTypeNo, item_id: c.item_id })),
+          ...selectedMriObjects.map(m => ({ billTypeNo: m.billTypeNo, item_id: m.item_id })),
+          ...selectedXrayObjects.map(x => ({ billTypeNo: x.billTypeNo, item_id: x.item_id })),
+          ...selectedUsgObjects.map(u => ({ billTypeNo: u.billTypeNo, item_id: u.item_id }))
         ],
         ct_scan_details: selectedCtObjects,
         mri_scan_details: selectedMriObjects,
         xray_details: selectedXrayObjects,
+        usg_details: selectedUsgObjects,
         prescription_item_ids: selectedMedicineIds, // Stored item_id array!
         prescription_details: selectedMedicineIds.map(id => {
           const m = medicineList.find(x => x.item_id === id);
           if (!m) return null;
           const pd = prescriptionData[id] || {};
+          const batchNo = pd.batch_number !== undefined && pd.batch_number !== ''
+            ? pd.batch_number
+            : (m.batch_number || m.batch_no || '');
           return {
             item_id: id,
             item_name: m.item_name,
+            batch_number: batchNo,
+            batch_no: batchNo,
             dosage: pd.dosage || 'N/A',
             frequency: pd.frequency || 'N/A',
             duration: pd.duration || 'N/A',
@@ -2853,7 +3017,7 @@ const OPDoctorlogin = () => {
                             <td>
                               <div style={{ fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {name}
-                                {p.is_referred && (
+                                {(p.is_referred || p.referred_from || p.refer_from) && (
                                   <span style={{
                                     background: '#fef3c7',
                                     color: '#92400e',
@@ -2864,7 +3028,10 @@ const OPDoctorlogin = () => {
                                     borderRadius: '12px',
                                     whiteSpace: 'nowrap'
                                   }}>
-                                    Referred {p.referred_from ? `(Dr. ${p.referred_from})` : ''}
+                                    Refer from: {(() => {
+                                      const doc = p.referred_from || p.refer_from;
+                                      return doc ? (doc.toLowerCase().startsWith('dr') ? doc : `Dr. ${doc}`) : 'Doctor';
+                                    })()}
                                   </span>
                                 )}
                               </div>
@@ -3090,23 +3257,26 @@ const OPDoctorlogin = () => {
                                 <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0d9488', marginTop: '2px', whiteSpace: 'nowrap' }}>
                                   UHID: {p.patient?.uhid || '--'}
                                 </div>
-                                {p.is_referred && (
+                                {(p.is_referred || p.referred_from || p.refer_from) && (
                                   <span style={{
                                     display: 'inline-block',
                                     background: '#fef3c7',
                                     color: '#92400e',
                                     border: '1px solid #fde68a',
-                                    fontSize: '0.62rem',
+                                    fontSize: '0.68rem',
                                     fontWeight: 700,
-                                    padding: '1px 6px',
-                                    borderRadius: '10px',
-                                    marginTop: '2px',
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    marginTop: '3px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     maxWidth: '100%'
                                   }}>
-                                    Referred {p.referred_from ? `(Dr. ${p.referred_from})` : ''}
+                                    Refer from: {(() => {
+                                      const doc = p.referred_from || p.refer_from;
+                                      return doc ? (doc.toLowerCase().startsWith('dr') ? doc : `Dr. ${doc}`) : 'Doctor';
+                                    })()}
                                   </span>
                                 )}
                               </div>
@@ -3303,19 +3473,26 @@ const OPDoctorlogin = () => {
                       }}>
                         {sp.patient?.uhid}
                       </div>
-                      {sp.is_referred && (
+                      {(sp.is_referred || sp.referred_from || sp.refer_from) && (
                         <div style={{
                           background: '#fef3c7',
                           color: '#92400e',
                           border: '1px solid #fde68a',
                           borderRadius: '8px',
-                          padding: '3px 8px',
-                          fontSize: '0.72rem',
+                          padding: '4px 10px',
+                          fontSize: '0.74rem',
                           fontWeight: 700,
                           marginTop: '6px',
-                          textAlign: 'center'
+                          textAlign: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px'
                         }}>
-                          🔄 Referred {sp.referred_from ? `from Dr. ${sp.referred_from}` : ''}
+                          <span>🔄 Refer from: {(() => {
+                            const doc = sp.referred_from || sp.refer_from;
+                            return doc ? (doc.toLowerCase().startsWith('dr') ? doc : `Dr. ${doc}`) : 'Doctor';
+                          })()}</span>
                         </div>
                       )}
                     </div>
@@ -4805,6 +4982,52 @@ const OPDoctorlogin = () => {
                             />
                           </div>
                         </Card>
+
+                        {/* 7. USG Scan (Ultrasound) Dropdown */}
+                        <Card>
+                          <CardTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <Activity size={20} color="#0d9488" /> USG Scan (Ultrasound)
+                            </span>
+                            {selectedUsgIds.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: '#0f766e', background: '#ccfbf1', border: '1px solid #99f6e4', padding: '2px 8px', borderRadius: '10px', fontWeight: 600 }}>
+                                {selectedUsgIds.length} USG scan{selectedUsgIds.length > 1 ? 's' : ''} selected
+                              </span>
+                            )}
+                          </CardTitle>
+                          <div style={{ marginTop: '12px' }}>
+                            <Select
+                              isMulti
+                              closeMenuOnSelect={false}
+                              components={{ MenuList: CustomMenuList }}
+                              placeholder="Search and select USG scans (e.g. USG Abdomen, USG Pelvis, USG KUB)..."
+                              options={usgOptions}
+                              value={selectedUsgOptions}
+                              filterOption={(candidate, input) => {
+                                if (!input) return true;
+                                const q = input.toLowerCase().trim();
+                                const label = (candidate.label || '').toLowerCase();
+                                return label.includes(q);
+                              }}
+                              onChange={(selected) => {
+                                setSelectedUsgIds(selected ? selected.map(s => s.value) : []);
+                              }}
+                              menuPortalTarget={document.body}
+                              styles={{
+                                menuPortal: base => ({ ...base, zIndex: 9999 }),
+                                control: (base) => ({
+                                  ...base,
+                                  borderRadius: '8px',
+                                  borderColor: '#e2e8f0',
+                                  boxShadow: 'none',
+                                  '&:hover': {
+                                    borderColor: '#cbd5e1'
+                                  }
+                                })
+                              }}
+                            />
+                          </div>
+                        </Card>
                       </TabContent>
                     )}
 
@@ -4848,6 +5071,7 @@ const OPDoctorlogin = () => {
                                 <thead>
                                   <tr>
                                     <th>Medication</th>
+                                    <th>Batch No</th>
                                     <th>Dosage</th>
                                     <th>Frequency</th>
                                     <th>Duration</th>
@@ -4858,9 +5082,22 @@ const OPDoctorlogin = () => {
                                   {selectedMedicineIds.map(id => {
                                     const m = medicineList.find(x => x.item_id === id);
                                     const pd = prescriptionData[id] || {};
+                                    const currentBatch = pd.batch_number !== undefined ? pd.batch_number : (m?.batch_number || m?.batch_no || '');
                                     return (
                                       <tr key={id}>
-                                        <td style={{ fontWeight: 500 }}>{m ? m.item_name : `Item #${id}`}</td>
+                                        <td style={{ fontWeight: 500 }}>
+                                          <div>{m ? m.item_name : `Item #${id}`}</div>
+                                          {m?.category && <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{m.category}</span>}
+                                        </td>
+                                        <td>
+                                          <input
+                                            type="text"
+                                            style={{ width: '90%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.8125rem', background: '#f8fafc' }}
+                                            value={currentBatch}
+                                            onChange={e => handlePrescriptionChange(id, 'batch_number', e.target.value)}
+                                            placeholder="Batch No"
+                                          />
+                                        </td>
                                         <td>
                                           <input
                                             type="text"
@@ -5290,17 +5527,86 @@ const OPDoctorlogin = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {selectedHistoryItem.investigation_details?.length > 0 ? (
-                                selectedHistoryItem.investigation_details.map(t => (
-                                  <tr key={t.test_id}>
-                                    <td>{t.test_name}</td>
-                                    <td>{t.department || 'N/A'}</td>
-                                    <td><span style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>Ordered</span></td>
-                                  </tr>
-                                ))
+                              {((selectedHistoryItem.investigation_details?.length > 0) ||
+                                (selectedHistoryItem.ct_scan_details?.length > 0) ||
+                                (selectedHistoryItem.mri_scan_details?.length > 0) ||
+                                (selectedHistoryItem.xray_details?.length > 0) ||
+                                (selectedHistoryItem.usg_details?.length > 0)) ? (
+                                (() => {
+                                  const hasSeparateRad = (selectedHistoryItem.ct_scan_details?.length > 0) ||
+                                    (selectedHistoryItem.mri_scan_details?.length > 0) ||
+                                    (selectedHistoryItem.xray_details?.length > 0) ||
+                                    (selectedHistoryItem.usg_details?.length > 0);
+
+                                  const labDetails = (selectedHistoryItem.investigation_details || []).filter(t => {
+                                    if (!hasSeparateRad) return true;
+                                    return !t.billTypeNo && t.department !== 'CT' && t.department !== 'MRI' && t.department !== 'X-Ray' && t.department !== 'USG';
+                                  });
+
+                                  return (
+                                    <>
+                                      {labDetails.map((t, i) => {
+                                        const lab = testList.find(x => String(x.test_id) === String(t.test_id || t.id));
+                                        const testName = t.test_name || lab?.test_name || t.name || (t.item_id ? `Investigation #${t.item_id}` : `Test #${t.test_id || t.id || i}`);
+                                        const dept = t.department || lab?.department || 'Diagnostics';
+                                        return (
+                                          <tr key={`inv-${t.test_id || t.item_id || i}`}>
+                                            <td>{testName}</td>
+                                            <td>{dept}</td>
+                                            <td><span style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>Ordered</span></td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {selectedHistoryItem.ct_scan_details?.map((c, i) => {
+                                        const found = ctList.find(x => String(x.item_id) === String(c.item_id || c.id) || String(x.id) === String(c.item_id || c.id));
+                                        const ctName = c.item_name || c.name || found?.itemName || found?.name || `CT #${c.item_id || c.id || i}`;
+                                        return (
+                                          <tr key={`ct-${c.item_id || i}`}>
+                                            <td>{ctName}</td>
+                                            <td>CT Scan</td>
+                                            <td><span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>CT Ordered</span></td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {selectedHistoryItem.mri_scan_details?.map((m, i) => {
+                                        const found = mriList.find(x => String(x.item_id) === String(m.item_id || m.id) || String(x.id) === String(m.item_id || m.id));
+                                        const mriName = m.item_name || m.name || found?.itemName || found?.name || `MRI #${m.item_id || m.id || i}`;
+                                        return (
+                                          <tr key={`mri-${m.item_id || i}`}>
+                                            <td>{mriName}</td>
+                                            <td>MRI Scan</td>
+                                            <td><span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>MRI Ordered</span></td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {selectedHistoryItem.xray_details?.map((x, i) => {
+                                        const found = xrayList.find(x => String(x.item_id) === String(x.item_id || x.id) || String(x.id) === String(x.item_id || x.id));
+                                        const xrayName = x.item_name || x.name || found?.itemName || found?.name || `X-Ray #${x.item_id || x.id || i}`;
+                                        return (
+                                          <tr key={`xray-${x.item_id || i}`}>
+                                            <td>{xrayName}</td>
+                                            <td>X-Ray</td>
+                                            <td><span style={{ background: '#fff7ed', color: '#c2410c', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>X-Ray Ordered</span></td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {selectedHistoryItem.usg_details?.map((u, i) => {
+                                        const found = usgList.find(x => String(x.item_id) === String(u.item_id || u.id) || String(x.id) === String(u.item_id || u.id));
+                                        const usgName = u.item_name || u.name || found?.itemName || found?.name || `USG #${u.item_id || u.id || i}`;
+                                        return (
+                                          <tr key={`usg-${u.item_id || i}`}>
+                                            <td>{usgName}</td>
+                                            <td>USG Scan</td>
+                                            <td><span style={{ background: '#ccfbf1', color: '#0f766e', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>USG Ordered</span></td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </>
+                                  );
+                                })()
                               ) : (
                                 <tr>
-                                  <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No investigations ordered.</td>
+                                  <td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8' }}>No investigations or radiology scans ordered.</td>
                                 </tr>
                               )}
                             </tbody>
@@ -5314,6 +5620,7 @@ const OPDoctorlogin = () => {
                             <thead>
                               <tr>
                                 <th>Medication</th>
+                                <th>Batch No</th>
                                 <th>Dosage</th>
                                 <th>Frequency</th>
                                 <th>Duration</th>
@@ -5325,6 +5632,11 @@ const OPDoctorlogin = () => {
                                 selectedHistoryItem.prescription_details.map(m => (
                                   <tr key={m.item_id}>
                                     <td style={{ fontWeight: 600 }}>{m.item_name}</td>
+                                    <td>
+                                      <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                        {m.batch_number || m.batch_no || '—'}
+                                      </span>
+                                    </td>
                                     <td>{m.dosage || 'N/A'}</td>
                                     <td>{m.frequency || 'N/A'}</td>
                                     <td>{m.duration || 'N/A'}</td>
@@ -5333,7 +5645,7 @@ const OPDoctorlogin = () => {
                                 ))
                               ) : (
                                 <tr>
-                                  <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8' }}>No prescriptions recorded.</td>
+                                  <td colSpan="6" style={{ textAlign: 'center', color: '#94a3b8' }}>No prescriptions recorded.</td>
                                 </tr>
                               )}
                             </tbody>
@@ -5391,154 +5703,660 @@ const OPDoctorlogin = () => {
             {/* ── TAB 2: DIAGNOSTIC & LAB TEST DETAILS (from core_testvalue) ── */}
             {historyTab === 'labTests' && (
               <div>
-                {/* Search Bar & Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '14px', flexWrap: 'wrap' }}>
-                  <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                {/* 1. Control & Action Bar */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '14px',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  {/* Search Input */}
+                  <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
                     <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                     <input
                       type="text"
-                      placeholder="Search test name or department..."
+                      placeholder="Search parameter, test, department, method, or barcode..."
                       value={labSearch}
                       onChange={e => setLabSearch(e.target.value)}
                       style={{
                         width: '100%',
-                        padding: '8px 12px 8px 34px',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '8px',
+                        padding: '9px 14px 9px 36px',
+                        border: '1.5px solid #cbd5e1',
+                        borderRadius: '10px',
                         fontSize: '0.84rem',
                         outline: 'none',
-                        background: '#f8fafc',
-                        boxSizing: 'border-box'
+                        background: '#ffffff',
+                        boxSizing: 'border-box',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onFocus={e => {
+                        e.currentTarget.style.borderColor = '#0d9488';
+                        e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.12)';
+                      }}
+                      onBlur={e => {
+                        e.currentTarget.style.borderColor = '#cbd5e1';
+                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     />
+                    {labSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setLabSearch('')}
+                        style={{
+                          position: 'absolute',
+                          right: 10,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          padding: '2px 4px',
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                    Showing <strong>{
-                      patientLabTests.filter(t => !labSearch || (t.testname || '').toLowerCase().includes(labSearch.toLowerCase()) || (t.department || '').toLowerCase().includes(labSearch.toLowerCase())).length
-                    }</strong> of {patientLabTests.length} tests from Lab (core_testvalue)
+
+                  {/* View Mode Switcher (Table vs Cards) */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      display: 'inline-flex',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '10px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => setLabViewMode('table')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          background: labViewMode === 'table' ? '#0d9488' : 'transparent',
+                          color: labViewMode === 'table' ? '#ffffff' : '#64748b',
+                          boxShadow: labViewMode === 'table' ? '0 1px 3px rgba(13, 148, 136, 0.2)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <List size={14} /> Medical Table
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLabViewMode('cards')}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          background: labViewMode === 'cards' ? '#0d9488' : 'transparent',
+                          color: labViewMode === 'cards' ? '#ffffff' : '#64748b',
+                          boxShadow: labViewMode === 'cards' ? '0 1px 3px rgba(13, 148, 136, 0.2)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <LayoutGrid size={14} /> Cards View
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '7px 12px',
+                        background: '#ffffff',
+                        border: '1.5px solid #e2e8f0',
+                        borderRadius: '9px',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        color: '#475569',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#0d9488';
+                        e.currentTarget.style.color = '#0d9488';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.color = '#475569';
+                      }}
+                      title="Print or export lab investigation table"
+                    >
+                      <Printer size={14} /> Print Table
+                    </button>
                   </div>
                 </div>
 
-                {loadingLabTests ? (
-                  <div style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
-                    <Activity size={24} style={{ animation: 'spin 1s linear infinite', color: '#0d9488' }} />
-                    <div style={{ marginTop: '8px' }}>Fetching lab investigation results...</div>
+                {/* 2. Department Filter Tabs & Summary Badges */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  flexWrap: 'wrap'
+                }}>
+                  {/* Department Pills */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 700, marginRight: '4px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                      Department:
+                    </span>
+                    {labDepartments.map(dept => {
+                      const count = dept === 'ALL'
+                        ? patientLabTests.length
+                        : patientLabTests.filter(t => (t.department || 'General').toUpperCase() === dept.toUpperCase()).length;
+                      const isSel = labDepartmentFilter === dept;
+                      return (
+                        <button
+                          key={dept}
+                          type="button"
+                          onClick={() => setLabDepartmentFilter(dept)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            border: `1px solid ${isSel ? '#0d9488' : '#e2e8f0'}`,
+                            background: isSel ? '#f0fdfa' : '#ffffff',
+                            color: isSel ? '#0f766e' : '#64748b',
+                            fontSize: '0.78rem',
+                            fontWeight: isSel ? 700 : 500,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                        >
+                          <span>{dept === 'ALL' ? 'All Departments' : dept}</span>
+                          <span style={{
+                            fontSize: '0.7rem',
+                            background: isSel ? '#ccfbf1' : '#f1f5f9',
+                            color: isSel ? '#0f766e' : '#64748b',
+                            padding: '1px 5px',
+                            borderRadius: '8px',
+                            fontWeight: 700
+                          }}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
-                ) : patientLabTests.length === 0 ? (
-                  <div style={{ padding: '40px 20px', background: '#f8fafc', borderRadius: '12px', textAlign: 'center', border: '1px dashed #cbd5e1' }}>
-                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🧪</div>
-                    <div style={{ fontWeight: 600, color: '#334155' }}>No Lab Test Results Found</div>
-                    <div style={{ fontSize: '0.82rem', color: '#94a3b8', marginTop: '4px' }}>
-                      No diagnostic records found in core_testvalue matching UHID <strong>{selectedPatient.patient?.uhid}</strong>.
+
+                  {/* Quick Summary Badges */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.76rem',
+                      color: '#475569',
+                      fontWeight: 600
+                    }}>
+                      Showing <strong>{filteredLabTests.length}</strong> of {patientLabTests.length} tests
+                    </span>
+                    <span style={{
+                      background: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      color: '#16a34a',
+                      padding: '4px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <CheckCircle2 size={12} /> {patientLabTests.filter(t => t.is_approved).length} Approved
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3. Investigation Content: Table or Cards */}
+                {loadingLabTests ? (
+                  <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+                    <Activity size={28} style={{ animation: 'spin 1s linear infinite', color: '#0d9488', margin: '0 auto' }} />
+                    <div style={{ marginTop: '12px', fontWeight: 600, fontSize: '0.92rem' }}>Fetching laboratory results...</div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '4px' }}>Querying Diagnostics database (core_testvalue &amp; core_hmsbarcode)</div>
+                  </div>
+                ) : filteredLabTests.length === 0 ? (
+                  <div style={{ padding: '48px 24px', background: '#f8fafc', borderRadius: '14px', textAlign: 'center', border: '1.5px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>🔬</div>
+                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>No Diagnostic Results Found</div>
+                    <div style={{ fontSize: '0.84rem', color: '#64748b', marginTop: '6px', maxWidth: '420px', margin: '6px auto 0' }}>
+                      {labSearch || labDepartmentFilter !== 'ALL'
+                        ? 'No lab investigation matches your search query or department filter.'
+                        : `No diagnostic records found in core_testvalue matching UHID ${selectedPatient.patient?.uhid || selectedPatient.uhid}.`}
+                    </div>
+                    {(labSearch || labDepartmentFilter !== 'ALL') && (
+                      <button
+                        type="button"
+                        onClick={() => { setLabSearch(''); setLabDepartmentFilter('ALL'); }}
+                        style={{
+                          marginTop: '14px',
+                          padding: '6px 14px',
+                          background: '#0d9488',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
+                ) : labViewMode === 'table' ? (
+                  /* ── UNIFIED MEDICAL TABLE FORMAT (GOOD UI, ELEGANT UI) ── */
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '14px',
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+                    maxHeight: '620px',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '780px' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
+                          <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', width: '30%' }}>
+                              Parameter / Analyte
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', width: '16%' }}>
+                              Observed Value
+                            </th>
+                            <th style={{ padding: '12px 14px', fontWeight: 700, fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', width: '10%' }}>
+                              Unit
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', width: '22%' }}>
+                              Reference Range
+                            </th>
+                            <th style={{ padding: '12px 16px', fontWeight: 700, fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', width: '22%' }}>
+                              Method / Remarks
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredLabTests.map((test, tIdx) => {
+                            const isApproved = test.is_approved;
+                            const params = Array.isArray(test.parameters) ? test.parameters : [];
+                            const deptName = (test.department || 'Diagnostics').toUpperCase();
+                            const isHaem = deptName.includes('HAEM');
+                            const isBio = deptName.includes('BIO');
+                            const isMicro = deptName.includes('MICRO') || test.is_microbiology;
+
+                            const deptBg = isHaem ? '#eff6ff' : isBio ? '#f0fdfa' : isMicro ? '#faf5ff' : '#f8fafc';
+                            const deptColor = isHaem ? '#1d4ed8' : isBio ? '#0f766e' : isMicro ? '#7e22ce' : '#475569';
+                            const deptBorder = isHaem ? '#bfdbfe' : isBio ? '#99f6e4' : isMicro ? '#e9d5ff' : '#cbd5e1';
+
+                            return (
+                              <React.Fragment key={test.test_id ? `${test.test_id}-${tIdx}` : tIdx}>
+                                {/* Test Header Section Banner */}
+                                <tr style={{ background: '#f8fafc', borderTop: tIdx > 0 ? '2px solid #e2e8f0' : 'none', borderBottom: '1px solid #e2e8f0' }}>
+                                  <td colSpan="5" style={{ padding: '12px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                                      {/* Left: Test Name & Tags */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          borderRadius: '7px',
+                                          background: deptBg,
+                                          color: deptColor,
+                                          border: `1px solid ${deptBorder}`,
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          fontSize: '0.85rem'
+                                        }}>
+                                          🔬
+                                        </div>
+                                        <div>
+                                          <span style={{ fontWeight: 800, fontSize: '0.94rem', color: '#0f172a', letterSpacing: '0.01em' }}>
+                                            {test.testname}
+                                          </span>
+                                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginLeft: '12px', flexWrap: 'wrap' }}>
+                                            <span style={{
+                                              background: deptBg,
+                                              color: deptColor,
+                                              border: `1px solid ${deptBorder}`,
+                                              padding: '2px 8px',
+                                              borderRadius: '6px',
+                                              fontSize: '0.72rem',
+                                              fontWeight: 700
+                                            }}>
+                                              {test.department || 'General'}
+                                            </span>
+                                            {test.specimen_type && (
+                                              <span style={{
+                                                background: '#ffffff',
+                                                color: '#475569',
+                                                border: '1px solid #e2e8f0',
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 600
+                                              }}>
+                                                Specimen: <strong>{test.specimen_type}</strong>
+                                              </span>
+                                            )}
+                                            {test.barcode && (
+                                              <span style={{
+                                                background: '#f1f5f9',
+                                                color: '#334155',
+                                                padding: '2px 7px',
+                                                borderRadius: '6px',
+                                                fontSize: '0.72rem',
+                                                fontFamily: 'monospace'
+                                              }}>
+                                                Barcode: {test.barcode}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Right: Approval Status & Time */}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        {isApproved ? (
+                                          <span style={{
+                                            background: '#f0fdf4',
+                                            color: '#16a34a',
+                                            border: '1px solid #bbf7d0',
+                                            padding: '3px 10px',
+                                            borderRadius: '16px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700,
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                          }}>
+                                            <CheckCircle2 size={12} /> Approved
+                                          </span>
+                                        ) : (
+                                          <span style={{
+                                            background: '#fffbeb',
+                                            color: '#d97706',
+                                            border: '1px solid #fde68a',
+                                            padding: '3px 10px',
+                                            borderRadius: '16px',
+                                            fontSize: '0.74rem',
+                                            fontWeight: 700
+                                          }}>
+                                            Pending Verification
+                                          </span>
+                                        )}
+                                        {test.approve_time && test.approve_time !== 'N/A' && (
+                                          <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                            {test.approve_time}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+
+                                {/* Parameter Rows */}
+                                {params.length > 0 ? (
+                                  params.map((p, pIdx) => {
+                                    const flag = getParamFlag(p.value, p.reference_range);
+                                    const isHigh = flag === 'HIGH';
+                                    const isLow = flag === 'LOW';
+
+                                    return (
+                                      <tr
+                                        key={pIdx}
+                                        style={{
+                                          borderBottom: '1px solid #f1f5f9',
+                                          background: pIdx % 2 === 0 ? '#ffffff' : '#fcfdfe',
+                                          transition: 'background 0.12s ease'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.background = '#f0fdfa'}
+                                        onMouseLeave={e => e.currentTarget.style.background = pIdx % 2 === 0 ? '#ffffff' : '#fcfdfe'}
+                                      >
+                                        {/* Parameter Name */}
+                                        <td style={{ padding: '10px 16px', color: '#1e293b', fontWeight: 600, fontSize: '0.86rem' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{
+                                              width: '7px',
+                                              height: '7px',
+                                              borderRadius: '50%',
+                                              background: isHigh ? '#ef4444' : isLow ? '#0284c7' : '#0d9488',
+                                              flexShrink: 0
+                                            }} />
+                                            <span>{p.name || p.test_name || `Parameter ${pIdx + 1}`}</span>
+                                          </div>
+                                        </td>
+
+                                        {/* Result Value with Highlight Badge */}
+                                        <td style={{ padding: '10px 16px' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <span style={{
+                                              fontWeight: 800,
+                                              fontSize: '0.94rem',
+                                              color: isHigh ? '#dc2626' : isLow ? '#0284c7' : '#0f766e',
+                                              letterSpacing: '0.01em'
+                                            }}>
+                                              {p.value !== undefined && p.value !== null && p.value !== '' ? String(p.value) : '—'}
+                                            </span>
+                                            {isHigh && (
+                                              <span style={{
+                                                background: '#fef2f2',
+                                                color: '#dc2626',
+                                                border: '1px solid #fecaca',
+                                                padding: '1px 6px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.68rem',
+                                                fontWeight: 800
+                                              }}>
+                                                HIGH ▲
+                                              </span>
+                                            )}
+                                            {isLow && (
+                                              <span style={{
+                                                background: '#f0f9ff',
+                                                color: '#0284c7',
+                                                border: '1px solid #bae6fd',
+                                                padding: '1px 6px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.68rem',
+                                                fontWeight: 800
+                                              }}>
+                                                LOW ▼
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
+
+                                        {/* Unit */}
+                                        <td style={{ padding: '10px 14px', color: '#64748b', fontSize: '0.82rem', fontWeight: 500 }}>
+                                          {p.unit ? (
+                                            <span style={{ background: '#f8fafc', border: '1px solid #f1f5f9', padding: '2px 6px', borderRadius: '5px' }}>
+                                              {p.unit}
+                                            </span>
+                                          ) : '—'}
+                                        </td>
+
+                                        {/* Biological Reference Range */}
+                                        <td style={{ padding: '10px 16px', color: '#334155', fontSize: '0.82rem', fontFamily: 'monospace' }}>
+                                          {p.reference_range || '—'}
+                                        </td>
+
+                                        {/* Methodology */}
+                                        <td style={{ padding: '10px 16px', color: '#64748b', fontSize: '0.78rem' }}>
+                                          {p.method || '—'}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                ) : (
+                                  <tr style={{ background: '#ffffff', borderBottom: '1px solid #f1f5f9' }}>
+                                    <td colSpan="5" style={{ padding: '14px 18px', color: '#94a3b8', fontSize: '0.82rem', fontStyle: 'italic' }}>
+                                      No specific parameter breakdown available for this test.
+                                    </td>
+                                  </tr>
+                                )}
+
+                                {/* Remarks Footnote */}
+                                {(test.comment || test.remarks || test.approve_by) && (
+                                  <tr style={{ background: '#fafbfc', borderBottom: '1px solid #e2e8f0' }}>
+                                    <td colSpan="5" style={{ padding: '7px 18px', fontSize: '0.75rem', color: '#64748b' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                                        <div>
+                                          {test.comment && <span><strong>Clinical Note:</strong> {test.comment}</span>}
+                                          {test.remarks && <span style={{ marginLeft: test.comment ? '16px' : 0 }}><strong>Remarks:</strong> {test.remarks}</span>}
+                                        </div>
+                                        {test.approve_by && (
+                                          <span>Verified by: <strong style={{ color: '#334155' }}>{test.approve_by}</strong></span>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '520px', overflowY: 'auto', paddingRight: '4px' }}>
-                    {patientLabTests
-                      .filter(t => !labSearch || (t.testname || '').toLowerCase().includes(labSearch.toLowerCase()) || (t.department || '').toLowerCase().includes(labSearch.toLowerCase()))
-                      .map((test, tIdx) => {
-                        const isApproved = test.is_approved;
-                        return (
-                          <div
-                            key={test.test_id ? `${test.test_id}-${tIdx}` : tIdx}
-                            style={{
-                              background: '#ffffff',
-                              border: '1.5px solid #e2e8f0',
-                              borderRadius: '12px',
-                              overflow: 'hidden',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
-                            }}
-                          >
-                            {/* Card Top Header */}
-                            <div style={{
-                              background: '#f8fafc',
-                              borderBottom: '1px solid #e2e8f0',
-                              padding: '12px 18px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: '10px'
-                            }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  borderRadius: '8px',
-                                  background: '#f0fdfa',
-                                  color: '#0d9488',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontWeight: 800
-                                }}>
-                                  🔬
-                                </div>
-                                <div>
-                                  <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#0f172a' }}>
-                                    {test.testname}
-                                  </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '0.74rem', color: '#64748b' }}>
-                                    <span>Dept: <strong style={{ color: '#334155' }}>{test.department || 'General'}</strong></span>
-                                    {test.specimen_type && <span>• Specimen: <strong>{test.specimen_type}</strong></span>}
-                                    {test.barcode && <span>• Barcode: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>{test.barcode}</code></span>}
-                                  </div>
-                                </div>
+                  /* ── CARDS VIEW (WITH FLEX-SHRINK: 0 & NO SQUASHING) ── */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '620px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {filteredLabTests.map((test, tIdx) => {
+                      const isApproved = test.is_approved;
+                      const params = Array.isArray(test.parameters) ? test.parameters : [];
+                      return (
+                        <div
+                          key={test.test_id ? `${test.test_id}-${tIdx}` : tIdx}
+                          style={{
+                            flexShrink: 0,
+                            background: '#ffffff',
+                            border: '1.5px solid #e2e8f0',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+                          }}
+                        >
+                          {/* Card Top Header */}
+                          <div style={{
+                            background: '#f8fafc',
+                            borderBottom: '1px solid #e2e8f0',
+                            padding: '12px 18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: '10px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <div style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                background: '#f0fdfa',
+                                color: '#0d9488',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800
+                              }}>
+                                🔬
                               </div>
-
-                              {/* Status Badge */}
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {isApproved ? (
-                                  <span style={{
-                                    background: '#f0fdf4',
-                                    color: '#16a34a',
-                                    border: '1px solid #bbf7d0',
-                                    padding: '4px 10px',
-                                    borderRadius: '16px',
-                                    fontSize: '0.76rem',
-                                    fontWeight: 700,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                  }}>
-                                    <CheckCircle2 size={12} /> Approved
-                                  </span>
-                                ) : (
-                                  <span style={{
-                                    background: '#fffbeb',
-                                    color: '#d97706',
-                                    border: '1px solid #fde68a',
-                                    padding: '4px 10px',
-                                    borderRadius: '16px',
-                                    fontSize: '0.76rem',
-                                    fontWeight: 700
-                                  }}>
-                                    Pending
-                                  </span>
-                                )}
-                                {test.approve_time && test.approve_time !== 'N/A' && (
-                                  <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
-                                    {test.approve_time}
-                                  </span>
-                                )}
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: '0.98rem', color: '#0f172a' }}>
+                                  {test.testname}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '0.74rem', color: '#64748b' }}>
+                                  <span>Dept: <strong style={{ color: '#334155' }}>{test.department || 'General'}</strong></span>
+                                  {test.specimen_type && <span>• Specimen: <strong>{test.specimen_type}</strong></span>}
+                                  {test.barcode && <span>• Barcode: <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>{test.barcode}</code></span>}
+                                </div>
                               </div>
                             </div>
 
-                            {/* Parameters Table (Same as discharge summary) */}
-                            {Array.isArray(test.parameters) && test.parameters.length > 0 ? (
-                              <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
-                                  <thead>
-                                    <tr style={{ background: '#f8fafc', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Parameter</th>
-                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Result Value</th>
-                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Unit</th>
-                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Reference Range</th>
-                                      <th style={{ padding: '9px 16px', fontWeight: 600 }}>Method</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {test.parameters.map((p, pIdx) => (
+                            {/* Status Badge */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {isApproved ? (
+                                <span style={{
+                                  background: '#f0fdf4',
+                                  color: '#16a34a',
+                                  border: '1px solid #bbf7d0',
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  <CheckCircle2 size={12} /> Approved
+                                </span>
+                              ) : (
+                                <span style={{
+                                  background: '#fffbeb',
+                                  color: '#d97706',
+                                  border: '1px solid #fde68a',
+                                  padding: '4px 10px',
+                                  borderRadius: '16px',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700
+                                }}>
+                                  Pending
+                                </span>
+                              )}
+                              {test.approve_time && test.approve_time !== 'N/A' && (
+                                <span style={{ fontSize: '0.74rem', color: '#64748b' }}>
+                                  {test.approve_time}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Parameters Table */}
+                          {params.length > 0 ? (
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                                <thead>
+                                  <tr style={{ background: '#f8fafc', color: '#475569', borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                                    <th style={{ padding: '9px 16px', fontWeight: 600 }}>Parameter</th>
+                                    <th style={{ padding: '9px 16px', fontWeight: 600 }}>Result Value</th>
+                                    <th style={{ padding: '9px 16px', fontWeight: 600 }}>Unit</th>
+                                    <th style={{ padding: '9px 16px', fontWeight: 600 }}>Reference Range</th>
+                                    <th style={{ padding: '9px 16px', fontWeight: 600 }}>Method</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {params.map((p, pIdx) => {
+                                    const flag = getParamFlag(p.value, p.reference_range);
+                                    const isHigh = flag === 'HIGH';
+                                    const isLow = flag === 'LOW';
+                                    return (
                                       <tr
                                         key={pIdx}
                                         style={{
@@ -5547,56 +6365,59 @@ const OPDoctorlogin = () => {
                                         }}
                                       >
                                         <td style={{ padding: '10px 16px', fontWeight: 500, color: '#1e293b' }}>
-                                          {p.name || p.test_name || p.test_code || `Parameter ${pIdx + 1}`}
+                                          {p.name || p.test_name || `Parameter ${pIdx + 1}`}
                                         </td>
-                                        <td style={{ padding: '10px 16px', fontWeight: 700, color: '#0d9488', fontSize: '0.92rem' }}>
+                                        <td style={{ padding: '10px 16px', fontWeight: 700, color: isHigh ? '#dc2626' : isLow ? '#0284c7' : '#0d9488', fontSize: '0.92rem' }}>
                                           {p.value !== undefined && p.value !== null && p.value !== '' ? String(p.value) : '—'}
+                                          {isHigh && <span style={{ marginLeft: '6px', fontSize: '0.68rem', color: '#dc2626', background: '#fef2f2', padding: '1px 5px', borderRadius: '4px' }}>HIGH</span>}
+                                          {isLow && <span style={{ marginLeft: '6px', fontSize: '0.68rem', color: '#0284c7', background: '#f0f9ff', padding: '1px 5px', borderRadius: '4px' }}>LOW</span>}
                                         </td>
                                         <td style={{ padding: '10px 16px', color: '#64748b' }}>
                                           {p.unit || '—'}
                                         </td>
                                         <td style={{ padding: '10px 16px', color: '#475569', fontFamily: 'monospace', fontSize: '0.82rem' }}>
-                                          {p.reference_range || p.referenceRange || '—'}
+                                          {p.reference_range || '—'}
                                         </td>
                                         <td style={{ padding: '10px 16px', color: '#94a3b8', fontSize: '0.78rem' }}>
                                           {p.method || '—'}
                                         </td>
                                       </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            ) : (
-                              <div style={{ padding: '14px 18px', color: '#94a3b8', fontSize: '0.84rem' }}>
-                                No specific parameter breakdown recorded for this test.
-                              </div>
-                            )}
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div style={{ padding: '14px 18px', color: '#94a3b8', fontSize: '0.84rem' }}>
+                              No specific parameter breakdown recorded for this test.
+                            </div>
+                          )}
 
-                            {/* Remarks / Comments Footer */}
-                            {(test.comment || test.remarks || test.approve_by) && (
-                              <div style={{
-                                padding: '8px 18px',
-                                background: '#fafcfc',
-                                borderTop: '1px solid #f1f5f9',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                flexWrap: 'wrap',
-                                fontSize: '0.76rem',
-                                color: '#64748b'
-                              }}>
-                                <div>
-                                  {test.comment && <span>Comment: <em>{test.comment}</em></span>}
-                                  {test.remarks && <span style={{ marginLeft: test.comment ? '14px' : 0 }}>Remarks: <em>{test.remarks}</em></span>}
-                                </div>
-                                {test.approve_by && (
-                                  <span>Verified &amp; Approved by: <strong>{test.approve_by}</strong></span>
-                                )}
+                          {/* Footer */}
+                          {(test.comment || test.remarks || test.approve_by) && (
+                            <div style={{
+                              padding: '8px 18px',
+                              background: '#fafcfc',
+                              borderTop: '1px solid #f1f5f9',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                              fontSize: '0.76rem',
+                              color: '#64748b'
+                            }}>
+                              <div>
+                                {test.comment && <span>Comment: <em>{test.comment}</em></span>}
+                                {test.remarks && <span style={{ marginLeft: test.comment ? '14px' : 0 }}>Remarks: <em>{test.remarks}</em></span>}
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              {test.approve_by && (
+                                <span>Verified &amp; Approved by: <strong>{test.approve_by}</strong></span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -5727,16 +6548,24 @@ const OPDoctorlogin = () => {
         let currentTests = [];
         if (selectedTestIds.length > 0) {
           currentTests = selectedTestIds.map(id => {
-            const t = testList.find(x => x.test_id === id);
+            const t = testList.find(x => String(x.test_id) === String(id));
             return t ? { id, name: t.test_name, dept: t.department || 'Diagnostics', mrp: t.MRP } : { id, name: `Test #${id}`, dept: 'Diagnostics', mrp: null };
           });
         } else if (Array.isArray(todayConsult?.investigation_details) && todayConsult.investigation_details.length > 0) {
           currentTests = todayConsult.investigation_details
-            .filter(d => d.department !== 'CT' && d.department !== 'MRI' && d.department !== 'X-Ray')
-            .map(d => ({ id: d.test_id || d.id, name: d.test_name || d.name, dept: d.department || 'Diagnostics', mrp: d.MRP }));
+            .filter(d => !d.billTypeNo && d.department !== 'CT' && d.department !== 'MRI' && d.department !== 'X-Ray' && d.department !== 'USG')
+            .map(d => {
+              const t = testList.find(x => String(x.test_id) === String(d.test_id || d.id));
+              return {
+                id: d.test_id || d.id,
+                name: d.test_name || d.name || t?.test_name || `Test #${d.test_id || d.id}`,
+                dept: d.department || t?.department || 'Diagnostics',
+                mrp: d.MRP || t?.MRP || null
+              };
+            });
         } else if (Array.isArray(todayConsult?.investigation_test_ids) && todayConsult.investigation_test_ids.length > 0) {
           currentTests = todayConsult.investigation_test_ids.map(id => {
-            const t = testList.find(x => x.test_id === id);
+            const t = testList.find(x => String(x.test_id) === String(id));
             return t ? { id, name: t.test_name, dept: t.department || 'Diagnostics', mrp: t.MRP } : { id, name: `Test #${id}`, dept: 'Diagnostics', mrp: null };
           });
         }
@@ -5745,31 +6574,53 @@ const OPDoctorlogin = () => {
         let currentCts = [];
         if (selectedCtIds.length > 0) {
           currentCts = selectedCtIds.map(id => {
-            const found = ctList.find(x => x.id === id || x.item_id === id || x.name === id);
-            return found ? found.name : id;
+            const found = ctList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+            return found ? (found.itemName || found.name) : id;
           });
         } else if (Array.isArray(todayConsult?.ct_scan_details) && todayConsult.ct_scan_details.length > 0) {
-          currentCts = todayConsult.ct_scan_details.map(c => c.name || c.test_name || c.id);
+          currentCts = todayConsult.ct_scan_details.map(c => {
+            const found = ctList.find(x => String(x.item_id) === String(c.item_id || c.id) || String(x.id) === String(c.item_id || c.id) || x.name === c.item_id);
+            return found ? (found.itemName || found.name) : (c.item_name || c.name || c.test_name || c.item_id || c.id);
+          });
         }
 
         let currentMris = [];
         if (selectedMriIds.length > 0) {
           currentMris = selectedMriIds.map(id => {
-            const found = mriList.find(x => x.id === id || x.item_id === id || x.name === id);
-            return found ? found.name : id;
+            const found = mriList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+            return found ? (found.itemName || found.name) : id;
           });
         } else if (Array.isArray(todayConsult?.mri_scan_details) && todayConsult.mri_scan_details.length > 0) {
-          currentMris = todayConsult.mri_scan_details.map(m => m.name || m.test_name || m.id);
+          currentMris = todayConsult.mri_scan_details.map(m => {
+            const found = mriList.find(x => String(x.item_id) === String(m.item_id || m.id) || String(x.id) === String(m.item_id || m.id) || x.name === m.item_id);
+            return found ? (found.itemName || found.name) : (m.item_name || m.name || m.test_name || m.item_id || m.id);
+          });
         }
 
         let currentXrays = [];
         if (selectedXrayIds.length > 0) {
           currentXrays = selectedXrayIds.map(id => {
-            const found = xrayList.find(x => x.id === id || x.item_id === id || x.name === id);
-            return found ? found.name : id;
+            const found = xrayList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+            return found ? (found.itemName || found.name) : id;
           });
         } else if (Array.isArray(todayConsult?.xray_details) && todayConsult.xray_details.length > 0) {
-          currentXrays = todayConsult.xray_details.map(x => x.name || x.test_name || x.id);
+          currentXrays = todayConsult.xray_details.map(x => {
+            const found = xrayList.find(x => String(x.item_id) === String(x.item_id || x.id) || String(x.id) === String(x.item_id || x.id) || x.name === x.item_id);
+            return found ? (found.itemName || found.name) : (x.item_name || x.name || x.test_name || x.item_id || x.id);
+          });
+        }
+
+        let currentUsgs = [];
+        if (selectedUsgIds.length > 0) {
+          currentUsgs = selectedUsgIds.map(id => {
+            const found = usgList.find(x => String(x.item_id) === String(id) || String(x.id) === String(id) || x.name === id);
+            return found ? (found.itemName || found.name) : id;
+          });
+        } else if (Array.isArray(todayConsult?.usg_details) && todayConsult.usg_details.length > 0) {
+          currentUsgs = todayConsult.usg_details.map(u => {
+            const found = usgList.find(x => String(x.item_id) === String(u.item_id || u.id) || String(x.id) === String(u.item_id || u.id) || x.name === u.item_id);
+            return found ? (found.itemName || found.name) : (u.item_name || u.name || u.test_name || u.item_id || u.id);
+          });
         }
 
         // Prescriptions (Rx Table)
@@ -6163,7 +7014,7 @@ const OPDoctorlogin = () => {
                   </div>
 
                   {/* Investigations & Radiology Orders */}
-                  {(currentTests.length > 0 || currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0) && (
+                  {(currentTests.length > 0 || currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0 || currentUsgs.length > 0) && (
                     <div className="sec-card" style={{ marginBottom: '14px' }}>
                       <div className="sec-title" style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.4px', borderBottom: '1.5px solid #ccfbf1', paddingBottom: '3px', marginBottom: '6px' }}>
                         Ordered Investigations &amp; Imaging
@@ -6180,7 +7031,7 @@ const OPDoctorlogin = () => {
                           </div>
                         </div>
                       )}
-                      {(currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0) && (
+                      {(currentCts.length > 0 || currentMris.length > 0 || currentXrays.length > 0 || currentUsgs.length > 0) && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '6px' }}>
                           {currentCts.length > 0 && (
                             <div>
@@ -6198,6 +7049,12 @@ const OPDoctorlogin = () => {
                             <div>
                               <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>X-Ray: </span>
                               <span style={{ fontSize: '10px', color: '#0f172a', fontWeight: 600 }}>{currentXrays.join(', ')}</span>
+                            </div>
+                          )}
+                          {currentUsgs.length > 0 && (
+                            <div>
+                              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>USG Scan: </span>
+                              <span style={{ fontSize: '10px', color: '#0f172a', fontWeight: 600 }}>{currentUsgs.join(', ')}</span>
                             </div>
                           )}
                         </div>

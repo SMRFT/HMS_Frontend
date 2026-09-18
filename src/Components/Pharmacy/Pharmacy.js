@@ -2031,7 +2031,7 @@ const loadedMedicines = rawMeds.map((item) => {
       return {
         item_id:         item.item_id || stockMatch?.item_id,
         name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
-        batch_number:    stockMatch?.batch_number || "",
+        batch_number:    item.batch_number || item.batch_no || stockMatch?.batch_number || "",
         quantity:        qty,
         price:           price,
         mrp:             mrp,
@@ -2040,7 +2040,7 @@ const loadedMedicines = rawMeds.map((item) => {
         cgst_amount:     parseFloat((cgstAmtPerUnit * qty).toFixed(2)),
         sgst_rate:       stockMatch?.sgst_rate    ?? 0,
         sgst_amount:     parseFloat((sgstAmtPerUnit * qty).toFixed(2)),
-        expiry_date:     stockMatch?.expiry_date  || "—",
+        expiry_date:     stockMatch?.expiry_date  || item.expiry_date || "—",
         available_stock: stockMatch?.available_stock ?? 9999,
         dosage:          item.dosage              || stockMatch?.dosage || "",
         noOfDays:        item.duration            || item.noOfDays || "",
