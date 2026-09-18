@@ -136,11 +136,11 @@ const PrintSignatures = styled.div`
     }
 `;
 
-const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
+const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillType = "All" }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
-    const [billType, setBillType] = useState("All");
+    const [billType, setBillType] = useState(location.state?.billType || initialBillType || "All");
     const [uhid, setUhid] = useState("");
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -155,7 +155,8 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        if (initialBillType) setBillType(initialBillType);
+    }, [startDate, endDate, initialBillType]);
 
     useEffect(() => {
         fetchReport();
@@ -189,6 +190,11 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
         }
     };
 
+    const formatINR = (val) => {
+        const num = Number(val);
+        return isNaN(num) ? "0.00" : num.toFixed(2);
+    };
+
     const handlePrint = () => {
         printAccountsReport("printable-report-area", "landscape");
     };
@@ -204,33 +210,34 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                 "Type": b.type,
                 "Bill No": b.bill_no,
                 "Bill Date": b.bill_date ? dayjs(b.bill_date).format("DD/MM/YYYY HH:mm") : "N/A",
-                "UHID": b.uhid,
-                "Patient Name": b.patient_name,
-                "Amount (₹)": Number((b.net_amount || 0).toFixed(2)),
-                "Payment Mode": b.payment_mode,
-                "Cashier": b.cashier_name
+                "Patient Name": b.patient_name || "N/A",
+                "UHID": b.uhid || "N/A",
+                "Payment Mode": b.payment_mode || "N/A",
+                "Amount (₹)": Number(formatINR(b.net_amount)),
+                "Cashier": b.cashier_name || "N/A"
             }));
+
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(rows);
-            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
-            XLSX.utils.book_append_sheet(wb, ws, "Bill Wise Report");
 
+            // Add summary sheet if summary exists
             if (summary) {
-                const sumRows = [
-                    { "Metric": "Total Collection (₹)", "Value": Number((summary.total_collection || 0).toFixed(2)) },
-                    { "Metric": "Total Return (₹)", "Value": Number((summary.total_return || 0).toFixed(2)) },
-                    { "Metric": "Net Collection (₹)", "Value": Number((summary.net_collection || 0).toFixed(2)) },
-                    { "Metric": "Bill Count", "Value": summary.count || 0 }
+                const summaryRows = [
+                    { "Metric": "Total Collection (₹)", "Value": Number(formatINR(summary.total_collection)) },
+                    { "Metric": "Total Return (₹)", "Value": Number(formatINR(summary.total_return)) },
+                    { "Metric": "Net Collection (₹)", "Value": Number(formatINR(summary.net_collection)) },
+                    { "Metric": "Total Bills Count", "Value": summary.count || 0 }
                 ];
-                const wsSum = XLSX.utils.json_to_sheet(sumRows);
-                XLSX.utils.book_append_sheet(wb, wsSum, "Summary");
+                const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
             }
 
-            XLSX.writeFile(wb, `Bill_Wise_Report_${fromDate}_to_${toDate}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Bills Breakdown");
+            XLSX.writeFile(wb, `Detailed_Bill_Report_${fromDate}_to_${toDate}.xlsx`);
             toast.success("Excel exported successfully!");
         } catch (err) {
-            console.error("Excel export error:", err);
-            toast.error("Failed to export Excel file");
+            console.error("Error exporting Excel:", err);
+            toast.error("Failed to export Excel");
         }
     };
 
@@ -282,7 +289,10 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                             <option value="Investigation">Investigation</option>
                             <option value="Pharmacy">Pharmacy</option>
                             <option value="Discharge">Discharge</option>
+                            <option value="IP Advance">IP Advance</option>
+                            <option value="Admission">Admission</option>
                             <option value="Sales Return">Sales Return</option>
+                            <option value="Miscellaneous">Miscellaneous Payment</option>
                         </Select>
                     </InputWrapper>
                     <InputWrapper>
@@ -381,7 +391,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                             <div style={{ fontSize: "0.7rem", color: colors.textMuted }}>{b.uhid}</div>
                                         </Td>
                                         <Td style={{ textAlign: "right", fontWeight: "700", color: b.display_amount < 0 ? colors.danger : colors.success }}>
-                                            ₹{b.net_amount.toFixed(2)}
+                                            ₹{formatINR(b.net_amount)}
                                         </Td>
                                         <Td>
                                             <div style={{ fontSize: "0.7rem", fontWeight: "600" }}>{b.payment_mode}</div>
@@ -406,7 +416,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                                                 <li key={idx}>
                                                                     {item.item_name || item.itemName || "Item"} | 
                                                                     Qty: {item.qty || item.quantity || item.return_qty || 1} | 
-                                                                    Price: ₹{(item.price || item.rate || 0).toFixed(2)}
+                                                                    Price: ₹{formatINR(item.price || item.rate || item.calculated_price || item.amount || 0)}
                                                                 </li>
                                                             ))}
                                                         </ul>
@@ -472,10 +482,10 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
 
                 {summary && (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", margin: "10px 0", border: "1px solid #000", padding: "8px", fontSize: "10px" }}>
-                        <div><strong>Total Collection:</strong> ₹{summary.total_collection.toFixed(2)}</div>
-                        <div><strong>Total Return:</strong> ₹{summary.total_return.toFixed(2)}</div>
-                        <div><strong>Net Collection:</strong> ₹{summary.net_collection.toFixed(2)}</div>
-                        <div><strong>Total Count:</strong> {summary.count}</div>
+                        <div><strong>Total Collection:</strong> ₹{formatINR(summary.total_collection)}</div>
+                        <div><strong>Total Return:</strong> ₹{formatINR(summary.total_return)}</div>
+                        <div><strong>Net Collection:</strong> ₹{formatINR(summary.net_collection)}</div>
+                        <div><strong>Total Count:</strong> {summary.count || 0}</div>
                     </div>
                 )}
 
@@ -503,7 +513,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                                         <div>{b.patient_name}</div>
                                         <div style={{ fontSize: "0.75rem", color: "#666" }}>{b.uhid}</div>
                                     </td>
-                                    <td style={{ textAlign: "right" }}>₹{b.net_amount.toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{formatINR(b.net_amount)}</td>
                                     <td>{b.payment_mode}</td>
                                     <td>{b.cashier_name}</td>
                                 </tr>
@@ -516,7 +526,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate }) => {
                         {summary && (
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
                                 <td colSpan="3" style={{ textAlign: "right" }}>Net Collection:</td>
-                                <td style={{ textAlign: "right" }}>₹{summary.net_collection.toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{formatINR(summary.net_collection)}</td>
                                 <td colSpan="2"></td>
                             </tr>
                         )}

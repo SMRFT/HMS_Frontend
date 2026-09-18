@@ -31,7 +31,7 @@ import {
 import styled, { keyframes } from "styled-components";
 import { Modal, DatePicker, Button, Tooltip, Spin } from "antd";
 import dayjs from "dayjs";
-import { colors, PageWrapper, fadeIn, FormRow, InputWrapper, Label } from "../GlobalStyles";
+import { colors, PageWrapper, fadeIn, FormRow, InputWrapper, Label, Select } from "../GlobalStyles";
 
 // Lazy load report components for performance
 const BillWiseReport = lazy(() => import("../Accounts/BillWiseReport"));
@@ -45,12 +45,14 @@ const AdvanceRegistration = lazy(() => import("../Accounts/AdvanceRegistration")
 const AdvanceRegistrationInsurence = lazy(() => import("../Accounts/AdvanceRegistrationInsurence"));
 const BillCancelReport = lazy(() => import("../Accounts/BillCancelReport"));
 const CreditCardReport = lazy(() => import("../Accounts/CreditCardReport"));
+const CashBillsReport = lazy(() => import("../Accounts/CashBillsReport"));
 const DatewiseCollectionSummary = lazy(() => import("../Accounts/DatewiseCollectionSummary"));
 const MiscellaneousPaymentReport = lazy(() => import("../Accounts/MiscellaneousPaymentReport"));
 const DailyCashReport = lazy(() => import("../Accounts/DailyCashReport"));
 const DebitBillsReport = lazy(() => import("../Accounts/DebitBillsReport"));
 const AuditReport = lazy(() => import("../Accounts/AuditReport"));
 const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
+const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRegister"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 
@@ -332,6 +334,7 @@ const ReportsDashboard = () => {
     const [isReportModalVisible, setIsReportModalVisible] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
     const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()]);
+    const [billType, setBillType] = useState("All");
     const [searchTerm, setSearchTerm] = useState("");
 
     const closeModal = () => {
@@ -342,7 +345,7 @@ const ReportsDashboard = () => {
     const reportsList = [
         {
             id: "bill_wise",
-            title: "Bill Wise Report",
+            title: "Detailed Bill Report",
             description: "Detailed breakdown of all bills generated across departments",
             icon: <FileText size={24} />,
             component: BillWiseReport,
@@ -445,6 +448,14 @@ const ReportsDashboard = () => {
             color: colors.primary
         },
         {
+            id: "cash_bills",
+            title: "Cash Bills Report",
+            description: "Cash-mode collections across Registration, Pharmacy (OP/IP), Discharge, and Investigations",
+            icon: <Banknote size={24} />,
+            component: CashBillsReport,
+            color: colors.primary
+        },
+        {
             id: "department_wise",
             title: "Department Wise Report",
             description: "Financial & patient volume report summarized by hospital departments",
@@ -501,6 +512,14 @@ const ReportsDashboard = () => {
             color: colors.primary
         },
         {
+            id: "daywise_sales_tax_register",
+            title: "Day-wise Sales Tax Register (GST)",
+            description: "Daily rate-wise GST register (Exempted, 5%, 12%, 18%, 28%) with multi-column breakdown",
+            icon: <Percent size={24} />,
+            component: DaywiseSalesTaxRegister,
+            color: colors.primary
+        },
+        {
             id: "stock_report_ip_op",
             title: "Stock Report — IP vs OP",
             description: "Pharmacy consumption split by IP and OP bills, item-wise",
@@ -521,6 +540,9 @@ const ReportsDashboard = () => {
             navigate(report.path);
         } else {
             setSelectedReport(report);
+            if (report.id === "bill_wise" || report.id === "credit_card" || report.id === "cash_bills") {
+                setBillType("All");
+            }
             setIsConfigModalVisible(true);
         }
     };
@@ -540,6 +562,7 @@ const ReportsDashboard = () => {
                     isModalView={true} 
                     startDate={dateRange[0].format("YYYY-MM-DD")}
                     endDate={dateRange[1].format("YYYY-MM-DD")}
+                    initialBillType={billType}
                 />
             </Suspense>
         );
@@ -636,6 +659,51 @@ const ReportsDashboard = () => {
                             />
                         </InputWrapper>
                     </FormRow>
+
+                    {(selectedReport?.id === "bill_wise" || selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") && (
+                        <FormRow style={{ marginTop: '16px' }}>
+                            <InputWrapper style={{ width: '100%' }}>
+                                <Label>Bill Type / Category</Label>
+                                <Select
+                                    value={billType}
+                                    onChange={(e) => setBillType(e.target.value)}
+                                    style={{ width: '100%', borderRadius: '8px', height: '42px' }}
+                                >
+                                    {(selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") ? (
+                                        <>
+                                            <option value="All">All Categories (All Bill Types)</option>
+                                            <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
+                                            <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
+                                            <option value="ADVANCE">Advance (IP)</option>
+                                            <option value="DISCHARGE">Discharge Bill</option>
+                                            <option value="REGISTRATION(SH)">Registration (OP)</option>
+                                            <option value="CT SCAN (SH)">CT Scan (SH)</option>
+                                            <option value="ECG (SH)">ECG (SH)</option>
+                                            <option value="LAB BILL (SH)">Lab Bill (SH)</option>
+                                            <option value="PET_CT(SH)">PET CT (SH)</option>
+                                            <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
+                                            <option value="SCANNING (SH)">Scanning (SH)</option>
+                                            <option value="X - RAY (SH)">X-Ray (SH)</option>
+                                            <option value="XEROX (SH)">Xerox (SH)</option>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <option value="All">All Types</option>
+                                            <option value="Registration">Registration</option>
+                                            <option value="Investigation">Investigation</option>
+                                            <option value="Pharmacy">Pharmacy</option>
+                                            <option value="Discharge">Discharge</option>
+                                            <option value="IP Advance">IP Advance</option>
+                                            <option value="Admission">Admission</option>
+                                            <option value="Sales Return">Sales Return</option>
+                                            <option value="Miscellaneous">Miscellaneous Payment</option>
+                                        </>
+                                    )}
+                                </Select>
+                            </InputWrapper>
+                        </FormRow>
+                    )}
+
                     <p style={{ color: colors.textMuted, fontSize: '0.75rem', marginTop: '12px' }}>
                         * The report will be generated for the period between {dateRange[0] ? dateRange[0].format('DD/MM/YYYY') : '—'} and {dateRange[1] ? dateRange[1].format('DD/MM/YYYY') : '—'}.
                     </p>
@@ -654,16 +722,31 @@ const ReportsDashboard = () => {
                 closable={false}
             >
                 <ReportContainer>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '0 10px' }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '20px',
+                        padding: '16px 24px',
+                        background: '#ffffff',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        borderLeft: `6px solid ${selectedReport?.color || colors.primary}`,
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+                    }}>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: colors.textMain }}>{selectedReport?.title}</h2>
-                            <p style={{ margin: 0, color: colors.textMuted }}>Period: {dateRange[0]?.format('DD/MM/YYYY')} - {dateRange[1]?.format('DD/MM/YYYY')}</p>
+                            <h2 style={{ margin: 0, fontSize: '1.65rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>
+                                {selectedReport?.title}
+                            </h2>
+                            <p style={{ margin: '4px 0 0 0', color: colors.textMuted, fontSize: '0.9rem', fontWeight: 600 }}>
+                                Reporting Period: <span style={{ color: '#0f172a' }}>{dateRange[0]?.format('DD/MM/YYYY')}</span> — <span style={{ color: '#0f172a' }}>{dateRange[1]?.format('DD/MM/YYYY')}</span>
+                            </p>
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <Button icon={<Filter size={16} />} onClick={() => { setIsReportModalVisible(false); setIsConfigModalVisible(true); }}>
+                            <Button icon={<Filter size={16} />} onClick={() => { setIsReportModalVisible(false); setIsConfigModalVisible(true); }} style={{ borderRadius: '8px', height: '38px', fontWeight: 600 }}>
                                 Change Dates
                             </Button>
-                            <Button type="primary" danger icon={<X size={16} />} onClick={closeModal}>
+                            <Button type="primary" danger icon={<X size={16} />} onClick={closeModal} style={{ borderRadius: '8px', height: '38px', fontWeight: 600 }}>
                                 Close
                             </Button>
                         </div>
