@@ -254,6 +254,9 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
         return "Day-wise Consolidated Pharmacy Sales & Return GST Register";
     };
 
+    const isIpOnly = patientType === "ip";
+    const totalTableCols = isIpOnly ? 21 : 27;
+
     const handlePrint = () => {
         printAccountsReport("printable-daywise-gst-area", "landscape");
     };
@@ -265,76 +268,219 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
         }
 
         try {
-            const formatRow = (r) => ({
-                "Date": r.bill_date,
-                "Particulars": r.bill_name,
-                "Bill Numbers": r.bills,
-                // Exempted
-                "Exempted Amount": r.exempted?.taxable || 0,
-                "Exempted SGST": r.exempted?.sgst || 0,
-                "Exempted CGST": r.exempted?.cgst || 0,
-                "Exempted Total": r.exempted?.total || 0,
-                // Rate 5%
-                "5% Taxable": r.rate_5?.taxable || 0,
-                "5% SGST": r.rate_5?.sgst || 0,
-                "5% CGST": r.rate_5?.cgst || 0,
-                "5% Total": r.rate_5?.total || 0,
-                // Rate 12%
-                "12% Taxable": r.rate_12?.taxable || 0,
-                "12% SGST": r.rate_12?.sgst || 0,
-                "12% CGST": r.rate_12?.cgst || 0,
-                "12% Total": r.rate_12?.total || 0,
-                // Rate 18%
-                "18% Taxable": r.rate_18?.taxable || 0,
-                "18% SGST": r.rate_18?.sgst || 0,
-                "18% CGST": r.rate_18?.cgst || 0,
-                "18% Total": r.rate_18?.total || 0,
-                // Rate 28%
-                "28% Taxable": r.rate_28?.taxable || 0,
-                "28% SGST": r.rate_28?.sgst || 0,
-                "28% CGST": r.rate_28?.cgst || 0,
-                "28% Total": r.rate_28?.total || 0,
-                // Grand Total
-                "Total Taxable": r.total?.taxable || 0,
-                "Total SGST": r.total?.sgst || 0,
-                "Total CGST": r.total?.cgst || 0,
-                "Total Amount": r.total?.total || 0,
-            });
+            const formatRow = (r) => {
+                const isIpRow = r.patient_type === "IP";
+
+                if (isIpOnly) {
+                    return {
+                        "Date": r.bill_date,
+                        "Particulars": r.bill_name,
+                        "Bill Numbers": r.bills,
+                        // Exempted
+                        "Exempted Amount": r.exempted?.taxable || 0,
+                        "Exempted GST": (r.exempted?.sgst || 0) + (r.exempted?.cgst || 0),
+                        "Exempted Total": r.exempted?.total || 0,
+                        // Rate 5%
+                        "5% Taxable": r.rate_5?.taxable || 0,
+                        "5% GST": (r.rate_5?.sgst || 0) + (r.rate_5?.cgst || 0),
+                        "5% Total": r.rate_5?.total || 0,
+                        // Rate 12%
+                        "12% Taxable": r.rate_12?.taxable || 0,
+                        "12% GST": (r.rate_12?.sgst || 0) + (r.rate_12?.cgst || 0),
+                        "12% Total": r.rate_12?.total || 0,
+                        // Rate 18%
+                        "18% Taxable": r.rate_18?.taxable || 0,
+                        "18% GST": (r.rate_18?.sgst || 0) + (r.rate_18?.cgst || 0),
+                        "18% Total": r.rate_18?.total || 0,
+                        // Rate 28%
+                        "28% Taxable": r.rate_28?.taxable || 0,
+                        "28% GST": (r.rate_28?.sgst || 0) + (r.rate_28?.cgst || 0),
+                        "28% Total": r.rate_28?.total || 0,
+                        // Grand Total
+                        "Total Taxable": r.total?.taxable || 0,
+                        "Total GST": (r.total?.sgst || 0) + (r.total?.cgst || 0),
+                        "Total Amount": r.total?.total || 0,
+                    };
+                }
+
+                if (patientType === "op") {
+                    return {
+                        "Date": r.bill_date,
+                        "Particulars": r.bill_name,
+                        "Bill Numbers": r.bills,
+                        // Exempted
+                        "Exempted Amount": r.exempted?.taxable || 0,
+                        "Exempted SGST": r.exempted?.sgst || 0,
+                        "Exempted CGST": r.exempted?.cgst || 0,
+                        "Exempted Total": r.exempted?.total || 0,
+                        // Rate 5%
+                        "5% Taxable": r.rate_5?.taxable || 0,
+                        "5% SGST": r.rate_5?.sgst || 0,
+                        "5% CGST": r.rate_5?.cgst || 0,
+                        "5% Total": r.rate_5?.total || 0,
+                        // Rate 12%
+                        "12% Taxable": r.rate_12?.taxable || 0,
+                        "12% SGST": r.rate_12?.sgst || 0,
+                        "12% CGST": r.rate_12?.cgst || 0,
+                        "12% Total": r.rate_12?.total || 0,
+                        // Rate 18%
+                        "18% Taxable": r.rate_18?.taxable || 0,
+                        "18% SGST": r.rate_18?.sgst || 0,
+                        "18% CGST": r.rate_18?.cgst || 0,
+                        "18% Total": r.rate_18?.total || 0,
+                        // Rate 28%
+                        "28% Taxable": r.rate_28?.taxable || 0,
+                        "28% SGST": r.rate_28?.sgst || 0,
+                        "28% CGST": r.rate_28?.cgst || 0,
+                        "28% Total": r.rate_28?.total || 0,
+                        // Grand Total
+                        "Total Taxable": r.total?.taxable || 0,
+                        "Total SGST": r.total?.sgst || 0,
+                        "Total CGST": r.total?.cgst || 0,
+                        "Total Amount": r.total?.total || 0,
+                    };
+                }
+
+                // All (OP & IP)
+                return {
+                    "Date": r.bill_date,
+                    "Particulars": r.bill_name,
+                    "Bill Numbers": r.bills,
+                    // Exempted
+                    "Exempted Amount": r.exempted?.taxable || 0,
+                    "Exempted SGST": isIpRow ? "—" : (r.exempted?.sgst || 0),
+                    "Exempted CGST": isIpRow ? "—" : (r.exempted?.cgst || 0),
+                    "Exempted GST": (r.exempted?.sgst || 0) + (r.exempted?.cgst || 0),
+                    "Exempted Total": r.exempted?.total || 0,
+                    // Rate 5%
+                    "5% Taxable": r.rate_5?.taxable || 0,
+                    "5% SGST": isIpRow ? "—" : (r.rate_5?.sgst || 0),
+                    "5% CGST": isIpRow ? "—" : (r.rate_5?.cgst || 0),
+                    "5% GST": (r.rate_5?.sgst || 0) + (r.rate_5?.cgst || 0),
+                    "5% Total": r.rate_5?.total || 0,
+                    // Rate 12%
+                    "12% Taxable": r.rate_12?.taxable || 0,
+                    "12% SGST": isIpRow ? "—" : (r.rate_12?.sgst || 0),
+                    "12% CGST": isIpRow ? "—" : (r.rate_12?.cgst || 0),
+                    "12% GST": (r.rate_12?.sgst || 0) + (r.rate_12?.cgst || 0),
+                    "12% Total": r.rate_12?.total || 0,
+                    // Rate 18%
+                    "18% Taxable": r.rate_18?.taxable || 0,
+                    "18% SGST": isIpRow ? "—" : (r.rate_18?.sgst || 0),
+                    "18% CGST": isIpRow ? "—" : (r.rate_18?.cgst || 0),
+                    "18% GST": (r.rate_18?.sgst || 0) + (r.rate_18?.cgst || 0),
+                    "18% Total": r.rate_18?.total || 0,
+                    // Rate 28%
+                    "28% Taxable": r.rate_28?.taxable || 0,
+                    "28% SGST": isIpRow ? "—" : (r.rate_28?.sgst || 0),
+                    "28% CGST": isIpRow ? "—" : (r.rate_28?.cgst || 0),
+                    "28% GST": (r.rate_28?.sgst || 0) + (r.rate_28?.cgst || 0),
+                    "28% Total": r.rate_28?.total || 0,
+                    // Grand Total
+                    "Total Taxable": r.total?.taxable || 0,
+                    "Total SGST": isIpRow ? "—" : (r.total?.sgst || 0),
+                    "Total CGST": isIpRow ? "—" : (r.total?.cgst || 0),
+                    "Total GST": (r.total?.sgst || 0) + (r.total?.cgst || 0),
+                    "Total Amount": r.total?.total || 0,
+                };
+            };
 
             const wb = XLSX.utils.book_new();
 
             // Active Tab Sheet
             const activeRows = filteredData.map(formatRow);
             if (activeGt) {
-                activeRows.push({
-                    "Date": "GRAND TOTAL",
-                    "Particulars": "",
-                    "Bill Numbers": "",
-                    "Exempted Amount": activeGt.exempted?.taxable || 0,
-                    "Exempted SGST": activeGt.exempted?.sgst || 0,
-                    "Exempted CGST": activeGt.exempted?.cgst || 0,
-                    "Exempted Total": activeGt.exempted?.total || 0,
-                    "5% Taxable": activeGt.rate_5?.taxable || 0,
-                    "5% SGST": activeGt.rate_5?.sgst || 0,
-                    "5% CGST": activeGt.rate_5?.cgst || 0,
-                    "5% Total": activeGt.rate_5?.total || 0,
-                    "12% Taxable": activeGt.rate_12?.taxable || 0,
-                    "12% SGST": activeGt.rate_12?.sgst || 0,
-                    "12% CGST": activeGt.rate_12?.cgst || 0,
-                    "12% Total": activeGt.rate_12?.total || 0,
-                    "18% Taxable": activeGt.rate_18?.taxable || 0,
-                    "18% SGST": activeGt.rate_18?.sgst || 0,
-                    "18% CGST": activeGt.rate_18?.cgst || 0,
-                    "18% Total": activeGt.rate_18?.total || 0,
-                    "28% Taxable": activeGt.rate_28?.taxable || 0,
-                    "28% SGST": activeGt.rate_28?.sgst || 0,
-                    "28% CGST": activeGt.rate_28?.cgst || 0,
-                    "28% Total": activeGt.rate_28?.total || 0,
-                    "Total Taxable": activeGt.total?.taxable || 0,
-                    "Total SGST": activeGt.total?.sgst || 0,
-                    "Total CGST": activeGt.total?.cgst || 0,
-                    "Total Amount": activeGt.total?.total || 0,
-                });
+                if (isIpOnly) {
+                    activeRows.push({
+                        "Date": "GRAND TOTAL",
+                        "Particulars": "",
+                        "Bill Numbers": "",
+                        "Exempted Amount": activeGt.exempted?.taxable || 0,
+                        "Exempted GST": (activeGt.exempted?.sgst || 0) + (activeGt.exempted?.cgst || 0),
+                        "Exempted Total": activeGt.exempted?.total || 0,
+                        "5% Taxable": activeGt.rate_5?.taxable || 0,
+                        "5% GST": (activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0),
+                        "5% Total": activeGt.rate_5?.total || 0,
+                        "12% Taxable": activeGt.rate_12?.taxable || 0,
+                        "12% GST": (activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0),
+                        "12% Total": activeGt.rate_12?.total || 0,
+                        "18% Taxable": activeGt.rate_18?.taxable || 0,
+                        "18% GST": (activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0),
+                        "18% Total": activeGt.rate_18?.total || 0,
+                        "28% Taxable": activeGt.rate_28?.taxable || 0,
+                        "28% GST": (activeGt.rate_28?.sgst || 0) + (activeGt.rate_28?.cgst || 0),
+                        "28% Total": activeGt.rate_28?.total || 0,
+                        "Total Taxable": activeGt.total?.taxable || 0,
+                        "Total GST": (activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0),
+                        "Total Amount": activeGt.total?.total || 0,
+                    });
+                } else if (patientType === "op") {
+                    activeRows.push({
+                        "Date": "GRAND TOTAL",
+                        "Particulars": "",
+                        "Bill Numbers": "",
+                        "Exempted Amount": activeGt.exempted?.taxable || 0,
+                        "Exempted SGST": activeGt.exempted?.sgst || 0,
+                        "Exempted CGST": activeGt.exempted?.cgst || 0,
+                        "Exempted Total": activeGt.exempted?.total || 0,
+                        "5% Taxable": activeGt.rate_5?.taxable || 0,
+                        "5% SGST": activeGt.rate_5?.sgst || 0,
+                        "5% CGST": activeGt.rate_5?.cgst || 0,
+                        "5% Total": activeGt.rate_5?.total || 0,
+                        "12% Taxable": activeGt.rate_12?.taxable || 0,
+                        "12% SGST": activeGt.rate_12?.sgst || 0,
+                        "12% CGST": activeGt.rate_12?.cgst || 0,
+                        "12% Total": activeGt.rate_12?.total || 0,
+                        "18% Taxable": activeGt.rate_18?.taxable || 0,
+                        "18% SGST": activeGt.rate_18?.sgst || 0,
+                        "18% CGST": activeGt.rate_18?.cgst || 0,
+                        "18% Total": activeGt.rate_18?.total || 0,
+                        "28% Taxable": activeGt.rate_28?.taxable || 0,
+                        "28% SGST": activeGt.rate_28?.sgst || 0,
+                        "28% CGST": activeGt.rate_28?.cgst || 0,
+                        "28% Total": activeGt.rate_28?.total || 0,
+                        "Total Taxable": activeGt.total?.taxable || 0,
+                        "Total SGST": activeGt.total?.sgst || 0,
+                        "Total CGST": activeGt.total?.cgst || 0,
+                        "Total Amount": activeGt.total?.total || 0,
+                    });
+                } else {
+                    activeRows.push({
+                        "Date": "GRAND TOTAL",
+                        "Particulars": "",
+                        "Bill Numbers": "",
+                        "Exempted Amount": activeGt.exempted?.taxable || 0,
+                        "Exempted SGST": activeGt.exempted?.sgst || 0,
+                        "Exempted CGST": activeGt.exempted?.cgst || 0,
+                        "Exempted GST": (activeGt.exempted?.sgst || 0) + (activeGt.exempted?.cgst || 0),
+                        "Exempted Total": activeGt.exempted?.total || 0,
+                        "5% Taxable": activeGt.rate_5?.taxable || 0,
+                        "5% SGST": activeGt.rate_5?.sgst || 0,
+                        "5% CGST": activeGt.rate_5?.cgst || 0,
+                        "5% GST": (activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0),
+                        "5% Total": activeGt.rate_5?.total || 0,
+                        "12% Taxable": activeGt.rate_12?.taxable || 0,
+                        "12% SGST": activeGt.rate_12?.sgst || 0,
+                        "12% CGST": activeGt.rate_12?.cgst || 0,
+                        "12% GST": (activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0),
+                        "12% Total": activeGt.rate_12?.total || 0,
+                        "18% Taxable": activeGt.rate_18?.taxable || 0,
+                        "18% SGST": activeGt.rate_18?.sgst || 0,
+                        "18% CGST": activeGt.rate_18?.cgst || 0,
+                        "18% GST": (activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0),
+                        "18% Total": activeGt.rate_18?.total || 0,
+                        "28% Taxable": activeGt.rate_28?.taxable || 0,
+                        "28% SGST": activeGt.rate_28?.sgst || 0,
+                        "28% CGST": activeGt.rate_28?.cgst || 0,
+                        "28% GST": (activeGt.rate_28?.sgst || 0) + (activeGt.rate_28?.cgst || 0),
+                        "28% Total": activeGt.rate_28?.total || 0,
+                        "Total Taxable": activeGt.total?.taxable || 0,
+                        "Total SGST": activeGt.total?.sgst || 0,
+                        "Total CGST": activeGt.total?.cgst || 0,
+                        "Total GST": (activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0),
+                        "Total Amount": activeGt.total?.total || 0,
+                    });
+                }
             }
 
             const ws = XLSX.utils.json_to_sheet(activeRows);
@@ -347,6 +493,224 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
             console.error("Error exporting Excel:", err);
             toast.error("Failed to export Excel");
         }
+    };
+
+    const renderRateCells = (row, slabKey) => {
+        const isIpRow = row.patient_type === "IP";
+        const data = row[slabKey] || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <NumTd>{taxable}</NumTd>
+                    <NumTd>{gst}</NumTd>
+                    <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{total}</NumTd>
+                </>
+            );
+        }
+
+        if (isIpRow) {
+            return (
+                <>
+                    <NumTd>{taxable}</NumTd>
+                    <NumTd colSpan={2} style={{ textAlign: "center", background: "#f5f3ff", color: "#6b21a8", fontWeight: 600 }}>
+                        {gst} <span style={{ fontSize: "0.68rem", color: "#9333ea", fontWeight: 500 }}>(GST)</span>
+                    </NumTd>
+                    <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{total}</NumTd>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <NumTd>{taxable}</NumTd>
+                <NumTd>{sgst}</NumTd>
+                <NumTd>{cgst}</NumTd>
+                <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{total}</NumTd>
+            </>
+        );
+    };
+
+    const renderTotalCells = (row) => {
+        const isIpRow = row.patient_type === "IP";
+        const data = row.total || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{taxable}</NumTd>
+                    <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{gst}</NumTd>
+                    <NumTd style={{ fontWeight: 800, background: "#e2e8f0", color: "#0f172a" }}>{total}</NumTd>
+                </>
+            );
+        }
+
+        if (isIpRow) {
+            return (
+                <>
+                    <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{taxable}</NumTd>
+                    <NumTd colSpan={2} style={{ fontWeight: 700, background: "#ede9fe", color: "#581c87", textAlign: "center" }}>
+                        {gst} <span style={{ fontSize: "0.68rem", color: "#7c3aed" }}>(GST)</span>
+                    </NumTd>
+                    <NumTd style={{ fontWeight: 800, background: "#e2e8f0", color: "#0f172a" }}>{total}</NumTd>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{taxable}</NumTd>
+                <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{sgst}</NumTd>
+                <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{cgst}</NumTd>
+                <NumTd style={{ fontWeight: 800, background: "#e2e8f0", color: "#0f172a" }}>{total}</NumTd>
+            </>
+        );
+    };
+
+    const renderGrandTotalRateCells = (slabKey) => {
+        if (!activeGt) return null;
+        const data = activeGt[slabKey] || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <NumTd>{taxable}</NumTd>
+                    <NumTd>{gst}</NumTd>
+                    <NumTd>{total}</NumTd>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <NumTd>{taxable}</NumTd>
+                <NumTd>{sgst}</NumTd>
+                <NumTd>{cgst}</NumTd>
+                <NumTd>{total}</NumTd>
+            </>
+        );
+    };
+
+    const renderGrandTotalCells = () => {
+        if (!activeGt) return null;
+        const data = activeGt.total || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <NumTd style={{ fontWeight: 800 }}>{taxable}</NumTd>
+                    <NumTd style={{ fontWeight: 800 }}>{gst}</NumTd>
+                    <NumTd style={{ fontWeight: 900, background: "#cbd5e1" }}>{total}</NumTd>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <NumTd style={{ fontWeight: 800 }}>{taxable}</NumTd>
+                <NumTd style={{ fontWeight: 800 }}>{sgst}</NumTd>
+                <NumTd style={{ fontWeight: 800 }}>{cgst}</NumTd>
+                <NumTd style={{ fontWeight: 900, background: "#cbd5e1" }}>{total}</NumTd>
+            </>
+        );
+    };
+
+    const renderPrintRateCells = (row, slabKey) => {
+        const isIpRow = row.patient_type === "IP";
+        const data = row[slabKey] || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <td style={{ textAlign: "right" }}>{taxable}</td>
+                    <td style={{ textAlign: "right" }}>{gst}</td>
+                    <td style={{ textAlign: "right" }}>{total}</td>
+                </>
+            );
+        }
+
+        if (isIpRow) {
+            return (
+                <>
+                    <td style={{ textAlign: "right" }}>{taxable}</td>
+                    <td colSpan={2} style={{ textAlign: "center" }}>{gst}</td>
+                    <td style={{ textAlign: "right" }}>{total}</td>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <td style={{ textAlign: "right" }}>{taxable}</td>
+                <td style={{ textAlign: "right" }}>{sgst}</td>
+                <td style={{ textAlign: "right" }}>{cgst}</td>
+                <td style={{ textAlign: "right" }}>{total}</td>
+            </>
+        );
+    };
+
+    const renderPrintTotalCells = (row) => {
+        const isIpRow = row.patient_type === "IP";
+        const data = row.total || {};
+        const taxable = formatINR(data.taxable);
+        const sgst = formatINR(data.sgst);
+        const cgst = formatINR(data.cgst);
+        const gst = formatINR((data.sgst || 0) + (data.cgst || 0));
+        const total = formatINR(data.total);
+
+        if (isIpOnly) {
+            return (
+                <>
+                    <td style={{ textAlign: "right", fontWeight: "bold" }}>{taxable}</td>
+                    <td style={{ textAlign: "right", fontWeight: "bold" }}>{gst}</td>
+                    <td style={{ textAlign: "right", fontWeight: "bold" }}>{total}</td>
+                </>
+            );
+        }
+
+        if (isIpRow) {
+            return (
+                <>
+                    <td style={{ textAlign: "right", fontWeight: "bold" }}>{taxable}</td>
+                    <td colSpan={2} style={{ textAlign: "center", fontWeight: "bold" }}>{gst}</td>
+                    <td style={{ textAlign: "right", fontWeight: "bold" }}>{total}</td>
+                </>
+            );
+        }
+
+        return (
+            <>
+                <td style={{ textAlign: "right", fontWeight: "bold" }}>{taxable}</td>
+                <td style={{ textAlign: "right", fontWeight: "bold" }}>{sgst}</td>
+                <td style={{ textAlign: "right", fontWeight: "bold" }}>{cgst}</td>
+                <td style={{ textAlign: "right", fontWeight: "bold" }}>{total}</td>
+            </>
+        );
     };
 
     return (
@@ -465,14 +829,25 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                         <SummaryLabel>Total Taxable Value</SummaryLabel>
                         <SummaryValue color={colors.primary}>₹{formatINR(activeGt.total?.taxable)}</SummaryValue>
                     </SummaryCard>
-                    <SummaryCard color="#0284c7">
-                        <SummaryLabel>Total SGST</SummaryLabel>
-                        <SummaryValue color="#0284c7">₹{formatINR(activeGt.total?.sgst)}</SummaryValue>
-                    </SummaryCard>
-                    <SummaryCard color="#7c3aed">
-                        <SummaryLabel>Total CGST</SummaryLabel>
-                        <SummaryValue color="#7c3aed">₹{formatINR(activeGt.total?.cgst)}</SummaryValue>
-                    </SummaryCard>
+                    {isIpOnly ? (
+                        <SummaryCard color="#0284c7">
+                            <SummaryLabel>Total GST</SummaryLabel>
+                            <SummaryValue color="#0284c7">
+                                ₹{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}
+                            </SummaryValue>
+                        </SummaryCard>
+                    ) : (
+                        <>
+                            <SummaryCard color="#0284c7">
+                                <SummaryLabel>Total SGST</SummaryLabel>
+                                <SummaryValue color="#0284c7">₹{formatINR(activeGt.total?.sgst)}</SummaryValue>
+                            </SummaryCard>
+                            <SummaryCard color="#7c3aed">
+                                <SummaryLabel>Total CGST</SummaryLabel>
+                                <SummaryValue color="#7c3aed">₹{formatINR(activeGt.total?.cgst)}</SummaryValue>
+                            </SummaryCard>
+                        </>
+                    )}
                     <SummaryCard color="#16a34a">
                         <SummaryLabel>Grand Total (Gross/Net)</SummaryLabel>
                         <SummaryValue color="#16a34a">₹{formatINR(activeGt.total?.total)}</SummaryValue>
@@ -482,58 +857,52 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
 
             {/* DENSE MULTI-LEVEL TABLE */}
             <DenseTableWrapper>
-                <Table style={{ minWidth: "1400px", borderCollapse: "collapse" }}>
+                <Table style={{ minWidth: isIpOnly ? "1100px" : "1400px", borderCollapse: "collapse" }}>
                     <thead>
                         {/* Group Header Row 1 */}
                         <Tr>
                             <GroupTh rowSpan={2} bg="#0f172a" style={{ width: "90px" }}>Date</GroupTh>
                             <GroupTh rowSpan={2} bg="#0f172a" style={{ width: "200px" }}>Particulars</GroupTh>
                             <GroupTh rowSpan={2} bg="#0f172a" style={{ width: "160px" }}>Bill Nos</GroupTh>
-                            <GroupTh colSpan={4} bg="#475569">Exempted</GroupTh>
-                            <GroupTh colSpan={4} bg="#0284c7">Rate 5%</GroupTh>
-                            <GroupTh colSpan={4} bg="#2563eb">Rate 12%</GroupTh>
-                            <GroupTh colSpan={4} bg="#7c3aed">Rate 18%</GroupTh>
-                            <GroupTh colSpan={4} bg="#9333ea">Rate 28%</GroupTh>
-                            <GroupTh colSpan={4} bg="#0f172a">Total</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#475569">Exempted</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#0284c7">Rate 5%</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#2563eb">Rate 12%</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#7c3aed">Rate 18%</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#9333ea">Rate 28%</GroupTh>
+                            <GroupTh colSpan={isIpOnly ? 3 : 4} bg="#0f172a">Total</GroupTh>
                         </Tr>
                         {/* Sub Header Row 2 */}
                         <Tr>
                             {/* Exempted */}
                             <SubTh>Amount</SubTh>
-                            <SubTh>SGST</SubTh>
-                            <SubTh>CGST</SubTh>
+                            {isIpOnly ? <SubTh>GST</SubTh> : <><SubTh>SGST</SubTh><SubTh>CGST</SubTh></>}
                             <SubTh bg="#e2e8f0">Total</SubTh>
                             {/* 5% */}
                             <SubTh>Amount</SubTh>
-                            <SubTh>SGST</SubTh>
-                            <SubTh>CGST</SubTh>
+                            {isIpOnly ? <SubTh>GST</SubTh> : <><SubTh>SGST</SubTh><SubTh>CGST</SubTh></>}
                             <SubTh bg="#e2e8f0">Total</SubTh>
                             {/* 12% */}
                             <SubTh>Amount</SubTh>
-                            <SubTh>SGST</SubTh>
-                            <SubTh>CGST</SubTh>
+                            {isIpOnly ? <SubTh>GST</SubTh> : <><SubTh>SGST</SubTh><SubTh>CGST</SubTh></>}
                             <SubTh bg="#e2e8f0">Total</SubTh>
                             {/* 18% */}
                             <SubTh>Amount</SubTh>
-                            <SubTh>SGST</SubTh>
-                            <SubTh>CGST</SubTh>
+                            {isIpOnly ? <SubTh>GST</SubTh> : <><SubTh>SGST</SubTh><SubTh>CGST</SubTh></>}
                             <SubTh bg="#e2e8f0">Total</SubTh>
                             {/* 28% */}
                             <SubTh>Amount</SubTh>
-                            <SubTh>SGST</SubTh>
-                            <SubTh>CGST</SubTh>
+                            {isIpOnly ? <SubTh>GST</SubTh> : <><SubTh>SGST</SubTh><SubTh>CGST</SubTh></>}
                             <SubTh bg="#e2e8f0">Total</SubTh>
                             {/* Total */}
                             <SubTh bg="#e2e8f0">Taxable</SubTh>
-                            <SubTh bg="#e2e8f0">SGST</SubTh>
-                            <SubTh bg="#e2e8f0">CGST</SubTh>
+                            {isIpOnly ? <SubTh bg="#e2e8f0">GST</SubTh> : <><SubTh bg="#e2e8f0">SGST</SubTh><SubTh bg="#e2e8f0">CGST</SubTh></>}
                             <SubTh bg="#cbd5e1" style={{ fontWeight: "700" }}>Total Amt</SubTh>
                         </Tr>
                     </thead>
                     <tbody>
                         {loading ? (
                             <Tr>
-                                <Td colSpan={27} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                <Td colSpan={totalTableCols} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                     Loading day-wise register records...
                                 </Td>
                             </Tr>
@@ -545,35 +914,17 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                                         <TextTd style={{ fontWeight: 600 }}>{row.bill_name}</TextTd>
                                         <TextTd style={{ fontSize: "0.72rem", color: "#475569" }}>{row.bills}</TextTd>
                                         {/* Exempted */}
-                                        <NumTd>{formatINR(row.exempted?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(row.exempted?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(row.exempted?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{formatINR(row.exempted?.total)}</NumTd>
+                                        {renderRateCells(row, "exempted")}
                                         {/* 5% */}
-                                        <NumTd>{formatINR(row.rate_5?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_5?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_5?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{formatINR(row.rate_5?.total)}</NumTd>
+                                        {renderRateCells(row, "rate_5")}
                                         {/* 12% */}
-                                        <NumTd>{formatINR(row.rate_12?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_12?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_12?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{formatINR(row.rate_12?.total)}</NumTd>
+                                        {renderRateCells(row, "rate_12")}
                                         {/* 18% */}
-                                        <NumTd>{formatINR(row.rate_18?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_18?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_18?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{formatINR(row.rate_18?.total)}</NumTd>
+                                        {renderRateCells(row, "rate_18")}
                                         {/* 28% */}
-                                        <NumTd>{formatINR(row.rate_28?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_28?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(row.rate_28?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 600, background: "#f8fafc" }}>{formatINR(row.rate_28?.total)}</NumTd>
+                                        {renderRateCells(row, "rate_28")}
                                         {/* Total */}
-                                        <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{formatINR(row.total?.taxable)}</NumTd>
-                                        <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{formatINR(row.total?.sgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 700, background: "#f1f5f9" }}>{formatINR(row.total?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 800, background: "#e2e8f0", color: "#0f172a" }}>{formatINR(row.total?.total)}</NumTd>
+                                        {renderTotalCells(row)}
                                     </Tr>
                                 ))}
 
@@ -584,41 +935,23 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                                             Grand Total
                                         </Td>
                                         {/* Exempted */}
-                                        <NumTd>{formatINR(activeGt.exempted?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.exempted?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.exempted?.cgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.exempted?.total)}</NumTd>
+                                        {renderGrandTotalRateCells("exempted")}
                                         {/* 5% */}
-                                        <NumTd>{formatINR(activeGt.rate_5?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_5?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_5?.cgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_5?.total)}</NumTd>
+                                        {renderGrandTotalRateCells("rate_5")}
                                         {/* 12% */}
-                                        <NumTd>{formatINR(activeGt.rate_12?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_12?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_12?.cgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_12?.total)}</NumTd>
+                                        {renderGrandTotalRateCells("rate_12")}
                                         {/* 18% */}
-                                        <NumTd>{formatINR(activeGt.rate_18?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_18?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_18?.cgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_18?.total)}</NumTd>
+                                        {renderGrandTotalRateCells("rate_18")}
                                         {/* 28% */}
-                                        <NumTd>{formatINR(activeGt.rate_28?.taxable)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_28?.sgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_28?.cgst)}</NumTd>
-                                        <NumTd>{formatINR(activeGt.rate_28?.total)}</NumTd>
+                                        {renderGrandTotalRateCells("rate_28")}
                                         {/* Total */}
-                                        <NumTd style={{ fontWeight: 800 }}>{formatINR(activeGt.total?.taxable)}</NumTd>
-                                        <NumTd style={{ fontWeight: 800 }}>{formatINR(activeGt.total?.sgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 800 }}>{formatINR(activeGt.total?.cgst)}</NumTd>
-                                        <NumTd style={{ fontWeight: 900, background: "#cbd5e1" }}>{formatINR(activeGt.total?.total)}</NumTd>
+                                        {renderGrandTotalCells()}
                                     </GrandTotalTr>
                                 )}
                             </>
                         ) : (
                             <Tr>
-                                <Td colSpan={27} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                <Td colSpan={totalTableCols} style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
                                     No day-wise records found for the selected date range.
                                 </Td>
                             </Tr>
@@ -653,8 +986,14 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                 {activeGt && (
                     <div className="summary-grid">
                         <div><strong>Total Taxable:</strong> ₹{formatINR(activeGt.total?.taxable)}</div>
-                        <div><strong>Total SGST:</strong> ₹{formatINR(activeGt.total?.sgst)}</div>
-                        <div><strong>Total CGST:</strong> ₹{formatINR(activeGt.total?.cgst)}</div>
+                        {isIpOnly ? (
+                            <div><strong>Total GST:</strong> ₹{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}</div>
+                        ) : (
+                            <>
+                                <div><strong>Total SGST:</strong> ₹{formatINR(activeGt.total?.sgst)}</div>
+                                <div><strong>Total CGST:</strong> ₹{formatINR(activeGt.total?.cgst)}</div>
+                            </>
+                        )}
                         <div><strong>Grand Total:</strong> ₹{formatINR(activeGt.total?.total)}</div>
                     </div>
                 )}
@@ -665,20 +1004,33 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                             <th rowSpan={2}>Date</th>
                             <th rowSpan={2}>Particulars</th>
                             <th rowSpan={2}>Bill Nos</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Exempted</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Rate 5%</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Rate 12%</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Rate 18%</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Rate 28%</th>
-                            <th colSpan={4} style={{ textAlign: "center" }}>Total</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Exempted</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Rate 5%</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Rate 12%</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Rate 18%</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Rate 28%</th>
+                            <th colSpan={isIpOnly ? 3 : 4} style={{ textAlign: "center" }}>Total</th>
                         </tr>
                         <tr style={{ background: "#f8fafc", fontSize: "7px" }}>
-                            <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
-                            <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
-                            <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
-                            <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
-                            <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
-                            <th>Taxable</th><th>SGST</th><th>CGST</th><th>Tot Amt</th>
+                            {isIpOnly ? (
+                                <>
+                                    <th>Amt</th><th>GST</th><th>Tot</th>
+                                    <th>Amt</th><th>GST</th><th>Tot</th>
+                                    <th>Amt</th><th>GST</th><th>Tot</th>
+                                    <th>Amt</th><th>GST</th><th>Tot</th>
+                                    <th>Amt</th><th>GST</th><th>Tot</th>
+                                    <th>Taxable</th><th>GST</th><th>Tot Amt</th>
+                                </>
+                            ) : (
+                                <>
+                                    <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
+                                    <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
+                                    <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
+                                    <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
+                                    <th>Amt</th><th>SGST</th><th>CGST</th><th>Tot</th>
+                                    <th>Taxable</th><th>SGST</th><th>CGST</th><th>Tot Amt</th>
+                                </>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
@@ -687,69 +1039,76 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                                 <td>{row.bill_date}</td>
                                 <td>{row.bill_name}</td>
                                 <td>{row.bills}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.exempted?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.exempted?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.exempted?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.exempted?.total)}</td>
-
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_5?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_5?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_5?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_5?.total)}</td>
-
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_12?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_12?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_12?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_12?.total)}</td>
-
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_18?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_18?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_18?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_18?.total)}</td>
-
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_28?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_28?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_28?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(row.rate_28?.total)}</td>
-
-                                <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatINR(row.total?.taxable)}</td>
-                                <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatINR(row.total?.sgst)}</td>
-                                <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatINR(row.total?.cgst)}</td>
-                                <td style={{ textAlign: "right", fontWeight: "bold" }}>{formatINR(row.total?.total)}</td>
+                                {renderPrintRateCells(row, "exempted")}
+                                {renderPrintRateCells(row, "rate_5")}
+                                {renderPrintRateCells(row, "rate_12")}
+                                {renderPrintRateCells(row, "rate_18")}
+                                {renderPrintRateCells(row, "rate_28")}
+                                {renderPrintTotalCells(row)}
                             </tr>
                         ))}
                         {activeGt && (
                             <tr style={{ fontWeight: "bold", background: "#f1f5f9" }}>
                                 <td colSpan={3} style={{ textAlign: "center" }}>GRAND TOTAL</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.total)}</td>
+                                {isIpOnly ? (
+                                    <>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.exempted?.sgst || 0) + (activeGt.exempted?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.total)}</td>
 
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.total)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.rate_5?.sgst || 0) + (activeGt.rate_5?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.total)}</td>
 
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.total)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.rate_12?.sgst || 0) + (activeGt.rate_12?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.total)}</td>
 
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.total)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.rate_18?.sgst || 0) + (activeGt.rate_18?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.total)}</td>
 
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.total)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.rate_28?.sgst || 0) + (activeGt.rate_28?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.total)}</td>
 
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.taxable)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.sgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.cgst)}</td>
-                                <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.total)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR((activeGt.total?.sgst || 0) + (activeGt.total?.cgst || 0))}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.total)}</td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.exempted?.total)}</td>
+
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_5?.total)}</td>
+
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_12?.total)}</td>
+
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_18?.total)}</td>
+
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.rate_28?.total)}</td>
+
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.taxable)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.sgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.cgst)}</td>
+                                        <td style={{ textAlign: "right" }}>{formatINR(activeGt.total?.total)}</td>
+                                    </>
+                                )}
                             </tr>
                         )}
                     </tbody>

@@ -25,6 +25,9 @@ export const printAccountsReport = (elementId = "printable-report-area", orienta
     iframe.style.visibility = "hidden";
     document.body.appendChild(iframe);
 
+    const hospitalName = localStorage.getItem("hospital_name") || "Shanmuga Hospital";
+    const docTitle = `${hospitalName} Management System - ${hospitalName}`;
+
     const doc = iframe.contentWindow.document;
     doc.open();
     doc.write(`
@@ -32,7 +35,7 @@ export const printAccountsReport = (elementId = "printable-report-area", orienta
         <html>
             <head>
                 <meta charset="utf-8" />
-                <title>Print Report</title>
+                <title>${docTitle}</title>
                 <style>
                     @page {
                         size: ${orientation};
