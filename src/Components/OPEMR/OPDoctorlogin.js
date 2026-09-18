@@ -1254,7 +1254,7 @@ const OPDoctorlogin = () => {
   useEffect(() => {
     try {
       localStorage.removeItem("consultationStartTimes");
-    } catch { }
+    } catch {}
   }, []);
   const [allergies, setAllergies] = useState("");
   const [allergyOption, setAllergyOption] = useState(""); // 'no_known' | 'if_any'
@@ -2377,34 +2377,34 @@ const OPDoctorlogin = () => {
         const ctData = Array.isArray(body.ct) && body.ct.length > 0
           ? body.ct
           : (Array.isArray(body.data?.ct) && body.data.ct.length > 0
-            ? body.data.ct
-            : allItems.filter(x => String(x.category || '').toUpperCase() === 'CT' || String(x.billTypeNo || '').toUpperCase() === 'CT01'));
+              ? body.data.ct
+              : allItems.filter(x => String(x.category || '').toUpperCase() === 'CT' || String(x.billTypeNo || '').toUpperCase() === 'CT01'));
 
         const mriData = Array.isArray(body.mri) && body.mri.length > 0
           ? body.mri
           : (Array.isArray(body.data?.mri) && body.data.mri.length > 0
-            ? body.data.mri
-            : allItems.filter(x => String(x.category || '').toUpperCase() === 'MRI' || String(x.billTypeNo || '').toUpperCase() === 'MRI01'));
+              ? body.data.mri
+              : allItems.filter(x => String(x.category || '').toUpperCase() === 'MRI' || String(x.billTypeNo || '').toUpperCase() === 'MRI01'));
 
         const xrayData = Array.isArray(body.xray) && body.xray.length > 0
           ? body.xray
           : (Array.isArray(body.data?.xray) && body.data.xray.length > 0
-            ? body.data.xray
-            : allItems.filter(x => {
-              const c = String(x.category || '').toUpperCase();
-              const b = String(x.billTypeNo || '').toUpperCase();
-              return c === 'X-RAY' || c === 'XRAY' || b === 'XRAY01';
-            }));
+              ? body.data.xray
+              : allItems.filter(x => {
+                  const c = String(x.category || '').toUpperCase();
+                  const b = String(x.billTypeNo || '').toUpperCase();
+                  return c === 'X-RAY' || c === 'XRAY' || b === 'XRAY01';
+                }));
 
         const usgData = Array.isArray(body.usg) && body.usg.length > 0
           ? body.usg
           : (Array.isArray(body.data?.usg) && body.data.usg.length > 0
-            ? body.data.usg
-            : allItems.filter(x => {
-              const c = String(x.category || '').toUpperCase();
-              const b = String(x.billTypeNo || '').toUpperCase();
-              return c === 'USG' || c === 'ULTRASOUND' || b === 'USG01';
-            }));
+              ? body.data.usg
+              : allItems.filter(x => {
+                  const c = String(x.category || '').toUpperCase();
+                  const b = String(x.billTypeNo || '').toUpperCase();
+                  return c === 'USG' || c === 'ULTRASOUND' || b === 'USG01';
+                }));
 
         setCtList(ctData);
         setMriList(mriData);
