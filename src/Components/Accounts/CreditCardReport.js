@@ -116,10 +116,12 @@ const PrintTemplate = styled.div`
     display: none;
 `;
 
-const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBillType = "All" }) => {
+const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBillType = "All", initialOutlet = "all" }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [categoryFilter, setCategoryFilter] = useState(initialBillType || "all");
+    const [outlet, setOutlet] = useState(initialOutlet || "all");
+    const [outlets, setOutlets] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [reportData, setReportData] = useState([]);
     const [groupedData, setGroupedData] = useState([]);
@@ -133,6 +135,26 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
     const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
     useEffect(() => {
+        const fetchOutlets = async () => {
+            try {
+                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+                if (res.success && Array.isArray(res.data)) {
+                    setOutlets(res.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch outlets:", err);
+            }
+        };
+        fetchOutlets();
+    }, [HmsBaseUrl]);
+
+    const getOutletName = (code) => {
+        if (!code || code === "all") return "All Outlets";
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? (found.outlet_name || found.name) : code;
+    };
+
+    useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
     }, [startDate, endDate]);
@@ -141,17 +163,25 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
         if (initialBillType) {
             setCategoryFilter(initialBillType === "All" || initialBillType === "all" ? "all" : initialBillType);
         }
-    }, [initialBillType]);
+        if (initialOutlet) {
+            setOutlet(initialOutlet);
+        }
+    }, [initialBillType, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, outlet]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}credit-card-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
+            const queryParams = new URLSearchParams({
+                from_date: fromDate,
+                to_date: toDate,
+                outlet_code: outlet
+            });
+            const response = await apiRequest(`${HmsBaseUrl}credit-card-report/?${queryParams.toString()}`, "GET");
             if (response.success && response.data) {
                 const flatRows = Array.isArray(response.data.data) ? response.data.data : [];
                 const groups = Array.isArray(response.data.grouped_data) ? response.data.grouped_data : [];
@@ -399,14 +429,14 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                     fontWeight: 600,
                     color: "#f8fafc"
                 }}>
-                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")}
+                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
                 </div>
             </div>
 
             {/* FILTER SECTION */}
             <FilterSection>
                 <FormRow style={{ display: "flex", flexWrap: "wrap", gap: "15px", alignItems: "flex-end" }}>
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
+                    <InputWrapper style={{ flex: "1 1 150px" }}>
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
@@ -417,7 +447,7 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                         />
                     </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
+                    <InputWrapper style={{ flex: "1 1 150px" }}>
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
@@ -428,7 +458,23 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                         />
                     </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 200px" }}>
+                    <InputWrapper style={{ flex: "1 1 180px" }}>
+                        <Label>Outlet</Label>
+                        <Select
+                            value={outlet}
+                            onChange={(e) => setOutlet(e.target.value)}
+                            style={{ height: "40px" }}
+                        >
+                            <option value="all">All Outlets</option>
+                            {outlets.map((o) => (
+                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                </option>
+                            ))}
+                        </Select>
+                    </InputWrapper>
+
+                    <InputWrapper style={{ flex: "1 1 180px" }}>
                         <Label>Category / Bill Type</Label>
                         <Select
                             value={categoryFilter}
@@ -442,7 +488,7 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
                         </Select>
                     </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 200px" }}>
+                    <InputWrapper style={{ flex: "1 1 180px" }}>
                         <Label>Search</Label>
                         <Input
                             type="text"

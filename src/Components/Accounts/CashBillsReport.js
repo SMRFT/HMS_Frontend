@@ -116,10 +116,12 @@ const PrintTemplate = styled.div`
     display: none;
 `;
 
-const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillType = "All" }) => {
+const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillType = "All", initialOutlet = "all" }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [categoryFilter, setCategoryFilter] = useState(initialBillType || "all");
+    const [outlet, setOutlet] = useState(initialOutlet || "all");
+    const [outlets, setOutlets] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [reportData, setReportData] = useState([]);
     const [groupedData, setGroupedData] = useState([]);
@@ -133,6 +135,26 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
     const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
     useEffect(() => {
+        const fetchOutlets = async () => {
+            try {
+                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+                if (res.success && Array.isArray(res.data)) {
+                    setOutlets(res.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch outlets:", err);
+            }
+        };
+        fetchOutlets();
+    }, [HmsBaseUrl]);
+
+    const getOutletName = (code) => {
+        if (!code || code === "all") return "All Outlets";
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? (found.outlet_name || found.name) : code;
+    };
+
+    useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
     }, [startDate, endDate]);
@@ -141,17 +163,25 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
         if (initialBillType) {
             setCategoryFilter(initialBillType === "All" || initialBillType === "all" ? "all" : initialBillType);
         }
-    }, [initialBillType]);
+        if (initialOutlet) {
+            setOutlet(initialOutlet);
+        }
+    }, [initialBillType, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, outlet]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const response = await apiRequest(`${HmsBaseUrl}cash-bills-report/?from_date=${fromDate}&to_date=${toDate}`, "GET");
+            const queryParams = new URLSearchParams({
+                from_date: fromDate,
+                to_date: toDate,
+                outlet_code: outlet
+            });
+            const response = await apiRequest(`${HmsBaseUrl}cash-bills-report/?${queryParams.toString()}`, "GET");
             if (response.success && response.data) {
                 const flatRows = Array.isArray(response.data.data) ? response.data.data : [];
                 const groups = Array.isArray(response.data.grouped_data) ? response.data.grouped_data : [];
@@ -392,7 +422,7 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                     fontWeight: 600,
                     color: "#f8fafc"
                 }}>
-                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")}
+                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
                 </div>
             </div>
 
@@ -426,7 +456,7 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
             {/* Filter Bar */}
             <FilterSection>
                 <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
-                    <InputWrapper style={{ minWidth: "160px" }}>
+                    <InputWrapper style={{ minWidth: "140px" }}>
                         <Label>From Date</Label>
                         <DatePicker
                             value={dayjs(fromDate)}
@@ -436,7 +466,7 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                         />
                     </InputWrapper>
 
-                    <InputWrapper style={{ minWidth: "160px" }}>
+                    <InputWrapper style={{ minWidth: "140px" }}>
                         <Label>To Date</Label>
                         <DatePicker
                             value={dayjs(toDate)}
@@ -446,7 +476,23 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
                         />
                     </InputWrapper>
 
-                    <InputWrapper style={{ minWidth: "220px", flex: 1 }}>
+                    <InputWrapper style={{ minWidth: "160px" }}>
+                        <Label>Outlet</Label>
+                        <Select
+                            value={outlet}
+                            onChange={(e) => setOutlet(e.target.value)}
+                            style={{ height: "40px", borderRadius: "8px" }}
+                        >
+                            <option value="all">All Outlets</option>
+                            {outlets.map((o) => (
+                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                </option>
+                            ))}
+                        </Select>
+                    </InputWrapper>
+
+                    <InputWrapper style={{ minWidth: "180px", flex: 1 }}>
                         <Label>Category / Department</Label>
                         <Select
                             value={categoryFilter}

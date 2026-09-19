@@ -136,11 +136,13 @@ const PrintSignatures = styled.div`
     }
 `;
 
-const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillType = "All" }) => {
+const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillType = "All", initialOutlet = "all" }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
     const [billType, setBillType] = useState(location.state?.billType || initialBillType || "All");
+    const [outlet, setOutlet] = useState(location.state?.outlet || initialOutlet || "all");
+    const [outlets, setOutlets] = useState([]);
     const [uhid, setUhid] = useState("");
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState(null);
@@ -153,14 +155,36 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
     const user_id = localStorage.getItem("employeeId");
 
     useEffect(() => {
+        fetchOutlets();
+    }, [HmsBaseUrl]);
+
+    const fetchOutlets = async () => {
+        try {
+            const response = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+            if (response.success && response.data) {
+                setOutlets(response.data);
+            }
+        } catch (error) {
+            console.error("Error fetching outlets:", error);
+        }
+    };
+
+    const getOutletName = (code) => {
+        if (!code || code === "all") return "All Outlets";
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? (found.outlet_name || found.name) : code;
+    };
+
+    useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
         if (initialBillType) setBillType(initialBillType);
-    }, [startDate, endDate, initialBillType]);
+        if (initialOutlet) setOutlet(initialOutlet);
+    }, [startDate, endDate, initialBillType, initialOutlet]);
 
     useEffect(() => {
         fetchReport();
-    }, [fromDate, toDate, billType, uhid]);
+    }, [fromDate, toDate, billType, outlet, uhid]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -169,6 +193,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                 from_date: fromDate,
                 to_date: toDate,
                 bill_type: billType,
+                outlet_code: outlet,
                 uhid: uhid,
                 "auth-hospital-code": hospital_code,
                 "auth-branch-code": branch_code,
@@ -223,6 +248,10 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
             // Add summary sheet if summary exists
             if (summary) {
                 const summaryRows = [
+                    { "Metric": "From Date", "Value": fromDate ? dayjs(fromDate).format("DD/MM/YYYY") : "—" },
+                    { "Metric": "To Date", "Value": toDate ? dayjs(toDate).format("DD/MM/YYYY") : "—" },
+                    { "Metric": "Outlet", "Value": getOutletName(outlet) },
+                    { "Metric": "Bill Type", "Value": billType },
                     { "Metric": "Total Collection (₹)", "Value": Number(formatINR(summary.total_collection)) },
                     { "Metric": "Total Return (₹)", "Value": Number(formatINR(summary.total_return)) },
                     { "Metric": "Net Collection (₹)", "Value": Number(formatINR(summary.net_collection)) },
@@ -293,6 +322,20 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                             <option value="Admission">Admission</option>
                             <option value="Sales Return">Sales Return</option>
                             <option value="Miscellaneous">Miscellaneous Payment</option>
+                        </Select>
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Outlet</Label>
+                        <Select
+                            value={outlet}
+                            onChange={(e) => setOutlet(e.target.value)}
+                        >
+                            <option value="all">All Outlets</option>
+                            {outlets.map((o) => (
+                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                </option>
+                            ))}
                         </Select>
                     </InputWrapper>
                     <InputWrapper>
@@ -468,13 +511,15 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
                 <PrintInfoTable>
                     <tbody>
                         <tr>
-                            <td style={{ width: "30%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "30%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                            <td style={{ width: "25%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "25%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "25%" }}><strong>Outlet:</strong> {getOutletName(outlet)}</td>
+                            <td style={{ width: "25%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
                         </tr>
                         <tr>
                             <td><strong>Bill Type:</strong> {billType}</td>
                             <td><strong>UHID:</strong> {uhid || "All Patients"}</td>
+                            <td></td>
                             <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
                         </tr>
                     </tbody>
