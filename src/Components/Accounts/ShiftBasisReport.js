@@ -135,11 +135,11 @@ const PrintSignatures = styled.div`
 `;
 
 
-const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
+const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all" }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
-    const [outlet, setOutlet] = useState("all");
+    const [outlet, setOutlet] = useState(location.state?.outlet || initialOutlet || "all");
     const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [summaryData, setSummaryData] = useState([]);
@@ -160,7 +160,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        if (initialOutlet) setOutlet(initialOutlet);
+    }, [startDate, endDate, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) {

@@ -1,5 +1,6 @@
-import React, { useState, Suspense, lazy } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
+import apiRequest from "../../Auth/apiRequest";
 import { 
     FileText, 
     Users, 
@@ -335,7 +336,31 @@ const ReportsDashboard = () => {
     const [selectedReport, setSelectedReport] = useState(null);
     const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()]);
     const [billType, setBillType] = useState("All");
+    const [outlets, setOutlets] = useState([]);
+    const [selectedOutlet, setSelectedOutlet] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
+
+    const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+
+    useEffect(() => {
+        const fetchOutlets = async () => {
+            try {
+                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
+                if (res.success && Array.isArray(res.data)) {
+                    setOutlets(res.data);
+                }
+            } catch (err) {
+                console.error("Failed to fetch outlets:", err);
+            }
+        };
+        fetchOutlets();
+    }, [HmsBaseUrl]);
+
+    const getOutletLabel = (code) => {
+        if (!code || code === "all") return "All Outlets";
+        const found = outlets.find(o => String(o.outlet_code) === String(code) || String(o.outlet_id) === String(code) || String(o.id) === String(code));
+        return found ? `${found.outlet_name || found.name} (${found.outlet_code || found.outlet_id || code})` : code;
+    };
 
     const closeModal = () => {
         setIsConfigModalVisible(false);
@@ -385,8 +410,8 @@ const ReportsDashboard = () => {
         },
         {
             id: "discharge_bills",
-            title: "Discharge Bills",
-            description: "Summary of billing for all discharged patients",
+            title: "Cash Discharge Report",
+            description: "Discharged patient settlement bills (Cash / Self-paying)",
             icon: <TrendingUp size={24} />,
             component: DischargeBills,
             color: colors.primary
@@ -401,16 +426,16 @@ const ReportsDashboard = () => {
         },
         {
             id: "advance_reg",
-            title: "Advance Registration",
-            description: "Reports for patients with advance registration entries",
+            title: "Advance Register (Accounts)",
+            description: "Daily IP advance register grouped by date with Cash/Credit breakdown",
             icon: <UserCheck size={24} />,
             component: AdvanceRegistration,
             color: colors.primary
         },
         {
             id: "insurance_advance",
-            title: "Insurance Advance",
-            description: "Advance registration reports for insurance-linked patients",
+            title: "Insurance Discharge Report",
+            description: "Insurance Bills Status Report grouped by TPA/Company with 25-column audit",
             icon: <ShieldCheck size={24} />,
             component: AdvanceRegistrationInsurence,
             color: colors.primary
@@ -563,6 +588,7 @@ const ReportsDashboard = () => {
                     startDate={dateRange[0].format("YYYY-MM-DD")}
                     endDate={dateRange[1].format("YYYY-MM-DD")}
                     initialBillType={billType}
+                    initialOutlet={selectedOutlet}
                 />
             </Suspense>
         );
@@ -660,6 +686,24 @@ const ReportsDashboard = () => {
                         </InputWrapper>
                     </FormRow>
 
+                    <FormRow style={{ marginTop: '16px' }}>
+                        <InputWrapper style={{ width: '100%' }}>
+                            <Label>Outlet / Counter</Label>
+                            <Select
+                                value={selectedOutlet}
+                                onChange={(e) => setSelectedOutlet(e.target.value)}
+                                style={{ width: '100%', borderRadius: '8px', height: '42px' }}
+                            >
+                                <option value="all">All Outlets</option>
+                                {outlets.map((o) => (
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+                    </FormRow>
+
                     {(selectedReport?.id === "bill_wise" || selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") && (
                         <FormRow style={{ marginTop: '16px' }}>
                             <InputWrapper style={{ width: '100%' }}>
@@ -739,12 +783,12 @@ const ReportsDashboard = () => {
                                 {selectedReport?.title}
                             </h2>
                             <p style={{ margin: '4px 0 0 0', color: colors.textMuted, fontSize: '0.9rem', fontWeight: 600 }}>
-                                Reporting Period: <span style={{ color: '#0f172a' }}>{dateRange[0]?.format('DD/MM/YYYY')}</span> — <span style={{ color: '#0f172a' }}>{dateRange[1]?.format('DD/MM/YYYY')}</span>
+                                Reporting Period: <span style={{ color: '#0f172a' }}>{dateRange[0]?.format('DD/MM/YYYY')}</span> — <span style={{ color: '#0f172a' }}>{dateRange[1]?.format('DD/MM/YYYY')}</span> | Outlet: <span style={{ color: '#0f172a' }}>{getOutletLabel(selectedOutlet)}</span>
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             <Button icon={<Filter size={16} />} onClick={() => { setIsReportModalVisible(false); setIsConfigModalVisible(true); }} style={{ borderRadius: '8px', height: '38px', fontWeight: 600 }}>
-                                Change Dates
+                                Change Filter
                             </Button>
                             <Button type="primary" danger icon={<X size={16} />} onClick={closeModal} style={{ borderRadius: '8px', height: '38px', fontWeight: 600 }}>
                                 Close
