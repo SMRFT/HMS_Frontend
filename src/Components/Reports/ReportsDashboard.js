@@ -6,7 +6,6 @@ import {
     Users, 
     Calendar, 
     TrendingUp, 
-    Activity, 
     CreditCard, 
     BarChart3, 
     ClipboardList,
@@ -14,9 +13,7 @@ import {
     UserCheck,
     ShieldCheck,
     ArrowRight,
-    LayoutDashboard,
     X,
-    Maximize2,
     Filter,
     RotateCcw,
     Banknote,
@@ -29,8 +26,8 @@ import {
     Inbox,
     Building2
 } from "lucide-react";
-import styled, { keyframes } from "styled-components";
-import { Modal, DatePicker, Button, Tooltip, Spin } from "antd";
+import styled from "styled-components";
+import { Modal, DatePicker, Button, Spin } from "antd";
 import dayjs from "dayjs";
 import { colors, PageWrapper, fadeIn, FormRow, InputWrapper, Label, Select } from "../GlobalStyles";
 
@@ -58,9 +55,8 @@ const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
 const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
 
-const { RangePicker } = DatePicker;
-
 const Container = styled(PageWrapper)`
+
   min-height: 100vh;
   padding: 24px;
 `;

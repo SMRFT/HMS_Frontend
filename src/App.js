@@ -80,7 +80,6 @@ import Package from "./Components/BillingMaster/Package";
 import MedicinePackage from "./Components/BillingMaster/MedicinePackage";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
-import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
 import DeptBUDReport from "./Components/InvestigationBilling/DeptBUDReport";
 import InvoiceGeneration from "./Components/Velavan/InvoiceGeneration";
 import InvoiceReport from "./Components/Velavan/InvoiceReport";
