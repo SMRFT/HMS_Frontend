@@ -38,45 +38,24 @@ const SummaryCard = styled.div`
     animation: ${fadeIn} 0.4s ease-out;
 `;
 
-const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialOutlet = "" }) => {
+const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-01"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [selectedOutlet, setSelectedOutlet] = useState(initialOutlet || "all");
-    const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    // Fetch Outlets
-    useEffect(() => {
-        const fetchOutlets = async () => {
-            try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res.success && Array.isArray(res.data)) {
-                    setOutlets(res.data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch outlets:", err);
-            }
-        };
-        fetchOutlets();
-    }, [HmsBaseUrl]);
-
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-        if (initialOutlet) setSelectedOutlet(initialOutlet);
-    }, [startDate, endDate, initialOutlet]);
+    }, [startDate, endDate]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
-            let url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`;
-            if (selectedOutlet && selectedOutlet !== "all") {
-                url += `&outlet_code=${selectedOutlet}`;
-            }
+            const url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`;
             const response = await apiRequest(url, "GET");
             if (response.success && response.data) {
                 const rows = Array.isArray(response.data.data)
@@ -92,7 +71,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialO
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, selectedOutlet, HmsBaseUrl]);
+    }, [fromDate, toDate, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -226,21 +205,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialO
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
-                    <InputWrapper>
-                        <Label>Outlet</Label>
-                        <Select 
-                            value={selectedOutlet} 
-                            onChange={(e) => setSelectedOutlet(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o._id} value={o.outlet_code}>
-                                    {o.outlet_name} ({o.outlet_code})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
+
                     <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}

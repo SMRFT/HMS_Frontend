@@ -1,13 +1,27 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
-import { format } from "date-fns";
 import dayjs from "dayjs";
-import { DatePicker } from "antd";
-import { FaPrint, FaFileExcel } from "react-icons/fa";
-import * as XLSX from "xlsx";
+import { DatePicker, Spin, Tooltip, Modal, Badge } from "antd";
 import { 
-    PageWrapper, 
+    FaPrint, 
+    FaFileExcel, 
+    FaSearch, 
+    FaSyncAlt, 
+    FaLayerGroup, 
+    FaListUl,
+    FaMoneyBillWave,
+    FaUsers,
+    FaHospitalUser,
+    FaInfoCircle,
+    FaEye
+} from "react-icons/fa";
+import * as XLSX from "xlsx";
+import styled from "styled-components";
+import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
+import { 
     colors, 
+    PageWrapper, 
     fadeIn, 
     FormRow, 
     InputWrapper, 
@@ -20,624 +34,914 @@ import {
     Th, 
     Td, 
     Tr, 
-    SectionTitle,
-    ModalOverlay,
-    ModalContainer,
-    ModalHeader,
-    ModalTitle,
-    ModalBody,
-    CloseButton,
-    ButtonContainer
+    SectionTitle 
 } from "../GlobalStyles";
-import styled from "styled-components";
-import apiRequest from "../../Auth/apiRequest";
-import { printAccountsReport } from "./printAccountsReport";
 
 // ─── STYLED COMPONENTS ───────────────────────────────────────────────────────
-const SummaryCard = styled.div`
-    background: ${colors.surface};
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    border-left: 4px solid ${props => props.color || colors.primary};
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-height: 80px;
-    animation: ${fadeIn} 0.4s ease-out;
+
+const Container = styled.div`
+    padding: ${props => props.isModal ? "10px 0" : "20px"};
+    animation: ${fadeIn} 0.3s ease-out;
 `;
 
-const SummaryValue = styled.h3`
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: ${colors.textMain};
-`;
-
-const SummaryLabel = styled.p`
-    margin: 0;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: ${colors.textMuted};
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-`;
-
-const PatientInfoBar = styled.div`
-    background: ${colors.surface};
+const FilterCard = styled.div`
+    background: #ffffff;
     border-radius: 12px;
     padding: 16px 20px;
     margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+`;
+
+const SummaryGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+`;
+
+const MetricCard = styled.div`
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid ${props => props.color || colors.primary};
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 15px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid ${colors.border};
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.1);
+    }
+
+    .info {
+        .label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .value {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: ${colors.textMain};
+            margin: 0;
+        }
+        .sub {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+    }
+
+    .icon-box {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: ${props => props.bg || "#f1f5f9"};
+        color: ${props => props.color || colors.primary};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+    }
 `;
 
-const InfoGroup = styled.div`
-    display: flex;
-    flex-direction: column;
+const FloorHeaderRow = styled.tr`
+    background: #f8fafc !important;
+    border-top: 2px solid #cbd5e1;
+    border-bottom: 2px solid #cbd5e1;
+
+    td {
+        padding: 10px 14px !important;
+        font-weight: 800 !important;
+        font-size: 0.88rem !important;
+        color: #0f172a !important;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
 `;
 
-const StatusBadge = styled.span`
-    background: ${props => props.bg || "#f1f5f9"};
-    color: ${props => props.color || colors.textMain};
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.7rem;
+const SubtotalRow = styled.tr`
+    background: #f1f5f9 !important;
     font-weight: 700;
-    text-transform: uppercase;
+    border-top: 1px solid #cbd5e1;
+    border-bottom: 1px solid #cbd5e1;
+
+    td {
+        padding: 8px 12px !important;
+        font-size: 0.82rem !important;
+        color: #334155 !important;
+    }
 `;
+
+const GrandTotalRow = styled.tr`
+    background: #0f172a !important;
+    color: #ffffff !important;
+    font-weight: 800;
+
+    td {
+        padding: 12px 14px !important;
+        font-size: 0.95rem !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+`;
+
+const ActionBtn = styled.button`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 14px;
+    height: 38px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+
+    ${props => props.variant === "primary" && `
+        background: ${colors.primary || "#0d9488"};
+        color: #ffffff;
+        &:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+    `}
+
+    ${props => props.variant === "success" && `
+        background: #16a34a;
+        color: #ffffff;
+        &:hover:not(:disabled) {
+            background: #15803d;
+            transform: translateY(-1px);
+        }
+    `}
+
+    ${props => props.variant === "secondary" && `
+        background: #ffffff;
+        border-color: #cbd5e1;
+        color: #334155;
+        &:hover:not(:disabled) {
+            background: #f8fafc;
+            border-color: #94a3b8;
+        }
+    `}
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+`;
+
+// ─── PRINT TEMPLATE (Exact match to official Hospital PDF) ───────────────────
 
 const PrintTemplate = styled.div`
     display: none;
     @media print {
         display: block !important;
-        background: white;
+        background: #ffffff;
         width: 100%;
-        color: black;
-        font-family: 'Times New Roman', serif;
+        color: #000000;
+        font-family: Arial, sans-serif;
+        padding: 0;
+        margin: 0;
     }
 `;
 
-const PrintHeader = styled.div`
-    text-align: center;
-    border-bottom: 2px solid #000;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
-    p { margin: 2px 0; font-size: 11px; }
-    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
-`;
+const PrintHeaderContainer = styled.div`
+    text-align: left;
+    margin-bottom: 8px;
 
-const PrintInfoTable = styled.table`
-    width: 100%;
-    margin-bottom: 12px;
-    border-collapse: collapse;
-    font-size: 10px;
-    td { padding: 2px 0; border: none !important; }
-`;
-
-const PrintTable = styled.table`
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 9px;
-    th, td {
-        border: 1px solid #000 !important;
-        padding: 5px 6px;
-        text-align: left;
-    }
-    th {
-        background-color: #f2f2f2 !important;
+    .hospital-title {
+        font-size: 13px;
         font-weight: bold;
         text-transform: uppercase;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+    .hospital-sub {
+        font-size: 9.5px;
+        color: #111;
+        margin: 1px 0 6px 0;
+    }
+    .report-title {
+        font-size: 11px;
+        font-weight: bold;
+        margin-top: 4px;
+        color: #000;
     }
 `;
 
-const PrintSignatures = styled.div`
-    margin-top: 40px;
+const PrintTableWrapper = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+    font-size: 8.5px;
+    line-height: 1.2;
+
+    thead tr {
+        border-top: 1.5px solid #000;
+        border-bottom: 1.5px solid #000;
+    }
+
+    th {
+        padding: 4px 3px;
+        text-align: left;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 8.5px;
+        color: #000;
+        border: none;
+    }
+
+    td {
+        padding: 2.5px 3px;
+        border: none;
+        color: #000;
+        vertical-align: top;
+    }
+
+    .floor-heading td {
+        padding: 5px 3px 2px 3px;
+        font-weight: bold;
+        font-size: 9px;
+        text-transform: uppercase;
+        text-decoration: underline;
+    }
+
+    .subtotal-row td {
+        border-top: 0.5px solid #777;
+        font-weight: bold;
+        padding-top: 3px;
+        padding-bottom: 4px;
+    }
+
+    .grand-total-row td {
+        border-top: 1.5px solid #000;
+        border-bottom: 1.5px solid #000;
+        font-weight: bold;
+        font-size: 9.5px;
+        padding: 5px 3px;
+    }
+`;
+
+const PrintFooter = styled.div`
     display: flex;
     justify-content: space-between;
-    font-size: 10px;
-    page-break-inside: avoid;
-    .sig-box {
-        text-align: center;
-        width: 180px;
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        font-weight: bold;
-    }
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 4px;
+    border-top: 0.5px solid #000;
+    font-size: 8px;
+    color: #000;
 `;
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
-const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
-    const [filterMode, setFilterMode] = useState("ip");
-    const [ipNumber, setIpNumber] = useState("");
-    const [uhid, setUhid] = useState("");
-    const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
-    const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [searched, setSearched] = useState(false);
-    const [modal, setModal] = useState(null); // { type: 'create' | 'edit' | 'cancel', entry: {} }
+// ─── COMPONENT ───────────────────────────────────────────────────────────────
 
+const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    const fetchData = useCallback(async () => {
+    // Filters state
+    const [asOnDate, setAsOnDate] = useState(
+        endDate || startDate || dayjs().format("YYYY-MM-DD")
+    );
+    const [selectedFloor, setSelectedFloor] = useState("all");
+    const [advanceFilter, setAdvanceFilter] = useState("all"); // 'all' | 'with_advance' | 'zero_advance'
+    const [customerType, setCustomerType] = useState("all"); // 'all' | 'General' | 'Insurance'
+    const [searchTerm, setSearchTerm] = useState("");
+    const [isGroupedView, setIsGroupedView] = useState(true);
+
+    // Data state
+    const [loading, setLoading] = useState(false);
+    const [records, setRecords] = useState([]);
+    const [groupedData, setGroupedData] = useState([]);
+    const [floorsList, setFloorsList] = useState([]);
+    const [summary, setSummary] = useState({
+        total_patients: 0,
+        total_with_advance: 0,
+        total_zero_advance: 0,
+        total_advance: 0,
+        as_on_date: dayjs().format("DD/MM/YYYY")
+    });
+
+    // Patient Advance Breakdown Modal
+    const [selectedPatient, setSelectedPatient] = useState(null);
+
+    // Fetch report data from backend
+    const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
-            let query = "";
-            if (filterMode === "ip" && ipNumber) query = `ip_number=${ipNumber}`;
-            else if (filterMode === "uhid" && uhid) query = `uhid=${uhid}`;
-            else if (filterMode === "date") query = `from_date=${fromDate}&to_date=${toDate}`;
+            const params = new URLSearchParams();
+            if (asOnDate) params.append("as_on_date", asOnDate);
+            if (selectedFloor && selectedFloor !== "all") params.append("floor", selectedFloor);
+            if (advanceFilter && advanceFilter !== "all") params.append("has_advance", advanceFilter);
+            if (customerType && customerType !== "all") params.append("customer_type", customerType);
+            if (searchTerm.trim()) params.append("search", searchTerm.trim());
 
-            if (!query) {
-                toast.warning("Please provide search criteria");
-                setLoading(false);
-                return;
-            }
+            const response = await apiRequest(`${HmsBaseUrl}patient-advance-report/?${params.toString()}`, "GET");
 
-            const response = await apiRequest(`${HmsBaseUrl}admission-advance/?${query}`, "GET");
-            if (response.success) {
-                const list = Array.isArray(response.data) ? response.data : response.data?.data || [];
-                setData(list);
+            if (response && response.success) {
+                const resPayload = response.data || {};
+                const list = Array.isArray(resPayload)
+                    ? resPayload
+                    : (Array.isArray(resPayload.data) ? resPayload.data : []);
+                const grp = Array.isArray(resPayload.grouped_data)
+                    ? resPayload.grouped_data
+                    : [];
+                const flrs = Array.isArray(resPayload.floors_list)
+                    ? resPayload.floors_list
+                    : [];
+
+                setRecords(list);
+                setGroupedData(grp);
+                setFloorsList(flrs);
+                if (resPayload.summary) {
+                    setSummary(resPayload.summary);
+                } else {
+                    setSummary({
+                        total_patients: list.length,
+                        total_with_advance: list.filter(r => (r.advance || 0) > 0).length,
+                        total_zero_advance: list.filter(r => (r.advance || 0) === 0).length,
+                        total_advance: list.reduce((sum, r) => sum + (r.advance || 0), 0),
+                        as_on_date: dayjs(asOnDate).format("DD/MM/YYYY")
+                    });
+                }
             } else {
-                toast.error(response.message || "Failed to fetch data");
+                setRecords([]);
+                setGroupedData([]);
+                toast.error(response?.error || response?.message || "Failed to load IP Advance Report");
             }
         } catch (error) {
-            console.error("Error fetching IP advance:", error);
-            toast.error("An error occurred while fetching data");
+            console.error("Error fetching IP advance report:", error);
+            setRecords([]);
+            setGroupedData([]);
+            toast.error("Failed to load IP Advance Report");
         } finally {
             setLoading(false);
-            setSearched(true);
         }
-    }, [filterMode, ipNumber, uhid, fromDate, toDate, HmsBaseUrl]);
+    }, [asOnDate, selectedFloor, advanceFilter, customerType, searchTerm, HmsBaseUrl]);
 
+    // Initial fetch
     useEffect(() => {
-        if (startDate) setFromDate(startDate);
-        if (endDate) setToDate(endDate);
+        fetchReport();
+    }, [fetchReport]);
+
+    // Update date if props change
+    useEffect(() => {
+        if (endDate) setAsOnDate(endDate);
+        else if (startDate) setAsOnDate(startDate);
     }, [startDate, endDate]);
 
-    useEffect(() => {
-        // Auto-fetch if enough criteria is met
-        if (filterMode === "date" && fromDate && toDate) {
-            fetchData();
-        } else if (filterMode === "ip" && ipNumber) {
-            fetchData();
-        } else if (filterMode === "uhid" && uhid) {
-            fetchData();
-        }
-    }, [fromDate, toDate, filterMode, ipNumber, uhid]);
-
-    const handleSuccess = () => {
-        setModal(null);
-        fetchData();
-    };
-
-    const handleCancel = async (entry) => {
-        setLoading(true);
-        try {
-            const res = await apiRequest(`${HmsBaseUrl}admission-advance/${entry.ip_number}/`, "PATCH", {
-                advance_id: entry.advance_id
-            });
-            if (res.success) {
-                toast.success("Advance cancelled successfully");
-                handleSuccess();
-            } else {
-                toast.error(res.message || "Cancellation failed");
-            }
-        } catch (error) {
-            toast.error("Error cancelling advance");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const totals = (Array.isArray(data) ? data : []).reduce((acc, curr) => {
-        if (curr.status !== 'Cancelled') {
-            acc.total += (curr.advance_amount || 0);
-            acc.ip += (curr.ip_advance || 0);
-            acc.billing += (curr.billing_advance || 0);
-        }
-        return acc;
-    }, { total: 0, ip: 0, billing: 0 });
-
+    // Excel Export
     const handleExportExcel = () => {
-        if (!data || data.length === 0) {
-            toast.warning("No data to export");
+        if (!records || records.length === 0) {
+            toast.warning("No records available to export");
             return;
         }
+
         try {
-            const rows = data.map((entry, idx) => ({
-                "S.No": idx + 1,
-                "Date": entry.bill_date ? format(new Date(entry.bill_date), "dd/MM/yyyy") : "",
-                "Bill No": entry.bill_no || "",
-                "UHID": entry.uhid || "",
-                "Patient Name": entry.patient_name || "",
-                "IP Number": entry.ip_number || "",
-                "Advance Type": entry.advance_id || "",
-                "Total Amount (₹)": Number((entry.advance_amount || 0).toFixed(2)),
-                "IP Advance (₹)": Number((entry.ip_advance || 0).toFixed(2)),
-                "Billing Advance (₹)": Number((entry.billing_advance || 0).toFixed(2)),
-                "Payment Mode": (entry.payment_mode || "").toUpperCase(),
-                "Status": entry.status || ""
-            }));
+            const exportRows = [];
+            const hospName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
+            const hospAddr = localStorage.getItem("hospital_address") || "51/24.Saradha College Road, Salem - 636007";
+
+            // Title block
+            exportRows.push({ "Sl-No": hospName });
+            exportRows.push({ "Sl-No": hospAddr });
+            exportRows.push({ "Sl-No": `Patient advance details as on date ${summary.as_on_date || dayjs(asOnDate).format("DD/MM/YYYY")}` });
+            exportRows.push({}); // blank line
+
+            // Header row info
+            (groupedData || []).forEach(group => {
+                exportRows.push({ "Sl-No": `*** ${group.floor} ***` });
+                (group.records || []).forEach(r => {
+                    exportRows.push({
+                        "Sl-No": r.sl_no,
+                        "ROOM": r.room,
+                        "IPNUMBER": r.ip_number,
+                        "PATIENTNAME": r.patient_name,
+                        "ADMITTINGDATE": r.admitting_date,
+                        "No of days": r.no_of_days,
+                        "ADVANCE": Number((r.advance || 0).toFixed(2)),
+                        "COMPANY NAME": r.company_name || ""
+                    });
+                });
+                exportRows.push({
+                    "Sl-No": "",
+                    "ROOM": "",
+                    "IPNUMBER": "",
+                    "PATIENTNAME": `Subtotal (${group.floor}):`,
+                    "ADMITTINGDATE": "",
+                    "No of days": `${group.count} Patients`,
+                    "ADVANCE": Number((group.subtotal_advance || 0).toFixed(2)),
+                    "COMPANY NAME": ""
+                });
+                exportRows.push({}); // blank line
+            });
+
+            // Grand Total
+            exportRows.push({
+                "Sl-No": "",
+                "ROOM": "",
+                "IPNUMBER": "",
+                "PATIENTNAME": "GRAND TOTAL:",
+                "ADMITTINGDATE": "",
+                "No of days": `${summary.total_patients} Patients`,
+                "ADVANCE": Number((summary.total_advance || 0).toFixed(2)),
+                "COMPANY NAME": ""
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportRows);
+            ws["!cols"] = [
+                { wch: 8 },  // Sl-No
+                { wch: 10 }, // ROOM
+                { wch: 16 }, // IPNUMBER
+                { wch: 28 }, // PATIENTNAME
+                { wch: 16 }, // ADMITTINGDATE
+                { wch: 12 }, // No of days
+                { wch: 16 }, // ADVANCE
+                { wch: 34 }, // COMPANY NAME
+            ];
 
             const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(rows);
-            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
-            XLSX.utils.book_append_sheet(wb, ws, "IP Advance Report");
-            XLSX.writeFile(wb, `IP_Advance_Report_${filterMode === 'date' ? `${fromDate}_to_${toDate}` : filterMode}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Patient Advance Details");
+            XLSX.writeFile(wb, `Patient_Advance_Details_as_on_${asOnDate}.xlsx`);
             toast.success("Excel exported successfully!");
-        } catch (err) {
-            console.error("Excel export error:", err);
-            toast.error("Failed to export Excel file");
+        } catch (error) {
+            console.error("Excel export error:", error);
+            toast.error("Failed to export Excel");
         }
     };
 
+    // Print Report
+    const handlePrint = () => {
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
+    const hospitalAddress = localStorage.getItem("hospital_address") || "51/24.Saradha College Road, Salem - 636007";
+    const currentPrintTime = dayjs().format("DD/MM/YYYY HH:mm:ss");
+
     return (
-        <PageWrapper>
-            <SectionTitle>
-                <h3>IP Advance Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Manage and track patient advances and deposits
-                </p>
-            </SectionTitle>
+        <Container isModal={isModalView}>
+            {!isModalView && (
+                <SectionTitle>
+                    <h3>IP Advance Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Patient advance details of currently admitted in-patients grouped by Floor and Ward
+                    </p>
+                </SectionTitle>
+            )}
 
-            <div style={{ background: "white", padding: "20px", borderRadius: "12px", marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }} className="no-print">
-                <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
-                    {["ip", "uhid", "date"].map(mode => (
-                        <Button 
-                            key={mode} 
-                            secondary={filterMode !== mode} 
-                            onClick={() => setFilterMode(mode)}
-                            style={{ fontSize: "0.75rem", padding: "4px 12px" }}
+            {/* Filter Controls Bar */}
+            <FilterCard className="no-print">
+                <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <Label>As on Date</Label>
+                        <DatePicker
+                            value={asOnDate ? dayjs(asOnDate) : null}
+                            onChange={(d) => setAsOnDate(d ? d.format("YYYY-MM-DD") : "")}
+                            format="DD/MM/YYYY"
+                            allowClear={false}
+                            style={{ width: "100%", height: "38px", borderRadius: "8px" }}
+                        />
+                    </InputWrapper>
+
+                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <Label>Floor / Ward</Label>
+                        <Select
+                            value={selectedFloor}
+                            onChange={(e) => setSelectedFloor(e.target.value)}
+                            style={{ height: "38px" }}
                         >
-                            By {mode.toUpperCase()}
-                        </Button>
-                    ))}
-                </div>
+                            <option value="all">All Floors</option>
+                            {(floorsList || []).map((flr) => (
+                                <option key={flr} value={flr}>{flr}</option>
+                            ))}
+                        </Select>
+                    </InputWrapper>
 
-                <FormRow>
-                    {filterMode === "ip" && (
-                        <InputWrapper>
-                            <Label>IP Number</Label>
-                            <Input placeholder="Search IP Number" value={ipNumber} onChange={e => setIpNumber(e.target.value)} />
-                        </InputWrapper>
-                    )}
-                    {filterMode === "uhid" && (
-                        <InputWrapper>
-                            <Label>UHID</Label>
-                            <Input placeholder="Search UHID" value={uhid} onChange={e => setUhid(e.target.value)} />
-                        </InputWrapper>
-                    )}
-                    {filterMode === "date" && (
-                        <>
-                            <InputWrapper>
-                                <Label>From Date</Label>
-                                <DatePicker 
-                                    value={fromDate ? dayjs(fromDate) : null} 
-                                    onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                                    format="DD/MM/YYYY"
-                                    style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                                />
-                            </InputWrapper>
-                            <InputWrapper>
-                                <Label>To Date</Label>
-                                <DatePicker 
-                                    value={toDate ? dayjs(toDate) : null} 
-                                    onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                                    format="DD/MM/YYYY"
-                                    style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                                />
-                            </InputWrapper>
-                        </>
-                    )}
-                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchData} disabled={loading} style={{ height: "35px", minWidth: "100px" }}>
-                            {loading ? "..." : "Search"}
-                        </Button>
-                        <Button 
+                    <InputWrapper style={{ minWidth: "170px", flex: "1 1 170px" }}>
+                        <Label>Advance Status</Label>
+                        <Select
+                            value={advanceFilter}
+                            onChange={(e) => setAdvanceFilter(e.target.value)}
+                            style={{ height: "38px" }}
+                        >
+                            <option value="all">All In-Patients</option>
+                            <option value="with_advance">With Advance (&gt; ₹0)</option>
+                            <option value="zero_advance">Zero Advance (₹0)</option>
+                        </Select>
+                    </InputWrapper>
+
+                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                        <Label>Category</Label>
+                        <Select
+                            value={customerType}
+                            onChange={(e) => setCustomerType(e.target.value)}
+                            style={{ height: "38px" }}
+                        >
+                            <option value="all">All Categories</option>
+                            <option value="General">Cash / General</option>
+                            <option value="Insurance">Insurance / Corporate</option>
+                        </Select>
+                    </InputWrapper>
+
+                    <InputWrapper style={{ minWidth: "200px", flex: "2 1 200px" }}>
+                        <Label>Search</Label>
+                        <Input
+                            placeholder="Room, IP Number, Patient, Company..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ height: "38px" }}
+                        />
+                    </InputWrapper>
+
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "auto" }}>
+                        <ActionBtn variant="primary" onClick={fetchReport} disabled={loading}>
+                            <FaSyncAlt className={loading ? "spin" : ""} /> Refresh
+                        </ActionBtn>
+                        <ActionBtn 
+                            variant="secondary" 
+                            onClick={() => setIsGroupedView(prev => !prev)}
+                            title="Toggle Grouped / Flat View"
+                        >
+                            {isGroupedView ? <FaListUl /> : <FaLayerGroup />} {isGroupedView ? "Flat List" : "Group by Floor"}
+                        </ActionBtn>
+                        <ActionBtn 
+                            variant="success" 
                             onClick={handleExportExcel} 
-                            disabled={loading || data.length === 0} 
-                            style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            disabled={loading || records.length === 0}
                         >
-                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={() => printAccountsReport("printable-report-area", "landscape")} secondary style={{ height: "35px" }}>
-                            <FaPrint style={{ marginRight: "6px" }} /> Print
-                        </Button>
+                            <FaFileExcel /> Export Excel
+                        </ActionBtn>
+                        <ActionBtn 
+                            variant="secondary" 
+                            onClick={handlePrint} 
+                            disabled={loading || records.length === 0}
+                        >
+                            <FaPrint /> Print
+                        </ActionBtn>
                     </div>
                 </FormRow>
-            </div>
+            </FilterCard>
 
-            {searched && data.length > 0 && (
-                <>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
-                        <SummaryCard color={colors.primary}>
-                            <SummaryLabel>Total Advance</SummaryLabel>
-                            <SummaryValue>₹{totals.total.toLocaleString("en-IN")}</SummaryValue>
-                        </SummaryCard>
-                        <SummaryCard color={colors.success}>
-                            <SummaryLabel>IP Advance</SummaryLabel>
-                            <SummaryValue>₹{totals.ip.toLocaleString("en-IN")}</SummaryValue>
-                        </SummaryCard>
-                        <SummaryCard color="#8b5cf6">
-                            <SummaryLabel>Billing Advance</SummaryLabel>
-                            <SummaryValue>₹{totals.billing.toLocaleString("en-IN")}</SummaryValue>
-                        </SummaryCard>
+            {/* KPI Summary Cards */}
+            <SummaryGrid className="no-print">
+                <MetricCard color={colors.primary || "#0d9488"} bg="#ccfbf1">
+                    <div className="info">
+                        <div className="label">Total In-Patients</div>
+                        <div className="value">{summary.total_patients}</div>
+                        <div className="sub">Currently Admitted</div>
                     </div>
+                    <div className="icon-box">
+                        <FaUsers />
+                    </div>
+                </MetricCard>
 
-                    <PatientInfoBar>
-                        <div style={{ display: "flex", gap: "30px", flexWrap: "wrap" }}>
-                            <InfoGroup>
-                                <SummaryLabel>Patient Name</SummaryLabel>
-                                <div style={{ fontWeight: "700", fontSize: "1.1rem" }}>{data[0]?.patient_name || "N/A"}</div>
-                            </InfoGroup>
-                            <InfoGroup>
-                                <SummaryLabel>UHID</SummaryLabel>
-                                <div style={{ fontWeight: "600", color: colors.primary }}>{data[0]?.uhid || "N/A"}</div>
-                            </InfoGroup>
-                            <InfoGroup>
-                                <SummaryLabel>IP Number</SummaryLabel>
-                                <div style={{ fontWeight: "600", color: colors.primary }}>{data[0]?.ip_number || "N/A"}</div>
-                            </InfoGroup>
-                        </div>
-                        {/* <Button onClick={() => setModal({ type: "create" })} style={{ height: "35px" }} success>
-                            + New Advance
-                        </Button> */}
-                    </PatientInfoBar>
+                <MetricCard color="#16a34a" bg="#dcfce7">
+                    <div className="info">
+                        <div className="label">With Advance</div>
+                        <div className="value">{summary.total_with_advance}</div>
+                        <div className="sub">Patients having deposits</div>
+                    </div>
+                    <div className="icon-box">
+                        <FaHospitalUser />
+                    </div>
+                </MetricCard>
 
-                    <TableWrapper>
-                        <Table>
-                            <thead>
-                                <Tr>
-                                    <Th>Date</Th>
-                                    <Th>Bill No</Th>
-                                    <Th>Type</Th>
-                                    <Th style={{ textAlign: "right" }}>Total Amount</Th>
-                                    <Th style={{ textAlign: "right" }}>IP Adv</Th>
-                                    <Th style={{ textAlign: "right" }}>Bill Adv</Th>
-                                    <Th>Mode</Th>
-                                    <Th>Status</Th>
-                                    {/* <Th style={{ textAlign: "center" }}>Actions</Th> */}
-                                </Tr>
-                            </thead>
-                            <tbody>
-                                {data.map((entry, idx) => (
-                                    <Tr key={idx}>
-                                        <Td>{format(new Date(entry.bill_date), "dd/MM/yyyy")}</Td>
-                                        <Td style={{ fontWeight: "600" }}>{entry.bill_no}</Td>
-                                        <Td>{entry.advance_id}</Td>
-                                        <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(entry.advance_amount || 0).toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right" }}>₹{(entry.ip_advance || 0).toFixed(2)}</Td>
-                                        <Td style={{ textAlign: "right" }}>₹{(entry.billing_advance || 0).toFixed(2)}</Td>
-                                        <Td style={{ textTransform: "uppercase", fontSize: "0.75rem" }}>{entry.payment_mode}</Td>
-                                        <Td>
-                                            <StatusBadge 
-                                                bg={entry.status === 'Paid' ? "#dcfce7" : entry.status === 'Cancelled' ? "#fee2e2" : "#fef3c7"}
-                                                color={entry.status === 'Paid' ? "#166534" : entry.status === 'Cancelled' ? "#b91c1c" : "#92400e"}
-                                            >
-                                                {entry.status}
-                                            </StatusBadge>
+                <MetricCard color="#f59e0b" bg="#fef3c7">
+                    <div className="info">
+                        <div className="label">Zero Advance</div>
+                        <div className="value">{summary.total_zero_advance}</div>
+                        <div className="sub">No advance deposit paid</div>
+                    </div>
+                    <div className="icon-box">
+                        <FaInfoCircle />
+                    </div>
+                </MetricCard>
+
+                <MetricCard color="#8b5cf6" bg="#ede9fe">
+                    <div className="info">
+                        <div className="label">Total Advance Collected</div>
+                        <div className="value">₹{(summary.total_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <div className="sub">As on {summary.as_on_date}</div>
+                    </div>
+                    <div className="icon-box">
+                        <FaMoneyBillWave />
+                    </div>
+                </MetricCard>
+            </SummaryGrid>
+
+            {/* Main Interactive Screen Table */}
+            <TableWrapper className="no-print">
+                {loading ? (
+                    <div style={{ textAlign: "center", padding: "60px 0" }}>
+                        <Spin size="large" />
+                        <p style={{ marginTop: "12px", color: colors.textMuted }}>Loading in-patient advance records...</p>
+                    </div>
+                ) : (!Array.isArray(records) || records.length === 0) ? (
+                    <div style={{ textAlign: "center", padding: "60px 0", color: colors.textMuted }}>
+                        <FaInfoCircle size={36} style={{ opacity: 0.4, marginBottom: "10px" }} />
+                        <h4>No Patient Advance Records Found</h4>
+                        <p style={{ fontSize: "0.85rem" }}>Try changing the date, floor filter, or search keywords.</p>
+                    </div>
+                ) : (
+                    <Table>
+                        <thead>
+                            <Tr>
+                                <Th style={{ width: "60px", textAlign: "center" }}>Sl-No</Th>
+                                <Th style={{ width: "100px" }}>ROOM</Th>
+                                <Th style={{ width: "140px" }}>IPNUMBER</Th>
+                                <Th>PATIENTNAME</Th>
+                                <Th style={{ width: "130px" }}>ADMITTINGDATE</Th>
+                                <Th style={{ width: "100px", textAlign: "center" }}>No of days</Th>
+                                <Th style={{ width: "140px", textAlign: "right" }}>ADVANCE</Th>
+                                <Th style={{ minWidth: "200px" }}>COMPANY NAME</Th>
+                                <Th style={{ width: "70px", textAlign: "center" }}>Action</Th>
+                            </Tr>
+                        </thead>
+                        <tbody>
+                            {isGroupedView ? (
+                                (groupedData || []).map((group) => (
+                                    <React.Fragment key={group.floor}>
+                                        <FloorHeaderRow>
+                                            <td colSpan={9}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <span>{group.floor}</span>
+                                                    <span style={{ fontSize: "0.78rem", fontWeight: "600", color: "#475569" }}>
+                                                        {group.count} {group.count === 1 ? "Patient" : "Patients"} &bull; Advance: ₹{Number(group.subtotal_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </FloorHeaderRow>
+                                        {(group.records || []).map((row) => (
+                                            <Tr key={row.ip_number} style={{ cursor: "pointer" }} onClick={() => setSelectedPatient(row)}>
+                                                <Td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>{row.sl_no}</Td>
+                                                <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room}</Td>
+                                                <Td style={{ fontFamily: "monospace", fontWeight: "600", color: colors.primary }}>{row.ip_number}</Td>
+                                                <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
+                                                <Td>{row.admitting_date}</Td>
+                                                <Td style={{ textAlign: "center" }}>
+                                                    <Badge 
+                                                        count={row.no_of_days} 
+                                                        style={{ 
+                                                            backgroundColor: row.no_of_days > 30 ? "#fee2e2" : row.no_of_days > 7 ? "#fef3c7" : "#f1f5f9",
+                                                            color: row.no_of_days > 30 ? "#b91c1c" : row.no_of_days > 7 ? "#b45309" : "#334155",
+                                                            fontWeight: "bold"
+                                                        }} 
+                                                    />
+                                                </Td>
+                                                <Td style={{ 
+                                                    textAlign: "right", 
+                                                    fontWeight: "700", 
+                                                    color: row.advance > 0 ? "#15803d" : "#94a3b8" 
+                                                }}>
+                                                    ₹{Number(row.advance || 0).toFixed(2)}
+                                                </Td>
+                                                <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: row.company_name ? "#1e293b" : "#94a3b8" }}>
+                                                    {row.company_name || "-"}
+                                                </Td>
+                                                <Td style={{ textAlign: "center" }} onClick={(e) => { e.stopPropagation(); setSelectedPatient(row); }}>
+                                                    <Tooltip title="View Advance Details">
+                                                        <Button secondary style={{ padding: "4px 8px", height: "auto" }}>
+                                                            <FaEye size={12} />
+                                                        </Button>
+                                                    </Tooltip>
+                                                </Td>
+                                            </Tr>
+                                        ))}
+                                        <SubtotalRow>
+                                            <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
+                                                {group.floor} Subtotal ({group.count} Patients):
+                                            </td>
+                                            <td style={{ textAlign: "center" }}></td>
+                                            <td style={{ textAlign: "right", color: "#0f172a" }}>
+                                                ₹{Number(group.subtotal_advance || 0).toFixed(2)}
+                                            </td>
+                                            <td colSpan={2}></td>
+                                        </SubtotalRow>
+                                    </React.Fragment>
+                                ))
+                            ) : (
+                                (records || []).map((row) => (
+                                    <Tr key={row.ip_number} style={{ cursor: "pointer" }} onClick={() => setSelectedPatient(row)}>
+                                        <Td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>{row.sl_no}</Td>
+                                        <Td style={{ fontWeight: "700", color: "#0f172a" }}>{row.room}</Td>
+                                        <Td style={{ fontFamily: "monospace", fontWeight: "600", color: colors.primary }}>{row.ip_number}</Td>
+                                        <Td style={{ fontWeight: "600" }}>{row.patient_name}</Td>
+                                        <Td>{row.admitting_date}</Td>
+                                        <Td style={{ textAlign: "center" }}>
+                                            <Badge 
+                                                count={row.no_of_days} 
+                                                style={{ 
+                                                    backgroundColor: row.no_of_days > 30 ? "#fee2e2" : row.no_of_days > 7 ? "#fef3c7" : "#f1f5f9",
+                                                    color: row.no_of_days > 30 ? "#b91c1c" : row.no_of_days > 7 ? "#b45309" : "#334155",
+                                                    fontWeight: "bold"
+                                                }} 
+                                            />
                                         </Td>
-                                        {/* <Td style={{ textAlign: "center" }}>
-                                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                                                {entry.status !== 'Cancelled' && (
-                                                    <Button secondary style={{ padding: "2px 8px", fontSize: "0.7rem" }} onClick={() => setModal({ type: 'cancel', entry })}>Cancel</Button>
-                                                )}
-                                            </div> 
-                                        </Td>*/}
+                                        <Td style={{ 
+                                            textAlign: "right", 
+                                            fontWeight: "700", 
+                                            color: row.advance > 0 ? "#15803d" : "#94a3b8" 
+                                        }}>
+                                            ₹{Number(row.advance || 0).toFixed(2)}
+                                        </Td>
+                                        <Td style={{ textTransform: "uppercase", fontSize: "0.8rem", color: row.company_name ? "#1e293b" : "#94a3b8" }}>
+                                            {row.company_name || "-"}
+                                        </Td>
+                                        <Td style={{ textAlign: "center" }} onClick={(e) => { e.stopPropagation(); setSelectedPatient(row); }}>
+                                            <Tooltip title="View Advance Details">
+                                                <Button secondary style={{ padding: "4px 8px", height: "auto" }}>
+                                                    <FaEye size={12} />
+                                                </Button>
+                                            </Tooltip>
+                                        </Td>
                                     </Tr>
-                                ))}
-                            </tbody>
-                        </Table>
-                    </TableWrapper>
-                </>
-            )}
-
-            {/* MODALS */}
-            {modal && (
-                <ModalOverlay onClick={() => setModal(null)}>
-                    <ModalContainer onClick={e => e.stopPropagation()}>
-                        <ModalHeader>
-                            <ModalTitle>{modal.type === 'create' ? 'New Advance' : modal.type === 'cancel' ? 'Cancel Advance' : 'Edit Advance'}</ModalTitle>
-                            <CloseButton onClick={() => setModal(null)}>×</CloseButton>
-                        </ModalHeader>
-                        <ModalBody>
-                            {modal.type === 'create' && (
-                                <AdvanceForm mode="create" ipNumber={data[0]?.ip_number || ipNumber} onCancel={() => setModal(null)} onSuccess={handleSuccess} />
+                                ))
                             )}
-                            {modal.type === 'cancel' && (
-                                <div style={{ padding: "10px" }}>
-                                    <p>Are you sure you want to cancel advance <strong>{modal.entry.bill_no}</strong> for <strong>₹{modal.entry.advance_amount}</strong>?</p>
-                                    <p style={{ color: colors.danger, fontSize: "0.85rem", marginTop: "10px" }}>* This action cannot be undone.</p>
-                                    <ButtonContainer>
-                                        <Button secondary onClick={() => setModal(null)}>Go Back</Button>
-                                        <Button danger onClick={() => handleCancel(modal.entry)}>Yes, Cancel</Button>
-                                    </ButtonContainer>
-                                </div>
-                            )}
-                        </ModalBody>
-                    </ModalContainer>
-                </ModalOverlay>
-            )}
 
-            <style>
-                {`
-                @media print {
-                    @page { size: landscape; margin: 10mm; }
-                    body * { visibility: hidden; }
-                    #printable-report-area, #printable-report-area * { visibility: visible; }
-                    #printable-report-area {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        display: block !important;
-                    }
-                    body { background: white !important; }
-                }
-                `}
-            </style>
+                            {/* Grand Total Row */}
+                            <GrandTotalRow>
+                                <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                    GRAND TOTAL:
+                                </td>
+                                <td style={{ textAlign: "center" }}>{summary.total_patients} Pts</td>
+                                <td style={{ textAlign: "right" }}>
+                                    ₹{Number(summary.total_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td colSpan={2}></td>
+                            </GrandTotalRow>
+                        </tbody>
+                    </Table>
+                )}
+            </TableWrapper>
 
+            {/* ── PRINT VIEW AREA (Rendered into print frame) ─────────────────── */}
             <PrintTemplate id="printable-report-area">
-                <PrintHeader>
-                    <h1>{localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL"}</h1>
-                    <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
-                    <div className="report-title">IP Advance Report</div>
-                </PrintHeader>
+                <PrintHeaderContainer>
+                    <div className="hospital-title">{hospitalName}</div>
+                    <div className="hospital-sub">{hospitalAddress}</div>
+                    <div className="report-title">
+                        Patient advance details as on date {summary.as_on_date || dayjs(asOnDate).format("DD/MM/YYYY")}
+                    </div>
+                </PrintHeaderContainer>
 
-                <PrintInfoTable>
-                    <tbody>
-                        <tr>
-                            <td style={{ width: "30%" }}><strong>Patient:</strong> {data[0]?.patient_name || "N/A"}</td>
-                            <td style={{ width: "30%" }}><strong>IP No:</strong> {data[0]?.ip_number || "N/A"}</td>
-                            <td style={{ width: "40%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>UHID:</strong> {data[0]?.uhid || "N/A"}</td>
-                            <td><strong>Search Period:</strong> {dayjs(fromDate).format("DD/MM/YYYY")} to {dayjs(toDate).format("DD/MM/YYYY")}</td>
-                            <td style={{ textAlign: "right" }}><strong>Printed By:</strong> {localStorage.getItem("employeeId") || "Staff"}</td>
-                        </tr>
-                    </tbody>
-                </PrintInfoTable>
-
-                <PrintTable>
+                <PrintTableWrapper>
                     <thead>
                         <tr>
-                            <th>Date</th>
-                            <th>Bill No</th>
-                            <th>Type/Advance ID</th>
-                            <th style={{ textAlign: "right" }}>Total Amount</th>
-                            <th style={{ textAlign: "right" }}>IP Adv</th>
-                            <th style={{ textAlign: "right" }}>Bill Adv</th>
-                            <th>Mode</th>
-                            <th>Status</th>
+                            <th style={{ width: "45px" }}>Sl-No</th>
+                            <th style={{ width: "65px" }}>ROOM</th>
+                            <th style={{ width: "95px" }}>IPNUMBER</th>
+                            <th style={{ width: "175px" }}>PATIENTNAME</th>
+                            <th style={{ width: "95px" }}>ADMITTINGDATE</th>
+                            <th style={{ width: "65px", textAlign: "center" }}>No of days</th>
+                            <th style={{ width: "80px", textAlign: "right" }}>ADVANCE</th>
+                            <th style={{ width: "175px", paddingLeft: "10px" }}>COMPANY NAME</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {data.length > 0 ? (
-                            data.map((entry, idx) => (
-                                <tr key={idx}>
-                                    <td>{dayjs(entry.bill_date).format("DD/MM/YYYY")}</td>
-                                    <td>{entry.bill_no}</td>
-                                    <td>{entry.advance_id}</td>
-                                    <td style={{ textAlign: "right" }}>₹{(entry.advance_amount || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{(entry.ip_advance || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{(entry.billing_advance || 0).toFixed(2)}</td>
-                                    <td>{entry.payment_mode}</td>
-                                    <td>{entry.status}</td>
+                        {(groupedData || []).map((group) => (
+                            <React.Fragment key={`print-${group.floor}`}>
+                                <tr className="floor-heading">
+                                    <td colSpan={8}>{group.floor}</td>
                                 </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="8" style={{ textAlign: "center", padding: "15px" }}>No records found.</td>
-                            </tr>
-                        )}
-                        {data.length > 0 && (
-                            <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
-                                <td colSpan="3" style={{ textAlign: "right" }}>Grand Total:</td>
-                                <td style={{ textAlign: "right" }}>₹{totals.total.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{totals.ip.toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{totals.billing.toFixed(2)}</td>
-                                <td colSpan="2"></td>
-                            </tr>
-                        )}
+                                {(group.records || []).map((r) => (
+                                    <tr key={`print-row-${r.ip_number}`}>
+                                        <td style={{ textAlign: "left" }}>{r.sl_no}</td>
+                                        <td>{r.room}</td>
+                                        <td>{r.ip_number}</td>
+                                        <td style={{ textTransform: "uppercase" }}>{r.patient_name}</td>
+                                        <td>{r.admitting_date}</td>
+                                        <td style={{ textAlign: "center" }}>{r.no_of_days}</td>
+                                        <td style={{ textAlign: "right" }}>{Number(r.advance || 0).toFixed(2)}</td>
+                                        <td style={{ paddingLeft: "10px", textTransform: "uppercase" }}>{r.company_name || ""}</td>
+                                    </tr>
+                                ))}
+                            </React.Fragment>
+                        ))}
+                        <tr className="grand-total-row">
+                            <td colSpan={5} style={{ textAlign: "right", textTransform: "uppercase" }}>
+                                Grand Total ({summary.total_patients} Patients):
+                            </td>
+                            <td style={{ textAlign: "center" }}>{summary.total_patients}</td>
+                            <td style={{ textAlign: "right" }}>{Number(summary.total_advance || 0).toFixed(2)}</td>
+                            <td></td>
+                        </tr>
                     </tbody>
-                </PrintTable>
+                </PrintTableWrapper>
 
-                <PrintSignatures>
-                    <div className="sig-box">Prepared By</div>
-                    <div className="sig-box">Accounts Officer</div>
-                    <div className="sig-box">Authorized Signatory</div>
-                </PrintSignatures>
+                <PrintFooter>
+                    <div>{currentPrintTime}</div>
+                    <div>Page 1</div>
+                </PrintFooter>
             </PrintTemplate>
-        </PageWrapper>
+
+            {/* Patient Advance Details Modal */}
+            {selectedPatient && (
+                <Modal
+                    open={!!selectedPatient}
+                    onCancel={() => setSelectedPatient(null)}
+                    footer={null}
+                    title={
+                        <div>
+                            <div style={{ fontSize: "1.1rem", fontWeight: "700", color: colors.textMain }}>
+                                Advance Transactions &bull; {selectedPatient.patient_name}
+                            </div>
+                            <div style={{ fontSize: "0.8rem", color: colors.textMuted, marginTop: "2px" }}>
+                                IP No: <strong style={{ color: colors.primary }}>{selectedPatient.ip_number}</strong> &bull; Room: <strong>{selectedPatient.room}</strong> ({selectedPatient.floor})
+                            </div>
+                        </div>
+                    }
+                    width={700}
+                >
+                    <div style={{ padding: "10px 0" }}>
+                        <div style={{ 
+                            background: "#f8fafc", 
+                            padding: "12px 16px", 
+                            borderRadius: "8px", 
+                            marginBottom: "16px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: "10px"
+                        }}>
+                            <div>
+                                <span style={{ fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase", display: "block" }}>Admitted On</span>
+                                <strong>{selectedPatient.admitting_date}</strong> ({selectedPatient.no_of_days} days)
+                            </div>
+                            <div>
+                                <span style={{ fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase", display: "block" }}>Company / TPA</span>
+                                <strong>{selectedPatient.company_name || "Self / Cash"}</strong>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: "0.75rem", color: "#64748b", textTransform: "uppercase", display: "block" }}>Total Active Advance</span>
+                                <strong style={{ color: "#16a34a", fontSize: "1.1rem" }}>
+                                    ₹{Number(selectedPatient.advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </strong>
+                            </div>
+                        </div>
+
+                        <h5 style={{ fontWeight: "700", marginBottom: "10px", color: colors.textMain }}>Receipt Breakdown</h5>
+                        {(!selectedPatient.advance_items || selectedPatient.advance_items.length === 0) ? (
+                            <div style={{ textAlign: "center", padding: "30px", color: colors.textMuted, background: "#f8fafc", borderRadius: "8px" }}>
+                                No advance deposit receipts recorded for this patient.
+                            </div>
+                        ) : (
+                            <Table>
+                                <thead>
+                                    <Tr>
+                                        <Th>Bill No</Th>
+                                        <Th>Date</Th>
+                                        <Th style={{ textAlign: "right" }}>IP Portion</Th>
+                                        <Th style={{ textAlign: "right" }}>Bill Portion</Th>
+                                        <Th style={{ textAlign: "right" }}>Total (₹)</Th>
+                                        <Th>Mode</Th>
+                                        <Th>Status</Th>
+                                    </Tr>
+                                </thead>
+                                <tbody>
+                                    {selectedPatient.advance_items.map((item, i) => (
+                                        <Tr key={i}>
+                                            <Td style={{ fontWeight: "600", fontFamily: "monospace" }}>{item.bill_no || item.advance_id}</Td>
+                                            <Td>{item.date}</Td>
+                                            <Td style={{ textAlign: "right" }}>₹{Number(item.ip_advance || 0).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right" }}>₹{Number(item.billing_advance || 0).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", fontWeight: "700", color: "#16a34a" }}>
+                                                ₹{Number(item.amount || 0).toFixed(2)}
+                                            </Td>
+                                            <Td style={{ textTransform: "uppercase", fontSize: "0.75rem" }}>{item.payment_mode}</Td>
+                                            <Td>
+                                                <span style={{ 
+                                                    background: item.status === "Paid" ? "#dcfce7" : "#fee2e2",
+                                                    color: item.status === "Paid" ? "#166534" : "#b91c1c",
+                                                    padding: "2px 6px",
+                                                    borderRadius: "4px",
+                                                    fontSize: "0.72rem",
+                                                    fontWeight: "700",
+                                                    textTransform: "uppercase"
+                                                }}>
+                                                    {item.status}
+                                                </span>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                                </tbody>
+                            </Table>
+                        )}
+                    </div>
+                </Modal>
+            )}
+        </Container>
     );
 };
 
-// ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
-const AdvanceForm = ({ mode, ipNumber, onCancel, onSuccess }) => {
-    const [form, setForm] = useState({
-        advance_amount: "",
-        ip_advance: "",
-        billing_advance: "",
-        payment_method: "cash",
-        date: format(new Date(), "yyyy-MM-dd")
-    });
-    const [loading, setLoading] = useState(false);
-    const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
-
-    const handleSubmit = async () => {
-        if (!form.advance_amount) return toast.error("Advance amount is required");
-        setLoading(true);
-        try {
-            const res = await apiRequest(`${HmsBaseUrl}admission-advance/${ipNumber}/`, "POST", {
-                ...form,
-                advance_amount: parseFloat(form.advance_amount),
-                ip_advance: parseFloat(form.ip_advance || 0),
-                billing_advance: parseFloat(form.billing_advance || 0)
-            });
-            if (res.success) {
-                toast.success("Advance saved successfully");
-                onSuccess();
-            } else {
-                toast.error(res.message || "Failed to save");
-            }
-        } catch (error) {
-            toast.error("Error saving advance");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div style={{ padding: "10px" }}>
-            <FormRow>
-                <InputWrapper>
-                    <Label required>Total Advance Amount</Label>
-                    <Input type="number" value={form.advance_amount} onChange={e => setForm((f) => ({ ...f, advance_amount: e.target.value }))} />
-                </InputWrapper>
-            </FormRow>
-            <FormRow>
-                <InputWrapper>
-                    <Label>IP Advance Portion</Label>
-                    <Input type="number" value={form.ip_advance} onChange={e => setForm((f) => ({ ...f, ip_advance: e.target.value }))} />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label>Billing Advance Portion</Label>
-                    <Input type="number" value={form.billing_advance} onChange={e => setForm((f) => ({ ...f, billing_advance: e.target.value }))} />
-                </InputWrapper>
-            </FormRow>
-            <FormRow>
-                <InputWrapper>
-                    <Label>Payment Mode</Label>
-                    <Select value={form.payment_method} onChange={e => setForm((f) => ({ ...f, payment_method: e.target.value }))}>
-                        <option value="cash">CASH</option>
-                        <option value="upi">UPI</option>
-                        <option value="card">CARD</option>
-                        <option value="neft">NEFT</option>
-                    </Select>
-                </InputWrapper>
-                <InputWrapper>
-                    <Label>Date</Label>
-                    <Input type="date" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} />
-                </InputWrapper>
-            </FormRow>
-            <ButtonContainer>
-                <Button secondary onClick={onCancel}>Cancel</Button>
-                <Button onClick={handleSubmit} disabled={loading}>{loading ? "Saving..." : "Save Advance"}</Button>
-            </ButtonContainer>
-        </div>
-    );
-};
-
-export default IPAdvanceReport;
+export default IPAdvanceReport;

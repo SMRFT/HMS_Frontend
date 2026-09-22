@@ -56,6 +56,7 @@ const SalesTaxRegister = lazy(() => import("../Accounts/SalesTaxRegister"));
 const DaywiseSalesTaxRegister = lazy(() => import("../Accounts/DaywiseSalesTaxRegister"));
 const StockReportIpOp = lazy(() => import("../Accounts/StockReportIpOp"));
 const DepartmentWiseReport = lazy(() => import("../Accounts/DepartmentWiseReport"));
+const DiscountBillsReport = lazy(() => import("../Accounts/DiscountBillsReport"));
 
 const { RangePicker } = DatePicker;
 
@@ -551,6 +552,14 @@ const ReportsDashboard = () => {
             icon: <Package size={24} />,
             component: StockReportIpOp,
             color: colors.primary
+        },
+        {
+            id: "discount_bills",
+            title: "Discount Bills Report",
+            description: "Concession & discount register across Pharmacy (OP/IP), Investigation, Discharge, and Registration",
+            icon: <Percent size={24} />,
+            component: DiscountBillsReport,
+            color: colors.primary
         }
     ];
 
@@ -565,7 +574,7 @@ const ReportsDashboard = () => {
             navigate(report.path);
         } else {
             setSelectedReport(report);
-            if (report.id === "bill_wise" || report.id === "credit_card" || report.id === "cash_bills") {
+            if (report.id === "bill_wise" || report.id === "credit_card" || report.id === "cash_bills" || report.id === "discount_bills") {
                 setBillType("All");
             }
             setIsConfigModalVisible(true);
@@ -581,6 +590,8 @@ const ReportsDashboard = () => {
         if (!selectedReport) return null;
         const ReportComponent = selectedReport.component;
         
+        const isNoOutletReport = ["ip_advance", "discharge_bills", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id);
+
         return (
             <Suspense fallback={<div style={{ padding: '100px', textAlign: 'center' }}><Spin size="large" /></div>}>
                 <ReportComponent 
@@ -588,7 +599,7 @@ const ReportsDashboard = () => {
                     startDate={dateRange[0].format("YYYY-MM-DD")}
                     endDate={dateRange[1].format("YYYY-MM-DD")}
                     initialBillType={billType}
-                    initialOutlet={selectedOutlet}
+                    initialOutlet={isNoOutletReport ? undefined : selectedOutlet}
                 />
             </Suspense>
         );
@@ -686,25 +697,27 @@ const ReportsDashboard = () => {
                         </InputWrapper>
                     </FormRow>
 
-                    <FormRow style={{ marginTop: '16px' }}>
-                        <InputWrapper style={{ width: '100%' }}>
-                            <Label>Outlet / Counter</Label>
-                            <Select
-                                value={selectedOutlet}
-                                onChange={(e) => setSelectedOutlet(e.target.value)}
-                                style={{ width: '100%', borderRadius: '8px', height: '42px' }}
-                            >
-                                <option value="all">All Outlets</option>
-                                {outlets.map((o) => (
-                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
-                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
-                                    </option>
-                                ))}
-                            </Select>
-                        </InputWrapper>
-                    </FormRow>
+                    {!["ip_advance", "discharge_bills", "discharge_detailed", "advance_reg", "insurance_advance"].includes(selectedReport?.id) && (
+                        <FormRow style={{ marginTop: '16px' }}>
+                            <InputWrapper style={{ width: '100%' }}>
+                                <Label>Outlet / Counter</Label>
+                                <Select
+                                    value={selectedOutlet}
+                                    onChange={(e) => setSelectedOutlet(e.target.value)}
+                                    style={{ width: '100%', borderRadius: '8px', height: '42px' }}
+                                >
+                                    <option value="all">All Outlets</option>
+                                    {outlets.map((o) => (
+                                        <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                            {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                        </option>
+                                    ))}
+                                </Select>
+                            </InputWrapper>
+                        </FormRow>
+                    )}
 
-                    {(selectedReport?.id === "bill_wise" || selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") && (
+                    {(selectedReport?.id === "bill_wise" || selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills" || selectedReport?.id === "discount_bills") && (
                         <FormRow style={{ marginTop: '16px' }}>
                             <InputWrapper style={{ width: '100%' }}>
                                 <Label>Bill Type / Category</Label>
@@ -713,7 +726,21 @@ const ReportsDashboard = () => {
                                     onChange={(e) => setBillType(e.target.value)}
                                     style={{ width: '100%', borderRadius: '8px', height: '42px' }}
                                 >
-                                    {(selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") ? (
+                                    {selectedReport?.id === "discount_bills" ? (
+                                        <>
+                                            <option value="All">All Categories</option>
+                                            <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
+                                            <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
+                                            <option value="DISCHARGE BILL">Discharge Bill</option>
+                                            <option value="LAB BILL (SH)">Lab Bill (SH)</option>
+                                            <option value="CT SCAN (SH)">CT Scan (SH)</option>
+                                            <option value="SCANNING (SH)">Scanning (SH)</option>
+                                            <option value="X - RAY (SH)">X-Ray (SH)</option>
+                                            <option value="ECG (SH)">ECG (SH)</option>
+                                            <option value="PET_CT(SH)">PET CT (SH)</option>
+                                            <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
+                                        </>
+                                    ) : (selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") ? (
                                         <>
                                             <option value="All">All Categories (All Bill Types)</option>
                                             <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
@@ -745,6 +772,7 @@ const ReportsDashboard = () => {
                                     )}
                                 </Select>
                             </InputWrapper>
+
                         </FormRow>
                     )}
 

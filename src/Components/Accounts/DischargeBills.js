@@ -54,39 +54,21 @@ const SummaryLabel = styled.p`
     letter-spacing: 0.05em;
 `;
 
-const DischargeBills = ({ isModalView = false, startDate, endDate, initialOutlet = "" }) => {
+const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [billType, setBillType] = useState("all");
     const [insuranceFilter, setInsuranceFilter] = useState("false");
-    const [selectedOutlet, setSelectedOutlet] = useState(initialOutlet || "all");
-    const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    // Fetch Outlets
-    useEffect(() => {
-        const fetchOutlets = async () => {
-            try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res.success && Array.isArray(res.data)) {
-                    setOutlets(res.data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch outlets:", err);
-            }
-        };
-        fetchOutlets();
-    }, [HmsBaseUrl]);
-
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-        if (initialOutlet) setSelectedOutlet(initialOutlet);
-    }, [startDate, endDate, initialOutlet]);
+    }, [startDate, endDate]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
@@ -95,7 +77,6 @@ const DischargeBills = ({ isModalView = false, startDate, endDate, initialOutlet
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
             if (billType !== "all") params.set("payment_mode", billType);
             if (insuranceFilter !== "all") params.set("insurance", insuranceFilter);
-            if (selectedOutlet && selectedOutlet !== "all") params.set("outlet_code", selectedOutlet);
 
             const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
             if (response.success && response.data) {
@@ -112,7 +93,7 @@ const DischargeBills = ({ isModalView = false, startDate, endDate, initialOutlet
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, billType, insuranceFilter, selectedOutlet, HmsBaseUrl]);
+    }, [fromDate, toDate, billType, insuranceFilter, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -188,21 +169,7 @@ const DischargeBills = ({ isModalView = false, startDate, endDate, initialOutlet
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
-                    <InputWrapper>
-                        <Label>Outlet</Label>
-                        <Select 
-                            value={selectedOutlet} 
-                            onChange={(e) => setSelectedOutlet(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o._id} value={o.outlet_code}>
-                                    {o.outlet_name} ({o.outlet_code})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
+
                     <InputWrapper>
                         <Label>Payment Mode</Label>
                         <Select
