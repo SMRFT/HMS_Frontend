@@ -38,46 +38,98 @@ const SummaryCard = styled.div`
     animation: ${fadeIn} 0.4s ease-out;
 `;
 
-const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate, initialOutlet = "" }) => {
+const FilterSection = styled.div`
+    background: ${colors.surface};
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+`;
+
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        background: white;
+        width: 100%;
+        color: black;
+        font-family: 'Courier New', Courier, monospace;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+    h1 { margin: 0; font-size: 14px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 1px 0; font-size: 10px; }
+    .report-title { font-size: 11px; font-weight: bold; margin-top: 4px; }
+`;
+
+const PrintMetaTable = styled.table`
+    width: 100%;
+    margin-bottom: 4px;
+    border-collapse: collapse;
+    font-size: 9px;
+    td { padding: 1px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0;
+    font-size: 7.5px;
+    th, td {
+        border-top: 1px dashed #aaa;
+        border-bottom: 1px dashed #aaa;
+        padding: 2px 2px;
+        text-align: left;
+    }
+    th {
+        border-top: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
+        font-weight: bold;
+        text-transform: capitalize;
+    }
+    .company-header-row td {
+        border-top: 1px dashed #000 !important;
+        border-bottom: none !important;
+        font-size: 8.5px;
+    }
+    .company-sub-row td {
+        border-top: none !important;
+        border-bottom: none !important;
+        font-size: 8px;
+    }
+    .company-total-row td {
+        border-top: 1px dashed #000 !important;
+        border-bottom: 1px dashed #000 !important;
+    }
+    .grand-total-row td {
+        border-top: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
+    }
+`;
+
+const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate }) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [selectedOutlet, setSelectedOutlet] = useState(initialOutlet || "all");
     const [selectedCompany, setSelectedCompany] = useState("all");
-    const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
-    // Fetch Outlets
-    useEffect(() => {
-        const fetchOutlets = async () => {
-            try {
-                const res = await apiRequest(`${HmsBaseUrl}get-all-outlets/`, "GET");
-                if (res.success && Array.isArray(res.data)) {
-                    setOutlets(res.data);
-                }
-            } catch (err) {
-                console.error("Failed to fetch outlets:", err);
-            }
-        };
-        fetchOutlets();
-    }, [HmsBaseUrl]);
-
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-        if (initialOutlet) setSelectedOutlet(initialOutlet);
-    }, [startDate, endDate, initialOutlet]);
+    }, [startDate, endDate]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
         setLoading(true);
         try {
-            let url = `${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&insurance=true&status=Billed`;
-            if (selectedOutlet && selectedOutlet !== "all") {
-                url += `&outlet_code=${selectedOutlet}`;
-            }
+            const url = `${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&insurance=true&status=Billed`;
             const response = await apiRequest(url, "GET");
             if (response.success && response.data) {
                 const rows = Array.isArray(response.data.data)
@@ -93,20 +145,25 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, selectedOutlet, HmsBaseUrl]);
+    }, [fromDate, toDate, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
     }, [fetchReport]);
 
-    // Unique Companies for Filter
+    // Unique Companies for Filter with name and code
     const uniqueCompanies = useMemo(() => {
-        const set = new Set();
+        const compMap = new Map();
         reportData.forEach(r => {
-            const comp = r.company_name || r.insurance_company || "GENERAL / PRIVATE";
-            if (comp) set.add(comp);
+            const name = r.company_name || r.insurance_company || "GENERAL / PRIVATE";
+            const code = r.company_code || "";
+            if (!compMap.has(name)) {
+                compMap.set(name, { name, code });
+            } else if (code && !compMap.get(name).code) {
+                compMap.set(name, { name, code });
+            }
         });
-        return Array.from(set).sort();
+        return Array.from(compMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     }, [reportData]);
 
     // Grouping by Insurance Company
@@ -118,10 +175,17 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
 
         filtered.forEach(item => {
             const compName = item.company_name || item.insurance_company || "GENERAL / PRIVATE";
+            const compCode = item.company_code || "";
             if (!groups[compName]) {
-                groups[compName] = [];
+                groups[compName] = {
+                    companyName: compName,
+                    companyCode: compCode,
+                    items: []
+                };
+            } else if (compCode && !groups[compName].companyCode) {
+                groups[compName].companyCode = compCode;
             }
-            groups[compName].push(item);
+            groups[compName].items.push(item);
         });
         return groups;
     }, [reportData, selectedCompany]);
@@ -137,8 +201,8 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
         let dueAmt = 0;
         let totalCount = 0;
 
-        Object.values(groupedData).forEach(items => {
-            items.forEach(r => {
+        Object.values(groupedData).forEach(group => {
+            group.items.forEach(r => {
                 totalCount += 1;
                 billAmt += Number(r.bill_amount || r.total_amount || 0);
                 advanceAmt += Number(r.advance || r.advance_amount || 0);
@@ -174,10 +238,12 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
         try {
             const rows = [];
 
-            Object.entries(groupedData).forEach(([companyName, items]) => {
-                items.forEach((r, idx) => {
+            Object.entries(groupedData).forEach(([companyName, group]) => {
+                const compCodeStr = group.companyCode ? ` (${group.companyCode})` : "";
+                group.items.forEach((r, idx) => {
                     rows.push({
-                        "Company Name": companyName,
+                        "Company Name": `${companyName}${compCodeStr}`,
+                        "Company Code": r.company_code || group.companyCode || "",
                         "SLNO": idx + 1,
                         "Bill date": r.bill_date ? dayjs(r.bill_date).format("DD/MM/YYYY") : "",
                         "IP Number": r.ip_number || "",
@@ -208,8 +274,9 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
 
                 // Company Subtotal
                 rows.push({
-                    "Company Name": `${companyName} Total`,
-                    "SLNO": `Total Bills : ${items.length}`,
+                    "Company Name": `${companyName}${compCodeStr} Total`,
+                    "Company Code": "",
+                    "SLNO": `Total Bills : ${group.items.length}`,
                     "Bill date": "",
                     "IP Number": "",
                     "Bill ID": "",
@@ -221,16 +288,16 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                     "Service No": "",
                     "Claim Reference": "",
                     "Place": "",
-                    "Bill Amount": Number(items.reduce((s, x) => s + Number(x.bill_amount || x.total_amount || 0), 0).toFixed(2)),
-                    "Advance": Number(items.reduce((s, x) => s + Number(x.advance || x.advance_amount || 0), 0).toFixed(2)),
+                    "Bill Amount": Number(group.items.reduce((s, x) => s + Number(x.bill_amount || x.total_amount || 0), 0).toFixed(2)),
+                    "Advance": Number(group.items.reduce((s, x) => s + Number(x.advance || x.advance_amount || 0), 0).toFixed(2)),
                     "Despatch Date": "",
                     "Settlement Date": "",
-                    "Settled Amount": Number(items.reduce((s, x) => s + Number(x.settled_amount || 0), 0).toFixed(2)),
+                    "Settled Amount": Number(group.items.reduce((s, x) => s + Number(x.settled_amount || 0), 0).toFixed(2)),
                     "TDS": "",
                     "Bank": "",
-                    "Paid By Patient": Number(items.reduce((s, x) => s + Number(x.paid_by_patient || 0), 0).toFixed(2)),
-                    "Disallowed Amount": Number(items.reduce((s, x) => s + Number(x.disallowed_amount || 0), 0).toFixed(2)),
-                    "DUE": Number(items.reduce((s, x) => s + Number(x.due || 0), 0).toFixed(2)),
+                    "Paid By Patient": Number(group.items.reduce((s, x) => s + Number(x.paid_by_patient || 0), 0).toFixed(2)),
+                    "Disallowed Amount": Number(group.items.reduce((s, x) => s + Number(x.disallowed_amount || 0), 0).toFixed(2)),
+                    "DUE": Number(group.items.reduce((s, x) => s + Number(x.due || 0), 0).toFixed(2)),
                     "Settlement Duration": "",
                     "Status": "",
                     "Old Billno": ""
@@ -240,6 +307,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
             // Grand Total
             rows.push({
                 "Company Name": "Grand Total",
+                "Company Code": "",
                 "SLNO": `Total Bills : ${grandTotals.totalCount}`,
                 "Bill date": "",
                 "IP Number": "",
@@ -308,22 +376,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
-                    <InputWrapper>
-                        <Label>Outlet</Label>
-                        <Select 
-                            value={selectedOutlet} 
-                            onChange={(e) => setSelectedOutlet(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o._id} value={o.outlet_code}>
-                                    {o.outlet_name} ({o.outlet_code})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
+                    <InputWrapper style={{ minWidth: "260px", flex: 1 }}>
                         <Label>Insurance Company</Label>
                         <Select
                             value={selectedCompany}
@@ -332,7 +385,9 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                         >
                             <option value="all">All Companies ({uniqueCompanies.length})</option>
                             {uniqueCompanies.map((c, i) => (
-                                <option key={i} value={c}>{c}</option>
+                                <option key={i} value={c.name}>
+                                    {c.name} {c.code ? `(${c.code})` : ""}
+                                </option>
                             ))}
                         </Select>
                     </InputWrapper>
@@ -412,18 +467,19 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                     </thead>
                     <tbody>
                         {Object.keys(groupedData).length > 0 ? (
-                            Object.entries(groupedData).map(([companyName, items]) => {
+                            Object.entries(groupedData).map(([companyName, group]) => {
                                 let compBillTotal = 0;
                                 let compDueTotal = 0;
+                                const compDisplay = `${group.companyName} ${group.companyCode ? `(${group.companyCode})` : ""}`;
 
                                 return (
                                     <React.Fragment key={companyName}>
                                         <Tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
                                             <Td colSpan="25" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
-                                                Company Name : {companyName} &nbsp;|&nbsp; <span style={{ fontSize: "0.85rem", color: "#64748b" }}>PVT</span>
+                                                Company Name : {compDisplay} &nbsp;|&nbsp; <span style={{ fontSize: "0.85rem", color: "#64748b" }}>PVT</span>
                                             </Td>
                                         </Tr>
-                                        {items.map((r, idx) => {
+                                        {group.items.map((r, idx) => {
                                             const billAmt = Number(r.bill_amount || r.total_amount || 0);
                                             const advAmt = Number(r.advance || r.advance_amount || 0);
                                             const dueAmt = Number(r.due || 0);
@@ -462,7 +518,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                                         })}
                                         {/* Company Subtotal */}
                                         <Tr style={{ background: "#f1f5f9", fontWeight: "bold" }}>
-                                            <Td colSpan="12" style={{ textAlign: "left", paddingLeft: "20px" }}>Total Bills : {items.length}</Td>
+                                            <Td colSpan="12" style={{ textAlign: "left", paddingLeft: "20px" }}>Total Bills : {group.items.length}</Td>
                                             <Td style={{ textAlign: "right" }}>₹{compBillTotal.toFixed(2)}</Td>
                                             <Td colSpan="8"></Td>
                                             <Td style={{ textAlign: "right" }}>₹{compDueTotal.toFixed(2)}</Td>
@@ -563,15 +619,16 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                         </tr>
                     </thead>
                     <tbody>
-                        {Object.entries(groupedData).map(([companyName, items]) => {
+                        {Object.entries(groupedData).map(([companyName, group]) => {
                             let compBillTotal = 0;
                             let compDueTotal = 0;
+                            const compDisplay = `${group.companyName} ${group.companyCode ? `(${group.companyCode})` : ""}`;
 
                             return (
                                 <React.Fragment key={`print-comp-${companyName}`}>
                                     <tr className="company-header-row">
                                         <td colSpan="25" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 2px", borderTop: "1px dashed #000" }}>
-                                            Company Name : {companyName}
+                                            Company Name : {compDisplay}
                                         </td>
                                     </tr>
                                     <tr className="company-sub-row">
@@ -579,7 +636,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                                             PVT
                                         </td>
                                     </tr>
-                                    {items.map((r, idx) => {
+                                    {group.items.map((r, idx) => {
                                         const billAmt = Number(r.bill_amount || r.total_amount || 0);
                                         const advAmt = Number(r.advance || r.advance_amount || 0);
                                         const dueAmt = Number(r.due || 0);
@@ -618,7 +675,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
                                     })}
                                     {/* Company Subtotal */}
                                     <tr className="company-total-row" style={{ fontWeight: "bold", borderTop: "1px dashed #000", borderBottom: "1px dashed #000" }}>
-                                        <td colSpan="12" style={{ textAlign: "left" }}>Total Bills : {items.length}</td>
+                                        <td colSpan="12" style={{ textAlign: "left" }}>Total Bills : {group.items.length}</td>
                                         <td style={{ textAlign: "right" }}>{compBillTotal.toFixed(2)}</td>
                                         <td colSpan="8"></td>
                                         <td style={{ textAlign: "right" }}>{compDueTotal.toFixed(2)}</td>
@@ -644,78 +701,5 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate,
         </PageWrapper>
     );
 };
-
-const FilterSection = styled.div`
-    background: ${colors.surface};
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-`;
-
-const PrintTemplate = styled.div`
-    display: none;
-    @media print {
-        display: block !important;
-        background: white;
-        width: 100%;
-        color: black;
-        font-family: 'Courier New', Courier, monospace;
-    }
-`;
-
-const PrintHeader = styled.div`
-    text-align: center;
-    padding-bottom: 2px;
-    margin-bottom: 4px;
-    h1 { margin: 0; font-size: 14px; text-transform: uppercase; font-weight: bold; }
-    p { margin: 1px 0; font-size: 10px; }
-    .report-title { font-size: 11px; font-weight: bold; margin-top: 4px; }
-`;
-
-const PrintMetaTable = styled.table`
-    width: 100%;
-    margin-bottom: 4px;
-    border-collapse: collapse;
-    font-size: 9px;
-    td { padding: 1px 0; border: none !important; }
-`;
-
-const PrintTable = styled.table`
-    width: 100%;
-    border-collapse: collapse;
-    margin: 4px 0;
-    font-size: 7.5px;
-    th, td {
-        border-top: 1px dashed #aaa;
-        border-bottom: 1px dashed #aaa;
-        padding: 2px 2px;
-        text-align: left;
-    }
-    th {
-        border-top: 1px solid #000 !important;
-        border-bottom: 1px solid #000 !important;
-        font-weight: bold;
-        text-transform: capitalize;
-    }
-    .company-header-row td {
-        border-top: 1px dashed #000 !important;
-        border-bottom: none !important;
-        font-size: 8.5px;
-    }
-    .company-sub-row td {
-        border-top: none !important;
-        border-bottom: none !important;
-        font-size: 8px;
-    }
-    .company-total-row td {
-        border-top: 1px dashed #000 !important;
-        border-bottom: 1px dashed #000 !important;
-    }
-    .grand-total-row td {
-        border-top: 1px solid #000 !important;
-        border-bottom: 1px solid #000 !important;
-    }
-`;
 
 export default AdvanceRegistrationInsurence;

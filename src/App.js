@@ -80,7 +80,6 @@ import Package from "./Components/BillingMaster/Package";
 import MedicinePackage from "./Components/BillingMaster/MedicinePackage";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
-import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
 import DeptBUDReport from "./Components/InvestigationBilling/DeptBUDReport";
 import InvoiceGeneration from "./Components/Velavan/InvoiceGeneration";
 import InvoiceReport from "./Components/Velavan/InvoiceReport";
@@ -184,6 +183,7 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import BillCancelReport from "./Components/Accounts/BillCancelReport";
 import AccountsReports from "./Components/Reports/AccountsReports";
+import DiscountBillsReport from "./Components/Accounts/DiscountBillsReport";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
@@ -473,6 +473,7 @@ function App() {
       "/AdvanceRegistration": "Advance Registration",
 
       "/BillCancelReport": "Bill Cancel Report",
+      "/DiscountBillsReport": "Discount Bills Report",
       "/Feedbackreports": "InPatient Feedback Reports",
       "/FeedbackReports": "InPatient Feedback Reports",
     };
@@ -1359,7 +1360,10 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route path="/AccountsReports" element={<AccountsReports />} />
+                  <>
+                    <Route path="/AccountsReports" element={<AccountsReports />} />
+                    <Route path="/DiscountBillsReport" element={<DiscountBillsReport />} />
+                  </>
                 )}
               {hasPagePermission(
                 "/PharmacyExpiryReport",
