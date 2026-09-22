@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
+  Building2,
   Plus,
   X,
   Stethoscope,
@@ -47,6 +48,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import SummaryHead from '../Images/SummaryHead.png';
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -1321,6 +1323,7 @@ const OPDoctorlogin = () => {
   const [diet, setDiet] = useState("");
   const [referToDoctor, setReferToDoctor] = useState("");
   const [followupDate, setFollowupDate] = useState("");
+  const [followupAdvice, setFollowupAdvice] = useState("");
   const [referralDoctors, setReferralDoctors] = useState([]);
 
   // Dropdown UI states and refs
@@ -1379,12 +1382,18 @@ const OPDoctorlogin = () => {
   // Helper to ensure uniform metadata, proper file names, and reliable preview URLs
   const normalizeMedicationFile = (fileItem) => {
     if (!fileItem) return null;
-    const fileId = fileItem.file_id || fileItem.id || fileItem._id || '';
-    const fileName = fileItem.file_name || fileItem.name || fileItem.title || fileItem.filename || 'Medication Document';
-    const fileType = (fileItem.file_type || fileItem.type || fileItem.content_type || '').toLowerCase();
-    const fileSize = Number(fileItem.file_size || fileItem.size || 0);
+    const actual = (fileItem.data && (fileItem.data.file_id || fileItem.data.url))
+      ? fileItem.data
+      : (Array.isArray(fileItem.files) && fileItem.files[0])
+      ? fileItem.files[0]
+      : fileItem;
 
-    let viewUrl = fileItem.url || fileItem.previewUrl || '';
+    const fileId = actual.file_id || actual.id || actual._id || '';
+    const fileName = actual.file_name || actual.name || actual.title || actual.filename || 'Medication Document';
+    const fileType = (actual.file_type || actual.type || actual.content_type || '').toLowerCase();
+    const fileSize = Number(actual.file_size || actual.size || 0);
+
+    let viewUrl = actual.url || actual.previewUrl || '';
     if (!viewUrl && fileId) {
       viewUrl = `${Hmsbaseurl}OPEMR_get_vital_file/${fileId}/`;
     }
@@ -1393,7 +1402,7 @@ const OPDoctorlogin = () => {
     const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
     return {
-      ...fileItem,
+      ...actual,
       file_id: fileId,
       file_name: fileName,
       file_type: fileType || (isPdf ? 'application/pdf' : isImg ? 'image/jpeg' : 'application/octet-stream'),
@@ -1401,9 +1410,9 @@ const OPDoctorlogin = () => {
       url: viewUrl,
       isImg,
       isPdf,
-      category: fileItem.category || 'Present Medication',
-      title: fileItem.title || fileName,
-      uploaded_at: fileItem.uploaded_at || ''
+      category: actual.category || 'Present Medication',
+      title: actual.title || fileName,
+      uploaded_at: actual.uploaded_at || ''
     };
   };
 
@@ -1424,11 +1433,17 @@ const OPDoctorlogin = () => {
         formData.append("title", file.name);
 
         const res = await apiRequest(`${Hmsbaseurl}OPEMR_upload_vital_file/`, "POST", formData);
-        if (res.success && Array.isArray(res.files) && res.files.length > 0) {
+        const payloadData = res.data || res;
+        if (Array.isArray(payloadData.files) && payloadData.files.length > 0) {
+          uploadedList.push(...payloadData.files);
+        } else if (Array.isArray(res.files) && res.files.length > 0) {
           uploadedList.push(...res.files);
-        } else if (res.success && res.data) {
-          const item = Array.isArray(res.data) ? res.data[0] : res.data;
-          uploadedList.push(item);
+        } else if (payloadData.data) {
+          const items = Array.isArray(payloadData.data) ? payloadData.data : [payloadData.data];
+          uploadedList.push(...items);
+        } else if (res.data) {
+          const items = Array.isArray(res.data) ? res.data : [res.data];
+          uploadedList.push(...items);
         }
       }
 
@@ -1789,10 +1804,14 @@ const OPDoctorlogin = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [patientLabTests, setPatientLabTests] = useState([]);
   const [loadingLabTests, setLoadingLabTests] = useState(false);
-  const [historyTab, setHistoryTab] = useState('consultations'); // 'consultations' | 'labTests'
+  const [historyTab, setHistoryTab] = useState('consultations'); // 'consultations' | 'labTests' | 'dischargeSummary'
   const [labSearch, setLabSearch] = useState('');
   const [labDepartmentFilter, setLabDepartmentFilter] = useState('ALL');
   const [labViewMode, setLabViewMode] = useState('table'); // Default to table format as requested!
+  const [patientDischargeSummaries, setPatientDischargeSummaries] = useState([]);
+  const [loadingDischargeSummaries, setLoadingDischargeSummaries] = useState(false);
+  const [selectedDischargeSummary, setSelectedDischargeSummary] = useState(null);
+  const [dischargeSummarySearch, setDischargeSummarySearch] = useState('');
 
   // Helper to determine if a result is HIGH, LOW, or NORMAL based on reference range
   const getParamFlag = (valStr, rangeStr) => {
@@ -1864,15 +1883,160 @@ const OPDoctorlogin = () => {
     });
   }, [patientLabTests, labSearch, labDepartmentFilter]);
 
+  // Format date and time helpers for discharge summary
+  const formatDateTime = (dtStr) => {
+    if (!dtStr) return '--';
+    try {
+      const d = new Date(dtStr);
+      if (isNaN(d.getTime())) return dtStr;
+      return `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    } catch (e) {
+      return dtStr;
+    }
+  };
+
+  const formatDateOnly = (dtStr) => {
+    if (!dtStr) return '--';
+    try {
+      const d = new Date(dtStr);
+      if (isNaN(d.getTime())) return dtStr;
+      return d.toLocaleDateString('en-GB');
+    } catch (e) {
+      return dtStr;
+    }
+  };
+
+  // Group discharge summaries admission-wise by ipNo
+  const admissionGroups = useMemo(() => {
+    if (!patientDischargeSummaries || patientDischargeSummaries.length === 0) return [];
+    const groups = {};
+    patientDischargeSummaries.forEach(s => {
+      const key = s.ipNo || 'Outpatient / General';
+      if (!groups[key]) {
+        groups[key] = {
+          ipNo: key,
+          doa: s.doa,
+          dod: s.dod,
+          doctor: s.doctor,
+          roomNo: s.roomNo,
+          disease: s.disease,
+          diseaseCode: s.diseaseCode,
+          summaries: []
+        };
+      }
+      if (s.doa && !groups[key].doa) groups[key].doa = s.doa;
+      if (s.dod && !groups[key].dod) groups[key].dod = s.dod;
+      if (s.doctor && !groups[key].doctor) groups[key].doctor = s.doctor;
+      if (s.roomNo && !groups[key].roomNo) groups[key].roomNo = s.roomNo;
+      if (s.disease && !groups[key].disease) groups[key].disease = s.disease;
+      if (s.diseaseCode && !groups[key].diseaseCode) groups[key].diseaseCode = s.diseaseCode;
+      groups[key].summaries.push(s);
+    });
+
+    let list = Object.values(groups);
+    if (dischargeSummarySearch && dischargeSummarySearch.trim()) {
+      const q = dischargeSummarySearch.trim().toLowerCase();
+      list = list.filter(g =>
+        (g.ipNo && g.ipNo.toLowerCase().includes(q)) ||
+        (g.doctor && g.doctor.toLowerCase().includes(q)) ||
+        (g.disease && g.disease.toLowerCase().includes(q)) ||
+        (g.diseaseCode && g.diseaseCode.toLowerCase().includes(q)) ||
+        g.summaries.some(s =>
+          (s.summaryType && s.summaryType.toLowerCase().includes(q)) ||
+          (s.heading && s.heading.toLowerCase().includes(q)) ||
+          (Array.isArray(s.fieldsData) && s.fieldsData.some(f =>
+            (f.key && String(f.key).toLowerCase().includes(q)) ||
+            (f.value && String(f.value).toLowerCase().includes(q))
+          ))
+        )
+      );
+    }
+    return list;
+  }, [patientDischargeSummaries, dischargeSummarySearch]);
+
+  // Parsed field list for selected discharge summary modal
+  const dischargeSummaryFields = useMemo(() => {
+    if (!selectedDischargeSummary) return [];
+    let raw = selectedDischargeSummary.fieldsData;
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch (e) { raw = []; }
+    }
+    if (Array.isArray(raw)) {
+      return raw.filter(item => item && (item.key || item.value));
+    } else if (raw && typeof raw === 'object') {
+      return Object.entries(raw).map(([key, value]) => ({ key, value }));
+    }
+    return [];
+  }, [selectedDischargeSummary]);
+
+  // Print handler for discharge summary
+  const handlePrintDischargeSummary = () => {
+    const printContent = document.getElementById('discharge-summary-print-area');
+    if (!printContent) return;
+    const printWindow = window.open('', '_blank', 'width=900,height=800');
+    if (!printWindow) {
+      toast.error("Popup blocked! Please allow popups to print.");
+      return;
+    }
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Discharge Summary - ${selectedDischargeSummary?.ipNo || selectedDischargeSummary?.uhid || ''}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Source Sans 3', Arial, sans-serif; background: #fff; color: #111; padding: 20px; font-size: 12px; }
+            .sp-outer-border { border: 1px solid #aab4c6; display: flex; flex-direction: column; }
+            .sp-header-img { width: 100%; display: block; height: 106px; object-fit: contain; object-position: center; border-bottom: 1px solid #aab4c6; padding: 6px 12px; background: #fff; }
+            .sp-doc-title { text-align: center; font-size: 14px; font-weight: 700; color: #1a3a6e; letter-spacing: 1.5px; padding: 6px 0; text-transform: uppercase; border-bottom: 1px solid #c8d0de; background: #f4f6fb; text-decoration: underline; }
+            .sp-info-grid { display: grid; grid-template-columns: 1fr 1fr; font-size: 12px; border-bottom: 1px solid #aab4c6; }
+            .sp-info-row { display: flex; align-items: baseline; padding: 4px 10px; border-bottom: 1px solid #e2e8f2; }
+            .sp-info-row:nth-child(odd) { border-right: 1px solid #e2e8f2; }
+            .sp-info-label { color: #444; min-width: 90px; flex-shrink: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+            .sp-info-colon { margin: 0 6px; color: #999; flex-shrink: 0; }
+            .sp-info-value { color: #111; flex: 1; }
+            .sp-icd { font-size: 11px; padding: 5px 10px; background: #f4f6fb; border-bottom: 1px solid #c8d0de; display: flex; gap: 5px; color: #111; align-items: baseline; }
+            .sp-icd-label { font-weight: 700; color: #444; text-transform: uppercase; }
+            .sp-body { padding: 8px 12px 16px; font-size: 12px; color: #111; line-height: 1.5; }
+            .sp-section { margin-bottom: 10px; }
+            .sp-section-title { font-size: 11.5px; font-weight: 700; color: #1a3a6e; text-transform: uppercase; letter-spacing: .5px; padding: 3px 8px; border-left: 3px solid #2563a8; margin: 8px 0 4px; background: #f4f6fb; text-decoration: underline; }
+            .sp-section-content { font-size: 11.5px; line-height: 1.55; padding-left: 10px; white-space: pre-wrap; color: #222; text-align: justify; }
+            .sp-explained { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid #aab4c6; margin-top: 24px; padding-top: 12px; }
+            .sp-explained-title { font-size: 11px; font-weight: 700; color: #1a3a6e; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; }
+            .sp-explained-field { font-size: 11px; color: #334155; margin-bottom: 8px; }
+            @media print {
+              body { padding: 0; }
+              @page { size: A4; margin: 10mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.innerHTML}
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // Fetch Past Consultation History & Diagnostic Test Details (core_testvalue)
   const fetchPastHistory = async (uhid) => {
     if (!uhid) {
       setPastHistory([]);
       setPatientLabTests([]);
+      setPatientDischargeSummaries([]);
       return;
     }
     setLoadingHistory(true);
     setLoadingLabTests(true);
+    setLoadingDischargeSummaries(true);
 
     // 1. Fetch Past Consultations
     try {
@@ -1958,6 +2122,7 @@ const OPDoctorlogin = () => {
           setDiet(todayConsult.diet || "");
           setReferToDoctor(todayConsult.refer_to_doctor || "");
           setFollowupDate(todayConsult.followup_date ? String(todayConsult.followup_date).split('T')[0] : "");
+          setFollowupAdvice(todayConsult.followup_advice || "");
 
           const pastAllergies = todayConsult.allergies || "";
           setAllergies(pastAllergies);
@@ -2041,6 +2206,23 @@ const OPDoctorlogin = () => {
     } finally {
       setLoadingLabTests(false);
     }
+
+    // 3. Fetch Patient Discharge Summaries from hospital_summary
+    try {
+      const resSum = await apiRequest(`${Hmsbaseurl}OPEMR_get_patient_discharge_summaries/?uhid=${encodeURIComponent(uhid)}`, "GET");
+      if (resSum.success && Array.isArray(resSum.data)) {
+        setPatientDischargeSummaries(resSum.data);
+      } else if (Array.isArray(resSum)) {
+        setPatientDischargeSummaries(resSum);
+      } else {
+        setPatientDischargeSummaries([]);
+      }
+    } catch (err) {
+      console.error("Error fetching discharge summaries:", err);
+      setPatientDischargeSummaries([]);
+    } finally {
+      setLoadingDischargeSummaries(false);
+    }
   };
 
   useEffect(() => {
@@ -2106,6 +2288,7 @@ const OPDoctorlogin = () => {
         setDiet(tc.diet || "");
         setReferToDoctor(tc.refer_to_doctor || "");
         setFollowupDate(tc.followup_date ? String(tc.followup_date).split('T')[0] : "");
+        setFollowupAdvice(tc.followup_advice || "");
 
         const pastAllergies = tc.allergies || "";
         setAllergies(pastAllergies);
@@ -2184,6 +2367,7 @@ const OPDoctorlogin = () => {
         setDiet("");
         setReferToDoctor("");
         setFollowupDate("");
+        setFollowupAdvice("");
         setAllergies("");
         setAllergyOption("");
         setChiefComplaints("");
@@ -2240,6 +2424,7 @@ const OPDoctorlogin = () => {
     setDiet(item.diet || "");
     setReferToDoctor(item.refer_to_doctor || "");
     setFollowupDate(item.followup_date || "");
+    setFollowupAdvice(item.followup_advice || "");
     const pastAllergies = item.allergies || "";
     setAllergies(pastAllergies);
     if (pastAllergies.trim().toUpperCase() === "NO KNOWN ALLERGIES") {
@@ -2768,6 +2953,7 @@ const OPDoctorlogin = () => {
         diet: diet,
         refer_to_doctor: referToDoctor,
         followup_date: followupDate,
+        followup_advice: followupAdvice,
         consultation_start_time: resolvedStartTime,
         consultation_end_time: new Date().toISOString(),
         status: "Completed",
@@ -2783,7 +2969,7 @@ const OPDoctorlogin = () => {
           specify: menstrualSpecify
         } : {},
         vaccination_history: vaccinationHistory,
-        obstetrics_history: obstetricsHistory,
+        obstetrics_history: isFemale ? obstetricsHistory : "",
         investigation_done: investigationDone,
         physical_examination: physicalExamination,
         provisional_diagnosis: provisionalDiagnosis,
@@ -4325,17 +4511,19 @@ const OPDoctorlogin = () => {
                         </Card>
 
                         {/* 4. Obstetrics History */}
-                        <Card>
-                          <CardTitle>
-                            <Activity size={20} /> Obstetrics History {isFemale ? '' : <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>(Applicable for Female Patients)</span>}
-                          </CardTitle>
-                          <TextArea
-                            placeholder="Enter obstetrics history (e.g. Gravida, Para, Living children, Abortions, past delivery mode, complications, etc.)..."
-                            value={obstetricsHistory}
-                            onChange={e => setObstetricsHistory(e.target.value)}
-                            style={{ minHeight: '70px' }}
-                          />
-                        </Card>
+                        {isFemale && (
+                          <Card>
+                            <CardTitle>
+                              <Activity size={20} /> Obstetrics History
+                            </CardTitle>
+                            <TextArea
+                              placeholder="Enter obstetrics history (e.g. Gravida, Para, Living children, Abortions, past delivery mode, complications, etc.)..."
+                              value={obstetricsHistory}
+                              onChange={e => setObstetricsHistory(e.target.value)}
+                              style={{ minHeight: '70px' }}
+                            />
+                          </Card>
+                        )}
 
                         {/* 5. Investigation done if any */}
                         <Card>
@@ -5213,10 +5401,10 @@ const OPDoctorlogin = () => {
                           </div>
                         </Card>
 
-                        {/* 6. Followup Date Picker */}
+                        {/* 6. Followup Date Picker & Advice */}
                         <Card>
                           <CardTitle>
-                            <Calendar size={20} /> Follow-up Date Scheduling
+                            <Calendar size={20} /> Follow-up Date &amp; Advice
                           </CardTitle>
                           <DatePickerWrapper>
                             <input
@@ -5234,6 +5422,32 @@ const OPDoctorlogin = () => {
                               </span>
                             )}
                           </DatePickerWrapper>
+
+                          <div style={{ marginTop: '16px' }}>
+                            <label style={{ display: 'block', fontSize: '0.86rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                              Follow-up Advice:
+                            </label>
+                            <textarea
+                              placeholder="Enter follow-up advice, precautions, lifestyle advice, or guidance for next consultation..."
+                              value={followupAdvice}
+                              onChange={e => setFollowupAdvice(e.target.value)}
+                              rows={3}
+                              style={{
+                                width: '100%',
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #cbd5e1',
+                                fontSize: '0.875rem',
+                                color: '#1e293b',
+                                outline: 'none',
+                                resize: 'vertical',
+                                boxSizing: 'border-box',
+                                fontFamily: 'inherit',
+                                background: '#f8fafc',
+                                lineHeight: '1.45'
+                              }}
+                            />
+                          </div>
                         </Card>
                       </TabContent>
                     )}
@@ -5332,6 +5546,28 @@ const OPDoctorlogin = () => {
                 }}
               >
                 <Activity size={16} /> Lab Investigation Results ({patientLabTests.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHistoryTab('dischargeSummary')}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: historyTab === 'dischargeSummary' ? '#0d9488' : '#f1f5f9',
+                  color: historyTab === 'dischargeSummary' ? '#ffffff' : '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: historyTab === 'dischargeSummary' ? '0 2px 8px rgba(13,148,136,0.25)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <FileText size={16} /> Discharge Summary ({patientDischargeSummaries.length})
               </button>
             </div>
 
@@ -5462,25 +5698,109 @@ const OPDoctorlogin = () => {
                               </div>
                             )}
                             {Array.isArray(selectedHistoryItem.present_medications_attachments) && selectedHistoryItem.present_medications_attachments.length > 0 && (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-                                {selectedHistoryItem.present_medications_attachments.map((att, attIdx) => {
-                                  const isImg = (att.file_type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(att.file_name);
-                                  const isPdf = att.file_type === 'application/pdf' || (att.file_name || '').toLowerCase().endsWith('.pdf');
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
+                                {selectedHistoryItem.present_medications_attachments.map((rawAtt, attIdx) => {
+                                  const att = normalizeMedicationFile(rawAtt) || rawAtt;
+                                  const isImg = att.isImg || (att.file_type || '').startsWith('image/') || /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(att.file_name);
+                                  const isPdf = att.isPdf || att.file_type === 'application/pdf' || (att.file_name || '').toLowerCase().endsWith('.pdf');
                                   const fileUrl = att.url || (att.file_id ? `${Hmsbaseurl}OPEMR_get_vital_file/${att.file_id}/` : '');
                                   return (
-                                    <div key={attIdx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                        <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #cbd5e1', flexShrink: 0 }}>
-                                          {isImg ? <ImageIcon size={14} color="#0d9488" /> : isPdf ? <FileText size={14} color="#dc2626" /> : <File size={14} color="#64748b" />}
+                                    <div
+                                      key={attIdx}
+                                      onClick={() => {
+                                        if (fileUrl) {
+                                          setPreviewModalFile({ ...att, url: fileUrl });
+                                        }
+                                      }}
+                                      style={{
+                                        background: '#f8fafc',
+                                        border: '1.5px solid #e2e8f0',
+                                        borderRadius: '10px',
+                                        padding: '9px 12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: '10px',
+                                        cursor: fileUrl ? 'pointer' : 'default',
+                                        transition: 'all 0.15s ease',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                                      }}
+                                      onMouseEnter={e => {
+                                        if (fileUrl) {
+                                          e.currentTarget.style.borderColor = '#0d9488';
+                                          e.currentTarget.style.background = '#f0fdfa';
+                                        }
+                                      }}
+                                      onMouseLeave={e => {
+                                        if (fileUrl) {
+                                          e.currentTarget.style.borderColor = '#e2e8f0';
+                                          e.currentTarget.style.background = '#f8fafc';
+                                        }
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                        {isImg && fileUrl ? (
+                                          <img
+                                            src={fileUrl}
+                                            alt={att.file_name}
+                                            style={{
+                                              width: '36px',
+                                              height: '36px',
+                                              objectFit: 'cover',
+                                              borderRadius: '6px',
+                                              border: '1px solid #cbd5e1',
+                                              flexShrink: 0
+                                            }}
+                                          />
+                                        ) : (
+                                          <div style={{
+                                            width: '36px',
+                                            height: '36px',
+                                            borderRadius: '6px',
+                                            background: '#ffffff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            border: '1px solid #cbd5e1',
+                                            flexShrink: 0
+                                          }}>
+                                            {isImg ? <ImageIcon size={18} color="#0d9488" /> : isPdf ? <FileText size={18} color="#dc2626" /> : <File size={18} color="#64748b" />}
+                                          </div>
+                                        )}
+                                        <div style={{ overflow: 'hidden' }}>
+                                          <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={att.file_name}>
+                                            {att.file_name}
+                                          </div>
+                                          <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                            {att.file_size ? `${(att.file_size / 1024).toFixed(1)} KB` : (isPdf ? 'PDF Document' : isImg ? 'Image' : 'Attachment')}
+                                          </div>
                                         </div>
-                                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={att.file_name}>
-                                          {att.file_name}
-                                        </span>
                                       </div>
                                       {fileUrl && (
-                                        <a href={fileUrl} target="_blank" rel="noreferrer" style={{ padding: '3px 8px', borderRadius: '4px', background: '#f0fdfa', color: '#0d9488', border: '1px solid #99f6e4', fontSize: '0.72rem', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
-                                          <Eye size={11} /> View
-                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPreviewModalFile({ ...att, url: fileUrl });
+                                          }}
+                                          style={{
+                                            padding: '5px 10px',
+                                            borderRadius: '6px',
+                                            background: '#0d9488',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            flexShrink: 0,
+                                            boxShadow: '0 1px 2px rgba(13,148,136,0.2)'
+                                          }}
+                                        >
+                                          <Eye size={12} /> Preview
+                                        </button>
                                       )}
                                     </div>
                                   );
@@ -5490,12 +5810,18 @@ const OPDoctorlogin = () => {
                           </div>
                         )}
 
-                        {/* 3. Next Visit */}
+                        {/* 3. Next Visit & Advice */}
                         <div style={{ marginBottom: '22px' }}>
                           <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>Next Visit:</div>
                           <div style={{ fontSize: '0.9rem', color: '#334155' }}>
                             {selectedHistoryItem.followup_date ? new Date(selectedHistoryItem.followup_date).toLocaleDateString() : 'N/A'}
                           </div>
+                          {selectedHistoryItem.followup_advice && (
+                            <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#334155', background: '#f0fdfa', borderLeft: '3px solid #0d9488', padding: '6px 12px', borderRadius: '4px' }}>
+                              <span style={{ fontWeight: 700, color: '#0f766e' }}>Advice: </span>
+                              {selectedHistoryItem.followup_advice}
+                            </div>
+                          )}
                         </div>
 
                         {/* 4. Vitals Horizontal Row */}
@@ -5690,7 +6016,7 @@ const OPDoctorlogin = () => {
                             {selectedHistoryItem.physical_examination && <li><span style={{ fontWeight: 600, color: '#475569' }}>Physical Exam:</span> {selectedHistoryItem.physical_examination}</li>}
                             {selectedHistoryItem.investigation_done && <li><span style={{ fontWeight: 600, color: '#475569' }}>Investigation Done:</span> {selectedHistoryItem.investigation_done}</li>}
                             {selectedHistoryItem.vaccination_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Vaccination:</span> {selectedHistoryItem.vaccination_history}</li>}
-                            {selectedHistoryItem.obstetrics_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Obstetrics:</span> {selectedHistoryItem.obstetrics_history}</li>}
+                            {isFemale && selectedHistoryItem.obstetrics_history && <li><span style={{ fontWeight: 600, color: '#475569' }}>Obstetrics:</span> {selectedHistoryItem.obstetrics_history}</li>}
                             {isFemale && selectedHistoryItem.menstrual_history?.status && (
                               <li><span style={{ fontWeight: 600, color: '#475569' }}>Menstrual History:</span> {selectedHistoryItem.menstrual_history.status} {selectedHistoryItem.menstrual_history.specify ? `(${selectedHistoryItem.menstrual_history.specify})` : ''}</li>
                             )}
@@ -5700,7 +6026,8 @@ const OPDoctorlogin = () => {
                             {selectedHistoryItem.diet && <li><span style={{ fontWeight: 600, color: '#475569' }}>Diet:</span> {selectedHistoryItem.diet}</li>}
                             {selectedHistoryItem.refer_to_doctor && <li><span style={{ fontWeight: 600, color: '#475569' }}>Referred To:</span> Dr. {(referralDoctors.find(d => String(d.employeeId) === String(selectedHistoryItem.refer_to_doctor))?.employeeName) || selectedHistoryItem.refer_to_doctor}</li>}
                             {selectedHistoryItem.followup_date && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Date:</span> {new Date(selectedHistoryItem.followup_date).toLocaleDateString()}</li>}
-                            {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date && !selectedHistoryItem.plan_of_care) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
+                            {selectedHistoryItem.followup_advice && <li><span style={{ fontWeight: 600, color: '#475569' }}>Follow-up Advice:</span> {selectedHistoryItem.followup_advice}</li>}
+                            {(!selectedHistoryItem.diet && !selectedHistoryItem.refer_to_doctor && !selectedHistoryItem.followup_date && !selectedHistoryItem.followup_advice && !selectedHistoryItem.plan_of_care) && <li style={{ color: '#94a3b8' }}>No follow-up plans recorded.</li>}
                           </ul>
                         </ThemeSectionBox>
                       </>
@@ -6437,8 +6764,490 @@ const OPDoctorlogin = () => {
               </div>
             )}
 
+            {/* ── TAB 3: DISCHARGE SUMMARY (ADMISSION-WISE) ── */}
+            {historyTab === 'dischargeSummary' && (
+              <div>
+                {/* Search & Stats Bar */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '16px',
+                  background: '#f8fafc',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #e2e8f0',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}>
+                  <div style={{ position: 'relative', flex: '1', minWidth: '240px' }}>
+                    <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                    <input
+                      type="text"
+                      placeholder="Search by IP No, Doctor, Diagnosis, Disease..."
+                      value={dischargeSummarySearch}
+                      onChange={e => setDischargeSummarySearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 34px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '0.85rem',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#475569' }}>
+                      UHID: <strong style={{ color: '#0d9488' }}>{selectedPatient?.patient?.uhid || selectedPatient?.uhid || '--'}</strong>
+                    </span>
+                    <span style={{ fontSize: '0.82rem', color: '#64748b', background: '#e2e8f0', padding: '3px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                      {patientDischargeSummaries.length} Record{patientDischargeSummaries.length === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Admission Groups List */}
+                {loadingDischargeSummaries ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                    Loading patient discharge summaries...
+                  </div>
+                ) : admissionGroups.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#94a3b8' }}>
+                    <FileText size={36} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#64748b' }}>No discharge summaries found</div>
+                    <div style={{ fontSize: '0.82rem', marginTop: '4px' }}>
+                      {dischargeSummarySearch ? 'No admissions match your search query.' : 'There are no inpatient discharge summaries recorded for this UHID.'}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {admissionGroups.map((group, gIdx) => (
+                      <div
+                        key={group.ipNo || gIdx}
+                        style={{
+                          background: '#ffffff',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '12px',
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        {/* Admission Header */}
+                        <div style={{
+                          background: 'linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%)',
+                          borderBottom: '1px solid #e2e8f0',
+                          padding: '12px 18px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '12px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: '#0d9488',
+                              color: '#ffffff',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.88rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.5px'
+                            }}>
+                              <Building2 size={15} /> IP No: {group.ipNo}
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#334155' }}>
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>DOA:</span> {formatDateOnly(group.doa)}
+                              <span style={{ margin: '0 6px', color: '#94a3b8' }}>→</span>
+                              <span style={{ color: '#64748b', fontWeight: 600 }}>DOD:</span> {group.dod ? formatDateOnly(group.dod) : 'Under Treatment'}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.82rem', color: '#475569' }}>
+                            {group.roomNo && (
+                              <div>
+                                <span style={{ color: '#64748b', fontWeight: 600 }}>Room/Bed:</span> <strong>{group.roomNo}</strong>
+                              </div>
+                            )}
+                            {group.doctor && (
+                              <div>
+                                <span style={{ color: '#64748b', fontWeight: 600 }}>Consultant:</span> <strong style={{ color: '#0f172a' }}>Dr. {group.doctor}</strong>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Admission Details & Summaries */}
+                        <div style={{ padding: '14px 18px' }}>
+                          {(group.disease || group.diseaseCode) && (
+                            <div style={{
+                              marginBottom: '12px',
+                              background: '#f1f5f9',
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              fontSize: '0.84rem',
+                              color: '#1e293b',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              <span style={{ fontWeight: 700, color: '#0f172a' }}>ICD Diagnosis:</span>
+                              <span>{group.diseaseCode ? `${group.diseaseCode} — ` : ''}{group.disease}</span>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {group.summaries.map((summary, sIdx) => (
+                              <div
+                                key={summary._id || summary.id || sIdx}
+                                style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  padding: '10px 14px',
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '8px',
+                                  gap: '12px',
+                                  flexWrap: 'wrap'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#1a3a6e' }}>
+                                    {summary.summaryType || 'Discharge Summary'} {summary.heading ? `- ${summary.heading}` : ''}
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>
+                                    <span>Created: {formatDateOnly(summary.created_date || summary.date || summary.doa)}</span>
+                                    {summary.fieldsData?.length > 0 && (
+                                      <span style={{ marginLeft: '10px' }}>• {summary.fieldsData.length} clinical section{summary.fieldsData.length === 1 ? '' : 's'}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDischargeSummary(summary)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '7px',
+                                    background: '#0d9488',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '7px',
+                                    padding: '8px 18px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 6px rgba(13,148,136,0.3)',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseOver={e => e.currentTarget.style.background = '#0f766e'}
+                                  onMouseOut={e => e.currentTarget.style.background = '#0d9488'}
+                                >
+                                  <FileText size={15} /> Discharge Summary
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
               <Button $variant="secondary" onClick={() => setShowHistoryModal(false)}>Close</Button>
+            </div>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
+      {/* ── DISCHARGE SUMMARY DETAIL MODAL (ALIGNED ACCORDING TO DISCHARGE SUMMARY PAGES) ── */}
+      {selectedDischargeSummary && (
+        <ModalOverlay onClick={() => setSelectedDischargeSummary(null)} style={{ zIndex: 10003 }}>
+          <ModalContent
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '920px',
+              width: '95vw',
+              maxHeight: '94vh',
+              padding: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '14px',
+              background: '#e2e8f0'
+            }}
+          >
+            {/* Modal Top Header Bar */}
+            <div style={{
+              background: '#1a3a6e',
+              color: '#ffffff',
+              padding: '12px 20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FileText size={20} color="#38bdf8" />
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700 }}>
+                    Discharge Summary — IP No: {selectedDischargeSummary.ipNo || '--'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                    UHID: {selectedDischargeSummary.uhid || '--'} • Patient: {selectedDischargeSummary.patient_name || selectedPatient?.patient?.name || '--'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={handlePrintDischargeSummary}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#0d9488',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '7px 16px',
+                    fontSize: '0.84rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  <Printer size={15} /> Print Summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDischargeSummary(null)}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Printable Document Sheet */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', justifyContent: 'center' }}>
+              <div
+                id="discharge-summary-print-area"
+                style={{
+                  width: '100%',
+                  maxWidth: '794px',
+                  background: '#ffffff',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                  borderRadius: '3px',
+                  fontFamily: "'Source Sans 3', Arial, sans-serif"
+                }}
+              >
+                <div style={{ margin: '18px', border: '1px solid #aab4c6', display: 'flex', flexDirection: 'column' }}>
+                  {/* Hospital Banner Image */}
+                  <img
+                    src={SummaryHead}
+                    alt="Hospital Header"
+                    style={{
+                      width: '100%',
+                      height: '106px',
+                      display: 'block',
+                      objectFit: 'contain',
+                      objectPosition: 'center',
+                      borderBottom: '1px solid #aab4c6',
+                      padding: '6px 12px',
+                      background: '#fff'
+                    }}
+                  />
+
+                  {/* Document Title */}
+                  <div style={{
+                    textAlign: 'center',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: '#1a3a6e',
+                    letterSpacing: '2px',
+                    padding: '6px 0',
+                    textTransform: 'uppercase',
+                    borderBottom: '1px solid #c8d0de',
+                    background: '#f4f6fb',
+                    textDecoration: 'underline'
+                  }}>
+                    {selectedDischargeSummary.summaryType || 'DISCHARGE SUMMARY'} {selectedDischargeSummary.heading ? `— ${selectedDischargeSummary.heading}` : ''}
+                  </div>
+
+                  {/* Patient Info 2-Column Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    fontSize: '13px',
+                    borderBottom: '1px solid #aab4c6'
+                  }}>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2', borderRight: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Name</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', fontWeight: 600, flex: 1 }}>{selectedDischargeSummary.patient_name || selectedPatient?.patient?.name || '--'}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Age / Gender</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', flex: 1 }}>{selectedDischargeSummary.age || selectedPatient?.patient?.age || '--'} Yrs / {String(selectedDischargeSummary.gender || selectedPatient?.patient?.gender || '--').toUpperCase()}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2', borderRight: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>UHID</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', fontWeight: 600, flex: 1 }}>{selectedDischargeSummary.uhid || '--'}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Consultant</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', fontWeight: 600, flex: 1 }}>Dr. {selectedDischargeSummary.doctor || '--'}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2', borderRight: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>IP No</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', fontWeight: 700, flex: 1 }}>{selectedDischargeSummary.ipNo || '--'}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>DOA &amp; Time</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', flex: 1 }}>{formatDateTime(selectedDischargeSummary.doa)}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2', borderRight: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Room</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', flex: 1 }}>{selectedDischargeSummary.roomNo || '--'}</span>
+                    </div>
+                    <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2' }}>
+                      <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>DOD &amp; Time</span>
+                      <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                      <span style={{ color: '#111', flex: 1 }}>{formatDateTime(selectedDischargeSummary.dod)}</span>
+                    </div>
+                    {selectedDischargeSummary.address && (
+                      <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2', borderRight: '1px solid #e2e8f2' }}>
+                        <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Address</span>
+                        <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                        <span style={{ color: '#111', flex: 1 }}>{selectedDischargeSummary.address}</span>
+                      </div>
+                    )}
+                    {selectedDischargeSummary.mobilePhone && (
+                      <div style={{ display: 'flex', padding: '4px 10px', borderBottom: '1px solid #e2e8f2' }}>
+                        <span style={{ color: '#444', minWidth: '95px', fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase' }}>Mobile</span>
+                        <span style={{ margin: '0 6px', color: '#999' }}>:</span>
+                        <span style={{ color: '#111', flex: 1 }}>{selectedDischargeSummary.mobilePhone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ICD Diagnosis Bar */}
+                  {(selectedDischargeSummary.diseaseCode || selectedDischargeSummary.disease) && (
+                    <div style={{
+                      fontSize: '12px',
+                      padding: '5px 12px',
+                      background: '#f4f6fb',
+                      borderBottom: '1px solid #c8d0de',
+                      display: 'flex',
+                      gap: '6px',
+                      color: '#111',
+                      alignItems: 'baseline'
+                    }}>
+                      <span style={{ fontWeight: 700, color: '#444', textTransform: 'uppercase' }}>ICD :</span>
+                      <span>
+                        {selectedDischargeSummary.diseaseCode ? `${selectedDischargeSummary.diseaseCode} — ` : ''}
+                        {selectedDischargeSummary.disease}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Summary Dynamic Fields */}
+                  <div style={{ padding: '10px 14px 20px', fontSize: '12.5px', color: '#111', lineHeight: '1.5' }}>
+                    {dischargeSummaryFields.length > 0 ? (
+                      dischargeSummaryFields.map((f, idx) => (
+                        <div key={idx} style={{ marginBottom: '12px' }}>
+                          <div style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#1a3a6e',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            padding: '3px 8px',
+                            borderLeft: '3px solid #2563a8',
+                            margin: '8px 0 4px',
+                            background: '#f4f6fb',
+                            textDecoration: 'underline'
+                          }}>
+                            {f.key || `Section ${idx + 1}`}
+                          </div>
+                          <div style={{
+                            fontSize: '12px',
+                            lineHeight: 1.55,
+                            paddingLeft: '10px',
+                            whiteSpace: 'pre-wrap',
+                            color: '#222',
+                            textAlign: 'justify'
+                          }}>
+                            {f.value || '--'}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                        No specific summary fields recorded for this admission.
+                      </div>
+                    )}
+
+                    {/* Sign-off / Explained Box */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '24px',
+                      borderTop: '1px solid #aab4c6',
+                      marginTop: '28px',
+                      paddingTop: '14px'
+                    }}>
+                      <div style={{ borderRight: '1px solid #e2e8f2', paddingRight: '16px' }}>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#1a3a6e', textTransform: 'uppercase', marginBottom: '12px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '3px' }}>
+                          Explained By
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#334155', marginBottom: '8px' }}>
+                          Doctor Name : <strong>Dr. {selectedDischargeSummary.doctor || '--'}</strong>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#334155', height: '40px', display: 'flex', alignItems: 'flex-end' }}>
+                          Signature : ____________________
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#1a3a6e', textTransform: 'uppercase', marginBottom: '12px', borderBottom: '1px dashed #cbd5e1', paddingBottom: '3px' }}>
+                          Explained To Patient / Attender
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#334155', marginBottom: '8px' }}>
+                          Name : <strong>{selectedDischargeSummary.patient_name || selectedPatient?.patient?.name || '--'}</strong>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#334155', height: '40px', display: 'flex', alignItems: 'flex-end' }}>
+                          Signature : ____________________
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </ModalContent>
         </ModalOverlay>
@@ -6698,6 +7507,7 @@ const OPDoctorlogin = () => {
           return match ? match.employeeName : docVal;
         })();
         const displayFollowup = followupDate || todayConsult?.followup_date || '';
+        const displayFollowupAdvice = followupAdvice || todayConsult?.followup_advice || '';
 
         const opNumber = pat.billing_id || pat.op_number || selectedPatient.billing_id || '--';
 
@@ -7144,6 +7954,12 @@ const OPDoctorlogin = () => {
                           {displayFollowup ? new Date(displayFollowup).toLocaleDateString('en-GB') : 'SOS / As needed'}
                         </strong>
                       </div>
+                      {displayFollowupAdvice && (
+                        <div>
+                          <span style={{ fontSize: '8.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Follow-up Advice: </span>
+                          <span style={{ fontSize: '10.5px', color: '#1e293b' }}>{displayFollowupAdvice}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
