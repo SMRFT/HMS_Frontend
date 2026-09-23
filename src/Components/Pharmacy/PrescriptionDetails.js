@@ -745,10 +745,17 @@ const PrescriptionDetails = ({ onConvertToBill }) => {
                                   <th>#</th>
                                   <th>Item Name</th>
                                   <th>Batch No</th>
+                                  <th>Expiry</th>
+                                  <th style={{ textAlign: "right" }}>MRP (₹)</th>
+                                  <th style={{ textAlign: "right" }}>Price (₹)</th>
+                                  <th style={{ textAlign: "center" }}>CGST%</th>
+                                  <th style={{ textAlign: "right" }}>CGST Amt</th>
+                                  <th style={{ textAlign: "center" }}>SGST%</th>
+                                  <th style={{ textAlign: "right" }}>SGST Amt</th>
                                   <th>Dosage</th>
                                   <th>Frequency</th>
                                   <th>Duration</th>
-                                  <th style={{ textAlign: "center" }}>Total Quantity</th>
+                                  <th style={{ textAlign: "center" }}>Qty</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -770,6 +777,37 @@ const PrescriptionDetails = ({ onConvertToBill }) => {
                                       >
                                         {item.batch_number || item.batch_no || "—"}
                                       </span>
+                                    </td>
+                                    <td style={{ fontSize: "0.78rem", color: T.slateMid }}>
+                                      {item.expiry_date || "—"}
+                                    </td>
+                                    <td style={{ textAlign: "right", fontWeight: 600, color: T.slate }}>
+                                      {item.mrp != null && item.mrp !== 0
+                                        ? `₹${parseFloat(item.mrp).toFixed(2)}`
+                                        : "—"}
+                                    </td>
+                                    <td style={{ textAlign: "right", fontWeight: 600, color: T.tealDark }}>
+                                      {item.price != null && item.price !== 0
+                                        ? `₹${parseFloat(item.price).toFixed(2)}`
+                                        : "—"}
+                                    </td>
+                                    {/* CGST */}
+                                    <td style={{ textAlign: "center", color: T.slateMid }}>
+                                      {item.cgst_rate != null ? `${parseFloat(item.cgst_rate)}%` : "—"}
+                                    </td>
+                                    <td style={{ textAlign: "right", color: T.slateMid }}>
+                                      {item.cgst_amount != null && item.cgst_amount !== 0
+                                        ? `₹${parseFloat(item.cgst_amount).toFixed(2)}`
+                                        : "—"}
+                                    </td>
+                                    {/* SGST */}
+                                    <td style={{ textAlign: "center", color: T.slateMid }}>
+                                      {item.sgst_rate != null ? `${parseFloat(item.sgst_rate)}%` : "—"}
+                                    </td>
+                                    <td style={{ textAlign: "right", color: T.slateMid }}>
+                                      {item.sgst_amount != null && item.sgst_amount !== 0
+                                        ? `₹${parseFloat(item.sgst_amount).toFixed(2)}`
+                                        : "—"}
                                     </td>
                                     <td>{item.dosage || "—"}</td>
                                     <td>
@@ -794,6 +832,8 @@ const PrescriptionDetails = ({ onConvertToBill }) => {
                                 ))}
                               </tbody>
                             </SubTable>
+
+
                           </DrawerContainer>
                         </td>
                       </DetailsDrawerRow>

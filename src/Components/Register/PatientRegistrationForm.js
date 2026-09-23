@@ -1178,6 +1178,26 @@ const PatientRegistrationForm = () => {
                 </FormSelect>
               </FormGroup>
 
+              {patient.customerType === "Insurance" && (
+                <FormGroup>
+                  <FormLabel htmlFor="insuranceProviderCode">Insurance Provider *</FormLabel>
+                  <FormSelect
+                    id="insuranceProviderCode"
+                    name="insuranceProviderCode"
+                    value={patient.insuranceProviderCode}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Provider</option>
+                    {insuranceProviders.map((provider, index) => (
+                      <option key={index} value={provider.company_code}>
+                        {provider.company_name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </FormGroup>
+              )}
+
               <FormGroup>
                 <FormLabel htmlFor="salutation">Salutation *</FormLabel>
                 <FormSelect
@@ -1524,23 +1544,52 @@ const PatientRegistrationForm = () => {
               <FormGroup>
                 <FormLabel htmlFor="referredBy">Referred by *</FormLabel>
                 <InputGroupInline>
-                  <FormInput
-                    list="doctor-options"
-                    id="referredBy"
-                    name="referredBy"
-                    value={patient.referredBy}
-                    onChange={(e) => {
-                      handleChange(e);
-                      setSearchDoctorTerm(e.target.value);
+                  <ReactSelect
+                    options={allDoctors.map(d => ({ value: d.name, label: d.label, original: d }))}
+                    value={patient.referredBy ? { value: patient.referredBy, label: allDoctors.find(d => d.name === patient.referredBy)?.label || patient.referredBy } : null}
+                    onChange={(selected) => {
+                      const value = selected ? selected.value : "";
+                      setSearchDoctorTerm(value);
+                      let phone = patient.referredDoctorPhone;
+                      if (selected && selected.original && selected.original.type === "Reference") {
+                         phone = selected.original.clinic_phone || selected.original.mobile1 || selected.original.mobile || "";
+                      }
+                      setPatient(prev => ({
+                        ...prev,
+                        referredBy: value,
+                        referredDoctorPhone: phone
+                      }));
                     }}
                     placeholder="Doctor or hospital"
-                    required
+                    isClearable
+                    styles={{
+                      container: (base) => ({
+                        ...base,
+                        flex: 1,
+                      }),
+                      control: (base) => ({
+                        ...base,
+                        minHeight: '38px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        boxShadow: 'none',
+                        '&:hover': {
+                          border: '1px solid #0f766e',
+                        }
+                      }),
+                      menu: (base) => ({
+                        ...base,
+                        zIndex: 9999,
+                        backgroundColor: 'white',
+                      }),
+                      option: (base, state) => ({
+                        ...base,
+                        backgroundColor: state.isFocused ? '#f3f4f6' : 'white',
+                        color: '#1f2937',
+                        cursor: 'pointer',
+                      })
+                    }}
                   />
-                  <datalist id="doctor-options">
-                    {allDoctors.map((doc, idx) => (
-                      <option key={idx} value={doc.name}>{doc.label}</option>
-                    ))}
-                  </datalist>
                   <AddDoctorBtn type="button" onClick={() => setIsModalOpen(true)} title="Add Ref Doctor">
                     <Plus size={14} />
                   </AddDoctorBtn>

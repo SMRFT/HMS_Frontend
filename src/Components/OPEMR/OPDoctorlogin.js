@@ -2540,9 +2540,15 @@ const OPDoctorlogin = () => {
 
   const fetchMedicines = async () => {
     try {
-      const res = await apiRequest(`${Hmsbaseurl}OPEMR_get_medicines/`, "GET");
-      if (res.success && res.data && Array.isArray(res.data)) {
-        setMedicineList(res.data);
+      // Use pharmacy stock API so all fields (batch, mrp, price, expiry, GST) are available
+      const res = await apiRequest(`${Hmsbaseurl}get_pharmacy_stock/`, "POST");
+      const raw = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+      if (raw.length > 0) {
+        setMedicineList(raw);
       }
     } catch (err) {
       console.error("Error fetching medicines:", err);
@@ -2668,12 +2674,32 @@ const OPDoctorlogin = () => {
     return medicineList.filter(m => m.item_name.toLowerCase().includes(medicineSearch.toLowerCase()));
   }, [medicineList, medicineSearch]);
 
-  const medicineOptions = useMemo(() => medicineList.map(m => ({ value: m.item_id, label: m.item_name })), [medicineList]);
+  const medicineOptions = useMemo(() =>
+    medicineList.map(m => ({
+      value:            m.item_id,
+      label:            m.item_name,           // used for search matching
+      composition_name: m.composition_name || '',
+      batch_number:     m.batch_number || m.batch_no || '',
+      mrp:              parseFloat(m.mrp || m.price || 0),
+      expiry_date:      m.expiry_date || '',
+      available_stock:  m.available_stock,
+      is_low_stock:     m.is_low_stock,
+    })),
+  [medicineList]);
 
   const selectedMedicineOptions = useMemo(() => {
     return selectedMedicineIds.map(id => {
       const m = medicineList.find(x => x.item_id === id);
-      return { value: id, label: m ? m.item_name : `Item #${id}` };
+      return {
+        value:            id,
+        label:            m ? m.item_name : `Item #${id}`,
+        composition_name: m?.composition_name || '',
+        batch_number:     m?.batch_number || m?.batch_no || '',
+        mrp:              parseFloat(m?.mrp || m?.price || 0),
+        expiry_date:      m?.expiry_date || '',
+        available_stock:  m?.available_stock,
+        is_low_stock:     m?.is_low_stock,
+      };
     });
   }, [selectedMedicineIds, medicineList]);
 
@@ -2939,14 +2965,23 @@ const OPDoctorlogin = () => {
             ? pd.batch_number
             : (m.batch_number || m.batch_no || '');
           return {
-            item_id: id,
-            item_name: m.item_name,
+            item_id:      id,
+            item_name:    m.item_name,
             batch_number: batchNo,
-            batch_no: batchNo,
-            dosage: pd.dosage || 'N/A',
-            frequency: pd.frequency || 'N/A',
-            duration: pd.duration || 'N/A',
-            total_dosage: pd.total_dosage || '0'
+            batch_no:     batchNo,
+            dosage:       pd.dosage       || 'N/A',
+            frequency:    pd.frequency    || 'N/A',
+            duration:     pd.duration     || 'N/A',
+            total_dosage: pd.total_dosage || '0',
+            // ── Stock / pricing fields from pharmacy stock ──
+            mrp:          parseFloat(m.mrp   || m.price || 0),
+            price:        parseFloat(m.price || m.mrp   || 0),
+            expiry_date:  m.expiry_date  || '',
+            hsn_code:     m.hsn_code     || '',
+            cgst_rate:    parseFloat(m.CGST_Percentage || m.cgst_rate   || 0),
+            sgst_rate:    parseFloat(m.SGST_Percentage || m.sgst_rate   || 0),
+            cgst_amount:  parseFloat(m.CGST_Amt        || m.cgst_amount || 0),
+            sgst_amount:  parseFloat(m.SGST_Amt        || m.sgst_amount || 0),
           };
         }).filter(Boolean),
         finding: finding,
@@ -5238,18 +5273,61 @@ const OPDoctorlogin = () => {
                         {/* 4. Prescription Dropdown (hospital_pharmacyitem) */}
                         <Card>
                           <CardTitle>
-                            <Pill size={20} /> Prescription / Medicines (from hospital_pharmacyitem)
+                            <Pill size={20} /> Prescription / Medicines (from Pharmacy Stock)
                           </CardTitle>
                           <div style={{ marginTop: '12px' }}>
                             <Select
                               isMulti
                               closeMenuOnSelect={false}
                               components={{ MenuList: CustomMenuList }}
-                              placeholder="Search and select medicines..."
+                              placeholder="Search by medicine name or composition..."
                               options={medicineOptions}
                               value={selectedMedicineOptions}
                               onChange={(selected) => {
                                 setSelectedMedicineIds(selected ? selected.map(s => s.value) : []);
+                              }}
+                              /* ── Show item_name + composition_name in the dropdown list ── */
+                              formatOptionLabel={(opt, { context }) => {
+                                if (context === 'value') {
+                                  // Selected pill: show item_name only (clean)
+                                  return <span>{opt.label}</span>;
+                                }
+                                // Menu list: show item_name + composition below
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#0f172a' }}>
+                                      {opt.label}
+                                    </span>
+                                    {opt.composition_name && (
+                                      <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                        {opt.composition_name}
+                                      </span>
+                                    )}
+                                    <span style={{ display: 'flex', gap: 8, fontSize: '0.7rem', marginTop: 1 }}>
+                                      {opt.batch_number && (
+                                        <span style={{ color: '#0f766e', fontWeight: 600 }}>Batch: {opt.batch_number}</span>
+                                      )}
+                                      {opt.mrp > 0 && (
+                                        <span style={{ color: '#475569' }}>₹{opt.mrp.toFixed(2)}</span>
+                                      )}
+                                      {opt.expiry_date && (
+                                        <span style={{ color: '#94a3b8' }}>Exp: {String(opt.expiry_date).split('T')[0]}</span>
+                                      )}
+                                      {opt.is_low_stock && (
+                                        <span style={{ color: '#b45309', fontWeight: 700 }}>⚠ Low Stock</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                );
+                              }}
+                              /* ── Search on both item_name and composition_name ── */
+                              filterOption={(option, inputValue) => {
+                                if (!inputValue) return true;
+                                const q = inputValue.toLowerCase();
+                                return (
+                                  option.label.toLowerCase().includes(q) ||
+                                  (option.data.composition_name || '').toLowerCase().includes(q)
+                                );
                               }}
                               menuPortalTarget={document.body}
                               styles={{
@@ -5259,10 +5337,14 @@ const OPDoctorlogin = () => {
                                   borderRadius: '8px',
                                   borderColor: '#e2e8f0',
                                   boxShadow: 'none',
-                                  '&:hover': {
-                                    borderColor: '#cbd5e1'
-                                  }
-                                })
+                                  '&:hover': { borderColor: '#cbd5e1' }
+                                }),
+                                option: (base, { isFocused }) => ({
+                                  ...base,
+                                  background: isFocused ? '#f0fdfa' : '#fff',
+                                  color: '#0f172a',
+                                  padding: '8px 12px',
+                                }),
                               }}
                             />
                           </div>
@@ -5274,6 +5356,9 @@ const OPDoctorlogin = () => {
                                   <tr>
                                     <th>Medication</th>
                                     <th>Batch No</th>
+                                    <th style={{ textAlign: 'right' }}>MRP (₹)</th>
+                                    <th>Expiry</th>
+                                    <th style={{ textAlign: 'center' }}>Stock</th>
                                     <th>Dosage</th>
                                     <th>Frequency</th>
                                     <th>Duration</th>
@@ -5285,11 +5370,15 @@ const OPDoctorlogin = () => {
                                     const m = medicineList.find(x => x.item_id === id);
                                     const pd = prescriptionData[id] || {};
                                     const currentBatch = pd.batch_number !== undefined ? pd.batch_number : (m?.batch_number || m?.batch_no || '');
+                                    const mrp = m?.mrp || m?.price || 0;
+                                    const expiry = m?.expiry_date ? String(m.expiry_date).split('T')[0] : '—';
+                                    const stock = m?.available_stock != null ? m.available_stock : (m?.total_stock ?? '—');
+                                    const isLowStock = m?.is_low_stock;
                                     return (
                                       <tr key={id}>
                                         <td style={{ fontWeight: 500 }}>
                                           <div>{m ? m.item_name : `Item #${id}`}</div>
-                                          {m?.category && <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{m.category}</span>}
+                                          {m?.composition_name && <span style={{ fontSize: '0.68rem', color: '#64748b' }}>{m.composition_name}</span>}
                                         </td>
                                         <td>
                                           <input
@@ -5299,6 +5388,18 @@ const OPDoctorlogin = () => {
                                             onChange={e => handlePrescriptionChange(id, 'batch_number', e.target.value)}
                                             placeholder="Batch No"
                                           />
+                                        </td>
+                                        {/* MRP — read-only from pharmacy stock */}
+                                        <td style={{ textAlign: 'right', fontWeight: 600, color: '#0f766e', whiteSpace: 'nowrap' }}>
+                                          {mrp ? `₹${parseFloat(mrp).toFixed(2)}` : '—'}
+                                        </td>
+                                        {/* Expiry */}
+                                        <td style={{ fontSize: '0.8rem', color: expiry !== '—' && new Date(expiry) < new Date() ? '#dc2626' : '#475569', whiteSpace: 'nowrap' }}>
+                                          {expiry}
+                                        </td>
+                                        {/* Available stock */}
+                                        <td style={{ textAlign: 'center', fontWeight: 600, color: isLowStock ? '#d97706' : '#16a34a' }}>
+                                          {stock}
                                         </td>
                                         <td>
                                           <input
@@ -5343,6 +5444,7 @@ const OPDoctorlogin = () => {
                               </HistoryTable>
                             </div>
                           )}
+
                         </Card>
 
                         {/* 5. Finding - Input Box */}
