@@ -2021,12 +2021,16 @@ const loadedMedicines = rawMeds.map((item) => {
             s.name.trim().toLowerCase() === item.item_name.trim().toLowerCase()
         );
 
-      const price = parseFloat(stockMatch?.price || stockMatch?.mrp || 0);
-      const mrp = parseFloat(stockMatch?.mrp ?? price);
-      const qty = Number(item.total_dosage || item.quantity || item.qty || 1);
+      // ── Price / MRP: item enriched by backend first, then stockMatch, then 0 ──
+      const price = parseFloat(item.price || item.mrp || stockMatch?.price || stockMatch?.mrp || 0);
+      const mrp   = parseFloat(item.mrp   || item.price || stockMatch?.mrp || stockMatch?.price || 0);
+      const qty   = Number(item.total_dosage || item.quantity || item.qty || 1);
 
-      const cgstAmtPerUnit = parseFloat(stockMatch?.cgst_amount || 0);
-      const sgstAmtPerUnit = parseFloat(stockMatch?.sgst_amount || 0);
+      // ── Tax rates: item enriched → stockMatch → 0 ──
+      const cgstRate    = parseFloat(item.cgst_rate   ?? stockMatch?.cgst_rate   ?? 0);
+      const sgstRate    = parseFloat(item.sgst_rate   ?? stockMatch?.sgst_rate   ?? 0);
+      const cgstAmtUnit = parseFloat(item.cgst_amount ?? stockMatch?.cgst_amount ?? 0);
+      const sgstAmtUnit = parseFloat(item.sgst_amount ?? stockMatch?.sgst_amount ?? 0);
 
       return {
         item_id:         item.item_id || stockMatch?.item_id,
@@ -2035,19 +2039,20 @@ const loadedMedicines = rawMeds.map((item) => {
         quantity:        qty,
         price:           price,
         mrp:             mrp,
-        hsn_code:        stockMatch?.hsn_code     || "—",
-        cgst_rate:       stockMatch?.cgst_rate    ?? 0,
-        cgst_amount:     parseFloat((cgstAmtPerUnit * qty).toFixed(2)),
-        sgst_rate:       stockMatch?.sgst_rate    ?? 0,
-        sgst_amount:     parseFloat((sgstAmtPerUnit * qty).toFixed(2)),
-        expiry_date:     stockMatch?.expiry_date  || item.expiry_date || "—",
+        hsn_code:        item.hsn_code    || stockMatch?.hsn_code    || "—",
+        cgst_rate:       cgstRate,
+        cgst_amount:     parseFloat((cgstAmtUnit * qty).toFixed(2)),
+        sgst_rate:       sgstRate,
+        sgst_amount:     parseFloat((sgstAmtUnit * qty).toFixed(2)),
+        expiry_date:     item.expiry_date || stockMatch?.expiry_date || "—",
         available_stock: stockMatch?.available_stock ?? 9999,
-        dosage:          item.dosage              || stockMatch?.dosage || "",
-        noOfDays:        item.duration            || item.noOfDays || "",
+        dosage:          item.dosage      || stockMatch?.dosage || "",
+        noOfDays:        item.duration    || item.noOfDays || "",
         total:           parseFloat((qty * mrp).toFixed(2)),
         edit_history:    [],
       };
     });
+
 
     setAddedMedicines(loadedMedicines);
     setOverallDiscountType("percent");
