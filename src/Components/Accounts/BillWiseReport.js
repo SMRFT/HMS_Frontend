@@ -150,6 +150,7 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
     const [expandedRow, setExpandedRow] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
     const hospital_code = localStorage.getItem("hospital_code") || "SH001";
     const branch_code = localStorage.getItem("selected_branch") || "SHB001";
     const user_id = localStorage.getItem("employeeId");
@@ -279,93 +280,113 @@ const BillWiseReport = ({ isModalView = false, startDate, endDate, initialBillTy
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle>
-                <h3>Bill Wise Accounts Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '35px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Bill Type</Label>
-                        <Select
-                            value={billType}
-                            onChange={(e) => setBillType(e.target.value)}
-                        >
-                            <option value="All">All Types</option>
-                            <option value="Registration">Registration</option>
-                            <option value="Investigation">Investigation</option>
-                            <option value="Pharmacy">Pharmacy</option>
-                            <option value="Discharge">Discharge</option>
-                            <option value="IP Advance">IP Advance</option>
-                            <option value="Admission">Admission</option>
-                            <option value="Sales Return">Sales Return</option>
-                            <option value="Miscellaneous">Miscellaneous Payment</option>
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Outlet</Label>
-                        <Select
-                            value={outlet}
-                            onChange={(e) => setOutlet(e.target.value)}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
-                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>UHID</Label>
-                        <Input
-                            type="text"
-                            placeholder="Search UHID"
-                            value={uhid}
-                            onChange={(e) => setUhid(e.target.value)}
-                        />
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "90px" }}>
-                            {loading ? "..." : "Filter"}
-                        </Button>
-                        <Button 
-                            onClick={handleExportExcel} 
-                            disabled={loading || reportData.length === 0} 
-                            style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
-                            Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Detailed Bill Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            {summary && (
+            {!isModalView && (
+                <SectionTitle>
+                    <h3>Bill Wise Accounts Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Range: {format(new Date(fromDate), "dd/MM/yyyy")} to {format(new Date(toDate), "dd/MM/yyyy")}
+                    </p>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <FilterSection className="no-print">
+                    <FormRow>
+                        <InputWrapper>
+                            <Label>From Date</Label>
+                            <DatePicker 
+                                value={fromDate ? dayjs(fromDate) : null} 
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>To Date</Label>
+                            <DatePicker 
+                                value={toDate ? dayjs(toDate) : null} 
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '35px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Bill Type</Label>
+                            <Select
+                                value={billType}
+                                onChange={(e) => setBillType(e.target.value)}
+                            >
+                                <option value="All">All Types</option>
+                                <option value="Registration">Registration</option>
+                                <option value="Investigation">Investigation</option>
+                                <option value="Pharmacy">Pharmacy</option>
+                                <option value="Discharge">Discharge</option>
+                                <option value="IP Advance">IP Advance</option>
+                                <option value="Admission">Admission</option>
+                                <option value="Sales Return">Sales Return</option>
+                                <option value="Miscellaneous">Miscellaneous Payment</option>
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Outlet</Label>
+                            <Select
+                                value={outlet}
+                                onChange={(e) => setOutlet(e.target.value)}
+                            >
+                                <option value="all">All Outlets</option>
+                                {outlets.map((o) => (
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>UHID</Label>
+                            <Input
+                                type="text"
+                                placeholder="Search UHID"
+                                value={uhid}
+                                onChange={(e) => setUhid(e.target.value)}
+                            />
+                        </InputWrapper>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", flexWrap: "wrap" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", minWidth: "90px" }}>
+                                {loading ? "..." : "Filter"}
+                            </Button>
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || reportData.length === 0} 
+                                style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
+                                Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
+            )}
+
+            {summary && !isModalView && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }}>
                     <SummaryCard color={colors.success}>
                         <SummaryLabel>Total Collection</SummaryLabel>

@@ -385,160 +385,180 @@ const CreditCardReport = ({ isModalView = false, startDate, endDate, initialBill
 
     return (
         <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Credit Card Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
             {/* Prominent Header Banner */}
-            <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "12px",
-                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-                color: "#ffffff",
-                padding: "16px 24px",
-                borderRadius: "12px",
-                marginBottom: "20px",
-                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
-                border: "1px solid #334155"
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                    <div style={{
-                        background: "rgba(56, 189, 248, 0.2)",
-                        padding: "10px",
-                        borderRadius: "10px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                    }}>
-                        <FaCreditCard size={24} color="#38bdf8" />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.01em" }}>
-                            Credit Card Report
-                        </h2>
-                        <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: 500 }}>
-                            Detailed breakdown of categorized card collections across all departments
-                        </span>
-                    </div>
-                </div>
+            {!isModalView && (
                 <div style={{
-                    background: "rgba(255, 255, 255, 0.1)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    color: "#f8fafc"
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                    color: "#ffffff",
+                    padding: "16px 24px",
+                    borderRadius: "12px",
+                    marginBottom: "20px",
+                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
+                    border: "1px solid #334155"
                 }}>
-                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                        <div style={{
+                            background: "rgba(56, 189, 248, 0.2)",
+                            padding: "10px",
+                            borderRadius: "10px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                        }}>
+                            <FaCreditCard size={24} color="#38bdf8" />
+                        </div>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.01em" }}>
+                                Credit Card Report
+                            </h2>
+                            <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: 500 }}>
+                                Detailed breakdown of categorized card collections across all departments
+                            </span>
+                        </div>
+                    </div>
+                    <div style={{
+                        background: "rgba(255, 255, 255, 0.1)",
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        padding: "8px 16px",
+                        borderRadius: "8px",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        color: "#f8fafc"
+                    }}>
+                        Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* FILTER SECTION */}
-            <FilterSection>
-                <FormRow style={{ display: "flex", flexWrap: "wrap", gap: "15px", alignItems: "flex-end" }}>
-                    <InputWrapper style={{ flex: "1 1 150px" }}>
-                        <Label>From Date</Label>
-                        <DatePicker
-                            value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date, dateString) => setFromDate(dateString)}
-                            format="YYYY-MM-DD"
-                            style={{ width: "100%", height: "40px" }}
-                            allowClear={false}
-                        />
-                    </InputWrapper>
+            {!isModalView && (
+                <FilterSection>
+                    <FormRow style={{ display: "flex", flexWrap: "wrap", gap: "15px", alignItems: "flex-end" }}>
+                        <InputWrapper style={{ flex: "1 1 150px" }}>
+                            <Label>From Date</Label>
+                            <DatePicker
+                                value={fromDate ? dayjs(fromDate) : null}
+                                onChange={(date, dateString) => setFromDate(dateString || fromDate)}
+                                format="YYYY-MM-DD"
+                                style={{ width: "100%", height: "40px" }}
+                                allowClear={false}
+                            />
+                        </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 150px" }}>
-                        <Label>To Date</Label>
-                        <DatePicker
-                            value={toDate ? dayjs(toDate) : null}
-                            onChange={(date, dateString) => setToDate(dateString)}
-                            format="YYYY-MM-DD"
-                            style={{ width: "100%", height: "40px" }}
-                            allowClear={false}
-                        />
-                    </InputWrapper>
+                        <InputWrapper style={{ flex: "1 1 150px" }}>
+                            <Label>To Date</Label>
+                            <DatePicker
+                                value={toDate ? dayjs(toDate) : null}
+                                onChange={(date, dateString) => setToDate(dateString || toDate)}
+                                format="YYYY-MM-DD"
+                                style={{ width: "100%", height: "40px" }}
+                                allowClear={false}
+                            />
+                        </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
-                        <Label>Outlet</Label>
-                        <Select
-                            value={outlet}
-                            onChange={(e) => setOutlet(e.target.value)}
-                            style={{ height: "40px" }}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
-                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
+                        <InputWrapper style={{ flex: "1 1 180px" }}>
+                            <Label>Outlet</Label>
+                            <Select
+                                value={outlet}
+                                onChange={(e) => setOutlet(e.target.value)}
+                                style={{ height: "40px" }}
+                            >
+                                <option value="all">All Outlets</option>
+                                {outlets.map((o) => (
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
-                        <Label>Category / Bill Type</Label>
-                        <Select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            style={{ height: "40px" }}
-                        >
-                            <option value="all">All Categories</option>
-                            {categoriesList.map((cat, idx) => (
-                                <option key={idx} value={cat}>{cat}</option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
+                        <InputWrapper style={{ flex: "1 1 180px" }}>
+                            <Label>Category / Bill Type</Label>
+                            <Select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                style={{ height: "40px" }}
+                            >
+                                <option value="all">All Categories</option>
+                                {categoriesList.map((cat, idx) => (
+                                    <option key={idx} value={cat}>{cat}</option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
 
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
-                        <Label>Search</Label>
-                        <Input
-                            type="text"
-                            placeholder="Search patient, bill, MR no, user..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ height: "40px" }}
-                        />
-                    </InputWrapper>
+                        <InputWrapper style={{ flex: "1 1 180px" }}>
+                            <Label>Search</Label>
+                            <Input
+                                type="text"
+                                placeholder="Search patient, bill, MR no, user..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{ height: "40px" }}
+                            />
+                        </InputWrapper>
 
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "6px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button
-                            onClick={handleExportExcel}
-                            disabled={loading || filteredGroupedData.length === 0}
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
-                        </Button>
-                        <Button 
-                            onClick={handlePrint} 
-                            disabled={loading || filteredGroupedData.length === 0}
-                            secondary 
-                            style={{ height: "40px" }}
-                        >
-                            <FaPrint style={{ marginRight: "6px" }} /> Print
-                        </Button>
-                    </div>
-                </FormRow>
-            </FilterSection>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                <FaSearch style={{ marginRight: "6px" }} /> {loading ? "Searching..." : "Search"}
+                            </Button>
+                            <Button
+                                onClick={handleExportExcel}
+                                disabled={loading || filteredGroupedData.length === 0}
+                                style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                            </Button>
+                            <Button 
+                                onClick={handlePrint} 
+                                disabled={loading || filteredGroupedData.length === 0}
+                                secondary 
+                                style={{ height: "40px" }}
+                            >
+                                <FaPrint style={{ marginRight: "6px" }} /> Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
+            )}
 
             {/* SUMMARY CARDS */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "15px", marginBottom: "20px" }}>
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Total Transactions</SummaryLabel>
-                    <SummaryValue color={colors.primary}>{filteredTotalCount}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#16a34a">
-                    <SummaryLabel>Total Card Collection</SummaryLabel>
-                    <SummaryValue color="#16a34a">₹{formatINR(filteredTotalAmount)}</SummaryValue>
-                </SummaryCard>
-                {Object.entries(summary.by_category || {}).slice(0, 3).map(([cat, amt]) => (
-                    <SummaryCard key={cat} color="#0284c7">
-                        <SummaryLabel>{cat}</SummaryLabel>
-                        <SummaryValue color="#0284c7">₹{formatINR(amt)}</SummaryValue>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "15px", marginBottom: "20px" }}>
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Total Transactions</SummaryLabel>
+                        <SummaryValue color={colors.primary}>{filteredTotalCount}</SummaryValue>
                     </SummaryCard>
-                ))}
-            </div>
+                    <SummaryCard color="#16a34a">
+                        <SummaryLabel>Total Card Collection</SummaryLabel>
+                        <SummaryValue color="#16a34a">₹{formatINR(filteredTotalAmount)}</SummaryValue>
+                    </SummaryCard>
+                    {Object.entries(summary.by_category || {}).slice(0, 3).map(([cat, amt]) => (
+                        <SummaryCard key={cat} color="#0284c7">
+                            <SummaryLabel>{cat}</SummaryLabel>
+                            <SummaryValue color="#0284c7">₹{formatINR(amt)}</SummaryValue>
+                        </SummaryCard>
+                    ))}
+                </div>
+            )}
 
             {/* GROUPED TRANSACTIONS TABLE */}
             <TableWrapper style={{ overflowX: "auto", border: "1px solid #cbd5e1", borderRadius: "8px", background: "#fff" }}>

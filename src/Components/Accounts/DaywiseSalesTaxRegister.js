@@ -170,11 +170,24 @@ const PrintTemplate = styled.div`
     display: none;
 `;
 
-const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
+const DaywiseSalesTaxRegister = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType,
+    patientType: propPatientType,
+    initialOutlet,
+    outlet
+}) => {
     const [activeTab, setActiveTab] = useState("sales"); // "sales", "returns", "net"
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-01"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [patientType, setPatientType] = useState("all");
+    const [patientType, setPatientType] = useState(() => {
+        const pt = propPatientType || billType || initialBillType;
+        if (pt && pt !== "All" && pt !== "all") return pt.toLowerCase();
+        return "all";
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -186,6 +199,16 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
     const [netGt, setNetGt] = useState(null);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
+
+    useEffect(() => {
+        if (startDate) setFromDate(startDate);
+        if (endDate) setToDate(endDate);
+        const pt = propPatientType || billType || initialBillType;
+        if (pt) {
+            setPatientType(pt === "All" || pt === "all" ? "all" : pt.toLowerCase());
+        }
+    }, [startDate, endDate, propPatientType, billType, initialBillType]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
@@ -197,6 +220,10 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
                 report_type: "all",
                 patient_type: patientType,
             });
+            const selectedOutlet = outlet || initialOutlet;
+            if (selectedOutlet && selectedOutlet !== "All" && selectedOutlet !== "all") {
+                params.set("outlet_code", selectedOutlet);
+            }
             const response = await apiRequest(`${HmsBaseUrl}sales-tax-register/?${params.toString()}`, "GET");
             if (response.success && response.data) {
                 setDayWiseSales(response.data.day_wise_sales || []);
@@ -214,7 +241,7 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, patientType, HmsBaseUrl]);
+    }, [fromDate, toDate, patientType, outlet, initialOutlet, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -715,6 +742,20 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
 
     return (
         <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Day-wise Sales Tax Register (GST) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
             {!isModalView && (
                 <div style={{ marginBottom: "20px" }}>
                     <SectionTitle style={{ margin: 0 }}>Day-wise Sales Tax Register (GST)</SectionTitle>
@@ -725,105 +766,109 @@ const DaywiseSalesTaxRegister = ({ isModalView = false, startDate, endDate }) =>
             )}
 
             {/* TAB BAR */}
-            <TabBar>
-                <TabButton 
-                    active={activeTab === "sales"} 
-                    onClick={() => setActiveTab("sales")}
-                >
-                    <FaShoppingCart /> Sales Register
-                </TabButton>
-                <TabButton 
-                    active={activeTab === "returns"} 
-                    onClick={() => setActiveTab("returns")}
-                >
-                    <FaUndoAlt /> Returns Register
-                </TabButton>
-                <TabButton 
-                    active={activeTab === "net"} 
-                    onClick={() => setActiveTab("net")}
-                >
-                    <FaLayerGroup /> Net Consolidated Register
-                </TabButton>
-            </TabBar>
-
-            {/* FILTER SECTION */}
-            <FilterSection>
-                <FormRow style={{ display: "flex", flexWrap: "wrap", gap: "15px", alignItems: "flex-end" }}>
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
-                        <Label>From Date</Label>
-                        <DatePicker
-                            value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date, dateString) => setFromDate(dateString)}
-                            format="YYYY-MM-DD"
-                            style={{ width: "100%", height: "40px" }}
-                            allowClear={false}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ flex: "1 1 180px" }}>
-                        <Label>To Date</Label>
-                        <DatePicker
-                            value={toDate ? dayjs(toDate) : null}
-                            onChange={(date, dateString) => setToDate(dateString)}
-                            format="YYYY-MM-DD"
-                            style={{ width: "100%", height: "40px" }}
-                            allowClear={false}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ flex: "1 1 140px" }}>
-                        <Label>Patient Type</Label>
-                        <Select
-                            value={patientType}
-                            onChange={(e) => setPatientType(e.target.value)}
-                            style={{ height: "40px" }}
+            {!isModalView && (
+                <>
+                    <TabBar>
+                        <TabButton 
+                            active={activeTab === "sales"} 
+                            onClick={() => setActiveTab("sales")}
                         >
-                            <option value="all">All (OP & IP)</option>
-                            <option value="op">OP Only</option>
-                            <option value="ip">IP Only</option>
-                        </Select>
-                    </InputWrapper>
+                            <FaShoppingCart /> Sales Register
+                        </TabButton>
+                        <TabButton 
+                            active={activeTab === "returns"} 
+                            onClick={() => setActiveTab("returns")}
+                        >
+                            <FaUndoAlt /> Returns Register
+                        </TabButton>
+                        <TabButton 
+                            active={activeTab === "net"} 
+                            onClick={() => setActiveTab("net")}
+                        >
+                            <FaLayerGroup /> Net Consolidated Register
+                        </TabButton>
+                    </TabBar>
 
-                    <InputWrapper style={{ flex: "1 1 200px" }}>
-                        <Label>Search</Label>
-                        <Input
-                            type="text"
-                            placeholder="Search date, bill no, type..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ height: "40px" }}
-                        />
-                    </InputWrapper>
+                    {/* FILTER SECTION */}
+                    <FilterSection>
+                        <FormRow style={{ display: "flex", flexWrap: "wrap", gap: "15px", alignItems: "flex-end" }}>
+                            <InputWrapper style={{ flex: "1 1 180px" }}>
+                                <Label>From Date</Label>
+                                <DatePicker
+                                    value={fromDate ? dayjs(fromDate) : null}
+                                    onChange={(date, dateString) => setFromDate(dateString || fromDate)}
+                                    format="YYYY-MM-DD"
+                                    style={{ width: "100%", height: "40px" }}
+                                    allowClear={false}
+                                />
+                            </InputWrapper>
 
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                        <Button 
-                            onClick={fetchReport} 
-                            disabled={loading}
-                            style={{ height: "40px" }}
-                        >
-                            <FaSearch style={{ marginRight: "6px" }} /> {loading ? "Loading..." : "Refresh"}
-                        </Button>
-                        <Button
-                            onClick={handleExportExcel}
-                            disabled={loading || activeList.length === 0}
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
-                        </Button>
-                        <Button 
-                            onClick={handlePrint} 
-                            disabled={loading || activeList.length === 0}
-                            secondary 
-                            style={{ height: "40px" }}
-                        >
-                            <FaPrint style={{ marginRight: "6px" }} /> Print
-                        </Button>
-                    </div>
-                </FormRow>
-            </FilterSection>
+                            <InputWrapper style={{ flex: "1 1 180px" }}>
+                                <Label>To Date</Label>
+                                <DatePicker
+                                    value={toDate ? dayjs(toDate) : null}
+                                    onChange={(date, dateString) => setToDate(dateString || toDate)}
+                                    format="YYYY-MM-DD"
+                                    style={{ width: "100%", height: "40px" }}
+                                    allowClear={false}
+                                />
+                            </InputWrapper>
+
+                            <InputWrapper style={{ flex: "1 1 140px" }}>
+                                <Label>Patient Type</Label>
+                                <Select
+                                    value={patientType}
+                                    onChange={(e) => setPatientType(e.target.value)}
+                                    style={{ height: "40px" }}
+                                >
+                                    <option value="all">All (OP & IP)</option>
+                                    <option value="op">OP Only</option>
+                                    <option value="ip">IP Only</option>
+                                </Select>
+                            </InputWrapper>
+
+                            <InputWrapper style={{ flex: "1 1 200px" }}>
+                                <Label>Search</Label>
+                                <Input
+                                    type="text"
+                                    placeholder="Search date, bill no, type..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{ height: "40px" }}
+                                />
+                            </InputWrapper>
+
+                            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                                <Button 
+                                    onClick={fetchReport} 
+                                    disabled={loading}
+                                    style={{ height: "40px" }}
+                                >
+                                    <FaSearch style={{ marginRight: "6px" }} /> {loading ? "Loading..." : "Refresh"}
+                                </Button>
+                                <Button
+                                    onClick={handleExportExcel}
+                                    disabled={loading || activeList.length === 0}
+                                    style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                                >
+                                    <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                                </Button>
+                                <Button 
+                                    onClick={handlePrint} 
+                                    disabled={loading || activeList.length === 0}
+                                    secondary 
+                                    style={{ height: "40px" }}
+                                >
+                                    <FaPrint style={{ marginRight: "6px" }} /> Print
+                                </Button>
+                            </div>
+                        </FormRow>
+                    </FilterSection>
+                </>
+            )}
 
             {/* SUMMARY CARDS */}
-            {activeGt && (
+            {activeGt && !isModalView && (
                 <SummaryCardsGrid>
                     <SummaryCard color={colors.primary}>
                         <SummaryLabel>Total Taxable Value</SummaryLabel>

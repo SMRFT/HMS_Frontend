@@ -308,6 +308,7 @@ const PrintFooter = styled.div`
 
 const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
 
     // Filters state
     const [asOnDate, setAsOnDate] = useState(
@@ -500,145 +501,163 @@ const IPAdvanceReport = ({ isModalView = false, startDate, endDate }) => {
                 </SectionTitle>
             )}
 
-            {/* Filter Controls Bar */}
-            <FilterCard className="no-print">
-                <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
-                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
-                        <Label>As on Date</Label>
-                        <DatePicker
-                            value={asOnDate ? dayjs(asOnDate) : null}
-                            onChange={(d) => setAsOnDate(d ? d.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                            style={{ width: "100%", height: "38px", borderRadius: "8px" }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
-                        <Label>Floor / Ward</Label>
-                        <Select
-                            value={selectedFloor}
-                            onChange={(e) => setSelectedFloor(e.target.value)}
-                            style={{ height: "38px" }}
-                        >
-                            <option value="all">All Floors</option>
-                            {(floorsList || []).map((flr) => (
-                                <option key={flr} value={flr}>{flr}</option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "170px", flex: "1 1 170px" }}>
-                        <Label>Advance Status</Label>
-                        <Select
-                            value={advanceFilter}
-                            onChange={(e) => setAdvanceFilter(e.target.value)}
-                            style={{ height: "38px" }}
-                        >
-                            <option value="all">All In-Patients</option>
-                            <option value="with_advance">With Advance (&gt; ₹0)</option>
-                            <option value="zero_advance">Zero Advance (₹0)</option>
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
-                        <Label>Category</Label>
-                        <Select
-                            value={customerType}
-                            onChange={(e) => setCustomerType(e.target.value)}
-                            style={{ height: "38px" }}
-                        >
-                            <option value="all">All Categories</option>
-                            <option value="General">Cash / General</option>
-                            <option value="Insurance">Insurance / Corporate</option>
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "200px", flex: "2 1 200px" }}>
-                        <Label>Search</Label>
-                        <Input
-                            placeholder="Room, IP Number, Patient, Company..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ height: "38px" }}
-                        />
-                    </InputWrapper>
-
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "auto" }}>
-                        <ActionBtn variant="primary" onClick={fetchReport} disabled={loading}>
-                            <FaSyncAlt className={loading ? "spin" : ""} /> Refresh
-                        </ActionBtn>
-                        <ActionBtn 
-                            variant="secondary" 
-                            onClick={() => setIsGroupedView(prev => !prev)}
-                            title="Toggle Grouped / Flat View"
-                        >
-                            {isGroupedView ? <FaListUl /> : <FaLayerGroup />} {isGroupedView ? "Flat List" : "Group by Floor"}
-                        </ActionBtn>
-                        <ActionBtn 
-                            variant="success" 
-                            onClick={handleExportExcel} 
-                            disabled={loading || records.length === 0}
-                        >
-                            <FaFileExcel /> Export Excel
-                        </ActionBtn>
-                        <ActionBtn 
-                            variant="secondary" 
-                            onClick={handlePrint} 
-                            disabled={loading || records.length === 0}
-                        >
-                            <FaPrint /> Print
-                        </ActionBtn>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        IP Advance Report As On {dayjs(asOnDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterCard>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {currentPrintTime}.
+                    </div>
+                </div>
+            )}
+
+            {/* Filter Controls Bar */}
+            {!isModalView && (
+                <FilterCard className="no-print">
+                    <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "12px" }}>
+                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                            <Label>As on Date</Label>
+                            <DatePicker
+                                value={asOnDate ? dayjs(asOnDate) : null}
+                                onChange={(d) => setAsOnDate(d ? d.format("YYYY-MM-DD") : asOnDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: "100%", height: "38px", borderRadius: "8px" }}
+                            />
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                            <Label>Floor / Ward</Label>
+                            <Select
+                                value={selectedFloor}
+                                onChange={(e) => setSelectedFloor(e.target.value)}
+                                style={{ height: "38px" }}
+                            >
+                                <option value="all">All Floors</option>
+                                {(floorsList || []).map((flr) => (
+                                    <option key={flr} value={flr}>{flr}</option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "170px", flex: "1 1 170px" }}>
+                            <Label>Advance Status</Label>
+                            <Select
+                                value={advanceFilter}
+                                onChange={(e) => setAdvanceFilter(e.target.value)}
+                                style={{ height: "38px" }}
+                            >
+                                <option value="all">All In-Patients</option>
+                                <option value="with_advance">With Advance (&gt; ₹0)</option>
+                                <option value="zero_advance">Zero Advance (₹0)</option>
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "160px", flex: "1 1 160px" }}>
+                            <Label>Category</Label>
+                            <Select
+                                value={customerType}
+                                onChange={(e) => setSelectedFloor(e.target.value)}
+                                style={{ height: "38px" }}
+                            >
+                                <option value="all">All Categories</option>
+                                <option value="General">Cash / General</option>
+                                <option value="Insurance">Insurance / Corporate</option>
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "200px", flex: "2 1 200px" }}>
+                            <Label>Search</Label>
+                            <Input
+                                placeholder="Room, IP Number, Patient, Company..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ height: "38px" }}
+                            />
+                        </InputWrapper>
+
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "auto" }}>
+                            <ActionBtn variant="primary" onClick={fetchReport} disabled={loading}>
+                                <FaSyncAlt className={loading ? "spin" : ""} /> Refresh
+                            </ActionBtn>
+                            <ActionBtn 
+                                variant="secondary" 
+                                onClick={() => setIsGroupedView(prev => !prev)}
+                                title="Toggle Grouped / Flat View"
+                            >
+                                {isGroupedView ? <FaListUl /> : <FaLayerGroup />} {isGroupedView ? "Flat List" : "Group by Floor"}
+                            </ActionBtn>
+                            <ActionBtn 
+                                variant="success" 
+                                onClick={handleExportExcel} 
+                                disabled={loading || records.length === 0}
+                            >
+                                <FaFileExcel /> Export Excel
+                            </ActionBtn>
+                            <ActionBtn 
+                                variant="secondary" 
+                                onClick={handlePrint} 
+                                disabled={loading || records.length === 0}
+                            >
+                                <FaPrint /> Print
+                            </ActionBtn>
+                        </div>
+                    </FormRow>
+                </FilterCard>
+            )}
 
             {/* KPI Summary Cards */}
-            <SummaryGrid className="no-print">
-                <MetricCard color={colors.primary || "#0d9488"} bg="#ccfbf1">
-                    <div className="info">
-                        <div className="label">Total In-Patients</div>
-                        <div className="value">{summary.total_patients}</div>
-                        <div className="sub">Currently Admitted</div>
-                    </div>
-                    <div className="icon-box">
-                        <FaUsers />
-                    </div>
-                </MetricCard>
+            {!isModalView && (
+                <SummaryGrid className="no-print">
+                    <MetricCard color={colors.primary || "#0d9488"} bg="#ccfbf1">
+                        <div className="info">
+                            <div className="label">Total In-Patients</div>
+                            <div className="value">{summary.total_patients}</div>
+                            <div className="sub">Currently Admitted</div>
+                        </div>
+                        <div className="icon-box">
+                            <FaUsers />
+                        </div>
+                    </MetricCard>
 
-                <MetricCard color="#16a34a" bg="#dcfce7">
-                    <div className="info">
-                        <div className="label">With Advance</div>
-                        <div className="value">{summary.total_with_advance}</div>
-                        <div className="sub">Patients having deposits</div>
-                    </div>
-                    <div className="icon-box">
-                        <FaHospitalUser />
-                    </div>
-                </MetricCard>
+                    <MetricCard color="#16a34a" bg="#dcfce7">
+                        <div className="info">
+                            <div className="label">With Advance</div>
+                            <div className="value">{summary.total_with_advance}</div>
+                            <div className="sub">Patients having deposits</div>
+                        </div>
+                        <div className="icon-box">
+                            <FaHospitalUser />
+                        </div>
+                    </MetricCard>
 
-                <MetricCard color="#f59e0b" bg="#fef3c7">
-                    <div className="info">
-                        <div className="label">Zero Advance</div>
-                        <div className="value">{summary.total_zero_advance}</div>
-                        <div className="sub">No advance deposit paid</div>
-                    </div>
-                    <div className="icon-box">
-                        <FaInfoCircle />
-                    </div>
-                </MetricCard>
+                    <MetricCard color="#f59e0b" bg="#fef3c7">
+                        <div className="info">
+                            <div className="label">Zero Advance</div>
+                            <div className="value">{summary.total_zero_advance}</div>
+                            <div className="sub">No advance deposit paid</div>
+                        </div>
+                        <div className="icon-box">
+                            <FaInfoCircle />
+                        </div>
+                    </MetricCard>
 
-                <MetricCard color="#8b5cf6" bg="#ede9fe">
-                    <div className="info">
-                        <div className="label">Total Advance Collected</div>
-                        <div className="value">₹{(summary.total_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <div className="sub">As on {summary.as_on_date}</div>
-                    </div>
-                    <div className="icon-box">
-                        <FaMoneyBillWave />
-                    </div>
-                </MetricCard>
-            </SummaryGrid>
+                    <MetricCard color="#8b5cf6" bg="#ede9fe">
+                        <div className="info">
+                            <div className="label">Total Advance Collected</div>
+                            <div className="value">₹{(summary.total_advance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="sub">As on {summary.as_on_date}</div>
+                        </div>
+                        <div className="icon-box">
+                            <FaMoneyBillWave />
+                        </div>
+                    </MetricCard>
+                </SummaryGrid>
+            )}
 
             {/* Main Interactive Screen Table */}
             <TableWrapper className="no-print">

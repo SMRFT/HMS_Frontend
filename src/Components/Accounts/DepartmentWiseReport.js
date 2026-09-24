@@ -130,12 +130,22 @@ const PrintSignatures = styled.div`
     }
 `;
 
-const DepartmentWiseReport = ({ isModalView = false }) => {
+const DepartmentWiseReport = ({ isModalView = false, startDate, endDate }) => {
     const [selectedDept, setSelectedDept] = useState("All");
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(startDate ? (new Date(startDate).getMonth() + 1) : (new Date().getMonth() + 1));
+    const [selectedYear, setSelectedYear] = useState(startDate ? new Date(startDate).getFullYear() : new Date().getFullYear());
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (startDate) {
+            const d = new Date(startDate);
+            if (!isNaN(d.getTime())) {
+                setSelectedMonth(d.getMonth() + 1);
+                setSelectedYear(d.getFullYear());
+            }
+        }
+    }, [startDate]);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
@@ -220,120 +230,138 @@ const DepartmentWiseReport = ({ isModalView = false }) => {
 
     return (
         <PageWrapper style={{ padding: isModalView ? '0' : '20px' }}>
-            <SectionTitle className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h2>Department Wise Revenue & Volume Report</h2>
-                    <p style={{ fontSize: '0.85rem', color: colors.textMuted, margin: 0 }}>
-                        Comprehensive financial report grouped by medical & diagnostic departments
-                    </p>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Department Wise Report For {selectedMonth}/{selectedYear}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <Button 
-                        onClick={handleExportExcel} 
-                        disabled={loading || breakdown.length === 0} 
-                        style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
-                    >
-                        <FaFileExcel style={{ marginRight: '6px' }} /> Export Excel
-                    </Button>
-                    <Button onClick={handlePrint} style={{ background: '#3b82f6', color: '#fff' }}>
-                        <FaPrint style={{ marginRight: '6px' }} /> Print Report
-                    </Button>
-                </div>
-            </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h2>Department Wise Revenue & Volume Report</h2>
+                        <p style={{ fontSize: '0.85rem', color: colors.textMuted, margin: 0 }}>
+                            Comprehensive financial report grouped by medical & diagnostic departments
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || breakdown.length === 0} 
+                            style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
+                        >
+                            <FaFileExcel style={{ marginRight: '6px' }} /> Export Excel
+                        </Button>
+                        <Button onClick={handlePrint} style={{ background: '#3b82f6', color: '#fff' }}>
+                            <FaPrint style={{ marginRight: '6px' }} /> Print Report
+                        </Button>
+                    </div>
+                </SectionTitle>
+            )}
 
             {/* Filter Controls */}
-            <FilterSection className="no-print">
-                <FormRow style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'flex-end' }}>
-                    <InputWrapper>
-                        <Label>Department Filter</Label>
-                        <select
-                            value={selectedDept}
-                            onChange={(e) => setSelectedDept(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                border: `1px solid ${colors.border}`,
-                                fontSize: '0.9rem',
-                                outline: 'none'
-                            }}
-                        >
-                            {departmentsList.map((d, i) => (
-                                <option key={i} value={d}>{d === "All" ? "All Departments" : d}</option>
-                            ))}
-                        </select>
-                    </InputWrapper>
+            {!isModalView && (
+                <FilterSection className="no-print">
+                    <FormRow style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', alignItems: 'flex-end' }}>
+                        <InputWrapper>
+                            <Label>Department Filter</Label>
+                            <select
+                                value={selectedDept}
+                                onChange={(e) => setSelectedDept(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px',
+                                    border: `1px solid ${colors.border}`,
+                                    fontSize: '0.9rem',
+                                    outline: 'none'
+                                }}
+                            >
+                                {departmentsList.map((d, i) => (
+                                    <option key={i} value={d}>{d === "All" ? "All Departments" : d}</option>
+                                ))}
+                            </select>
+                        </InputWrapper>
 
-                    <InputWrapper>
-                        <Label>Month</Label>
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                            style={{
-                                width: '100%',
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                border: `1px solid ${colors.border}`,
-                                fontSize: '0.9rem',
-                                outline: 'none'
-                            }}
-                        >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                                <option key={m} value={m}>
-                                    {new Date(2026, m - 1, 1).toLocaleString('default', { month: 'long' })}
-                                </option>
-                            ))}
-                        </select>
-                    </InputWrapper>
+                        <InputWrapper>
+                            <Label>Month</Label>
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px',
+                                    border: `1px solid ${colors.border}`,
+                                    fontSize: '0.9rem',
+                                    outline: 'none'
+                                }}
+                            >
+                                {[...Array(12)].map((_, i) => (
+                                    <option key={i + 1} value={i + 1}>{new Date(2000, i, 1).toLocaleString('default', { month: 'long' })}</option>
+                                ))}
+                            </select>
+                        </InputWrapper>
 
-                    <InputWrapper>
-                        <Label>Year</Label>
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(Number(e.target.value))}
-                            style={{
-                                width: '100%',
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                border: `1px solid ${colors.border}`,
-                                fontSize: '0.9rem',
-                                outline: 'none'
-                            }}
-                        >
-                            {[2024, 2025, 2026, 2027].map(y => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
-                    </InputWrapper>
+                        <InputWrapper>
+                            <Label>Year</Label>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px 14px',
+                                    borderRadius: '8px',
+                                    border: `1px solid ${colors.border}`,
+                                    fontSize: '0.9rem',
+                                    outline: 'none'
+                                }}
+                            >
+                                {[2024, 2025, 2026, 2027].map((yr) => (
+                                    <option key={yr} value={yr}>{yr}</option>
+                                ))}
+                            </select>
+                        </InputWrapper>
 
-                    <Button onClick={fetchReport} disabled={loading} style={{ height: '42px' }}>
-                        <FaSearch style={{ marginRight: '6px' }} /> {loading ? "Loading..." : "Filter Report"}
-                    </Button>
-                </FormRow>
-            </FilterSection>
+                        <Button onClick={fetchReport} disabled={loading} style={{ height: '42px', background: colors.primary, color: '#fff' }}>
+                            <FaSearch style={{ marginRight: '6px' }} /> {loading ? "Loading..." : "Filter Report"}
+                        </Button>
+                    </FormRow>
+                </FilterSection>
+            )}
 
             {/* KPI Summary Cards */}
-            <SummaryGrid className="no-print">
-                <SummaryCard color="#10b981">
-                    <SummaryLabel>Total OP Consultation Fees</SummaryLabel>
-                    <SummaryValue>₹{(kpis.op_income || 0).toLocaleString('en-IN')}</SummaryValue>
-                </SummaryCard>
+            {!isModalView && (
+                <SummaryGrid className="no-print">
+                    <SummaryCard color="#10b981">
+                        <SummaryLabel>Total OP Consultation Fees</SummaryLabel>
+                        <SummaryValue>₹{(kpis.op_income || 0).toLocaleString('en-IN')}</SummaryValue>
+                    </SummaryCard>
 
-                <SummaryCard color="#3b82f6">
-                    <SummaryLabel>Total Pharmacy Billings</SummaryLabel>
-                    <SummaryValue>₹{(kpis.pharmacy_income || 0).toLocaleString('en-IN')}</SummaryValue>
-                </SummaryCard>
+                    <SummaryCard color="#3b82f6">
+                        <SummaryLabel>Total Pharmacy Billings</SummaryLabel>
+                        <SummaryValue>₹{(kpis.pharmacy_income || 0).toLocaleString('en-IN')}</SummaryValue>
+                    </SummaryCard>
 
-                <SummaryCard color="#8b5cf6">
-                    <SummaryLabel>Total Departmental Procedures</SummaryLabel>
-                    <SummaryValue>₹{(kpis.department_income || 0).toLocaleString('en-IN')}</SummaryValue>
-                </SummaryCard>
+                    <SummaryCard color="#8b5cf6">
+                        <SummaryLabel>Total Departmental Procedures</SummaryLabel>
+                        <SummaryValue>₹{(kpis.department_income || 0).toLocaleString('en-IN')}</SummaryValue>
+                    </SummaryCard>
 
-                <SummaryCard color="#f59e0b">
-                    <SummaryLabel>Grand Total Revenue</SummaryLabel>
-                    <SummaryValue style={{ color: '#d97706' }}>₹{(kpis.total_revenue || 0).toLocaleString('en-IN')}</SummaryValue>
-                </SummaryCard>
-            </SummaryGrid>
+                    <SummaryCard color="#f59e0b">
+                        <SummaryLabel>Grand Total Revenue</SummaryLabel>
+                        <SummaryValue style={{ color: '#d97706' }}>₹{(kpis.total_revenue || 0).toLocaleString('en-IN')}</SummaryValue>
+                    </SummaryCard>
+                </SummaryGrid>
+            )}
 
             {/* Department Breakdown Table */}
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: colors.textMain, marginBottom: '12px' }}>

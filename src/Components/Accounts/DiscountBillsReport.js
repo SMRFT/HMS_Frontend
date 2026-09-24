@@ -414,8 +414,9 @@ const DiscountBillsReport = ({ isModalView = false, startDate, endDate, initialB
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -423,8 +424,9 @@ const DiscountBillsReport = ({ isModalView = false, startDate, endDate, initialB
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -493,32 +495,48 @@ const DiscountBillsReport = ({ isModalView = false, startDate, endDate, initialB
                 </FormRow>
             </FilterSection>
 
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Discount Bills Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
             {/* KPI Summary Cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color="#dc2626">
-                    <SummaryLabel>Total Discount Amount</SummaryLabel>
-                    <SummaryValue color="#dc2626">₹{activeTotals.disc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Discounted Bills</SummaryLabel>
-                    <SummaryValue color={colors.primary}>{activeTotals.count}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#475569">
-                    <SummaryLabel>Total Gross Amount</SummaryLabel>
-                    <SummaryValue color="#334155">₹{activeTotals.gross.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#16a34a">
-                    <SummaryLabel>Total Net Amount</SummaryLabel>
-                    <SummaryValue color="#16a34a">₹{activeTotals.net.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#8b5cf6">
-                    <SummaryLabel>Avg Discount %</SummaryLabel>
-                    <SummaryValue color="#8b5cf6">{activeTotals.avgPct.toFixed(2)}%</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color="#dc2626">
+                        <SummaryLabel>Total Discount Amount</SummaryLabel>
+                        <SummaryValue color="#dc2626">₹{activeTotals.disc.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Discounted Bills</SummaryLabel>
+                        <SummaryValue color={colors.primary}>{activeTotals.count}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#475569">
+                        <SummaryLabel>Total Gross Amount</SummaryLabel>
+                        <SummaryValue color="#334155">₹{activeTotals.gross.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#16a34a">
+                        <SummaryLabel>Total Net Amount</SummaryLabel>
+                        <SummaryValue color="#16a34a">₹{activeTotals.net.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#8b5cf6">
+                        <SummaryLabel>Avg Discount %</SummaryLabel>
+                        <SummaryValue color="#8b5cf6">{activeTotals.avgPct.toFixed(2)}%</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             {/* Category Quick Breakdown Chips */}
-            {summary.by_category && Object.keys(summary.by_category).length > 0 && (
+            {!isModalView && summary.by_category && Object.keys(summary.by_category).length > 0 && (
                 <ChipsContainer className="no-print">
                     <Chip 
                         active={categoryFilter === "All" || categoryFilter === "all"} 

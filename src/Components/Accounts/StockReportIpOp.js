@@ -211,19 +211,37 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Pharmacy Stock Report — IP vs OP</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Item-wise quantity and value sold, split by IP and OP bills
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Pharmacy Stock Report (IP vs OP) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <InfoNotice className="no-print">
-                <FaInfoCircle />
-                This is a consumption report (sold via IP vs OP bills), not a stock-balance split — stock quantities
-                aren't tracked per-transaction in this system, only as a running balance.
-            </InfoNotice>
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Pharmacy Stock Report — IP vs OP</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Item-wise quantity and value sold, split by IP and OP bills
+                    </p>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <InfoNotice className="no-print">
+                    <FaInfoCircle />
+                    This is a consumption report (sold via IP vs OP bills), not a stock-balance split — stock quantities
+                    aren't tracked per-transaction in this system, only as a running balance.
+                </InfoNotice>
+            )}
 
             <FilterSection className="no-print">
                 <FormRow>
@@ -231,8 +249,9 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -240,8 +259,9 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -263,24 +283,26 @@ const StockReportIpOp = ({ isModalView = false, startDate, endDate }) => {
                 </FormRow>
             </FilterSection>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={"#2563eb"}>
-                    <SummaryLabel>IP Qty Consumed</SummaryLabel>
-                    <SummaryValue>{fmtQty(summary.total_ip_qty)}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={"#2563eb"}>
-                    <SummaryLabel>IP Value</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_ip_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>OP Qty Sold</SummaryLabel>
-                    <SummaryValue>{fmtQty(summary.total_op_qty)}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>OP Value</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_op_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={"#2563eb"}>
+                        <SummaryLabel>IP Qty Consumed</SummaryLabel>
+                        <SummaryValue>{fmtQty(summary.total_ip_qty)}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={"#2563eb"}>
+                        <SummaryLabel>IP Value</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_ip_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>OP Qty Sold</SummaryLabel>
+                        <SummaryValue>{fmtQty(summary.total_op_qty)}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>OP Value</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_op_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper className="no-print">
                 <Table>
