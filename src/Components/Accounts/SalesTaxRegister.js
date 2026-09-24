@@ -169,11 +169,24 @@ const PrintHeader = styled.div`
     }
 `;
 
-const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
+const SalesTaxRegister = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType,
+    patientType: propPatientType,
+    initialOutlet,
+    outlet
+}) => {
     const [activeTab, setActiveTab] = useState("sales"); // "sales" | "returns" | "consolidated"
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [patientType, setPatientType] = useState("all");
+    const [patientType, setPatientType] = useState(() => {
+        const pt = propPatientType || billType || initialBillType;
+        if (pt && pt !== "All" && pt !== "all") return pt.toLowerCase();
+        return "all";
+    });
     const [searchQuery, setSearchQuery] = useState("");
     
     // Server data states
@@ -190,7 +203,11 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const pt = propPatientType || billType || initialBillType;
+        if (pt) {
+            setPatientType(pt === "All" || pt === "all" ? "all" : pt.toLowerCase());
+        }
+    }, [startDate, endDate, propPatientType, billType, initialBillType]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
@@ -377,34 +394,54 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
     };
 
     return (
-        <PageWrapper>
-            <PrintHeader>
-                <h2>{getReportTitle()}</h2>
-                <p>Period: {fromDate ? dayjs(fromDate).format("DD/MM/YYYY") : "—"} to {toDate ? dayjs(toDate).format("DD/MM/YYYY") : "—"} | Patient Type: {patientType.toUpperCase()}</p>
-                <p style={{ fontSize: "0.75rem", color: "#6b7280" }}>Generated on: {dayjs().format("DD/MM/YYYY hh:mm A")}</p>
-            </PrintHeader>
-
-            <SectionTitle className="no-print">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: "10px" }}>
-                    <div>
-                        <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-                            <FaFileInvoiceDollar style={{ color: colors.primary }} />
-                            Sales Tax Register (GST)
-                        </h3>
-                        <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: colors.textMuted }}>
-                            Pharmacy OP/IP sales and separate return registers with rate-wise GST breakdowns
-                        </p>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Sales Tax Register (GST) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
                     </div>
                 </div>
-            </SectionTitle>
+            )}
 
-            <ApproxNotice className="no-print">
-                <FaExclamationTriangle style={{ flexShrink: 0 }} />
-                <span>
-                    Approximate: sale and return lines calculate GST based on each item's 
-                    <strong>&nbsp;current stock batch&nbsp;</strong> tax percentage.
-                </span>
-            </ApproxNotice>
+            {!isModalView && (
+                <PrintHeader>
+                    <h2>{getReportTitle()}</h2>
+                    <p>Period: {fromDate ? dayjs(fromDate).format("DD/MM/YYYY") : "—"} to {toDate ? dayjs(toDate).format("DD/MM/YYYY") : "—"} | Patient Type: {patientType.toUpperCase()}</p>
+                    <p style={{ fontSize: "0.75rem", color: "#6b7280" }}>Generated on: {dayjs().format("DD/MM/YYYY hh:mm A")}</p>
+                </PrintHeader>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", flexWrap: "wrap", gap: "10px" }}>
+                        <div>
+                            <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                                <FaFileInvoiceDollar style={{ color: colors.primary }} />
+                                Sales Tax Register (GST)
+                            </h3>
+                            <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: colors.textMuted }}>
+                                Pharmacy OP/IP sales and separate return registers with rate-wise GST breakdowns
+                            </p>
+                        </div>
+                    </div>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <ApproxNotice className="no-print">
+                    <FaExclamationTriangle style={{ flexShrink: 0 }} />
+                    <span>
+                        Approximate: sale and return lines calculate GST based on each item's 
+                        <strong>&nbsp;current stock batch&nbsp;</strong> tax percentage.
+                    </span>
+                </ApproxNotice>
+            )}
 
             {/* Navigation Tabs */}
             <TabBar className="no-print">
@@ -445,8 +482,9 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -454,8 +492,9 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -496,7 +535,7 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
             </FilterSection>
 
             {/* Dynamic KPI Summary Cards */}
-            {activeTab === "returns" && (
+            {!isModalView && activeTab === "returns" && (
                 <SummaryGrid>
                     <SummaryCard color={colors.danger}>
                         <SummaryLabel>Total Return Taxable</SummaryLabel>
@@ -525,7 +564,7 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
                 </SummaryGrid>
             )}
 
-            {activeTab === "sales" && (
+            {!isModalView && activeTab === "sales" && (
                 <SummaryGrid>
                     <SummaryCard color={colors.primary}>
                         <SummaryLabel>Total Sales Taxable</SummaryLabel>
@@ -554,7 +593,7 @@ const SalesTaxRegister = ({ isModalView = false, startDate, endDate }) => {
                 </SummaryGrid>
             )}
 
-            {activeTab === "consolidated" && (
+            {!isModalView && activeTab === "consolidated" && (
                 <SummaryGrid>
                     <SummaryCard color={colors.success}>
                         <SummaryLabel>Gross Sales (+)</SummaryLabel>

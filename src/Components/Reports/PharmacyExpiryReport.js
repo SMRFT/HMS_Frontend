@@ -830,7 +830,8 @@ const PharmacyExpiryReport = () => {
             <TableCard>
                 {loading ? (
                     <LoadingOverlay>
-                        <Spin size="large" tip="Loading expiry analytics..." />
+                        <Spin size="large" />
+                        <div style={{ marginTop: 12, color: "#64748b", fontSize: "0.85rem" }}>Loading expiry analytics...</div>
                     </LoadingOverlay>
                 ) : paginatedData.length === 0 ? (
                     <EmptyState>

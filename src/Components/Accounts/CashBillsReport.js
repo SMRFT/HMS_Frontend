@@ -378,228 +378,250 @@ const CashBillsReport = ({ isModalView = false, startDate, endDate, initialBillT
 
     return (
         <PageWrapper style={{ padding: isModalView ? "0" : "20px" }}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Cash Bills Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
             {/* Prominent Header Banner */}
-            <div style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "12px",
-                background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
-                color: "#ffffff",
-                padding: "16px 24px",
-                borderRadius: "12px",
-                marginBottom: "20px",
-                boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
-                border: "1px solid #334155"
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                    <div style={{
-                        background: "rgba(16, 185, 129, 0.2)",
-                        padding: "10px",
-                        borderRadius: "10px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center"
-                    }}>
-                        <FaMoneyBillWave size={24} color="#10b981" />
-                    </div>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.01em" }}>
-                            Cash Bills Report
-                        </h2>
-                        <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: 500 }}>
-                            Detailed breakdown of categorized cash collections across all departments
-                        </span>
-                    </div>
-                </div>
+            {!isModalView && (
                 <div style={{
-                    background: "rgba(255, 255, 255, 0.1)",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    padding: "8px 16px",
-                    borderRadius: "8px",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    color: "#f8fafc"
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                    color: "#ffffff",
+                    padding: "16px 24px",
+                    borderRadius: "12px",
+                    marginBottom: "20px",
+                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
+                    border: "1px solid #334155"
                 }}>
-                    Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                        <div style={{
+                            background: "rgba(16, 185, 129, 0.2)",
+                            padding: "10px",
+                            borderRadius: "10px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                        }}>
+                            <FaMoneyBillWave size={24} color="#10b981" />
+                        </div>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: "1.45rem", fontWeight: 800, color: "#ffffff", letterSpacing: "-0.01em" }}>
+                                Cash Bills Report
+                            </h2>
+                            <span style={{ fontSize: "0.82rem", color: "#94a3b8", fontWeight: 500 }}>
+                                Detailed breakdown of categorized cash collections across all departments
+                            </span>
+                        </div>
+                    </div>
+                    <div style={{
+                        background: "rgba(255, 255, 255, 0.1)",
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        padding: "8px 16px",
+                        borderRadius: "8px",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        color: "#f8fafc"
+                    }}>
+                        Period: {dayjs(fromDate).format("DD/MM/YYYY")} — {dayjs(toDate).format("DD/MM/YYYY")} | Outlet: {getOutletName(outlet)}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Top Summary Cards */}
-            <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                gap: "16px",
-                marginBottom: "20px"
-            }}>
-                <SummaryCard color="#10b981">
-                    <SummaryLabel>Total Cash Amount</SummaryLabel>
-                    <SummaryValue color="#10b981">₹ {formatINR(filteredTotalAmount)}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#3b82f6">
-                    <SummaryLabel>Total Cash Bills</SummaryLabel>
-                    <SummaryValue color="#3b82f6">{filteredTotalCount}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#8b5cf6">
-                    <SummaryLabel>Departments / Categories</SummaryLabel>
-                    <SummaryValue color="#8b5cf6">{categoriesList.length}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color="#f59e0b">
-                    <SummaryLabel>Filtered Category</SummaryLabel>
-                    <SummaryValue color="#f59e0b" style={{ fontSize: "1rem" }}>
-                        {categoryFilter === "all" ? "All Categories" : categoryFilter}
-                    </SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "16px",
+                    marginBottom: "20px"
+                }}>
+                    <SummaryCard color="#10b981">
+                        <SummaryLabel>Total Cash Amount</SummaryLabel>
+                        <SummaryValue color="#10b981">₹ {formatINR(filteredTotalAmount)}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#3b82f6">
+                        <SummaryLabel>Total Cash Bills</SummaryLabel>
+                        <SummaryValue color="#3b82f6">{filteredTotalCount}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#8b5cf6">
+                        <SummaryLabel>Departments / Categories</SummaryLabel>
+                        <SummaryValue color="#8b5cf6">{categoriesList.length}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color="#f59e0b">
+                        <SummaryLabel>Filtered Category</SummaryLabel>
+                        <SummaryValue color="#f59e0b" style={{ fontSize: "1rem" }}>
+                            {categoryFilter === "all" ? "All Categories" : categoryFilter}
+                        </SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             {/* Filter Bar */}
-            <FilterSection>
-                <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
-                    <InputWrapper style={{ minWidth: "140px" }}>
-                        <Label>From Date</Label>
-                        <DatePicker
-                            value={dayjs(fromDate)}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: "100%", height: "40px", borderRadius: "8px" }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "140px" }}>
-                        <Label>To Date</Label>
-                        <DatePicker
-                            value={dayjs(toDate)}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: "100%", height: "40px", borderRadius: "8px" }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "160px" }}>
-                        <Label>Outlet</Label>
-                        <Select
-                            value={outlet}
-                            onChange={(e) => setOutlet(e.target.value)}
-                            style={{ height: "40px", borderRadius: "8px" }}
-                        >
-                            <option value="all">All Outlets</option>
-                            {outlets.map((o) => (
-                                <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
-                                    {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "180px", flex: 1 }}>
-                        <Label>Category / Department</Label>
-                        <Select
-                            value={categoryFilter}
-                            onChange={(e) => setCategoryFilter(e.target.value)}
-                            style={{ height: "40px", borderRadius: "8px" }}
-                        >
-                            <option value="all">All Categories</option>
-                            <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                            <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                            <option value="ADVANCE">Advance (IP)</option>
-                            <option value="DISCHARGE">Discharge Bill</option>
-                            <option value="REGISTRATION(SH)">Registration (OP)</option>
-                            <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                            <option value="ECG (SH)">ECG (SH)</option>
-                            <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                            <option value="PET_CT(SH)">PET CT (SH)</option>
-                            <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                            <option value="SCANNING (SH)">Scanning (SH)</option>
-                            <option value="X - RAY (SH)">X-Ray (SH)</option>
-                            <option value="XEROX (SH)">Xerox (SH)</option>
-                            {categoriesList
-                                .filter(cat => ![
-                                    "PHARMACY OP BILL (SH)", "PHARMACY IP BILL (SH)", "ADVANCE", "DISCHARGE",
-                                    "REGISTRATION(SH)", "CT SCAN (SH)", "ECG (SH)", "LAB BILL (SH)",
-                                    "PET_CT(SH)", "PROCEDURE BILL (SH)", "SCANNING (SH)", "X - RAY (SH)", "XEROX (SH)"
-                                ].includes(cat))
-                                .map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))
-                            }
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "220px", flex: 1 }}>
-                        <Label>Search</Label>
-                        <div style={{ position: "relative" }}>
-                            <Input
-                                placeholder="Search Name, Bill No, UHID, User..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                style={{ height: "40px", borderRadius: "8px", paddingLeft: "36px" }}
+            {!isModalView && (
+                <FilterSection>
+                    <FormRow style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "16px" }}>
+                        <InputWrapper style={{ minWidth: "140px" }}>
+                            <Label>From Date</Label>
+                            <DatePicker
+                                value={dayjs(fromDate)}
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: "100%", height: "40px", borderRadius: "8px" }}
                             />
-                            <FaSearch
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "140px" }}>
+                            <Label>To Date</Label>
+                            <DatePicker
+                                value={dayjs(toDate)}
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: "100%", height: "40px", borderRadius: "8px" }}
+                            />
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "160px" }}>
+                            <Label>Outlet</Label>
+                            <Select
+                                value={outlet}
+                                onChange={(e) => setOutlet(e.target.value)}
+                                style={{ height: "40px", borderRadius: "8px" }}
+                            >
+                                <option value="all">All Outlets</option>
+                                {outlets.map((o) => (
+                                    <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
+                                        {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "180px", flex: 1 }}>
+                            <Label>Category / Department</Label>
+                            <Select
+                                value={categoryFilter}
+                                onChange={(e) => setCategoryFilter(e.target.value)}
+                                style={{ height: "40px", borderRadius: "8px" }}
+                            >
+                                <option value="all">All Categories</option>
+                                <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
+                                <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
+                                <option value="ADVANCE">Advance (IP)</option>
+                                <option value="DISCHARGE">Discharge Bill</option>
+                                <option value="REGISTRATION(SH)">Registration (OP)</option>
+                                <option value="CT SCAN (SH)">CT Scan (SH)</option>
+                                <option value="ECG (SH)">ECG (SH)</option>
+                                <option value="LAB BILL (SH)">Lab Bill (SH)</option>
+                                <option value="PET_CT(SH)">PET CT (SH)</option>
+                                <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
+                                <option value="SCANNING (SH)">Scanning (SH)</option>
+                                <option value="X - RAY (SH)">X-Ray (SH)</option>
+                                <option value="XEROX (SH)">Xerox (SH)</option>
+                                {categoriesList
+                                    .filter(cat => ![
+                                        "PHARMACY OP BILL (SH)", "PHARMACY IP BILL (SH)", "ADVANCE", "DISCHARGE",
+                                        "REGISTRATION(SH)", "CT SCAN (SH)", "ECG (SH)", "LAB BILL (SH)",
+                                        "PET_CT(SH)", "PROCEDURE BILL (SH)", "SCANNING (SH)", "X - RAY (SH)", "XEROX (SH)"
+                                    ].includes(cat))
+                                    .map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))
+                                }
+                            </Select>
+                        </InputWrapper>
+
+                        <InputWrapper style={{ minWidth: "220px", flex: 1 }}>
+                            <Label>Search</Label>
+                            <div style={{ position: "relative" }}>
+                                <Input
+                                    placeholder="Search Name, Bill No, UHID, User..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    style={{ height: "40px", borderRadius: "8px", paddingLeft: "36px" }}
+                                />
+                                <FaSearch
+                                    style={{
+                                        position: "absolute",
+                                        left: "12px",
+                                        top: "50%",
+                                        transform: "translateY(-50%)",
+                                        color: colors.textMuted
+                                    }}
+                                />
+                            </div>
+                        </InputWrapper>
+
+                        <div style={{ display: "flex", gap: "10px" }}>
+                            <Button
+                                onClick={fetchReport}
+                                disabled={loading}
                                 style={{
-                                    position: "absolute",
-                                    left: "12px",
-                                    top: "50%",
-                                    transform: "translateY(-50%)",
-                                    color: colors.textMuted
+                                    height: "40px",
+                                    background: colors.primary || "#2563eb",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    borderRadius: "8px",
+                                    fontWeight: 600,
+                                    padding: "0 18px"
                                 }}
-                            />
+                            >
+                                <FaSearch /> {loading ? "Searching..." : "Search"}
+                            </Button>
+                            <Button
+                                onClick={handlePrint}
+                                style={{
+                                    height: "40px",
+                                    background: "#0f172a",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    borderRadius: "8px",
+                                    fontWeight: 600,
+                                    padding: "0 18px"
+                                }}
+                            >
+                                <FaPrint /> Print
+                            </Button>
+                            <Button
+                                onClick={handleExportExcel}
+                                style={{
+                                    height: "40px",
+                                    background: "#10b981",
+                                    color: "#ffffff",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    borderRadius: "8px",
+                                    fontWeight: 600,
+                                    padding: "0 18px"
+                                }}
+                            >
+                                <FaFileExcel /> Excel
+                            </Button>
                         </div>
-                    </InputWrapper>
-
-                    <div style={{ display: "flex", gap: "10px" }}>
-                        <Button
-                            onClick={fetchReport}
-                            disabled={loading}
-                            style={{
-                                height: "40px",
-                                background: colors.primary || "#2563eb",
-                                color: "#ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                borderRadius: "8px",
-                                fontWeight: 600,
-                                padding: "0 18px"
-                            }}
-                        >
-                            <FaSearch /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button
-                            onClick={handlePrint}
-                            style={{
-                                height: "40px",
-                                background: "#0f172a",
-                                color: "#ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                borderRadius: "8px",
-                                fontWeight: 600,
-                                padding: "0 18px"
-                            }}
-                        >
-                            <FaPrint /> Print
-                        </Button>
-                        <Button
-                            onClick={handleExportExcel}
-                            style={{
-                                height: "40px",
-                                background: "#10b981",
-                                color: "#ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                borderRadius: "8px",
-                                fontWeight: 600,
-                                padding: "0 18px"
-                            }}
-                        >
-                            <FaFileExcel /> Excel
-                        </Button>
-                    </div>
-                </FormRow>
-            </FilterSection>
+                    </FormRow>
+                </FilterSection>
+            )}
 
             {/* Interactive Screen Table */}
             <TableWrapper style={{ overflowX: "auto", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>

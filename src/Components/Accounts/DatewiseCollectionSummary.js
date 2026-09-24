@@ -147,15 +147,39 @@ const formatCurr = (val) => {
     return num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const DatewiseCollectionSummary = ({ isModalView = false, initialStartDate, initialEndDate }) => {
+const DatewiseCollectionSummary = ({ 
+    isModalView = false, 
+    initialStartDate, 
+    initialEndDate, 
+    startDate, 
+    endDate, 
+    initialBillType, 
+    billType, 
+    category, 
+    initialOutlet, 
+    outlet 
+}) => {
     // ─── STATE ───────────────────────────────────────────────────────────────
     const todayStr = dayjs().format("YYYY-MM-DD");
-    const [fromDate, setFromDate] = useState(initialStartDate || todayStr);
-    const [toDate, setToDate] = useState(initialEndDate || todayStr);
+    const [fromDate, setFromDate] = useState(startDate || initialStartDate || todayStr);
+    const [toDate, setToDate] = useState(endDate || initialEndDate || todayStr);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState("all");
+    const [selectedCategory, setSelectedCategory] = useState(
+        (billType || initialBillType || category) && (billType || initialBillType || category) !== "All" && (billType || initialBillType || category) !== "all" 
+            ? (billType || initialBillType || category) 
+            : "all"
+    );
     const [loading, setLoading] = useState(false);
     const [rawData, setRawData] = useState([]);
+
+    useEffect(() => {
+        if (startDate || initialStartDate) setFromDate(startDate || initialStartDate);
+        if (endDate || initialEndDate) setToDate(endDate || initialEndDate);
+        const cat = billType || initialBillType || category;
+        if (cat) {
+            setSelectedCategory(cat === "All" || cat === "all" ? "all" : cat);
+        }
+    }, [startDate, initialStartDate, endDate, initialEndDate, initialBillType, billType, category]);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
     const hospitalName = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
@@ -171,7 +195,11 @@ const DatewiseCollectionSummary = ({ isModalView = false, initialStartDate, init
 
         setLoading(true);
         try {
-            const url = `${HmsBaseUrl}date_wise_collection_summary_report/?from_date=${fromDate}&to_date=${toDate}`;
+            const selectedOutlet = outlet || initialOutlet;
+            let url = `${HmsBaseUrl}date_wise_collection_summary_report/?from_date=${fromDate}&to_date=${toDate}`;
+            if (selectedOutlet && selectedOutlet !== "All" && selectedOutlet !== "all") {
+                url += `&outlet_code=${encodeURIComponent(selectedOutlet)}`;
+            }
             const res = await apiRequest(url, "GET");
 
             if (res && res.success && Array.isArray(res.data)) {
@@ -190,7 +218,7 @@ const DatewiseCollectionSummary = ({ isModalView = false, initialStartDate, init
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, HmsBaseUrl]);
+    }, [fromDate, toDate, outlet, initialOutlet, HmsBaseUrl]);
 
     useEffect(() => {
         fetchData();
@@ -433,114 +461,130 @@ const DatewiseCollectionSummary = ({ isModalView = false, initialStartDate, init
                 </div>
             )}
 
-            {/* Controls Filter Bar */}
-            <ReportHeaderCard>
-                <ControlsBar>
-                    <InputWrapper style={{ minWidth: "150px" }}>
-                        <Label><FaCalendarAlt style={{ marginRight: 6 }} /> From Date</Label>
-                        <DatePicker
-                            value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(d) => setFromDate(d ? d.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                            style={{ width: "100%", height: "38px", borderRadius: "6px" }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "150px" }}>
-                        <Label><FaCalendarAlt style={{ marginRight: 6 }} /> To Date</Label>
-                        <DatePicker
-                            value={toDate ? dayjs(toDate) : null}
-                            onChange={(d) => setToDate(d ? d.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            allowClear={false}
-                            style={{ width: "100%", height: "38px", borderRadius: "6px" }}
-                        />
-                    </InputWrapper>
-
-                    <InputWrapper style={{ minWidth: "180px" }}>
-                        <Label>Bill Category</Label>
-                        <Select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            style={{ height: "38px" }}
-                        >
-                            <option value="all">All Categories ({categoriesList.length})</option>
-                            {categoriesList.map(cat => (
-                                <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-
-                    <InputWrapper style={{ flex: "1 1 200px" }}>
-                        <Label><FaSearch style={{ marginRight: 6 }} /> Search Bill Name / Range</Label>
-                        <Input
-                            type="text"
-                            placeholder="e.g. DISCHARGE, 2627/002173, LAB BILL..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{ height: "38px" }}
-                        />
-                    </InputWrapper>
-
-                    <div style={{ display: "flex", gap: "10px" }}>
-                        <Button 
-                            onClick={fetchData} 
-                            disabled={loading}
-                            style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px" }}
-                        >
-                            <FaSyncAlt className={loading ? "fa-spin" : ""} /> {loading ? "Loading..." : "Search"}
-                        </Button>
-                        <Button 
-                            secondary 
-                            onClick={handleExportExcel}
-                            style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#107c41", color: "#fff", borderColor: "#107c41" }}
-                        >
-                            <FaFileExcel /> Excel
-                        </Button>
-                        <Button 
-                            secondary 
-                            onClick={handlePrint}
-                            style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px" }}
-                        >
-                            <FaPrint /> Print
-                        </Button>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospitalName}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Date-wise Collection Summary From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </ControlsBar>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-                {/* KPI Summary Cards */}
-                <KPIContainer>
-                    <KPICard color="#2563eb">
-                        <div className="title">Gross Amount</div>
-                        <div className="value">₹{formatCurr(grandTotals.gross)}</div>
-                        <div className="sub">Total Billing Volume</div>
-                    </KPICard>
+            {/* Controls Filter Bar & KPIs */}
+            {!isModalView && (
+                <ReportHeaderCard>
+                    <ControlsBar>
+                        <InputWrapper style={{ minWidth: "150px" }}>
+                            <Label><FaCalendarAlt style={{ marginRight: 6 }} /> From Date</Label>
+                            <DatePicker
+                                value={fromDate ? dayjs(fromDate) : null}
+                                onChange={(d) => setFromDate(d ? d.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: "100%", height: "38px", borderRadius: "6px" }}
+                            />
+                        </InputWrapper>
 
-                    <KPICard color="#e11d48">
-                        <div className="title">Discounts & Credits</div>
-                        <div className="value">₹{formatCurr(grandTotals.discount + grandTotals.ip_credit)}</div>
-                        <div className="sub">Disc: ₹{formatCurr(grandTotals.discount)} | Credit: ₹{formatCurr(grandTotals.ip_credit)}</div>
-                    </KPICard>
+                        <InputWrapper style={{ minWidth: "150px" }}>
+                            <Label><FaCalendarAlt style={{ marginRight: 6 }} /> To Date</Label>
+                            <DatePicker
+                                value={toDate ? dayjs(toDate) : null}
+                                onChange={(d) => setToDate(d ? d.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: "100%", height: "38px", borderRadius: "6px" }}
+                            />
+                        </InputWrapper>
 
-                    <KPICard color="#059669">
-                        <div className="title">Net Collection</div>
-                        <div className="value">₹{formatCurr(grandTotals.net_amount)}</div>
-                        <div className="sub">Settled Inflow</div>
-                    </KPICard>
+                        <InputWrapper style={{ minWidth: "180px" }}>
+                            <Label>Bill Category</Label>
+                            <Select
+                                value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                style={{ height: "38px" }}
+                            >
+                                <option value="all">All Categories ({categoriesList.length})</option>
+                                {categoriesList.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
+                                ))}
+                            </Select>
+                        </InputWrapper>
 
-                    <KPICard color="#0284c7">
-                        <div className="title">Cash Collection</div>
-                        <div className="value">₹{formatCurr(grandTotals.cash)}</div>
-                        <div className="sub">Direct Counter Cash</div>
-                    </KPICard>
+                        <InputWrapper style={{ flex: "1 1 200px" }}>
+                            <Label><FaSearch style={{ marginRight: 6 }} /> Search Bill Name / Range</Label>
+                            <Input
+                                type="text"
+                                placeholder="e.g. DISCHARGE, 2627/002173, LAB BILL..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ height: "38px" }}
+                            />
+                        </InputWrapper>
 
-                    <KPICard color="#7c3aed">
-                        <div className="title">Bank Collection</div>
-                        <div className="value">₹{formatCurr(grandTotals.bank)}</div>
-                        <div className="sub">UPI / Card / Online</div>
-                    </KPICard>
-                </KPIContainer>
-            </ReportHeaderCard>
+                        <div style={{ display: "flex", gap: "10px" }}>
+                            <Button 
+                                onClick={fetchData} 
+                                disabled={loading}
+                                style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px" }}
+                            >
+                                <FaSyncAlt className={loading ? "fa-spin" : ""} /> {loading ? "Loading..." : "Search"}
+                            </Button>
+                            <Button 
+                                secondary 
+                                onClick={handleExportExcel}
+                                style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px", backgroundColor: "#107c41", color: "#fff", borderColor: "#107c41" }}
+                            >
+                                <FaFileExcel /> Excel
+                            </Button>
+                            <Button 
+                                secondary 
+                                onClick={handlePrint}
+                                style={{ height: "38px", display: "flex", alignItems: "center", gap: "6px" }}
+                            >
+                                <FaPrint /> Print
+                            </Button>
+                        </div>
+                    </ControlsBar>
+
+                    {/* KPI Summary Cards */}
+                    <KPIContainer>
+                        <KPICard color="#2563eb">
+                            <div className="title">Gross Amount</div>
+                            <div className="value">₹{formatCurr(grandTotals.gross)}</div>
+                            <div className="sub">Total Billing Volume</div>
+                        </KPICard>
+
+                        <KPICard color="#e11d48">
+                            <div className="title">Discounts & Credits</div>
+                            <div className="value">₹{formatCurr(grandTotals.discount + grandTotals.ip_credit)}</div>
+                            <div className="sub">Disc: ₹{formatCurr(grandTotals.discount)} | Credit: ₹{formatCurr(grandTotals.ip_credit)}</div>
+                        </KPICard>
+
+                        <KPICard color="#059669">
+                            <div className="title">Net Collection</div>
+                            <div className="value">₹{formatCurr(grandTotals.net_amount)}</div>
+                            <div className="sub">Settled Inflow</div>
+                        </KPICard>
+
+                        <KPICard color="#0284c7">
+                            <div className="title">Cash Collection</div>
+                            <div className="value">₹{formatCurr(grandTotals.cash)}</div>
+                            <div className="sub">Direct Counter Cash</div>
+                        </KPICard>
+
+                        <KPICard color="#7c3aed">
+                            <div className="title">Bank Collection</div>
+                            <div className="value">₹{formatCurr(grandTotals.bank)}</div>
+                            <div className="sub">UPI / Card / Online</div>
+                        </KPICard>
+                    </KPIContainer>
+                </ReportHeaderCard>
+            )}
 
             {/* Printable & Visible Report Table Area */}
             <div id="printable-collection-summary">
@@ -557,7 +601,8 @@ const DatewiseCollectionSummary = ({ isModalView = false, initialStartDate, init
                 <TableWrapper style={{ overflowX: "auto", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", borderRadius: "8px" }}>
                     {loading ? (
                         <div style={{ textAlign: "center", padding: "60px 0" }}>
-                            <Spin size="large" tip="Loading collection summary..." />
+                            <Spin size="large" />
+                            <div style={{ marginTop: 12, color: "#64748b", fontSize: "0.85rem" }}>Loading collection summary...</div>
                         </div>
                     ) : groupedData.length === 0 ? (
                         <div style={{ textAlign: "center", padding: "50px 0", color: "#64748b" }}>

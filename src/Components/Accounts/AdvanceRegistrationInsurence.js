@@ -131,17 +131,25 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
         try {
             const url = `${HmsBaseUrl}discharge-bills-report/?from_date=${fromDate}&to_date=${toDate}&insurance=true&status=Billed`;
             const response = await apiRequest(url, "GET");
-            if (response.success && response.data) {
-                const rows = Array.isArray(response.data.data)
-                    ? response.data.data
-                    : Array.isArray(response.data)
-                    ? response.data
-                    : [];
+            if (response && (response.success || response.status === 200 || response.data)) {
+                let rows = [];
+                if (Array.isArray(response.data?.data)) {
+                    rows = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (Array.isArray(response.result)) {
+                    rows = response.result;
+                } else if (Array.isArray(response)) {
+                    rows = response;
+                }
                 setReportData(rows);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
             console.error("Error fetching insurance discharge report:", error);
             toast.error("Failed to fetch insurance bills status report");
+            setReportData([]);
         } finally {
             setLoading(false);
         }
@@ -154,8 +162,9 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
     // Unique Companies for Filter with name and code
     const uniqueCompanies = useMemo(() => {
         const compMap = new Map();
+        if (!Array.isArray(reportData)) return [];
         reportData.forEach(r => {
-            const name = r.company_name || r.insurance_company || "GENERAL / PRIVATE";
+            const name = r.company_name || r.insurance_company || (r.has_insurance ? "INSURANCE CLAIM" : "GENERAL / PRIVATE");
             const code = r.company_code || "";
             if (!compMap.has(name)) {
                 compMap.set(name, { name, code });
@@ -169,12 +178,13 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
     // Grouping by Insurance Company
     const groupedData = useMemo(() => {
         const groups = {};
+        if (!Array.isArray(reportData)) return groups;
         const filtered = selectedCompany === "all"
             ? reportData
-            : reportData.filter(r => (r.company_name || r.insurance_company || "GENERAL / PRIVATE") === selectedCompany);
+            : reportData.filter(r => (r.company_name || r.insurance_company || (r.has_insurance ? "INSURANCE CLAIM" : "GENERAL / PRIVATE")) === selectedCompany);
 
         filtered.forEach(item => {
-            const compName = item.company_name || item.insurance_company || "GENERAL / PRIVATE";
+            const compName = item.company_name || item.insurance_company || (item.has_insurance ? "INSURANCE CLAIM" : "GENERAL / PRIVATE");
             const compCode = item.company_code || "";
             if (!groups[compName]) {
                 groups[compName] = {
@@ -201,18 +211,22 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
         let dueAmt = 0;
         let totalCount = 0;
 
-        Object.values(groupedData).forEach(group => {
-            group.items.forEach(r => {
-                totalCount += 1;
-                billAmt += Number(r.bill_amount || r.total_amount || 0);
-                advanceAmt += Number(r.advance || r.advance_amount || 0);
-                settledAmt += Number(r.settled_amount || 0);
-                tdsAmt += Number(r.tds || 0);
-                paidByPatientAmt += Number(r.paid_by_patient || 0);
-                disallowedAmt += Number(r.disallowed_amount || 0);
-                dueAmt += Number(r.due || 0);
+        if (groupedData && typeof groupedData === "object") {
+            Object.values(groupedData).forEach(group => {
+                if (group && Array.isArray(group.items)) {
+                    group.items.forEach(r => {
+                        totalCount += 1;
+                        billAmt += Number(r.bill_amount ?? r.total_amount ?? 0) || 0;
+                        advanceAmt += Number(r.advance ?? r.advance_amount ?? 0) || 0;
+                        settledAmt += Number(r.settled_amount ?? 0) || 0;
+                        tdsAmt += Number(r.tds ?? 0) || 0;
+                        paidByPatientAmt += Number(r.paid_by_patient ?? 0) || 0;
+                        disallowedAmt += Number(r.disallowed_amount ?? 0) || 0;
+                        dueAmt += Number(r.due ?? 0) || 0;
+                    });
+                }
             });
-        });
+        }
 
         return {
             totalCount,
@@ -348,93 +362,115 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Insurance Bills Status Report (Discharge)</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Company-wise grouped insurance discharge claims audit and settlement status
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper style={{ minWidth: "260px", flex: 1 }}>
-                        <Label>Insurance Company</Label>
-                        <Select
-                            value={selectedCompany}
-                            onChange={(e) => setSelectedCompany(e.target.value)}
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        >
-                            <option value="all">All Companies ({uniqueCompanies.length})</option>
-                            {uniqueCompanies.map((c, i) => (
-                                <option key={i} value={c.name}>
-                                    {c.name} {c.code ? `(${c.code})` : ""}
-                                </option>
-                            ))}
-                        </Select>
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button 
-                            onClick={handleExportExcel} 
-                            disabled={loading || reportData.length === 0} 
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Insurance Discharge Bills Status Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
+            {!isModalView && (
+                <>
+                    <SectionTitle className="no-print">
+                        <h3>Insurance Bills Status Report (Discharge)</h3>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                            Company-wise grouped insurance discharge claims audit and settlement status
+                        </p>
+                    </SectionTitle>
+
+                    <FilterSection className="no-print">
+                        <FormRow>
+                            <InputWrapper>
+                                <Label>From Date</Label>
+                                <DatePicker 
+                                    value={fromDate ? dayjs(fromDate) : null} 
+                                    onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+                            <InputWrapper>
+                                <Label>To Date</Label>
+                                <DatePicker 
+                                    value={toDate ? dayjs(toDate) : null} 
+                                    onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+                            <InputWrapper style={{ minWidth: "260px", flex: 1 }}>
+                                <Label>Insurance Company</Label>
+                                <Select
+                                    value={selectedCompany}
+                                    onChange={(e) => setSelectedCompany(e.target.value)}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                >
+                                    <option value="all">All Companies ({uniqueCompanies.length})</option>
+                                    {uniqueCompanies.map((c, i) => (
+                                        <option key={i} value={c.name}>
+                                            {c.name} {c.code ? `(${c.code})` : ""}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </InputWrapper>
+                            <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                                <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                    <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                                </Button>
+                                <Button 
+                                    onClick={handleExportExcel} 
+                                    disabled={loading || reportData.length === 0} 
+                                    style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                                >
+                                    <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                                </Button>
+                                <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                    <FaPrint style={{ marginRight: "8px" }} /> Print
+                                </Button>
+                            </div>
+                        </FormRow>
+                    </FilterSection>
+                </>
+            )}
 
             {/* Summary Metrics */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Bills</span>
-                    <h3 style={{ margin: 0 }}>{grandTotals.totalCount}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.info || "#3b82f6"}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Bill Amount</span>
-                    <h3 style={{ margin: 0, color: colors.info || "#3b82f6" }}>₹{grandTotals.billAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Settled</span>
-                    <h3 style={{ margin: 0, color: colors.success }}>₹{grandTotals.settledAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.warning || "#f59e0b"}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Patient / Advance</span>
-                    <h3 style={{ margin: 0, color: colors.warning || "#f59e0b" }}>₹{(grandTotals.advanceAmt + grandTotals.paidByPatientAmt).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.error || "#ef4444"}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Outstanding DUE</span>
-                    <h3 style={{ margin: 0, color: colors.error || "#ef4444" }}>₹{grandTotals.dueAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Bills</span>
+                        <h3 style={{ margin: 0 }}>{grandTotals.totalCount}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.info || "#3b82f6"}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Bill Amount</span>
+                        <h3 style={{ margin: 0, color: colors.info || "#3b82f6" }}>₹{grandTotals.billAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.success}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Settled</span>
+                        <h3 style={{ margin: 0, color: colors.success }}>₹{grandTotals.settledAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.warning || "#f59e0b"}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Patient / Advance</span>
+                        <h3 style={{ margin: 0, color: colors.warning || "#f59e0b" }}>₹{(grandTotals.advanceAmt + grandTotals.paidByPatientAmt).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.error || "#ef4444"}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Outstanding DUE</span>
+                        <h3 style={{ margin: 0, color: colors.error || "#ef4444" }}>₹{grandTotals.dueAmt.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                </div>
+            )}
 
             {/* Screen Table (With horizontal scroll for all 25 columns) */}
-            <TableWrapper className="no-print" style={{ overflowX: "auto" }}>
+            <TableWrapper style={{ overflowX: "auto" }}>
                 <Table style={{ minWidth: "2200px" }}>
                     <thead>
                         <Tr>
@@ -466,14 +502,20 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                         </Tr>
                     </thead>
                     <tbody>
-                        {Object.keys(groupedData).length > 0 ? (
-                            Object.entries(groupedData).map(([companyName, group]) => {
+                        {loading ? (
+                            <Tr>
+                                <Td colSpan="25" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                    Loading insurance discharge bills...
+                                </Td>
+                            </Tr>
+                        ) : Object.keys(groupedData).length > 0 ? (
+                            Object.entries(groupedData).map(([companyName, group], grpIdx) => {
                                 let compBillTotal = 0;
                                 let compDueTotal = 0;
                                 const compDisplay = `${group.companyName} ${group.companyCode ? `(${group.companyCode})` : ""}`;
 
                                 return (
-                                    <React.Fragment key={companyName}>
+                                    <React.Fragment key={companyName || grpIdx}>
                                         <Tr style={{ background: "#e2e8f0", fontWeight: "bold" }}>
                                             <Td colSpan="25" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
                                                 Company Name : {compDisplay} &nbsp;|&nbsp; <span style={{ fontSize: "0.85rem", color: "#64748b" }}>PVT</span>
@@ -487,7 +529,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                                             compDueTotal += dueAmt;
 
                                             return (
-                                                <Tr key={r.bill_id || r.bill_no || idx}>
+                                                <Tr key={`${r.bill_id || r.bill_no || 'bill'}-${grpIdx}-${idx}`}>
                                                     <Td>{idx + 1}</Td>
                                                     <Td>{r.bill_date ? dayjs(r.bill_date).format("DD/MM/YYYY") : "—"}</Td>
                                                     <Td style={{ fontWeight: "700" }}>{r.ip_number || "—"}</Td>
@@ -535,7 +577,7 @@ const AdvanceRegistrationInsurence = ({ isModalView = false, startDate, endDate 
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {reportData.length > 0 && !loading && (
                         <tfoot>
                             <Tr style={{ background: "#cbd5e1", fontWeight: "900", fontSize: "0.95rem" }}>
                                 <Td colSpan="12" style={{ textAlign: "left", paddingLeft: "20px" }}>Grand Total (Bills: {grandTotals.totalCount})</Td>

@@ -805,7 +805,7 @@ const FrontOfficeReports = () => {
                 footer={null}
                 width="95%"
                 centered
-                destroyOnClose
+                destroyOnHidden
                 closable={false}
             >
                 <ReportContainer>

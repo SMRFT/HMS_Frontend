@@ -54,10 +54,22 @@ const SummaryLabel = styled.p`
     letter-spacing: 0.05em;
 `;
 
-const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
+const DischargeBills = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType: propBillType,
+    initialOutlet,
+    outlet
+}) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [billType, setBillType] = useState("all");
+    const [billType, setBillType] = useState(() => {
+        const bt = propBillType || initialBillType;
+        if (bt && bt !== "All" && bt !== "all") return bt;
+        return "all";
+    });
     const [insuranceFilter, setInsuranceFilter] = useState("false");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -65,10 +77,21 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
+    const formatDateSafe = (dateVal) => {
+        if (!dateVal) return "—";
+        const d = dayjs(dateVal);
+        if (d.isValid()) return d.format("DD/MM/YYYY");
+        return String(dateVal);
+    };
+
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const bt = propBillType || initialBillType;
+        if (bt) {
+            setBillType(bt === "All" || bt === "all" ? "all" : bt);
+        }
+    }, [startDate, endDate, propBillType, initialBillType]);
 
     const fetchReport = useCallback(async () => {
         if (!fromDate || !toDate) return;
@@ -77,15 +100,26 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
             if (billType !== "all") params.set("payment_mode", billType);
             if (insuranceFilter !== "all") params.set("insurance", insuranceFilter);
+            const selectedOutlet = outlet || initialOutlet;
+            if (selectedOutlet && selectedOutlet !== "All" && selectedOutlet !== "all") {
+                params.set("outlet_code", selectedOutlet);
+            }
 
             const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
-            if (response.success && response.data) {
-                const rows = Array.isArray(response.data.data)
-                    ? response.data.data
-                    : Array.isArray(response.data)
-                    ? response.data
-                    : [];
+            if (response && (response.success || response.status === 200 || response.data)) {
+                let rows = [];
+                if (Array.isArray(response.data?.data)) {
+                    rows = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (Array.isArray(response.result)) {
+                    rows = response.result;
+                } else if (Array.isArray(response)) {
+                    rows = response;
+                }
                 setReportData(rows);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
             console.error("Error fetching cash discharge report:", error);
@@ -93,7 +127,7 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, billType, insuranceFilter, HmsBaseUrl]);
+    }, [fromDate, toDate, billType, insuranceFilter, outlet, initialOutlet, HmsBaseUrl]);
 
     useEffect(() => {
         fetchReport();
@@ -115,8 +149,8 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                 "IP No": bill.ip_number || "",
                 "Bill No": bill.bill_no || "",
                 "Room": bill.patient_details?.room_no || "N/A",
-                "Admission Date": bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : (bill.admitting_date ? format(new Date(bill.admitting_date), "dd/MM/yyyy") : "N/A"),
-                "Discharge Date": bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A",
+                "Admission Date": formatDateSafe(bill.patient_details?.admission_date || bill.admitting_date),
+                "Discharge Date": formatDateSafe(bill.bill_date || bill.discharge_date),
                 "Bill Amount (₹)": Number((bill.bill_amount || bill.total_amount || 0).toFixed(2)),
                 "Advance (₹)": Number((bill.advance_amount || bill.advance || 0).toFixed(2)),
                 "Net Paid (₹)": Number((bill.net_amount || 0).toFixed(2)),
@@ -141,13 +175,29 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
     const grandNetTotal = reportData.reduce((acc, curr) => acc + Number(curr.net_amount || 0), 0);
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Cash Discharge Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Discharged patient settlement bills (Cash / Self-paying)
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Discharge Bills Report (Cash / Self-paying) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Cash Discharge Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Discharged patient settlement bills (Cash / Self-paying)
+                    </p>
+                </SectionTitle>
+            )}
 
             <FilterSection className="no-print">
                 <FormRow>
@@ -155,8 +205,9 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                         <Label>From Date</Label>
                         <DatePicker 
                             value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -164,8 +215,9 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                         <Label>To Date</Label>
                         <DatePicker 
                             value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -214,24 +266,26 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                 </FormRow>
             </FilterSection>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Total Discharged Patients</SummaryLabel>
-                    <SummaryValue>{reportData.length}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.info || "#3b82f6"}>
-                    <SummaryLabel>Total Bill Amount</SummaryLabel>
-                    <SummaryValue>₹{grandBillTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.warning || "#f59e0b"}>
-                    <SummaryLabel>Total Advance Adjusted</SummaryLabel>
-                    <SummaryValue>₹{grandAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Total Net Paid</SummaryLabel>
-                    <SummaryValue>₹{grandNetTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Total Discharged Patients</SummaryLabel>
+                        <SummaryValue>{reportData.length}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.info || "#3b82f6"}>
+                        <SummaryLabel>Total Bill Amount</SummaryLabel>
+                        <SummaryValue>₹{grandBillTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.warning || "#f59e0b"}>
+                        <SummaryLabel>Total Advance Adjusted</SummaryLabel>
+                        <SummaryValue>₹{grandAdvanceTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.success}>
+                        <SummaryLabel>Total Net Paid</SummaryLabel>
+                        <SummaryValue>₹{grandNetTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper>
                 <Table id="discharge-bills-table">
@@ -262,8 +316,8 @@ const DischargeBills = ({ isModalView = false, startDate, endDate }) => {
                                         <Td style={{ fontWeight: "700" }}>{bill.ip_number || "—"}</Td>
                                         <Td>{bill.bill_no || "—"}</Td>
                                         <Td>{bill.patient_details?.room_no || "N/A"}</Td>
-                                        <Td>{bill.patient_details?.admission_date ? format(new Date(bill.patient_details.admission_date), "dd/MM/yyyy") : (bill.admitting_date ? format(new Date(bill.admitting_date), "dd/MM/yyyy") : "N/A")}</Td>
-                                        <Td>{bill.bill_date ? format(new Date(bill.bill_date), "dd/MM/yyyy") : "N/A"}</Td>
+                                        <Td>{formatDateSafe(bill.patient_details?.admission_date || bill.admitting_date)}</Td>
+                                        <Td>{formatDateSafe(bill.bill_date || bill.discharge_date)}</Td>
                                         <Td style={{ textAlign: "right" }}>₹{Number(bill.bill_amount || bill.total_amount || 0).toFixed(2)}</Td>
                                         <Td style={{ textAlign: "right", color: colors.warning || "#d97706" }}>₹{Number(bill.advance_amount || bill.advance || 0).toFixed(2)}</Td>
                                         <Td style={{ textAlign: "right", fontWeight: "700", color: colors.success }}>₹{Number(bill.net_amount || 0).toFixed(2)}</Td>

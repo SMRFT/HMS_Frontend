@@ -243,8 +243,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                 "Start Time": s.StartTime || "",
                 "End Time": s.EndTime || "Active",
                 "Opening Balance (₹)": Number(parseFloat(s.OpeningBalance || 0).toFixed(2)),
-                "Closing Balance (₹)": Number(parseFloat(s.ClosingBalance || 0).toFixed(2)),
                 "Collection (₹)": Number(parseFloat(s.collected_Amount || 0).toFixed(2)),
+                "Closing Balance (₹)": Number(parseFloat(s.ClosingBalance || 0).toFixed(2)),
                 "Return (₹)": Number(parseFloat(s.SalesReturnAmount || 0).toFixed(2)),
                 "Remitted to Bank (₹)": Number(parseFloat(s.RemittedToBank || 0).toFixed(2)),
                 "Handover Amount (₹)": Number(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2))
@@ -289,13 +289,29 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
 
     return (
         <>
-            <PageWrapper>
-                <SectionTitle>
-                    <h3>Shift Basis Accounts Report</h3>
-                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                        {shiftNo ? `Report for Shift: ${shiftNo}` : `Range: ${format(new Date(fromDate), "dd MMM yyyy")} to ${format(new Date(toDate), "dd MMM yyyy")}`}
-                    </p>
-                </SectionTitle>
+            <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+                {isModalView && (
+                    <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                        <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                            {hospital_name}
+                        </h2>
+                        <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                            Shift Details For {getOutletName(outlet) === '-' || outlet === 'all' ? 'Cashcounter' : getOutletName(outlet)} From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                        </div>
+                        <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                            Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                        </div>
+                    </div>
+                )}
+
+                {!isModalView && (
+                    <SectionTitle>
+                        <h3>Shift Basis Accounts Report</h3>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                            {shiftNo ? `Report for Shift: ${shiftNo}` : `Range: ${format(new Date(fromDate), "dd MMM yyyy")} to ${format(new Date(toDate), "dd MMM yyyy")}`}
+                        </p>
+                    </SectionTitle>
+                )}
 
                 <FilterSection className="no-print">
                     <FormRow>
@@ -303,8 +319,9 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             <Label>From Date</Label>
                             <DatePicker 
                                 value={fromDate ? dayjs(fromDate) : null} 
-                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
                                 style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
@@ -312,8 +329,9 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             <Label>To Date</Label>
                             <DatePicker 
                                 value={toDate ? dayjs(toDate) : null} 
-                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
                                 style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
@@ -475,8 +493,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                     <Th>Start Time</Th>
                                     <Th>End Time</Th>
                                     <Th style={{ textAlign: "right" }}>Opening Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Closing Bal</Th>
                                     <Th style={{ textAlign: "right" }}>Collection</Th>
+                                    <Th style={{ textAlign: "right" }}>Closing Bal</Th>
                                     <Th style={{ textAlign: "right" }}>Return</Th>
                                     <Th style={{ textAlign: "right" }}>Remitted</Th>
                                     <Th style={{ textAlign: "right" }}>Handover</Th>
@@ -495,8 +513,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                             <Td style={{ fontSize: "0.75rem" }}>{s.StartTime}</Td>
                                             <Td style={{ fontSize: "0.75rem" }}>{s.EndTime || "Active"}</Td>
                                             <Td style={{ textAlign: "right" }}>₹{(parseFloat(s.OpeningBalance || 0)).toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.ClosingBalance || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{(parseFloat(s.collected_Amount || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.ClosingBalance || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: colors.danger }}>₹{(parseFloat(s.SalesReturnAmount || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{(parseFloat(s.RemittedToBank || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: "#8b5cf6" }}>₹{(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0)).toFixed(2)}</Td>
@@ -786,8 +804,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             <th>Start Time</th>
                             <th>End Time</th>
                             <th style={{ textAlign: "right" }}>Opening Bal</th>
-                            <th style={{ textAlign: "right" }}>Closing Bal</th>
                             <th style={{ textAlign: "right" }}>Collection</th>
+                            <th style={{ textAlign: "right" }}>Closing Bal</th>
                             <th style={{ textAlign: "right" }}>Return</th>
                             <th style={{ textAlign: "right" }}>Remitted</th>
                             <th style={{ textAlign: "right" }}>Handover</th>
@@ -805,8 +823,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                                     <td>{s.StartTime}</td>
                                     <td>{s.EndTime || "Active"}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.SalesReturnAmount || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
@@ -822,8 +840,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutl
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
                                 <td colSpan="6" style={{ textAlign: "right" }}>GRAND TOTAL:</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.OpeningBalance || 0), 0).toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SalesReturnAmount || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.RemittedToBank || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0), 0).toFixed(2)}</td>

@@ -197,66 +197,88 @@ const DailyCashReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>A/c Papers — Daily Cash Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Cash Book: cash collected across Registration, Pharmacy &amp; Discharge, plus Receipt/Payment vouchers, day-wise
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker
-                            value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker
-                            value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button 
-                            onClick={handleExportExcel} 
-                            disabled={loading || reportData.length === 0} 
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Daily Cash Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Total Cash In</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_cash_in || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.danger}>
-                    <SummaryLabel>Total Cash Out</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_cash_out || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Net Cash</SummaryLabel>
-                    <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>A/c Papers — Daily Cash Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Cash Book: cash collected across Registration, Pharmacy &amp; Discharge, plus Receipt/Payment vouchers, day-wise
+                    </p>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <FilterSection className="no-print">
+                    <FormRow>
+                        <InputWrapper>
+                            <Label>From Date</Label>
+                            <DatePicker
+                                value={fromDate ? dayjs(fromDate) : null}
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>To Date</Label>
+                            <DatePicker
+                                value={toDate ? dayjs(toDate) : null}
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                            </Button>
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || reportData.length === 0} 
+                                style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                <FaPrint style={{ marginRight: "8px" }} /> Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
+            )}
+
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.success}>
+                        <SummaryLabel>Total Cash In</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_cash_in || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.danger}>
+                        <SummaryLabel>Total Cash Out</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_cash_out || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Net Cash</SummaryLabel>
+                        <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper className="no-print">
                 <Table>

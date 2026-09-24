@@ -134,10 +134,22 @@ const PrintSignatures = styled.div`
     }
 `;
 
-const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate }) => {
+const MiscellaneousPaymentReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType: propBillType,
+    initialOutlet,
+    outlet
+}) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [receiptType, setReceiptType] = useState("all");
+    const [receiptType, setReceiptType] = useState(() => {
+        const bt = propBillType || initialBillType;
+        if (bt && bt !== "All" && bt !== "all") return bt.toLowerCase();
+        return "all";
+    });
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState({ count: 0, total_receipts: 0, total_payments: 0, net: 0 });
     const [loading, setLoading] = useState(false);
@@ -150,18 +162,26 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const bt = propBillType || initialBillType;
+        if (bt) {
+            setReceiptType(bt === "All" || bt === "all" ? "all" : bt.toLowerCase());
+        }
+    }, [startDate, endDate, propBillType, initialBillType]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate, receiptType]);
+    }, [fromDate, toDate, receiptType, outlet, initialOutlet]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
             if (receiptType !== "all") params.set("receipt_type", receiptType);
+            const selectedOutlet = outlet || initialOutlet;
+            if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "All") {
+                params.set("outlet_code", selectedOutlet);
+            }
             const response = await apiRequest(`${HmsBaseUrl}miscellaneous-payment-report/?${params.toString()}`, "GET");
             if (response.success && response.data) {
                 setReportData(response.data.data || []);
@@ -206,13 +226,29 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
     };
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Miscellaneous Payment Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Receipt &amp; Payment vouchers posted against any account head (e.g. Miscellaneous Income)
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Miscellaneous Payment Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Miscellaneous Payment Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Receipt &amp; Payment vouchers posted against any account head (e.g. Miscellaneous Income)
+                    </p>
+                </SectionTitle>
+            )}
 
             <FilterSection className="no-print">
                 <FormRow>
@@ -220,8 +256,9 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -229,8 +266,9 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -260,24 +298,26 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                 </FormRow>
             </FilterSection>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Vouchers</SummaryLabel>
-                    <SummaryValue>{summary.count}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Total Receipts</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_receipts || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.danger}>
-                    <SummaryLabel>Total Payments</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_payments || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.secondary}>
-                    <SummaryLabel>Net</SummaryLabel>
-                    <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Vouchers</SummaryLabel>
+                        <SummaryValue>{summary.count}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.success}>
+                        <SummaryLabel>Total Receipts</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_receipts || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.danger}>
+                        <SummaryLabel>Total Payments</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_payments || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.secondary}>
+                        <SummaryLabel>Net</SummaryLabel>
+                        <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper className="no-print">
                 <Table>

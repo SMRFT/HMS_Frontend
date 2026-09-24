@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
@@ -15,7 +15,6 @@ import {
     FormRow,
     InputWrapper,
     Label,
-    Select,
     Button,
     TableWrapper,
     Table,
@@ -57,17 +56,25 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         try {
             const url = `${HmsBaseUrl}advance-registration-report/?from_date=${fromDate}&to_date=${toDate}`;
             const response = await apiRequest(url, "GET");
-            if (response.success && response.data) {
-                const rows = Array.isArray(response.data.data)
-                    ? response.data.data
-                    : Array.isArray(response.data)
-                    ? response.data
-                    : [];
+            if (response && (response.success || response.status === 200 || response.data)) {
+                let rows = [];
+                if (Array.isArray(response.data?.data)) {
+                    rows = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (Array.isArray(response.result)) {
+                    rows = response.result;
+                } else if (Array.isArray(response)) {
+                    rows = response;
+                }
                 setReportData(rows);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
             console.error("Error fetching advance report:", error);
             toast.error("Failed to fetch advance registration report");
+            setReportData([]);
         } finally {
             setLoading(false);
         }
@@ -78,11 +85,21 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
     }, [fetchReport]);
 
     // Group records by Date (formatted as DD/MM/YYYY)
-    const groupedData = React.useMemo(() => {
+    const groupedData = useMemo(() => {
         const groups = {};
+        if (!Array.isArray(reportData)) return groups;
+        
         reportData.forEach(item => {
-            const rawDate = item.paid_date || item.date || item.created_date;
-            const dateKey = rawDate ? dayjs(rawDate).format("DD/MM/YYYY") : "Others";
+            const rawDate = item.paid_date || item.date || item.created_date || item.admission_date;
+            let dateKey = "Others";
+            if (rawDate) {
+                const parsed = dayjs(rawDate);
+                if (parsed.isValid()) {
+                    dateKey = parsed.format("DD/MM/YYYY");
+                } else {
+                    dateKey = String(rawDate).slice(0, 10);
+                }
+            }
             if (!groups[dateKey]) {
                 groups[dateKey] = [];
             }
@@ -91,13 +108,16 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
         return groups;
     }, [reportData]);
 
-    const grandTotals = React.useMemo(() => {
+    const grandTotals = useMemo(() => {
+        if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
         return reportData.reduce((acc, curr) => {
-            const cash = Number(curr.cash_amount || ((curr.payment_mode || "").toLowerCase() === "cash" ? curr.amount : 0) || 0);
-            const credit = Number(curr.credit_amount || ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) || 0);
-            acc.cash += cash;
-            acc.credit += credit;
-            acc.total += (cash + credit);
+            const cash = Number(curr.cash_amount ?? ((curr.payment_mode || "").toLowerCase() === "cash" ? curr.amount : 0) ?? 0);
+            const credit = Number(curr.credit_amount ?? ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) ?? 0);
+            const safeCash = isNaN(cash) ? 0 : cash;
+            const safeCredit = isNaN(credit) ? 0 : credit;
+            acc.cash += safeCash;
+            acc.credit += safeCredit;
+            acc.total += (safeCash + safeCredit);
             return acc;
         }, { cash: 0, credit: 0, total: 0 });
     }, [reportData]);
@@ -120,10 +140,12 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                 let dayCredit = 0;
 
                 items.forEach((row) => {
-                    const cash = Number(row.cash_amount || ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) || 0);
-                    const credit = Number(row.credit_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                    dayCash += cash;
-                    dayCredit += credit;
+                    const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                    const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                    const safeCash = isNaN(cash) ? 0 : cash;
+                    const safeCredit = isNaN(credit) ? 0 : credit;
+                    dayCash += safeCash;
+                    dayCredit += safeCredit;
 
                     exportRows.push({
                         "Date": dateStr,
@@ -131,8 +153,8 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                         "BILLNUMBER": row.billnumber || row.bill_no || row.billno || "",
                         "IPNUMBER": row.ipNumber || row.ip_number || row.ipno || "",
                         "PATIENTNAME": row.patientname || row.patient_name || "",
-                        "CASH AMOUNT": cash > 0 ? Number(cash.toFixed(2)) : 0,
-                        "CREDIT AMOUNT": credit > 0 ? Number(credit.toFixed(2)) : 0,
+                        "CASH AMOUNT": safeCash > 0 ? Number(safeCash.toFixed(2)) : 0,
+                        "CREDIT AMOUNT": safeCredit > 0 ? Number(safeCredit.toFixed(2)) : 0,
                         "User": row.user || row.created_by || row.cashier_id || "STAFF"
                     });
                 });
@@ -177,70 +199,92 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
     let runningIndex = 1;
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>ADVANCE REGISTER (ACCOUNTS)</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Daily IP advance register with Cash and Credit breakdown
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
-                        </Button>
-                        <Button 
-                            onClick={handleExportExcel} 
-                            disabled={loading || reportData.length === 0} 
-                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
-                        >
-                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Advance Register For {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.success}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Cash Amount</span>
-                    <h3 style={{ margin: 0, color: colors.success }}>₹{grandTotals.cash.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.primary}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Credit / Card</span>
-                    <h3 style={{ margin: 0, color: colors.primary }}>₹{grandTotals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-                <SummaryCard color={colors.secondary}>
-                    <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Grand Total Collections</span>
-                    <h3 style={{ margin: 0, color: colors.secondary }}>₹{grandTotals.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <>
+                    <SectionTitle className="no-print">
+                        <h3>ADVANCE REGISTER (ACCOUNTS)</h3>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                            Daily IP advance register with Cash and Credit breakdown
+                        </p>
+                    </SectionTitle>
+
+                    <FilterSection className="no-print">
+                        <FormRow>
+                            <InputWrapper>
+                                <Label>From Date</Label>
+                                <DatePicker 
+                                    value={fromDate ? dayjs(fromDate) : null} 
+                                    onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+                            <InputWrapper>
+                                <Label>To Date</Label>
+                                <DatePicker 
+                                    value={toDate ? dayjs(toDate) : null} 
+                                    onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                    format="DD/MM/YYYY"
+                                    allowClear={false}
+                                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                                />
+                            </InputWrapper>
+
+                            <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                                <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                    <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
+                                </Button>
+                                <Button 
+                                    onClick={handleExportExcel} 
+                                    disabled={loading || reportData.length === 0} 
+                                    style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                                >
+                                    <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                                </Button>
+                                <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                    <FaPrint style={{ marginRight: "8px" }} /> Print
+                                </Button>
+                            </div>
+                        </FormRow>
+                    </FilterSection>
+                </>
+            )}
+
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.success}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Cash Amount</span>
+                        <h3 style={{ margin: 0, color: colors.success }}>₹{grandTotals.cash.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.primary}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Total Credit / Card</span>
+                        <h3 style={{ margin: 0, color: colors.primary }}>₹{grandTotals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                    <SummaryCard color={colors.secondary}>
+                        <span style={{ fontSize: "0.7rem", fontWeight: "600", color: colors.textMuted, textTransform: "uppercase" }}>Grand Total Collections</span>
+                        <h3 style={{ margin: 0, color: colors.secondary }}>₹{grandTotals.total.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h3>
+                    </SummaryCard>
+                </div>
+            )}
 
             {/* Screen Display Table */}
-            <TableWrapper className="no-print">
+            <TableWrapper>
                 <Table>
                     <thead>
                         <Tr>
@@ -249,41 +293,49 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                             <Th>IPNUMBER</Th>
                             <Th>PATIENTNAME</Th>
                             <Th style={{ textAlign: "right" }}>CASH AMOUNT</Th>
-                            <Th style={{ textAlign: "right" }}>CREDIT AMOUNT</Th>
+                            <Th style={{ textAlign: "right" }}>CREDIT CARD AMOUNT</Th>
                             <Th>User</Th>
                         </Tr>
                     </thead>
                     <tbody>
-                        {Object.keys(groupedData).length > 0 ? (
-                            Object.entries(groupedData).map(([dateStr, items]) => {
+                        {loading ? (
+                            <Tr>
+                                <Td colSpan="7" style={{ textAlign: "center", padding: "40px", color: colors.textMuted }}>
+                                    Loading advance records...
+                                </Td>
+                            </Tr>
+                        ) : Object.keys(groupedData).length > 0 ? (
+                            Object.entries(groupedData).map(([dateStr, items], grpIdx) => {
                                 let dayCash = 0;
                                 let dayCredit = 0;
 
                                 return (
-                                    <React.Fragment key={dateStr}>
+                                    <React.Fragment key={dateStr || grpIdx}>
                                         <Tr style={{ background: "#f1f5f9", fontWeight: "bold" }}>
                                             <Td colSpan="7" style={{ color: "#0f172a", fontSize: "0.95rem", padding: "10px 14px" }}>
                                                 {dateStr}
                                             </Td>
                                         </Tr>
-                                        {items.map((row) => {
-                                            const cash = Number(row.cash_amount || ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) || 0);
-                                            const credit = Number(row.credit_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                                            dayCash += cash;
-                                            dayCredit += credit;
+                                        {items.map((row, rowIdx) => {
+                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const safeCash = isNaN(cash) ? 0 : cash;
+                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            dayCash += safeCash;
+                                            dayCredit += safeCredit;
                                             const sl = runningIndex++;
 
                                             return (
-                                                <Tr key={row.billnumber || row.bill_no || sl}>
+                                                <Tr key={`${row.billnumber || row.bill_no || 'row'}-${grpIdx}-${rowIdx}`}>
                                                     <Td>{sl}</Td>
                                                     <Td style={{ fontWeight: "600" }}>{row.billnumber || row.bill_no || row.billno || "—"}</Td>
                                                     <Td>{row.ipNumber || row.ip_number || row.ipno || "—"}</Td>
                                                     <Td style={{ fontWeight: "600" }}>{row.patientname || row.patient_name || "—"}</Td>
-                                                    <Td style={{ textAlign: "right", color: cash > 0 ? colors.success : "inherit" }}>
-                                                        {cash > 0 ? cash.toFixed(2) : "0.00"}
+                                                    <Td style={{ textAlign: "right", color: safeCash > 0 ? colors.success : "inherit" }}>
+                                                        {safeCash > 0 ? safeCash.toFixed(2) : "0.00"}
                                                     </Td>
-                                                    <Td style={{ textAlign: "right", color: credit > 0 ? colors.primary : "inherit" }}>
-                                                        {credit > 0 ? credit.toFixed(2) : "0.00"}
+                                                    <Td style={{ textAlign: "right", color: safeCredit > 0 ? colors.primary : "inherit" }}>
+                                                        {safeCredit > 0 ? safeCredit.toFixed(2) : "0.00"}
                                                     </Td>
                                                     <Td style={{ textTransform: "uppercase", fontSize: "0.85rem" }}>
                                                         {row.user || row.created_by || row.cashier_id || "STAFF"}
@@ -309,7 +361,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {reportData.length > 0 && !loading && (
                         <tfoot>
                             <Tr style={{ background: "#cbd5e1", fontWeight: "900", fontSize: "1rem" }}>
                                 <Td colSpan="4" style={{ textAlign: "right" }}>Grand Total</Td>
@@ -380,32 +432,34 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate }) => {
                     <tbody>
                         {(() => {
                             let printSl = 1;
-                            return Object.entries(groupedData).map(([dateStr, items]) => {
+                            return Object.entries(groupedData).map(([dateStr, items], grpIdx) => {
                                 let dayCash = 0;
                                 let dayCredit = 0;
 
                                 return (
-                                    <React.Fragment key={`print-${dateStr}`}>
+                                    <React.Fragment key={`print-${dateStr}-${grpIdx}`}>
                                         <tr className="date-group-header">
                                             <td colSpan="7" style={{ fontWeight: "bold", textAlign: "left", padding: "4px 6px", borderBottom: "1px dashed #666" }}>
                                                 {dateStr}
                                             </td>
                                         </tr>
-                                        {items.map((row) => {
-                                            const cash = Number(row.cash_amount || ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) || 0);
-                                            const credit = Number(row.credit_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                                            dayCash += cash;
-                                            dayCredit += credit;
+                                        {items.map((row, rowIdx) => {
+                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
+                                            const credit = Number(row.credit_amount ?? ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) ?? 0);
+                                            const safeCash = isNaN(cash) ? 0 : cash;
+                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            dayCash += safeCash;
+                                            dayCredit += safeCredit;
                                             const curSl = printSl++;
 
                                             return (
-                                                <tr key={`print-row-${curSl}`}>
+                                                <tr key={`print-row-${curSl}-${rowIdx}`}>
                                                     <td>{curSl}</td>
                                                     <td>{row.billnumber || row.bill_no || row.billno || "—"}</td>
                                                     <td>{row.ipNumber || row.ip_number || row.ipno || "—"}</td>
                                                     <td>{row.patientname || row.patient_name || "—"}</td>
-                                                    <td style={{ textAlign: "right" }}>{cash > 0 ? cash.toFixed(2) : "0.00"}</td>
-                                                    <td style={{ textAlign: "right" }}>{credit > 0 ? credit.toFixed(2) : "0.00"}</td>
+                                                    <td style={{ textAlign: "right" }}>{safeCash > 0 ? safeCash.toFixed(2) : "0.00"}</td>
+                                                    <td style={{ textAlign: "right" }}>{safeCredit > 0 ? safeCredit.toFixed(2) : "0.00"}</td>
                                                     <td style={{ textTransform: "uppercase" }}>{row.user || row.created_by || row.cashier_id || "STAFF"}</td>
                                                 </tr>
                                             );
