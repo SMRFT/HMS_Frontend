@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch, FaFileCsv } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileCsv, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -124,10 +127,22 @@ const PrintSignatures = styled.div`
 `;
 
 
-const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
+const BillCancelReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType: propBillType,
+    initialOutlet,
+    outlet
+}) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [billType, setBillType] = useState("all");
+    const [billType, setBillType] = useState(() => {
+        const bt = propBillType || initialBillType;
+        if (bt && bt !== "All" && bt !== "all") return bt.toLowerCase();
+        return "all";
+    });
     const [searchQuery, setSearchQuery] = useState("");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -137,7 +152,11 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const bt = propBillType || initialBillType;
+        if (bt) {
+            setBillType(bt === "All" || bt === "all" ? "all" : bt.toLowerCase());
+        }
+    }, [startDate, endDate, propBillType, initialBillType]);
 
     useEffect(() => {
         if (fromDate && toDate) {
@@ -165,7 +184,7 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
     };
 
     // Filter by type and search query
@@ -240,79 +259,137 @@ const BillCancelReport = ({ isModalView = false, startDate, endDate }) => {
         document.body.removeChild(link);
     };
 
+    const handleExportExcel = () => {
+        if (filteredData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = filteredData.map((item, index) => ({
+                "S.No": index + 1,
+                "Patient Name": item.patient_name || "",
+                "UHID": item.uhid || "",
+                "Bill Type": item.bill_type || "",
+                "Bill No": item.bill_no || "",
+                "Bill Date": item.bill_date || "",
+                "Cancelled Date": item.cancelled_date || "",
+                "Created By": item.created_by || "",
+                "Cancelled By": item.cancelled_by || "",
+                "Amount (₹)": Number((item.net_amount || 0).toFixed(2)),
+                "Remarks": item.remarks || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Cancelled Bills");
+            XLSX.writeFile(wb, `Bill_Cancel_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Bill Cancellation Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    List of cancelled discharge bills and IP advances with patient details
-                </p>
-            </SectionTitle>
-
-            <FilterSection className="no-print">
-                <FormRow>
-                    <InputWrapper>
-                        <Label>From Date</Label>
-                        <DatePicker 
-                            value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>To Date</Label>
-                        <DatePicker 
-                            value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                            format="DD/MM/YYYY"
-                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                        />
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Bill Category</Label>
-                        <Select
-                            value={billType}
-                            onChange={(e) => setBillType(e.target.value)}
-                        >
-                            <option value="all">All Categories</option>
-                            <option value="discharge">Discharge Bills</option>
-                            <option value="advance">IP Advances</option>
-                            <option value="admission">IP Admissions</option>
-                        </Select>
-                    </InputWrapper>
-                    <InputWrapper>
-                        <Label>Search</Label>
-                        <Input
-                            placeholder="Search Patient, UHID, Bill No..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </InputWrapper>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                        <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
-                            <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Refreshing..." : "Refresh"}
-                        </Button>
-                        <Button onClick={handleExportCSV} style={{ height: "40px", background: colors.success, borderColor: colors.success }}>
-                            <FaFileCsv style={{ marginRight: "8px" }} /> CSV
-                        </Button>
-                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
-                            <FaPrint style={{ marginRight: "8px" }} /> Print
-                        </Button>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Bill Cancel Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
                     </div>
-                </FormRow>
-            </FilterSection>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Total Cancelled Bills</SummaryLabel>
-                    <SummaryValue>{filteredData.length}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.danger}>
-                    <SummaryLabel>Total Cancelled Amount</SummaryLabel>
-                    <SummaryValue>₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Bill Cancellation Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        List of cancelled discharge bills and IP advances with patient details
+                    </p>
+                </SectionTitle>
+            )}
+
+            {!isModalView && (
+                <FilterSection className="no-print">
+                    <FormRow>
+                        <InputWrapper>
+                            <Label>From Date</Label>
+                            <DatePicker 
+                                value={fromDate ? dayjs(fromDate) : null} 
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>To Date</Label>
+                            <DatePicker 
+                                value={toDate ? dayjs(toDate) : null} 
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                                format="DD/MM/YYYY"
+                                allowClear={false}
+                                style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                            />
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Bill Category</Label>
+                            <Select
+                                value={billType}
+                                onChange={(e) => setBillType(e.target.value)}
+                            >
+                                <option value="all">All Categories</option>
+                                <option value="discharge">Discharge Bills</option>
+                                <option value="advance">IP Advances</option>
+                                <option value="admission">IP Admissions</option>
+                            </Select>
+                        </InputWrapper>
+                        <InputWrapper>
+                            <Label>Search</Label>
+                            <Input
+                                placeholder="Search Patient, UHID, Bill No..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </InputWrapper>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
+                                <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Refreshing..." : "Refresh"}
+                            </Button>
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || filteredData.length === 0} 
+                                style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                                <FaPrint style={{ marginRight: "8px" }} /> Print
+                            </Button>
+                        </div>
+                    </FormRow>
+                </FilterSection>
+            )}
+
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Total Cancelled Bills</SummaryLabel>
+                        <SummaryValue>{filteredData.length}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.danger}>
+                        <SummaryLabel>Total Cancelled Value</SummaryLabel>
+                        <SummaryValue>₹{grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper>
                 <Table id="bill-cancel-table">

@@ -80,7 +80,6 @@ import Package from "./Components/BillingMaster/Package";
 import MedicinePackage from "./Components/BillingMaster/MedicinePackage";
 import Investigationprice from "./Components/BillingMaster/Investigationprice";
 import BillType from "./Components/BillingMaster/BillType";
-import RadiologySlot from "./Components/InvestigationReports/RadiologySlot";
 import DeptBUDReport from "./Components/InvestigationBilling/DeptBUDReport";
 import InvoiceGeneration from "./Components/Velavan/InvoiceGeneration";
 import InvoiceReport from "./Components/Velavan/InvoiceReport";
@@ -124,6 +123,15 @@ import VendingMachineReport from "./Components/Stores/VendingMachineReport";
 import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
 import StoresSupplierGrnReport from "./Components/Stores/StoresSupplierGrnReport";
 import StoresDepartmentIndentReport from "./Components/Stores/StoresDepartmentIndentReport";
+import StoresPurchaseOrderFormat from "./Components/Stores/StoresPurchaseOrderFormat";
+import StoresPurchaseReturn from "./Components/Stores/StoresPurchaseReturn";
+import StoresPurchaseAnalysisReport from "./Components/Stores/StoresPurchaseAnalysisReport";
+import StoresPreviousDayStockReport from "./Components/Stores/StoresPreviousDayStockReport";
+import StoresSupplierWiseReport from "./Components/Stores/StoresSupplierWiseReport";
+import StoresNonMovingReport from "./Components/Stores/StoresNonMovingReport";
+import StoresShortExpiryReport from "./Components/Stores/StoresShortExpiryReport";
+import StoresReorderLevelReport from "./Components/Stores/StoresReorderLevelReport";
+import StoresRackClassification from "./Components/Stores/StoresRackClassification";
 import AssetsManagement from "./Components/AssetsManagement/AssetsManagement";
 import AssetsMaintainance from "./Components/AssetsManagement/AssetsMaintenance";
 import RecycleManagement from "./Components/AssetsManagement/RecycleManagement";
@@ -175,6 +183,7 @@ import AdvanceRegistrationInsurence from "./Components/Accounts/AdvanceRegistrat
 import AdvanceRegistration from "./Components/Accounts/AdvanceRegistration";
 import BillCancelReport from "./Components/Accounts/BillCancelReport";
 import AccountsReports from "./Components/Reports/AccountsReports";
+import DiscountBillsReport from "./Components/Accounts/DiscountBillsReport";
 import InsuranceClaim from "./Components/Insurance/InsuranceClaim";
 import PharmacyExpiryReport from "./Components/Reports/PharmacyExpiryReport";
 import PharmacyStockDashboard from "./Components/Reports/PharmacyStockDashboard";
@@ -215,9 +224,8 @@ import Feedbackreports from "./Components/QRScan/Feedbackreports";
 import OutpatientFeedbackreports from "./Components/QRScan/OutpatientFeedbackreports";
 import InpatientQRScan from "./Components/QRScan/InpatientQRScan";
 import OutPatientQRScan from "./Components/QRScan/OutPatientQRScan";
-
-
-
+import Registration360 from "./Components/Shanmuga360/360Registration";
+import Reports360 from "./Components/Shanmuga360/Reports";
 
 
 
@@ -277,12 +285,11 @@ function App() {
           allSidebarData.forEach((group) => {
             if (group.pages) {
               group.pages.forEach((page) => {
-                if (
-                  page.route &&
-                  page.permissions &&
-                  page.permissions.length > 0
-                ) {
-                  dPerms[page.route] = page.permissions;
+                if (page.route) {
+                  dPerms[page.route] = {
+                    permissions: page.permissions || [],
+                    page_id: page.page_id != null ? Number(page.page_id) : null,
+                  };
                 }
               });
             }
@@ -437,6 +444,15 @@ function App() {
       "/StoresReportsDashboard": "Stores Reports Dashboard",
       "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
       "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
+      "/StoresPurchaseOrderFormat": "Stores Purchase Order Format",
+      "/StoresPurchaseReturn": "Stores Purchase Return & Debit Note",
+      "/StoresPurchaseAnalysisReport": "Stores Purchase Analysis Report",
+      "/StoresPreviousDayStockReport": "Stores Previous Day Stock Report",
+      "/StoresSupplierWiseReport": "Stores Supplier-Wise Report",
+      "/StoresNonMovingReport": "Stores Non-Moving Items Report",
+      "/StoresShortExpiryReport": "Stores Short Expiry Report",
+      "/StoresReorderLevelReport": "Stores Reorder Level Indication Report",
+      "/StoresRackClassification": "Stores Barcode & Rack Classification",
       "/AssetsManagement": "Assets Management",
       "/AssetsMaintainance": "Assets maintenance",
       "/RecycleManagement": "Recycle Management",
@@ -457,6 +473,7 @@ function App() {
       "/AdvanceRegistration": "Advance Registration",
 
       "/BillCancelReport": "Bill Cancel Report",
+      "/DiscountBillsReport": "Discount Bills Report",
       "/Feedbackreports": "InPatient Feedback Reports",
       "/FeedbackReports": "InPatient Feedback Reports",
     };
@@ -805,12 +822,12 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               )) && (
-                <>
-                  <Route path="/Enquiry" element={<Enquiry />} />
-                  <Route path="/PatientInquiry" element={<Enquiry />} />
-                  <Route path="/PatientEnquiry" element={<Enquiry />} />
-                </>
-              )}
+                  <>
+                    <Route path="/Enquiry" element={<Enquiry />} />
+                    <Route path="/PatientInquiry" element={<Enquiry />} />
+                    <Route path="/PatientEnquiry" element={<Enquiry />} />
+                  </>
+                )}
               {hasPagePermission(
                 "/RegistrationBills",
                 allowedActions,
@@ -1343,7 +1360,10 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && (
-                  <Route path="/AccountsReports" element={<AccountsReports />} />
+                  <>
+                    <Route path="/AccountsReports" element={<AccountsReports />} />
+                    <Route path="/DiscountBillsReport" element={<DiscountBillsReport />} />
+                  </>
                 )}
               {hasPagePermission(
                 "/PharmacyExpiryReport",
@@ -1513,9 +1533,18 @@ function App() {
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
-              <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+               <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
+              <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
+              <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />
+              <Route path="/StoresPreviousDayStockReport" element={<StoresPreviousDayStockReport />} />
+              <Route path="/StoresSupplierWiseReport" element={<StoresSupplierWiseReport />} />
+              <Route path="/StoresNonMovingReport" element={<StoresNonMovingReport />} />
+              <Route path="/StoresShortExpiryReport" element={<StoresShortExpiryReport />} />
+              <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
+              <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
               {hasPagePermission("/StoresReportsDashboard", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               )}
@@ -1524,6 +1553,33 @@ function App() {
               )}
               {hasPagePermission("/StoresDepartmentIndentReport", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
+              )}
+              {hasPagePermission("/StoresPurchaseOrderFormat", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
+              )}
+              {hasPagePermission("/StoresPurchaseReturn", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseReturn" element={<StoresPurchaseReturn />} />
+              )}
+              {hasPagePermission("/StoresPurchaseAnalysisReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPurchaseAnalysisReport" element={<StoresPurchaseAnalysisReport />} />
+              )}
+              {hasPagePermission("/StoresPreviousDayStockReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresPreviousDayStockReport" element={<StoresPreviousDayStockReport />} />
+              )}
+              {hasPagePermission("/StoresSupplierWiseReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresSupplierWiseReport" element={<StoresSupplierWiseReport />} />
+              )}
+              {hasPagePermission("/StoresNonMovingReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresNonMovingReport" element={<StoresNonMovingReport />} />
+              )}
+              {hasPagePermission("/StoresShortExpiryReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresShortExpiryReport" element={<StoresShortExpiryReport />} />
+              )}
+              {hasPagePermission("/StoresReorderLevelReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresReorderLevelReport" element={<StoresReorderLevelReport />} />
+              )}
+              {hasPagePermission("/StoresRackClassification", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresRackClassification" element={<StoresRackClassification />} />
               )}
               {hasPagePermission("/VendingMachineReport", allowedActions, dynamicPermissions) && (
                 <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
@@ -1852,6 +1908,15 @@ function App() {
               ) && (
                   <Route path="/MRDTracking" element={<MRDTracking />} />
                 )}
+
+
+              {/* #shanmuga360 */}
+              <Route path="/360Registration" element={<Registration360 />} />
+              <Route path="/360Reports" element={<Reports360 />} />
+              <Route path="/Reports" element={<Reports360 />} />
+              <Route path="/reports" element={<Reports360 />} />
+              <Route path="/Shanmuga360/Reports" element={<Reports360 />} />
+              <Route path="/shanmuga360/reports" element={<Reports360 />} />
 
 
               <Route path="/complaintsadmin" element={<ComplaintsAdmin />} />

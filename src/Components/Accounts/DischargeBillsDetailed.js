@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -127,6 +130,7 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
     const [discountOnly, setDiscountOnly] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -137,47 +141,115 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
         if (endDate) setToDate(endDate);
     }, [startDate, endDate]);
 
-    useEffect(() => {
-        if (fromDate && toDate) {
-            fetchReport();
-        }
-    }, [fromDate, toDate, discountOnly]);
-
-    const fetchReport = async () => {
+    const fetchReport = useCallback(async () => {
+        if (!fromDate || !toDate) return;
         setLoading(true);
         try {
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate, status: "Billed" });
             if (discountOnly) params.set("discount_only", "true");
             const response = await apiRequest(`${HmsBaseUrl}discharge-bills-report/?${params.toString()}`, "GET");
-            if (response.success && response.data && Array.isArray(response.data.data)) {
-                setReportData(response.data.data);
+            if (response && (response.success || response.status === 200 || response.data)) {
+                let rows = [];
+                if (Array.isArray(response.data?.data)) {
+                    rows = response.data.data;
+                } else if (Array.isArray(response.data)) {
+                    rows = response.data;
+                } else if (Array.isArray(response.result)) {
+                    rows = response.result;
+                } else if (Array.isArray(response)) {
+                    rows = response;
+                }
+                setReportData(rows);
+            } else {
+                setReportData([]);
             }
         } catch (error) {
             console.error("Error fetching report:", error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [fromDate, toDate, discountOnly, HmsBaseUrl]);
+
+    useEffect(() => {
+        fetchReport();
+    }, [fetchReport]);
+
+    const filteredData = reportData.filter((item) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        const patientName = (item.patient_details?.patient_name || item.patient_name || "").toLowerCase();
+        const billNo = (item.bill_no || "").toLowerCase();
+        const uhid = (item.patient_details?.uhid || item.uhid || "").toLowerCase();
+        return patientName.includes(q) || billNo.includes(q) || uhid.includes(q);
+    });
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
     };
 
-    const totals = reportData.reduce((acc, curr) => {
-        acc.amount += (curr.total_amount || 0);
-        acc.discount += (curr.total_disc || curr.discount_amount || 0);
-        acc.net += (curr.net_amount || 0);
+    const handleExportExcel = () => {
+        if (!filteredData || filteredData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = filteredData.map((bill, index) => ({
+                "S.No": index + 1,
+                "Patient Name": bill.patient_details?.patient_name || "N/A",
+                "UHID / OP No": bill.patient_details?.uhid || bill.uhid || "N/A",
+                "Bill No": bill.bill_no || "",
+                "Bill Type": bill.payment_mode || "Cash",
+                "Bill Amount (₹)": Number((Number(bill.total_amount) || 0).toFixed(2)),
+                "Bill Discount (₹)": Number((Number(bill.total_disc || bill.discount_amount) || 0).toFixed(2)),
+                "Net Amount (₹)": Number(((Number(bill.total_amount) || 0) - (Number(bill.total_disc || bill.discount_amount) || 0)).toFixed(2)),
+                "Cashier": bill.cashier_name || bill.user_name || "N/A"
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Discharge Detailed");
+            XLSX.writeFile(wb, `Discharge_Bills_Detailed_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
+
+    const totals = filteredData.reduce((acc, curr) => {
+        const amt = Number(curr.total_amount) || 0;
+        const disc = Number(curr.total_disc || curr.discount_amount) || 0;
+        acc.amount += amt;
+        acc.discount += disc;
+        acc.net += (amt - disc);
         return acc;
     }, { amount: 0, discount: 0, net: 0 });
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Discharge Bills (Detailed)</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Itemized list of discharge bills with discounts and cashier info
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Discharge Bills (Detailed) From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Discharge Bills (Detailed)</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Itemized list of discharge bills with discounts and cashier info
+                    </p>
+                </SectionTitle>
+            )}
 
             <FilterSection className="no-print">
                 <FormRow>
@@ -185,8 +257,9 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         <Label>From Date</Label>
                         <DatePicker 
                             value={fromDate ? dayjs(fromDate) : null} 
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -194,9 +267,20 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         <Label>To Date</Label>
                         <DatePicker 
                             value={toDate ? dayjs(toDate) : null} 
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                        />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Search</Label>
+                        <Input
+                            type="text"
+                            placeholder="Patient name, Bill no..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ height: '40px' }}
                         />
                     </InputWrapper>
                     <InputWrapper>
@@ -210,6 +294,13 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
                         </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || filteredData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                        </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
                         </Button>
@@ -217,20 +308,22 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                 </FormRow>
             </FilterSection>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Total Amount</SummaryLabel>
-                    <SummaryValue>₹{totals.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.danger}>
-                    <SummaryLabel>Total Discount</SummaryLabel>
-                    <SummaryValue>₹{totals.discount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Grand Total</SummaryLabel>
-                    <SummaryValue>₹{totals.net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Total Amount</SummaryLabel>
+                        <SummaryValue>₹{totals.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.danger}>
+                        <SummaryLabel>Total Discount</SummaryLabel>
+                        <SummaryValue>₹{totals.discount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.success}>
+                        <SummaryLabel>Grand Total</SummaryLabel>
+                        <SummaryValue>₹{totals.net.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
             <TableWrapper>
                 <Table>
@@ -247,8 +340,8 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                         </Tr>
                     </thead>
                     <tbody>
-                        {reportData.length > 0 ? (
-                            reportData.map((bill, index) => (
+                        {filteredData.length > 0 ? (
+                            filteredData.map((bill, index) => (
                                 <Tr key={index}>
                                     <Td>{index + 1}</Td>
                                     <Td style={{ fontWeight: "600" }}>{bill.patient_details?.patient_name || "N/A"}</Td>
@@ -268,7 +361,7 @@ const DischargeBillsDetailed = ({ isModalView = false, startDate, endDate }) => 
                             </Tr>
                         )}
                     </tbody>
-                    {reportData.length > 0 && (
+                    {filteredData.length > 0 && (
                         <tfoot>
                             <Tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
                                 <Td colSpan="5" style={{ textAlign: "right" }}>Total Amount:</Td>

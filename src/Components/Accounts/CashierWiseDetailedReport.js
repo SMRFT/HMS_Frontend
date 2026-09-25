@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaUser } from "react-icons/fa";
+import { FaPrint, FaUser, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -124,9 +127,18 @@ const PrintSignatures = styled.div`
 `;
 
 
-const CashierWiseDetailedReport = ({ startDate, endDate }) => {
+const CashierWiseDetailedReport = ({ 
+    startDate, 
+    endDate, 
+    isModalView = false,
+    initialOutlet = "all",
+    outlet: propOutlet,
+    initialBillType = "All",
+    billType: propBillType
+}) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
+    const [outlet, setOutlet] = useState(propOutlet || initialOutlet || "all");
     const [shifts, setShifts] = useState([]);
     const [selectedShiftId, setSelectedShiftId] = useState("all");
     const [reportData, setReportData] = useState([]);
@@ -137,20 +149,25 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        if (propOutlet || initialOutlet) setOutlet(propOutlet || initialOutlet);
+    }, [startDate, endDate, propOutlet, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) {
             fetchShifts();
         }
-    }, [fromDate, toDate]);
+    }, [fromDate, toDate, outlet]);
 
     const fetchShifts = async () => {
         try {
-            const response = await apiRequest(`${HmsBaseUrl}get_shift_summary_report/`, "POST", {
+            const shiftPayload = {
                 from_date: fromDate,
                 to_date: toDate
-            });
+            };
+            if (outlet && outlet !== "all") {
+                shiftPayload.outlet_code = outlet;
+            }
+            const response = await apiRequest(`${HmsBaseUrl}get_shift_summary_report/`, "POST", shiftPayload);
             if (response.success && response.data && Array.isArray(response.data.data)) {
                 setShifts(response.data.data);
                 if (response.data.data.length === 0) {
@@ -169,6 +186,9 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
                 from_date: fromDate,
                 to_date: toDate
             };
+            if (outlet && outlet !== "all") {
+                payload.outlet_code = outlet;
+            }
             if (selectedShiftId !== "all") {
                 payload.shiftno = selectedShiftId;
             }
@@ -188,59 +208,118 @@ const CashierWiseDetailedReport = ({ startDate, endDate }) => {
     }, [selectedShiftId, shifts]);
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((row, index) => ({
+                "S.No": index + 1,
+                "Shift No": row.shiftno || "",
+                "Bill No": row.bill_no || "",
+                "UHID / OP No": row.uhid || "",
+                "Patient Name": row.patient_name || "",
+                "Collected (₹)": row.display_amount >= 0 ? Number(row.display_amount.toFixed(2)) : 0,
+                "Return (₹)": row.display_amount < 0 ? Number(Math.abs(row.display_amount).toFixed(2)) : 0,
+                "Type / Category": row.type_name || row.type || ""
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Cashier Detailed");
+            XLSX.writeFile(wb, `Cashier_Wise_Detailed_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     const selectedShift = shifts.find(sh => sh.shiftno === selectedShiftId);
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Cashier Wise Detailed Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Itemized list of all transactions within a cashier shift
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: "10px", background: "transparent" } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name || localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED"}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Cashier Wise Detailed Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
 
-            <FormRow className="no-print">
-                <InputWrapper>
-                    <Label>From Date</Label>
-                    <DatePicker 
-                        value={fromDate ? dayjs(fromDate) : null} 
-                        onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
-                        format="DD/MM/YYYY"
-                        style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                    />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label>To Date</Label>
-                    <DatePicker 
-                        value={toDate ? dayjs(toDate) : null} 
-                        onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
-                        format="DD/MM/YYYY"
-                        style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                    />
-                </InputWrapper>
-                <InputWrapper>
-                    <Label>Select Shift</Label>
-                    <Select 
-                        value={selectedShiftId}
-                        onChange={(e) => setSelectedShiftId(e.target.value)}
-                    >
-                        <option value="all">All Shifts</option>
-                        {shifts.map(s => (
-                            <option key={s.shiftno} value={s.shiftno}>
-                                {s.shiftno} - {s.User} ({s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"})
-                            </option>
-                        ))}
-                    </Select>
-                </InputWrapper>
-                <Button onClick={handlePrint} secondary style={{ height: "40px", marginTop: "24px" }}>
-                    <FaPrint style={{ marginRight: "8px" }} /> Print
-                </Button>
-            </FormRow>
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Cashier Wise Detailed Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Itemized list of all transactions within a cashier shift
+                    </p>
+                </SectionTitle>
+            )}
 
-            {selectedShift && (
+            {!isModalView && (
+                <FormRow className="no-print">
+                    <InputWrapper>
+                        <Label>From Date</Label>
+                        <DatePicker 
+                            value={fromDate ? dayjs(fromDate) : null} 
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
+                            format="DD/MM/YYYY"
+                            allowClear={false}
+                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                        />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>To Date</Label>
+                        <DatePicker 
+                            value={toDate ? dayjs(toDate) : null} 
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
+                            format="DD/MM/YYYY"
+                            allowClear={false}
+                            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+                        />
+                    </InputWrapper>
+                    <InputWrapper>
+                        <Label>Select Shift</Label>
+                        <Select 
+                            value={selectedShiftId}
+                            onChange={(e) => setSelectedShiftId(e.target.value)}
+                        >
+                            <option value="all">All Shifts</option>
+                            {shifts.map(s => (
+                                <option key={s.shiftno} value={s.shiftno}>
+                                    {s.shiftno} - {s.User} ({s.date ? format(new Date(s.date), "dd/MM/yyyy") : "N/A"})
+                                </option>
+                            ))}
+                        </Select>
+                    </InputWrapper>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", marginTop: "24px" }}>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                        </Button>
+                        <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
+                            <FaPrint style={{ marginRight: "8px" }} /> Print
+                        </Button>
+                    </div>
+                </FormRow>
+            )}
+
+            {selectedShift && !isModalView && (
                 <SummaryCard className="shift-header no-print">
                     <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", borderBottom: `1px solid ${colors.border}`, paddingBottom: "10px" }}>
                         <FaUser color={colors.primary} />
