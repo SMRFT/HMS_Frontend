@@ -6,8 +6,8 @@ import { Search, Plus, X } from "lucide-react";
 // --- Color Palette matching the screenshot ---
 // ─── Color palette (mirrors Radiology/Lab pattern) ──────────────────────
 const colors = {
-  primary: "#136A63", // Teal for Medicine
-  primaryDark: "#0B4C47",
+  primary: "#0d9488", // IPEMR Teal
+  primaryDark: "#0f766e",
   orange: "#F88C22",
   orangeHover: "#E67D1E",
   yellow: "#FFA000",
@@ -645,10 +645,12 @@ const MedicineWardRequest = ({ patient, onClose }) => {
   // Map incoming patient prop to display fields
   const pd = patient?.patient_details || {};
   const resolvedPatient = {
-    ipNo: patient?.ipNumber || pd.ipNumber || "-",
+    ipNo: patient?.ipNumber || patient?.ip_number || patient?.ipNo || pd.ipNumber || "-",
     ipBadge: patient?.ipserial_number || pd.ipserial_number || "",
-    uhid: patient?.uhid || pd.uhid || "-",
+    uhid: patient?.uhid || patient?.patient_id || pd.uhid || "-",
     name:
+      patient?.patient_name ||
+      patient?.patientName ||
       [
         patient?.salutation ?? pd.salutation,
         patient?.firstName ?? pd.firstName,
@@ -672,9 +674,9 @@ const MedicineWardRequest = ({ patient, onClose }) => {
         hour12: true,
       })
       : "-",
-    admittingDr: patient?.admittingDoctor || pd?.admittingDoctor || "-",
-    roomBed: `${patient?.roomNo || "-"} | ${patient?.bedNo || "-"}`,
-    customerType: patient?.customerType || pd.customer_type || "-",
+    admittingDr: patient?.admittingDoctor || patient?.doctor_name || patient?.doctorName || pd?.admittingDoctor || "-",
+    roomBed: `${patient?.roomNo || patient?.room_no || "-"} | ${patient?.bedNo || patient?.bed_no || "-"}`,
+    customerType: patient?.customerType || patient?.customer_type || pd.customer_type || "-",
     companyName: patient?.companyName || pd.company_code || "-",
   };
 

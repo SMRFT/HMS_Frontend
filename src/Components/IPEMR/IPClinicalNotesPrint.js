@@ -283,6 +283,9 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
   const diagnosis = noteData?.provisional_diagnosis || {};
   const planOfCare = noteData?.plan_of_care || {};
 
+  const patientGenderStr = (patient?.gender || patient?.Gender || noteData?.gender || '').trim().toLowerCase();
+  const isFemale = patientGenderStr === 'female' || patientGenderStr === 'f';
+
   return (
     <ModalOverlay onClick={onClose}>
       <PrintModalCard onClick={(e) => e.stopPropagation()}>
@@ -427,8 +430,8 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
               </div>
             </div>
 
-            {/* 6. Menstrual History & 8. Obstetrics History */}
-            {(menstrualHistory.lmp || obstetricsHistory.gravida || patient?.gender?.toLowerCase() === 'female') && (
+            {/* 6. Menstrual History & 8. Obstetrics History (Female Only) */}
+            {isFemale && (
               <div className="section-block">
                 <div className="sec-title">6 & 8. Menstrual & Obstetric History</div>
                 <div className="sec-content">
@@ -440,13 +443,16 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
                       {obstetricsHistory.notes && ` | Details: ${obstetricsHistory.notes}`}
                     </div>
                   )}
+                  {!menstrualHistory.lmp && !obstetricsHistory.gravida && !obstetricsHistory.para && (
+                    <div>No specific gynecological or obstetric complaints documented.</div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* 7. Vaccination History */}
+            {/* Vaccination History */}
             <div className="section-block">
-              <div className="sec-title">7. Vaccination History</div>
+              <div className="sec-title">{isFemale ? '7' : '6'}. Vaccination History</div>
               <div className="sec-content">
                 <div>
                   <strong>COVID-19:</strong> {vaccinationHistory.covid || 'Completed'} | 
@@ -457,9 +463,9 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
               </div>
             </div>
 
-            {/* 9. Investigation Done If Any */}
+            {/* Investigation Done If Any */}
             <div className="section-block">
-              <div className="sec-title">9. Investigations Done If Any</div>
+              <div className="sec-title">{isFemale ? '9' : '7'}. Investigations Done If Any</div>
               <div className="sec-content">
                 {investigationsDone.lab_findings || investigationsDone.radiology_findings || investigationsDone.summary ? (
                   <div>
@@ -473,9 +479,9 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
               </div>
             </div>
 
-            {/* 10. Physical Examination */}
+            {/* Physical Examination */}
             <div className="section-block">
-              <div className="sec-title">10. Physical Examination</div>
+              <div className="sec-title">{isFemale ? '10' : '8'}. Physical Examination</div>
               <div className="sec-content">
                 <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', marginBottom: '6px' }}>
                   <strong>Vitals: </strong>
@@ -495,9 +501,9 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
               </div>
             </div>
 
-            {/* 11. Provisional Diagnosis */}
+            {/* Provisional Diagnosis */}
             <div className="section-block">
-              <div className="sec-title">11. Provisional Diagnosis</div>
+              <div className="sec-title">{isFemale ? '11' : '9'}. Provisional Diagnosis</div>
               <div className="sec-content">
                 <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
                   {diagnosis.primary || diagnosis.primary_diagnosis || 'Under Evaluation'}
@@ -508,9 +514,9 @@ const IPClinicalNotesPrint = ({ noteData, patient, onClose }) => {
               </div>
             </div>
 
-            {/* 12. Plan of Care */}
+            {/* Plan of Care */}
             <div className="section-block">
-              <div className="sec-title">12. Plan of Care</div>
+              <div className="sec-title">{isFemale ? '12' : '10'}. Plan of Care</div>
               <div className="sec-content">
                 <div><strong>Treatment Orders:</strong> {planOfCare.treatment_orders || 'Continue supportive inpatient care and prescribed IV medications.'}</div>
                 {planOfCare.investigations_advised && <div><strong>Investigations Advised:</strong> {planOfCare.investigations_advised}</div>}
