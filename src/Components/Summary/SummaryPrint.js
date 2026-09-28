@@ -133,6 +133,68 @@ const GLOBAL_CSS = `
   .sp-explained-title { font-weight: 700; margin-bottom: 30px; color: #1a3a6e; text-transform: uppercase; font-size: 12px; letter-spacing: .5px; }
   .sp-explained-field { margin-bottom: 40px; color: #333; }
 
+  .sp-home-services {
+    margin-top: 20px;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    background: #f8fafc;
+    overflow: hidden;
+  }
+  .sp-hs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .sp-hs-col {
+    padding: 10px 14px;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .sp-hs-col:first-child {
+    border-right: 1px solid #cbd5e1;
+    background: #ffffff;
+  }
+  .sp-hs-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #1a3a6e;
+    margin-bottom: 7px;
+    padding-bottom: 3px;
+    border-bottom: 1.5px solid #2563a8;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+  .sp-hs-item {
+    margin-bottom: 6px;
+  }
+  .sp-hs-item-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sp-hs-phone {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f766e;
+    margin-left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sp-hs-app {
+    margin-top: 6px;
+    padding-top: 5px;
+    border-top: 1px dashed #cbd5e1;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #1e3a8a;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
   .sp-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f4fb; color: #1a3a6e; gap: 14px; font-family: 'Source Sans 3', Arial, sans-serif; }
   .sp-spinner  { width: 36px; height: 36px; border: 3px solid rgba(37,99,168,.15); border-top-color: #2563a8; border-radius: 50%; animation: sp-spin .8s linear infinite; }
 
@@ -1506,6 +1568,62 @@ const SummaryPrint = () => {
                     </div>
                     <div className="sp-explained-field">Name :</div>
                     <div className="sp-explained-field">Signature :</div>
+                  </div>
+                </div>
+
+                <div className="sp-home-services" data-block-top="true">
+                  <div className="sp-hs-grid">
+                    {/* Tamil Section */}
+                    <div className="sp-hs-col">
+                      <div className="sp-hs-title">
+                        வீட்டிலிருந்தபடியே சேவைகளைப் பெறலாம்!
+                      </div>
+                      <div className="sp-hs-item">
+                        <div className="sp-hs-item-title">
+                          <span>🩸</span> இரத்தப் பரிசோதனை &amp; மருந்து சேவை பெற
+                        </div>
+                        <div className="sp-hs-phone">
+                          <span>📞</span> அழைக்கவும்: 89258 11781
+                        </div>
+                      </div>
+                      <div className="sp-hs-item">
+                        <div className="sp-hs-item-title">
+                          <span>👨‍⚕️</span> மருத்துவர் ஆலோசனை &amp; நர்சிங் சேவை பெற
+                        </div>
+                        <div className="sp-hs-phone">
+                          <span>📞</span> அழைக்கவும்: 89258 11781
+                        </div>
+                      </div>
+                      <div className="sp-hs-app">
+                        <span>📲</span> எங்கள் சேவைகளை எளிதாகப் பெற Shanmuga360 App-ஐ பதிவிறக்கம் செய்யுங்கள்
+                      </div>
+                    </div>
+
+                    {/* English Section */}
+                    <div className="sp-hs-col">
+                      <div className="sp-hs-title">
+                        HOME SERVICES
+                      </div>
+                      <div className="sp-hs-item">
+                        <div className="sp-hs-item-title">
+                          <span>🩸</span> Home Blood Collection &amp; Medicine Delivery
+                        </div>
+                        <div className="sp-hs-phone">
+                          <span>📞</span> Call: 89258 11781
+                        </div>
+                      </div>
+                      <div className="sp-hs-item">
+                        <div className="sp-hs-item-title">
+                          <span>👨‍⚕️</span> Home Doctor Visit &amp; Nursing Services
+                        </div>
+                        <div className="sp-hs-phone">
+                          <span>📞</span> Call: 89258 11781
+                        </div>
+                      </div>
+                      <div className="sp-hs-app">
+                        <span>📲</span> Easy Access to Our Services Download the Shanmuga360 App
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

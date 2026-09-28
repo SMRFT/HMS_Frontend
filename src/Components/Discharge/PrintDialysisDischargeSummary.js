@@ -56,7 +56,7 @@ export default function PrintDialysisDischargeSummary() {
   // auto-fetch today's records on mount
   useEffect(() => {
     fetchRecords();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showToast = (msg, type = "success") => {

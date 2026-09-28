@@ -87,6 +87,7 @@ import AddVelavanItems from "./Components/Velavan/AddVelavanItems";
 import AddVelavanVendors from "./Components/Velavan/AddVelavanVendors";
 import VelavanItemList from "./Components/Velavan/VelavanItemList";
 import VelavanVendorList from "./Components/Velavan/VelavanVendorList";
+import VelavanDashboard from "./Components/Velavan/velavanDashboard";
 
 import Dashboard from "./Components/Dashboard/Dashboard";
 import AdvancedDashboard from "./Components/Dashboard/AdvancedDashboard";
@@ -1437,6 +1438,16 @@ function App() {
                   />
                 )}
               {hasPagePermission(
+                "/VelavanDashboard",
+                allowedActions,
+                dynamicPermissions,
+              ) && (
+                  <Route
+                    path="/VelavanDashboard"
+                    element={<VelavanDashboard />}
+                  />
+                )}
+              {hasPagePermission(
                 "/ImplantRequestReport",
                 allowedActions,
                 dynamicPermissions,
@@ -1533,7 +1544,7 @@ function App() {
               <Route path="/LabInventoryReport" element={<LabInventoryReport />} />
               <Route path="/StoresAbcVedReport" element={<StoresAbcVedReport />} />
               <Route path="/VendingMachineReport" element={<VendingMachineReport />} />
-               <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
+              <Route path="/StoresReportsDashboard" element={<StoresReportsDashboard />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
               <Route path="/StoresPurchaseOrderFormat" element={<StoresPurchaseOrderFormat />} />
