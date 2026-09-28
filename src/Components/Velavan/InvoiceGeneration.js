@@ -1440,7 +1440,11 @@ const Invoice = () => {
       invoiceDate: fmt(formData.invoiceDate),
       date: fmt(formData.date || new Date().toISOString().split("T")[0]),
       vendor_id: formData.vendor_id?.trim() || null,
-      items: items.map(({ name, ...rest }) => rest), // ← drop name, keep item_id
+      items: items.map((it) => ({
+        ...it,
+        name: it.name || it.itemName || "",
+        itemName: it.name || it.itemName || "",
+      })),
       summary,
       created_date: new Date().toISOString(),
       lastmodified_date: new Date().toISOString(),

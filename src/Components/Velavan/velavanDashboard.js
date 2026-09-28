@@ -879,12 +879,13 @@ const VelavanDashboard = () => {
       if (fromDate) pParams.append("from_date", fromDate);
       if (toDate) pParams.append("to_date", toDate);
 
-      const [salesRes, invRes, purRetRes, salesRetRes, vendRes] = await Promise.all([
+      const [salesRes, invRes, purRetRes, salesRetRes, vendRes, itemCatalogRes] = await Promise.all([
         apiRequest(`${HMSURL}velavan/sales/list/?${pParams.toString()}`, "GET"),
         apiRequest(`${HMSURL}velavan/invoices/list/?${pParams.toString()}`, "GET"),
         apiRequest(`${HMSURL}velavan/purchase-return/list/?${pParams.toString()}`, "GET"),
         apiRequest(`${HMSURL}velavan/sales-return/list/?${pParams.toString()}`, "GET"),
         apiRequest(`${HMSURL}velavan_get_vendors/`, "GET"),
+        apiRequest(`${HMSURL}velavan_get_items/`, "GET"),
       ]);
 
       const salesList = salesRes.success && salesRes.data?.data ? salesRes.data.data : [];
@@ -892,6 +893,13 @@ const VelavanDashboard = () => {
       const purRetList = purRetRes.success && purRetRes.data?.data ? purRetRes.data.data : [];
       const salesRetList = salesRetRes.success && salesRetRes.data?.data ? salesRetRes.data.data : [];
       const vendors = vendRes.success && vendRes.data?.data ? vendRes.data.data : [];
+      const itemCatalog = itemCatalogRes.success && itemCatalogRes.data?.data ? itemCatalogRes.data.data : [];
+      const itemLookup = {};
+      itemCatalog.forEach((ci) => {
+        if (ci.item_id !== undefined && ci.item_id !== null) {
+          itemLookup[String(ci.item_id)] = ci.itemName || ci.name || "";
+        }
+      });
 
       const toF = (v) => parseFloat(v || 0);
 
@@ -995,8 +1003,16 @@ const VelavanDashboard = () => {
           const markupVal = rawMarkup !== undefined && rawMarkup !== null && rawMarkup !== "" ? parseFloat(rawMarkup) : null;
           const markdownVal = rawMarkdown !== undefined && rawMarkdown !== null && rawMarkdown !== "" ? parseFloat(rawMarkdown) : null;
 
+          const rawIid = it.item_id !== undefined && it.item_id !== null ? String(it.item_id) : "";
+          const resolvedName =
+            it.name ||
+            it.item_name ||
+            it.itemName ||
+            (rawIid ? itemLookup[rawIid] : "") ||
+            it.description ||
+            (rawIid ? `Item #${rawIid}` : "Unnamed Item");
+          const itemName = resolvedName;
           const itemCat = it.category || it.purchaseCategory || invCategory || "IMPLANT";
-          const itemName = it.name || it.item_name || it.description || "Unnamed Item";
 
           let devType = "Markup";
           let stdRate = 30.0;
@@ -1026,7 +1042,7 @@ const VelavanDashboard = () => {
             applied_rate: appliedRate,
             diff: parseFloat((appliedRate - stdRate).toFixed(2)),
             purchase_cost: parseFloat(it.unitCostWithGst || it.purchaseCost || it.unitPrice || 0),
-            selling_price: parseFloat(it.sellingUnitCost || it.unitSellingCost || 0),
+            selling_price: parseFloat(it.unitSellingCost || it.sellingUnitCost || 0),
             mrp: parseFloat(it.mrp || 0),
             quantity: parseFloat(it.quantity || it.qty || 1),
             remarks: it.pricingRemarks || it.priceChangeRemarks || it.remarks || "",
