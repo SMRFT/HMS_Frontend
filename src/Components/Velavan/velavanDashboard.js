@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   TrendingUp,
@@ -781,10 +781,18 @@ const CustomTooltipBox = styled.div`
   }
 `;
 
+const formatLocalDate = (d) => {
+  if (!d) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const VelavanDashboard = () => {
   const navigate = useNavigate();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = formatLocalDate(new Date());
 
   const [dateRange, setDateRange] = useState({
     from_date: todayStr,
@@ -796,6 +804,7 @@ const VelavanDashboard = () => {
   const [varianceFilter, setVarianceFilter] = useState("all"); // 'all' | 'markup' | 'markdown'
   const [tableSearch, setTableSearch] = useState("");
   const [statsData, setStatsData] = useState(null);
+  const fetchIdRef = useRef(0);
 
   // ── Preset Date Range Calculations ──
   const applyPreset = (presetKey) => {
@@ -808,32 +817,32 @@ const VelavanDashboard = () => {
     let to = todayStr;
 
     if (presetKey === "today") {
-      from = todayStr;
-      to = todayStr;
+      from = formatLocalDate(now);
+      to = formatLocalDate(now);
     } else if (presetKey === "yesterday") {
       const y = new Date();
       y.setDate(y.getDate() - 1);
-      from = y.toISOString().split("T")[0];
+      from = formatLocalDate(y);
       to = from;
     } else if (presetKey === "7days") {
       const d = new Date();
       d.setDate(d.getDate() - 6);
-      from = d.toISOString().split("T")[0];
-      to = todayStr;
+      from = formatLocalDate(d);
+      to = formatLocalDate(now);
     } else if (presetKey === "this_month") {
       const firstDay = new Date(currYear, currMonth, 1);
-      from = firstDay.toISOString().split("T")[0];
-      to = todayStr;
+      from = formatLocalDate(firstDay);
+      to = formatLocalDate(now);
     } else if (presetKey === "last_month") {
       const firstDayLastMonth = new Date(currYear, currMonth - 1, 1);
       const lastDayLastMonth = new Date(currYear, currMonth, 0);
-      from = firstDayLastMonth.toISOString().split("T")[0];
-      to = lastDayLastMonth.toISOString().split("T")[0];
+      from = formatLocalDate(firstDayLastMonth);
+      to = formatLocalDate(lastDayLastMonth);
     } else if (presetKey === "this_fy") {
       // Indian Financial Year: Starts April 1
       const fyStartYear = currMonth >= 3 ? currYear : currYear - 1;
       from = `${fyStartYear}-04-01`;
-      to = todayStr;
+      to = formatLocalDate(now);
     } else if (presetKey === "all") {
       from = "";
       to = "";
@@ -846,6 +855,7 @@ const VelavanDashboard = () => {
   // ── Fetch Dashboard Stats API ──
   const fetchDashboardStats = useCallback(
     async (fromDate, toDate, preset) => {
+      const currentFetchId = ++fetchIdRef.current;
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -856,24 +866,33 @@ const VelavanDashboard = () => {
         const url = `${HMSURL}velavan/dashboard/stats/?${params.toString()}`;
         const res = await apiRequest(url, "GET");
 
-        if (res.success && res.data?.status === "success") {
-          setStatsData(res.data);
+        if (currentFetchId !== fetchIdRef.current) {
+          // Newer request has already been issued, drop stale response
+          return;
+        }
+
+        if (res.success && (res.data?.status === "success" || res.data?.kpis || res.data?.data?.kpis)) {
+          const payload = res.data?.kpis ? res.data : (res.data?.data?.kpis ? res.data.data : res.data);
+          setStatsData(payload);
         } else {
           // If backend stats API is unreachable or returned error, fallback to calculate from list endpoints
-          fallbackCalculateStats(fromDate, toDate);
+          await fallbackCalculateStats(fromDate, toDate, currentFetchId);
         }
       } catch (err) {
+        if (currentFetchId !== fetchIdRef.current) return;
         console.warn("Backend stats API failed, calculating client-side:", err);
-        fallbackCalculateStats(fromDate, toDate);
+        await fallbackCalculateStats(fromDate, toDate, currentFetchId);
       } finally {
-        setLoading(false);
+        if (currentFetchId === fetchIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [],
   );
 
   // ── Client-side Fallback calculation in case endpoint is pending restart ──
-  const fallbackCalculateStats = async (fromDate, toDate) => {
+  const fallbackCalculateStats = async (fromDate, toDate, fetchId) => {
     try {
       const pParams = new URLSearchParams({ page_size: 1000 });
       if (fromDate) pParams.append("from_date", fromDate);
@@ -1050,6 +1069,8 @@ const VelavanDashboard = () => {
         });
       });
 
+      if (fetchId && fetchId !== fetchIdRef.current) return;
+
       setStatsData({
         status: "success",
         kpis: {
@@ -1102,6 +1123,7 @@ const VelavanDashboard = () => {
         recent_purchases: invList.slice(0, 8),
       });
     } catch (err) {
+      if (fetchId && fetchId !== fetchIdRef.current) return;
       toast.error("Failed to fetch dashboard data");
     }
   };
