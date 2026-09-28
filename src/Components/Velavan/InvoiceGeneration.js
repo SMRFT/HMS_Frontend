@@ -580,6 +580,8 @@ const EMPTY_MODAL = {
   sellingMarkupPercent: "30",
   sellingMarkdownPercent: "13",
   sellingUnitCost: "",
+  pricingRemarks: "",
+  isPricingEditable: false,
   // Selling Discount & Cost
   sellingDiscountPercent: "",
   sellingDiscountedAmt: "",
@@ -887,6 +889,23 @@ const Invoice = () => {
             ).toFixed(2);
           }
         }
+      }
+
+      // Check if pricing is customized or remarks exist
+      const isCustomMarkup =
+        merged.sellingPricingMode === "markup" &&
+        parseFloat(merged.sellingMarkupPercent) !== 30;
+      const isCustomMarkdown =
+        merged.sellingPricingMode === "markdown" &&
+        parseFloat(merged.sellingMarkdownPercent) !== 13;
+      const hasRemarks = Boolean(
+        merged.pricingRemarks || merged.priceChangeRemarks,
+      );
+      merged.isPricingEditable = Boolean(
+        isCustomMarkup || isCustomMarkdown || hasRemarks,
+      );
+      if (!merged.pricingRemarks && merged.priceChangeRemarks) {
+        merged.pricingRemarks = merged.priceChangeRemarks;
       }
 
       setModalForm(merged);
@@ -1300,6 +1319,27 @@ const Invoice = () => {
       );
       return;
     }
+
+    // ── Mandatory Remarks Check on Markup/Markdown Change ──
+    const isMarkupMode = modalForm.sellingPricingMode === "markup";
+    const currentRate =
+      parseFloat(
+        isMarkupMode
+          ? modalForm.sellingMarkupPercent
+          : modalForm.sellingMarkdownPercent,
+      ) || 0;
+    const stdRate = isMarkupMode ? 30 : 13;
+    const isRateModified = Math.abs(currentRate - stdRate) > 0.001;
+
+    if (isRateModified || modalForm.isPricingEditable) {
+      if (isRateModified && (!modalForm.pricingRemarks || !modalForm.pricingRemarks.trim())) {
+        toast.error(
+          `Remarks are mandatory when changing ${isMarkupMode ? "Markup %" : "Markdown %"} from standard ${stdRate}%`,
+        );
+        return;
+      }
+    }
+
     if (!modalForm.sellingUnitCost) {
       toast.error("Selling Unit Cost is required");
       return;
@@ -2591,55 +2631,181 @@ const Invoice = () => {
                   {/* Conditional % input */}
                   {modalForm.sellingPricingMode === "markup" ? (
                     <InputWrapper style={{ margin: 0 }}>
-                      <Lbl>
-                        Markup % &nbsp;<RequiredMark>*</RequiredMark>
-                        <span
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Lbl style={{ margin: 0 }}>
+                          Markup % &nbsp;<RequiredMark>*</RequiredMark>
+                          <span
+                            style={{
+                              color: "#16a34a",
+                              fontStyle: "italic",
+                              textTransform: "none",
+                              letterSpacing: 0,
+                            }}
+                          >
+                            (on Unit Price ₹
+                            {parseFloat(modalForm.unitPrice || 0).toFixed(2)})
+                          </span>
+                        </Lbl>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModalForm((prev) => ({
+                              ...prev,
+                              isPricingEditable: !prev.isPricingEditable,
+                            }))
+                          }
+                          title={
+                            modalForm.isPricingEditable
+                              ? "Click to lock Markup %"
+                              : "Click to edit Markup %"
+                          }
                           style={{
-                            color: "#16a34a",
-                            fontStyle: "italic",
-                            textTransform: "none",
-                            letterSpacing: 0,
+                            background: modalForm.isPricingEditable
+                              ? "#fee2e2"
+                              : "#e0f2fe",
+                            color: modalForm.isPricingEditable
+                              ? "#991b1b"
+                              : "#0369a1",
+                            border: `1px solid ${
+                              modalForm.isPricingEditable
+                                ? "#fca5a5"
+                                : "#bae6fd"
+                            }`,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          (on Unit Price ₹
-                          {parseFloat(modalForm.unitPrice || 0).toFixed(2)})
-                        </span>
-                      </Lbl>
+                          <FaEdit size={10} />
+                          {modalForm.isPricingEditable ? "Lock" : "Edit"}
+                        </button>
+                      </div>
                       <Input
                         type="number"
                         step="0.01"
                         name="sellingMarkupPercent"
                         value={modalForm.sellingMarkupPercent}
                         onChange={handleModalChange}
+                        readOnly={!modalForm.isPricingEditable}
                         placeholder="e.g. 30"
-                        style={{ fontSize: "0.82rem" }}
+                        style={{
+                          fontSize: "0.82rem",
+                          background: modalForm.isPricingEditable
+                            ? "#ffffff"
+                            : "#f8fafc",
+                          color: modalForm.isPricingEditable
+                            ? "#0f172a"
+                            : "#475569",
+                          cursor: modalForm.isPricingEditable
+                            ? "text"
+                            : "not-allowed",
+                          borderColor: modalForm.isPricingEditable
+                            ? "#3b82f6"
+                            : "#cbd5e1",
+                          fontWeight: modalForm.isPricingEditable ? 600 : 500,
+                        }}
                       />
                     </InputWrapper>
                   ) : (
                     <InputWrapper style={{ margin: 0 }}>
-                      <Lbl>
-                        Markdown % &nbsp;<RequiredMark>*</RequiredMark>
-                        <span
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <Lbl style={{ margin: 0 }}>
+                          Markdown % &nbsp;<RequiredMark>*</RequiredMark>
+                          <span
+                            style={{
+                              color: "#16a34a",
+                              fontStyle: "italic",
+                              textTransform: "none",
+                              letterSpacing: 0,
+                            }}
+                          >
+                            {parseFloat(modalForm.mrp) > 0
+                              ? `(on MRP ₹${parseFloat(modalForm.mrp).toFixed(2)})`
+                              : `(on Unit Price ₹${parseFloat(modalForm.unitPrice || 0).toFixed(2)})`}
+                          </span>
+                        </Lbl>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModalForm((prev) => ({
+                              ...prev,
+                              isPricingEditable: !prev.isPricingEditable,
+                            }))
+                          }
+                          title={
+                            modalForm.isPricingEditable
+                              ? "Click to lock Markdown %"
+                              : "Click to edit Markdown %"
+                          }
                           style={{
-                            color: "#16a34a",
-                            fontStyle: "italic",
-                            textTransform: "none",
-                            letterSpacing: 0,
+                            background: modalForm.isPricingEditable
+                              ? "#fee2e2"
+                              : "#e0f2fe",
+                            color: modalForm.isPricingEditable
+                              ? "#991b1b"
+                              : "#0369a1",
+                            border: `1px solid ${
+                              modalForm.isPricingEditable
+                                ? "#fca5a5"
+                                : "#bae6fd"
+                            }`,
+                            padding: "2px 8px",
+                            borderRadius: 4,
+                            fontSize: "0.72rem",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
                           }}
                         >
-                          {parseFloat(modalForm.mrp) > 0
-                            ? `(on MRP ₹${parseFloat(modalForm.mrp).toFixed(2)})`
-                            : `(on Unit Price ₹${parseFloat(modalForm.unitPrice || 0).toFixed(2)})`}
-                        </span>
-                      </Lbl>
+                          <FaEdit size={10} />
+                          {modalForm.isPricingEditable ? "Lock" : "Edit"}
+                        </button>
+                      </div>
                       <Input
                         type="number"
                         step="0.01"
                         name="sellingMarkdownPercent"
                         value={modalForm.sellingMarkdownPercent}
                         onChange={handleModalChange}
+                        readOnly={!modalForm.isPricingEditable}
                         placeholder="e.g. 13"
-                        style={{ fontSize: "0.82rem" }}
+                        style={{
+                          fontSize: "0.82rem",
+                          background: modalForm.isPricingEditable
+                            ? "#ffffff"
+                            : "#f8fafc",
+                          color: modalForm.isPricingEditable
+                            ? "#0f172a"
+                            : "#475569",
+                          cursor: modalForm.isPricingEditable
+                            ? "text"
+                            : "not-allowed",
+                          borderColor: modalForm.isPricingEditable
+                            ? "#3b82f6"
+                            : "#cbd5e1",
+                          fontWeight: modalForm.isPricingEditable ? 600 : 500,
+                        }}
                       />
                     </InputWrapper>
                   )}
@@ -2664,23 +2830,65 @@ const Invoice = () => {
                       }}
                     />
                   </InputWrapper>
-
-                  {/* Reference: Purchase Unit Cost
-                  <InputWrapper style={{ margin: 0 }}>
-                    <Lbl>Ref: Purchase Unit Cost ₹</Lbl>
-                    <Input
-                      value={parseFloat(modalForm.unitCostWithGst || 0).toFixed(
-                        2,
-                      )}
-                      readOnly
-                      style={{
-                        fontSize: "0.82rem",
-                        background: "#f1f5f9",
-                        color: "#64748b",
-                      }}
-                    />
-                  </InputWrapper> */}
                 </GridRow>
+
+                {/* ── Mandatory Remarks when editing markup/markdown ── */}
+                {(modalForm.isPricingEditable ||
+                  (modalForm.sellingPricingMode === "markup" &&
+                    parseFloat(modalForm.sellingMarkupPercent) !== 30) ||
+                  (modalForm.sellingPricingMode === "markdown" &&
+                    parseFloat(modalForm.sellingMarkdownPercent) !== 13) ||
+                  Boolean(modalForm.pricingRemarks)) && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: "10px 12px",
+                      background: "#fffbeb",
+                      border: "1px dashed #f59e0b",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <InputWrapper style={{ margin: 0 }}>
+                      <Lbl style={{ color: "#92400e", fontWeight: 700 }}>
+                        Price Change Remarks / Justification{" "}
+                        <RequiredMark>*</RequiredMark>
+                        <span
+                          style={{
+                            color: "#b45309",
+                            fontWeight: 500,
+                            fontSize: "0.72rem",
+                            marginLeft: 6,
+                          }}
+                        >
+                          (Mandatory when changing rate from standard{" "}
+                          {modalForm.sellingPricingMode === "markup"
+                            ? "30%"
+                            : "13%"}
+                          )
+                        </span>
+                      </Lbl>
+                      <Input
+                        type="text"
+                        name="pricingRemarks"
+                        value={modalForm.pricingRemarks || ""}
+                        onChange={handleModalChange}
+                        placeholder="Enter mandatory reason for markup / markdown percentage change..."
+                        style={{
+                          fontSize: "0.82rem",
+                          background: "#ffffff",
+                          borderColor:
+                            !modalForm.pricingRemarks?.trim() &&
+                            ((modalForm.sellingPricingMode === "markup" &&
+                              parseFloat(modalForm.sellingMarkupPercent) !== 30) ||
+                              (modalForm.sellingPricingMode === "markdown" &&
+                                parseFloat(modalForm.sellingMarkdownPercent) !== 13))
+                              ? "#ef4444"
+                              : "#cbd5e1",
+                        }}
+                      />
+                    </InputWrapper>
+                  </div>
+                )}
 
                 {/* Info strip when MRP is available */}
                 {parseFloat(modalForm.mrp) > 0 && (

@@ -767,7 +767,9 @@ const UserPermissionManager = () => {
               const pId = Number(page.page_id);
               const pRoute = String(page.route || '').trim();
 
-              Object.values(pMap).forEach(v => managedStrings.add(String(v).trim()));
+              if (typeof pMap === 'object' && !Array.isArray(pMap)) {
+                Object.values(pMap).forEach(v => managedStrings.add(String(v).trim()));
+              }
 
               let isPageActive = false;
 
@@ -786,7 +788,7 @@ const UserPermissionManager = () => {
               if (typeof pMap === 'object' && !Array.isArray(pMap)) {
                 Object.entries(pMap).forEach(([k, v]) => {
                   const normV = String(v).trim();
-                  if (allIncomingKeys.has(k) || allIncomingValues.has(normV) || incomingHmsPages.has(pId)) {
+                  if (allIncomingKeys.has(k) || allIncomingValues.has(normV)) {
                     activeKeys.push(k);
                     isPageActive = true;
                   }
@@ -795,7 +797,12 @@ const UserPermissionManager = () => {
 
               if (isPageActive) {
                 activePageIds.add(pId);
-                sub[pId] = activeKeys.length > 0 ? activeKeys : (typeof pMap === 'object' ? Object.keys(pMap) : []);
+                // If sub-permissions exist, default to matched keys or all keys if page is enabled via ID/route
+                if (typeof pMap === 'object' && !Array.isArray(pMap) && Object.keys(pMap).length > 0) {
+                  sub[pId] = activeKeys.length > 0 ? activeKeys : Object.keys(pMap);
+                } else {
+                  sub[pId] = activeKeys;
+                }
               }
             });
           });
@@ -841,8 +848,9 @@ const UserPermissionManager = () => {
         return prev.filter(p => p !== pageId);
       }
 
-      const pageInfo = sidebarData.flatMap(g => g.pages || []).find(p => p.page_id === pageId);
-      if (pageInfo && pageInfo.permissions && typeof pageInfo.permissions === 'object') {
+      // Auto-select all sub-permissions when page toggle is turned ON
+      const pageInfo = sidebarData.flatMap(g => g?.pages || []).find(p => p?.page_id === pageId);
+      if (pageInfo && pageInfo.permissions && typeof pageInfo.permissions === 'object' && !Array.isArray(pageInfo.permissions)) {
         setSelectedSubPerms(s => ({
           ...s,
           [pageId]: Object.keys(pageInfo.permissions)
@@ -861,6 +869,14 @@ const UserPermissionManager = () => {
         : [...current, subKey];
       return { ...prev, [pageId]: next };
     });
+
+    // Automatically enable page toggle if any sub-permission is toggled
+    setPermissions(prev => {
+      if (!prev.includes(pageId)) {
+        return [...prev, pageId];
+      }
+      return prev;
+    });
   };
 
   const enableAllCategoryPages = (categoryPages) => {
@@ -870,7 +886,7 @@ const UserPermissionManager = () => {
     (categoryPages || []).forEach(p => {
       if (!p) return;
       newPageIds.add(p.page_id);
-      if (p.permissions && typeof p.permissions === 'object') {
+      if (p.permissions && typeof p.permissions === 'object' && !Array.isArray(p.permissions)) {
         newSubPerms[p.page_id] = Object.keys(p.permissions);
       }
     });
@@ -880,7 +896,7 @@ const UserPermissionManager = () => {
   };
 
   const clearCategoryPages = (categoryPages) => {
-    const idsToRemove = new Set((categoryPages || []).map(p => p?.page_id).filter(id => id != null));
+    const idsToRemove = new Set((categoryPages || []).map(p => p?.page_id));
     setPermissions(prev => prev.filter(id => !idsToRemove.has(id)));
     setSelectedSubPerms(prev => {
       const next = { ...prev };
@@ -904,8 +920,12 @@ const UserPermissionManager = () => {
             if (page.outlet_code) hmsOutlets.add(page.outlet_code);
 
             if (page.permissions && typeof page.permissions === 'object' && !Array.isArray(page.permissions)) {
-              const activeKeys = selectedSubPerms[page.page_id] || [];
-              activeKeys.forEach(k => {
+              const activeKeys = selectedSubPerms[page.page_id];
+              const keysToUse = (Array.isArray(activeKeys) && activeKeys.length > 0)
+                ? activeKeys
+                : Object.keys(page.permissions);
+
+              keysToUse.forEach(k => {
                 if (page.permissions[k]) {
                   allowedPagesObj[k] = page.permissions[k];
                 }
@@ -938,6 +958,31 @@ const UserPermissionManager = () => {
       setIsSaving(false);
     }
   };
+
+  const permToPagesMap = useMemo(() => {
+    const map = {};
+    if (!sidebarData) return map;
+    sidebarData.forEach(g => {
+      (g?.pages || []).forEach(p => {
+        const pageTitle = p.name || p.pageName;
+        const perms = p.permissions;
+        const codes = Array.isArray(perms)
+          ? perms
+          : (typeof perms === 'object' && perms !== null ? Object.values(perms) : []);
+
+        codes.forEach(c => {
+          if (c) {
+            const strCode = String(c).trim();
+            if (!map[strCode]) map[strCode] = [];
+            if (pageTitle && !map[strCode].includes(pageTitle)) {
+              map[strCode].push(pageTitle);
+            }
+          }
+        });
+      });
+    });
+    return map;
+  }, [sidebarData]);
 
   const groupedPermissions = useMemo(() => {
     const groups = {};
@@ -1179,11 +1224,27 @@ const UserPermissionManager = () => {
                         : [];
                       const activeSubKeys = selectedSubPerms[page.page_id] || [];
 
+                      // Find other pages linked with this page's permissions
+                      const pagePermCodes = subKeys.map(k => page.permissions[k]).concat(Array.isArray(page.permissions) ? page.permissions : []);
+                      const linkedPages = Array.from(new Set(
+                        pagePermCodes.flatMap(code => (permToPagesMap[String(code).trim()] || []).filter(n => n !== page.pageName))
+                      ));
+
                       return (
                         <PermCard key={page.page_id}>
                           <div className="card-top">
                             <div className="info">
-                              <h5>{page.pageName}</h5>
+                              <h5 style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                {page.pageName}
+                                {linkedPages.length > 0 && (
+                                  <span 
+                                    title={`Shared permission code linked with: ${linkedPages.join(', ')}`}
+                                    style={{ fontSize: '0.68rem', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '1px 7px', borderRadius: '6px', fontWeight: 600 }}
+                                  >
+                                    Linked: {linkedPages[0]}{linkedPages.length > 1 ? ` +${linkedPages.length - 1}` : ''}
+                                  </span>
+                                )}
+                              </h5>
                               <div className="route">{page.route}</div>
                             </div>
 
@@ -1201,13 +1262,21 @@ const UserPermissionManager = () => {
                             <div className="actions-row">
                               {subKeys.map(k => {
                                 const isSubActive = activeSubKeys.includes(k);
+                                const code = page.permissions[k];
+                                const codeLinkedPages = code ? (permToPagesMap[String(code).trim()] || []).filter(n => n !== page.pageName) : [];
                                 return (
                                   <SubActionPill
                                     key={k}
                                     $active={isSubActive}
                                     onClick={() => toggleSubPermission(page.page_id, k)}
+                                    title={codeLinkedPages.length > 0 ? `Shared with: ${codeLinkedPages.join(', ')}` : ''}
                                   >
                                     {k.charAt(0).toUpperCase() + k.slice(1).toLowerCase()}
+                                    {codeLinkedPages.length > 0 && (
+                                      <span style={{ marginLeft: '4px', fontSize: '0.62rem', opacity: 0.8 }}>
+                                        ({codeLinkedPages[0]})
+                                      </span>
+                                    )}
                                   </SubActionPill>
                                 );
                               })}

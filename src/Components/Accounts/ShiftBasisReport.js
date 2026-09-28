@@ -4,7 +4,8 @@ import { toast } from "react-toastify";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaEye, FaTimes } from "react-icons/fa";
+import { FaEye, FaTimes, FaPrint, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import {
     PageWrapper,
     colors,
@@ -30,6 +31,7 @@ import {
 } from "../GlobalStyles";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 
 const SummaryCard = styled.div`
     background: ${colors.surface};
@@ -133,11 +135,11 @@ const PrintSignatures = styled.div`
 `;
 
 
-const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
+const ShiftBasisReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all" }) => {
     const location = useLocation();
     const [fromDate, setFromDate] = useState(startDate || location.state?.startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || location.state?.endDate || format(new Date(), "yyyy-MM-dd"));
-    const [outlet, setOutlet] = useState("all");
+    const [outlet, setOutlet] = useState(location.state?.outlet || initialOutlet || "all");
     const [outlets, setOutlets] = useState([]);
     const [reportData, setReportData] = useState([]);
     const [summaryData, setSummaryData] = useState([]);
@@ -158,7 +160,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        if (initialOutlet) setOutlet(initialOutlet);
+    }, [startDate, endDate, initialOutlet]);
 
     useEffect(() => {
         if (fromDate && toDate) {
@@ -222,7 +225,58 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
     };
 
     const handlePrint = () => {
-        window.print();
+        printAccountsReport("printable-report-area", "landscape");
+    };
+
+    const handleExportExcel = () => {
+        if (!summaryData || summaryData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = summaryData.map((s, i) => ({
+                "S.No": i + 1,
+                "Outlet / Counter": getOutletName(s.SelectedOutlet),
+                "Date": s.date || "",
+                "Shift No": s.shiftno || "",
+                "Cashier Name": s.User || "",
+                "Start Time": s.StartTime || "",
+                "End Time": s.EndTime || "Active",
+                "Opening Balance (₹)": Number(parseFloat(s.OpeningBalance || 0).toFixed(2)),
+                "Collection (₹)": Number(parseFloat(s.collected_Amount || 0).toFixed(2)),
+                "Closing Balance (₹)": Number(parseFloat(s.ClosingBalance || 0).toFixed(2)),
+                "Return (₹)": Number(parseFloat(s.SalesReturnAmount || 0).toFixed(2)),
+                "Remitted to Bank (₹)": Number(parseFloat(s.RemittedToBank || 0).toFixed(2)),
+                "Handover Amount (₹)": Number(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2))
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Shift Summary");
+
+            // Also add detailed itemized sheet if available
+            if (reportData && reportData.length > 0) {
+                const detailedRows = reportData.map((b, idx) => ({
+                    "S.No": idx + 1,
+                    "Shift No": b.shiftno || "",
+                    "Bill No": b.bill_no || "",
+                    "UHID / OP No": b.uhid || "",
+                    "Patient Name": b.patient_name || "",
+                    "Amount (₹)": Number(parseFloat(b.display_amount || 0).toFixed(2)),
+                    "Type": b.type_name || b.type || ""
+                }));
+                const wsDet = XLSX.utils.json_to_sheet(detailedRows);
+                wsDet["!cols"] = Object.keys(detailedRows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+                XLSX.utils.book_append_sheet(wb, wsDet, "Itemized Transactions");
+            }
+
+            XLSX.writeFile(wb, `Shift_Basis_Accounts_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
     };
 
     // Helper to group reportData by shiftno
@@ -235,13 +289,29 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
 
     return (
         <>
-            <PageWrapper>
-                <SectionTitle>
-                    <h3>Shift Basis Accounts Report</h3>
-                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                        {shiftNo ? `Report for Shift: ${shiftNo}` : `Range: ${format(new Date(fromDate), "dd MMM yyyy")} to ${format(new Date(toDate), "dd MMM yyyy")}`}
-                    </p>
-                </SectionTitle>
+            <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+                {isModalView && (
+                    <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                        <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                            {hospital_name}
+                        </h2>
+                        <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                            Shift Details For {getOutletName(outlet) === '-' || outlet === 'all' ? 'Cashcounter' : getOutletName(outlet)} From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                        </div>
+                        <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                            Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                        </div>
+                    </div>
+                )}
+
+                {!isModalView && (
+                    <SectionTitle>
+                        <h3>Shift Basis Accounts Report</h3>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                            {shiftNo ? `Report for Shift: ${shiftNo}` : `Range: ${format(new Date(fromDate), "dd MMM yyyy")} to ${format(new Date(toDate), "dd MMM yyyy")}`}
+                        </p>
+                    </SectionTitle>
+                )}
 
                 <FilterSection className="no-print">
                     <FormRow>
@@ -249,8 +319,9 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             <Label>From Date</Label>
                             <DatePicker 
                                 value={fromDate ? dayjs(fromDate) : null} 
-                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                                onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
                                 style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
@@ -258,8 +329,9 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             <Label>To Date</Label>
                             <DatePicker 
                                 value={toDate ? dayjs(toDate) : null} 
-                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                                onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                                 format="DD/MM/YYYY"
+                                allowClear={false}
                                 style={{ width: '100%', height: '35px', borderRadius: '8px' }}
                             />
                         </InputWrapper>
@@ -297,11 +369,18 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             </Select>
                         </InputWrapper>
                         <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
-                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px", flex: 1 }}>
+                            <Button onClick={fetchReport} disabled={loading} style={{ height: "35px" }}>
                                 {loading ? "..." : "Filter"}
                             </Button>
-                            <Button onClick={handlePrint} secondary style={{ height: "35px", flex: 1 }}>
-                                Print
+                            <Button 
+                                onClick={handleExportExcel} 
+                                disabled={loading || summaryData.length === 0} 
+                                style={{ height: "35px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                            >
+                                <FaFileExcel style={{ marginRight: "6px" }} /> Export Excel
+                            </Button>
+                            <Button onClick={handlePrint} secondary style={{ height: "35px" }}>
+                                <FaPrint style={{ marginRight: "6px" }} /> Print
                             </Button>
                         </div>
                     </FormRow>
@@ -414,8 +493,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                     <Th>Start Time</Th>
                                     <Th>End Time</Th>
                                     <Th style={{ textAlign: "right" }}>Opening Bal</Th>
-                                    <Th style={{ textAlign: "right" }}>Closing Bal</Th>
                                     <Th style={{ textAlign: "right" }}>Collection</Th>
+                                    <Th style={{ textAlign: "right" }}>Closing Bal</Th>
                                     <Th style={{ textAlign: "right" }}>Return</Th>
                                     <Th style={{ textAlign: "right" }}>Remitted</Th>
                                     <Th style={{ textAlign: "right" }}>Handover</Th>
@@ -434,8 +513,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                             <Td style={{ fontSize: "0.75rem" }}>{s.StartTime}</Td>
                                             <Td style={{ fontSize: "0.75rem" }}>{s.EndTime || "Active"}</Td>
                                             <Td style={{ textAlign: "right" }}>₹{(parseFloat(s.OpeningBalance || 0)).toFixed(2)}</Td>
-                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.ClosingBalance || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: colors.success, fontWeight: "600" }}>₹{(parseFloat(s.collected_Amount || 0)).toFixed(2)}</Td>
+                                            <Td style={{ textAlign: "right", fontWeight: "700" }}>₹{(parseFloat(s.ClosingBalance || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: colors.danger }}>₹{(parseFloat(s.SalesReturnAmount || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: "#6366f1" }}>₹{(parseFloat(s.RemittedToBank || 0)).toFixed(2)}</Td>
                                             <Td style={{ textAlign: "right", color: "#8b5cf6" }}>₹{(parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0)).toFixed(2)}</Td>
@@ -675,8 +754,26 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                 )}
             </PageWrapper>
 
+            <style>
+                {`
+                @media print {
+                    @page { size: landscape; margin: 8mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; font-family: 'Times New Roman', serif; }
+                }
+                `}
+            </style>
+
             {/* PROFESSIONAL PRINT TEMPLATE - MOVED OUTSIDE PAGEWRAPPER */}
-            <PrintTemplate id="printable-shift-report">
+            <PrintTemplate id="printable-report-area">
                 <PrintHeader>
                     <h1>{hospital_name}</h1>
                     <p>{localStorage.getItem("branch_name") || "Main Branch"}</p>
@@ -707,8 +804,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             <th>Start Time</th>
                             <th>End Time</th>
                             <th style={{ textAlign: "right" }}>Opening Bal</th>
-                            <th style={{ textAlign: "right" }}>Closing Bal</th>
                             <th style={{ textAlign: "right" }}>Collection</th>
+                            <th style={{ textAlign: "right" }}>Closing Bal</th>
                             <th style={{ textAlign: "right" }}>Return</th>
                             <th style={{ textAlign: "right" }}>Remitted</th>
                             <th style={{ textAlign: "right" }}>Handover</th>
@@ -726,8 +823,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                                     <td>{s.StartTime}</td>
                                     <td>{s.EndTime || "Active"}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.OpeningBalance || 0).toFixed(2)}</td>
-                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.collected_Amount || 0).toFixed(2)}</td>
+                                    <td style={{ textAlign: "right" }}>₹{parseFloat(s.ClosingBalance || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.SalesReturnAmount || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.RemittedToBank || 0).toFixed(2)}</td>
                                     <td style={{ textAlign: "right" }}>₹{parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0).toFixed(2)}</td>
@@ -743,8 +840,8 @@ const ShiftBasisReport = ({ isModalView = false, startDate, endDate }) => {
                             <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
                                 <td colSpan="6" style={{ textAlign: "right" }}>GRAND TOTAL:</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.OpeningBalance || 0), 0).toFixed(2)}</td>
-                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.collected_Amount || 0), 0).toFixed(2)}</td>
+                                <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.ClosingBalance || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SalesReturnAmount || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.RemittedToBank || 0), 0).toFixed(2)}</td>
                                 <td style={{ textAlign: "right" }}>₹{summaryData.reduce((acc, s) => acc + parseFloat(s.SubmittedToAccount || s.HandOverAmount || 0), 0).toFixed(2)}</td>

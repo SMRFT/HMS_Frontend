@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import dayjs from "dayjs";
 import { DatePicker } from "antd";
-import { FaPrint, FaSearch } from "react-icons/fa";
+import { FaPrint, FaSearch, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { printAccountsReport } from "./printAccountsReport";
 import {
     PageWrapper,
     colors,
@@ -68,31 +71,117 @@ const TypeBadge = styled.span`
     color: ${props => props.receiptType === "Payment" ? colors.danger : colors.primary};
 `;
 
-const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate }) => {
+const PrintTemplate = styled.div`
+    display: none;
+    @media print {
+        display: block !important;
+        width: 100%;
+        background: white;
+        color: black;
+        font-family: 'Times New Roman', serif;
+    }
+`;
+
+const PrintHeader = styled.div`
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    h1 { margin: 0; font-size: 20px; text-transform: uppercase; font-weight: bold; }
+    p { margin: 2px 0; font-size: 11px; }
+    .report-title { font-size: 14px; font-weight: bold; margin-top: 8px; text-transform: uppercase; text-decoration: underline; }
+`;
+
+const PrintInfoTable = styled.table`
+    width: 100%;
+    margin-bottom: 12px;
+    border-collapse: collapse;
+    font-size: 10px;
+    td { padding: 2px 0; border: none !important; }
+`;
+
+const PrintTable = styled.table`
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 10px;
+    th, td {
+        border: 1px solid #000 !important;
+        padding: 5px 6px;
+        text-align: left;
+    }
+    th {
+        background-color: #f2f2f2 !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+`;
+
+const PrintSignatures = styled.div`
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    page-break-inside: avoid;
+    .sig-box {
+        text-align: center;
+        width: 180px;
+        border-top: 1px solid #000;
+        padding-top: 4px;
+        font-weight: bold;
+    }
+`;
+
+const MiscellaneousPaymentReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    initialBillType,
+    billType: propBillType,
+    initialOutlet,
+    outlet
+}) => {
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [receiptType, setReceiptType] = useState("all");
+    const [receiptType, setReceiptType] = useState(() => {
+        const bt = propBillType || initialBillType;
+        if (bt && bt !== "All" && bt !== "all") return bt.toLowerCase();
+        return "all";
+    });
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState({ count: 0, total_receipts: 0, total_payments: 0, net: 0 });
     const [loading, setLoading] = useState(false);
 
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
+    const hospital_name = localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL";
+    const branch_name = localStorage.getItem("branch_name") || "Main Branch";
+    const user_id = localStorage.getItem("employeeId") || localStorage.getItem("user_id") || "Staff";
 
     useEffect(() => {
         if (startDate) setFromDate(startDate);
         if (endDate) setToDate(endDate);
-    }, [startDate, endDate]);
+        const bt = propBillType || initialBillType;
+        if (bt) {
+            setReceiptType(bt === "All" || bt === "all" ? "all" : bt.toLowerCase());
+        }
+    }, [startDate, endDate, propBillType, initialBillType]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate, receiptType]);
+    }, [fromDate, toDate, receiptType, outlet, initialOutlet]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({ from_date: fromDate, to_date: toDate });
             if (receiptType !== "all") params.set("receipt_type", receiptType);
+            const selectedOutlet = outlet || initialOutlet;
+            if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "All") {
+                params.set("outlet_code", selectedOutlet);
+            }
             const response = await apiRequest(`${HmsBaseUrl}miscellaneous-payment-report/?${params.toString()}`, "GET");
             if (response.success && response.data) {
                 setReportData(response.data.data || []);
@@ -105,16 +194,61 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
         }
     };
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => printAccountsReport("printable-report-area", "landscape");
+
+    const handleExportExcel = () => {
+        if (!reportData || reportData.length === 0) {
+            toast.warning("No data to export");
+            return;
+        }
+        try {
+            const rows = reportData.map((row, index) => ({
+                "S.No": index + 1,
+                "Voucher No": row.voucher_no || "",
+                "Date": row.voucher_date ? dayjs(row.voucher_date).format("DD/MM/YYYY") : "N/A",
+                "Type": row.receipt_type || "",
+                "Account Head": row.account_head || "",
+                "Description": row.description || "",
+                "Cashier": row.cashier_name || "",
+                "Amount (₹)": Number((row.amount || 0).toFixed(2))
+            }));
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(rows);
+            ws["!cols"] = Object.keys(rows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
+            XLSX.utils.book_append_sheet(wb, ws, "Misc Payments");
+            XLSX.writeFile(wb, `Miscellaneous_Payment_Report_${fromDate}_to_${toDate}.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Excel export error:", err);
+            toast.error("Failed to export Excel file");
+        }
+    };
 
     return (
-        <PageWrapper>
-            <SectionTitle className="no-print">
-                <h3>Miscellaneous Payment Report</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
-                    Receipt &amp; Payment vouchers posted against any account head (e.g. Miscellaneous Income)
-                </p>
-            </SectionTitle>
+        <PageWrapper style={isModalView ? { padding: 0 } : {}}>
+            {isModalView && (
+                <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 0" }}>
+                    <h2 style={{ margin: "0 0 4px 0", fontSize: "1.25rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.02em", color: "#000" }}>
+                        {hospital_name}
+                    </h2>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#111" }}>
+                        Miscellaneous Payment Report From {dayjs(fromDate).format("DD/MM/YYYY")} To {dayjs(toDate).format("DD/MM/YYYY")}.
+                    </div>
+                    <div style={{ fontSize: "0.85rem", color: "#333", marginTop: "2px" }}>
+                        Printed As On {dayjs().format("DD/MM/YYYY HH:mm:ss")}.
+                    </div>
+                </div>
+            )}
+
+            {!isModalView && (
+                <SectionTitle className="no-print">
+                    <h3>Miscellaneous Payment Report</h3>
+                    <p style={{ margin: 0, fontSize: "0.85rem", color: colors.textMuted }}>
+                        Receipt &amp; Payment vouchers posted against any account head (e.g. Miscellaneous Income)
+                    </p>
+                </SectionTitle>
+            )}
 
             <FilterSection className="no-print">
                 <FormRow>
@@ -122,8 +256,9 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                         <Label>From Date</Label>
                         <DatePicker
                             value={fromDate ? dayjs(fromDate) : null}
-                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setFromDate(date ? date.format("YYYY-MM-DD") : fromDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -131,8 +266,9 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                         <Label>To Date</Label>
                         <DatePicker
                             value={toDate ? dayjs(toDate) : null}
-                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : "")}
+                            onChange={(date) => setToDate(date ? date.format("YYYY-MM-DD") : toDate)}
                             format="DD/MM/YYYY"
+                            allowClear={false}
                             style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                         />
                     </InputWrapper>
@@ -148,6 +284,13 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                         <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                             <FaSearch style={{ marginRight: "8px" }} /> {loading ? "Searching..." : "Search"}
                         </Button>
+                        <Button 
+                            onClick={handleExportExcel} 
+                            disabled={loading || reportData.length === 0} 
+                            style={{ height: "40px", background: "#16a34a", borderColor: "#16a34a", color: "#fff" }}
+                        >
+                            <FaFileExcel style={{ marginRight: "8px" }} /> Export Excel
+                        </Button>
                         <Button onClick={handlePrint} secondary style={{ height: "40px" }}>
                             <FaPrint style={{ marginRight: "8px" }} /> Print
                         </Button>
@@ -155,26 +298,28 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
                 </FormRow>
             </FilterSection>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
-                <SummaryCard color={colors.primary}>
-                    <SummaryLabel>Vouchers</SummaryLabel>
-                    <SummaryValue>{summary.count}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.success}>
-                    <SummaryLabel>Total Receipts</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_receipts || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.danger}>
-                    <SummaryLabel>Total Payments</SummaryLabel>
-                    <SummaryValue>₹{(summary.total_payments || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-                <SummaryCard color={colors.secondary}>
-                    <SummaryLabel>Net</SummaryLabel>
-                    <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
-                </SummaryCard>
-            </div>
+            {!isModalView && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px", marginBottom: "20px" }} className="no-print">
+                    <SummaryCard color={colors.primary}>
+                        <SummaryLabel>Vouchers</SummaryLabel>
+                        <SummaryValue>{summary.count}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.success}>
+                        <SummaryLabel>Total Receipts</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_receipts || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.danger}>
+                        <SummaryLabel>Total Payments</SummaryLabel>
+                        <SummaryValue>₹{(summary.total_payments || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                    <SummaryCard color={colors.secondary}>
+                        <SummaryLabel>Net</SummaryLabel>
+                        <SummaryValue>₹{(summary.net || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</SummaryValue>
+                    </SummaryCard>
+                </div>
+            )}
 
-            <TableWrapper>
+            <TableWrapper className="no-print">
                 <Table>
                     <thead>
                         <Tr>
@@ -217,10 +362,83 @@ const MiscellaneousPaymentReport = ({ isModalView = false, startDate, endDate })
 
             <style>{`
                 @media print {
-                    .no-print { display: none !important; }
-                    body { background: white !important; }
+                    @page { size: landscape; margin: 8mm; }
+                    body * { visibility: hidden; }
+                    #printable-report-area, #printable-report-area * { visibility: visible; }
+                    #printable-report-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        display: block !important;
+                    }
+                    body { background: white !important; font-family: 'Times New Roman', serif; }
                 }
             `}</style>
+
+            <PrintTemplate id="printable-report-area">
+                <PrintHeader>
+                    <h1>{hospital_name}</h1>
+                    <p>{branch_name}</p>
+                    <div className="report-title">Miscellaneous Payment / Receipt Report</div>
+                </PrintHeader>
+
+                <PrintInfoTable>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: "35%" }}><strong>From Date:</strong> {dayjs(fromDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "35%" }}><strong>To Date:</strong> {dayjs(toDate).format("DD/MM/YYYY")}</td>
+                            <td style={{ width: "30%", textAlign: "right" }}><strong>Print Date:</strong> {dayjs().format("DD/MM/YYYY HH:mm")}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Receipts:</strong> ₹{(summary.total_receipts || 0).toFixed(2)}</td>
+                            <td><strong>Total Payments:</strong> ₹{(summary.total_payments || 0).toFixed(2)}</td>
+                            <td style={{ textAlign: "right" }}><strong>Net Amount:</strong> ₹{(summary.net || 0).toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </PrintInfoTable>
+
+                <PrintTable>
+                    <thead>
+                        <tr>
+                            <th style={{ width: "35px" }}>S.No</th>
+                            <th>Voucher No</th>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Account Head</th>
+                            <th>Description</th>
+                            <th>Cashier</th>
+                            <th style={{ textAlign: "right" }}>Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reportData.map((row, index) => (
+                            <tr key={index}>
+                                <td>{index + 1}</td>
+                                <td>{row.voucher_no}</td>
+                                <td>{row.voucher_date ? dayjs(row.voucher_date).format("DD/MM/YYYY") : "N/A"}</td>
+                                <td>{row.receipt_type}</td>
+                                <td>{row.account_head}</td>
+                                <td>{row.description}</td>
+                                <td>{row.cashier_name}</td>
+                                <td style={{ textAlign: "right" }}>
+                                    {row.receipt_type === "Payment" ? "-" : ""}₹{(row.amount || 0).toFixed(2)}
+                                </td>
+                            </tr>
+                        ))}
+                        <tr style={{ fontWeight: "bold", background: "#f2f2f2" }}>
+                            <td colSpan="7" style={{ textAlign: "right" }}>NET BALANCE:</td>
+                            <td style={{ textAlign: "right" }}>₹{(summary.net || 0).toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </PrintTable>
+
+                <PrintSignatures>
+                    <div className="sig-box">Prepared By</div>
+                    <div className="sig-box">Accounts Officer</div>
+                    <div className="sig-box">Authorized Signatory</div>
+                </PrintSignatures>
+            </PrintTemplate>
         </PageWrapper>
     );
 };

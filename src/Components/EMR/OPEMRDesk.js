@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fi';
 import OPDSummaryPrintModal from './OPDSummaryPrintModal';
 
-const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "http://localhost:2609/api/";
+const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL ;
 
 const PageContainer = styled.div`
   background: #f8fafc;

@@ -476,7 +476,7 @@ const StyledToastContainer = styled(ToastContainer)`
   .Toastify__toast--warning .Toastify__progress-bar { background: #f59e0b; }
 `;
 
-const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoaded, wardRequestToLoad, onWardRequestLoaded, onEstimateSaved }) => {
+const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoaded, wardRequestToLoad, onWardRequestLoaded, prescriptionToLoad, onPrescriptionLoaded, onEstimateSaved }) => {
   const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
   const selectedBranch = localStorage.getItem("selected_branch") || "";
@@ -1924,6 +1924,158 @@ const loadedMedicines = rawMeds.map((item) => {
       if (typeof onWardRequestLoaded === "function") onWardRequestLoaded();
     });
   }, [wardRequestToLoad]);
+
+  // ── Convert Doctor Prescription → Pharmacy Bill ───────────────────────────
+  const convertPrescription = async (presc) => {
+    if (!presc) return;
+
+    const billDateStr = presc.created_date
+      ? presc.created_date.split("T")[0]
+      : new Date().toISOString().split("T")[0];
+
+    // 1. Fill basic header fields
+    setFormData((prev) => ({
+      ...prev,
+      uhid:         presc.uhid         || "",
+      name:         presc.patient_name || "",
+      doctor_id:    presc.doctor_id    || "",
+      billDate:     billDateStr,
+      inpatientNo:  "",
+      roomNo:       "",
+    }));
+
+    // 2. Fetch full patient details from API
+    if (presc.uhid) {
+      try {
+        const res = await apiRequest(
+          `${HmsBaseUrl}patient_details/?uhid=${encodeURIComponent(presc.uhid)}`,
+          "GET"
+        );
+        const resBody = res.data ?? res;
+        const patients = res.success
+          ? Array.isArray(resBody?.data)
+            ? resBody.data
+            : Array.isArray(resBody)
+              ? resBody
+              : []
+          : [];
+
+        const p = patients.length > 0 ? patients[0] : null;
+
+        if (p) {
+          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          setFormData((prev) => ({
+            ...prev,
+            name: fullName || prev.name,
+            dob:  p.dob || "",
+          }));
+
+          setPatientType(p.customer_type || "");
+          setAddress(p.permanent_address || p.area || presc.address || "");
+          setPlace(p.area || "");
+          setMobilePhone(p.mobilePhone || p.mobile || presc.mobile || "");
+
+          if (p.dob) {
+            const dob = new Date(p.dob);
+            const today = new Date();
+            let years  = today.getFullYear() - dob.getFullYear();
+            let months = today.getMonth()    - dob.getMonth();
+            let days   = today.getDate()     - dob.getDate();
+            if (days   < 0) { months -= 1; days   += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+            if (months < 0) { years  -= 1; months += 12; }
+            setPatientAge(`${years}Y ${months}M ${days}D`);
+          } else if (p.age) {
+            setPatientAge(String(p.age));
+          } else if (presc.age) {
+            setPatientAge(String(presc.age));
+          } else {
+            setPatientAge("");
+          }
+        } else {
+          if (presc.address) setAddress(presc.address);
+          if (presc.mobile) setMobilePhone(presc.mobile);
+          if (presc.age) setPatientAge(String(presc.age));
+        }
+      } catch (err) {
+        console.warn("convertPrescription: could not fetch patient details —", err);
+        if (presc.address) setAddress(presc.address);
+        if (presc.mobile) setMobilePhone(presc.mobile);
+        if (presc.age) setPatientAge(String(presc.age));
+      }
+
+      fetchAdmissionStatus(presc.uhid);
+    }
+
+    // 3. Map prescription_details to addedMedicines format matching inventory stock
+    const items = Array.isArray(presc.prescription_details)
+      ? presc.prescription_details.filter(Boolean)
+      : [];
+
+    const loadedMedicines = items.map((item) => {
+      const stockMatch =
+        medicines.find((s) => String(s.item_id) === String(item.item_id)) ||
+        medicines.find(
+          (s) =>
+            item.item_name &&
+            s.name &&
+            s.name.trim().toLowerCase() === item.item_name.trim().toLowerCase()
+        );
+
+      // ── Price / MRP: item enriched by backend first, then stockMatch, then 0 ──
+      const price = parseFloat(item.price || item.mrp || stockMatch?.price || stockMatch?.mrp || 0);
+      const mrp   = parseFloat(item.mrp   || item.price || stockMatch?.mrp || stockMatch?.price || 0);
+      const qty   = Number(item.total_dosage || item.quantity || item.qty || 1);
+
+      // ── Tax rates: item enriched → stockMatch → 0 ──
+      const cgstRate    = parseFloat(item.cgst_rate   ?? stockMatch?.cgst_rate   ?? 0);
+      const sgstRate    = parseFloat(item.sgst_rate   ?? stockMatch?.sgst_rate   ?? 0);
+      const cgstAmtUnit = parseFloat(item.cgst_amount ?? stockMatch?.cgst_amount ?? 0);
+      const sgstAmtUnit = parseFloat(item.sgst_amount ?? stockMatch?.sgst_amount ?? 0);
+
+      return {
+        item_id:         item.item_id || stockMatch?.item_id,
+        name:            stockMatch?.name || item.item_name || `Item #${item.item_id}`,
+        batch_number:    item.batch_number || item.batch_no || stockMatch?.batch_number || "",
+        quantity:        qty,
+        price:           price,
+        mrp:             mrp,
+        hsn_code:        item.hsn_code    || stockMatch?.hsn_code    || "—",
+        cgst_rate:       cgstRate,
+        cgst_amount:     parseFloat((cgstAmtUnit * qty).toFixed(2)),
+        sgst_rate:       sgstRate,
+        sgst_amount:     parseFloat((sgstAmtUnit * qty).toFixed(2)),
+        expiry_date:     item.expiry_date || stockMatch?.expiry_date || "—",
+        available_stock: stockMatch?.available_stock ?? 9999,
+        dosage:          item.dosage      || stockMatch?.dosage || "",
+        noOfDays:        item.duration    || item.noOfDays || "",
+        total:           parseFloat((qty * mrp).toFixed(2)),
+        edit_history:    [],
+      };
+    });
+
+
+    setAddedMedicines(loadedMedicines);
+    setOverallDiscountType("percent");
+    setOverallDiscountValue("");
+    setRecordId(null);
+    setIsEditMode(false);
+    setLoadedEstimateNo(null);
+    setBillingType("Direct");
+    setIsWardRequest(false);
+
+    toast.info(
+      `Prescription loaded for ${presc.patient_name || presc.uhid} (${loadedMedicines.length} items). Review and save bill.`,
+      { autoClose: 2500 }
+    );
+  };
+
+  // Trigger convertPrescription when prescriptionToLoad prop changes
+  useEffect(() => {
+    if (!prescriptionToLoad) return;
+    convertPrescription(prescriptionToLoad).then(() => {
+      if (typeof onPrescriptionLoaded === "function") onPrescriptionLoaded();
+    });
+  }, [prescriptionToLoad]);
 
   const loadBillForEdit = async (bill) => {
     if (!bill.Bill_id) {

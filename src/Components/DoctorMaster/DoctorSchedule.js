@@ -482,7 +482,7 @@ function DoctorSchedule() {
     department: "",
     designation: "",
     consulting_fee: "",
-    renewal_fee: "",
+    registration_fee: "",
     day_schedule: [],
     time_schedule: []
   });
@@ -524,7 +524,7 @@ function DoctorSchedule() {
         department: data.department || "",
         designation: data.designation || "",
         consulting_fee: data.consulting_fee || "",
-        renewal_fee: data.renewal_fee || "",
+        registration_fee: data.registration_fee || "",
         day_schedule: data.day_schedule || [],
         time_schedule: data.time_schedule || []
       };
@@ -609,8 +609,8 @@ function DoctorSchedule() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.consulting_fee || !formData.renewal_fee) {
-      toast.error("Please fill in consulting fee and renewal fee");
+    if (!formData.consulting_fee || !formData.registration_fee) {
+      toast.error("Please fill in consulting fee and registration fee");
       return;
     }
     if (formData.day_schedule.length === 0) {
@@ -651,14 +651,14 @@ function DoctorSchedule() {
 
   // Calculate totals for sidebar summary
   const consultingFeeNum = parseFloat(formData.consulting_fee) || 0;
-  const renewalFeeNum = parseFloat(formData.renewal_fee) || 0;
-  const totalFirstVisit = consultingFeeNum + renewalFeeNum;
+  const registrationFeeNum = parseFloat(formData.registration_fee) || 0;
+  const totalFirstVisit = consultingFeeNum + registrationFeeNum;
   const totalDaysCount = formData.day_schedule.length;
   const totalSlotsCount = formData.time_schedule.length;
   const totalWeeklyCapacity = totalDaysCount * totalSlotsCount;
 
   const otherDoctors = allDoctors.filter(d => d.employeeId !== formData.employeeId).slice(0, 3);
-  const isValidToSubmit = totalDaysCount > 0 && totalSlotsCount > 0 && formData.consulting_fee !== "" && formData.renewal_fee !== "";
+  const isValidToSubmit = totalDaysCount > 0 && totalSlotsCount > 0 && formData.consulting_fee !== "" && formData.registration_fee !== "";
 
   return (
     <PageWrapper>
@@ -822,12 +822,12 @@ function DoctorSchedule() {
             </FeeFormGroup>
 
             <FeeFormGroup>
-              <FeeLabel>Renewal fee ₹ *</FeeLabel>
+              <FeeLabel>registration fee ₹ *</FeeLabel>
               <DarkInput
                 type="number"
-                name="renewal_fee"
-                value={formData.renewal_fee}
-                onChange={(e) => setFormData({ ...formData, renewal_fee: e.target.value })}
+                name="registration_fee"
+                value={formData.registration_fee}
+                onChange={(e) => setFormData({ ...formData, registration_fee: e.target.value })}
                 placeholder="0"
               />
             </FeeFormGroup>
