@@ -900,13 +900,20 @@ const MedicineChart = ({ onConvertToBill }) => {
             fetchAdmissionDetails(uhid),
           ]);
 
+          const pdName = (() => {
+            const f = (pd?.firstName || "").trim();
+            const l = (pd?.lastName || "").trim();
+            const n = (f && l && (f.toLowerCase() === l.toLowerCase() || f.toLowerCase().endsWith(l.toLowerCase()))) ? f : `${f} ${l}`.trim();
+            return `${pd?.salutation || ""} ${n}`.trim();
+          })();
+
           const pdMerge = pd ? {
             patient_details: {
-              patient_name: `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
+              patient_name: pdName,
               address:      pd.permanent_address || pd.area || "",
               mobile:       pd.mobilePhone || pd.mobile || "",
             },
-            patient_name:  `${pd.salutation || ""} ${pd.firstName || ""} ${pd.lastName || ""}`.trim(),
+            patient_name:  pdName,
             address:       pd.permanent_address || "",
             place:         pd.area              || "",
             mobile:        pd.mobilePhone       || pd.mobile || "",
