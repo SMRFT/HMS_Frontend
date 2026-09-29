@@ -733,6 +733,34 @@ function DonutChart({ cashCount, ipCount, otherCount }) {
   );
 }
 
+// Helper to format patient name and deduplicate repeated names (e.g. "B B JOHN B B JOHN" -> "B B JOHN", "RANI RANI" -> "RANI", "SAMY SAMY P" -> "SAMY P")
+const cleanPatientName = (name) => {
+  if (!name || name === "—") return "—";
+  const words = String(name).trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "—";
+
+  // Check if entire phrase is duplicated: e.g. "B B JOHN B B JOHN" -> "B B JOHN"
+  if (words.length >= 2 && words.length % 2 === 0) {
+    const half = words.length / 2;
+    const firstHalf = words.slice(0, half).map((w) => w.toLowerCase()).join(" ");
+    const secondHalf = words.slice(half).map((w) => w.toLowerCase()).join(" ");
+    if (firstHalf === secondHalf) {
+      return words.slice(0, half).join(" ");
+    }
+  }
+
+  // Deduplicate consecutive identical words if length > 1 (e.g. "SAMY SAMY P" -> "SAMY P")
+  const cleanWords = [];
+  for (let idx = 0; idx < words.length; idx++) {
+    const w = words[idx];
+    if (idx > 0 && w.length > 1 && w.toLowerCase() === words[idx - 1].toLowerCase()) {
+      continue;
+    }
+    cleanWords.push(w);
+  }
+  return cleanWords.join(" ");
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const SalesReturn = () => {
   const today        = new Date().toISOString().split("T")[0];
@@ -799,7 +827,11 @@ const SalesReturn = () => {
         "GET"
       );
       const data = res.data;
-      setReturnList(Array.isArray(data?.data) ? data.data : []);
+      const rawList = Array.isArray(data?.data) ? data.data : [];
+      setReturnList(rawList.map((r) => ({
+        ...r,
+        patient_name: cleanPatientName(r.patient_name),
+      })));
     } catch (err) {
       console.error("Sales return fetch error:", err);
     } finally {
@@ -837,7 +869,7 @@ const SalesReturn = () => {
           ...prev,
           uhidNo:   d.uhid     || uhidVal,
           ipNumber: d.ip_number || "",
-          name:     d.name     || "",
+          name:     cleanPatientName(d.name) || "",
           gender:   d.gender   || "",
           ageY:     d.age?.years  ?? "",
           ageM:     d.age?.months ?? "",
@@ -1599,7 +1631,7 @@ const SalesReturn = () => {
                       <Td><CashBadge $mode={row.mode || "Cash Return"}>{row.mode || "Cash Return"}</CashBadge></Td>
                       <Td>{formatDate(row.return_bill_date)}</Td>
                       <Td>{row.return_bill_no}</Td>
-                      <Td>{row.patient_name || "—"}</Td>
+                      <Td>{cleanPatientName(row.patient_name)}</Td>
                       <Td>{row.uhid || "—"}</Td>
                       <Td>{row.bill_no || "—"}</Td>
                       <Td>₹ {parseFloat(row.return_amount || 0).toFixed(2)}</Td>
