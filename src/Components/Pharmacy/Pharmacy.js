@@ -50,6 +50,32 @@ const BlinkDot = styled.span`
   animation: ${blinkDot} 1s ease-in-out infinite;
 `;
 
+// Helper to format patient full name without repeating identical first/last names
+const formatPatientName = (salutation, firstName, lastName) => {
+  const s = (salutation || "").trim();
+  const f = (firstName || "").trim();
+  const l = (lastName || "").trim();
+
+  let name = "";
+  if (f && l) {
+    if (
+      f.toLowerCase() === l.toLowerCase() ||
+      f.toLowerCase().endsWith(l.toLowerCase()) ||
+      f.toLowerCase().replace(/\s+/g, "") === l.toLowerCase().replace(/\s+/g, "")
+    ) {
+      name = f;
+    } else if (l.toLowerCase().startsWith(f.toLowerCase())) {
+      name = l;
+    } else {
+      name = `${f} ${l}`;
+    }
+  } else {
+    name = f || l || "";
+  }
+
+  return s ? `${s} ${name}`.trim() : name;
+};
+
 const Card = styled.div`
   background: #ffffff;
   border-radius: 16px;
@@ -720,7 +746,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
   };
   const handleUHIDSelect = (p) => {
-    const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+    const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
 
     // ── Resolve doctor from most recent billing with a valid doctor_id ──────
     let resolvedDoctorId = "";
@@ -852,7 +878,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     const salutation = adm.salutation || "";
     const firstName  = adm.firstName  || "";
     const lastName   = adm.lastName   || "";
-    const fullName   = `${salutation} ${firstName} ${lastName}`.trim();
+    const fullName   = formatPatientName(salutation, firstName, lastName);
 
     const activeRoom  = Array.isArray(adm.room_details)
       ? adm.room_details.find(r => r.is_roomActive === true) : null;
@@ -1804,7 +1830,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
         if (p) {
           // Update name in formData with fully resolved name from API
-          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
           setFormData((prev) => ({
             ...prev,
             name: fullName || prev.name,
@@ -1963,7 +1989,7 @@ const loadedMedicines = rawMeds.map((item) => {
         const p = patients.length > 0 ? patients[0] : null;
 
         if (p) {
-          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
           setFormData((prev) => ({
             ...prev,
             name: fullName || prev.name,
@@ -2129,7 +2155,7 @@ const loadedMedicines = rawMeds.map((item) => {
 
         if (p) {
           // Build full patient name from API (salutation + firstName + lastName)
-          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+          const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
           setFormData((prev) => ({
             ...prev,
             name: fullName || prev.name,
@@ -3370,7 +3396,7 @@ const loadedMedicines = rawMeds.map((item) => {
                       <tbody>
                         {ipSearchResults.map((adm, i) => {
                           const salutation = adm.salutation || "";
-                          const fullName   = `${salutation} ${adm.firstName || ""} ${adm.lastName || ""}`.trim();
+                          const fullName   = formatPatientName(salutation, adm.firstName, adm.lastName);
                           const mobile     = adm.mobilePhone || adm.mobile || "—";
                           const activeRoom = Array.isArray(adm.room_details)
                             ? adm.room_details.find(r => r.is_roomActive) : null;
@@ -3498,7 +3524,7 @@ const loadedMedicines = rawMeds.map((item) => {
                       </thead>
                       <tbody>
                         {uhidSearchResults.map((p, i) => {
-                          const fullName = `${p.salutation || ""} ${p.firstName || ""} ${p.lastName || ""}`.trim();
+                          const fullName = formatPatientName(p.salutation, p.firstName, p.lastName);
                           const uhidNo = p.uhid || p.UHID || "";
                           const mobile = p.mobilePhone || p.mobile || p.phone || p.mobileNumber || "";
                           const isAdmitted = Boolean(p.ip_number || p.admitted);

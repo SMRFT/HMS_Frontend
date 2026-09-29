@@ -1032,12 +1032,12 @@ const formatBillData = (bills, employeeName = "") => {
       inpatient_number: b.inpatient_number || "",
       ip_serial_number: b.shiftno || b.ip_serial_number || "",
       room_no:        b.room_no        || "",
-      employee_name:  b.employee_name  || employeeName || "",
-      cashier_id:     b.cashier_id     || "",
+      employee_name:  b.employee_name  || b.created_by_name || b.created_by || b.cashier_id || employeeName || "",
+      cashier_id:     b.cashier_id     || b.created_by || "",
       medicine_particulars: parseMedicineParticulars(b.medicine_particulars),
     });
     // Inline return rows derived from edit_history
-    extractReturnRows(b, b.employee_name || employeeName).forEach((r) => rows.push(r));
+    extractReturnRows(b, b.employee_name || b.created_by_name || b.created_by || b.cashier_id || employeeName).forEach((r) => rows.push(r));
   });
   return rows;
 };
@@ -1185,7 +1185,12 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy }) 
     setLoading(true);
     setError("");
     try {
-      const response = await apiRequest(`${HmsBaseUrl}pharmacy_view_bills/`, "GET");
+      const params = new URLSearchParams();
+      if (fromDate) params.append("from_date", fromDate);
+      if (toDate)   params.append("to_date", toDate);
+      const queryStr = params.toString() ? `?${params.toString()}` : "";
+
+      const response = await apiRequest(`${HmsBaseUrl}pharmacy_view_bills/${queryStr}`, "GET");
       const body = response?.data ?? response;
 
       const billsArray  = Array.isArray(body?.data) ? body.data : [];
